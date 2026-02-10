@@ -10,7 +10,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Vault, Save, Check, Send, ArrowRightLeft, Filter, LayoutList, BookOpen, CalendarIcon, Printer } from "lucide-react";
+import {
+  Plus,
+  Vault,
+  Save,
+  Check,
+  Send,
+  ArrowRightLeft,
+  Filter,
+  LayoutList,
+  BookOpen,
+  CalendarIcon,
+  Printer,
+} from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
@@ -19,11 +31,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { getPrintLogoUrl } from "@/lib/printLogo";
-import { 
-  convertFromBaseCurrency, 
-  convertToBaseCurrency, 
+import {
+  convertFromBaseCurrency,
+  convertToBaseCurrency,
   type CurrencyRate as CurrencyRateImport,
-  type Currency as CurrencyImport 
+  type Currency as CurrencyImport,
 } from "@/lib/currencyConversion";
 
 interface TreasuryEntryType {
@@ -155,15 +167,15 @@ const TreasuryEntry = () => {
   useEffect(() => {
     // Auto-calculate converted amount using proper currency conversion
     if (!formData.treasury_id || formData.amount === 0) {
-      setFormData(prev => ({ ...prev, converted_amount: 0 }));
+      setFormData((prev) => ({ ...prev, converted_amount: 0 }));
       return;
     }
 
-    const treasury = treasuries.find(t => t.id === formData.treasury_id);
-    const baseCurrency = currencies.find(c => c.is_base);
-    
+    const treasury = treasuries.find((t) => t.id === formData.treasury_id);
+    const baseCurrency = currencies.find((c) => c.is_base);
+
     if (!treasury || !baseCurrency) {
-      setFormData(prev => ({ ...prev, converted_amount: formData.amount }));
+      setFormData((prev) => ({ ...prev, converted_amount: formData.amount }));
       return;
     }
 
@@ -172,7 +184,7 @@ const TreasuryEntry = () => {
       formData.amount,
       formData.from_currency_id || null,
       currencyRates,
-      baseCurrency
+      baseCurrency,
     );
 
     // Then convert from base currency to treasury currency
@@ -180,14 +192,16 @@ const TreasuryEntry = () => {
       amountInBase,
       treasury.currency_id,
       currencyRates,
-      baseCurrency
+      baseCurrency,
     );
 
-    setFormData(prev => ({ ...prev, converted_amount: amountInTreasuryCurrency }));
+    setFormData((prev) => ({ ...prev, converted_amount: amountInTreasuryCurrency }));
   }, [formData.amount, formData.from_currency_id, formData.treasury_id, treasuries, currencies, currencyRates]);
 
   const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) setCurrentUserId(user.id);
   };
 
@@ -197,15 +211,15 @@ const TreasuryEntry = () => {
       // Build entries query with optional treasury filter and date range
       const fromDateStr = format(dateFrom, "yyyy-MM-dd");
       const toDateStr = format(dateTo, "yyyy-MM-dd");
-      
+
       let entriesQuery = supabase
         .from("treasury_entries")
         .select("*")
         .gte("entry_date", fromDateStr)
         .lte("entry_date", toDateStr)
         .order("entry_date", { ascending: true })
-        .limit(1000);
-      
+        .limit(1000000);
+
       if (selectedTreasuryFilter !== "all") {
         entriesQuery = entriesQuery.eq("treasury_id", selectedTreasuryFilter);
       }
@@ -216,21 +230,47 @@ const TreasuryEntry = () => {
         .select("entry_type, converted_amount, amount")
         .lt("entry_date", fromDateStr)
         .eq("status", "posted");
-      
+
       if (selectedTreasuryFilter !== "all") {
         openingBalanceQuery = openingBalanceQuery.eq("treasury_id", selectedTreasuryFilter);
       }
 
-      const [entriesRes, treasuriesRes, banksRes, currenciesRes, ratesRes, requestsRes, costCentersRes, openingBalanceRes] = await Promise.all([
+      const [
+        entriesRes,
+        treasuriesRes,
+        banksRes,
+        currenciesRes,
+        ratesRes,
+        requestsRes,
+        costCentersRes,
+        openingBalanceRes,
+      ] = await Promise.all([
         entriesQuery,
-        supabase.from("treasuries").select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id, opening_balance").eq("is_active", true),
-        supabase.from("banks").select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id").eq("is_active", true),
-        supabase.from("currencies").select("id, currency_code, currency_name, currency_name_ar, symbol, is_base, is_active").eq("is_active", true),
-        supabase.from("currency_rates").select("id, currency_id, rate_to_base, conversion_operator, effective_date, created_at, updated_at").order("effective_date", { ascending: false }),
-        supabase.from("expense_requests").select("id, request_number, description, amount")
+        supabase
+          .from("treasuries")
+          .select("id, treasury_code, treasury_name, treasury_name_ar, current_balance, currency_id, opening_balance")
+          .eq("is_active", true),
+        supabase
+          .from("banks")
+          .select("id, bank_code, bank_name, bank_name_ar, current_balance, currency_id")
+          .eq("is_active", true),
+        supabase
+          .from("currencies")
+          .select("id, currency_code, currency_name, currency_name_ar, symbol, is_base, is_active")
+          .eq("is_active", true),
+        supabase
+          .from("currency_rates")
+          .select("id, currency_id, rate_to_base, conversion_operator, effective_date, created_at, updated_at")
+          .order("effective_date", { ascending: false }),
+        supabase
+          .from("expense_requests")
+          .select("id, request_number, description, amount")
           .eq("payment_method", "treasury")
           .eq("status", "approved"),
-        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true),
+        supabase
+          .from("cost_centers")
+          .select("id, cost_center_code, cost_center_name, cost_center_name_ar")
+          .eq("is_active", true),
         openingBalanceQuery,
       ]);
 
@@ -244,16 +284,16 @@ const TreasuryEntry = () => {
 
       // Calculate opening balance from entries before date range
       let calcOpeningBalance = 0;
-      
+
       // Get treasury opening_balance if a specific treasury is selected
       if (selectedTreasuryFilter !== "all") {
-        const selectedTreasury = treasuriesRes.data?.find(t => t.id === selectedTreasuryFilter);
+        const selectedTreasury = treasuriesRes.data?.find((t) => t.id === selectedTreasuryFilter);
         calcOpeningBalance = selectedTreasury?.opening_balance || 0;
       } else {
         // Sum all treasuries' opening balances
         calcOpeningBalance = (treasuriesRes.data || []).reduce((sum, t) => sum + (t.opening_balance || 0), 0);
       }
-      
+
       // Add transactions before the date range
       if (openingBalanceRes.data) {
         for (const entry of openingBalanceRes.data) {
@@ -265,7 +305,7 @@ const TreasuryEntry = () => {
           }
         }
       }
-      
+
       setOpeningBalance(calcOpeningBalance);
       setEntries(entriesRes.data || []);
       setTreasuries(treasuriesRes.data || []);
@@ -304,26 +344,28 @@ const TreasuryEntry = () => {
     }
 
     try {
-      const { error } = await supabase.from("treasury_entries").insert([{
-        treasury_id: formData.treasury_id,
-        entry_date: formData.entry_date,
-        entry_type: formData.entry_type,
-        entry_number: "TEMP",
-        amount: formData.amount,
-        expense_request_id: formData.expense_request_id || null,
-        description: formData.description || null,
-        status: "draft",
-        created_by: currentUserId,
-        transfer_type: formData.entry_type === "transfer" ? formData.transfer_type : null,
-        to_treasury_id: formData.transfer_type === "treasury_to_treasury" ? formData.to_treasury_id : null,
-        to_bank_id: formData.transfer_type === "treasury_to_bank" ? formData.to_bank_id : null,
-        from_currency_id: formData.from_currency_id || null,
-        to_currency_id: formData.to_currency_id || null,
-        exchange_rate: formData.exchange_rate,
-        converted_amount: formData.converted_amount,
-        bank_charges: formData.bank_charges,
-        other_charges: formData.other_charges,
-      }]);
+      const { error } = await supabase.from("treasury_entries").insert([
+        {
+          treasury_id: formData.treasury_id,
+          entry_date: formData.entry_date,
+          entry_type: formData.entry_type,
+          entry_number: "TEMP",
+          amount: formData.amount,
+          expense_request_id: formData.expense_request_id || null,
+          description: formData.description || null,
+          status: "draft",
+          created_by: currentUserId,
+          transfer_type: formData.entry_type === "transfer" ? formData.transfer_type : null,
+          to_treasury_id: formData.transfer_type === "treasury_to_treasury" ? formData.to_treasury_id : null,
+          to_bank_id: formData.transfer_type === "treasury_to_bank" ? formData.to_bank_id : null,
+          from_currency_id: formData.from_currency_id || null,
+          to_currency_id: formData.to_currency_id || null,
+          exchange_rate: formData.exchange_rate,
+          converted_amount: formData.converted_amount,
+          bank_charges: formData.bank_charges,
+          other_charges: formData.other_charges,
+        },
+      ]);
 
       if (error) throw error;
       toast.success(language === "ar" ? "تم إنشاء القيد بنجاح" : "Entry created successfully");
@@ -339,21 +381,21 @@ const TreasuryEntry = () => {
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
       const updateData: any = { status: newStatus };
-      
+
       if (newStatus === "approved") {
         updateData.approved_by = currentUserId;
         updateData.approved_at = new Date().toISOString();
       } else if (newStatus === "posted") {
         updateData.posted_by = currentUserId;
         updateData.posted_at = new Date().toISOString();
-        
-        const entry = entries.find(e => e.id === id);
+
+        const entry = entries.find((e) => e.id === id);
         if (entry) {
-          const treasury = treasuries.find(t => t.id === entry.treasury_id);
+          const treasury = treasuries.find((t) => t.id === entry.treasury_id);
           if (treasury) {
             // Get base currency
-            const baseCurrency = currencies.find(c => c.is_base);
-            
+            const baseCurrency = currencies.find((c) => c.is_base);
+
             // Convert entry amount to treasury's currency if needed
             let amountInTreasuryCurrency = entry.amount;
             if (entry.from_currency_id && entry.from_currency_id !== treasury.currency_id) {
@@ -362,32 +404,33 @@ const TreasuryEntry = () => {
                 entry.amount,
                 entry.from_currency_id,
                 currencyRates,
-                baseCurrency
+                baseCurrency,
               );
               // Then convert from base to treasury currency
               amountInTreasuryCurrency = convertFromBaseCurrency(
                 amountInBase,
                 treasury.currency_id || null,
                 currencyRates,
-                baseCurrency
+                baseCurrency,
               );
             }
-            
+
             const totalDeduction = (entry.bank_charges || 0) + (entry.other_charges || 0);
-            const newBalance = entry.entry_type === "receipt" 
-              ? treasury.current_balance + amountInTreasuryCurrency
-              : treasury.current_balance - amountInTreasuryCurrency - totalDeduction;
-            
+            const newBalance =
+              entry.entry_type === "receipt"
+                ? treasury.current_balance + amountInTreasuryCurrency
+                : treasury.current_balance - amountInTreasuryCurrency - totalDeduction;
+
             // Validate sufficient balance for payments
             if (entry.entry_type === "payment" && newBalance < 0) {
               toast.error(
                 language === "ar"
                   ? `رصيد الخزينة غير كافٍ. المطلوب: ${(amountInTreasuryCurrency + totalDeduction).toFixed(2)}, المتاح: ${treasury.current_balance.toFixed(2)}`
-                  : `Insufficient treasury balance. Required: ${(amountInTreasuryCurrency + totalDeduction).toFixed(2)}, Available: ${treasury.current_balance.toFixed(2)}`
+                  : `Insufficient treasury balance. Required: ${(amountInTreasuryCurrency + totalDeduction).toFixed(2)}, Available: ${treasury.current_balance.toFixed(2)}`,
               );
               return;
             }
-            
+
             // Treasury balance is automatically recalculated by database trigger
             // Just record the balance_before/after for audit trail
             updateData.balance_before = treasury.current_balance;
@@ -395,12 +438,15 @@ const TreasuryEntry = () => {
 
             // Handle transfer to bank (bank balance still needs manual update)
             if (entry.entry_type === "transfer" && entry.transfer_type === "treasury_to_bank" && entry.to_bank_id) {
-              const toBank = banks.find(b => b.id === entry.to_bank_id);
+              const toBank = banks.find((b) => b.id === entry.to_bank_id);
               if (toBank) {
                 const creditAmount = entry.converted_amount || entry.amount;
-                await supabase.from("banks").update({ 
-                  current_balance: toBank.current_balance + creditAmount 
-                }).eq("id", entry.to_bank_id);
+                await supabase
+                  .from("banks")
+                  .update({
+                    current_balance: toBank.current_balance + creditAmount,
+                  })
+                  .eq("id", entry.to_bank_id);
               }
             }
             // Note: treasury_to_treasury transfers are handled by the database trigger
@@ -410,7 +456,7 @@ const TreasuryEntry = () => {
 
       const { error } = await supabase.from("treasury_entries").update(updateData).eq("id", id);
       if (error) throw error;
-      
+
       toast.success(language === "ar" ? "تم تحديث الحالة" : "Status updated");
       fetchData();
     } catch (error: any) {
@@ -441,8 +487,10 @@ const TreasuryEntry = () => {
 
   const getTreasuryName = (treasuryId: string) => {
     const treasury = treasuries.find((t) => t.id === treasuryId);
-    return treasury 
-      ? (language === "ar" && treasury.treasury_name_ar ? treasury.treasury_name_ar : treasury.treasury_name)
+    return treasury
+      ? language === "ar" && treasury.treasury_name_ar
+        ? treasury.treasury_name_ar
+        : treasury.treasury_name
       : "-";
   };
 
@@ -465,51 +513,41 @@ const TreasuryEntry = () => {
 
   // Get the treasury's currency code
   const getTreasuryCurrencyCode = (treasuryId: string) => {
-    const treasury = treasuries.find(t => t.id === treasuryId);
+    const treasury = treasuries.find((t) => t.id === treasuryId);
     if (!treasury?.currency_id) return "-";
     return getCurrencyCode(treasury.currency_id);
   };
 
   // Calculate amount in treasury's base currency
   const getAmountInTreasuryCurrency = (entry: TreasuryEntryType) => {
-    const treasury = treasuries.find(t => t.id === entry.treasury_id);
+    const treasury = treasuries.find((t) => t.id === entry.treasury_id);
     if (!treasury?.currency_id) return entry.amount;
-    
+
     // If no from_currency specified, assume entry amount is already in treasury currency
     if (!entry.from_currency_id) return entry.amount;
-    
+
     // If entry currency is same as treasury currency
     if (entry.from_currency_id === treasury.currency_id) return entry.amount;
-    
+
     // Get base currency for conversion
-    const baseCurrency = currencies.find(c => c.is_base);
-    
+    const baseCurrency = currencies.find((c) => c.is_base);
+
     // First convert entry amount to base currency (SAR)
-    const amountInBase = convertToBaseCurrency(
-      entry.amount,
-      entry.from_currency_id,
-      currencyRates,
-      baseCurrency
-    );
-    
+    const amountInBase = convertToBaseCurrency(entry.amount, entry.from_currency_id, currencyRates, baseCurrency);
+
     // Then convert from base to treasury currency
-    const amountInTreasury = convertFromBaseCurrency(
-      amountInBase,
-      treasury.currency_id,
-      currencyRates,
-      baseCurrency
-    );
-    
+    const amountInTreasury = convertFromBaseCurrency(amountInBase, treasury.currency_id, currencyRates, baseCurrency);
+
     return amountInTreasury;
   };
 
   const getEntryTypeLabel = (type: string) => {
-    const found = ENTRY_TYPES.find(t => t.value === type);
+    const found = ENTRY_TYPES.find((t) => t.value === type);
     return found ? (language === "ar" ? found.labelAr : found.labelEn) : type;
   };
 
   const getTransferTypeLabel = (type: string) => {
-    const found = TRANSFER_TYPES.find(t => t.value === type);
+    const found = TRANSFER_TYPES.find((t) => t.value === type);
     return found ? (language === "ar" ? found.labelAr : found.labelEn) : type;
   };
 
@@ -561,14 +599,21 @@ const TreasuryEntry = () => {
 
     // Status ribbon colors
     const getStatusColor = (status: string) => {
-      switch(status) {
-        case "draft": return "#ef4444";
-        case "pending_approval": return "#f59e0b";
-        case "approved": return "#3b82f6";
-        case "posted": return "#22c55e";
-        case "voided": return "#6b7280";
-        case "rejected": return "#dc2626";
-        default: return "#6b7280";
+      switch (status) {
+        case "draft":
+          return "#ef4444";
+        case "pending_approval":
+          return "#f59e0b";
+        case "approved":
+          return "#3b82f6";
+        case "posted":
+          return "#22c55e";
+        case "voided":
+          return "#6b7280";
+        case "rejected":
+          return "#dc2626";
+        default:
+          return "#6b7280";
       }
     };
 
@@ -740,7 +785,7 @@ const TreasuryEntry = () => {
 
           <div class="header">
             <img src="${logoUrl}" alt="Logo" />
-            <h1>${entry.entry_type === "receipt" ? (isRtl ? "سند قبض" : "Receipt Voucher") : (isRtl ? "سند صرف" : "Payment Voucher")}</h1>
+            <h1>${entry.entry_type === "receipt" ? (isRtl ? "سند قبض" : "Receipt Voucher") : isRtl ? "سند صرف" : "Payment Voucher"}</h1>
           </div>
 
           <div class="info-grid">
@@ -815,14 +860,15 @@ const TreasuryEntry = () => {
   };
 
   const handlePrintLedger = () => {
-    const selectedTreasury = selectedTreasuryFilter !== "all" 
-      ? treasuries.find(t => t.id === selectedTreasuryFilter)
-      : null;
-    const treasuryName = selectedTreasury 
-      ? (language === "ar" && selectedTreasury.treasury_name_ar 
-          ? selectedTreasury.treasury_name_ar 
-          : selectedTreasury.treasury_name)
-      : (language === "ar" ? "جميع الخزائن" : "All Treasuries");
+    const selectedTreasury =
+      selectedTreasuryFilter !== "all" ? treasuries.find((t) => t.id === selectedTreasuryFilter) : null;
+    const treasuryName = selectedTreasury
+      ? language === "ar" && selectedTreasury.treasury_name_ar
+        ? selectedTreasury.treasury_name_ar
+        : selectedTreasury.treasury_name
+      : language === "ar"
+        ? "جميع الخزائن"
+        : "All Treasuries";
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -843,121 +889,220 @@ const TreasuryEntry = () => {
       voided: { en: "Voided", ar: "ملغى" },
     };
 
-    const entryRows = entries.map(entry => {
-      const debit = getDebitAmount(entry);
-      const credit = getCreditAmount(entry);
-      totalDebit += debit;
-      totalCredit += credit;
-      if (entry.status === "posted") {
-        runningBalance += debit - credit;
-      }
-      const statusLabel = statusLabels[entry.status] 
-        ? (language === "ar" ? statusLabels[entry.status].ar : statusLabels[entry.status].en) 
-        : entry.status;
-      const voidedClass = entry.status === "voided" ? "opacity-60" : "";
-      const debitStr = debit > 0 ? debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
-      const creditStr = credit > 0 ? credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
-      const balanceStr = entry.status === "posted" ? runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
-      
-      return '<tr class="' + voidedClass + '">' +
-        '<td class="font-mono">' + entry.entry_number + '</td>' +
-        '<td>' + format(new Date(entry.entry_date), "yyyy-MM-dd") + '</td>' +
-        '<td>' + getEntryTypeLabel(entry.entry_type) + '</td>' +
-        '<td>' + (entry.description || "-") + '</td>' +
-        '<td class="text-end">' + debitStr + '</td>' +
-        '<td class="text-end">' + creditStr + '</td>' +
-        '<td class="text-end font-semibold">' + balanceStr + '</td>' +
-        '<td class="text-center">' + statusLabel + '</td>' +
-        '</tr>';
-    }).join("");
+    const entryRows = entries
+      .map((entry) => {
+        const debit = getDebitAmount(entry);
+        const credit = getCreditAmount(entry);
+        totalDebit += debit;
+        totalCredit += credit;
+        if (entry.status === "posted") {
+          runningBalance += debit - credit;
+        }
+        const statusLabel = statusLabels[entry.status]
+          ? language === "ar"
+            ? statusLabels[entry.status].ar
+            : statusLabels[entry.status].en
+          : entry.status;
+        const voidedClass = entry.status === "voided" ? "opacity-60" : "";
+        const debitStr =
+          debit > 0 ? debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+        const creditStr =
+          credit > 0 ? credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+        const balanceStr =
+          entry.status === "posted"
+            ? runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : "-";
 
-    const totalsRow = '<tr class="bg-gray font-bold">' +
-      '<td colspan="4" class="text-end">' + (language === "ar" ? "الإجمالي" : "Total") + '</td>' +
-      '<td class="text-end">' + totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
-      '<td class="text-end">' + totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
-      '<td class="text-end">' + runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
-      '<td></td>' +
-      '</tr>';
+        return (
+          '<tr class="' +
+          voidedClass +
+          '">' +
+          '<td class="font-mono">' +
+          entry.entry_number +
+          "</td>" +
+          "<td>" +
+          format(new Date(entry.entry_date), "yyyy-MM-dd") +
+          "</td>" +
+          "<td>" +
+          getEntryTypeLabel(entry.entry_type) +
+          "</td>" +
+          "<td>" +
+          (entry.description || "-") +
+          "</td>" +
+          '<td class="text-end">' +
+          debitStr +
+          "</td>" +
+          '<td class="text-end">' +
+          creditStr +
+          "</td>" +
+          '<td class="text-end font-semibold">' +
+          balanceStr +
+          "</td>" +
+          '<td class="text-center">' +
+          statusLabel +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
 
-    const obDebit = openingBalance > 0 ? openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
-    const obCredit = openingBalance < 0 ? Math.abs(openingBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+    const totalsRow =
+      '<tr class="bg-gray font-bold">' +
+      '<td colspan="4" class="text-end">' +
+      (language === "ar" ? "الإجمالي" : "Total") +
+      "</td>" +
+      '<td class="text-end">' +
+      totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+      "</td>" +
+      '<td class="text-end">' +
+      totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+      "</td>" +
+      '<td class="text-end">' +
+      runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+      "</td>" +
+      "<td></td>" +
+      "</tr>";
+
+    const obDebit =
+      openingBalance > 0
+        ? openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : "-";
+    const obCredit =
+      openingBalance < 0
+        ? Math.abs(openingBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : "-";
     const obBalance = openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const printContent = '<!DOCTYPE html>' +
-      '<html dir="' + (language === "ar" ? "rtl" : "ltr") + '">' +
-      '<head>' +
-        '<title>' + (language === "ar" ? "دفتر الخزينة" : "Treasury Ledger") + '</title>' +
-        '<style>' +
-          '* { margin: 0; padding: 0; box-sizing: border-box; }' +
-          'body { font-family: Arial, sans-serif; padding: 20px; background: white; color: black; }' +
-          'table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
-          'th, td { border: 1px solid #ccc; padding: 6px 8px; }' +
-          'th { background: #f3f4f6; font-weight: bold; }' +
-          '.text-end { text-align: ' + (language === "ar" ? "left" : "right") + '; }' +
-          '.text-center { text-align: center; }' +
-          '.text-start { text-align: ' + (language === "ar" ? "right" : "left") + '; }' +
-          '.font-mono { font-family: monospace; }' +
-          '.font-bold { font-weight: bold; }' +
-          '.font-semibold { font-weight: 600; }' +
-          '.bg-blue { background: #eff6ff; }' +
-          '.bg-gray { background: #f3f4f6; }' +
-          '.opacity-60 { opacity: 0.6; }' +
-          'h1 { font-size: 24px; margin-bottom: 8px; }' +
-          '.header { text-align: center; margin-bottom: 20px; }' +
-          '.header p { margin: 4px 0; }' +
-          '.footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; justify-content: space-between; font-size: 11px; color: #666; }' +
-          '@media print { body { padding: 10px; } @page { margin: 10mm; } }' +
-        '</style>' +
-      '</head>' +
-      '<body>' +
-        '<div class="header">' +
-          '<img src="' + getPrintLogoUrl() + '" alt="ASUS Card" style="width: 120px; height: auto; margin: 0 auto 10px; display: block;" />' +
-          '<h1>' + (language === "ar" ? "دفتر الخزينة" : "Treasury Ledger") + '</h1>' +
-          '<p style="font-size: 16px; font-weight: 600;">' + treasuryName + '</p>' +
-          '<p style="font-size: 12px; color: #666;">' +
-            (language === "ar" ? "الفترة من" : "Period from") + ' ' +
-            format(dateFrom, "yyyy-MM-dd") + ' ' +
-            (language === "ar" ? "إلى" : "to") + ' ' +
-            format(dateTo, "yyyy-MM-dd") +
-          '</p>' +
-          '<p style="font-size: 10px; color: #999;">' +
-            (language === "ar" ? "تاريخ الطباعة:" : "Print Date:") + ' ' +
-            format(new Date(), "yyyy-MM-dd HH:mm") +
-          '</p>' +
-        '</div>' +
-        '<table>' +
-          '<thead>' +
-            '<tr>' +
-              '<th class="text-start">' + (language === "ar" ? "رقم القيد" : "Entry No.") + '</th>' +
-              '<th class="text-start">' + (language === "ar" ? "التاريخ" : "Date") + '</th>' +
-              '<th class="text-start">' + (language === "ar" ? "النوع" : "Type") + '</th>' +
-              '<th class="text-start">' + (language === "ar" ? "الوصف" : "Description") + '</th>' +
-              '<th class="text-end">' + (language === "ar" ? "مدين" : "Dr.") + '</th>' +
-              '<th class="text-end">' + (language === "ar" ? "دائن" : "Cr.") + '</th>' +
-              '<th class="text-end">' + (language === "ar" ? "الرصيد" : "Balance") + '</th>' +
-              '<th class="text-center">' + (language === "ar" ? "الحالة" : "Status") + '</th>' +
-            '</tr>' +
-          '</thead>' +
-          '<tbody>' +
-            '<tr class="bg-blue font-semibold">' +
-              '<td class="font-mono">OB-' + format(dateFrom, "yyyyMMdd") + '</td>' +
-              '<td>' + format(dateFrom, "yyyy-MM-dd") + '</td>' +
-              '<td>' + (language === "ar" ? "رصيد افتتاحي" : "Opening Balance") + '</td>' +
-              '<td>' + (language === "ar" ? "رصيد افتتاحي للفترة" : "Opening balance for period") + '</td>' +
-              '<td class="text-end">' + obDebit + '</td>' +
-              '<td class="text-end">' + obCredit + '</td>' +
-              '<td class="text-end font-bold">' + obBalance + '</td>' +
-              '<td class="text-center">' + (language === "ar" ? "افتتاحي" : "Opening") + '</td>' +
-            '</tr>' +
-            entryRows +
-            totalsRow +
-          '</tbody>' +
-        '</table>' +
-        '<div class="footer">' +
-          '<span>' + (language === "ar" ? "عدد القيود:" : "Entries Count:") + ' ' + entries.length + '</span>' +
-        '</div>' +
-      '</body>' +
-      '</html>';
+    const printContent =
+      "<!DOCTYPE html>" +
+      '<html dir="' +
+      (language === "ar" ? "rtl" : "ltr") +
+      '">' +
+      "<head>" +
+      "<title>" +
+      (language === "ar" ? "دفتر الخزينة" : "Treasury Ledger") +
+      "</title>" +
+      "<style>" +
+      "* { margin: 0; padding: 0; box-sizing: border-box; }" +
+      "body { font-family: Arial, sans-serif; padding: 20px; background: white; color: black; }" +
+      "table { width: 100%; border-collapse: collapse; font-size: 11px; }" +
+      "th, td { border: 1px solid #ccc; padding: 6px 8px; }" +
+      "th { background: #f3f4f6; font-weight: bold; }" +
+      ".text-end { text-align: " +
+      (language === "ar" ? "left" : "right") +
+      "; }" +
+      ".text-center { text-align: center; }" +
+      ".text-start { text-align: " +
+      (language === "ar" ? "right" : "left") +
+      "; }" +
+      ".font-mono { font-family: monospace; }" +
+      ".font-bold { font-weight: bold; }" +
+      ".font-semibold { font-weight: 600; }" +
+      ".bg-blue { background: #eff6ff; }" +
+      ".bg-gray { background: #f3f4f6; }" +
+      ".opacity-60 { opacity: 0.6; }" +
+      "h1 { font-size: 24px; margin-bottom: 8px; }" +
+      ".header { text-align: center; margin-bottom: 20px; }" +
+      ".header p { margin: 4px 0; }" +
+      ".footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; justify-content: space-between; font-size: 11px; color: #666; }" +
+      "@media print { body { padding: 10px; } @page { margin: 10mm; } }" +
+      "</style>" +
+      "</head>" +
+      "<body>" +
+      '<div class="header">' +
+      '<img src="' +
+      getPrintLogoUrl() +
+      '" alt="ASUS Card" style="width: 120px; height: auto; margin: 0 auto 10px; display: block;" />' +
+      "<h1>" +
+      (language === "ar" ? "دفتر الخزينة" : "Treasury Ledger") +
+      "</h1>" +
+      '<p style="font-size: 16px; font-weight: 600;">' +
+      treasuryName +
+      "</p>" +
+      '<p style="font-size: 12px; color: #666;">' +
+      (language === "ar" ? "الفترة من" : "Period from") +
+      " " +
+      format(dateFrom, "yyyy-MM-dd") +
+      " " +
+      (language === "ar" ? "إلى" : "to") +
+      " " +
+      format(dateTo, "yyyy-MM-dd") +
+      "</p>" +
+      '<p style="font-size: 10px; color: #999;">' +
+      (language === "ar" ? "تاريخ الطباعة:" : "Print Date:") +
+      " " +
+      format(new Date(), "yyyy-MM-dd HH:mm") +
+      "</p>" +
+      "</div>" +
+      "<table>" +
+      "<thead>" +
+      "<tr>" +
+      '<th class="text-start">' +
+      (language === "ar" ? "رقم القيد" : "Entry No.") +
+      "</th>" +
+      '<th class="text-start">' +
+      (language === "ar" ? "التاريخ" : "Date") +
+      "</th>" +
+      '<th class="text-start">' +
+      (language === "ar" ? "النوع" : "Type") +
+      "</th>" +
+      '<th class="text-start">' +
+      (language === "ar" ? "الوصف" : "Description") +
+      "</th>" +
+      '<th class="text-end">' +
+      (language === "ar" ? "مدين" : "Dr.") +
+      "</th>" +
+      '<th class="text-end">' +
+      (language === "ar" ? "دائن" : "Cr.") +
+      "</th>" +
+      '<th class="text-end">' +
+      (language === "ar" ? "الرصيد" : "Balance") +
+      "</th>" +
+      '<th class="text-center">' +
+      (language === "ar" ? "الحالة" : "Status") +
+      "</th>" +
+      "</tr>" +
+      "</thead>" +
+      "<tbody>" +
+      '<tr class="bg-blue font-semibold">' +
+      '<td class="font-mono">OB-' +
+      format(dateFrom, "yyyyMMdd") +
+      "</td>" +
+      "<td>" +
+      format(dateFrom, "yyyy-MM-dd") +
+      "</td>" +
+      "<td>" +
+      (language === "ar" ? "رصيد افتتاحي" : "Opening Balance") +
+      "</td>" +
+      "<td>" +
+      (language === "ar" ? "رصيد افتتاحي للفترة" : "Opening balance for period") +
+      "</td>" +
+      '<td class="text-end">' +
+      obDebit +
+      "</td>" +
+      '<td class="text-end">' +
+      obCredit +
+      "</td>" +
+      '<td class="text-end font-bold">' +
+      obBalance +
+      "</td>" +
+      '<td class="text-center">' +
+      (language === "ar" ? "افتتاحي" : "Opening") +
+      "</td>" +
+      "</tr>" +
+      entryRows +
+      totalsRow +
+      "</tbody>" +
+      "</table>" +
+      '<div class="footer">' +
+      "<span>" +
+      (language === "ar" ? "عدد القيود:" : "Entries Count:") +
+      " " +
+      entries.length +
+      "</span>" +
+      "</div>" +
+      "</body>" +
+      "</html>";
 
     printWindow.document.write(printContent);
     printWindow.document.close();
@@ -967,7 +1112,7 @@ const TreasuryEntry = () => {
   };
 
   const handleExpenseRequestSelect = (requestId: string) => {
-    const request = expenseRequests.find(r => r.id === requestId);
+    const request = expenseRequests.find((r) => r.id === requestId);
     if (request) {
       setFormData({
         ...formData,
@@ -984,11 +1129,11 @@ const TreasuryEntry = () => {
   // Base currency always has rate 1, other currencies use their stored rate
   const getLatestRate = (currencyId: string): number => {
     // Check if this is the base currency
-    const currency = currencies.find(c => c.id === currencyId);
+    const currency = currencies.find((c) => c.id === currencyId);
     if (currency?.is_base) return 1;
-    
+
     // Find the rate from currency_rates table
-    const rate = currencyRates.find(r => r.currency_id === currencyId);
+    const rate = currencyRates.find((r) => r.currency_id === currencyId);
     return rate?.rate_to_base || 1;
   };
 
@@ -1003,7 +1148,7 @@ const TreasuryEntry = () => {
   };
 
   const handleTreasurySelect = (treasuryId: string) => {
-    const treasury = treasuries.find(t => t.id === treasuryId);
+    const treasury = treasuries.find((t) => t.id === treasuryId);
     const newFromCurrencyId = treasury?.currency_id || "";
     const newRate = calculateExchangeRate(newFromCurrencyId, formData.to_currency_id);
     setFormData({
@@ -1015,7 +1160,7 @@ const TreasuryEntry = () => {
   };
 
   const handleToTreasurySelect = (treasuryId: string) => {
-    const treasury = treasuries.find(t => t.id === treasuryId);
+    const treasury = treasuries.find((t) => t.id === treasuryId);
     const newToCurrencyId = treasury?.currency_id || "";
     const newRate = calculateExchangeRate(formData.from_currency_id, newToCurrencyId);
     setFormData({
@@ -1027,7 +1172,7 @@ const TreasuryEntry = () => {
   };
 
   const handleToBankSelect = (bankId: string) => {
-    const bank = banks.find(b => b.id === bankId);
+    const bank = banks.find((b) => b.id === bankId);
     const newToCurrencyId = bank?.currency_id || "";
     const newRate = calculateExchangeRate(formData.from_currency_id, newToCurrencyId);
     setFormData({
@@ -1047,7 +1192,13 @@ const TreasuryEntry = () => {
           <Vault className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-bold">{language === "ar" ? "قيود الخزينة" : "Treasury Entries"}</h1>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
@@ -1068,7 +1219,8 @@ const TreasuryEntry = () => {
                   <SelectContent>
                     {treasuries.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.treasury_code} - {language === "ar" && t.treasury_name_ar ? t.treasury_name_ar : t.treasury_name}
+                        {t.treasury_code} -{" "}
+                        {language === "ar" && t.treasury_name_ar ? t.treasury_name_ar : t.treasury_name}
                         <span className="text-muted-foreground text-xs ml-2">
                           ({language === "ar" ? "الرصيد:" : "Balance:"} {t.current_balance.toLocaleString()})
                         </span>
@@ -1077,11 +1229,14 @@ const TreasuryEntry = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "نوع القيد *" : "Entry Type *"}</Label>
-                  <Select value={formData.entry_type} onValueChange={(v) => setFormData({ ...formData, entry_type: v, transfer_type: "" })}>
+                  <Select
+                    value={formData.entry_type}
+                    onValueChange={(v) => setFormData({ ...formData, entry_type: v, transfer_type: "" })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1108,7 +1263,12 @@ const TreasuryEntry = () => {
                 <>
                   <div className="space-y-2">
                     <Label>{language === "ar" ? "نوع التحويل *" : "Transfer Type *"}</Label>
-                    <Select value={formData.transfer_type} onValueChange={(v) => setFormData({ ...formData, transfer_type: v, to_treasury_id: "", to_bank_id: "" })}>
+                    <Select
+                      value={formData.transfer_type}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, transfer_type: v, to_treasury_id: "", to_bank_id: "" })
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder={language === "ar" ? "اختر نوع التحويل" : "Select Transfer Type"} />
                       </SelectTrigger>
@@ -1130,11 +1290,14 @@ const TreasuryEntry = () => {
                           <SelectValue placeholder={language === "ar" ? "اختر الخزينة" : "Select Treasury"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {treasuries.filter(t => t.id !== formData.treasury_id).map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.treasury_code} - {language === "ar" && t.treasury_name_ar ? t.treasury_name_ar : t.treasury_name}
-                            </SelectItem>
-                          ))}
+                          {treasuries
+                            .filter((t) => t.id !== formData.treasury_id)
+                            .map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.treasury_code} -{" "}
+                                {language === "ar" && t.treasury_name_ar ? t.treasury_name_ar : t.treasury_name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1161,17 +1324,21 @@ const TreasuryEntry = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{language === "ar" ? "عملة المصدر" : "Source Currency"}</Label>
-                      <Select value={formData.from_currency_id} onValueChange={(v) => {
-                        const newRate = calculateExchangeRate(v, formData.to_currency_id);
-                        setFormData({ ...formData, from_currency_id: v, exchange_rate: newRate });
-                      }}>
+                      <Select
+                        value={formData.from_currency_id}
+                        onValueChange={(v) => {
+                          const newRate = calculateExchangeRate(v, formData.to_currency_id);
+                          setFormData({ ...formData, from_currency_id: v, exchange_rate: newRate });
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
                         </SelectTrigger>
                         <SelectContent>
                           {currencies.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.currency_code} - {language === "ar" && c.currency_name_ar ? c.currency_name_ar : c.currency_name}
+                              {c.currency_code} -{" "}
+                              {language === "ar" && c.currency_name_ar ? c.currency_name_ar : c.currency_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1179,17 +1346,21 @@ const TreasuryEntry = () => {
                     </div>
                     <div className="space-y-2">
                       <Label>{language === "ar" ? "عملة الوجهة" : "Destination Currency"}</Label>
-                      <Select value={formData.to_currency_id} onValueChange={(v) => {
-                        const newRate = calculateExchangeRate(formData.from_currency_id, v);
-                        setFormData({ ...formData, to_currency_id: v, exchange_rate: newRate });
-                      }}>
+                      <Select
+                        value={formData.to_currency_id}
+                        onValueChange={(v) => {
+                          const newRate = calculateExchangeRate(formData.from_currency_id, v);
+                          setFormData({ ...formData, to_currency_id: v, exchange_rate: newRate });
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
                         </SelectTrigger>
                         <SelectContent>
                           {currencies.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.currency_code} - {language === "ar" && c.currency_name_ar ? c.currency_name_ar : c.currency_name}
+                              {c.currency_code} -{" "}
+                              {language === "ar" && c.currency_name_ar ? c.currency_name_ar : c.currency_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1229,8 +1400,12 @@ const TreasuryEntry = () => {
 
                   <div className="p-3 bg-muted rounded-lg">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{language === "ar" ? "المبلغ المحول" : "Converted Amount"}</span>
-                      <span className="text-lg font-bold text-primary">{formData.converted_amount.toLocaleString()}</span>
+                      <span className="text-sm font-medium">
+                        {language === "ar" ? "المبلغ المحول" : "Converted Amount"}
+                      </span>
+                      <span className="text-lg font-bold text-primary">
+                        {formData.converted_amount.toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </>
@@ -1264,7 +1439,7 @@ const TreasuryEntry = () => {
                   onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label>{language === "ar" ? "الوصف" : "Description"}</Label>
                 <Textarea
@@ -1273,7 +1448,7 @@ const TreasuryEntry = () => {
                   rows={3}
                 />
               </div>
-              
+
               <Button onClick={handleSubmit} className="w-full gap-2">
                 <Save className="h-4 w-4" />
                 {language === "ar" ? "حفظ" : "Save"}
@@ -1291,7 +1466,11 @@ const TreasuryEntry = () => {
             <div className="flex items-center gap-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn("justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateFrom ? format(dateFrom, "yyyy-MM-dd") : <span>{language === "ar" ? "من" : "From"}</span>}
                   </Button>
@@ -1309,7 +1488,11 @@ const TreasuryEntry = () => {
               <span className="text-muted-foreground">-</span>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn("justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateTo ? format(dateTo, "yyyy-MM-dd") : <span>{language === "ar" ? "إلى" : "To"}</span>}
                   </Button>
@@ -1395,13 +1578,16 @@ const TreasuryEntry = () => {
                     {language === "ar" ? "رصيد افتتاحي للفترة" : "Opening balance for period"}
                   </TableCell>
                   <TableCell className="text-right font-semibold text-green-600">
-                    {openingBalance > 0 
-                      ? openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                    {openingBalance > 0
+                      ? openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                       : "-"}
                   </TableCell>
                   <TableCell className="text-right font-semibold text-red-600">
-                    {openingBalance < 0 
-                      ? Math.abs(openingBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
+                    {openingBalance < 0
+                      ? Math.abs(openingBalance).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
                       : "-"}
                   </TableCell>
                   <TableCell className="text-right text-xs font-bold text-blue-600">
@@ -1428,25 +1614,36 @@ const TreasuryEntry = () => {
                         <TableCell className="font-mono text-xs">{entry.entry_number}</TableCell>
                         <TableCell className="text-xs">{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
                         <TableCell>
-                          <Badge 
-                            variant={entry.entry_type === "receipt" ? "default" : entry.entry_type === "void_reversal" ? "outline" : "secondary"} 
+                          <Badge
+                            variant={
+                              entry.entry_type === "receipt"
+                                ? "default"
+                                : entry.entry_type === "void_reversal"
+                                  ? "outline"
+                                  : "secondary"
+                            }
                             className="text-xs"
                           >
                             {getEntryTypeLabel(entry.entry_type)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs max-w-[200px] truncate">
-                          {entry.description || "-"}
-                        </TableCell>
+                        <TableCell className="text-xs max-w-[200px] truncate">{entry.description || "-"}</TableCell>
                         <TableCell className="text-right font-semibold text-green-600">
-                          {debit > 0 ? debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                          {debit > 0
+                            ? debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : "-"}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-red-600">
-                          {credit > 0 ? credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                          {credit > 0
+                            ? credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            : "-"}
                         </TableCell>
                         <TableCell className="text-right text-xs font-medium">
-                          {entry.status === "posted" 
-                            ? runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          {entry.status === "posted"
+                            ? runningBalance.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })
                             : "-"}
                         </TableCell>
                         <TableCell>
@@ -1455,9 +1652,9 @@ const TreasuryEntry = () => {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             onClick={() => handlePrintEntry(entry)}
                             title={language === "ar" ? "طباعة" : "Print"}
                           >
@@ -1480,97 +1677,108 @@ const TreasuryEntry = () => {
           ) : (
             /* Standard View */
             <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{language === "ar" ? "رقم القيد" : "Entry No."}</TableHead>
-                <TableHead>{language === "ar" ? "الخزينة" : "Treasury"}</TableHead>
-                <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
-                <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
-                <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
-                <TableHead>{language === "ar" ? "السعر" : "Rate"}</TableHead>
-                <TableHead>{language === "ar" ? "المبلغ بالريال" : "Amount (SAR)"}</TableHead>
-                <TableHead>{language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}</TableHead>
-                <TableHead>{language === "ar" ? "الرصيد قبل" : "Bal. Before"}</TableHead>
-                <TableHead>{language === "ar" ? "الرصيد بعد" : "Bal. After"}</TableHead>
-                <TableHead>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</TableHead>
-                <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
-                <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="font-mono text-xs">{entry.entry_number}</TableCell>
-                  <TableCell className="text-xs">{getTreasuryName(entry.treasury_id)}</TableCell>
-                  <TableCell className="text-xs">{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <Badge variant={entry.entry_type === "receipt" ? "default" : "secondary"} className="text-xs">
-                        {getEntryTypeLabel(entry.entry_type)}
-                      </Badge>
-                      {entry.transfer_type && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <ArrowRightLeft className="h-3 w-3" />
-                          {getTransferTypeLabel(entry.transfer_type)}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs">{getCurrencyCode(entry.from_currency_id)}</TableCell>
-                  <TableCell className="text-xs">{entry.exchange_rate?.toFixed(4) || "-"}</TableCell>
-                  <TableCell className="font-semibold">
-                    <span className={entry.entry_type === "receipt" ? "text-green-600" : "text-red-600"}>
-                      {entry.entry_type === "receipt" ? "+" : "-"}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </TableCell>
-                  <TableCell className="font-semibold text-amber-600">
-                    {entry.converted_amount ? (
-                      <span>
-                        {entry.converted_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {getTreasuryCurrencyCode(entry.treasury_id)}
-                      </span>
-                    ) : "-"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {entry.balance_before?.toLocaleString() || "-"}
-                  </TableCell>
-                  <TableCell className="text-xs font-medium">
-                    {entry.balance_after?.toLocaleString() || "-"}
-                  </TableCell>
-                  <TableCell className="text-xs">{getCostCenterName(entry.cost_center_id)}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[entry.status] || ""}`}>
-                      {getStatusLabel(entry.status)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {entry.status === "draft" && (
-                        <Button variant="outline" size="sm" onClick={() => handleStatusChange(entry.id, "pending_approval")}>
-                          <Send className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {entry.status === "pending_approval" && (
-                        <Button variant="outline" size="sm" onClick={() => handleStatusChange(entry.id, "approved")}>
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {entry.status === "approved" && (
-                        <Button variant="outline" size="sm" onClick={() => handleStatusChange(entry.id, "posted")}>
-                          {language === "ar" ? "ترحيل" : "Post"}
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {entries.length === 0 && (
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
-                    {language === "ar" ? "لا توجد قيود" : "No entries found"}
-                  </TableCell>
+                  <TableHead>{language === "ar" ? "رقم القيد" : "Entry No."}</TableHead>
+                  <TableHead>{language === "ar" ? "الخزينة" : "Treasury"}</TableHead>
+                  <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
+                  <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                  <TableHead>{language === "ar" ? "العملة" : "Currency"}</TableHead>
+                  <TableHead>{language === "ar" ? "السعر" : "Rate"}</TableHead>
+                  <TableHead>{language === "ar" ? "المبلغ بالريال" : "Amount (SAR)"}</TableHead>
+                  <TableHead>{language === "ar" ? "مبلغ الخزينة" : "Treasury Amount"}</TableHead>
+                  <TableHead>{language === "ar" ? "الرصيد قبل" : "Bal. Before"}</TableHead>
+                  <TableHead>{language === "ar" ? "الرصيد بعد" : "Bal. After"}</TableHead>
+                  <TableHead>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</TableHead>
+                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                  <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
+              </TableHeader>
+              <TableBody>
+                {entries.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell className="font-mono text-xs">{entry.entry_number}</TableCell>
+                    <TableCell className="text-xs">{getTreasuryName(entry.treasury_id)}</TableCell>
+                    <TableCell className="text-xs">{format(new Date(entry.entry_date), "yyyy-MM-dd")}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant={entry.entry_type === "receipt" ? "default" : "secondary"} className="text-xs">
+                          {getEntryTypeLabel(entry.entry_type)}
+                        </Badge>
+                        {entry.transfer_type && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <ArrowRightLeft className="h-3 w-3" />
+                            {getTransferTypeLabel(entry.transfer_type)}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs">{getCurrencyCode(entry.from_currency_id)}</TableCell>
+                    <TableCell className="text-xs">{entry.exchange_rate?.toFixed(4) || "-"}</TableCell>
+                    <TableCell className="font-semibold">
+                      <span className={entry.entry_type === "receipt" ? "text-green-600" : "text-red-600"}>
+                        {entry.entry_type === "receipt" ? "+" : "-"}
+                        {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-semibold text-amber-600">
+                      {entry.converted_amount ? (
+                        <span>
+                          {entry.converted_amount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {getTreasuryCurrencyCode(entry.treasury_id)}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {entry.balance_before?.toLocaleString() || "-"}
+                    </TableCell>
+                    <TableCell className="text-xs font-medium">
+                      {entry.balance_after?.toLocaleString() || "-"}
+                    </TableCell>
+                    <TableCell className="text-xs">{getCostCenterName(entry.cost_center_id)}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[entry.status] || ""}`}>
+                        {getStatusLabel(entry.status)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {entry.status === "draft" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleStatusChange(entry.id, "pending_approval")}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {entry.status === "pending_approval" && (
+                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(entry.id, "approved")}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {entry.status === "approved" && (
+                          <Button variant="outline" size="sm" onClick={() => handleStatusChange(entry.id, "posted")}>
+                            {language === "ar" ? "ترحيل" : "Post"}
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {entries.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
+                      {language === "ar" ? "لا توجد قيود" : "No entries found"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
             </Table>
           )}
         </CardContent>
