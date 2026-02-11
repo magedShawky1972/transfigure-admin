@@ -538,12 +538,22 @@ const ApiConsumptionLogs = () => {
         throw new Error(result.error || `HTTP ${response.status}`);
       }
 
+      // Update the original error log entry to mark as successful
+      await supabase
+        .from("api_consumption_logs")
+        .update({
+          success: true,
+          response_status: response.status,
+          response_message: language === "ar" ? "تم إعادة الإرسال بنجاح" : "Resent successfully",
+        })
+        .eq("id", log.id);
+
       toast({
         title: language === "ar" ? "تم الإرسال" : "Sent",
         description: language === "ar" ? "تم إرسال الطلب بنجاح" : "Request sent successfully",
       });
 
-      // Refresh logs to see the new entry
+      // Refresh logs to see the updated entry
       fetchLogs();
     } catch (error: any) {
       toast({
@@ -702,6 +712,15 @@ const ApiConsumptionLogs = () => {
         );
 
         if (response.ok) {
+          // Update the original error log entry to mark as successful
+          await supabase
+            .from("api_consumption_logs")
+            .update({
+              success: true,
+              response_status: response.status,
+              response_message: "Resent successfully",
+            })
+            .eq("id", log.id);
           successCount++;
         } else {
           failCount++;
