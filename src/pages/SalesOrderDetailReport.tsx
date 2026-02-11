@@ -55,9 +55,17 @@ const SalesOrderDetailReport = () => {
   const formatNumber = (value: number) =>
     new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
-  const dateToInt = (dateStr: string): number => {
-    const d = new Date(dateStr);
-    return parseInt(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`);
+  // Convert a local date string (YYYY-MM-DD) to KSA day boundaries in UTC
+  // KSA is UTC+3, so midnight KSA = 21:00 UTC previous day
+  const getKSADayBoundariesUTC = (dateStr: string) => {
+    // dateStr is "YYYY-MM-DD" representing a KSA date
+    // Start of KSA day = dateStr 00:00:00 KSA = dateStr-1 21:00:00 UTC
+    const startKSA = new Date(dateStr + "T00:00:00+03:00");
+    const endKSA = new Date(dateStr + "T23:59:59.999+03:00");
+    return {
+      startUTC: startKSA.toISOString(),
+      endUTC: endKSA.toISOString(),
+    };
   };
 
   const fetchReport = async () => {
@@ -72,15 +80,16 @@ const SalesOrderDetailReport = () => {
 
     setLoading(true);
     try {
-      const fromInt = dateToInt(fromDate);
-      const toInt = dateToInt(toDate);
+      // Calculate KSA day boundaries for from/to dates
+      const fromBounds = getKSADayBoundariesUTC(fromDate);
+      const toBounds = getKSADayBoundariesUTC(toDate);
 
-      // Fetch headers
+      // Fetch headers filtered by created_at in KSA time range
       let headerQuery = supabase
         .from("sales_order_header")
-        .select("order_number, customer_phone, order_date, player_id, transaction_type, register_user_id")
-        .gte("order_date_int", fromInt)
-        .lte("order_date_int", toInt);
+        .select("order_number, customer_phone, order_date, player_id, transaction_type, register_user_id, created_at")
+        .gte("created_at", fromBounds.startUTC)
+        .lte("created_at", toBounds.endUTC);
 
       if (filterSalesPerson) {
         headerQuery = headerQuery.ilike("register_user_id", `%${filterSalesPerson}%`);
@@ -218,7 +227,7 @@ const SalesOrderDetailReport = () => {
           results.push({
             order_number: line.order_number,
             customer_phone: header.customer_phone || "",
-            order_date: header.order_date ? new Date(header.order_date).toLocaleDateString("en-CA") : "",
+            order_date: header.created_at ? new Date(header.created_at).toLocaleString("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : "",
             player_id: header.player_id || "",
             transaction_type: header.transaction_type || "",
             register_user_id: header.register_user_id || "",
