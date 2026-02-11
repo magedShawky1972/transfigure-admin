@@ -127,6 +127,7 @@ import ProjectSetup from "./pages/ProjectSetup";
 import VoidPayment from "./pages/VoidPayment";
 import AcknowledgmentDocuments from "./pages/AcknowledgmentDocuments";
 import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
+import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -261,6 +262,7 @@ const App = () => (
               <Route path="/employee-self-requests" element={<EmployeeSelfRequests />} />
               <Route path="/employee-request-approvals" element={<EmployeeRequestApprovals />} />
               <Route path="/hr-manager-setup" element={<HRManagerSetup />} />
+              <Route path="/reports/sales-order-detail" element={<SalesOrderDetailReport />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
