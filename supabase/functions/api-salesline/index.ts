@@ -174,6 +174,7 @@ Deno.serve(async (req) => {
       coins_number: body.Coins_Number,
       cost_price: body.Cost_Price,
       total_cost: body.Total_Cost,
+      player_id: body.Player_Id || null,
       // Set created_at to current KSA time for new records
       created_at: getKSATimestamp(),
     };
