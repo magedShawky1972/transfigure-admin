@@ -70,43 +70,64 @@ const DataComparisonReport = () => {
       const fromBounds = getKSADayBoundaries(fromDate);
       const toBounds = getKSADayBoundaries(toDate);
 
-      // Fetch purple transaction data (excluding 'point' payment method)
-      const { data: purpleData, error: purpleError } = await supabase
-        .from("purpletransaction")
-        .select("order_number, total, payment_method, brand_name, product_name, qty")
-        .gte("created_at_date_int", fromInt)
-        .lte("created_at_date_int", toInt)
-        .neq("payment_method", "point");
+      // Fetch purple transaction data in batches (excluding 'point' payment method)
+      let allPurpleData: { order_number: string; total: number }[] = [];
+      let purpleOffset = 0;
+      const fetchLimit = 1000;
+      while (true) {
+        const { data: batch, error: purpleError } = await supabase
+          .from("purpletransaction")
+          .select("order_number, total")
+          .gte("created_at_date_int", fromInt)
+          .lte("created_at_date_int", toInt)
+          .neq("payment_method", "point")
+          .range(purpleOffset, purpleOffset + fetchLimit - 1);
+        if (purpleError) throw purpleError;
+        allPurpleData = allPurpleData.concat(batch || []);
+        if (!batch || batch.length < fetchLimit) break;
+        purpleOffset += fetchLimit;
+      }
 
-      if (purpleError) throw purpleError;
+      // Fetch API sales headers in batches
+      let allApiHeaders: { order_number: string }[] = [];
+      let headerOffset = 0;
+      while (true) {
+        const { data: batch, error: headerError } = await supabase
+          .from("sales_order_header")
+          .select("order_number")
+          .gte("created_at", fromBounds.start)
+          .lte("created_at", toBounds.end)
+          .range(headerOffset, headerOffset + fetchLimit - 1);
+        if (headerError) throw headerError;
+        allApiHeaders = allApiHeaders.concat(batch || []);
+        if (!batch || batch.length < fetchLimit) break;
+        headerOffset += fetchLimit;
+      }
 
-      // Fetch API sales headers
-      const { data: apiHeaders, error: headerError } = await supabase
-        .from("sales_order_header")
-        .select("order_number")
-        .gte("created_at", fromBounds.start)
-        .lte("created_at", toBounds.end);
+      const apiOrderNumbers = allApiHeaders.map((h) => h.order_number);
 
-      if (headerError) throw headerError;
-
-      const apiOrderNumbers = (apiHeaders || []).map((h) => h.order_number);
-
-      // Fetch API sales lines in batches
+      // Fetch API sales lines in batches by order number chunks
       let allApiLines: { order_number: string; total: number }[] = [];
       const batchSize = 500;
       for (let i = 0; i < apiOrderNumbers.length; i += batchSize) {
-        const batch = apiOrderNumbers.slice(i, i + batchSize);
-        const { data: lines, error: lineError } = await supabase
-          .from("sales_order_line")
-          .select("order_number, total")
-          .in("order_number", batch);
-        if (lineError) throw lineError;
-        allApiLines = allApiLines.concat(lines || []);
+        const chunk = apiOrderNumbers.slice(i, i + batchSize);
+        let lineOffset = 0;
+        while (true) {
+          const { data: lines, error: lineError } = await supabase
+            .from("sales_order_line")
+            .select("order_number, total")
+            .in("order_number", chunk)
+            .range(lineOffset, lineOffset + fetchLimit - 1);
+          if (lineError) throw lineError;
+          allApiLines = allApiLines.concat(lines || []);
+          if (!lines || lines.length < fetchLimit) break;
+          lineOffset += fetchLimit;
+        }
       }
 
       // Aggregate purple by order
       const purpleByOrder = new Map<string, { lines: number; total: number }>();
-      (purpleData || []).forEach((row) => {
+      allPurpleData.forEach((row) => {
         const existing = purpleByOrder.get(row.order_number) || { lines: 0, total: 0 };
         existing.lines += 1;
         existing.total += row.total || 0;
