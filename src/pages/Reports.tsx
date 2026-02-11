@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList, FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail']);
         setLoading(false);
         return;
       }
@@ -279,6 +279,15 @@ const Reports = () => {
         : "View manual shift transactions with subtotals by brand and user",
       icon: ClipboardList,
       route: "/reports/manual-shift-transactions",
+    },
+    {
+      id: "sales-order-detail",
+      name: language === "ar" ? "تقرير تفاصيل أوامر البيع" : "Sales Order Detail Report",
+      description: language === "ar"
+        ? "عرض تفاصيل الطلبات مع الأسطر والمدفوعات"
+        : "View order details with lines and payment transactions",
+      icon: FileSpreadsheet,
+      route: "/reports/sales-order-detail",
     },
   ];
 
