@@ -4895,6 +4895,7 @@ export type Database = {
           line_number: number
           line_status: number
           order_number: string
+          player_id: string | null
           point: number | null
           product_id: number | null
           product_sku: string | null
@@ -4912,6 +4913,7 @@ export type Database = {
           line_number: number
           line_status?: number
           order_number: string
+          player_id?: string | null
           point?: number | null
           product_id?: number | null
           product_sku?: string | null
@@ -4929,6 +4931,7 @@ export type Database = {
           line_number?: number
           line_status?: number
           order_number?: string
+          player_id?: string | null
           point?: number | null
           product_id?: number | null
           product_sku?: string | null
