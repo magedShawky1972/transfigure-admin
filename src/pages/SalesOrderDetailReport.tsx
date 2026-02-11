@@ -24,6 +24,8 @@ interface SalesOrderDetail {
   line_status: number;
   product_sku: string;
   product_id: number;
+  product_name: string;
+  brand_name: string;
   quantity: number;
   unit_price: number;
   total: number;
@@ -173,6 +175,22 @@ const SalesOrderDetailReport = () => {
         }
       }
 
+      // Fetch products for product_name and brand_name
+      const allProductIds = [...new Set(allLines.map((l: any) => Number(l.product_id)).filter(Boolean))];
+      const productMap = new Map<number, { product_name: string; brand_name: string }>();
+      for (let i = 0; i < allProductIds.length; i += chunkSize) {
+        const chunk = allProductIds.slice(i, i + chunkSize);
+        const { data: prodData } = await supabase
+          .from("products")
+          .select("product_id, product_name, brand_name")
+          .in("product_id", chunk.map(String));
+        if (prodData) {
+          prodData.forEach((p: any) => {
+            productMap.set(Number(p.product_id), { product_name: p.product_name || "", brand_name: p.brand_name || "" });
+          });
+        }
+      }
+
       // Build payment map (order_number -> payments[])
       const paymentMap = new Map<string, any[]>();
       allPayments.forEach((p) => {
@@ -192,6 +210,7 @@ const SalesOrderDetailReport = () => {
         const header = headerMap.get(line.order_number);
         if (!header) return;
 
+        const prod = productMap.get(Number(line.product_id)) || { product_name: "", brand_name: "" };
         const payments = paymentMap.get(line.order_number) || [{ payment_method: "", payment_brand: "", payment_amount: 0, payment_reference: "", payment_card_number: "", bank_transaction_id: "", payment_location: "" }];
 
         // Create one row per line per payment
@@ -209,6 +228,8 @@ const SalesOrderDetailReport = () => {
             line_status: line.line_status || 0,
             product_sku: line.product_sku || "",
             product_id: Number(line.product_id) || 0,
+            product_name: prod.product_name,
+            brand_name: prod.brand_name,
             quantity: Number(line.quantity) || 0,
             unit_price: Number(line.unit_price) || 0,
             total: Number(line.total) || 0,
@@ -259,6 +280,8 @@ const SalesOrderDetailReport = () => {
       "Line Status": row.line_status,
       "Product SKU": row.product_sku,
       "Product ID": row.product_id,
+      "Product Name": row.product_name,
+      "Brand Name": row.brand_name,
       Quantity: row.quantity,
       "Unit Price": row.unit_price,
       Total: row.total,
@@ -305,6 +328,8 @@ const SalesOrderDetailReport = () => {
     { key: "line_status", label: language === "ar" ? "حالة السطر" : "Line Status" },
     { key: "product_sku", label: "Product SKU" },
     { key: "product_id", label: "Product ID" },
+    { key: "product_name", label: language === "ar" ? "اسم المنتج" : "Product Name" },
+    { key: "brand_name", label: language === "ar" ? "اسم الماركة" : "Brand Name" },
     { key: "quantity", label: language === "ar" ? "الكمية" : "Quantity" },
     { key: "unit_price", label: language === "ar" ? "سعر الوحدة" : "Unit Price" },
     { key: "total", label: language === "ar" ? "الإجمالي" : "Total" },
@@ -425,6 +450,36 @@ const SalesOrderDetailReport = () => {
         </CardContent>
       </Card>
 
+      {/* Total Cards */}
+      {reportData.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+          <Card>
+            <CardContent className="pt-4 pb-4 text-center">
+              <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</p>
+              <p className="text-2xl font-bold font-mono">{formatNumber(totals.total)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4 text-center">
+              <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي التكلفة" : "Total Cost"}</p>
+              <p className="text-2xl font-bold font-mono">{formatNumber(totals.total_cost)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4 text-center">
+              <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي الكمية" : "Total Quantity"}</p>
+              <p className="text-2xl font-bold font-mono">{formatNumber(totals.quantity)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4 text-center">
+              <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي المدفوعات" : "Total Payments"}</p>
+              <p className="text-2xl font-bold font-mono">{formatNumber(totals.payment_amount)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Report */}
       <div className="print-area">
         <div className="hidden print:block mb-4">
@@ -466,7 +521,7 @@ const SalesOrderDetailReport = () => {
                   </TableBody>
                   <TableFooter>
                     <TableRow>
-                      <TableCell colSpan={12} className="font-bold text-right">
+                      <TableCell colSpan={14} className="font-bold text-right">
                         {language === "ar" ? "الإجمالي" : "Totals"}
                       </TableCell>
                       <TableCell className="text-center font-mono font-bold">{formatNumber(totals.quantity)}</TableCell>
