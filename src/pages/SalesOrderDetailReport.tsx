@@ -55,18 +55,12 @@ const SalesOrderDetailReport = () => {
   const formatNumber = (value: number) =>
     new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
-  // Convert a local date string (YYYY-MM-DD) to KSA day boundaries in UTC
-  // KSA is UTC+3, so midnight KSA = 21:00 UTC previous day
-  const getKSADayBoundariesUTC = (dateStr: string) => {
-    // dateStr is "YYYY-MM-DD" representing a KSA date
-    // Start of KSA day = dateStr 00:00:00 KSA = dateStr-1 21:00:00 UTC
-    const startKSA = new Date(dateStr + "T00:00:00+03:00");
-    const endKSA = new Date(dateStr + "T23:59:59.999+03:00");
-    return {
-      startUTC: startKSA.toISOString(),
-      endUTC: endKSA.toISOString(),
-    };
-  };
+  // The sales tables store created_at as KSA time (already +3h offset) labeled as UTC
+  // So to filter for a KSA date, use the date directly without timezone conversion
+  const getKSADayBoundaries = (dateStr: string) => ({
+    start: dateStr + "T00:00:00Z",
+    end: dateStr + "T23:59:59.999Z",
+  });
 
   const fetchReport = async () => {
     if (!fromDate || !toDate) {
@@ -81,15 +75,15 @@ const SalesOrderDetailReport = () => {
     setLoading(true);
     try {
       // Calculate KSA day boundaries for from/to dates
-      const fromBounds = getKSADayBoundariesUTC(fromDate);
-      const toBounds = getKSADayBoundariesUTC(toDate);
+      const fromBounds = getKSADayBoundaries(fromDate);
+      const toBounds = getKSADayBoundaries(toDate);
 
-      // Fetch headers filtered by created_at in KSA time range
+      // Fetch headers filtered by created_at (stored as KSA time)
       let headerQuery = supabase
         .from("sales_order_header")
         .select("order_number, customer_phone, order_date, player_id, transaction_type, register_user_id, created_at")
-        .gte("created_at", fromBounds.startUTC)
-        .lte("created_at", toBounds.endUTC);
+        .gte("created_at", fromBounds.start)
+        .lte("created_at", toBounds.end);
 
       if (filterSalesPerson) {
         headerQuery = headerQuery.ilike("register_user_id", `%${filterSalesPerson}%`);
