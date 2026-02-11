@@ -60,6 +60,7 @@ const API_ENDPOINTS = [
       { name: "Coins_Number", type: "Decimal", required: false, note: "" },
       { name: "Cost_Price", type: "Decimal", required: false, note: "" },
       { name: "Total_Cost", type: "Decimal", required: false, note: "" },
+      { name: "Player_Id", type: "Text", required: false, note: "Player identifier" },
     ],
   },
   {
