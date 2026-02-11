@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_order_line ADD COLUMN IF NOT EXISTS player_id text DEFAULT NULL;
