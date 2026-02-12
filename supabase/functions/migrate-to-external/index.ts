@@ -17,44 +17,73 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'list_tables': {
-        const { data, error } = await supabase.rpc('exec_sql', {
-          sql: `
-            SELECT 
-              t.tablename as name,
-              COALESCE(s.n_live_tup, 0)::integer as row_count
-            FROM pg_catalog.pg_tables t
-            LEFT JOIN pg_stat_user_tables s ON t.tablename = s.relname
-            WHERE t.schemaname = 'public'
-            ORDER BY t.tablename
-          `
+        // Use information_schema via PostgREST-compatible approach
+        // Since exec_sql doesn't return results, query each known table for count
+        const { data: schemaData, error: schemaErr } = await supabase.rpc('exec_sql', {
+          sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`
         });
-        if (error) throw error;
-        return jsonResponse({ success: true, tables: Array.isArray(data) ? data : [] });
+        
+        // If exec_sql doesn't return data, fall back to the types file approach
+        let tableNames: string[] = [];
+        if (Array.isArray(schemaData) && schemaData.length > 0) {
+          tableNames = schemaData.map((t: any) => t.table_name);
+        } else {
+          // Fallback: get tables by trying a query on information_schema through PostgREST
+          // Use the supabase client to query a known system view
+          const response = await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/rest/v1/?apikey=${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            { headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` } }
+          );
+          if (response.ok) {
+            const openApiSpec = await response.json();
+            if (openApiSpec?.definitions) {
+              tableNames = Object.keys(openApiSpec.definitions).filter(
+                name => !name.startsWith('_') && name !== 'rpc'
+              ).sort();
+            } else if (openApiSpec?.paths) {
+              tableNames = Object.keys(openApiSpec.paths)
+                .map(p => p.replace('/', ''))
+                .filter(name => name && !name.startsWith('rpc'))
+                .sort();
+            }
+          }
+        }
+
+        // Get approximate row counts for each table
+        const tables: { name: string; row_count: number }[] = [];
+        for (const name of tableNames) {
+          try {
+            const { count, error: countErr } = await supabase
+              .from(name)
+              .select('*', { count: 'exact', head: true });
+            tables.push({ name, row_count: countErr ? 0 : (count ?? 0) });
+          } catch {
+            tables.push({ name, row_count: 0 });
+          }
+        }
+
+        return jsonResponse({ success: true, tables });
       }
 
       case 'export_table_data': {
         if (!tableName) throw new Error('Missing tableName');
-        const { data, error } = await supabase.rpc('exec_sql', {
-          sql: `SELECT * FROM public."${tableName}" LIMIT ${limit} OFFSET ${offset}`
-        });
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .range(offset, offset + limit - 1);
         if (error) throw error;
-        const rows = Array.isArray(data) ? data : (data?.error ? [] : [data]);
+        const rows = Array.isArray(data) ? data : [];
         return jsonResponse({ success: true, rows, tableName });
       }
 
       case 'export_table_as_sql': {
         if (!tableName) throw new Error('Missing tableName');
-        // Get column info
-        const { data: colData, error: colErr } = await supabase.rpc('exec_sql', {
-          sql: `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${tableName}' ORDER BY ordinal_position`
-        });
-        if (colErr) throw colErr;
-        const columns = Array.isArray(colData) ? colData : [];
         
-        // Get data
-        const { data: rowData, error: rowErr } = await supabase.rpc('exec_sql', {
-          sql: `SELECT * FROM public."${tableName}" LIMIT ${limit} OFFSET ${offset}`
-        });
+        // Get data using Supabase client (bypasses exec_sql issues)
+        const { data: rowData, error: rowErr } = await supabase
+          .from(tableName)
+          .select('*')
+          .range(offset, offset + limit - 1);
         if (rowErr) throw rowErr;
         const rows = Array.isArray(rowData) ? rowData : [];
         
@@ -62,13 +91,14 @@ Deno.serve(async (req) => {
           return jsonResponse({ success: true, sql: '', rowCount: 0, tableName });
         }
 
-        // Generate INSERT statements
-        const colNames = columns.map((c: any) => `"${c.column_name}"`).join(', ');
+        // Derive columns from the first row's keys
+        const columnNames = Object.keys(rows[0]);
+        const colNames = columnNames.map(c => `"${c}"`).join(', ');
         const insertStatements: string[] = [];
         
         for (const row of rows) {
-          const values = columns.map((col: any) => {
-            const val = row[col.column_name];
+          const values = columnNames.map(colName => {
+            const val = row[colName];
             if (val === null || val === undefined) return 'NULL';
             if (typeof val === 'number') return String(val);
             if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
