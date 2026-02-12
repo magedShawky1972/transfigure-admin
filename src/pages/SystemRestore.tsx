@@ -1204,18 +1204,33 @@ const SystemRestore = () => {
 
                 if (!sqlResult.sql || sqlResult.rowCount === 0) break;
 
-                // Execute on external DB
-                const externalResult = await callExternalProxy('exec_sql', { sql: sqlResult.sql });
-                if (!externalResult.success && externalResult.error) {
+                // Execute on external DB - disable FK checks for the batch
+                const sqlWithFkDisabled = `SET session_replication_role = 'replica'; ${sqlResult.sql} SET session_replication_role = 'origin';`;
+                const externalResult = await callExternalProxy('exec_sql', { sql: sqlWithFkDisabled });
+                // Check for errors - proxy may return success:true but data.error from exec_sql
+                const hasProxyError = (!externalResult.success && externalResult.error) || 
+                  (externalResult.data && externalResult.data.error);
+                if (hasProxyError) {
+                  const errMsg = externalResult.error || externalResult.data?.error || 'Unknown error';
+                  console.warn(`Batch insert failed for ${table.name}: ${errMsg}, trying individual inserts...`);
                   // Try individual inserts on batch failure
                   const statements = sqlResult.sql.split(';\n').filter((s: string) => s.trim());
+                  let batchErrors: string[] = [];
                   for (const stmt of statements) {
                     try {
-                      await callExternalProxy('exec_sql', { sql: stmt + ';' });
-                      totalMigrated++;
-                    } catch {
-                      // Skip individual failures silently
+                      const individualResult = await callExternalProxy('exec_sql', { sql: `SET session_replication_role = 'replica'; ${stmt}; SET session_replication_role = 'origin';` });
+                      if (individualResult.data?.error) {
+                        batchErrors.push(individualResult.data.error);
+                      } else {
+                        totalMigrated++;
+                      }
+                    } catch (e: any) {
+                      batchErrors.push(e.message);
                     }
+                  }
+                  if (batchErrors.length > 0 && totalMigrated === 0) {
+                    // All individual inserts also failed - report the first error
+                    errors.push(`Table ${table.name}: ${batchErrors[0]}`);
                   }
                 } else {
                   totalMigrated += sqlResult.rowCount;
