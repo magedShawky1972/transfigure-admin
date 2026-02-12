@@ -197,33 +197,38 @@ Deno.serve(async (req) => {
       }
 
       case 'list_storage_buckets': {
-        const { data: buckets, error: bucketsErr } = await supabase.rpc('exec_sql', {
-          sql: `SELECT id, name, public, file_size_limit, allowed_mime_types, created_at, updated_at FROM storage.buckets ORDER BY name`
-        });
+        const { data: buckets, error: bucketsErr } = await supabase.storage.listBuckets();
         if (bucketsErr) throw bucketsErr;
-        return jsonResponse({ success: true, buckets: Array.isArray(buckets) ? buckets : [] });
+        const bucketList = (buckets || []).map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          public: b.public,
+          file_size_limit: b.file_size_limit,
+          allowed_mime_types: b.allowed_mime_types,
+          created_at: b.created_at,
+          updated_at: b.updated_at,
+        }));
+        return jsonResponse({ success: true, buckets: bucketList });
       }
 
       case 'list_storage_files': {
         if (!bucketId) throw new Error('Missing bucketId');
-        const { data: files, error: filesErr } = await supabase.rpc('exec_sql', {
-          sql: `
-            SELECT id, name, bucket_id, created_at, updated_at, metadata, 
-                   COALESCE((metadata->>'size')::bigint, 0) as file_size
-            FROM storage.objects 
-            WHERE bucket_id = '${bucketId}'
-            ORDER BY name
-            LIMIT ${limit} OFFSET ${offset}
-          `
-        });
+        const { data: files, error: filesErr } = await supabase.storage
+          .from(bucketId)
+          .list('', { limit: limit, offset: offset, sortBy: { column: 'name', order: 'asc' } });
         if (filesErr) throw filesErr;
-        
-        const { data: countResult } = await supabase.rpc('exec_sql', {
-          sql: `SELECT COUNT(*)::integer as count FROM storage.objects WHERE bucket_id = '${bucketId}'`
-        });
-        const totalCount = Array.isArray(countResult) ? countResult[0]?.count || 0 : 0;
-        
-        return jsonResponse({ success: true, files: Array.isArray(files) ? files : [], totalCount });
+        const fileList = (files || []).filter((f: any) => f.name !== '.emptyFolderPlaceholder').map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          bucket_id: bucketId,
+          created_at: f.created_at,
+          updated_at: f.updated_at,
+          metadata: f.metadata,
+          file_size: f.metadata?.size || 0,
+        }));
+        // Storage API doesn't return total count easily, estimate from current batch
+        const totalCount = fileList.length < limit ? offset + fileList.length : offset + limit + 1;
+        return jsonResponse({ success: true, files: fileList, totalCount });
       }
 
       case 'get_storage_file_url': {
