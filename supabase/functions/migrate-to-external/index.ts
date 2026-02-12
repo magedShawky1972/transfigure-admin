@@ -213,22 +213,42 @@ Deno.serve(async (req) => {
 
       case 'list_storage_files': {
         if (!bucketId) throw new Error('Missing bucketId');
-        const { data: files, error: filesErr } = await supabase.storage
-          .from(bucketId)
-          .list('', { limit: limit, offset: offset, sortBy: { column: 'name', order: 'asc' } });
-        if (filesErr) throw filesErr;
-        const fileList = (files || []).filter((f: any) => f.name !== '.emptyFolderPlaceholder').map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          bucket_id: bucketId,
-          created_at: f.created_at,
-          updated_at: f.updated_at,
-          metadata: f.metadata,
-          file_size: f.metadata?.size || 0,
-        }));
-        // Storage API doesn't return total count easily, estimate from current batch
-        const totalCount = fileList.length < limit ? offset + fileList.length : offset + limit + 1;
-        return jsonResponse({ success: true, files: fileList, totalCount });
+        
+        // Recursively list all files in the bucket
+        const allFiles: any[] = [];
+        const listRecursive = async (prefix: string) => {
+          const { data, error } = await supabase.storage
+            .from(bucketId)
+            .list(prefix, { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
+          if (error || !data) return;
+          
+          for (const item of data) {
+            if (item.name === '.emptyFolderPlaceholder') continue;
+            const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+            
+            if (item.id) {
+              // It's a file (has an id)
+              allFiles.push({
+                id: item.id,
+                name: fullPath,
+                bucket_id: bucketId,
+                created_at: item.created_at,
+                updated_at: item.updated_at,
+                metadata: item.metadata,
+                file_size: item.metadata?.size || 0,
+              });
+            } else {
+              // It's a folder, recurse into it
+              await listRecursive(fullPath);
+            }
+          }
+        };
+        
+        await listRecursive('');
+        
+        // Apply pagination
+        const paginatedFiles = allFiles.slice(offset, offset + limit);
+        return jsonResponse({ success: true, files: paginatedFiles, totalCount: allFiles.length });
       }
 
       case 'get_storage_file_url': {
