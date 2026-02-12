@@ -196,6 +196,10 @@ const SystemRestore = () => {
   const [migrationErrors, setMigrationErrors] = useState<string[]>([]);
   const [isMigrationComplete, setIsMigrationComplete] = useState(false);
   const [migrationCurrentStep, setMigrationCurrentStep] = useState<string>('');
+  // Table selection state
+  const [availableTables, setAvailableTables] = useState<{name: string, rowCount: number, selected: boolean}[]>([]);
+  const [loadingAvailableTables, setLoadingAvailableTables] = useState(false);
+  const [tablesLoaded, setTablesLoaded] = useState(false);
   
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
@@ -1078,6 +1082,38 @@ const SystemRestore = () => {
     }
   };
 
+  const loadAvailableTables = async () => {
+    setLoadingAvailableTables(true);
+    try {
+      const { data: tablesResult, error: tablesErr } = await supabase.functions.invoke('migrate-to-external', {
+        body: { action: 'list_tables' }
+      });
+      if (tablesErr || !tablesResult?.success) {
+        toast.error(isRTL ? 'فشل في تحميل الجداول' : 'Failed to load tables');
+        return;
+      }
+      const tables = (tablesResult.tables || []).map((t: any) => ({
+        name: t.name,
+        rowCount: t.row_count || 0,
+        selected: true,
+      }));
+      setAvailableTables(tables);
+      setTablesLoaded(true);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoadingAvailableTables(false);
+    }
+  };
+
+  const toggleTableSelection = (tableName: string) => {
+    setAvailableTables(prev => prev.map(t => t.name === tableName ? { ...t, selected: !t.selected } : t));
+  };
+
+  const selectAllTables = (selected: boolean) => {
+    setAvailableTables(prev => prev.map(t => ({ ...t, selected })));
+  };
+
   // === MIGRATION TO EXTERNAL DATABASE ===
   const handleStartMigration = async () => {
     if (!useExternalSupabase || !externalUrl || !externalAnonKey) {
@@ -1107,16 +1143,30 @@ const SystemRestore = () => {
       if (migrateDataEnabled) {
         setMigrationCurrentStep(isRTL ? 'تحميل قائمة الجداول...' : 'Loading table list...');
         
-        const { data: tablesResult, error: tablesErr } = await supabase.functions.invoke('migrate-to-external', {
-          body: { action: 'list_tables' }
-        });
-        
-        if (tablesErr || !tablesResult?.success) {
-          errors.push(`Tables list: ${tablesErr?.message || tablesResult?.error || 'Failed'}`);
+        // Use pre-selected tables if available, otherwise load all
+        let selectedTableNames: string[];
+        if (tablesLoaded && availableTables.length > 0) {
+          selectedTableNames = availableTables.filter(t => t.selected).map(t => t.name);
         } else {
-          const tables: MigrationTableItem[] = (tablesResult.tables || []).map((t: any) => ({
+          const { data: tablesResult, error: tablesErr } = await supabase.functions.invoke('migrate-to-external', {
+            body: { action: 'list_tables' }
+          });
+          if (tablesErr || !tablesResult?.success) {
+            errors.push(`Tables list: ${tablesErr?.message || tablesResult?.error || 'Failed'}`);
+            selectedTableNames = [];
+          } else {
+            selectedTableNames = (tablesResult.tables || []).map((t: any) => t.name);
+          }
+        }
+        
+        if (selectedTableNames.length === 0 && errors.length === 0) {
+          toast.info(isRTL ? 'لم يتم اختيار أي جداول' : 'No tables selected');
+        } else {
+          // Build migration table items from selected tables
+          const tableSource = tablesLoaded ? availableTables.filter(t => t.selected) : selectedTableNames.map(n => ({ name: n, rowCount: 0 }));
+          const tables: MigrationTableItem[] = tableSource.map((t: any) => ({
             name: t.name,
-            rowCount: t.row_count || 0,
+            rowCount: t.rowCount || 0,
             status: 'pending' as const,
             migratedRows: 0,
           }));
@@ -1133,7 +1183,6 @@ const SystemRestore = () => {
 
             setMigrationCurrentStep(isRTL ? `ترحيل جدول: ${table.name}` : `Migrating table: ${table.name}`);
             setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'migrating' } : t));
-            
             let offset = 0;
             const batchSize = 500;
             let totalMigrated = 0;
@@ -2013,13 +2062,68 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 <Checkbox
                   id="migrate-data"
                   checked={migrateDataEnabled}
-                  onCheckedChange={(checked) => setMigrateDataEnabled(!!checked)}
+                  onCheckedChange={(checked) => {
+                    setMigrateDataEnabled(!!checked);
+                    if (!checked) setTablesLoaded(false);
+                  }}
                 />
-                <label htmlFor="migrate-data" className="text-sm cursor-pointer flex items-center gap-2">
+                <label htmlFor="migrate-data" className="text-sm cursor-pointer flex items-center gap-2 flex-1">
                   <Database className="h-4 w-4" />
                   {isRTL ? 'ترحيل بيانات الجداول' : 'Migrate Table Data'}
                 </label>
+                {migrateDataEnabled && !tablesLoaded && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadAvailableTables}
+                    disabled={loadingAvailableTables}
+                  >
+                    {loadingAvailableTables ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      isRTL ? 'تحميل الجداول' : 'Load Tables'
+                    )}
+                  </Button>
+                )}
               </div>
+              
+              {/* Table Selection List */}
+              {migrateDataEnabled && tablesLoaded && availableTables.length > 0 && (
+                <div className="ml-7 border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {availableTables.filter(t => t.selected).length}/{availableTables.length} {isRTL ? 'جدول محدد' : 'tables selected'}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => selectAllTables(true)}>
+                        {isRTL ? 'تحديد الكل' : 'Select All'}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => selectAllTables(false)}>
+                        {isRTL ? 'إلغاء الكل' : 'Deselect All'}
+                      </Button>
+                    </div>
+                  </div>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-1 pr-2">
+                      {availableTables.map((table) => (
+                        <div key={table.name} className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/50">
+                          <Checkbox
+                            id={`table-${table.name}`}
+                            checked={table.selected}
+                            onCheckedChange={() => toggleTableSelection(table.name)}
+                          />
+                          <label htmlFor={`table-${table.name}`} className="text-xs font-mono cursor-pointer flex-1">
+                            {table.name}
+                          </label>
+                          <Badge variant="outline" className="text-xs">
+                            {table.rowCount.toLocaleString()} {isRTL ? 'صف' : 'rows'}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
               
               <div className="flex items-center gap-3">
                 <Checkbox
