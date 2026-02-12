@@ -1156,14 +1156,23 @@ const SystemRestore = () => {
             selectedTableNames = [];
           } else {
             selectedTableNames = (tablesResult.tables || []).map((t: any) => t.name);
+            // Store full table info for row counts
+            if (!tablesLoaded) {
+              setAvailableTables((tablesResult.tables || []).map((t: any) => ({ name: t.name, rowCount: t.row_count || 0, selected: true })));
+            }
           }
         }
         
         if (selectedTableNames.length === 0 && errors.length === 0) {
           toast.info(isRTL ? 'لم يتم اختيار أي جداول' : 'No tables selected');
         } else {
-          // Build migration table items from selected tables
-          const tableSource = tablesLoaded ? availableTables.filter(t => t.selected) : selectedTableNames.map(n => ({ name: n, rowCount: 0 }));
+          // Build migration table items from selected tables - use available tables data for row counts
+          const tableSource = tablesLoaded 
+            ? availableTables.filter(t => t.selected) 
+            : selectedTableNames.map(n => {
+                const found = availableTables.find(t => t.name === n);
+                return { name: n, rowCount: found?.rowCount || 0 };
+              });
           const tables: MigrationTableItem[] = tableSource.map((t: any) => ({
             name: t.name,
             rowCount: t.rowCount || 0,
@@ -1176,10 +1185,6 @@ const SystemRestore = () => {
           // Migrate each table
           for (let i = 0; i < tables.length; i++) {
             const table = tables[i];
-            if (table.rowCount === 0) {
-              setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'done' } : t));
-              continue;
-            }
 
             setMigrationCurrentStep(isRTL ? `ترحيل جدول: ${table.name}` : `Migrating table: ${table.name}`);
             setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'migrating' } : t));
@@ -1188,7 +1193,7 @@ const SystemRestore = () => {
             let totalMigrated = 0;
 
             try {
-              while (offset < table.rowCount + batchSize) {
+              while (true) {
                 const { data: sqlResult, error: sqlErr } = await supabase.functions.invoke('migrate-to-external', {
                   body: { action: 'export_table_as_sql', tableName: table.name, offset, limit: batchSize }
                 });
