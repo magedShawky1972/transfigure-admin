@@ -87,77 +87,109 @@ Deno.serve(async (req) => {
       }
 
       case 'export_users': {
-        // Export auth users using service role
-        const { data: usersResult, error: usersErr } = await supabase.rpc('exec_sql', {
-          sql: `
-            SELECT 
-              id, email, encrypted_password, email_confirmed_at, 
-              raw_user_meta_data, raw_app_meta_data, created_at, updated_at,
-              phone, phone_confirmed_at, role, aud,
-              confirmation_token, recovery_token, email_change_token_new,
-              is_sso_user, deleted_at
-            FROM auth.users 
-            ORDER BY created_at
-            LIMIT ${limit} OFFSET ${offset}
-          `
-        });
-        if (usersErr) throw usersErr;
-        const users = Array.isArray(usersResult) ? usersResult : [];
+        const perPage = Math.min(limit, 1000);
+        const page = Math.floor(offset / perPage) + 1;
         
-        // Get total count
-        const { data: countResult } = await supabase.rpc('exec_sql', {
-          sql: `SELECT COUNT(*)::integer as count FROM auth.users`
+        const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({
+          page,
+          perPage,
         });
-        const totalCount = Array.isArray(countResult) ? countResult[0]?.count || 0 : 0;
+        
+        if (listErr) throw listErr;
+        const users = (listData?.users || []).map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          email_confirmed_at: u.email_confirmed_at,
+          raw_user_meta_data: u.user_metadata,
+          raw_app_meta_data: u.app_metadata,
+          created_at: u.created_at,
+          updated_at: u.updated_at,
+          phone: u.phone,
+          phone_confirmed_at: u.phone_confirmed_at,
+          role: u.role,
+          aud: u.aud,
+          is_sso_user: false,
+          deleted_at: null,
+        }));
+        
+        const totalCount = listData?.total || users.length;
         
         return jsonResponse({ success: true, users, totalCount });
       }
 
       case 'export_users_as_sql': {
-        const { data: usersResult, error: usersErr } = await supabase.rpc('exec_sql', {
-          sql: `
-            SELECT 
-              id, instance_id, aud, role, email, encrypted_password, 
-              email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at,
-              recovery_token, recovery_sent_at, email_change_token_new, email_change,
-              email_change_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
-              is_super_admin, created_at, updated_at, phone, phone_confirmed_at,
-              phone_change, phone_change_token, phone_change_sent_at, 
-              email_change_token_current, email_change_confirm_status,
-              banned_until, reauthentication_token, reauthentication_sent_at,
-              is_sso_user, deleted_at
-            FROM auth.users 
-            ORDER BY created_at
-            LIMIT ${limit} OFFSET ${offset}
-          `
+        // Use admin API to reliably list users instead of querying auth.users directly
+        const perPage = Math.min(limit, 1000);
+        const page = Math.floor(offset / perPage) + 1;
+        
+        const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({
+          page,
+          perPage,
         });
-        if (usersErr) throw usersErr;
-        const users = Array.isArray(usersResult) ? usersResult : [];
+        
+        if (listErr) throw listErr;
+        const users = listData?.users || [];
         
         if (users.length === 0) {
           return jsonResponse({ success: true, sql: '', rowCount: 0 });
         }
 
+        // Also get encrypted passwords via SQL since admin API doesn't return them
+        const userIds = users.map(u => `'${u.id}'`).join(',');
+        const { data: pwData } = await supabase.rpc('exec_sql', {
+          sql: `SELECT id, encrypted_password FROM auth.users WHERE id IN (${userIds})`
+        });
+        const pwMap: Record<string, string> = {};
+        if (Array.isArray(pwData)) {
+          for (const row of pwData) {
+            pwMap[row.id] = row.encrypted_password;
+          }
+        }
+
         const insertStatements: string[] = [];
         for (const user of users) {
-          const cols: string[] = [];
-          const vals: string[] = [];
-          for (const [key, val] of Object.entries(user)) {
-            cols.push(`"${key}"`);
-            if (val === null || val === undefined) {
-              vals.push('NULL');
-            } else if (typeof val === 'number') {
-              vals.push(String(val));
-            } else if (typeof val === 'boolean') {
-              vals.push(val ? 'TRUE' : 'FALSE');
-            } else if (typeof val === 'object') {
-              vals.push(`'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`);
-            } else {
-              vals.push(`'${String(val).replace(/'/g, "''")}'`);
-            }
-          }
+          const encPw = pwMap[user.id] || '';
+          const meta = user.user_metadata ? JSON.stringify(user.user_metadata).replace(/'/g, "''") : '{}';
+          const appMeta = user.app_metadata ? JSON.stringify(user.app_metadata).replace(/'/g, "''") : '{}';
+          
+          const vals = [
+            `'${user.id}'`,
+            `'00000000-0000-0000-0000-000000000000'`, // instance_id
+            `'authenticated'`, // aud
+            `'authenticated'`, // role
+            user.email ? `'${user.email.replace(/'/g, "''")}'` : 'NULL',
+            encPw ? `'${encPw.replace(/'/g, "''")}'` : 'NULL',
+            user.email_confirmed_at ? `'${user.email_confirmed_at}'` : 'NULL',
+            'NULL', // invited_at
+            `''`, // confirmation_token
+            'NULL', // confirmation_sent_at
+            `''`, // recovery_token
+            'NULL', // recovery_sent_at
+            `''`, // email_change_token_new
+            `''`, // email_change
+            'NULL', // email_change_sent_at
+            user.last_sign_in_at ? `'${user.last_sign_in_at}'` : 'NULL',
+            `'${appMeta}'::jsonb`,
+            `'${meta}'::jsonb`,
+            'FALSE', // is_super_admin
+            `'${user.created_at}'`,
+            `'${user.updated_at || user.created_at}'`,
+            user.phone ? `'${user.phone}'` : 'NULL',
+            user.phone_confirmed_at ? `'${user.phone_confirmed_at}'` : 'NULL',
+            `''`, // phone_change
+            `''`, // phone_change_token
+            'NULL', // phone_change_sent_at
+            `''`, // email_change_token_current
+            '0', // email_change_confirm_status
+            'NULL', // banned_until
+            `''`, // reauthentication_token
+            'NULL', // reauthentication_sent_at
+            'FALSE', // is_sso_user
+            'NULL', // deleted_at
+          ];
+
           insertStatements.push(
-            `INSERT INTO auth.users (${cols.join(', ')}) VALUES (${vals.join(', ')}) ON CONFLICT (id) DO NOTHING;`
+            `INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at, recovery_token, recovery_sent_at, email_change_token_new, email_change, email_change_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at, phone, phone_confirmed_at, phone_change, phone_change_token, phone_change_sent_at, email_change_token_current, email_change_confirm_status, banned_until, reauthentication_token, reauthentication_sent_at, is_sso_user, deleted_at) VALUES (${vals.join(', ')}) ON CONFLICT (id) DO NOTHING;`
           );
         }
 
