@@ -2211,6 +2211,48 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
           
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-4 pr-4">
+              {/* Migration Summary when complete */}
+              {isMigrationComplete && (
+                <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                  <p className="text-sm font-medium">{isRTL ? 'ملخص الترحيل:' : 'Migration Summary:'}</p>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    {migrateDataEnabled && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Database className="h-4 w-4" />
+                          <span>{isRTL ? 'الجداول' : 'Tables'}</span>
+                        </div>
+                        <span className="font-mono">
+                          {migrationTables.filter(t => t.status === 'done').length}/{migrationTables.length} {isRTL ? 'جدول' : 'tables'} — {migrationTables.reduce((sum, t) => sum + t.migratedRows, 0).toLocaleString()} {isRTL ? 'صف' : 'rows'}
+                        </span>
+                      </div>
+                    )}
+                    {migrateUsersEnabled && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          <span>{isRTL ? 'المستخدمين' : 'Users'}</span>
+                        </div>
+                        <span className="font-mono">
+                          {migrationUsersCount} {isRTL ? 'مستخدم' : 'users'} — {migrationUsersStatus === 'done' ? '✓' : migrationUsersStatus === 'error' ? '✗' : '—'}
+                        </span>
+                      </div>
+                    )}
+                    {migrateStorageEnabled && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <HardDrive className="h-4 w-4" />
+                          <span>{isRTL ? 'التخزين' : 'Storage'}</span>
+                        </div>
+                        <span className="font-mono">
+                          {migrationStorageBuckets.length} {isRTL ? 'حاوية' : 'buckets'}, {migrationStorageFileCount} {isRTL ? 'ملف' : 'files'} — {migrationStorageStatus === 'done' ? '✓' : migrationStorageStatus === 'error' ? '✗' : '—'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Data Migration Progress */}
               {migrateDataEnabled && migrationTables.length > 0 && (
                 <div className="space-y-2">
