@@ -6,12 +6,13 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, RefreshCw, Download, Calendar, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, RefreshCw, Download, Calendar, AlertTriangle, CheckCircle2, XCircle, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
+import { getPrintLogoUrl, PRINT_LOGO_STYLES } from "@/lib/printLogo";
 
 interface ComparisonRow {
   order_number: string;
@@ -231,6 +232,121 @@ const DataComparisonReport = () => {
     XLSX.writeFile(wb, `data-comparison-${fromDate}-to-${toDate}.xlsx`);
   };
 
+  const printErrorsReport = () => {
+    const errorRows = data.filter((r) => r.status !== "match");
+    const errorPurpleTotal = errorRows.reduce((s, r) => s + r.purple_total, 0);
+    const errorApiTotal = errorRows.reduce((s, r) => s + r.api_total, 0);
+    const errorDiff = errorRows.reduce((s, r) => s + r.total_diff, 0);
+    const logoUrl = getPrintLogoUrl();
+
+    const statusLabel = (status: string) => {
+      if (status === "missing_api") return language === "ar" ? "غير موجود في API" : "Missing from API";
+      if (status === "missing_purple") return language === "ar" ? "غير موجود في بوربل" : "Missing from Purple";
+      return language === "ar" ? "فرق في المبلغ" : "Amount Mismatch";
+    };
+
+    const statusColor = (status: string) => {
+      if (status === "missing_api") return "#dc2626";
+      if (status === "missing_purple") return "#f97316";
+      return "#eab308";
+    };
+
+    const isRtl = language === "ar";
+
+    const html = `
+      <html dir="${isRtl ? "rtl" : "ltr"}">
+      <head>
+        <title>${isRtl ? "تقرير مقارنة البيانات - الأخطاء" : "Data Comparison Report - Errors"}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; color: #000; font-size: 11px; }
+          .header { text-align: center; margin-bottom: 16px; }
+          .header img { width: ${PRINT_LOGO_STYLES.width}; margin-bottom: 8px; }
+          .header h1 { font-size: 16px; margin-bottom: 4px; }
+          .header p { font-size: 11px; color: #666; }
+          .summary { display: flex; gap: 16px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+          .summary-card { border: 1px solid #ccc; border-radius: 6px; padding: 8px 14px; text-align: center; min-width: 120px; }
+          .summary-card .label { font-size: 10px; color: #666; }
+          .summary-card .value { font-size: 14px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: ${isRtl ? "right" : "left"}; font-size: 10px; }
+          th { background: #f3f4f6; font-weight: bold; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .status-badge { padding: 2px 6px; border-radius: 4px; color: #fff; font-size: 9px; font-weight: bold; display: inline-block; }
+          .diff-positive { color: #dc2626; font-weight: bold; }
+          .diff-negative { color: #f97316; font-weight: bold; }
+          .footer { margin-top: 12px; text-align: center; font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 8px; }
+          @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="${logoUrl}" alt="Logo" />
+          <h1>${isRtl ? "تقرير مقارنة البيانات - الأخطاء فقط" : "Data Comparison Report - Errors Only"}</h1>
+          <p>${isRtl ? "من" : "From"}: ${fromDate} ${isRtl ? "إلى" : "To"}: ${toDate}</p>
+        </div>
+        <div class="summary">
+          <div class="summary-card">
+            <div class="label">${isRtl ? "عدد الأخطاء" : "Error Count"}</div>
+            <div class="value" style="color:#dc2626;">${errorRows.length}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">${isRtl ? "إجمالي بوربل" : "Purple Total"}</div>
+            <div class="value" style="color:#2563eb;">${formatNumber(errorPurpleTotal)}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">${isRtl ? "إجمالي API" : "API Total"}</div>
+            <div class="value" style="color:#16a34a;">${formatNumber(errorApiTotal)}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">${isRtl ? "الفرق" : "Difference"}</div>
+            <div class="value" style="color:#dc2626;">${formatNumber(errorDiff)}</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isRtl ? "رقم الطلب" : "Order #"}</th>
+              <th class="text-center">${isRtl ? "أسطر بوربل" : "Purple Lines"}</th>
+              <th class="text-right">${isRtl ? "إجمالي بوربل" : "Purple Total"}</th>
+              <th class="text-center">${isRtl ? "أسطر API" : "API Lines"}</th>
+              <th class="text-right">${isRtl ? "إجمالي API" : "API Total"}</th>
+              <th class="text-right">${isRtl ? "الفرق" : "Difference"}</th>
+              <th>${isRtl ? "الحالة" : "Status"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${errorRows.map((row, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td style="font-family:monospace;font-weight:600;">${row.order_number}</td>
+                <td class="text-center">${row.purple_lines || "-"}</td>
+                <td class="text-right">${row.purple_total ? formatNumber(row.purple_total) : "-"}</td>
+                <td class="text-center">${row.api_lines || "-"}</td>
+                <td class="text-right">${row.api_total ? formatNumber(row.api_total) : "-"}</td>
+                <td class="text-right ${row.total_diff > 0 ? "diff-positive" : row.total_diff < 0 ? "diff-negative" : ""}">${formatNumber(row.total_diff)}</td>
+                <td><span class="status-badge" style="background:${statusColor(row.status)};">${statusLabel(row.status)}</span></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+        <div class="footer">
+          ${isRtl ? "تم الطباعة بتاريخ" : "Printed on"}: ${new Date().toLocaleString()}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => { printWindow.print(); };
+    }
+  }
+
   const getStatusBadge = (status: ComparisonRow["status"]) => {
     switch (status) {
       case "match":
@@ -273,10 +389,16 @@ const DataComparisonReport = () => {
               {language === "ar" ? "تحميل" : "Load"}
             </Button>
             {data.length > 0 && (
-              <Button variant="outline" onClick={exportToExcel}>
-                <Download className="h-4 w-4 mr-2" />
-                {language === "ar" ? "تصدير Excel" : "Export Excel"}
-              </Button>
+              <>
+                <Button variant="outline" onClick={exportToExcel}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {language === "ar" ? "تصدير Excel" : "Export Excel"}
+                </Button>
+                <Button variant="outline" onClick={printErrorsReport}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  {language === "ar" ? "طباعة الأخطاء" : "Print Errors"}
+                </Button>
+              </>
             )}
           </div>
         </CardContent>
