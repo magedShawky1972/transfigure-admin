@@ -123,11 +123,13 @@ const ApiConsumptionLogs = () => {
     "api-zk-attendance",
   ];
 
+  const hasActiveColumnFilters = Object.values(columnFilters).some(v => v.trim() !== "");
+
   useEffect(() => {
     if (hasAccess) {
       fetchLogs();
     }
-  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess, currentPage, pageSize]);
+  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess, currentPage, pageSize, hasActiveColumnFilters]);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -212,18 +214,24 @@ const ApiConsumptionLogs = () => {
     try {
       const { start, end } = getDateRange();
       
+      // When column filters are active, fetch ALL data for client-side filtering
+      const shouldFetchAll = hasActiveColumnFilters;
+      
       // Calculate pagination offset
       const from = (currentPage - 1) * pageSize;
       const to = from + pageSize - 1;
       
-      // Fetch logs with pagination
       let logsQuery = supabase
         .from("api_consumption_logs")
         .select("*", { count: "exact" })
         .gte("created_at", start)
         .lte("created_at", end)
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        .order("created_at", { ascending: false });
+
+      // Only apply pagination when no column filters are active
+      if (!shouldFetchAll) {
+        logsQuery = logsQuery.range(from, to);
+      }
 
       if (endpointFilter !== "all") {
         logsQuery = logsQuery.eq("endpoint", endpointFilter);
@@ -303,7 +311,30 @@ const ApiConsumptionLogs = () => {
 
       if (logsResult.error) throw logsResult.error;
 
-      const data = logsResult.data || [];
+      let data = logsResult.data || [];
+      
+      // If fetching all data for column filtering, batch-fetch remaining records
+      if (shouldFetchAll && logsResult.count && logsResult.count > data.length) {
+        const totalToFetch = logsResult.count;
+        let offset = data.length;
+        while (offset < totalToFetch) {
+          let batchQuery = supabase
+            .from("api_consumption_logs")
+            .select("*")
+            .gte("created_at", start)
+            .lte("created_at", end)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + 999);
+          if (endpointFilter !== "all") batchQuery = batchQuery.eq("endpoint", endpointFilter);
+          if (statusFilter === "success") batchQuery = batchQuery.eq("success", true);
+          else if (statusFilter === "failed") batchQuery = batchQuery.eq("success", false);
+          const { data: batchData } = await batchQuery;
+          if (!batchData || batchData.length === 0) break;
+          data = [...data, ...batchData];
+          offset += batchData.length;
+        }
+      }
+      
       setLogs(data);
       setTotalRecords(logsResult.count || 0);
       
