@@ -66,8 +66,8 @@ interface ApiStats {
 const getOrderNumber = (log: ApiLog): string => {
   if (!log.request_body) return "";
   const body = log.request_body as any;
-  // Check for Order_Number (salesheader) or order_number
-  return String(body.Order_Number || body.order_number || "");
+  // Check for Order_Number (salesheader), Order_number (payment), or order_number (lowercase)
+  return String(body.Order_Number || body.Order_number || body.order_number || "");
 };
 
 const ApiConsumptionLogs = () => {
@@ -413,8 +413,8 @@ const ApiConsumptionLogs = () => {
     // Apply column filters
     const orderNumber = getOrderNumber(log);
     
-    if (columnFilters.orderNumber && orderNumber) {
-      if (!orderNumber.toLowerCase().includes(columnFilters.orderNumber.toLowerCase())) {
+    if (columnFilters.orderNumber) {
+      if (!orderNumber || !orderNumber.toLowerCase().includes(columnFilters.orderNumber.toLowerCase())) {
         return false;
       }
     }
