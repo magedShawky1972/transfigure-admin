@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
@@ -125,6 +125,47 @@ const SystemRestore = () => {
   const [externalTables, setExternalTables] = useState<{name: string, rowCount: number}[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [tablesError, setTablesError] = useState<string | null>(null);
+  const [savedConnectionName, setSavedConnectionName] = useState("");
+
+  // Load saved external DB connections from localStorage
+  const getSavedConnections = (): { name: string; url: string; anonKey: string }[] => {
+    try {
+      const saved = localStorage.getItem('external_db_connections');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [savedConnections, setSavedConnections] = useState<{ name: string; url: string; anonKey: string }[]>(getSavedConnections);
+
+  const handleSaveConnection = () => {
+    if (!externalUrl || !externalAnonKey) {
+      toast.error(isRTL ? 'يرجى إدخال URL و Anon Key أولاً' : 'Please enter URL and Anon Key first');
+      return;
+    }
+    const name = savedConnectionName.trim() || new URL(externalUrl).hostname;
+    const existing = savedConnections.filter(c => c.url !== externalUrl);
+    const updated = [...existing, { name, url: externalUrl, anonKey: externalAnonKey }];
+    localStorage.setItem('external_db_connections', JSON.stringify(updated));
+    setSavedConnections(updated);
+    setSavedConnectionName("");
+    toast.success(isRTL ? 'تم حفظ الاتصال' : 'Connection saved');
+  };
+
+  const handleLoadConnection = (conn: { name: string; url: string; anonKey: string }) => {
+    setExternalUrl(conn.url);
+    setExternalAnonKey(conn.anonKey);
+    setConnectionValid(null);
+    toast.success(isRTL ? `تم تحميل: ${conn.name}` : `Loaded: ${conn.name}`);
+  };
+
+  const handleDeleteConnection = (url: string) => {
+    const updated = savedConnections.filter(c => c.url !== url);
+    localStorage.setItem('external_db_connections', JSON.stringify(updated));
+    setSavedConnections(updated);
+    toast.success(isRTL ? 'تم حذف الاتصال' : 'Connection deleted');
+  };
   
   // Manual SQL generation state
   const [showManualSqlDialog, setShowManualSqlDialog] = useState(false);
@@ -1169,7 +1210,39 @@ const SystemRestore = () => {
               />
             </div>
             
-            <div className="flex items-center gap-3">
+            {/* Saved Connections */}
+            {savedConnections.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  {isRTL ? 'الاتصالات المحفوظة' : 'Saved Connections'}
+                </Label>
+                <div className="space-y-1">
+                  {savedConnections.map((conn, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 justify-start font-mono text-xs"
+                        onClick={() => handleLoadConnection(conn)}
+                      >
+                        <Server className="h-3 w-3 mr-2 shrink-0" />
+                        {conn.name}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteConnection(conn.url)}
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex items-center gap-3 flex-wrap">
               <Button
                 variant="outline"
                 onClick={testExternalConnection}
@@ -1186,6 +1259,15 @@ const SystemRestore = () => {
                     {isRTL ? 'اختبار الاتصال' : 'Test Connection'}
                   </>
                 )}
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={handleSaveConnection}
+                disabled={!externalUrl || !externalAnonKey}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isRTL ? 'حفظ الاتصال' : 'Save Connection'}
               </Button>
               
               {connectionValid === true && (
