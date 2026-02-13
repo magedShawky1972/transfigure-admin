@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare, ClipboardCheck } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare, ClipboardCheck, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import ShiftClosingDetailsDialog from "@/components/ShiftClosingDetailsDialog";
 import ShiftAttendanceReportDialog from "@/components/ShiftAttendanceReportDialog";
+import UploadMissingImagesDialog from "@/components/UploadMissingImagesDialog";
 import { getKSADateString, formatKSADateTime, isOnKSADate, getKSATimeInMinutes } from "@/lib/ksaTime";
 
 interface ShiftSession {
@@ -121,6 +122,10 @@ export default function ShiftFollowUp() {
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
   const [attendanceUserId, setAttendanceUserId] = useState<string | undefined>(undefined);
   const [attendanceUserName, setAttendanceUserName] = useState<string | undefined>(undefined);
+  const [uploadImagesDialogOpen, setUploadImagesDialogOpen] = useState(false);
+  const [uploadImagesSessionId, setUploadImagesSessionId] = useState<string | null>(null);
+  const [uploadImagesUserName, setUploadImagesUserName] = useState("");
+  const [uploadImagesShiftName, setUploadImagesShiftName] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -781,7 +786,7 @@ export default function ShiftFollowUp() {
                         {getStatusBadge(latestSession)}
                       </TableCell>
                       <TableCell>
-                        {latestSession ? (() => {
+                      {latestSession ? (() => {
                           const uploaded = latestSession.uploaded_images_count || 0;
                           const required = latestSession.required_images_count || 0;
                           const missing = required - uploaded;
@@ -794,12 +799,21 @@ export default function ShiftFollowUp() {
                                   ✅ {uploaded}/{required}
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1">
+                                <button
+                                  className="flex items-center gap-1 hover:underline cursor-pointer"
+                                  onClick={() => {
+                                    setUploadImagesSessionId(latestSession.id);
+                                    setUploadImagesUserName(assignment.profiles.user_name);
+                                    setUploadImagesShiftName(assignment.shifts.shift_name);
+                                    setUploadImagesDialogOpen(true);
+                                  }}
+                                >
+                                  <Upload className="h-3 w-3" />
                                   ⚠️ {uploaded}/{required}
                                   <span className="text-xs text-destructive">
                                     (ناقص {missing})
                                   </span>
-                                </span>
+                                </button>
                               )}
                             </div>
                           );
@@ -928,6 +942,20 @@ export default function ShiftFollowUp() {
                                       >
                                         <Eye className="h-4 w-4 ml-1" />
                                         {t("Details")}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                                        onClick={() => {
+                                          setUploadImagesSessionId(latestSession?.id || null);
+                                          setUploadImagesUserName(assignment.profiles.user_name);
+                                          setUploadImagesShiftName(assignment.shifts.shift_name);
+                                          setUploadImagesDialogOpen(true);
+                                        }}
+                                      >
+                                        <Upload className="h-4 w-4 ml-1" />
+                                        {"رفع صور"}
                                       </Button>
                                       <Button
                                         size="sm"
@@ -1125,6 +1153,16 @@ export default function ShiftFollowUp() {
         selectedDate={selectedDate}
         selectedUserId={attendanceUserId}
         selectedUserName={attendanceUserName}
+      />
+
+      {/* Upload Missing Images Dialog */}
+      <UploadMissingImagesDialog
+        open={uploadImagesDialogOpen}
+        onOpenChange={setUploadImagesDialogOpen}
+        shiftSessionId={uploadImagesSessionId}
+        userName={uploadImagesUserName}
+        shiftName={uploadImagesShiftName}
+        onImagesUploaded={fetchAssignments}
       />
     </div>
   );
