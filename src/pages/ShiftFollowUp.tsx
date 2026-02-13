@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare, ClipboardCheck, Upload } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare, ClipboardCheck, Upload, ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -725,13 +725,38 @@ export default function ShiftFollowUp() {
           <div className="flex items-end gap-4">
             <div className="flex-1">
               <Label htmlFor="date">{t("Date")}</Label>
-              <Input
-                id="date"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="mt-1"
-              />
+              <div className="flex items-center gap-2 mt-1">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => {
+                    const d = new Date(selectedDate + 'T00:00:00');
+                    d.setDate(d.getDate() + 1);
+                    setSelectedDate(format(d, 'yyyy-MM-dd'));
+                  }}
+                  title={language === 'ar' ? "اليوم التالي" : "Next day"}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Input
+                  id="date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => {
+                    const d = new Date(selectedDate + 'T00:00:00');
+                    d.setDate(d.getDate() - 1);
+                    setSelectedDate(format(d, 'yyyy-MM-dd'));
+                  }}
+                  title={language === 'ar' ? "اليوم السابق" : "Previous day"}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              </div>
               <p className="text-sm text-muted-foreground mt-1">
                 {formatDateInArabic(selectedDate)}
               </p>
