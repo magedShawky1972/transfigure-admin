@@ -126,6 +126,7 @@ export default function ShiftFollowUp() {
   const [uploadImagesSessionId, setUploadImagesSessionId] = useState<string | null>(null);
   const [uploadImagesUserName, setUploadImagesUserName] = useState("");
   const [uploadImagesShiftName, setUploadImagesShiftName] = useState("");
+  const [creatingSessionForUpload, setCreatingSessionForUpload] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -636,6 +637,49 @@ export default function ShiftFollowUp() {
     setAdminNoteDialogOpen(true);
   };
 
+  const handleCreateSessionAndUpload = async (assignment: ShiftAssignment) => {
+    setCreatingSessionForUpload(true);
+    try {
+      const { data: { user: adminUser } } = await supabase.auth.getUser();
+      if (!adminUser) throw new Error("Admin not authenticated");
+
+      const { data: adminProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", adminUser.id)
+        .single();
+
+      const supervisorName = adminProfile?.user_name || "Supervisor";
+
+      // Create a lightweight closed session for image attachment
+      const { data: newSession, error } = await supabase
+        .from("shift_sessions")
+        .insert({
+          user_id: assignment.user_id,
+          shift_assignment_id: assignment.id,
+          status: "closed",
+          closed_at: new Date().toISOString(),
+          closing_notes: `رفع صور من المشرف ${supervisorName} - جلسة تم إنشاؤها لإرفاق الصور`,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Open upload dialog with the new session
+      setUploadImagesSessionId(newSession.id);
+      setUploadImagesUserName(assignment.profiles.user_name);
+      setUploadImagesShiftName(assignment.shifts.shift_name);
+      setUploadImagesDialogOpen(true);
+      fetchAssignments();
+    } catch (error: any) {
+      console.error("Error creating session for upload:", error);
+      toast.error(language === 'ar' ? "فشل في إنشاء الجلسة" : "Failed to create session");
+    } finally {
+      setCreatingSessionForUpload(false);
+    }
+  };
+
   const handleCancelNoteEdit = () => {
     setAdminNoteDialogOpen(false);
     setEditingNoteSessionId(null);
@@ -902,19 +946,31 @@ export default function ShiftFollowUp() {
                                   >
                                     <ClipboardCheck className="h-4 w-4" />
                                   </Button>
-                                  {!currentStatus && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-green-600 border-green-300 hover:bg-green-50"
-                                      onClick={() => {
-                                        setAssignmentToOpen(assignment);
-                                        setOpenShiftDialogOpen(true);
-                                      }}
-                                    >
-                                      <Play className="h-4 w-4 ml-1" />
-                                      {t("Open Shift")}
-                                    </Button>
+                                   {!currentStatus && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-green-600 border-green-300 hover:bg-green-50"
+                                        onClick={() => {
+                                          setAssignmentToOpen(assignment);
+                                          setOpenShiftDialogOpen(true);
+                                        }}
+                                      >
+                                        <Play className="h-4 w-4 ml-1" />
+                                        {t("Open Shift")}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                                        disabled={creatingSessionForUpload}
+                                        onClick={() => handleCreateSessionAndUpload(assignment)}
+                                      >
+                                        <Upload className="h-4 w-4 ml-1" />
+                                        {language === 'ar' ? "رفع صور" : "Upload Images"}
+                                      </Button>
+                                    </>
                                   )}
                                   {currentStatus === "open" && (
                                     <Button
