@@ -1,0 +1,1 @@
+ALTER TABLE public.products ADD COLUMN allow_purchase boolean NOT NULL DEFAULT true;

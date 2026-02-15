@@ -44,6 +44,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProductExcelUpload } from "@/components/ProductExcelUpload";
 import { AdvancedProductFilter, FilterRule } from "@/components/AdvancedProductFilter";
 import { format } from "date-fns";
@@ -155,6 +156,7 @@ const ProductSetup = () => {
     brand_type: "",
     status: "active",
     sku: "",
+    allow_purchase: true,
   });
 
   useEffect(() => {
@@ -338,7 +340,8 @@ const ProductSetup = () => {
             brand_type: formData.brand_type || null,
             status: formData.status,
             sku: formData.sku || null,
-          })
+            allow_purchase: formData.allow_purchase,
+          } as any)
           .eq("id", editingProduct.id);
 
         if (error) throw error;
@@ -360,7 +363,8 @@ const ProductSetup = () => {
             brand_type: formData.brand_type || null,
             status: formData.status,
             sku: formData.sku || null,
-          });
+            allow_purchase: formData.allow_purchase,
+          } as any);
 
         if (error) throw error;
         toast({
@@ -396,6 +400,7 @@ const ProductSetup = () => {
       brand_type: product.brand_type || "",
       status: product.status,
       sku: product.sku || "",
+      allow_purchase: (product as any).allow_purchase ?? true,
     });
     setDialogOpen(true);
   };
@@ -440,6 +445,7 @@ const ProductSetup = () => {
       brand_type: "",
       status: "active",
       sku: "",
+      allow_purchase: true,
     });
     setEditingProduct(null);
   };
@@ -1085,6 +1091,14 @@ const ProductSetup = () => {
                   <SelectItem value="inactive">{t("productSetup.inactive")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="allow_purchase"
+                checked={formData.allow_purchase}
+                onCheckedChange={(checked) => setFormData({ ...formData, allow_purchase: checked === true })}
+              />
+              <Label htmlFor="allow_purchase">Allow Purchase</Label>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
