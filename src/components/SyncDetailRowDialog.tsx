@@ -89,21 +89,8 @@ export const SyncDetailRowDialog = ({
 
       const { data: lines } = await supabase
         .from('purpletransaction')
-        .select('product_name, brand_name, qty, unit_price, total, vendor_name, order_number')
+        .select('product_name, brand_name, product_id, qty, unit_price, total, vendor_name, order_number')
         .in('order_number', orderNumbers);
-
-      // Fetch product SKUs
-      const productNamesList = (lines || []).map(l => l.product_name).filter(Boolean) as string[];
-      let skuMap = new Map<string, { sku: string; odoo_product_id: number | null }>();
-      if (productNamesList.length > 0) {
-        const { data: products } = await supabase
-          .from('products')
-          .select('product_name, sku, odoo_product_id')
-          .in('product_name', productNamesList);
-        products?.forEach(p => {
-          if (p.product_name) skuMap.set(p.product_name, { sku: p.sku || '', odoo_product_id: p.odoo_product_id });
-        });
-      }
 
       // Fetch Odoo config
       const { data: odooConfig } = await supabase
@@ -113,28 +100,60 @@ export const SyncDetailRowDialog = ({
         .maybeSingle();
 
       const isProduction = odooConfig?.is_production_mode !== false;
+      const salesOrderApiUrl = isProduction ? odooConfig?.sales_order_api_url : odooConfig?.sales_order_api_url_test;
 
-      // Build the reconstructed API body (sales order format)
-      const orderLines = (lines || []).map(line => {
-        const prodInfo = line.product_name ? skuMap.get(line.product_name) : null;
-        return {
-          product_sku: prodInfo?.sku || '',
+      let orderLines: any[] = [];
+
+      if (lines && lines.length > 0) {
+        // Fetch product SKUs from products table
+        const productIds = [...new Set(lines.map(l => l.product_id).filter(Boolean))];
+        let skuMap = new Map<string, string>();
+        if (productIds.length > 0) {
+          const { data: products } = await supabase
+            .from('products')
+            .select('product_id, sku')
+            .in('product_id', productIds);
+          products?.forEach(p => {
+            if (p.product_id && p.sku) skuMap.set(p.product_id, p.sku);
+          });
+        }
+
+        orderLines = lines.map((line, index) => ({
+          line_number: index + 1,
+          product_sku: (line.product_id ? skuMap.get(line.product_id) : null) || line.product_id || '',
           product_name: line.product_name,
-          qty: line.qty,
-          unit_price: line.unit_price,
-          total: line.total,
-        };
-      });
+          quantity: parseFloat(String(line.qty)) || 1,
+          uom: 'Unit',
+          unit_price: parseFloat(String(line.unit_price)) || 0,
+          total: parseFloat(String(line.total)) || 0,
+        }));
+      } else if (productNames) {
+        // Fallback: use productNames from sync data (comma-separated: "qty\nname,qty\nname")
+        const items = productNames.split(',').map(s => s.trim()).filter(Boolean);
+        orderLines = items.map((item, index) => ({
+          line_number: index + 1,
+          product_name: item,
+          note: 'from sync data (no transaction lines found)',
+        }));
+      }
 
+      // Build body matching the actual Odoo sync format
       const body = {
-        order_number: orderNumber,
-        order_date: orderDate,
-        customer_phone: customerPhone,
-        payment_method: paymentMethod,
-        payment_brand: paymentBrand,
-        total_amount: totalAmount,
+        _note: 'Reconstructed API body (actual body may differ slightly)',
+        api_url: salesOrderApiUrl || 'N/A',
         environment: isProduction ? 'Production' : 'Test',
-        order_lines: orderLines,
+        method: 'POST',
+        body: {
+          order_number: orderNumber,
+          customer_phone: customerPhone,
+          order_date: orderDate,
+          payment_method: paymentMethod,
+          payment_brand: paymentBrand || '',
+          sales_person: '',
+          online_payment: 'true',
+          company: 'Purple',
+          lines: orderLines,
+        },
       };
 
       setApiBody(body);
