@@ -80,6 +80,7 @@ const ReceivingCoins = () => {
   useEffect(() => {
     if (brandId) {
       fetchAndAutoAddProducts();
+      fetchBrandSuppliers();
     } else {
       setProducts([]);
       setLines([]);
@@ -97,7 +98,22 @@ const ReceivingCoins = () => {
     if (bankRes.data) setBanks(bankRes.data);
   };
 
-  const fetchAndAutoAddProducts = async () => {
+  const fetchBrandSuppliers = async () => {
+    const { data } = await supabase
+      .from("brand_suppliers")
+      .select("supplier_id")
+      .eq("brand_id", brandId);
+    if (data && data.length > 0) {
+      // Filter suppliers list to only brand-linked ones
+      const linkedIds = data.map(d => d.supplier_id);
+      const filtered = suppliers.filter(s => linkedIds.includes(s.id));
+      if (filtered.length === 1) {
+        setSupplierId(filtered[0].id);
+      }
+    }
+  };
+
+
     const selectedBrand = brands.find(b => b.id === brandId);
     if (!selectedBrand) return;
 
