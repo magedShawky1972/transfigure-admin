@@ -18,7 +18,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Download, Printer, RefreshCw, Search, ChevronDown, X, AlertTriangle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Download, Printer, RefreshCw, Search, ChevronDown, X, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -55,6 +61,11 @@ const CoinsComparisonReport = () => {
   const [reportData, setReportData] = useState<CoinsComparisonRow[]>([]);
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
   const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [drilldownProduct, setDrilldownProduct] = useState<CoinsComparisonRow | null>(null);
+  const [drilldownOrders, setDrilldownOrders] = useState<{ ordernumber: string; qty: number; coins_number: number }[]>([]);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
+  const [drilldownSearch, setDrilldownSearch] = useState("");
 
   // Fetch brands
   const { data: brands = [] } = useQuery({
@@ -265,6 +276,50 @@ const CoinsComparisonReport = () => {
   };
 
   const formatNumber = (n: number) => n.toLocaleString();
+
+  const handleDrilldown = async (row: CoinsComparisonRow) => {
+    setDrilldownProduct(row);
+    setDrilldownOpen(true);
+    setDrilldownLoading(true);
+    setDrilldownOrders([]);
+    setDrilldownSearch("");
+
+    try {
+      const fromInt = parseInt(dateFrom.replace(/-/g, ""));
+      const toInt = parseInt(dateTo.replace(/-/g, ""));
+      const batchSize = 1000;
+      let allOrders: { ordernumber: string; qty: number; coins_number: number }[] = [];
+      let rangeStart = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = supabase
+          .from("purpletransaction")
+          .select("ordernumber, qty, coins_number")
+          .eq("product_id", row.product_id)
+          .gte("created_at_date_int", fromInt)
+          .lte("created_at_date_int", toInt)
+          .gt("coins_number", 0)
+          .range(rangeStart, rangeStart + batchSize - 1);
+
+        if (selectedBrands.length > 0) {
+          query = query.in("brand_name", selectedBrands);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        allOrders = [...allOrders, ...(data || []).map(d => ({ ordernumber: d.ordernumber, qty: Number(d.qty), coins_number: Number(d.coins_number) }))];
+        hasMore = (data?.length || 0) === batchSize;
+        rangeStart += batchSize;
+      }
+
+      setDrilldownOrders(allOrders);
+    } catch (error: any) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setDrilldownLoading(false);
+    }
+  };
 
   const filteredBrands = brands.filter((b) =>
     b.toLowerCase().includes(brandSearchQuery.toLowerCase())
@@ -538,7 +593,14 @@ const CoinsComparisonReport = () => {
                     <TableRow key={row.product_id} className={row.difference !== 0 ? "bg-destructive/5" : ""}>
                       <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
                       <TableCell className="font-mono text-sm">{row.product_id}</TableCell>
-                      <TableCell>{row.product_name}</TableCell>
+                      <TableCell>
+                        <button
+                          className="text-primary hover:underline cursor-pointer font-medium bg-transparent border-none p-0"
+                          onClick={() => handleDrilldown(row)}
+                        >
+                          {row.product_name}
+                        </button>
+                      </TableCell>
                       <TableCell>{row.brand_name}</TableCell>
                       <TableCell className="text-center">{formatNumber(row.total_qty)}</TableCell>
                       <TableCell className="text-center">{formatNumber(row.product_coins_number)}</TableCell>
@@ -568,6 +630,59 @@ const CoinsComparisonReport = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Drilldown Dialog */}
+      <Dialog open={drilldownOpen} onOpenChange={setDrilldownOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              {drilldownProduct?.product_name} ({drilldownProduct?.product_id})
+            </DialogTitle>
+          </DialogHeader>
+          {drilldownLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {isRTL
+                  ? `${drilldownOrders.length} طلب`
+                  : `${drilldownOrders.length} orders`}
+              </p>
+              <Input
+                placeholder={isRTL ? "بحث برقم الطلب..." : "Search order number..."}
+                value={drilldownSearch}
+                onChange={(e) => setDrilldownSearch(e.target.value)}
+              />
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-center">#</TableHead>
+                      <TableHead>{isRTL ? "رقم الطلب" : "Order Number"}</TableHead>
+                      <TableHead className="text-center">{isRTL ? "الكمية" : "Qty"}</TableHead>
+                      <TableHead className="text-center">{isRTL ? "الكوينز" : "Coins"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {drilldownOrders
+                      .filter(o => !drilldownSearch || o.ordernumber.toLowerCase().includes(drilldownSearch.toLowerCase()))
+                      .map((order, idx) => (
+                        <TableRow key={`${order.ordernumber}-${idx}`}>
+                          <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
+                          <TableCell className="font-mono text-sm">{order.ordernumber}</TableCell>
+                          <TableCell className="text-center">{order.qty}</TableCell>
+                          <TableCell className="text-center">{formatNumber(order.coins_number)}</TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
