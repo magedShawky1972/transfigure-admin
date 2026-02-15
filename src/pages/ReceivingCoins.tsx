@@ -113,7 +113,7 @@ const ReceivingCoins = () => {
     }
   };
 
-
+  const fetchAndAutoAddProducts = async () => {
     const selectedBrand = brands.find(b => b.id === brandId);
     if (!selectedBrand) return;
 
