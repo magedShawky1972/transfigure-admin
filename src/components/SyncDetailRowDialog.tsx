@@ -3,7 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Package, Truck, FileText } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Package, Truck, FileText, Code, Copy, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -66,6 +68,90 @@ export const SyncDetailRowDialog = ({
   const [transactionLines, setTransactionLines] = useState<TransactionLine[]>([]);
   const [originalOrders, setOriginalOrders] = useState<string[]>([]);
   const [isOriginalOrdersOpen, setIsOriginalOrdersOpen] = useState(false);
+  const [apiBody, setApiBody] = useState<any>(null);
+  const [apiBodyLoading, setApiBodyLoading] = useState(false);
+  const [isApiBodyOpen, setIsApiBodyOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const fetchApiBody = async () => {
+    if (apiBody) {
+      setIsApiBodyOpen(!isApiBodyOpen);
+      return;
+    }
+    setApiBodyLoading(true);
+    setIsApiBodyOpen(true);
+    try {
+      // Fetch order lines to reconstruct the API body
+      let orderNumbers = [orderNumber];
+      if (isAggregatedOrder && originalOrders.length > 0) {
+        orderNumbers = originalOrders;
+      }
+
+      const { data: lines } = await supabase
+        .from('purpletransaction')
+        .select('product_name, brand_name, qty, unit_price, total, vendor_name, order_number')
+        .in('order_number', orderNumbers);
+
+      // Fetch product SKUs
+      const productNamesList = (lines || []).map(l => l.product_name).filter(Boolean) as string[];
+      let skuMap = new Map<string, { sku: string; odoo_product_id: number | null }>();
+      if (productNamesList.length > 0) {
+        const { data: products } = await supabase
+          .from('products')
+          .select('product_name, sku, odoo_product_id')
+          .in('product_name', productNamesList);
+        products?.forEach(p => {
+          if (p.product_name) skuMap.set(p.product_name, { sku: p.sku || '', odoo_product_id: p.odoo_product_id });
+        });
+      }
+
+      // Fetch Odoo config
+      const { data: odooConfig } = await supabase
+        .from('odoo_api_config')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const isProduction = odooConfig?.is_production_mode !== false;
+
+      // Build the reconstructed API body (sales order format)
+      const orderLines = (lines || []).map(line => {
+        const prodInfo = line.product_name ? skuMap.get(line.product_name) : null;
+        return {
+          product_sku: prodInfo?.sku || '',
+          product_name: line.product_name,
+          qty: line.qty,
+          unit_price: line.unit_price,
+          total: line.total,
+        };
+      });
+
+      const body = {
+        order_number: orderNumber,
+        order_date: orderDate,
+        customer_phone: customerPhone,
+        payment_method: paymentMethod,
+        payment_brand: paymentBrand,
+        total_amount: totalAmount,
+        environment: isProduction ? 'Production' : 'Test',
+        order_lines: orderLines,
+      };
+
+      setApiBody(body);
+    } catch (err) {
+      console.error('Error building API body:', err);
+      toast.error('Failed to build API body');
+    } finally {
+      setApiBodyLoading(false);
+    }
+  };
+
+  const copyApiBody = () => {
+    navigator.clipboard.writeText(JSON.stringify(apiBody, null, 2));
+    setCopied(true);
+    toast.success(language === 'ar' ? 'تم النسخ' : 'Copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     if (open && orderNumber) {
@@ -217,6 +303,15 @@ export const SyncDetailRowDialog = ({
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             {language === 'ar' ? 'تفاصيل الطلب' : 'Order Details'}: {orderNumber}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 ml-2"
+              onClick={fetchApiBody}
+              title={language === 'ar' ? 'عرض بيانات API' : 'Show API Body'}
+            >
+              {apiBodyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Code className="h-4 w-4" />}
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -287,6 +382,24 @@ export const SyncDetailRowDialog = ({
               {language === 'ar' ? 'رسالة الخطأ' : 'Error Message'}
             </div>
             <div className="text-sm text-destructive/80 whitespace-pre-wrap">{errorMessage}</div>
+          </div>
+        )}
+
+        {/* API Body Section */}
+        {isApiBodyOpen && apiBody && (
+          <div className="mb-4 border border-border rounded overflow-hidden">
+            <div className="flex items-center justify-between p-2 bg-muted/50">
+              <span className="text-sm font-medium flex items-center gap-2">
+                <Code className="h-4 w-4" />
+                {language === 'ar' ? 'بيانات API المرسلة' : 'API Body Sent'}
+              </span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyApiBody}>
+                {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              </Button>
+            </div>
+            <pre className="p-3 text-xs overflow-auto max-h-[200px] bg-muted/20 font-mono whitespace-pre-wrap">
+              {JSON.stringify(apiBody, null, 2)}
+            </pre>
           </div>
         )}
 
