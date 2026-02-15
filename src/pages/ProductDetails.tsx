@@ -118,6 +118,7 @@ const ProductDetails = () => {
   
   // Non-stock toggle
   const [nonStock, setNonStock] = useState(false);
+  const [allowPurchase, setAllowPurchase] = useState(true);
 
   // Free coins section
   const [freeCoins, setFreeCoins] = useState<FreeCoin[]>([
@@ -214,6 +215,7 @@ const ProductDetails = () => {
         // Load new fields
         setMobileEnabled(data.mobile_enabled ?? true);
         setNonStock(data.non_stock ?? false);
+        setAllowPurchase((data as any).allow_purchase ?? true);
         setCoinsNumber(data.coins_number?.toString() || "4000000");
         setMinCoins(data.min_coins?.toString() || "0");
         setMaxCoins(data.max_coins?.toString() || "0");
@@ -325,6 +327,7 @@ const ProductDetails = () => {
           product_price: retailPrice,
           mobile_enabled: mobileEnabled,
           non_stock: nonStock,
+          allow_purchase: allowPurchase,
           coins_number: coinsNumber ? parseFloat(coinsNumber) : 0,
           min_coins: minCoins ? parseFloat(minCoins) : 0,
           max_coins: maxCoins ? parseFloat(maxCoins) : 0,
@@ -438,6 +441,27 @@ const ProductDetails = () => {
                     />
                     <span className="text-sm text-muted-foreground">
                       {nonStock ? (language === "ar" ? "نعم" : "Yes") : (language === "ar" ? "لا" : "No")}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Allow Purchase Toggle */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">
+                    {language === "ar" ? "السماح بالشراء" : "Allow Purchase"}
+                  </Label>
+                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <Checkbox
+                      checked={allowPurchase}
+                      onCheckedChange={(checked) => setAllowPurchase(checked === true)}
+                      className="h-5 w-5"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {allowPurchase ? (language === "ar" ? "نعم" : "Yes") : (language === "ar" ? "لا" : "No")}
                     </span>
                   </div>
                 </div>
