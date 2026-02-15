@@ -295,7 +295,7 @@ const CoinsComparisonReport = () => {
       while (hasMore) {
         let query = supabase
           .from("purpletransaction")
-          .select("ordernumber, qty, coins_number, created_at_date, payment_method")
+          .select("order_number, qty, coins_number, created_at_date, payment_method")
           .eq("product_id", row.product_id)
           .gte("created_at_date_int", fromInt)
           .lte("created_at_date_int", toInt)
@@ -308,7 +308,7 @@ const CoinsComparisonReport = () => {
 
         const { data, error } = await query;
         if (error) throw error;
-        allOrders = [...allOrders, ...(data || []).map(d => ({ ordernumber: d.ordernumber, qty: Number(d.qty), coins_number: Number(d.coins_number), created_at_date: d.created_at_date, payment_method: d.payment_method }))];
+        allOrders = [...allOrders, ...(data || []).map(d => ({ ordernumber: (d as any).order_number, qty: Number(d.qty), coins_number: Number(d.coins_number), created_at_date: d.created_at_date, payment_method: d.payment_method }))];
         hasMore = (data?.length || 0) === batchSize;
         rangeStart += batchSize;
       }
