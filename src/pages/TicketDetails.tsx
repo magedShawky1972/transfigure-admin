@@ -616,11 +616,17 @@ const TicketDetails = () => {
       });
 
       const publicId = `tickets/${id}/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      // Determine resource type based on file MIME type
+      const isImage = selectedFile.type.startsWith('image/');
+      const isVideo = selectedFile.type.startsWith('video/');
+      const resourceType = isImage ? 'image' : isVideo ? 'video' : 'raw';
+
       const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
         body: { 
           imageBase64: base64, 
           folder: "Edara_Images",
-          publicId 
+          publicId,
+          resourceType
         },
       });
 
