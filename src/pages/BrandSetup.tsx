@@ -15,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, RefreshCw } from "lucide-react";
+import { Pencil, Trash2, Plus, RefreshCw, Truck } from "lucide-react";
+import BrandSuppliersDialog from "@/components/BrandSuppliersDialog";
 import { format } from "date-fns";
 
 interface Brand {
@@ -52,6 +53,7 @@ const BrandSetup = () => {
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncingBrandId, setSyncingBrandId] = useState<string | null>(null);
+  const [suppliersDialogBrand, setSuppliersDialogBrand] = useState<Brand | null>(null);
   
   // Load filters from localStorage or use defaults
   const [filterBrandName, setFilterBrandName] = useState(() => 
@@ -424,6 +426,14 @@ const BrandSetup = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => setSuppliersDialogBrand(brand)}
+                          title="Suppliers"
+                        >
+                          <Truck className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleSyncToOdoo(brand)}
                           disabled={syncingBrandId === brand.id || !brand.brand_code}
                           title="Sync to Odoo"
@@ -453,6 +463,15 @@ const BrandSetup = () => {
           </Table>
         </div>
       </div>
+
+      {suppliersDialogBrand && (
+        <BrandSuppliersDialog
+          open={!!suppliersDialogBrand}
+          onOpenChange={(open) => !open && setSuppliersDialogBrand(null)}
+          brandId={suppliersDialogBrand.id}
+          brandName={suppliersDialogBrand.brand_name}
+        />
+      )}
     </>
   );
 };
