@@ -4215,6 +4215,7 @@ export type Database = {
       products: {
         Row: {
           abc_analysis: string | null
+          allow_purchase: boolean
           barcode: string | null
           brand_code: string | null
           brand_name: string | null
@@ -4261,6 +4262,7 @@ export type Database = {
         }
         Insert: {
           abc_analysis?: string | null
+          allow_purchase?: boolean
           barcode?: string | null
           brand_code?: string | null
           brand_name?: string | null
@@ -4307,6 +4309,7 @@ export type Database = {
         }
         Update: {
           abc_analysis?: string | null
+          allow_purchase?: boolean
           barcode?: string | null
           brand_code?: string | null
           brand_name?: string | null
