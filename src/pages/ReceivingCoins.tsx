@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePageAccess } from "@/hooks/usePageAccess";
+import { AccessDenied } from "@/components/AccessDenied";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +35,7 @@ interface Attachment {
 const ReceivingCoins = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
+  const { hasAccess, isLoading: accessLoading } = usePageAccess("/receiving-coins");
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
@@ -327,6 +330,9 @@ const ReceivingCoins = () => {
       })));
     }
   };
+
+  if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (hasAccess === false) return <AccessDenied />;
 
   return (
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
