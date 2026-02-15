@@ -79,16 +79,17 @@ const ReceivingCoins = () => {
 
   useEffect(() => {
     if (brandId) {
-      fetchProducts();
+      fetchAndAutoAddProducts();
     } else {
       setProducts([]);
+      setLines([]);
     }
   }, [brandId]);
 
   const fetchDropdowns = async () => {
     const [suppRes, brandRes, bankRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
-      supabase.from("brands").select("id, brand_name").eq("status", "active").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
     ]);
     if (suppRes.data) setSuppliers(suppRes.data);
@@ -96,13 +97,25 @@ const ReceivingCoins = () => {
     if (bankRes.data) setBanks(bankRes.data);
   };
 
-  const fetchProducts = async () => {
+  const fetchAndAutoAddProducts = async () => {
     const { data } = await supabase
       .from("products")
       .select("id, product_name, coins_number, product_price")
       .eq("allow_purchase", true)
       .order("product_name");
-    if (data) setProducts(data.map(d => ({ ...d, product_price: parseFloat(String(d.product_price)) || 0 })) as Product[]);
+    if (data) {
+      const parsed = data.map(d => ({ ...d, product_price: parseFloat(String(d.product_price)) || 0 })) as Product[];
+      setProducts(parsed);
+      // Auto-add all purchasable products as lines
+      setLines(parsed.map(p => ({
+        id: crypto.randomUUID(),
+        product_id: p.id,
+        product_name: p.product_name,
+        coins: 0,
+        unit_price: 0,
+        total: 0,
+      })));
+    }
   };
 
   const fetchReceipts = async () => {
