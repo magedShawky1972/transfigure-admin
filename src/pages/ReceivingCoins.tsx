@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 interface Supplier { id: string; supplier_name: string; }
@@ -36,6 +36,9 @@ const ReceivingCoins = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/receiving-coins");
+
+  // View mode: "list" or "form"
+  const [view, setView] = useState<"list" | "form">("list");
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
@@ -65,9 +68,14 @@ const ReceivingCoins = () => {
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDropdowns();
     fetchReceipts();
   }, []);
+
+  useEffect(() => {
+    if (view === "form") {
+      fetchDropdowns();
+    }
+  }, [view]);
 
   useEffect(() => {
     if (brandId) {
@@ -121,7 +129,6 @@ const ReceivingCoins = () => {
     setLines(lines.map(line => {
       if (line.id !== id) return line;
       const updated = { ...line, [field]: value };
-      
       if (field === "product_id") {
         const product = products.find(p => p.id === value);
         if (product) {
@@ -130,7 +137,6 @@ const ReceivingCoins = () => {
           updated.unit_price = product.product_price || 0;
         }
       }
-      
       updated.total = updated.coins * updated.unit_price;
       return updated;
     }));
@@ -145,31 +151,25 @@ const ReceivingCoins = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-
       for (const file of Array.from(files)) {
         const base64 = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(file);
         });
-
         const isImage = file.type.startsWith('image/');
         const isVideo = file.type.startsWith('video/');
         const resourceType = isImage ? 'image' : isVideo ? 'video' : 'raw';
-
         const publicId = `receiving-coins/${Date.now()}-${Math.random().toString(36).substring(7)}`;
         const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
           body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
         });
-
         if (uploadError) throw uploadError;
         if (!uploadData?.url) throw new Error("Upload failed");
-
         setAttachments(prev => [...prev, {
           id: crypto.randomUUID(),
           file_name: file.name,
@@ -204,11 +204,9 @@ const ReceivingCoins = () => {
       toast.error(isArabic ? "يرجى إضافة منتج واحد على الأقل" : "Please add at least one product line");
       return;
     }
-
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       const headerData = {
         receipt_number: selectedReceiptId ? undefined : generateReceiptNumber(),
         supplier_id: supplierId,
@@ -220,31 +218,18 @@ const ReceivingCoins = () => {
         total_amount: totalAmount,
         created_by: user?.email || "",
       };
-
       let headerId: string;
-
       if (selectedReceiptId) {
         const { receipt_number, ...updateData } = headerData;
-        const { error } = await supabase
-          .from("receiving_coins_header")
-          .update(updateData as any)
-          .eq("id", selectedReceiptId);
+        const { error } = await supabase.from("receiving_coins_header").update(updateData as any).eq("id", selectedReceiptId);
         if (error) throw error;
         headerId = selectedReceiptId;
-
-        // Delete old lines
         await supabase.from("receiving_coins_line").delete().eq("header_id", headerId);
       } else {
-        const { data, error } = await supabase
-          .from("receiving_coins_header")
-          .insert(headerData as any)
-          .select("id")
-          .single();
+        const { data, error } = await supabase.from("receiving_coins_header").insert(headerData as any).select("id").single();
         if (error) throw error;
         headerId = data.id;
       }
-
-      // Insert lines
       const lineInserts = lines.map(l => ({
         header_id: headerId,
         product_id: l.product_id || null,
@@ -252,13 +237,8 @@ const ReceivingCoins = () => {
         coins: l.coins,
         unit_price: l.unit_price,
       }));
-
-      const { error: lineError } = await supabase
-        .from("receiving_coins_line")
-        .insert(lineInserts as any);
+      const { error: lineError } = await supabase.from("receiving_coins_line").insert(lineInserts as any);
       if (lineError) throw lineError;
-
-      // Insert attachments
       if (attachments.length > 0) {
         const attInserts = attachments.map(a => ({
           header_id: headerId,
@@ -269,10 +249,10 @@ const ReceivingCoins = () => {
         }));
         await supabase.from("receiving_coins_attachments").insert(attInserts as any);
       }
-
       toast.success(isArabic ? "تم الحفظ بنجاح" : "Saved successfully");
       resetForm();
       fetchReceipts();
+      setView("list");
     } catch (error: any) {
       toast.error(error.message || "Save failed");
     } finally {
@@ -292,13 +272,17 @@ const ReceivingCoins = () => {
     setSelectedReceiptId(null);
   };
 
+  const openNewEntry = () => {
+    resetForm();
+    setView("form");
+  };
+
   const loadReceipt = async (receiptId: string) => {
     const [headerRes, linesRes, attRes] = await Promise.all([
       supabase.from("receiving_coins_header").select("*").eq("id", receiptId).maybeSingle(),
       supabase.from("receiving_coins_line").select("*").eq("header_id", receiptId),
       supabase.from("receiving_coins_attachments").select("*").eq("header_id", receiptId),
     ]);
-
     if (headerRes.data) {
       const h = headerRes.data as any;
       setSelectedReceiptId(h.id);
@@ -309,7 +293,6 @@ const ReceivingCoins = () => {
       setBankId(h.bank_id || "");
       setReceiverName(h.receiver_name || "");
     }
-
     if (linesRes.data) {
       setLines((linesRes.data as any[]).map(l => ({
         id: l.id,
@@ -320,7 +303,6 @@ const ReceivingCoins = () => {
         total: (l.coins || 0) * (l.unit_price || 0),
       })));
     }
-
     if (attRes.data) {
       setAttachments((attRes.data as any[]).map(a => ({
         id: a.id,
@@ -329,27 +311,92 @@ const ReceivingCoins = () => {
         file_size: a.file_size || 0,
       })));
     }
+    setView("form");
   };
 
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
 
+  // ── LIST VIEW ──
+  if (view === "list") {
+    return (
+      <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Coins className="h-7 w-7 text-primary" />
+            <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات" : "Receiving Coins"}</h1>
+          </div>
+          <Button onClick={openNewEntry}>
+            <Plus className="h-4 w-4 mr-1" />
+            {isArabic ? "إدخال جديد" : "New Entry"}
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
+                    <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
+                    <TableHead>{isArabic ? "المستلم" : "Receiver"}</TableHead>
+                    <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receipts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        {isArabic ? "لا توجد إيصالات" : "No receipts found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    receipts.map(r => (
+                      <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadReceipt(r.id)}>
+                        <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
+                        <TableCell>{r.receipt_date}</TableCell>
+                        <TableCell>{parseFloat(r.total_amount).toFixed(2)}</TableCell>
+                        <TableCell>{r.receiver_name || "-"}</TableCell>
+                        <TableCell>{r.status}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── FORM VIEW ──
   return (
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => { resetForm(); setView("list"); }}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <Coins className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات" : "Receiving Coins"}</h1>
+          <h1 className="text-2xl font-bold">
+            {selectedReceiptId
+              ? (isArabic ? "تعديل الإيصال" : "Edit Receipt")
+              : (isArabic ? "إيصال جديد" : "New Receipt")}
+          </h1>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={resetForm}>
-            {isArabic ? "جديد" : "New"}
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="h-4 w-4 mr-1" />
-            {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ" : "Save")}
-          </Button>
-        </div>
+        <Button onClick={handleSave} disabled={saving}>
+          <Save className="h-4 w-4 mr-1" />
+          {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ" : "Save")}
+        </Button>
       </div>
 
       {/* Header Form */}
@@ -359,74 +406,46 @@ const ReceivingCoins = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Supplier */}
             <div className="space-y-2">
               <Label>{isArabic ? "المورد *" : "Supplier *"}</Label>
               <Select value={supplierId} onValueChange={setSupplierId}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
                 <SelectContent>
-                  {suppliers.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>
-                  ))}
+                  {suppliers.map(s => (<SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Date */}
             <div className="space-y-2">
               <Label>{isArabic ? "التاريخ" : "Date"}</Label>
               <Input type="date" value={receiptDate} onChange={e => setReceiptDate(e.target.value)} />
             </div>
-
-            {/* Brand */}
             <div className="space-y-2">
               <Label>{isArabic ? "العلامة التجارية *" : "Brand *"}</Label>
               <Select value={brandId} onValueChange={setBrandId}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} /></SelectTrigger>
                 <SelectContent>
-                  {brands.map(b => (
-                    <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
-                  ))}
+                  {brands.map(b => (<SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Control Amount */}
             <div className="space-y-2">
               <Label>{isArabic ? "المبلغ المتحكم" : "Control Amount"}</Label>
-              <Input 
-                type="number" 
-                value={controlAmount} 
-                onChange={e => setControlAmount(e.target.value)} 
-                placeholder="0.00"
-              />
+              <Input type="number" value={controlAmount} onChange={e => setControlAmount(e.target.value)} placeholder="0.00" />
             </div>
-
-            {/* Bank */}
             <div className="space-y-2">
               <Label>{isArabic ? "البنك *" : "Bank *"}</Label>
               <Select value={bankId} onValueChange={setBankId}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر البنك" : "Select bank"} /></SelectTrigger>
                 <SelectContent>
-                  {banks.map(b => (
-                    <SelectItem key={b.id} value={b.id}>{b.bank_name}</SelectItem>
-                  ))}
+                  {banks.map(b => (<SelectItem key={b.id} value={b.id}>{b.bank_name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Receiver Name */}
             <div className="space-y-2">
               <Label>{isArabic ? "اسم المستلم" : "Receiver Name"}</Label>
-              <Input 
-                value={receiverName} 
-                onChange={e => setReceiverName(e.target.value)} 
-                placeholder={isArabic ? "أدخل اسم المستلم" : "Enter receiver name"}
-              />
+              <Input value={receiverName} onChange={e => setReceiverName(e.target.value)} placeholder={isArabic ? "أدخل اسم المستلم" : "Enter receiver name"} />
             </div>
           </div>
-
-          {/* Total Display */}
           <div className="mt-4 p-3 bg-muted rounded-lg flex items-center justify-between">
             <span className="font-semibold">{isArabic ? "إجمالي المبلغ" : "Total Amount"}</span>
             <span className="text-xl font-bold text-primary">{totalAmount.toFixed(2)}</span>
@@ -440,13 +459,7 @@ const ReceivingCoins = () => {
           <CardTitle className="flex items-center justify-between">
             <span>{isArabic ? "المرفقات" : "Attachments"}</span>
             <label className="cursor-pointer">
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={uploading}
-              />
+              <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
               <Button variant="outline" size="sm" asChild disabled={uploading}>
                 <span>
                   <Upload className="h-4 w-4 mr-1" />
@@ -465,12 +478,8 @@ const ReceivingCoins = () => {
                 <div key={att.id} className="flex items-center justify-between p-2 border rounded-md">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
-                    <a href={att.file_path} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-                      {att.file_name}
-                    </a>
-                    <span className="text-xs text-muted-foreground">
-                      ({(att.file_size / 1024).toFixed(1)} KB)
-                    </span>
+                    <a href={att.file_path} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{att.file_name}</a>
+                    <span className="text-xs text-muted-foreground">({(att.file_size / 1024).toFixed(1)} KB)</span>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => removeAttachment(att.id)}>
                     <X className="h-4 w-4" />
@@ -526,28 +535,15 @@ const ReceivingCoins = () => {
                               <SelectValue placeholder={isArabic ? "اختر المنتج" : "Select product"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {products.map(p => (
-                                <SelectItem key={p.id} value={p.id}>{p.product_name}</SelectItem>
-                              ))}
+                              {products.map(p => (<SelectItem key={p.id} value={p.id}>{p.product_name}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Input 
-                            type="number" 
-                            value={line.coins} 
-                            onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)}
-                            className="w-[120px]"
-                          />
+                          <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" />
                         </TableCell>
                         <TableCell>
-                          <Input 
-                            type="number" 
-                            value={line.unit_price} 
-                            onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)}
-                            className="w-[120px]"
-                            step="0.01"
-                          />
+                          <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[120px]" step="0.01" />
                         </TableCell>
                         <TableCell className="font-semibold">{line.total.toFixed(2)}</TableCell>
                         <TableCell>
@@ -562,43 +558,6 @@ const ReceivingCoins = () => {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Previous Receipts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{isArabic ? "الإيصالات السابقة" : "Previous Receipts"}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
-                  <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                  <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
-                  <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {receipts.map(r => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
-                    <TableCell>{r.receipt_date}</TableCell>
-                    <TableCell>{parseFloat(r.total_amount).toFixed(2)}</TableCell>
-                    <TableCell>{r.status}</TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => loadReceipt(r.id)}>
-                        {isArabic ? "تحميل" : "Load"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
         </CardContent>
       </Card>
     </div>
