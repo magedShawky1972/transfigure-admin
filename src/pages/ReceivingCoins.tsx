@@ -98,15 +98,18 @@ const ReceivingCoins = () => {
   };
 
   const fetchAndAutoAddProducts = async () => {
+    const selectedBrand = brands.find(b => b.id === brandId);
+    if (!selectedBrand) return;
+
     const { data } = await supabase
       .from("products")
-      .select("id, product_name, coins_number, product_price")
+      .select("id, product_name, coins_number, product_price, brand_name")
       .eq("allow_purchase", true)
+      .eq("brand_name", selectedBrand.brand_name)
       .order("product_name");
     if (data) {
       const parsed = data.map(d => ({ ...d, product_price: parseFloat(String(d.product_price)) || 0 })) as Product[];
       setProducts(parsed);
-      // Auto-add all purchasable products as lines
       setLines(parsed.map(p => ({
         id: crypto.randomUUID(),
         product_id: p.id,
