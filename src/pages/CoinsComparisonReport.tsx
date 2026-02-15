@@ -624,6 +624,20 @@ const CoinsComparisonReport = () => {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {/* Grand Totals Row */}
+                  <TableRow className="bg-muted/50 font-bold border-t-2">
+                    <TableCell className="text-center" colSpan={4}>
+                      {isRTL ? "الإجمالي" : "Grand Total"}
+                    </TableCell>
+                    <TableCell className="text-center">{formatNumber(filteredData.reduce((s, r) => s + r.total_qty, 0))}</TableCell>
+                    <TableCell className="text-center">-</TableCell>
+                    <TableCell className="text-center">{formatNumber(filteredData.reduce((s, r) => s + r.expected_coins, 0))}</TableCell>
+                    <TableCell className="text-center">{formatNumber(filteredData.reduce((s, r) => s + r.total_coins_transaction, 0))}</TableCell>
+                    <TableCell className={`text-center ${summaryStats.totalDifference !== 0 ? "text-destructive" : "text-green-600"}`}>
+                      {formatNumber(summaryStats.totalDifference)}
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
