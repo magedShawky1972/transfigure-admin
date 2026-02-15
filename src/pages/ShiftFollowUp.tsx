@@ -796,7 +796,7 @@ export default function ShiftFollowUp() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assignments.map((assignment) => {
+                  {[...assignments].sort((a, b) => (a.shifts.shift_start_time || '').localeCompare(b.shifts.shift_start_time || '')).map((assignment) => {
                     // Filter sessions to only those opened on the selected date (using KSA timezone)
                     const sessionsForDate = normalizeSessionsToArray(assignment.shift_sessions).filter(session => {
                       if (!session.opened_at) return false;
