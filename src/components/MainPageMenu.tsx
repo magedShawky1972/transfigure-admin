@@ -91,6 +91,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/api-consumption-logs": "apiConsumptionLogs",
   "/update-bank-ledger": "updateBankLedger",
   "/acknowledgment-documents": "acknowledgmentDocuments",
+  "/receiving-coins": "receivingCoins",
 };
 
 interface MenuItem {
@@ -197,6 +198,13 @@ const menuGroups: MenuGroup[] = [
       { title: "Expense Entry", titleAr: "قيد المصروفات", url: "/expense-entry", icon: Receipt },
       { title: "Expense Requests", titleAr: "طلبات المصروفات", url: "/expense-requests", icon: ClipboardList },
       { title: "Payment Bank Link", titleAr: "ربط طرق الدفع بالبنوك", url: "/payment-bank-link", icon: Link2 },
+    ]
+  },
+  {
+    label: "Coins Transaction",
+    labelAr: "معاملات العملات",
+    items: [
+      { title: "Receiving Coins", titleAr: "استلام العملات", url: "/receiving-coins", icon: DollarSign },
     ]
   },
   {
