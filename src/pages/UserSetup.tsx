@@ -191,7 +191,11 @@ interface UserPermission {
       labelAr: "معاملات العملات",
       labelEn: "Coins Transaction",
       items: [
+        { key: "coinsCreation", label: "إنشاء طلب شراء", labelEn: "Coins Purchase Creation" },
+        { key: "coinsSending", label: "توجيه التحويلات", labelEn: "Sending Transfers" },
+        { key: "coinsReceivingPhase", label: "استلام من المورد", labelEn: "Receiving Phase" },
         { key: "receivingCoins", label: "استلام العملات", labelEn: "Receiving Coins" },
+        { key: "coinsWorkflowSetup", label: "إعداد سير العمل", labelEn: "Workflow Setup" },
       ]
     },
     {

@@ -378,7 +378,11 @@ export function AppSidebar() {
     {
       label: language === 'ar' ? 'معاملات العملات' : 'Coins Transaction',
       items: [
+        { title: language === 'ar' ? 'إنشاء طلب شراء' : 'Coins Purchase Creation', url: "/coins-creation", icon: FileText },
+        { title: language === 'ar' ? 'توجيه التحويلات' : 'Sending Transfers', url: "/coins-sending", icon: Mail },
+        { title: language === 'ar' ? 'استلام من المورد' : 'Receiving Phase', url: "/coins-receiving-phase", icon: ClipboardCheck },
         { title: language === 'ar' ? 'استلام العملات' : 'Receiving Coins', url: "/receiving-coins", icon: Coins },
+        { title: language === 'ar' ? 'إعداد سير العمل' : 'Workflow Setup', url: "/coins-workflow-setup", icon: Settings },
       ]
     },
     {
