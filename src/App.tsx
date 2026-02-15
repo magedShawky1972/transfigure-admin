@@ -129,6 +129,7 @@ import AcknowledgmentDocuments from "./pages/AcknowledgmentDocuments";
 import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
 import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
 import DataComparisonReport from "./pages/DataComparisonReport";
+import CoinsComparisonReport from "./pages/CoinsComparisonReport";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -265,6 +266,7 @@ const App = () => (
               <Route path="/hr-manager-setup" element={<HRManagerSetup />} />
               <Route path="/reports/sales-order-detail" element={<SalesOrderDetailReport />} />
               <Route path="/reports/data-comparison" element={<DataComparisonReport />} />
+              <Route path="/reports/coins-comparison" element={<CoinsComparisonReport />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
