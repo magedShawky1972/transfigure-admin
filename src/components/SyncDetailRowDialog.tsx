@@ -81,17 +81,6 @@ export const SyncDetailRowDialog = ({
     setApiBodyLoading(true);
     setIsApiBodyOpen(true);
     try {
-      // Fetch order lines to reconstruct the API body
-      let orderNumbers = [orderNumber];
-      if (isAggregatedOrder && originalOrders.length > 0) {
-        orderNumbers = originalOrders;
-      }
-
-      const { data: lines } = await supabase
-        .from('purpletransaction')
-        .select('product_name, brand_name, product_id, qty, unit_price, total, vendor_name, order_number')
-        .in('order_number', orderNumbers);
-
       // Fetch Odoo config
       const { data: odooConfig } = await supabase
         .from('odoo_api_config')
@@ -104,23 +93,11 @@ export const SyncDetailRowDialog = ({
 
       let orderLines: any[] = [];
 
-      if (lines && lines.length > 0) {
-        // Fetch product SKUs from products table
-        const productIds = [...new Set(lines.map(l => l.product_id).filter(Boolean))];
-        let skuMap = new Map<string, string>();
-        if (productIds.length > 0) {
-          const { data: products } = await supabase
-            .from('products')
-            .select('product_id, sku')
-            .in('product_id', productIds);
-          products?.forEach(p => {
-            if (p.product_id && p.sku) skuMap.set(p.product_id, p.sku);
-          });
-        }
-
-        orderLines = lines.map((line, index) => ({
+      // Use already-loaded transactionLines if available
+      if (transactionLines.length > 0) {
+        orderLines = transactionLines.map((line, index) => ({
           line_number: index + 1,
-          product_sku: (line.product_id ? skuMap.get(line.product_id) : null) || line.product_id || '',
+          product_sku: line.product_sku || line.product_id || '',
           product_name: line.product_name,
           quantity: parseFloat(String(line.qty)) || 1,
           uom: 'Unit',
@@ -128,7 +105,7 @@ export const SyncDetailRowDialog = ({
           total: parseFloat(String(line.total)) || 0,
         }));
       } else if (productNames) {
-        // Fallback: use productNames from sync data (comma-separated: "qty\nname,qty\nname")
+        // Fallback: use productNames from sync data
         const items = productNames.split(',').map(s => s.trim()).filter(Boolean);
         orderLines = items.map((item, index) => ({
           line_number: index + 1,
@@ -317,7 +294,7 @@ export const SyncDetailRowDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh]">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
