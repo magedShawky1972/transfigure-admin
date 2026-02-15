@@ -42,7 +42,8 @@ import {
   Receipt,
   ScrollText,
   Target,
-  Undo2
+  Undo2,
+  Coins
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -153,6 +154,7 @@ export function AppSidebar() {
     "/update-bank-ledger": "updateBankLedger",
     "/cost-center-setup": "costCenterSetup",
     "/void-payment": "voidPayment",
+    "/receiving-coins": "receivingCoins",
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
     "/hr-manager-setup": "hrManagerSetup",
@@ -370,6 +372,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'قيد المصروفات' : 'Expense Entry', url: "/expense-entry", icon: Receipt },
         { title: language === 'ar' ? 'طلبات المصروفات' : 'Expense Requests', url: "/expense-requests", icon: ClipboardList },
         { title: language === 'ar' ? 'إلغاء الدفع' : 'Void Payment', url: "/void-payment", icon: Undo2 },
+        { title: language === 'ar' ? 'استلام العملات' : 'Receiving Coins', url: "/receiving-coins", icon: Coins },
         { title: language === 'ar' ? 'ربط طرق الدفع بالبنوك' : 'Payment Bank Link', url: "/payment-bank-link", icon: Link2 },
       ]
     },

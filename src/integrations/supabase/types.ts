@@ -4757,6 +4757,171 @@ export type Database = {
         }
         Relationships: []
       }
+      receiving_coins_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          header_id: string
+          id: string
+          mime_type: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          header_id: string
+          id?: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          header_id?: string
+          id?: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_coins_attachments_header_id_fkey"
+            columns: ["header_id"]
+            isOneToOne: false
+            referencedRelation: "receiving_coins_header"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receiving_coins_header: {
+        Row: {
+          bank_id: string | null
+          brand_id: string | null
+          control_amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          receipt_date: string
+          receipt_number: string
+          receiver_name: string | null
+          status: string
+          supplier_id: string | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          bank_id?: string | null
+          brand_id?: string | null
+          control_amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          receipt_date?: string
+          receipt_number: string
+          receiver_name?: string | null
+          status?: string
+          supplier_id?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          bank_id?: string | null
+          brand_id?: string | null
+          control_amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          receipt_date?: string
+          receipt_number?: string
+          receiver_name?: string | null
+          status?: string
+          supplier_id?: string | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_coins_header_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_coins_header_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_coins_header_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receiving_coins_line: {
+        Row: {
+          coins: number
+          created_at: string
+          header_id: string
+          id: string
+          product_id: string | null
+          product_name: string | null
+          total: number | null
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          coins?: number
+          created_at?: string
+          header_id: string
+          id?: string
+          product_id?: string | null
+          product_name?: string | null
+          total?: number | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          coins?: number
+          created_at?: string
+          header_id?: string
+          id?: string
+          product_id?: string | null
+          product_name?: string | null
+          total?: number | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_coins_line_header_id_fkey"
+            columns: ["header_id"]
+            isOneToOne: false
+            referencedRelation: "receiving_coins_header"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_coins_line_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       riyadbankstatement: {
         Row: {
           acquirer_private_data: string | null

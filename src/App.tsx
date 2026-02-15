@@ -130,6 +130,7 @@ import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
 import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
 import DataComparisonReport from "./pages/DataComparisonReport";
 import CoinsComparisonReport from "./pages/CoinsComparisonReport";
+import ReceivingCoins from "./pages/ReceivingCoins";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -267,6 +268,7 @@ const App = () => (
               <Route path="/reports/sales-order-detail" element={<SalesOrderDetailReport />} />
               <Route path="/reports/data-comparison" element={<DataComparisonReport />} />
               <Route path="/reports/coins-comparison" element={<CoinsComparisonReport />} />
+              <Route path="/receiving-coins" element={<ReceivingCoins />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
