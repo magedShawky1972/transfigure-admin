@@ -63,7 +63,7 @@ const CoinsComparisonReport = () => {
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [drilldownOpen, setDrilldownOpen] = useState(false);
   const [drilldownProduct, setDrilldownProduct] = useState<CoinsComparisonRow | null>(null);
-  const [drilldownOrders, setDrilldownOrders] = useState<{ ordernumber: string; qty: number; coins_number: number }[]>([]);
+  const [drilldownOrders, setDrilldownOrders] = useState<{ ordernumber: string | null; qty: number; coins_number: number; created_at_date: string | null; payment_method: string | null }[]>([]);
   const [drilldownLoading, setDrilldownLoading] = useState(false);
   const [drilldownSearch, setDrilldownSearch] = useState("");
 
@@ -288,14 +288,14 @@ const CoinsComparisonReport = () => {
       const fromInt = parseInt(dateFrom.replace(/-/g, ""));
       const toInt = parseInt(dateTo.replace(/-/g, ""));
       const batchSize = 1000;
-      let allOrders: { ordernumber: string; qty: number; coins_number: number }[] = [];
+      let allOrders: { ordernumber: string | null; qty: number; coins_number: number; created_at_date: string | null; payment_method: string | null }[] = [];
       let rangeStart = 0;
       let hasMore = true;
 
       while (hasMore) {
         let query = supabase
           .from("purpletransaction")
-          .select("ordernumber, qty, coins_number")
+          .select("ordernumber, qty, coins_number, created_at_date, payment_method")
           .eq("product_id", row.product_id)
           .gte("created_at_date_int", fromInt)
           .lte("created_at_date_int", toInt)
@@ -308,7 +308,7 @@ const CoinsComparisonReport = () => {
 
         const { data, error } = await query;
         if (error) throw error;
-        allOrders = [...allOrders, ...(data || []).map(d => ({ ordernumber: d.ordernumber, qty: Number(d.qty), coins_number: Number(d.coins_number) }))];
+        allOrders = [...allOrders, ...(data || []).map(d => ({ ordernumber: d.ordernumber, qty: Number(d.qty), coins_number: Number(d.coins_number), created_at_date: d.created_at_date, payment_method: d.payment_method }))];
         hasMore = (data?.length || 0) === batchSize;
         rangeStart += batchSize;
       }
@@ -656,22 +656,26 @@ const CoinsComparisonReport = () => {
                 onChange={(e) => setDrilldownSearch(e.target.value)}
               />
               <ScrollArea className="h-[400px]">
-                <Table>
+                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-center">#</TableHead>
                       <TableHead>{isRTL ? "رقم الطلب" : "Order Number"}</TableHead>
+                      <TableHead>{isRTL ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead>{isRTL ? "طريقة الدفع" : "Payment"}</TableHead>
                       <TableHead className="text-center">{isRTL ? "الكمية" : "Qty"}</TableHead>
                       <TableHead className="text-center">{isRTL ? "الكوينز" : "Coins"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {drilldownOrders
-                      .filter(o => !drilldownSearch || o.ordernumber.toLowerCase().includes(drilldownSearch.toLowerCase()))
+                      .filter(o => !drilldownSearch || (o.ordernumber || '').toLowerCase().includes(drilldownSearch.toLowerCase()))
                       .map((order, idx) => (
-                        <TableRow key={`${order.ordernumber}-${idx}`}>
+                        <TableRow key={`${order.ordernumber || idx}-${idx}`}>
                           <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
-                          <TableCell className="font-mono text-sm">{order.ordernumber}</TableCell>
+                          <TableCell className="font-mono text-sm">{order.ordernumber || <span className="text-muted-foreground italic">N/A</span>}</TableCell>
+                          <TableCell className="text-sm">{order.created_at_date ? new Date(order.created_at_date).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="text-sm">{order.payment_method || '-'}</TableCell>
                           <TableCell className="text-center">{order.qty}</TableCell>
                           <TableCell className="text-center">{formatNumber(order.coins_number)}</TableCell>
                         </TableRow>
