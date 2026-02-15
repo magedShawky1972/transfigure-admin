@@ -183,8 +183,15 @@ interface UserPermission {
         { key: "expenseEntry", label: "قيد المصروفات", labelEn: "Expense Entry" },
         { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
         { key: "voidPayment", label: "إلغاء الدفع", labelEn: "Void Payment" },
-        { key: "receivingCoins", label: "استلام العملات", labelEn: "Receiving Coins" },
         { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
+      ]
+    },
+    {
+      groupKey: "coins",
+      labelAr: "معاملات العملات",
+      labelEn: "Coins Transaction",
+      items: [
+        { key: "receivingCoins", label: "استلام العملات", labelEn: "Receiving Coins" },
       ]
     },
     {
