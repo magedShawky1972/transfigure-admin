@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       console.log('Product updated in Odoo:', putResult);
       
       // Update local product with odoo_product_id
-      const odooProductId = putResult.product_id || putResult.product_template_id;
+      const odooProductId = putResult.product_id || putResult.product_template_id || putResult.product_master_id;
       if (product_id) {
         await supabase
           .from('products')
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
       }
 
       if (postResult.success) {
-        const odooProductId = postResult.product_id || postResult.product_template_id;
+        const odooProductId = postResult.product_id || postResult.product_template_id || postResult.product_master_id;
         if (product_id) {
           await supabase
             .from('products')
@@ -295,7 +295,7 @@ Deno.serve(async (req) => {
         console.log('Product created in Odoo:', postResult);
         
         // Update local product with odoo_product_id
-        const odooProductId = postResult.product_id || postResult.product_template_id;
+        const odooProductId = postResult.product_id || postResult.product_template_id || postResult.product_master_id;
         if (product_id) {
           await supabase
             .from('products')
