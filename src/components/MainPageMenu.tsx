@@ -92,6 +92,10 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/update-bank-ledger": "updateBankLedger",
   "/acknowledgment-documents": "acknowledgmentDocuments",
   "/receiving-coins": "receivingCoins",
+  "/coins-creation": "coinsCreation",
+  "/coins-sending": "coinsSending",
+  "/coins-receiving-phase": "coinsReceivingPhase",
+  "/coins-workflow-setup": "coinsWorkflowSetup",
 };
 
 interface MenuItem {
@@ -204,7 +208,11 @@ const menuGroups: MenuGroup[] = [
     label: "Coins Transaction",
     labelAr: "معاملات العملات",
     items: [
+      { title: "Coins Purchase Creation", titleAr: "إنشاء طلب شراء", url: "/coins-creation", icon: DollarSign },
+      { title: "Sending Transfers", titleAr: "توجيه التحويلات", url: "/coins-sending", icon: DollarSign },
+      { title: "Receiving Phase", titleAr: "استلام من المورد", url: "/coins-receiving-phase", icon: DollarSign },
       { title: "Receiving Coins", titleAr: "استلام العملات", url: "/receiving-coins", icon: DollarSign },
+      { title: "Workflow Setup", titleAr: "إعداد سير العمل", url: "/coins-workflow-setup", icon: Settings },
     ]
   },
   {

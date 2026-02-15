@@ -1121,6 +1121,242 @@ export type Database = {
           },
         ]
       }
+      coins_purchase_orders: {
+        Row: {
+          amount_in_currency: number | null
+          bank_id: string | null
+          bank_transfer_image: string | null
+          base_amount_sar: number | null
+          brand_id: string
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          currency_id: string | null
+          current_phase: string
+          exchange_rate: number | null
+          id: string
+          notes: string | null
+          order_number: string
+          sending_confirmed: boolean | null
+          sending_confirmed_at: string | null
+          sending_confirmed_by: string | null
+          sending_confirmed_name: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_in_currency?: number | null
+          bank_id?: string | null
+          bank_transfer_image?: string | null
+          base_amount_sar?: number | null
+          brand_id: string
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          currency_id?: string | null
+          current_phase?: string
+          exchange_rate?: number | null
+          id?: string
+          notes?: string | null
+          order_number: string
+          sending_confirmed?: boolean | null
+          sending_confirmed_at?: string | null
+          sending_confirmed_by?: string | null
+          sending_confirmed_name?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_in_currency?: number | null
+          bank_id?: string | null
+          bank_transfer_image?: string | null
+          base_amount_sar?: number | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          currency_id?: string | null
+          current_phase?: string
+          exchange_rate?: number | null
+          id?: string
+          notes?: string | null
+          order_number?: string
+          sending_confirmed?: boolean | null
+          sending_confirmed_at?: string | null
+          sending_confirmed_by?: string | null
+          sending_confirmed_name?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_purchase_orders_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_purchase_orders_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_purchase_orders_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coins_purchase_phase_history: {
+        Row: {
+          action: string
+          action_by: string
+          action_by_name: string | null
+          created_at: string
+          from_phase: string | null
+          id: string
+          notes: string | null
+          purchase_order_id: string
+          to_phase: string
+        }
+        Insert: {
+          action: string
+          action_by: string
+          action_by_name?: string | null
+          created_at?: string
+          from_phase?: string | null
+          id?: string
+          notes?: string | null
+          purchase_order_id: string
+          to_phase: string
+        }
+        Update: {
+          action?: string
+          action_by?: string
+          action_by_name?: string | null
+          created_at?: string
+          from_phase?: string | null
+          id?: string
+          notes?: string | null
+          purchase_order_id?: string
+          to_phase?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_purchase_phase_history_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "coins_purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coins_purchase_receiving: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_by_name: string | null
+          created_at: string
+          id: string
+          is_confirmed: boolean | null
+          notes: string | null
+          purchase_order_id: string
+          received_at: string
+          received_by: string
+          received_by_name: string | null
+          receiving_image: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_by_name?: string | null
+          created_at?: string
+          id?: string
+          is_confirmed?: boolean | null
+          notes?: string | null
+          purchase_order_id: string
+          received_at?: string
+          received_by: string
+          received_by_name?: string | null
+          receiving_image?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_by_name?: string | null
+          created_at?: string
+          id?: string
+          is_confirmed?: boolean | null
+          notes?: string | null
+          purchase_order_id?: string
+          received_at?: string
+          received_by?: string
+          received_by_name?: string | null
+          receiving_image?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_purchase_receiving_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "coins_purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coins_workflow_assignments: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          phase: string
+          updated_at: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          phase: string
+          updated_at?: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          phase?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_workflow_assignments_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_news: {
         Row: {
           content: string
