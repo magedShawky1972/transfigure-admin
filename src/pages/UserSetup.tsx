@@ -115,6 +115,7 @@ interface UserPermission {
         { key: "shiftSession", label: "جلسة الوردية", labelEn: "Shift Session" },
         { key: "myShifts", label: "تقويم وردياتي", labelEn: "My Shifts Calendar" },
         { key: "shiftFollowUp", label: "متابعة الورديات", labelEn: "Shift Follow-Up" },
+        { key: "missingShiftImages", label: "صور ناقصة", labelEn: "Missing Shift Images" },
         { key: "tawasoul", label: "تواصل", labelEn: "Tawasoul" },
         { key: "asusTawasoul", label: "أسس تواصل", labelEn: "Asus Tawasoul" },
         { key: "emailManager", label: "مدير البريد", labelEn: "Email Manager" },
