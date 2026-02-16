@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     // Fetch attendance types
     const { data: attendanceTypes, error: atError } = await supabase
       .from('attendance_types')
-      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes');
+      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, weekend_days');
 
     if (atError) throw atError;
 
@@ -250,9 +250,21 @@ Deno.serve(async (req) => {
     const processedLogIds: string[] = [];
     const notificationsToSend: { userId: string; email: string | null; employeeName: string; data: any }[] = [];
 
+    // Determine the day of week for the target date (0=Sun, 1=Mon, ..., 5=Fri, 6=Sat)
+    const targetDayOfWeek = new Date(targetDate + 'T12:00:00').getDay();
+    console.log(`Target date ${targetDate} is day of week: ${targetDayOfWeek}`);
+
     // Process each employee
     for (const employee of (employees || [])) {
       if (!employee.zk_employee_code) continue;
+
+      // Check if today is a weekend for this employee's attendance type
+      const empAttendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
+      const weekendDays: number[] = (empAttendanceType as any)?.weekend_days || [5, 6];
+      if (weekendDays.includes(targetDayOfWeek)) {
+        console.log(`${employee.first_name} ${employee.last_name} - skipping weekend day (${targetDayOfWeek})`);
+        continue;
+      }
 
       // Check if employee is on approved leave
       const isOnLeave = employeesOnLeave.has(employee.id);

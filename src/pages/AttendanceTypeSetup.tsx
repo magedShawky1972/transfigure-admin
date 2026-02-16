@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -48,9 +49,20 @@ interface AttendanceType {
   fixed_end_time: string | null;
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
+  weekend_days: number[] | null;
   created_at: string;
   updated_at: string;
 }
+
+const DAY_OPTIONS = [
+  { value: 0, en: "Sunday", ar: "الأحد" },
+  { value: 1, en: "Monday", ar: "الاثنين" },
+  { value: 2, en: "Tuesday", ar: "الثلاثاء" },
+  { value: 3, en: "Wednesday", ar: "الأربعاء" },
+  { value: 4, en: "Thursday", ar: "الخميس" },
+  { value: 5, en: "Friday", ar: "الجمعة" },
+  { value: 6, en: "Saturday", ar: "السبت" },
+];
 
 const AttendanceTypeSetup = () => {
   const { language } = useLanguage();
@@ -70,6 +82,7 @@ const AttendanceTypeSetup = () => {
     fixed_end_time: "",
     allow_late_minutes: "0",
     allow_early_exit_minutes: "0",
+    weekend_days: [5, 6] as number[],
   });
 
   const fetchAttendanceTypes = async () => {
@@ -107,6 +120,7 @@ const AttendanceTypeSetup = () => {
       fixed_end_time: "",
       allow_late_minutes: "0",
       allow_early_exit_minutes: "0",
+      weekend_days: [5, 6],
     });
     setIsDialogOpen(true);
   };
@@ -124,6 +138,7 @@ const AttendanceTypeSetup = () => {
       fixed_end_time: type.fixed_end_time || "",
       allow_late_minutes: type.allow_late_minutes?.toString() || "0",
       allow_early_exit_minutes: type.allow_early_exit_minutes?.toString() || "0",
+      weekend_days: type.weekend_days || [5, 6],
     });
     setIsDialogOpen(true);
   };
@@ -151,6 +166,7 @@ const AttendanceTypeSetup = () => {
         fixed_end_time: !formData.is_shift_based && formData.fixed_end_time ? formData.fixed_end_time : null,
         allow_late_minutes: parseInt(formData.allow_late_minutes) || 0,
         allow_early_exit_minutes: parseInt(formData.allow_early_exit_minutes) || 0,
+        weekend_days: formData.weekend_days,
       };
 
       if (selectedType) {
@@ -444,6 +460,29 @@ const AttendanceTypeSetup = () => {
                   onChange={(e) => setFormData({ ...formData, allow_early_exit_minutes: e.target.value })}
                   placeholder="0"
                 />
+              </div>
+            </div>
+
+            {/* Weekend Days */}
+            <div className="grid gap-2">
+              <Label>{language === "ar" ? "أيام الإجازة الأسبوعية" : "Weekend Days"}</Label>
+              <div className="flex flex-wrap gap-3 p-3 bg-muted rounded-lg">
+                {DAY_OPTIONS.map(day => (
+                  <label key={day.value} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={formData.weekend_days.includes(day.value)}
+                      onCheckedChange={(checked) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          weekend_days: checked
+                            ? [...prev.weekend_days, day.value]
+                            : prev.weekend_days.filter(d => d !== day.value),
+                        }));
+                      }}
+                    />
+                    <span className="text-sm">{language === "ar" ? day.ar : day.en}</span>
+                  </label>
+                ))}
               </div>
             </div>
 
