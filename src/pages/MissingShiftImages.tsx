@@ -243,6 +243,17 @@ export default function MissingShiftImages() {
         />
       </div>
 
+      {/* Summary count */}
+      {!loading && shifts.length > 0 && (
+        <div className="flex items-center justify-center gap-2">
+          <Badge variant="destructive" className="text-sm px-3 py-1">
+            {language === "ar" 
+              ? `${shifts.length} وردية بصور ناقصة` 
+              : `${shifts.length} shifts with missing images`}
+          </Badge>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
