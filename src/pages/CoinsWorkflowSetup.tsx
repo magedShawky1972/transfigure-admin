@@ -84,6 +84,23 @@ const CoinsWorkflowSetup = () => {
       const { error } = await supabase.from("coins_workflow_assignments").insert(inserts);
       if (error) throw error;
       toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
+
+      // Send notifications for each assignment
+      const phaseLabel = getPhaseLabel(selectedPhase);
+      for (const brandId of selectedBrandIds) {
+        const brand = brands.find(b => b.id === brandId);
+        supabase.functions.invoke("send-coins-workflow-notification", {
+          body: {
+            type: "assignment_added",
+            userId: selectedUserId,
+            userName: user?.user_name || user?.email || "",
+            brandName: brand?.brand_name || "",
+            phase: selectedPhase,
+            phaseLabel,
+          },
+        }).catch(err => console.error("Notification error:", err));
+      }
+
       setSelectedBrandIds([]); setSelectedPhase(""); setSelectedUserId("");
       fetchAssignments();
     } catch (err: any) {
@@ -98,8 +115,25 @@ const CoinsWorkflowSetup = () => {
   };
 
   const handleDelete = async (id: string) => {
+    // Get assignment details before deleting for notification
+    const assignment = assignments.find(a => a.id === id);
     await supabase.from("coins_workflow_assignments").delete().eq("id", id);
     toast.success(isArabic ? "تم الحذف" : "Deleted");
+
+    if (assignment) {
+      const brand = brands.find(b => b.id === assignment.brand_id);
+      supabase.functions.invoke("send-coins-workflow-notification", {
+        body: {
+          type: "assignment_removed",
+          userId: assignment.user_id,
+          userName: assignment.user_name || "",
+          brandName: brand?.brand_name || "",
+          phase: assignment.phase,
+          phaseLabel: getPhaseLabel(assignment.phase),
+        },
+      }).catch(err => console.error("Notification error:", err));
+    }
+
     fetchAssignments();
   };
 
