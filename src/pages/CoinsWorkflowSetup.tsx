@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Plus, Trash2, Settings, Coins } from "lucide-react";
+import { Plus, Trash2, Settings, ChevronDown, ChevronRight } from "lucide-react";
 
 const PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
@@ -27,14 +28,12 @@ const CoinsWorkflowSetup = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
 
-  // Add form
   const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [selectedPhase, setSelectedPhase] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [saving, setSaving] = useState(false);
-
-  // Filter
   const [filterBrandId, setFilterBrandId] = useState("");
+  const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchData();
@@ -43,6 +42,13 @@ const CoinsWorkflowSetup = () => {
   useEffect(() => {
     fetchAssignments();
   }, [filterBrandId]);
+
+  // Initialize all phases as expanded
+  useEffect(() => {
+    const initial: Record<string, boolean> = {};
+    PHASES.forEach(p => { initial[p.key] = true; });
+    setExpandedPhases(initial);
+  }, []);
 
   const fetchData = async () => {
     const [brandRes, userRes] = await Promise.all([
@@ -56,7 +62,7 @@ const CoinsWorkflowSetup = () => {
 
   const fetchAssignments = async () => {
     let query = supabase.from("coins_workflow_assignments").select("*").order("created_at", { ascending: false });
-    if (filterBrandId) query = query.eq("brand_id", filterBrandId);
+    if (filterBrandId && filterBrandId !== "all") query = query.eq("brand_id", filterBrandId);
     const { data } = await query;
     if (data) setAssignments(data);
   };
@@ -68,7 +74,7 @@ const CoinsWorkflowSetup = () => {
     }
     setSaving(true);
     try {
-      const user = users.find(u => u.id === selectedUserId);
+      const user = users.find(u => u.user_id === selectedUserId || u.id === selectedUserId);
       const inserts = selectedBrandIds.map(brandId => ({
         brand_id: brandId,
         phase: selectedPhase,
@@ -101,6 +107,29 @@ const CoinsWorkflowSetup = () => {
   const getPhaseLabel = (key: string) => {
     const p = PHASES.find(ph => ph.key === key);
     return isArabic ? p?.ar || key : p?.en || key;
+  };
+
+  const togglePhase = (phase: string) => {
+    setExpandedPhases(prev => ({ ...prev, [phase]: !prev[phase] }));
+  };
+
+  const groupedAssignments = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    PHASES.forEach(p => { grouped[p.key] = []; });
+    assignments.forEach(a => {
+      if (grouped[a.phase]) {
+        grouped[a.phase].push(a);
+      } else {
+        grouped[a.phase] = [a];
+      }
+    });
+    return grouped;
+  }, [assignments]);
+
+  const getUserDisplay = (a: any) => {
+    if (a.user_name) return a.user_name;
+    const user = users.find(u => u.user_id === a.user_id || u.id === a.user_id);
+    return user?.user_name || user?.email || a.user_id;
   };
 
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
@@ -177,43 +206,65 @@ const CoinsWorkflowSetup = () => {
         </CardContent>
       </Card>
 
-      {/* Assignments List */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
-                  <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
-                  <TableHead>{isArabic ? "المسؤول" : "Responsible"}</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assignments.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                      {isArabic ? "لا توجد تعيينات" : "No assignments found"}
-                    </TableCell>
-                  </TableRow>
-                ) : assignments.map(a => (
-                  <TableRow key={a.id}>
-                    <TableCell>{getBrandName(a.brand_id)}</TableCell>
-                    <TableCell>{getPhaseLabel(a.phase)}</TableCell>
-                    <TableCell>{a.user_name || a.user_id}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Grouped Assignments by Phase */}
+      <div className="space-y-3">
+        {PHASES.map(phase => {
+          const phaseItems = groupedAssignments[phase.key] || [];
+          const isOpen = expandedPhases[phase.key] ?? true;
+
+          return (
+            <Card key={phase.key}>
+              <Collapsible open={isOpen} onOpenChange={() => togglePhase(phase.key)}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                        {isArabic ? phase.ar : phase.en}
+                        <span className="text-sm font-normal text-muted-foreground">({phaseItems.length})</span>
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
+                            <TableHead>{isArabic ? "المسؤول" : "Responsible"}</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {phaseItems.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                                {isArabic ? "لا توجد تعيينات" : "No assignments"}
+                              </TableCell>
+                            </TableRow>
+                          ) : phaseItems.map(a => (
+                            <TableRow key={a.id}>
+                              <TableCell>{getBrandName(a.brand_id)}</TableCell>
+                              <TableCell>{getUserDisplay(a)}</TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 };
