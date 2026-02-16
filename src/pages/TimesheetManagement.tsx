@@ -111,7 +111,9 @@ export default function TimesheetManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(null);
   const [sendingDeductionMails, setSendingDeductionMails] = useState(false);
+  const [filterMode, setFilterMode] = useState<"date" | "month">("date");
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
   const [formData, setFormData] = useState({
     employee_id: "",
@@ -133,7 +135,7 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, selectedEmployee]);
+  }, [selectedDate, selectedMonth, filterMode, selectedEmployee]);
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
@@ -226,8 +228,13 @@ export default function TimesheetManagement() {
       setEmployees(employeesRes.data || []);
       setDeductionRules(rulesRes.data || []);
 
-      // Only fetch timesheets if we have a valid date
-      if (!selectedDate) {
+      // Only fetch timesheets if we have a valid date/month
+      if (filterMode === "date" && !selectedDate) {
+        setTimesheets([]);
+        setLoading(false);
+        return;
+      }
+      if (filterMode === "month" && !selectedMonth) {
         setTimesheets([]);
         setLoading(false);
         return;
@@ -241,8 +248,18 @@ export default function TimesheetManagement() {
           employees(employee_number, first_name, last_name, zk_employee_code),
           deduction_rules(rule_name, rule_name_ar, deduction_type, deduction_value)
         `)
-        .eq("work_date", selectedDate)
-        .order("employees(employee_number)");
+        .order("work_date", { ascending: true });
+
+      if (filterMode === "date") {
+        query = query.eq("work_date", selectedDate);
+      } else {
+        // Month mode: filter by month range
+        const [year, month] = selectedMonth.split("-").map(Number);
+        const startDate = `${selectedMonth}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+        query = query.gte("work_date", startDate).lte("work_date", endDate);
+      }
 
       if (selectedEmployee) {
         query = query.eq("employee_id", selectedEmployee);
@@ -544,6 +561,10 @@ export default function TimesheetManagement() {
   };
 
   const handleResendDeductionMails = async () => {
+    if (filterMode === "month") {
+      toast.error(language === "ar" ? "يرجى اختيار يوم محدد لإرسال رسائل الخصم" : "Please select a specific date to send deduction mails");
+      return;
+    }
     if (!selectedDate) {
       toast.error(language === "ar" ? "يرجى اختيار التاريخ" : "Please select a date");
       return;
@@ -631,14 +652,38 @@ export default function TimesheetManagement() {
           {/* Filters */}
           <div className="flex flex-wrap gap-4 mb-6">
             <div className="space-y-2">
-              <Label>{language === "ar" ? "التاريخ" : "Date"}</Label>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-40"
-              />
+              <Label>{language === "ar" ? "نوع الفلتر" : "Filter By"}</Label>
+              <Select value={filterMode} onValueChange={(v) => setFilterMode(v as "date" | "month")}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">{language === "ar" ? "يوم محدد" : "Specific Date"}</SelectItem>
+                  <SelectItem value="month">{language === "ar" ? "شهر كامل" : "Full Month"}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            {filterMode === "date" ? (
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "التاريخ" : "Date"}</Label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "الشهر" : "Month"}</Label>
+                <Input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-44"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{language === "ar" ? "الموظف" : "Employee"}</Label>
               <Select value={selectedEmployee || "_all_"} onValueChange={(v) => setSelectedEmployee(v === "_all_" ? "" : v)}>
@@ -741,6 +786,7 @@ export default function TimesheetManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {filterMode === "month" && <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>}
                   <TableHead>{language === "ar" ? "الموظف" : "Employee"}</TableHead>
                   <TableHead>{language === "ar" ? "المجدول" : "Scheduled"}</TableHead>
                   <TableHead>{language === "ar" ? "الفعلي" : "Actual"}</TableHead>
@@ -757,19 +803,24 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
+                    <TableCell colSpan={filterMode === "month" ? 12 : 11} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : timesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
+                    <TableCell colSpan={filterMode === "month" ? 12 : 11} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   timesheets.map((ts) => (
                     <TableRow key={ts.id}>
+                      {filterMode === "month" && (
+                        <TableCell className="font-medium text-sm">
+                          {format(parseISO(ts.work_date), "dd MMM")}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div>
                           <p className="font-medium">
