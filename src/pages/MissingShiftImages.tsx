@@ -156,7 +156,7 @@ export default function MissingShiftImages() {
 
       // Build result - only shifts with missing images
       const result: MissingImageShift[] = [];
-      for (const assignment of assignments) {
+      for (const assignment of assignments as any[]) {
         const session = sessionMap.get(assignment.id);
         const uploadedCount = session ? (balancesMap.get(session.id) || 0) : 0;
 
