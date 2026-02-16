@@ -247,7 +247,13 @@ const AcknowledgmentDocuments = () => {
   };
 
   const handleSave = async () => {
-    if (!form.title || !form.content) {
+    // If Arabic is filled but English is empty, copy Arabic to English
+    const finalTitle = form.title || form.title_ar;
+    const finalTitleAr = form.title_ar || form.title;
+    const finalContent = form.content || form.content_ar;
+    const finalContentAr = form.content_ar || form.content;
+
+    if (!finalTitle || !finalContent) {
       toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
       return;
     }
@@ -260,10 +266,10 @@ const AcknowledgmentDocuments = () => {
         const { error } = await supabase
           .from("acknowledgment_documents")
           .update({
-            title: form.title,
-            title_ar: form.title_ar || null,
-            content: form.content,
-            content_ar: form.content_ar || null,
+            title: finalTitle,
+            title_ar: finalTitleAr || null,
+            content: finalContent,
+            content_ar: finalContentAr || null,
             is_active: form.is_active,
             requires_signature: form.requires_signature,
           })
@@ -273,10 +279,10 @@ const AcknowledgmentDocuments = () => {
         toast.success(language === "ar" ? "تم تحديث الإقرار" : "Document updated");
       } else {
         const { error } = await supabase.from("acknowledgment_documents").insert({
-          title: form.title,
-          title_ar: form.title_ar || null,
-          content: form.content,
-          content_ar: form.content_ar || null,
+          title: finalTitle,
+          title_ar: finalTitleAr || null,
+          content: finalContent,
+          content_ar: finalContentAr || null,
           is_active: form.is_active,
           requires_signature: form.requires_signature,
           created_by: user.id,
