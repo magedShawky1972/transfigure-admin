@@ -47,7 +47,7 @@ const CoinsWorkflowSetup = () => {
   const fetchData = async () => {
     const [brandRes, userRes] = await Promise.all([
       supabase.from("brands").select("id, brand_name").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
-      supabase.from("profiles").select("id, display_name, email").order("display_name"),
+      supabase.from("profiles").select("id, user_id, user_name, email").order("user_name"),
     ]);
     if (brandRes.data) setBrands(brandRes.data);
     if (userRes.data) setUsers(userRes.data);
@@ -73,7 +73,7 @@ const CoinsWorkflowSetup = () => {
         brand_id: brandId,
         phase: selectedPhase,
         user_id: selectedUserId,
-        user_name: user?.display_name || user?.email || "",
+        user_name: user?.user_name || user?.email || "",
       }));
       const { error } = await supabase.from("coins_workflow_assignments").insert(inserts);
       if (error) throw error;
@@ -147,7 +147,7 @@ const CoinsWorkflowSetup = () => {
               <Label>{isArabic ? "المستخدم" : "User"}</Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
-                <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.display_name || u.email}</SelectItem>)}</SelectContent>
+                <SelectContent>{users.map(u => <SelectItem key={u.user_id || u.id} value={u.user_id || u.id}>{u.user_name || u.email}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <Button onClick={handleAdd} disabled={saving}>
