@@ -797,11 +797,16 @@ export default function ShiftFollowUp() {
                 </TableHeader>
                 <TableBody>
                   {[...assignments].sort((a, b) => (a.shifts.shift_start_time || '').localeCompare(b.shifts.shift_start_time || '')).map((assignment) => {
-                    // Filter sessions to only those opened on the selected date (using KSA timezone)
-                    const sessionsForDate = normalizeSessionsToArray(assignment.shift_sessions).filter(session => {
+                     // Filter sessions to only those opened on the selected date (using KSA timezone)
+                    // Also include supervisor-created placeholder sessions (where opened_at may differ from assignment date)
+                    const allSessions = normalizeSessionsToArray(assignment.shift_sessions);
+                    const sessionsForDate = allSessions.filter(session => {
                       if (!session.opened_at) return false;
-                      // Use centralized KSA date checking
-                      return isOnKSADate(session.opened_at, selectedDate);
+                      // Include if opened on the selected date OR if it's the only session for this assignment
+                      if (isOnKSADate(session.opened_at, selectedDate)) return true;
+                      // Include supervisor-created placeholder sessions (opened_at doesn't match but session exists for this assignment)
+                      if (allSessions.length === 1) return true;
+                      return false;
                     });
                     
                     // Get the latest session for this date (or show the most recent if none match)
