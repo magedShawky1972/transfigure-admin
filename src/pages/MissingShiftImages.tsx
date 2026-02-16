@@ -6,7 +6,7 @@ import { AccessDenied } from "@/components/AccessDenied";
 import UploadMissingImagesDialog from "@/components/UploadMissingImagesDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ImageIcon, Upload, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Loader2, ImageIcon, Upload, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatKSADateTime, getKSADateString } from "@/lib/ksaTime";
 
@@ -27,7 +27,12 @@ export default function MissingShiftImages() {
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/missing-shift-images");
   const [loading, setLoading] = useState(false);
   const [shifts, setShifts] = useState<MissingImageShift[]>([]);
-  const [selectedDate, setSelectedDate] = useState(getKSADateString());
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split("T")[0];
+  });
+  const [toDate, setToDate] = useState(getKSADateString());
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<MissingImageShift | null>(null);
 
@@ -72,7 +77,7 @@ export default function MissingShiftImages() {
 
   useEffect(() => {
     if (hasAccess) fetchShifts();
-  }, [hasAccess, selectedDate]);
+  }, [hasAccess, fromDate, toDate]);
 
   const fetchShifts = async () => {
     setLoading(true);
@@ -92,7 +97,7 @@ export default function MissingShiftImages() {
       const requiredCount = requiredBrands.length;
       const requiredBrandIds = requiredBrands.map((b) => b.id);
 
-      // Get shift assignments for the selected date
+      // Get shift assignments for the date range
       const { data: assignments } = await supabase
         .from("shift_assignments")
         .select(`
@@ -102,7 +107,9 @@ export default function MissingShiftImages() {
           shifts!inner(shift_name),
           profiles!shift_assignments_user_id_fkey(first_name, last_name)
         `)
-        .eq("assignment_date", selectedDate) as { data: any[] | null };
+        .gte("assignment_date", fromDate)
+        .lte("assignment_date", toDate)
+        .order("assignment_date", { ascending: false }) as { data: any[] | null };
 
       if (!assignments || assignments.length === 0) {
         setShifts([]);
@@ -171,11 +178,9 @@ export default function MissingShiftImages() {
     }
   };
 
-  const changeDate = (days: number) => {
-    const date = new Date(selectedDate + "T12:00:00");
-    date.setDate(date.getDate() + days);
-    setSelectedDate(date.toISOString().split("T")[0]);
-  };
+  const noMissingText = language === "ar" 
+    ? "لا توجد ورديات بصور ناقصة في هذه الفترة ✅" 
+    : "No shifts with missing images in this period ✅";
 
   const getStatusBadge = (status: string) => {
     if (status === "closed") return <Badge className="bg-primary text-primary-foreground">{t.closed}</Badge>;
@@ -199,20 +204,22 @@ export default function MissingShiftImages() {
         </Button>
       </div>
 
-      {/* Date navigation */}
-      <div className="flex items-center gap-2 justify-center">
-        <Button variant="outline" size="icon" onClick={() => changeDate(-1)}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+      {/* Date range filter */}
+      <div className="flex items-center gap-2 justify-center flex-wrap">
+        <span className="text-sm font-medium">{language === "ar" ? "من" : "From"}</span>
         <Input
           type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="w-48 text-center"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+          className="w-44 text-center"
         />
-        <Button variant="outline" size="icon" onClick={() => changeDate(1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        <span className="text-sm font-medium">{language === "ar" ? "إلى" : "To"}</span>
+        <Input
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+          className="w-44 text-center"
+        />
       </div>
 
       {loading ? (
@@ -222,13 +229,14 @@ export default function MissingShiftImages() {
         </div>
       ) : shifts.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground font-medium text-lg">
-          {t.noMissing}
+          {noMissingText}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-border">
+                <th className="p-3 text-start font-medium">{language === "ar" ? "التاريخ" : "Date"}</th>
                 <th className="p-3 text-start font-medium">{t.shift}</th>
                 <th className="p-3 text-start font-medium">{t.user}</th>
                 <th className="p-3 text-start font-medium">{t.status}</th>
@@ -241,6 +249,7 @@ export default function MissingShiftImages() {
             <tbody>
               {shifts.map((shift, idx) => (
                 <tr key={idx} className="border-b border-border hover:bg-muted/50">
+                  <td className="p-3 text-sm font-medium">{shift.assignment_date || "—"}</td>
                   <td className="p-3 font-medium">{shift.shift_name}</td>
                   <td className="p-3">{shift.user_name}</td>
                   <td className="p-3">{getStatusBadge(shift.status)}</td>
