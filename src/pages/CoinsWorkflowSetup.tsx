@@ -28,7 +28,7 @@ const CoinsWorkflowSetup = () => {
   const [assignments, setAssignments] = useState<any[]>([]);
 
   // Add form
-  const [selectedBrandId, setSelectedBrandId] = useState("");
+  const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [selectedPhase, setSelectedPhase] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -62,25 +62,27 @@ const CoinsWorkflowSetup = () => {
   };
 
   const handleAdd = async () => {
-    if (!selectedBrandId || !selectedPhase || !selectedUserId) {
+    if (selectedBrandIds.length === 0 || !selectedPhase || !selectedUserId) {
       toast.error(isArabic ? "يرجى تعبئة جميع الحقول" : "Please fill all fields");
       return;
     }
     setSaving(true);
     try {
       const user = users.find(u => u.id === selectedUserId);
-      await supabase.from("coins_workflow_assignments").insert({
-        brand_id: selectedBrandId,
+      const inserts = selectedBrandIds.map(brandId => ({
+        brand_id: brandId,
         phase: selectedPhase,
         user_id: selectedUserId,
         user_name: user?.display_name || user?.email || "",
-      });
+      }));
+      const { error } = await supabase.from("coins_workflow_assignments").insert(inserts);
+      if (error) throw error;
       toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
-      setSelectedBrandId(""); setSelectedPhase(""); setSelectedUserId("");
+      setSelectedBrandIds([]); setSelectedPhase(""); setSelectedUserId("");
       fetchAssignments();
     } catch (err: any) {
       if (err.message?.includes("duplicate")) {
-        toast.error(isArabic ? "هذا التعيين موجود بالفعل" : "This assignment already exists");
+        toast.error(isArabic ? "بعض التعيينات موجودة بالفعل" : "Some assignments already exist");
       } else {
         toast.error(err.message || "Error");
       }
@@ -117,10 +119,21 @@ const CoinsWorkflowSetup = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="space-y-2">
-              <Label>{isArabic ? "العلامة التجارية" : "Brand"}</Label>
-              <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
-                <SelectTrigger><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
-                <SelectContent>{brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}</SelectContent>
+              <Label>{isArabic ? "العلامات التجارية" : "Brands"}</Label>
+              <div className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded-md bg-background">
+                {selectedBrandIds.map(id => {
+                  const brand = brands.find(b => b.id === id);
+                  return (
+                    <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-sm">
+                      {brand?.brand_name}
+                      <button type="button" className="hover:text-destructive" onClick={() => setSelectedBrandIds(prev => prev.filter(b => b !== id))}>×</button>
+                    </span>
+                  );
+                })}
+              </div>
+              <Select value="" onValueChange={(val) => { if (!selectedBrandIds.includes(val)) setSelectedBrandIds(prev => [...prev, val]); }}>
+                <SelectTrigger><SelectValue placeholder={isArabic ? "اختر علامة تجارية" : "Select brand"} /></SelectTrigger>
+                <SelectContent>{brands.filter(b => !selectedBrandIds.includes(b.id)).map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
