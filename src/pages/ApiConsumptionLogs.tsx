@@ -70,6 +70,16 @@ const getOrderNumber = (log: ApiLog): string => {
   return String(body.Order_Number || body.Order_number || body.order_number || "");
 };
 
+// Helper function to extract Order Date from request_body
+const getOrderDateFromBody = (log: ApiLog): string => {
+  if (!log.request_body) return "";
+  const body = log.request_body as any;
+  const dateStr = body.Order_date || body.order_date || body.Order_Date || "";
+  if (!dateStr) return "";
+  // Extract just the date part (YYYY-MM-DD) from datetime strings like "2026-01-21 11:09:30"
+  return String(dateStr).substring(0, 10);
+};
+
 const ApiConsumptionLogs = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -89,6 +99,7 @@ const ApiConsumptionLogs = () => {
   const [endpointFilter, setEndpointFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("today");
+  const [dateType, setDateType] = useState<"sendingDate" | "orderDate">("sendingDate");
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -129,12 +140,12 @@ const ApiConsumptionLogs = () => {
     if (hasAccess) {
       fetchLogs();
     }
-  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess, currentPage, pageSize, hasActiveColumnFilters]);
+  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess, currentPage, pageSize, hasActiveColumnFilters, dateType]);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [endpointFilter, statusFilter, dateFilter, customDate, searchTerm]);
+  }, [endpointFilter, statusFilter, dateFilter, customDate, searchTerm, dateType]);
 
   // KSA is UTC+3, so KSA midnight = 21:00 UTC previous day
   const getDateRange = () => {
@@ -214,18 +225,32 @@ const ApiConsumptionLogs = () => {
     try {
       const { start, end } = getDateRange();
       
-      // When column filters are active, fetch ALL data for client-side filtering
-      const shouldFetchAll = hasActiveColumnFilters;
+      // When column filters are active or orderDate mode, fetch ALL data for client-side filtering
+      const shouldFetchAll = hasActiveColumnFilters || dateType === "orderDate";
       
       // Calculate pagination offset
       const from = (currentPage - 1) * pageSize;
       const to = from + pageSize - 1;
       
+      // For orderDate mode, widen the created_at range by a few days to capture delayed sends
+      let queryStart = start;
+      let queryEnd = end;
+      if (dateType === "orderDate") {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        // Extend range: orders could be sent up to 3 days later
+        endDate.setDate(endDate.getDate() + 3);
+        // Also look back 1 day for safety
+        startDate.setDate(startDate.getDate() - 1);
+        queryStart = startDate.toISOString();
+        queryEnd = endDate.toISOString();
+      }
+
       let logsQuery = supabase
         .from("api_consumption_logs")
         .select("*", { count: "exact" })
-        .gte("created_at", start)
-        .lte("created_at", end)
+        .gte("created_at", queryStart)
+        .lte("created_at", queryEnd)
         .order("created_at", { ascending: false });
 
       // Only apply pagination when no column filters are active
@@ -247,21 +272,21 @@ const ApiConsumptionLogs = () => {
       let totalCountQuery = supabase
         .from("api_consumption_logs")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", start)
-        .lte("created_at", end);
+        .gte("created_at", queryStart)
+        .lte("created_at", queryEnd);
 
       let successCountQuery = supabase
         .from("api_consumption_logs")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", start)
-        .lte("created_at", end)
+        .gte("created_at", queryStart)
+        .lte("created_at", queryEnd)
         .eq("success", true);
 
       let failedCountQuery = supabase
         .from("api_consumption_logs")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", start)
-        .lte("created_at", end)
+        .gte("created_at", queryStart)
+        .lte("created_at", queryEnd)
         .eq("success", false);
 
       // Apply endpoint filter to count queries if selected
@@ -291,8 +316,8 @@ const ApiConsumptionLogs = () => {
           .select("request_body")
           .eq("endpoint", "api-salesline")
           .eq("success", true)
-          .gte("created_at", start)
-          .lte("created_at", end)
+          .gte("created_at", queryStart)
+          .lte("created_at", queryEnd)
           .range(saleslineOffset, saleslineOffset + batchSize - 1);
         
         if (batchError) {
@@ -321,8 +346,8 @@ const ApiConsumptionLogs = () => {
           let batchQuery = supabase
             .from("api_consumption_logs")
             .select("*")
-            .gte("created_at", start)
-            .lte("created_at", end)
+            .gte("created_at", queryStart)
+            .lte("created_at", queryEnd)
             .order("created_at", { ascending: false })
             .range(offset, offset + 999);
           if (endpointFilter !== "all") batchQuery = batchQuery.eq("endpoint", endpointFilter);
@@ -399,7 +424,33 @@ const ApiConsumptionLogs = () => {
     }
   };
 
+  // Helper to get the target date string (YYYY-MM-DD) for order date filtering
+  const getTargetDateStrings = (): string[] => {
+    const { start, end } = getDateRange();
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const dates: string[] = [];
+    // Generate all dates in range
+    const current = new Date(startDate);
+    // Adjust to KSA: add 3 hours to get the KSA date
+    current.setHours(current.getHours() + 3);
+    endDate.setHours(endDate.getHours() + 3);
+    while (current <= endDate) {
+      dates.push(current.toISOString().substring(0, 10));
+      current.setDate(current.getDate() + 1);
+    }
+    return [...new Set(dates)];
+  };
+
   const filteredLogs = logs.filter(log => {
+    // Apply order date filter first (when dateType is orderDate)
+    if (dateType === "orderDate") {
+      const orderDate = getOrderDateFromBody(log);
+      if (!orderDate) return false; // Skip logs without order date
+      const targetDates = getTargetDateStrings();
+      if (!targetDates.includes(orderDate)) return false;
+    }
+
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       const matchesSearch = (
@@ -955,6 +1006,16 @@ const ApiConsumptionLogs = () => {
               </SelectContent>
             </Select>
 
+            <Select value={dateType} onValueChange={(value: "sendingDate" | "orderDate") => setDateType(value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sendingDate">{language === "ar" ? "تاريخ الإرسال" : "Sending Date"}</SelectItem>
+                <SelectItem value="orderDate">{language === "ar" ? "تاريخ الطلب" : "Order Date"}</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={dateFilter} onValueChange={(value) => {
               setDateFilter(value);
               if (value === "custom") {
@@ -1017,6 +1078,11 @@ const ApiConsumptionLogs = () => {
                       {language === "ar" ? "الوقت" : "Time"}
                     </SortableHeader>
                   </TableHead>
+                  {dateType === "orderDate" && (
+                    <TableHead className="min-w-[120px]">
+                      {language === "ar" ? "تاريخ الطلب" : "Order Date"}
+                    </TableHead>
+                  )}
                   <TableHead className="min-w-[120px]">
                     <SortableHeader column="orderNumber">
                       {language === "ar" ? "رقم الطلب" : "Order #"}
@@ -1057,13 +1123,13 @@ const ApiConsumptionLogs = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={dateType === "orderDate" ? 9 : 8} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : sortedLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={dateType === "orderDate" ? 9 : 8} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد سجلات" : "No logs found"}
                     </TableCell>
                   </TableRow>
@@ -1073,6 +1139,11 @@ const ApiConsumptionLogs = () => {
                       <TableCell className="font-mono text-sm">
                         {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
                       </TableCell>
+                      {dateType === "orderDate" && (
+                        <TableCell className="font-mono text-sm">
+                          {getOrderDateFromBody(log) || "-"}
+                        </TableCell>
+                      )}
                       <TableCell className="font-mono text-sm">
                         {getOrderNumber(log) || "-"}
                       </TableCell>
