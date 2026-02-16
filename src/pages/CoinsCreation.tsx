@@ -207,29 +207,36 @@ const CoinsCreation = () => {
         .eq("phase", phase);
       if (!assignments || assignments.length === 0) return;
 
+      const brand = brands.find(b => b.id === bId);
+      const phaseLabels: Record<string, string> = { sending: isArabic ? "التوجيه" : "Sending", receiving: isArabic ? "الاستلام" : "Receiving", coins_entry: isArabic ? "إدخال العملات" : "Coins Entry" };
+      const order = orders.find(o => o.id === orderId);
+
       for (const assignment of assignments) {
-        // Send notification
+        // In-app notification
         await supabase.from("notifications").insert({
           user_id: assignment.user_id,
           title: isArabic ? "مهمة معاملات عملات جديدة" : "New Coins Transaction Task",
           message: isArabic
-            ? `لديك مهمة جديدة في مرحلة ${phase === "sending" ? "التوجيه" : phase === "receiving" ? "الاستلام" : phase}`
+            ? `لديك مهمة جديدة في مرحلة ${phaseLabels[phase] || phase}`
             : `You have a new task in the ${phase} phase`,
           type: "coins_workflow",
           link: phase === "sending" ? `/coins-sending?order=${orderId}` : phase === "receiving" ? `/coins-receiving-phase?order=${orderId}` : `/receiving-coins`,
         } as any);
 
-        // Send email via existing edge function
-        const { data: profile } = await supabase.from("profiles").select("email").eq("id", assignment.user_id).maybeSingle();
-        if (profile?.email) {
-          await supabase.functions.invoke("send-push-notification", {
-            body: {
-              userId: assignment.user_id,
-              title: isArabic ? "مهمة معاملات عملات جديدة" : "New Coins Transaction Task",
-              body: isArabic ? "لديك مهمة جديدة" : "You have a new coins workflow task",
-            },
-          });
-        }
+        // Email + Push via edge function
+        supabase.functions.invoke("send-coins-workflow-notification", {
+          body: {
+            type: "phase_transition",
+            userId: assignment.user_id,
+            userName: assignment.user_name || "",
+            brandName: brand?.brand_name || "",
+            phase,
+            phaseLabel: phaseLabels[phase] || phase,
+            orderNumber: order?.order_number || "",
+            orderId,
+            link: phase === "sending" ? `/coins-sending?order=${orderId}` : phase === "receiving" ? `/coins-receiving-phase?order=${orderId}` : `/receiving-coins`,
+          },
+        }).catch(err => console.error("Notification error:", err));
       }
     } catch (err) {
       console.error("Notification error:", err);

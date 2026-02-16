@@ -167,6 +167,7 @@ const CoinsReceivingPhase = () => {
         .eq("brand_id", bId)
         .eq("phase", phase);
       if (!assignments || assignments.length === 0) return;
+
       for (const assignment of assignments) {
         await supabase.from("notifications").insert({
           user_id: assignment.user_id,
@@ -175,9 +176,19 @@ const CoinsReceivingPhase = () => {
           type: "coins_workflow",
           link: `/receiving-coins`,
         } as any);
-        await supabase.functions.invoke("send-push-notification", {
-          body: { userId: assignment.user_id, title: isArabic ? "مهمة جديدة" : "New Task", body: isArabic ? "إدخال عملات" : "Coins entry task" },
-        });
+
+        supabase.functions.invoke("send-coins-workflow-notification", {
+          body: {
+            type: "phase_transition",
+            userId: assignment.user_id,
+            userName: assignment.user_name || "",
+            brandName: selectedOrder?.brand_id || "",
+            phase,
+            phaseLabel: isArabic ? "إدخال العملات" : "Coins Entry",
+            orderNumber: selectedOrder?.order_number || "",
+            orderId,
+          },
+        }).catch(err => console.error("Notification error:", err));
       }
     } catch (err) { console.error("Notification error:", err); }
   };
