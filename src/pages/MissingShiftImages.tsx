@@ -105,7 +105,7 @@ export default function MissingShiftImages() {
           user_id,
           assignment_date,
           shifts!inner(shift_name),
-          profiles!shift_assignments_user_id_fkey(first_name, last_name)
+          profiles!shift_assignments_user_id_fkey(user_name)
         `)
         .gte("assignment_date", fromDate)
         .lte("assignment_date", toDate)
@@ -158,7 +158,7 @@ export default function MissingShiftImages() {
           const shift = assignment.shifts;
           result.push({
             session_id: session?.id || "",
-            user_name: profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "—",
+            user_name: profile?.user_name || "—",
             shift_name: shift?.shift_name || "—",
             opened_at: session?.opened_at || null,
             closed_at: session?.closed_at || null,
