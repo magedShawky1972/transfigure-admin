@@ -120,6 +120,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/void-payment": "voidPayment",
   "/receiving-coins": "receivingCoins",
   "/acknowledgment-documents": "acknowledgmentDocuments",
+  "/missing-shift-images": "missingShiftImages",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {

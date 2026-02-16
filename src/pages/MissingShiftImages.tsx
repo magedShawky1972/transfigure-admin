@@ -1,0 +1,290 @@
+import { useState, useEffect } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { usePageAccess } from "@/hooks/usePageAccess";
+import { AccessDenied } from "@/components/AccessDenied";
+import UploadMissingImagesDialog from "@/components/UploadMissingImagesDialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, ImageIcon, Upload, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { formatKSADateTime, getKSADateString } from "@/lib/ksaTime";
+
+interface MissingImageShift {
+  session_id: string;
+  user_name: string;
+  shift_name: string;
+  opened_at: string | null;
+  closed_at: string | null;
+  status: string;
+  uploaded_count: number;
+  required_count: number;
+  assignment_date: string | null;
+}
+
+export default function MissingShiftImages() {
+  const { language } = useLanguage();
+  const { hasAccess, isLoading: accessLoading } = usePageAccess("/missing-shift-images");
+  const [loading, setLoading] = useState(false);
+  const [shifts, setShifts] = useState<MissingImageShift[]>([]);
+  const [selectedDate, setSelectedDate] = useState(getKSADateString());
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<MissingImageShift | null>(null);
+
+  const text = {
+    ar: {
+      title: "الورديات ذات الصور الناقصة",
+      user: "الموظف",
+      shift: "الوردية",
+      status: "الحالة",
+      images: "الصور",
+      openedAt: "وقت الفتح",
+      closedAt: "وقت الإغلاق",
+      actions: "الإجراءات",
+      uploadImages: "رفع صور",
+      loading: "جاري التحميل...",
+      noMissing: "لا توجد ورديات بصور ناقصة في هذا التاريخ ✅",
+      refresh: "تحديث",
+      closed: "مغلقة",
+      open: "مفتوحة",
+      notStarted: "لم تبدأ",
+    },
+    en: {
+      title: "Shifts with Missing Images",
+      user: "Employee",
+      shift: "Shift",
+      status: "Status",
+      images: "Images",
+      openedAt: "Opened At",
+      closedAt: "Closed At",
+      actions: "Actions",
+      uploadImages: "Upload Images",
+      loading: "Loading...",
+      noMissing: "No shifts with missing images on this date ✅",
+      refresh: "Refresh",
+      closed: "Closed",
+      open: "Open",
+      notStarted: "Not Started",
+    },
+  };
+
+  const t = text[language as keyof typeof text] || text.en;
+
+  useEffect(() => {
+    if (hasAccess) fetchShifts();
+  }, [hasAccess, selectedDate]);
+
+  const fetchShifts = async () => {
+    setLoading(true);
+    try {
+      // Get required brands count (A-class, non-Ludo)
+      const { data: brandsData } = await supabase
+        .from("brands")
+        .select("id, brand_name")
+        .eq("status", "active")
+        .eq("abc_analysis", "A");
+
+      const requiredBrands = brandsData?.filter((b) => {
+        const name = b.brand_name.toLowerCase();
+        return !name.includes("yalla ludo") && !name.includes("يلا لودو") && !name.includes("ludo");
+      }) || [];
+
+      const requiredCount = requiredBrands.length;
+      const requiredBrandIds = requiredBrands.map((b) => b.id);
+
+      // Get shift assignments for the selected date
+      const { data: assignments } = await supabase
+        .from("shift_assignments")
+        .select(`
+          id,
+          user_id,
+          assignment_date,
+          shifts!inner(shift_name),
+          profiles!shift_assignments_user_id_fkey(first_name, last_name)
+        `)
+        .eq("assignment_date", selectedDate) as { data: any[] | null };
+
+      if (!assignments || assignments.length === 0) {
+        setShifts([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get all shift sessions for these assignments
+      const assignmentIds = assignments.map((a: any) => a.id);
+      const { data: sessions } = await supabase
+        .from("shift_sessions")
+        .select("id, shift_assignment_id, status, opened_at, closed_at, user_id")
+        .in("shift_assignment_id", assignmentIds);
+
+      const sessionMap = new Map(sessions?.map((s) => [s.shift_assignment_id, s]) || []);
+
+      // Get all session IDs to fetch brand balances
+      const sessionIds = sessions?.map((s) => s.id) || [];
+      
+      const balancesMap = new Map<string, number>();
+      if (sessionIds.length > 0) {
+        const { data: balances } = await supabase
+          .from("shift_brand_balances")
+          .select("shift_session_id, brand_id, receipt_image_path")
+          .in("shift_session_id", sessionIds)
+          .in("brand_id", requiredBrandIds);
+
+        balances?.forEach((b) => {
+          if (b.receipt_image_path) {
+            balancesMap.set(
+              b.shift_session_id,
+              (balancesMap.get(b.shift_session_id) || 0) + 1
+            );
+          }
+        });
+      }
+
+      // Build result - only shifts with missing images
+      const result: MissingImageShift[] = [];
+      for (const assignment of assignments) {
+        const session = sessionMap.get(assignment.id);
+        const uploadedCount = session ? (balancesMap.get(session.id) || 0) : 0;
+
+        if (uploadedCount < requiredCount) {
+          const profile = assignment.profiles;
+          const shift = assignment.shifts;
+          result.push({
+            session_id: session?.id || "",
+            user_name: profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "—",
+            shift_name: shift?.shift_name || "—",
+            opened_at: session?.opened_at || null,
+            closed_at: session?.closed_at || null,
+            status: session?.status || "not_started",
+            uploaded_count: uploadedCount,
+            required_count: requiredCount,
+            assignment_date: assignment.assignment_date,
+          });
+        }
+      }
+
+      setShifts(result);
+    } catch (error) {
+      console.error("Error fetching shifts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const changeDate = (days: number) => {
+    const date = new Date(selectedDate + "T12:00:00");
+    date.setDate(date.getDate() + days);
+    setSelectedDate(date.toISOString().split("T")[0]);
+  };
+
+  const getStatusBadge = (status: string) => {
+    if (status === "closed") return <Badge className="bg-primary text-primary-foreground">{t.closed}</Badge>;
+    if (status === "open") return <Badge className="bg-accent text-accent-foreground">{t.open}</Badge>;
+    return <Badge variant="secondary">{t.notStarted}</Badge>;
+  };
+
+  if (accessLoading) return null;
+  if (hasAccess === false) return <AccessDenied />;
+
+  return (
+    <div className="p-4 md:p-6 space-y-4" dir={language === "ar" ? "rtl" : "ltr"}>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <ImageIcon className="h-6 w-6" />
+          {t.title}
+        </h1>
+        <Button variant="outline" size="sm" onClick={fetchShifts}>
+          <RefreshCw className="h-4 w-4 mr-1" />
+          {t.refresh}
+        </Button>
+      </div>
+
+      {/* Date navigation */}
+      <div className="flex items-center gap-2 justify-center">
+        <Button variant="outline" size="icon" onClick={() => changeDate(-1)}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="w-48 text-center"
+        />
+        <Button variant="outline" size="icon" onClick={() => changeDate(1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="mr-2 ml-2">{t.loading}</span>
+        </div>
+      ) : shifts.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground font-medium text-lg">
+          {t.noMissing}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="p-3 text-start font-medium">{t.shift}</th>
+                <th className="p-3 text-start font-medium">{t.user}</th>
+                <th className="p-3 text-start font-medium">{t.status}</th>
+                <th className="p-3 text-start font-medium">{t.images}</th>
+                <th className="p-3 text-start font-medium">{t.openedAt}</th>
+                <th className="p-3 text-start font-medium">{t.closedAt}</th>
+                <th className="p-3 text-start font-medium">{t.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shifts.map((shift, idx) => (
+                <tr key={idx} className="border-b border-border hover:bg-muted/50">
+                  <td className="p-3 font-medium">{shift.shift_name}</td>
+                  <td className="p-3">{shift.user_name}</td>
+                  <td className="p-3">{getStatusBadge(shift.status)}</td>
+                  <td className="p-3">
+                    <Badge variant="outline" className="border-destructive text-destructive">
+                      {shift.uploaded_count}/{shift.required_count}
+                    </Badge>
+                  </td>
+                  <td className="p-3 text-sm text-muted-foreground">
+                    {shift.opened_at ? formatKSADateTime(shift.opened_at) : "—"}
+                  </td>
+                  <td className="p-3 text-sm text-muted-foreground">
+                    {shift.closed_at ? formatKSADateTime(shift.closed_at) : "—"}
+                  </td>
+                  <td className="p-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedShift(shift);
+                        setUploadDialogOpen(true);
+                      }}
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      {t.uploadImages}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {selectedShift && (
+        <UploadMissingImagesDialog
+          open={uploadDialogOpen}
+          onOpenChange={setUploadDialogOpen}
+          shiftSessionId={selectedShift.session_id || null}
+          userName={selectedShift.user_name}
+          shiftName={selectedShift.shift_name}
+          onImagesUploaded={fetchShifts}
+        />
+      )}
+    </div>
+  );
+}
