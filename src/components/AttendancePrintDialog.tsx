@@ -179,7 +179,7 @@ export default function AttendancePrintDialog({
 
           <div class="summary">
             <div><strong>${isAr ? "إجمالي التأخير" : "Total Late"}:</strong> ${totalLate}m</div>
-            <div><strong>${isAr ? "إجمالي الإضافي" : "Total Overtime"}:</strong> ${totalOT}m</div>
+            
             <div><strong>${isAr ? "أيام الغياب" : "Absent Days"}:</strong> ${totalAbsent}</div>
             <div><strong>${isAr ? "إجمالي ساعات العمل" : "Total Work Hours"}:</strong> ${Math.floor(totalWork / 60)}h ${totalWork % 60}m</div>
           </div>
