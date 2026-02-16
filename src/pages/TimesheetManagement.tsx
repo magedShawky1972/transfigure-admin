@@ -31,7 +31,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer } from "lucide-react";
+import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface AttendanceType {
@@ -132,6 +133,7 @@ export default function TimesheetManagement() {
   const [naughtyDrilldownEmployee, setNaughtyDrilldownEmployee] = useState<{employeeId: string; name: string} | null>(null);
   const [naughtyDrilldownRecords, setNaughtyDrilldownRecords] = useState<{work_date: string; late_minutes: number; scheduled_start: string | null; actual_start: string | null; deduction_rule_name: string | null}[]>([]);
   const [naughtyDrilldownLoading, setNaughtyDrilldownLoading] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -629,7 +631,15 @@ export default function TimesheetManagement() {
             <Clock className="h-6 w-6" />
             {language === "ar" ? "إدارة سجل الحضور" : "Timesheet Management"}
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => setPrintDialogOpen(true)}
+              disabled={timesheets.length === 0}
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              {language === "ar" ? "طباعة" : "Print"}
+            </Button>
             <Button 
               variant="outline" 
               onClick={handleResendDeductionMails}
@@ -1127,6 +1137,17 @@ export default function TimesheetManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AttendancePrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        timesheets={timesheets}
+        filterLabel={
+          filterMode === "date"
+            ? `${language === "ar" ? "التاريخ" : "Date"}: ${selectedDate}`
+            : `${language === "ar" ? "الشهر" : "Month"}: ${selectedMonth}`
+        }
+      />
     </div>
   );
 }
