@@ -442,13 +442,36 @@ const ApiConsumptionLogs = () => {
     return [...new Set(dates)];
   };
 
+  // Pre-compute matching order numbers from salesheader logs for orderDate filtering
+  const orderDateMatchingOrderNumbers = (() => {
+    if (dateType !== "orderDate") return null;
+    const targetDates = getTargetDateStrings();
+    const matchingNumbers = new Set<string>();
+    for (const log of logs) {
+      if (log.endpoint === "api-salesheader") {
+        const orderDate = getOrderDateFromBody(log);
+        if (orderDate && targetDates.includes(orderDate)) {
+          const orderNum = getOrderNumber(log);
+          if (orderNum) matchingNumbers.add(orderNum);
+        }
+      }
+    }
+    return matchingNumbers;
+  })();
+
   const filteredLogs = logs.filter(log => {
     // Apply order date filter first (when dateType is orderDate)
     if (dateType === "orderDate") {
       const orderDate = getOrderDateFromBody(log);
-      if (!orderDate) return false; // Skip logs without order date
-      const targetDates = getTargetDateStrings();
-      if (!targetDates.includes(orderDate)) return false;
+      if (orderDate) {
+        // Log has its own order date - check directly
+        const targetDates = getTargetDateStrings();
+        if (!targetDates.includes(orderDate)) return false;
+      } else {
+        // salesline/payment don't have Order_date - match by order number from salesheader
+        const orderNum = getOrderNumber(log);
+        if (!orderNum || !orderDateMatchingOrderNumbers?.has(orderNum)) return false;
+      }
     }
 
     if (searchTerm) {
