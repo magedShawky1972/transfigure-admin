@@ -113,21 +113,22 @@ const CoinsWorkflowSetup = () => {
     setExpandedPhases(prev => ({ ...prev, [phase]: !prev[phase] }));
   };
 
-  // Group by phase -> brand
+  // Group by phase -> user
   const groupedAssignments = useMemo(() => {
     const grouped: Record<string, Record<string, any[]>> = {};
     PHASES.forEach(p => { grouped[p.key] = {}; });
     assignments.forEach(a => {
       if (!grouped[a.phase]) grouped[a.phase] = {};
-      if (!grouped[a.phase][a.brand_id]) grouped[a.phase][a.brand_id] = [];
-      grouped[a.phase][a.brand_id].push(a);
+      const uid = a.user_id || "unknown";
+      if (!grouped[a.phase][uid]) grouped[a.phase][uid] = [];
+      grouped[a.phase][uid].push(a);
     });
     return grouped;
   }, [assignments]);
 
   const getPhaseCount = (phaseKey: string) => {
-    const brands = groupedAssignments[phaseKey] || {};
-    return Object.values(brands).reduce((sum, arr) => sum + arr.length, 0);
+    const usersMap = groupedAssignments[phaseKey] || {};
+    return Object.values(usersMap).reduce((sum, arr) => sum + arr.length, 0);
   };
 
   const getUserDisplay = (a: any) => {
@@ -213,8 +214,8 @@ const CoinsWorkflowSetup = () => {
       {/* Grouped Assignments by Phase → Brand */}
       <div className="space-y-3">
         {PHASES.map(phase => {
-          const phaseBrands = groupedAssignments[phase.key] || {};
-          const brandIds = Object.keys(phaseBrands);
+          const phaseUsers = groupedAssignments[phase.key] || {};
+          const userIds = Object.keys(phaseUsers);
           const isPhaseOpen = expandedPhases[phase.key] ?? true;
 
           return (
@@ -233,21 +234,22 @@ const CoinsWorkflowSetup = () => {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="p-0 space-y-0">
-                    {brandIds.length === 0 ? (
+                    {userIds.length === 0 ? (
                       <div className="text-center text-muted-foreground py-6">
                         {isArabic ? "لا توجد تعيينات" : "No assignments"}
                       </div>
-                    ) : brandIds.map(brandId => {
-                      const brandKey = `${phase.key}_${brandId}`;
-                      const isBrandOpen = expandedPhases[brandKey] ?? true;
-                      const items = phaseBrands[brandId];
+                    ) : userIds.map(userId => {
+                      const userKey = `${phase.key}_${userId}`;
+                      const isUserOpen = expandedPhases[userKey] ?? true;
+                      const items = phaseUsers[userId];
+                      const displayName = getUserDisplay(items[0]);
 
                       return (
-                        <Collapsible key={brandId} open={isBrandOpen} onOpenChange={() => togglePhase(brandKey)}>
+                        <Collapsible key={userId} open={isUserOpen} onOpenChange={() => togglePhase(userKey)}>
                           <CollapsibleTrigger asChild>
                             <div className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-muted/30 border-t">
-                              {isBrandOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              <span className="font-medium text-sm">{getBrandName(brandId)}</span>
+                              {isUserOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                              <span className="font-medium text-sm">{displayName}</span>
                               <span className="text-xs text-muted-foreground">({items.length})</span>
                             </div>
                           </CollapsibleTrigger>
@@ -256,7 +258,7 @@ const CoinsWorkflowSetup = () => {
                               <TableBody>
                                 {items.map((a: any) => (
                                   <TableRow key={a.id}>
-                                    <TableCell className={isArabic ? "pr-10" : "pl-10"}>{getUserDisplay(a)}</TableCell>
+                                    <TableCell className={isArabic ? "pr-10" : "pl-10"}>{getBrandName(a.brand_id)}</TableCell>
                                     <TableCell className="w-12">
                                       <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
