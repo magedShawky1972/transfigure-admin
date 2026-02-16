@@ -395,6 +395,7 @@ export type Database = {
           type_name: string
           type_name_ar: string | null
           updated_at: string
+          weekend_days: number[] | null
         }
         Insert: {
           allow_early_exit_minutes?: number | null
@@ -410,6 +411,7 @@ export type Database = {
           type_name: string
           type_name_ar?: string | null
           updated_at?: string
+          weekend_days?: number[] | null
         }
         Update: {
           allow_early_exit_minutes?: number | null
@@ -425,6 +427,7 @@ export type Database = {
           type_name?: string
           type_name_ar?: string | null
           updated_at?: string
+          weekend_days?: number[] | null
         }
         Relationships: []
       }
