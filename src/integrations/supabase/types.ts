@@ -4411,6 +4411,7 @@ export type Database = {
           bank_transaction_id: string | null
           created_at: string
           id: string
+          order_date_int: number | null
           order_number: string
           payment_amount: number | null
           payment_brand: string | null
@@ -4425,6 +4426,7 @@ export type Database = {
           bank_transaction_id?: string | null
           created_at?: string
           id?: string
+          order_date_int?: number | null
           order_number: string
           payment_amount?: number | null
           payment_brand?: string | null
@@ -4439,6 +4441,7 @@ export type Database = {
           bank_transaction_id?: string | null
           created_at?: string
           id?: string
+          order_date_int?: number | null
           order_number?: string
           payment_amount?: number | null
           payment_brand?: string | null
@@ -5337,6 +5340,7 @@ export type Database = {
           id: string
           line_number: number
           line_status: number
+          order_date_int: number | null
           order_number: string
           player_id: string | null
           point: number | null
@@ -5355,6 +5359,7 @@ export type Database = {
           id?: string
           line_number: number
           line_status?: number
+          order_date_int?: number | null
           order_number: string
           player_id?: string | null
           point?: number | null
@@ -5373,6 +5378,7 @@ export type Database = {
           id?: string
           line_number?: number
           line_status?: number
+          order_date_int?: number | null
           order_number?: string
           player_id?: string | null
           point?: number | null
