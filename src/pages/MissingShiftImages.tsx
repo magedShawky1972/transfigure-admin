@@ -20,6 +20,8 @@ interface MissingImageShift {
   uploaded_count: number;
   required_count: number;
   assignment_date: string | null;
+  shift_start_time: string | null;
+  shift_end_time: string | null;
 }
 
 export default function MissingShiftImages() {
@@ -109,7 +111,7 @@ export default function MissingShiftImages() {
           id,
           user_id,
           assignment_date,
-          shifts!inner(shift_name)
+          shifts!inner(shift_name, shift_start_time, shift_end_time)
         `)
         .gte("assignment_date", fromDate)
         .lte("assignment_date", toDate)
@@ -177,6 +179,8 @@ export default function MissingShiftImages() {
             uploaded_count: uploadedCount,
             required_count: requiredCount,
             assignment_date: assignment.assignment_date,
+            shift_start_time: shift?.shift_start_time || null,
+            shift_end_time: shift?.shift_end_time || null,
           });
         }
       }
@@ -260,7 +264,14 @@ export default function MissingShiftImages() {
             <tbody>
               {shifts.map((shift, idx) => (
                 <tr key={idx} className="border-b border-border hover:bg-muted/50">
-                  <td className="p-3 text-sm font-medium">{shift.assignment_date || "—"}</td>
+                  <td className="p-3 text-sm font-medium">
+                    <div>{shift.assignment_date || "—"}</div>
+                    {(shift.shift_start_time || shift.shift_end_time) && (
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {shift.shift_start_time?.slice(0, 5) || "—"} - {shift.shift_end_time?.slice(0, 5) || "—"}
+                      </div>
+                    )}
+                  </td>
                   <td className="p-3 font-medium">{shift.shift_name}</td>
                   <td className="p-3">{shift.user_name}</td>
                   <td className="p-3">{getStatusBadge(shift.status)}</td>
