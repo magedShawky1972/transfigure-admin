@@ -6,7 +6,7 @@ import {
   LayoutDashboard, TicketCheck, Clock, FolderKanban, Users, Key, FileBarChart, FileText, Table2, Grid3x3,
   FileSpreadsheet, Database, MessageCircle, Calendar, Mail, Settings, UserCheck, TrendingUp, CreditCard,
   DollarSign, Building2, Truck, UserCircle, Palmtree, ClipboardList, Calculator, HeartPulse, Briefcase,
-  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target, FileSignature
+  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target, FileSignature, ImageIcon, Undo2
 } from "lucide-react";
 
 const URL_TO_PERMISSION: Record<string, string> = {
@@ -96,6 +96,13 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/coins-sending": "coinsSending",
   "/coins-receiving-phase": "coinsReceivingPhase",
   "/coins-workflow-setup": "coinsWorkflowSetup",
+  "/shift-attendance-report": "shiftAttendanceReport",
+  "/missing-shift-images": "missingShiftImages",
+  "/project-setup": "projectSetup",
+  "/employee-self-requests": "employeeRequests",
+  "/employee-request-approvals": "employeeRequestApprovals",
+  "/hr-manager-setup": "hrManagerSetup",
+  "/void-payment": "voidPayment",
 };
 
 interface MenuItem {
@@ -141,6 +148,8 @@ const menuGroups: MenuGroup[] = [
       { title: "Shift Session", titleAr: "جلسة الوردية", url: "/shift-session", icon: Clock },
       { title: "My Shifts Calendar", titleAr: "تقويم وردياتي", url: "/my-shifts", icon: Calendar },
       { title: "Shift Follow-Up", titleAr: "متابعة الورديات", url: "/shift-follow-up", icon: BarChart3 },
+      { title: "Missing Images", titleAr: "صور ناقصة", url: "/missing-shift-images", icon: ImageIcon },
+      { title: "Shift Attendance Report", titleAr: "سجل حضور الورديات", url: "/shift-attendance-report", icon: ClipboardCheck },
       { title: "Tawasoul", titleAr: "تواصل", url: "/tawasoul", icon: MessageCircle },
       { title: "Asus Tawasoul", titleAr: "أسس تواصل", url: "/asus-tawasoul", icon: Users },
       { title: "Email Manager", titleAr: "مدير البريد", url: "/email-manager", icon: Mail },
@@ -165,6 +174,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Currency Setup", titleAr: "إعداد العملات", url: "/currency-setup", icon: DollarSign },
       { title: "User Groups", titleAr: "مجموعات المستخدمين", url: "/user-group-setup", icon: Users },
       { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
+      { title: "Project Setup", titleAr: "إعداد المشاريع", url: "/project-setup", icon: FolderKanban },
       { title: "Task List", titleAr: "قائمة المهام", url: "/task-list", icon: ClipboardList },
     ]
   },
@@ -173,6 +183,9 @@ const menuGroups: MenuGroup[] = [
     labelAr: "الموارد البشرية",
     items: [
       { title: "Employee Setup", titleAr: "إعداد الموظفين", url: "/employee-setup", icon: UserCircle },
+      { title: "Employee Requests", titleAr: "طلبات الموظفين", url: "/employee-self-requests", icon: ClipboardList },
+      { title: "Request Approvals", titleAr: "اعتماد الطلبات", url: "/employee-request-approvals", icon: ClipboardCheck },
+      { title: "HR Manager Setup", titleAr: "إعداد مديري HR", url: "/hr-manager-setup", icon: Users },
       { title: "Vacation Setup", titleAr: "إعداد الإجازات", url: "/vacation-setup", icon: Palmtree },
       { title: "Timesheet Management", titleAr: "إدارة الحضور", url: "/timesheet-management", icon: ClipboardList },
       { title: "ZK Attendance Logs", titleAr: "سجلات حضور ZK", url: "/zk-attendance-logs", icon: Clock },
@@ -201,6 +214,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Bank Entry", titleAr: "قيد البنك", url: "/bank-entry", icon: FileText },
       { title: "Expense Entry", titleAr: "قيد المصروفات", url: "/expense-entry", icon: Receipt },
       { title: "Expense Requests", titleAr: "طلبات المصروفات", url: "/expense-requests", icon: ClipboardList },
+      { title: "Void Payment", titleAr: "إلغاء الدفع", url: "/void-payment", icon: Undo2 },
       { title: "Payment Bank Link", titleAr: "ربط طرق الدفع بالبنوك", url: "/payment-bank-link", icon: Link2 },
     ]
   },
