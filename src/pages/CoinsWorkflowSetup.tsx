@@ -113,18 +113,22 @@ const CoinsWorkflowSetup = () => {
     setExpandedPhases(prev => ({ ...prev, [phase]: !prev[phase] }));
   };
 
+  // Group by phase -> brand
   const groupedAssignments = useMemo(() => {
-    const grouped: Record<string, any[]> = {};
-    PHASES.forEach(p => { grouped[p.key] = []; });
+    const grouped: Record<string, Record<string, any[]>> = {};
+    PHASES.forEach(p => { grouped[p.key] = {}; });
     assignments.forEach(a => {
-      if (grouped[a.phase]) {
-        grouped[a.phase].push(a);
-      } else {
-        grouped[a.phase] = [a];
-      }
+      if (!grouped[a.phase]) grouped[a.phase] = {};
+      if (!grouped[a.phase][a.brand_id]) grouped[a.phase][a.brand_id] = [];
+      grouped[a.phase][a.brand_id].push(a);
     });
     return grouped;
   }, [assignments]);
+
+  const getPhaseCount = (phaseKey: string) => {
+    const brands = groupedAssignments[phaseKey] || {};
+    return Object.values(brands).reduce((sum, arr) => sum + arr.length, 0);
+  };
 
   const getUserDisplay = (a: any) => {
     if (a.user_name) return a.user_name;
@@ -206,58 +210,66 @@ const CoinsWorkflowSetup = () => {
         </CardContent>
       </Card>
 
-      {/* Grouped Assignments by Phase */}
+      {/* Grouped Assignments by Phase → Brand */}
       <div className="space-y-3">
         {PHASES.map(phase => {
-          const phaseItems = groupedAssignments[phase.key] || [];
-          const isOpen = expandedPhases[phase.key] ?? true;
+          const phaseBrands = groupedAssignments[phase.key] || {};
+          const brandIds = Object.keys(phaseBrands);
+          const isPhaseOpen = expandedPhases[phase.key] ?? true;
 
           return (
             <Card key={phase.key}>
-              <Collapsible open={isOpen} onOpenChange={() => togglePhase(phase.key)}>
+              <Collapsible open={isPhaseOpen} onOpenChange={() => togglePhase(phase.key)}>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
-                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                        {isPhaseOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                         {isArabic ? phase.ar : phase.en}
-                        <span className="text-sm font-normal text-muted-foreground">({phaseItems.length})</span>
+                        <span className="text-sm font-normal text-muted-foreground">({getPhaseCount(phase.key)})</span>
                       </CardTitle>
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
-                            <TableHead>{isArabic ? "المسؤول" : "Responsible"}</TableHead>
-                            <TableHead></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {phaseItems.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
-                                {isArabic ? "لا توجد تعيينات" : "No assignments"}
-                              </TableCell>
-                            </TableRow>
-                          ) : phaseItems.map(a => (
-                            <TableRow key={a.id}>
-                              <TableCell>{getBrandName(a.brand_id)}</TableCell>
-                              <TableCell>{getUserDisplay(a)}</TableCell>
-                              <TableCell>
-                                <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)}>
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                  <CardContent className="p-0 space-y-0">
+                    {brandIds.length === 0 ? (
+                      <div className="text-center text-muted-foreground py-6">
+                        {isArabic ? "لا توجد تعيينات" : "No assignments"}
+                      </div>
+                    ) : brandIds.map(brandId => {
+                      const brandKey = `${phase.key}_${brandId}`;
+                      const isBrandOpen = expandedPhases[brandKey] ?? true;
+                      const items = phaseBrands[brandId];
+
+                      return (
+                        <Collapsible key={brandId} open={isBrandOpen} onOpenChange={() => togglePhase(brandKey)}>
+                          <CollapsibleTrigger asChild>
+                            <div className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-muted/30 border-t">
+                              {isBrandOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                              <span className="font-medium text-sm">{getBrandName(brandId)}</span>
+                              <span className="text-xs text-muted-foreground">({items.length})</span>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <Table>
+                              <TableBody>
+                                {items.map((a: any) => (
+                                  <TableRow key={a.id}>
+                                    <TableCell className={isArabic ? "pr-10" : "pl-10"}>{getUserDisplay(a)}</TableCell>
+                                    <TableCell className="w-12">
+                                      <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })}
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
