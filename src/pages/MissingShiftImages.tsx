@@ -28,9 +28,14 @@ export default function MissingShiftImages() {
   const [loading, setLoading] = useState(false);
   const [shifts, setShifts] = useState<MissingImageShift[]>([]);
   const [fromDate, setFromDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().split("T")[0];
+    const today = getKSADateString();
+    const [y, m, d] = today.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() - 7);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   });
   const [toDate, setToDate] = useState(getKSADateString());
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
