@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -173,6 +174,8 @@ export default function EmployeeProfile() {
   const [editingVacation, setEditingVacation] = useState<VacationRequest | null>(null);
   const [deleteVacationDialogOpen, setDeleteVacationDialogOpen] = useState(false);
   const [vacationToDelete, setVacationToDelete] = useState<VacationRequest | null>(null);
+  const [approveVacation, setApproveVacation] = useState(false);
+  const [isHRManager, setIsHRManager] = useState(false);
   const [vacationFormData, setVacationFormData] = useState({
     vacation_code_id: "",
     start_date: "",
@@ -184,6 +187,30 @@ export default function EmployeeProfile() {
     if (id) {
       fetchEmployeeData();
     }
+    // Check if current user is HR manager
+    const checkHRManager = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("department_admins")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_department_manager", true)
+        .limit(1);
+      if (data && data.length > 0) {
+        setIsHRManager(true);
+      } else {
+        // Also check admin role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .limit(1);
+        setIsHRManager(!!(roleData && roleData.length > 0));
+      }
+    };
+    checkHRManager();
   }, [id]);
 
   const fetchEmployeeData = async () => {
@@ -432,6 +459,7 @@ export default function EmployeeProfile() {
   };
 
   const openVacationDialog = (vacation?: VacationRequest) => {
+    setApproveVacation(false);
     if (vacation) {
       setEditingVacation(vacation);
       const vacationType = employeeVacationTypes.find(
@@ -485,15 +513,23 @@ export default function EmployeeProfile() {
     try {
       if (editingVacation) {
         // Update existing vacation request
-        const { error: updateError } = await supabase
-          .from("vacation_requests")
-          .update({
+        const updateData: any = {
             vacation_code_id: vacationFormData.vacation_code_id,
             start_date: vacationFormData.start_date,
             end_date: vacationFormData.end_date,
             total_days: totalDays,
             reason: vacationFormData.reason || null,
-          })
+          };
+
+        // If HR approves the vacation
+        if (approveVacation && editingVacation?.status === "pending") {
+          updateData.status = "approved";
+          updateData.approved_at = new Date().toISOString();
+        }
+
+        const { error: updateError } = await supabase
+          .from("vacation_requests")
+          .update(updateData)
           .eq("id", editingVacation.id);
 
         if (updateError) throw updateError;
@@ -1259,6 +1295,20 @@ export default function EmployeeProfile() {
                 placeholder={language === "ar" ? "أدخل سبب الإجازة (اختياري)" : "Enter vacation reason (optional)"}
               />
             </div>
+
+            {/* Approve checkbox for HR Manager when editing pending vacation */}
+            {editingVacation && editingVacation.status === "pending" && isHRManager && (
+              <div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50 dark:bg-green-950/20">
+                <Checkbox
+                  id="approve-vacation"
+                  checked={approveVacation}
+                  onCheckedChange={(checked) => setApproveVacation(!!checked)}
+                />
+                <Label htmlFor="approve-vacation" className="cursor-pointer font-medium text-green-700 dark:text-green-400">
+                  {language === "ar" ? "الموافقة على الإجازة" : "Approve this vacation"}
+                </Label>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVacationDialogOpen(false)}>
