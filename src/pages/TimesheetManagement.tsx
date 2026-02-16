@@ -125,7 +125,11 @@ export default function TimesheetManagement() {
     absence_reason: "",
     notes: "",
   });
-  const [frequentlyLateEmployees, setFrequentlyLateEmployees] = useState<{name: string; count: number; photoUrl: string | null}[]>([]);
+  const [frequentlyLateEmployees, setFrequentlyLateEmployees] = useState<{employeeId: string; name: string; count: number; photoUrl: string | null}[]>([]);
+  const [naughtyDrilldownOpen, setNaughtyDrilldownOpen] = useState(false);
+  const [naughtyDrilldownEmployee, setNaughtyDrilldownEmployee] = useState<{employeeId: string; name: string} | null>(null);
+  const [naughtyDrilldownRecords, setNaughtyDrilldownRecords] = useState<{work_date: string; late_minutes: number; scheduled_start: string | null; actual_start: string | null; deduction_rule_name: string | null}[]>([]);
+  const [naughtyDrilldownLoading, setNaughtyDrilldownLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -153,7 +157,7 @@ export default function TimesheetManagement() {
       if (error) throw error;
       
       // Group by employee and count late occurrences
-      const lateCount = new Map<string, {name: string; count: number; photoUrl: string | null}>();
+      const lateCount = new Map<string, {employeeId: string; name: string; count: number; photoUrl: string | null}>();
       
       (data || []).forEach((record: any) => {
         const empId = record.employee_id;
@@ -163,7 +167,7 @@ export default function TimesheetManagement() {
         if (lateCount.has(empId)) {
           lateCount.get(empId)!.count++;
         } else {
-          lateCount.set(empId, { name: empName, count: 1, photoUrl });
+          lateCount.set(empId, { employeeId: empId, name: empName, count: 1, photoUrl });
         }
       });
       
@@ -176,6 +180,34 @@ export default function TimesheetManagement() {
       setFrequentlyLateEmployees(frequentlyLate);
     } catch (error) {
       console.error("Error fetching frequently late employees:", error);
+    }
+  };
+
+  const openNaughtyDrilldown = async (employeeId: string, employeeName: string) => {
+    setNaughtyDrilldownEmployee({ employeeId, name: employeeName });
+    setNaughtyDrilldownOpen(true);
+    setNaughtyDrilldownLoading(true);
+    try {
+      const thirtyDaysAgo = format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+      const { data, error } = await supabase
+        .from("timesheets")
+        .select("work_date, late_minutes, scheduled_start, actual_start, deduction_rules(rule_name, rule_name_ar)")
+        .eq("employee_id", employeeId)
+        .gt("late_minutes", 0)
+        .gte("work_date", thirtyDaysAgo)
+        .order("work_date", { ascending: false });
+      if (error) throw error;
+      setNaughtyDrilldownRecords((data || []).map((r: any) => ({
+        work_date: r.work_date,
+        late_minutes: r.late_minutes,
+        scheduled_start: r.scheduled_start,
+        actual_start: r.actual_start,
+        deduction_rule_name: r.deduction_rules ? (language === 'ar' ? r.deduction_rules.rule_name_ar || r.deduction_rules.rule_name : r.deduction_rules.rule_name) : null,
+      })));
+    } catch (error) {
+      console.error("Error fetching drilldown:", error);
+    } finally {
+      setNaughtyDrilldownLoading(false);
     }
   };
 
@@ -682,7 +714,7 @@ export default function TimesheetManagement() {
                 ) : (
                   <div className="space-y-1.5 max-h-28 overflow-y-auto">
                     {frequentlyLateEmployees.map((emp, index) => (
-                      <div key={index} className="flex items-center gap-2 text-xs">
+                      <div key={index} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded px-1 py-0.5 transition-colors" onClick={() => openNaughtyDrilldown(emp.employeeId, emp.name)}>
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={emp.photoUrl || undefined} alt={emp.name} />
                           <AvatarFallback className="text-[8px] bg-orange-200 text-orange-800">
@@ -985,6 +1017,63 @@ export default function TimesheetManagement() {
               {language === "ar" ? "حفظ وحساب" : "Save & Calculate"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Naughty Corner Drilldown Dialog */}
+      <Dialog open={naughtyDrilldownOpen} onOpenChange={setNaughtyDrilldownOpen}>
+        <DialogContent className="max-w-lg max-h-[70vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              {language === 'ar' ? `تفاصيل تأخيرات ${naughtyDrilldownEmployee?.name}` : `Delay Details - ${naughtyDrilldownEmployee?.name}`}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            {language === 'ar' ? 'آخر 30 يوم' : 'Last 30 days'}
+          </p>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'المجدول' : 'Scheduled'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الفعلي' : 'Actual'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'التأخير' : 'Delay'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الخصم' : 'Deduction'}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {naughtyDrilldownLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : naughtyDrilldownRecords.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                      {language === 'ar' ? 'لا توجد سجلات' : 'No records'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  naughtyDrilldownRecords.map((rec, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-mono text-xs">{rec.work_date}</TableCell>
+                      <TableCell className="text-xs">{rec.scheduled_start || '-'}</TableCell>
+                      <TableCell className="text-xs">{rec.actual_start || '-'}</TableCell>
+                      <TableCell className="text-destructive font-medium text-xs">{rec.late_minutes}m</TableCell>
+                      <TableCell className="text-xs">{rec.deduction_rule_name || '-'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex justify-between items-center text-xs text-muted-foreground pt-2">
+            <span>{language === 'ar' ? 'إجمالي التأخيرات:' : 'Total delays:'} {naughtyDrilldownRecords.length}</span>
+            <span>{language === 'ar' ? 'إجمالي الدقائق:' : 'Total minutes:'} {naughtyDrilldownRecords.reduce((sum, r) => sum + r.late_minutes, 0)}m</span>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
