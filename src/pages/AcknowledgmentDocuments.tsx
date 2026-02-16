@@ -429,25 +429,34 @@ const AcknowledgmentDocuments = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {doc.approval_status === "approved" ? (
-                        <Badge className="bg-green-600">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          {texts.approved}
-                        </Badge>
-                      ) : doc.approval_status === "pending_approval" ? (
-                        <Badge variant="secondary">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {texts.pendingApproval}
-                        </Badge>
-                      ) : doc.approval_status === "rejected" ? (
-                        <Badge variant="destructive">
-                          {texts.rejected}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          {texts.draft}
-                        </Badge>
-                      )}
+                      <button
+                        type="button"
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setSelectedDoc(doc);
+                          setApprovalDialogOpen(true);
+                        }}
+                      >
+                        {doc.approval_status === "approved" ? (
+                          <Badge className="bg-green-600">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            {texts.approved}
+                          </Badge>
+                        ) : doc.approval_status === "pending_approval" ? (
+                          <Badge variant="secondary">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {texts.pendingApproval}
+                          </Badge>
+                        ) : doc.approval_status === "rejected" ? (
+                          <Badge variant="destructive">
+                            {texts.rejected}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            {texts.draft}
+                          </Badge>
+                        )}
+                      </button>
                     </TableCell>
                     <TableCell>{format(new Date(doc.created_at), "yyyy-MM-dd HH:mm")}</TableCell>
                     <TableCell>
