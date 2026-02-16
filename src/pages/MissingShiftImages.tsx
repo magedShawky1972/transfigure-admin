@@ -108,7 +108,7 @@ export default function MissingShiftImages() {
         `)
         .gte("assignment_date", fromDate)
         .lte("assignment_date", toDate)
-        .order("assignment_date", { ascending: false }) as { data: any[] | null };
+        .order("assignment_date", { ascending: true }) as { data: any[] | null };
 
       if (!assignments || assignments.length === 0) {
         setShifts([]);
