@@ -92,7 +92,7 @@ export default function MissingShiftImages() {
       // Get required brands count (A-class, non-Ludo)
       const { data: brandsData } = await supabase
         .from("brands")
-        .select("id, brand_name")
+        .select("id, brand_name, created_at")
         .eq("status", "active")
         .eq("abc_analysis", "A");
 
@@ -101,8 +101,7 @@ export default function MissingShiftImages() {
         return !name.includes("yalla ludo") && !name.includes("يلا لودو") && !name.includes("ludo");
       }) || [];
 
-      const requiredCount = requiredBrands.length;
-      const requiredBrandIds = requiredBrands.map((b) => b.id);
+      const allRequiredBrandIds = requiredBrands.map((b) => b.id);
 
       // Get shift assignments for the date range
       const { data: assignments } = await supabase
@@ -149,7 +148,7 @@ export default function MissingShiftImages() {
           .from("shift_brand_balances")
           .select("shift_session_id, brand_id, receipt_image_path")
           .in("shift_session_id", sessionIds)
-          .in("brand_id", requiredBrandIds);
+          .in("brand_id", allRequiredBrandIds);
 
         balances?.forEach((b) => {
           if (b.receipt_image_path) {
@@ -164,6 +163,13 @@ export default function MissingShiftImages() {
       // Build result - only shifts with missing images
       const result: MissingImageShift[] = [];
       for (const assignment of assignments as any[]) {
+        // Calculate required count for this specific date
+        const assignDate = assignment.assignment_date;
+        const requiredForDate = requiredBrands.filter(
+          (b) => b.created_at.split("T")[0] <= assignDate
+        );
+        const requiredCount = requiredForDate.length;
+
         const session = sessionMap.get(assignment.id);
         const uploadedCount = session ? (balancesMap.get(session.id) || 0) : 0;
 
