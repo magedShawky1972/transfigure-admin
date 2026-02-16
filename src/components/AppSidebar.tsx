@@ -43,7 +43,8 @@ import {
   ScrollText,
   Target,
   Undo2,
-  Coins
+  Coins,
+  ImageIcon
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -159,6 +160,7 @@ export function AppSidebar() {
     "/coins-sending": "coinsSending",
     "/coins-receiving-phase": "coinsReceivingPhase",
     "/coins-workflow-setup": "coinsWorkflowSetup",
+    "/missing-shift-images": "missingShiftImages",
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
     "/hr-manager-setup": "hrManagerSetup",
@@ -313,6 +315,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "جلسة الوردية" : "Shift Session", url: "/shift-session", icon: Clock },
         { title: language === 'ar' ? "تقويم وردياتي" : "My Shifts Calendar", url: "/my-shifts", icon: Calendar },
         { title: language === 'ar' ? "متابعة الورديات" : "Shift Follow-Up", url: "/shift-follow-up", icon: BarChart3 },
+        { title: language === 'ar' ? "صور ناقصة" : "Missing Images", url: "/missing-shift-images", icon: ImageIcon },
         { title: language === 'ar' ? "سجل حضور الورديات" : "Shift Attendance Report", url: "/shift-attendance-report", icon: ClipboardCheck },
         { title: language === 'ar' ? "تواصل" : "Tawasoul", url: "/tawasoul", icon: MessageCircle },
         { title: language === 'ar' ? "أسس تواصل" : "Asus Tawasoul", url: "/asus-tawasoul", icon: Users },
