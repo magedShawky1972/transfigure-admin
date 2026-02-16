@@ -24,7 +24,7 @@ const parseToKSATimestamp = (dateStr: string | null | undefined): string | null 
   try {
     let date: Date;
     
-    // Check if it's already an ISO string with time
+    // Check if it's already an ISO string with time (contains T)
     if (dateStr.includes('T')) {
       date = new Date(dateStr);
     } 
@@ -37,7 +37,13 @@ const parseToKSATimestamp = (dateStr: string | null | undefined): string | null 
         return null;
       }
     }
-    // Assume YYYY-MM-DD format
+    // Handle "YYYY-MM-DD HH:MM:SS" format (space-separated, no timezone = treat as KSA)
+    else if (dateStr.includes('-') && dateStr.includes(' ')) {
+      // Replace space with T and append KSA timezone
+      const isoStr = dateStr.replace(' ', 'T') + '+03:00';
+      date = new Date(isoStr);
+    }
+    // Assume YYYY-MM-DD format (date only)
     else if (dateStr.includes('-')) {
       // Treat as KSA local date (add KSA timezone offset)
       date = new Date(`${dateStr}T00:00:00+03:00`);
