@@ -689,8 +689,33 @@ const AcknowledgmentDocuments = () => {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="user" className="mt-4">
-              <Label>{texts.selectUsers}</Label>
-              <ScrollArea className="h-64 border rounded-md p-2 mt-2">
+              <div className="flex items-center justify-between mb-2">
+                <Label>{texts.selectUsers}</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const availableUserIds = users
+                      .filter((u) => !recipients.some((r) => r.user_id === u.user_id))
+                      .map((u) => u.user_id);
+                    const allSelected = availableUserIds.length > 0 && availableUserIds.every((id) => recipientForm.user_ids.includes(id));
+                    setRecipientForm({
+                      ...recipientForm,
+                      user_ids: allSelected ? [] : availableUserIds,
+                    });
+                  }}
+                >
+                  {(() => {
+                    const available = users.filter((u) => !recipients.some((r) => r.user_id === u.user_id));
+                    const allSelected = available.length > 0 && available.every((u) => recipientForm.user_ids.includes(u.user_id));
+                    return allSelected
+                      ? (language === "ar" ? "إلغاء تحديد الكل" : "Deselect All")
+                      : (language === "ar" ? "تحديد الكل" : "Select All");
+                  })()}
+                </Button>
+              </div>
+              <ScrollArea className="h-64 border rounded-md p-2">
                 {users
                   .filter((user) => !recipients.some((r) => r.user_id === user.user_id))
                   .map((user) => (
