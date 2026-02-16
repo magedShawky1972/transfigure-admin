@@ -158,10 +158,6 @@ export const printAcknowledgmentDocument = (
         <div class="signature-box">
           <div class="signature-field">
             <div class="signature-line"></div>
-            <div class="signature-label">${isRtl ? "اسم الموظف" : "Employee Name"}</div>
-          </div>
-          <div class="signature-field">
-            <div class="signature-line"></div>
             <div class="signature-label">${isRtl ? "التوقيع" : "Signature"}</div>
           </div>
           <div class="signature-field">
