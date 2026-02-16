@@ -104,8 +104,7 @@ export default function MissingShiftImages() {
           id,
           user_id,
           assignment_date,
-          shifts!inner(shift_name),
-          profiles!shift_assignments_user_id_fkey(user_name)
+          shifts!inner(shift_name)
         `)
         .gte("assignment_date", fromDate)
         .lte("assignment_date", toDate)
@@ -116,6 +115,14 @@ export default function MissingShiftImages() {
         setLoading(false);
         return;
       }
+
+      // Fetch profiles separately
+      const userIds = [...new Set(assignments.map((a: any) => a.user_id))];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, user_name")
+        .in("user_id", userIds);
+      const profileMap = new Map(profilesData?.map((p) => [p.user_id, p.user_name]) || []);
 
       // Get all shift sessions for these assignments
       const assignmentIds = assignments.map((a: any) => a.id);
@@ -154,11 +161,10 @@ export default function MissingShiftImages() {
         const uploadedCount = session ? (balancesMap.get(session.id) || 0) : 0;
 
         if (uploadedCount < requiredCount) {
-          const profile = assignment.profiles;
           const shift = assignment.shifts;
           result.push({
             session_id: session?.id || "",
-            user_name: profile?.user_name || "—",
+            user_name: profileMap.get(assignment.user_id) || "—",
             shift_name: shift?.shift_name || "—",
             opened_at: session?.opened_at || null,
             closed_at: session?.closed_at || null,
