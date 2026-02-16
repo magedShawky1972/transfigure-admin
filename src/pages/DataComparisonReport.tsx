@@ -89,15 +89,15 @@ const DataComparisonReport = () => {
         purpleOffset += fetchLimit;
       }
 
-      // Fetch API sales headers in batches
+      // Fetch API sales headers in batches using order_date_int
       let allApiHeaders: { order_number: string }[] = [];
       let headerOffset = 0;
       while (true) {
         const { data: batch, error: headerError } = await supabase
           .from("sales_order_header")
           .select("order_number")
-          .gte("created_at", fromBounds.start)
-          .lte("created_at", toBounds.end)
+          .gte("order_date_int", fromInt)
+          .lte("order_date_int", toInt)
           .range(headerOffset, headerOffset + fetchLimit - 1);
         if (headerError) throw headerError;
         allApiHeaders = allApiHeaders.concat(batch || []);
