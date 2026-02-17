@@ -201,7 +201,15 @@ export default function EmployeeSetup() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [editingContact, setEditingContact] = useState<EmployeeContact | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   
+  const SALARY_AUTHORIZED_EMAILS = [
+    'abdulhamed@asuscards.com',
+    'mohamed.saad@asuscards.com',
+    'maged.shawky@asuscards.com',
+  ];
+  const canViewSalary = SALARY_AUTHORIZED_EMAILS.includes(currentUserEmail.toLowerCase());
+
   const [selectedVacationTypes, setSelectedVacationTypes] = useState<string[]>([]);
   const [employeeVacationBalances, setEmployeeVacationBalances] = useState<EmployeeVacationType[]>([]);
   
@@ -259,6 +267,10 @@ export default function EmployeeSetup() {
 
   useEffect(() => {
     fetchData();
+    // Fetch current user email
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setCurrentUserEmail(user.email);
+    });
   }, []);
 
   // Re-sort when language changes
@@ -739,7 +751,7 @@ export default function EmployeeSetup() {
       attendance_type_id: employee.attendance_type_id || "",
       vacation_balance: employee.vacation_balance?.toString() || "",
       medical_insurance_plan_id: employee.medical_insurance_plan_id || "",
-      basic_salary: employee.basic_salary?.toString() || "",
+      basic_salary: canViewSalary ? (employee.basic_salary?.toString() || "") : "",
       manager_id: employee.manager_id || "",
       photo_url: employee.photo_url || "",
       address: (employee as any).address || "",
@@ -922,7 +934,7 @@ export default function EmployeeSetup() {
         attendance_type_id: formData.attendance_type_id || null,
         vacation_balance: formData.vacation_balance ? parseFloat(formData.vacation_balance) : null,
         medical_insurance_plan_id: formData.medical_insurance_plan_id || null,
-        basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : null,
+        ...(canViewSalary ? { basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : null } : {}),
         manager_id: formData.manager_id || null,
         address: formData.address || null,
         requires_attendance_signin: formData.requires_attendance_signin,
@@ -1070,7 +1082,7 @@ export default function EmployeeSetup() {
         shiftTypeLabels[emp.shift_type] || emp.shift_type,
         attendanceType ? (isArabic ? (attendanceType.type_name_ar || attendanceType.type_name) : attendanceType.type_name) : "",
         emp.vacation_balance?.toString() || "0",
-        emp.basic_salary?.toString() || "",
+        canViewSalary ? (emp.basic_salary?.toString() || "") : "*",
       ];
     });
 
@@ -1974,11 +1986,20 @@ export default function EmployeeSetup() {
 
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "الراتب الأساسي" : "Basic Salary"}</Label>
-                  <Input
-                    type="number"
-                    value={formData.basic_salary}
-                    onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
-                  />
+                  {canViewSalary ? (
+                    <Input
+                      type="number"
+                      value={formData.basic_salary}
+                      onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
+                    />
+                  ) : (
+                    <Input
+                      type="text"
+                      value="*"
+                      disabled
+                      className="cursor-not-allowed"
+                    />
+                  )}
                 </div>
               </div>
             </TabsContent>
