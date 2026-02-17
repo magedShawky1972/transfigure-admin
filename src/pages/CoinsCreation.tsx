@@ -528,11 +528,11 @@ const CoinsCreation = () => {
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "إجمالي التحويل البنكي" : "Total Bank Transfer"}</Label>
-              <Input type="number" value={totalInCurrency.toFixed(2)} readOnly className="bg-muted" />
+              <Input type="text" value={totalInCurrency.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} readOnly className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "إجمالي المبلغ الأساسي (SAR)" : "Total Base Amount (SAR)"}</Label>
-              <Input type="number" value={totalBaseSar.toFixed(2)} readOnly className="bg-muted" />
+              <Input type="text" value={totalBaseSar.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} readOnly className="bg-muted" />
             </div>
           </div>
           <div className="mt-4 space-y-2">
