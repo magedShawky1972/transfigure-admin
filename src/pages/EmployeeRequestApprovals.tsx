@@ -172,6 +172,52 @@ const EmployeeRequestApprovals = () => {
     setPendingApprovers(approverMap);
   };
 
+  const updateTimesheetsForLeave = async (request: any) => {
+    try {
+      const start = new Date(request.start_date);
+      const end = new Date(request.end_date);
+      const dates: string[] = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0]);
+      }
+
+      if (dates.length === 0) return;
+
+      // Look up vacation type name for the note
+      let leaveLabel = request.request_type === 'sick_leave' ? 'Sick Leave' : 'Vacation';
+      if (request.vacation_code_id) {
+        const { data: vacType } = await supabase
+          .from('vacation_codes')
+          .select('name_en, name_ar')
+          .eq('id', request.vacation_code_id)
+          .maybeSingle();
+        if (vacType) {
+          leaveLabel = language === 'ar' ? (vacType.name_ar || vacType.name_en) : vacType.name_en;
+        }
+      }
+
+      // Update existing timesheet records for these dates
+      const { error } = await supabase
+        .from('timesheets')
+        .update({
+          is_absent: false,
+          status: 'on_leave',
+          notes: leaveLabel,
+          late_minutes: 0,
+          deduction_rule_id: null,
+          deduction_amount: 0,
+        })
+        .eq('employee_id', request.employee_id)
+        .in('work_date', dates);
+
+      if (error) {
+        console.error('Error updating timesheets for leave:', error);
+      }
+    } catch (err) {
+      console.error('Error in updateTimesheetsForLeave:', err);
+    }
+  };
+
   const handleAction = async () => {
     if (!selectedRequest || !actionType) return;
     setProcessing(true);
@@ -229,6 +275,14 @@ const EmployeeRequestApprovals = () => {
               hr_approved_at: new Date().toISOString(), 
               hr_approved_by: user.id 
             }).eq('id', selectedRequest.id);
+
+            // Auto-update timesheets for sick leave / vacation approvals
+            if (
+              (selectedRequest.request_type === 'sick_leave' || selectedRequest.request_type === 'vacation') &&
+              selectedRequest.start_date && selectedRequest.end_date
+            ) {
+              await updateTimesheetsForLeave(selectedRequest);
+            }
           }
         }
       }
