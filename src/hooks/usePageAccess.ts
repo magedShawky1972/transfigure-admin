@@ -119,6 +119,11 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/cost-center-setup": "costCenterSetup",
   "/void-payment": "voidPayment",
   "/receiving-coins": "receivingCoins",
+  "/coins-creation": "coinsCreation",
+  "/coins-sending": "coinsSending",
+  "/coins-receiving-phase": "coinsReceivingPhase",
+  "/coins-workflow-setup": "coinsWorkflowSetup",
+  "/coins-purchase-followup": "coinsPurchaseFollowUp",
   "/acknowledgment-documents": "acknowledgmentDocuments",
   "/missing-shift-images": "missingShiftImages",
 };
