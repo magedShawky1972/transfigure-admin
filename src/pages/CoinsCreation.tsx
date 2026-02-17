@@ -50,6 +50,7 @@ const CoinsCreation = () => {
   const [exchangeRate, setExchangeRate] = useState("1");
   const [notes, setNotes] = useState("");
   const [bankTransferImage, setBankTransferImage] = useState("");
+  const [bankTransferFee, setBankTransferFee] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -79,12 +80,22 @@ const CoinsCreation = () => {
     }
   }, [currencyId, currencyRates, currencies]);
 
+  // Helper to calculate base amount using manual exchange rate
+  const calcBaseAmount = (amount: number): number => {
+    const rate = parseFloat(exchangeRate) || 1;
+    const baseCurrency = currencies.find(c => c.is_base);
+    if (baseCurrency && currencyId === baseCurrency.id) return amount;
+    // Use the conversion operator from DB if available, otherwise multiply
+    const rateRecord = currencyRates.find(r => r.currency_id === currencyId);
+    const operator = rateRecord?.conversion_operator || 'multiply';
+    return operator === 'multiply' ? amount * rate : amount / rate;
+  };
+
   // Recalculate base amounts when currency/rate changes
   useEffect(() => {
-    const baseCurrency = currencies.find(c => c.is_base);
     setLines(prev => prev.map(line => {
       const amount = parseFloat(line.amount_in_currency) || 0;
-      const converted = convertToBaseCurrency(amount, currencyId, currencyRates as any, baseCurrency);
+      const converted = calcBaseAmount(amount);
       return { ...line, base_amount_sar: converted.toFixed(2) };
     }));
   }, [currencyId, exchangeRate, currencyRates, currencies]);
@@ -149,8 +160,7 @@ const CoinsCreation = () => {
       // Auto-calculate base amount when amount changes
       if (field === "amount_in_currency") {
         const amount = parseFloat(value) || 0;
-        const baseCurrency = currencies.find(c => c.is_base);
-        const converted = convertToBaseCurrency(amount, currencyId, currencyRates as any, baseCurrency);
+        const converted = calcBaseAmount(amount);
         updated[index].base_amount_sar = converted.toFixed(2);
       }
       return updated;
@@ -208,6 +218,7 @@ const CoinsCreation = () => {
         amount_in_currency: totalInCurrency,
         base_amount_sar: totalBaseSar,
         bank_transfer_image: bankTransferImage,
+        bank_transfer_fee: parseFloat(bankTransferFee) || 0,
         notes,
         created_by: user?.email || "",
         created_by_name: user?.user_metadata?.display_name || user?.email || "",
@@ -316,7 +327,7 @@ const CoinsCreation = () => {
   const resetForm = () => {
     setSupplierId(""); setBankId(""); setCurrencyId("");
     setExchangeRate("1"); setNotes(""); setBankTransferImage("");
-    setSelectedOrderId(null); setLines([emptyLine(1)]);
+    setBankTransferFee(""); setSelectedOrderId(null); setLines([emptyLine(1)]);
   };
 
   const loadOrder = async (id: string) => {
@@ -333,6 +344,7 @@ const CoinsCreation = () => {
       setExchangeRate(String(data.exchange_rate || 1));
       setNotes(data.notes || "");
       setBankTransferImage(data.bank_transfer_image || "");
+      setBankTransferFee(String(data.bank_transfer_fee || ""));
 
       if (linesRes.data && linesRes.data.length > 0) {
         setLines(linesRes.data.map((l: any) => ({
@@ -509,6 +521,10 @@ const CoinsCreation = () => {
             <div className="space-y-2">
               <Label>{isArabic ? "سعر الصرف" : "Exchange Rate"}</Label>
               <Input type="number" step="0.0001" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{isArabic ? "رسوم التحويل البنكي" : "Bank Transfer Fee"}</Label>
+              <Input type="number" step="0.01" value={bankTransferFee} onChange={e => setBankTransferFee(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "إجمالي التحويل البنكي" : "Total Bank Transfer"}</Label>

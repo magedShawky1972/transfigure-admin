@@ -1189,6 +1189,7 @@ export type Database = {
         Row: {
           amount_in_currency: number | null
           bank_id: string | null
+          bank_transfer_fee: number | null
           bank_transfer_image: string | null
           base_amount_sar: number | null
           brand_id: string
@@ -1212,6 +1213,7 @@ export type Database = {
         Insert: {
           amount_in_currency?: number | null
           bank_id?: string | null
+          bank_transfer_fee?: number | null
           bank_transfer_image?: string | null
           base_amount_sar?: number | null
           brand_id: string
@@ -1235,6 +1237,7 @@ export type Database = {
         Update: {
           amount_in_currency?: number | null
           bank_id?: string | null
+          bank_transfer_fee?: number | null
           bank_transfer_image?: string | null
           base_amount_sar?: number | null
           brand_id?: string
