@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { useSearchParams } from "react-router-dom";
 
 interface Supplier { id: string; supplier_name: string; }
 interface Brand { id: string; brand_name: string; }
@@ -36,6 +37,7 @@ const ReceivingCoins = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/receiving-coins");
+  const [searchParams] = useSearchParams();
 
   // View mode: "list" or "form"
   const [view, setView] = useState<"list" | "form">("list");
@@ -69,6 +71,10 @@ const ReceivingCoins = () => {
 
   useEffect(() => {
     fetchReceipts();
+    const fromOrderId = searchParams.get("fromOrder");
+    if (fromOrderId) {
+      loadFromPurchaseOrder(fromOrderId);
+    }
   }, []);
 
   useEffect(() => {
@@ -112,6 +118,32 @@ const ReceivingCoins = () => {
       }
     }
   };
+
+  const loadFromPurchaseOrder = async (orderId: string) => {
+    // First fetch dropdowns so we can set values
+    const [suppRes, brandRes, bankRes] = await Promise.all([
+      supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
+      supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
+    ]);
+    if (suppRes.data) setSuppliers(suppRes.data);
+    if (brandRes.data) setBrands(brandRes.data);
+    if (bankRes.data) setBanks(bankRes.data);
+
+    const { data: order } = await supabase
+      .from("coins_purchase_orders")
+      .select("*")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (order) {
+      if (order.supplier_id) setSupplierId(order.supplier_id);
+      if (order.brand_id) setBrandId(order.brand_id);
+      if (order.bank_id) setBankId(order.bank_id);
+      setControlAmount(String(parseFloat(String(order.base_amount_sar || "0"))));
+      setView("form");
+    }
+  };
+
 
   const fetchAndAutoAddProducts = async () => {
     const selectedBrand = brands.find(b => b.id === brandId);
