@@ -151,6 +151,9 @@ const TicketDetails = () => {
   const [newUomName, setNewUomName] = useState("");
   const [addingUom, setAddingUom] = useState(false);
 
+  // Currency state
+  const [ticketCurrency, setTicketCurrency] = useState<{ currency_code: string; symbol: string | null } | null>(null);
+
   // Workflow notes states
   const [workflowNotes, setWorkflowNotes] = useState<WorkflowNote[]>([]);
   const [newWorkflowNote, setNewWorkflowNote] = useState("");
@@ -342,6 +345,18 @@ const TicketDetails = () => {
         .eq("user_id", data.user_id)
         .maybeSingle();
       
+      // Fetch currency if exists
+      if (data.currency_id) {
+        const { data: currData } = await supabase
+          .from("currencies")
+          .select("currency_code, symbol")
+          .eq("id", data.currency_id)
+          .maybeSingle();
+        setTicketCurrency(currData);
+      } else {
+        setTicketCurrency(null);
+      }
+
       setTicket({
         ...data,
         profiles: profileData || { user_name: "Unknown", email: "" }
@@ -1401,7 +1416,7 @@ const TicketDetails = () => {
                     {ticket.budget_value !== null && (
                       <div className="flex flex-col sm:flex-row sm:items-center">
                         <span className="text-muted-foreground">{language === 'ar' ? 'الميزانية:' : 'Budget:'}</span>
-                        <span className="sm:ml-2 font-medium">{ticket.budget_value?.toLocaleString()}</span>
+                        <span className="sm:ml-2 font-medium">{ticket.budget_value?.toLocaleString()} {ticketCurrency?.symbol || ticketCurrency?.currency_code || ''}</span>
                       </div>
                     )}
                     {ticket.qty !== null && (
