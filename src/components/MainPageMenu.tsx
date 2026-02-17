@@ -174,7 +174,6 @@ const menuGroups: MenuGroup[] = [
       { title: "Shift Calendar", titleAr: "تقويم الورديات", url: "/shift-calendar", icon: BarChart3 },
       { title: "Currency Setup", titleAr: "إعداد العملات", url: "/currency-setup", icon: DollarSign },
       { title: "User Groups", titleAr: "مجموعات المستخدمين", url: "/user-group-setup", icon: Users },
-      { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
       { title: "Project Setup", titleAr: "إعداد المشاريع", url: "/project-setup", icon: FolderKanban },
       { title: "Task List", titleAr: "قائمة المهام", url: "/task-list", icon: ClipboardList },
     ]
@@ -229,6 +228,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Receiving Coins", titleAr: "استلام العملات", url: "/receiving-coins", icon: DollarSign },
       { title: "Workflow Setup", titleAr: "إعداد سير العمل", url: "/coins-workflow-setup", icon: Settings },
       { title: "Purchase Follow-Up", titleAr: "متابعة شراء العملات", url: "/coins-purchase-followup", icon: DollarSign },
+      { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
     ]
   },
   {

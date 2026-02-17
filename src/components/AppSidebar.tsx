@@ -339,7 +339,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'تقويم الورديات' : 'Shift Calendar', url: "/shift-calendar", icon: BarChart3 },
         { title: language === 'ar' ? 'إعداد العملات' : 'Currency Setup', url: "/currency-setup", icon: DollarSign },
         { title: language === 'ar' ? 'مجموعات المستخدمين' : 'User Groups', url: "/user-group-setup", icon: Users },
-        { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
         { title: language === 'ar' ? 'إعداد المشاريع' : 'Project Setup', url: "/project-setup", icon: FolderKanban },
         { title: language === 'ar' ? "قائمة المهام" : "Task List", url: "/task-list", icon: ClipboardList },
       ]
@@ -392,6 +391,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'استلام العملات' : 'Receiving Coins', url: "/receiving-coins", icon: Coins },
         { title: language === 'ar' ? 'إعداد سير العمل' : 'Workflow Setup', url: "/coins-workflow-setup", icon: Settings },
         { title: language === 'ar' ? 'متابعة شراء العملات' : 'Purchase Follow-Up', url: "/coins-purchase-followup", icon: ClipboardCheck },
+        { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
       ]
     },
     {

@@ -139,7 +139,6 @@ interface UserPermission {
         { key: "shiftCalendar", label: "تقويم الورديات", labelEn: "Shift Calendar" },
         { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
         { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
-        { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
         { key: "projectSetup", label: "إعداد المشاريع", labelEn: "Project Setup" },
         { key: "taskList", label: "قائمة المهام", labelEn: "Task List" },
       ]
@@ -198,6 +197,7 @@ interface UserPermission {
         { key: "receivingCoins", label: "استلام العملات", labelEn: "Receiving Coins" },
         { key: "coinsWorkflowSetup", label: "إعداد سير العمل", labelEn: "Workflow Setup" },
         { key: "coinsPurchaseFollowUp", label: "متابعة شراء العملات", labelEn: "Purchase Follow-Up" },
+        { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
       ]
     },
     {
