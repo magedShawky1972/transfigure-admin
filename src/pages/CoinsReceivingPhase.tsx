@@ -9,16 +9,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image } from "lucide-react";
+import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus } from "lucide-react";
 import { format } from "date-fns";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 const CoinsReceivingPhase = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/coins-receiving-phase");
   const [searchParams] = useSearchParams();
-
+  const navigate = useNavigate();
   const [view, setView] = useState<"list" | "detail">("list");
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -205,10 +205,16 @@ const CoinsReceivingPhase = () => {
             <Coins className="h-7 w-7 text-primary" />
             <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات من المورد" : "Receiving Coins from Supplier"}</h1>
           </div>
-          <Button onClick={handleMoveToCoinsEntry} disabled={saving || receivings.length === 0}>
-            <CheckCircle className="h-4 w-4 mr-2" />
-            {isArabic ? "إرسال لإدخال العملات" : "Send to Coins Entry"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate(`/receiving-coins?fromOrder=${selectedOrder.id}`)}>
+              <PackagePlus className="h-4 w-4 mr-2" />
+              {isArabic ? "إنشاء إيصال استلام" : "Create Receiving Entry"}
+            </Button>
+            <Button onClick={handleMoveToCoinsEntry} disabled={saving || receivings.length === 0}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {isArabic ? "إرسال لإدخال العملات" : "Send to Coins Entry"}
+            </Button>
+          </div>
         </div>
 
         {/* Order Info */}
