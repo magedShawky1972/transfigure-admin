@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, Check, ChevronsUpDown } from "lucide-react";
+import { Pencil, Trash2, Plus, Check, ChevronsUpDown, X } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -745,8 +745,31 @@ const ShiftSetup = () => {
                     <div className="flex flex-wrap gap-1">
                       {shift.admins && shift.admins.length > 0 ? (
                         shift.admins.map((admin, idx) => (
-                          <span key={idx} className="text-xs bg-accent/50 px-2 py-1 rounded">
+                          <span key={idx} className="text-xs bg-accent/50 px-2 py-1 rounded flex items-center gap-1">
                             {admin.user_name}
+                            <button
+                              type="button"
+                              className="hover:text-destructive transition-colors"
+                              title={language === 'ar' ? 'حذف المشرف' : 'Remove admin'}
+                              onClick={async () => {
+                                if (!confirm(language === 'ar' ? `هل تريد حذف ${admin.user_name} من مشرفي الوردية؟` : `Remove ${admin.user_name} from shift admins?`)) return;
+                                try {
+                                  const { error } = await supabase
+                                    .from('shift_admins')
+                                    .delete()
+                                    .eq('shift_id', shift.id)
+                                    .eq('user_id', admin.user_id);
+                                  if (error) throw error;
+                                  toast.success(language === 'ar' ? 'تم حذف المشرف' : 'Admin removed');
+                                  fetchShifts();
+                                } catch (err) {
+                                  console.error(err);
+                                  toast.error(language === 'ar' ? 'خطأ في حذف المشرف' : 'Error removing admin');
+                                }
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
                           </span>
                         ))
                       ) : (
