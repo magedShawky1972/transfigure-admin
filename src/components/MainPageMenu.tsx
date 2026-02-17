@@ -96,6 +96,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/coins-sending": "coinsSending",
   "/coins-receiving-phase": "coinsReceivingPhase",
   "/coins-workflow-setup": "coinsWorkflowSetup",
+  "/coins-purchase-followup": "coinsPurchaseFollowUp",
   "/shift-attendance-report": "shiftAttendanceReport",
   "/missing-shift-images": "missingShiftImages",
   "/project-setup": "projectSetup",
@@ -227,6 +228,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Receiving Phase", titleAr: "استلام من المورد", url: "/coins-receiving-phase", icon: DollarSign },
       { title: "Receiving Coins", titleAr: "استلام العملات", url: "/receiving-coins", icon: DollarSign },
       { title: "Workflow Setup", titleAr: "إعداد سير العمل", url: "/coins-workflow-setup", icon: Settings },
+      { title: "Purchase Follow-Up", titleAr: "متابعة شراء العملات", url: "/coins-purchase-followup", icon: DollarSign },
     ]
   },
   {
