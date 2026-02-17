@@ -197,6 +197,7 @@ interface UserPermission {
         { key: "coinsReceivingPhase", label: "استلام من المورد", labelEn: "Receiving Phase" },
         { key: "receivingCoins", label: "استلام العملات", labelEn: "Receiving Coins" },
         { key: "coinsWorkflowSetup", label: "إعداد سير العمل", labelEn: "Workflow Setup" },
+        { key: "coinsPurchaseFollowUp", label: "متابعة شراء العملات", labelEn: "Purchase Follow-Up" },
       ]
     },
     {
