@@ -160,6 +160,7 @@ export function AppSidebar() {
     "/coins-sending": "coinsSending",
     "/coins-receiving-phase": "coinsReceivingPhase",
     "/coins-workflow-setup": "coinsWorkflowSetup",
+    "/coins-purchase-followup": "coinsPurchaseFollowUp",
     "/missing-shift-images": "missingShiftImages",
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
@@ -390,6 +391,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'استلام من المورد' : 'Receiving Phase', url: "/coins-receiving-phase", icon: ClipboardCheck },
         { title: language === 'ar' ? 'استلام العملات' : 'Receiving Coins', url: "/receiving-coins", icon: Coins },
         { title: language === 'ar' ? 'إعداد سير العمل' : 'Workflow Setup', url: "/coins-workflow-setup", icon: Settings },
+        { title: language === 'ar' ? 'متابعة شراء العملات' : 'Purchase Follow-Up', url: "/coins-purchase-followup", icon: ClipboardCheck },
       ]
     },
     {
