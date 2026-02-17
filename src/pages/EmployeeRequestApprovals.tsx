@@ -59,6 +59,7 @@ const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: s
   delay: { icon: Clock, labelAr: 'طلب تأخير', labelEn: 'Delay Request', color: 'bg-yellow-100 text-yellow-800' },
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
+  other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
 };
 
 const EmployeeRequestApprovals = () => {
