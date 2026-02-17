@@ -101,7 +101,7 @@ const CoinsCreation = () => {
   }, [currencyId, exchangeRate, currencyRates, currencies]);
 
   const totalInCurrency = lines.reduce((sum, l) => sum + (parseFloat(l.amount_in_currency) || 0), 0);
-  const totalBaseSar = lines.reduce((sum, l) => sum + (parseFloat(l.base_amount_sar) || 0), 0);
+  const totalBaseSar = lines.reduce((sum, l) => sum + (parseFloat(l.base_amount_sar) || 0), 0) + (parseFloat(bankTransferFee) || 0);
 
   const fetchOrders = async () => {
     const { data } = await supabase
