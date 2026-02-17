@@ -1416,7 +1416,7 @@ const TicketDetails = () => {
                     {ticket.budget_value !== null && (
                       <div className="flex flex-col sm:flex-row sm:items-center">
                         <span className="text-muted-foreground">{language === 'ar' ? 'الميزانية:' : 'Budget:'}</span>
-                        <span className="sm:ml-2 font-medium">{ticket.budget_value?.toLocaleString()} {ticketCurrency?.symbol || ticketCurrency?.currency_code || ''}</span>
+                        <span className="sm:ml-2 font-medium">{ticket.budget_value?.toLocaleString()} {ticketCurrency?.currency_code || ''}</span>
                       </div>
                     )}
                     {ticket.qty !== null && (
