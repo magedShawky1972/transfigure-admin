@@ -352,8 +352,8 @@ const EmployeeSelfRequests = () => {
         requestData.total_days = calculateTotalDays();
       }
 
-      if (selectedType === 'sick_leave') {
-        requestData.attachment_url = attachmentUrl;
+      if (selectedType === 'sick_leave' || selectedType === 'other') {
+        requestData.attachment_url = attachmentUrl || null;
       }
 
       if (selectedType === 'delay') {
@@ -624,6 +624,41 @@ const EmployeeSelfRequests = () => {
                   </div>
                 </div>
               </>
+            )}
+
+            {selectedType === 'other' && (
+              <div className="space-y-2">
+                <Label>{language === 'ar' ? 'مرفق (اختياري)' : 'Attachment (Optional)'}</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex-1"
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    {language === 'ar' ? 'رفع مرفق' : 'Upload Attachment'}
+                  </Button>
+                  {attachmentFileName && (
+                    <div className="flex items-center gap-1 text-sm text-green-600">
+                      <Paperclip className="h-4 w-4" />
+                      <span className="truncate max-w-[150px]">{attachmentFileName}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
             
             <Textarea placeholder={language === 'ar' ? 'السبب' : 'Reason'} value={reason} onChange={(e) => setReason(e.target.value)} />
