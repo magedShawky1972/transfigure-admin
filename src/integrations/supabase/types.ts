@@ -1124,6 +1124,67 @@ export type Database = {
           },
         ]
       }
+      coins_purchase_order_lines: {
+        Row: {
+          amount_in_currency: number | null
+          base_amount_sar: number | null
+          brand_id: string
+          created_at: string
+          id: string
+          line_number: number
+          notes: string | null
+          purchase_order_id: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_in_currency?: number | null
+          base_amount_sar?: number | null
+          brand_id: string
+          created_at?: string
+          id?: string
+          line_number?: number
+          notes?: string | null
+          purchase_order_id: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_in_currency?: number | null
+          base_amount_sar?: number | null
+          brand_id?: string
+          created_at?: string
+          id?: string
+          line_number?: number
+          notes?: string | null
+          purchase_order_id?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_purchase_order_lines_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_purchase_order_lines_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "coins_purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_purchase_order_lines_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coins_purchase_orders: {
         Row: {
           amount_in_currency: number | null

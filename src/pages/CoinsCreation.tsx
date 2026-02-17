@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
@@ -12,9 +12,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
+
+interface OrderLine {
+  id?: string;
+  brand_id: string;
+  supplier_id: string;
+  amount_in_currency: string;
+  base_amount_sar: string;
+  notes: string;
+  line_number: number;
+}
+
+const emptyLine = (lineNumber: number): OrderLine => ({
+  brand_id: "",
+  supplier_id: "",
+  amount_in_currency: "",
+  base_amount_sar: "",
+  notes: "",
+  line_number: lineNumber,
+});
 
 const CoinsCreation = () => {
   const { language } = useLanguage();
@@ -24,19 +43,19 @@ const CoinsCreation = () => {
   const [view, setView] = useState<"list" | "form">("list");
   const [orders, setOrders] = useState<any[]>([]);
 
-  // Form state
-  const [brandId, setBrandId] = useState("");
+  // Header state
   const [supplierId, setSupplierId] = useState("");
   const [bankId, setBankId] = useState("");
   const [currencyId, setCurrencyId] = useState("");
   const [exchangeRate, setExchangeRate] = useState("1");
-  const [amountInCurrency, setAmountInCurrency] = useState("");
-  const [baseAmountSar, setBaseAmountSar] = useState("");
   const [notes, setNotes] = useState("");
   const [bankTransferImage, setBankTransferImage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  // Lines state
+  const [lines, setLines] = useState<OrderLine[]>([emptyLine(1)]);
 
   // Dropdown data
   const [brands, setBrands] = useState<any[]>([]);
@@ -47,21 +66,6 @@ const CoinsCreation = () => {
 
   useEffect(() => { fetchOrders(); }, []);
   useEffect(() => { if (view === "form") fetchDropdowns(); }, [view]);
-
-  useEffect(() => {
-    if (brandId) {
-      // Auto-select supplier if only one linked
-      const fetchBrandSupplier = async () => {
-        const { data } = await supabase.from("brand_suppliers").select("supplier_id").eq("brand_id", brandId);
-        if (data && data.length > 0) {
-          const linkedIds = data.map(d => d.supplier_id);
-          const filtered = suppliers.filter(s => linkedIds.includes(s.id));
-          if (filtered.length === 1) setSupplierId(filtered[0].id);
-        }
-      };
-      fetchBrandSupplier();
-    }
-  }, [brandId, suppliers]);
 
   useEffect(() => {
     if (currencyId) {
@@ -75,12 +79,18 @@ const CoinsCreation = () => {
     }
   }, [currencyId, currencyRates, currencies]);
 
+  // Recalculate base amounts when currency/rate changes
   useEffect(() => {
-    const amount = parseFloat(amountInCurrency) || 0;
     const baseCurrency = currencies.find(c => c.is_base);
-    const converted = convertToBaseCurrency(amount, currencyId, currencyRates as any, baseCurrency);
-    setBaseAmountSar(converted.toFixed(2));
-  }, [amountInCurrency, currencyId, exchangeRate, currencyRates, currencies]);
+    setLines(prev => prev.map(line => {
+      const amount = parseFloat(line.amount_in_currency) || 0;
+      const converted = convertToBaseCurrency(amount, currencyId, currencyRates as any, baseCurrency);
+      return { ...line, base_amount_sar: converted.toFixed(2) };
+    }));
+  }, [currencyId, exchangeRate, currencyRates, currencies]);
+
+  const totalInCurrency = lines.reduce((sum, l) => sum + (parseFloat(l.amount_in_currency) || 0), 0);
+  const totalBaseSar = lines.reduce((sum, l) => sum + (parseFloat(l.base_amount_sar) || 0), 0);
 
   const fetchOrders = async () => {
     const { data } = await supabase
@@ -132,9 +142,53 @@ const CoinsCreation = () => {
     }
   };
 
+  const updateLine = (index: number, field: keyof OrderLine, value: string) => {
+    setLines(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      // Auto-calculate base amount when amount changes
+      if (field === "amount_in_currency") {
+        const amount = parseFloat(value) || 0;
+        const baseCurrency = currencies.find(c => c.is_base);
+        const converted = convertToBaseCurrency(amount, currencyId, currencyRates as any, baseCurrency);
+        updated[index].base_amount_sar = converted.toFixed(2);
+      }
+      return updated;
+    });
+  };
+
+  const addLine = () => {
+    setLines(prev => [...prev, emptyLine(prev.length + 1)]);
+  };
+
+  const removeLine = (index: number) => {
+    if (lines.length <= 1) return;
+    setLines(prev => prev.filter((_, i) => i !== index).map((l, i) => ({ ...l, line_number: i + 1 })));
+  };
+
+  // Auto-select supplier when brand changes (per line)
+  const handleBrandChange = async (index: number, brandIdVal: string) => {
+    updateLine(index, "brand_id", brandIdVal);
+    if (brandIdVal) {
+      const { data } = await supabase.from("brand_suppliers").select("supplier_id").eq("brand_id", brandIdVal);
+      if (data && data.length > 0) {
+        const linkedIds = data.map(d => d.supplier_id);
+        const filtered = suppliers.filter(s => linkedIds.includes(s.id));
+        if (filtered.length === 1) {
+          updateLine(index, "supplier_id", filtered[0].id);
+        }
+      }
+    }
+  };
+
   const handleSave = async (sendToNext = false) => {
-    if (!brandId || !bankId || !currencyId) {
+    if (!bankId || !currencyId) {
       toast.error(isArabic ? "يرجى تعبئة جميع الحقول المطلوبة" : "Please fill all required fields");
+      return;
+    }
+    const validLines = lines.filter(l => l.brand_id);
+    if (validLines.length === 0) {
+      toast.error(isArabic ? "يرجى إضافة سطر واحد على الأقل" : "Please add at least one line");
       return;
     }
     if (!bankTransferImage) {
@@ -144,14 +198,15 @@ const CoinsCreation = () => {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      // Use first line's brand for backward compat
       const orderData: any = {
-        brand_id: brandId,
+        brand_id: validLines[0].brand_id,
         supplier_id: supplierId || null,
         bank_id: bankId,
         currency_id: currencyId,
         exchange_rate: parseFloat(exchangeRate) || 1,
-        amount_in_currency: parseFloat(amountInCurrency) || 0,
-        base_amount_sar: parseFloat(baseAmountSar) || 0,
+        amount_in_currency: totalInCurrency,
+        base_amount_sar: totalBaseSar,
         bank_transfer_image: bankTransferImage,
         notes,
         created_by: user?.email || "",
@@ -165,6 +220,8 @@ const CoinsCreation = () => {
         const { error } = await supabase.from("coins_purchase_orders").update(orderData).eq("id", selectedOrderId);
         if (error) throw error;
         orderId = selectedOrderId;
+        // Delete old lines then re-insert
+        await supabase.from("coins_purchase_order_lines").delete().eq("purchase_order_id", selectedOrderId);
       } else {
         orderData.order_number = `CPO-${format(new Date(), "yyyyMMdd")}-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}`;
         const { data, error } = await supabase.from("coins_purchase_orders").insert(orderData).select("id").single();
@@ -172,7 +229,20 @@ const CoinsCreation = () => {
         orderId = data.id;
       }
 
-      // Log phase history
+      // Insert lines
+      const lineInserts = validLines.map((l, i) => ({
+        purchase_order_id: orderId,
+        brand_id: l.brand_id,
+        supplier_id: l.supplier_id || null,
+        amount_in_currency: parseFloat(l.amount_in_currency) || 0,
+        base_amount_sar: parseFloat(l.base_amount_sar) || 0,
+        notes: l.notes || null,
+        line_number: i + 1,
+      }));
+      const { error: lineErr } = await supabase.from("coins_purchase_order_lines").insert(lineInserts);
+      if (lineErr) throw lineErr;
+
+      // Log phase history & notify
       if (sendToNext) {
         await supabase.from("coins_purchase_phase_history").insert({
           purchase_order_id: orderId,
@@ -183,8 +253,10 @@ const CoinsCreation = () => {
           action_by_name: user?.user_metadata?.display_name || user?.email || "",
         });
 
-        // Notify responsible person for sending phase
-        await notifyResponsible(brandId, "sending", orderId);
+        // Notify for each brand's responsible person
+        for (const line of validLines) {
+          await notifyResponsible(line.brand_id, "sending", orderId);
+        }
       }
 
       toast.success(isArabic ? "تم الحفظ بنجاح" : "Saved successfully");
@@ -212,7 +284,6 @@ const CoinsCreation = () => {
       const order = orders.find(o => o.id === orderId);
 
       for (const assignment of assignments) {
-        // In-app notification
         await supabase.from("notifications").insert({
           user_id: assignment.user_id,
           title: isArabic ? "مهمة معاملات عملات جديدة" : "New Coins Transaction Task",
@@ -223,7 +294,6 @@ const CoinsCreation = () => {
           link: phase === "sending" ? `/coins-sending?order=${orderId}` : phase === "receiving" ? `/coins-receiving-phase?order=${orderId}` : `/receiving-coins`,
         } as any);
 
-        // Email + Push via edge function
         supabase.functions.invoke("send-coins-workflow-notification", {
           body: {
             type: "phase_transition",
@@ -244,24 +314,47 @@ const CoinsCreation = () => {
   };
 
   const resetForm = () => {
-    setBrandId(""); setSupplierId(""); setBankId(""); setCurrencyId("");
-    setExchangeRate("1"); setAmountInCurrency(""); setBaseAmountSar("");
-    setNotes(""); setBankTransferImage(""); setSelectedOrderId(null);
+    setSupplierId(""); setBankId(""); setCurrencyId("");
+    setExchangeRate("1"); setNotes(""); setBankTransferImage("");
+    setSelectedOrderId(null); setLines([emptyLine(1)]);
   };
 
   const loadOrder = async (id: string) => {
-    const { data } = await supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle();
+    const [orderRes, linesRes] = await Promise.all([
+      supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle(),
+      supabase.from("coins_purchase_order_lines").select("*").eq("purchase_order_id", id).order("line_number"),
+    ]);
+    const data = orderRes.data;
     if (data) {
       setSelectedOrderId(data.id);
-      setBrandId(data.brand_id || "");
       setSupplierId(data.supplier_id || "");
       setBankId(data.bank_id || "");
       setCurrencyId(data.currency_id || "");
       setExchangeRate(String(data.exchange_rate || 1));
-      setAmountInCurrency(String(data.amount_in_currency || ""));
-      setBaseAmountSar(String(data.base_amount_sar || ""));
       setNotes(data.notes || "");
       setBankTransferImage(data.bank_transfer_image || "");
+
+      if (linesRes.data && linesRes.data.length > 0) {
+        setLines(linesRes.data.map((l: any) => ({
+          id: l.id,
+          brand_id: l.brand_id || "",
+          supplier_id: l.supplier_id || "",
+          amount_in_currency: String(l.amount_in_currency || ""),
+          base_amount_sar: String(l.base_amount_sar || ""),
+          notes: l.notes || "",
+          line_number: l.line_number,
+        })));
+      } else {
+        // Legacy single-line order - load from header
+        setLines([{
+          brand_id: data.brand_id || "",
+          supplier_id: data.supplier_id || "",
+          amount_in_currency: String(data.amount_in_currency || ""),
+          base_amount_sar: String(data.base_amount_sar || ""),
+          notes: "",
+          line_number: 1,
+        }]);
+      }
       setView("form");
     }
   };
@@ -387,20 +480,13 @@ const CoinsCreation = () => {
         </CardContent>
       </Card>
 
-      {/* Order Details */}
+      {/* Header Details */}
       <Card>
-        <CardHeader><CardTitle>{isArabic ? "تفاصيل الطلب" : "Order Details"}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{isArabic ? "بيانات الطلب الرئيسية" : "Order Header"}</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>{isArabic ? "العلامة التجارية *" : "Brand *"}</Label>
-              <Select value={brandId} onValueChange={setBrandId}>
-                <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} /></SelectTrigger>
-                <SelectContent>{brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{isArabic ? "المورد" : "Supplier"}</Label>
+              <Label>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</Label>
               <Select value={supplierId} onValueChange={setSupplierId}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
                 <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>)}</SelectContent>
@@ -425,17 +511,94 @@ const CoinsCreation = () => {
               <Input type="number" step="0.0001" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>{isArabic ? "المبلغ بالعملة" : "Amount in Currency"}</Label>
-              <Input type="number" step="0.01" value={amountInCurrency} onChange={e => setAmountInCurrency(e.target.value)} />
+              <Label>{isArabic ? "إجمالي التحويل البنكي" : "Total Bank Transfer"}</Label>
+              <Input type="number" value={totalInCurrency.toFixed(2)} readOnly className="bg-muted" />
             </div>
             <div className="space-y-2">
-              <Label>{isArabic ? "المبلغ الأساسي (SAR)" : "Base Amount (SAR)"}</Label>
-              <Input type="number" step="0.01" value={baseAmountSar} onChange={e => setBaseAmountSar(e.target.value)} />
+              <Label>{isArabic ? "إجمالي المبلغ الأساسي (SAR)" : "Total Base Amount (SAR)"}</Label>
+              <Input type="number" value={totalBaseSar.toFixed(2)} readOnly className="bg-muted" />
             </div>
           </div>
           <div className="mt-4 space-y-2">
             <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Order Lines */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>{isArabic ? "بنود الطلب" : "Order Lines"}</CardTitle>
+            <Button size="sm" onClick={addLine}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isArabic ? "إضافة سطر" : "Add Line"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">#</TableHead>
+                  <TableHead>{isArabic ? "العلامة التجارية *" : "Brand *"}</TableHead>
+                  <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
+                  <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount in Currency"}</TableHead>
+                  <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="text-center font-medium">{index + 1}</TableCell>
+                    <TableCell>
+                      <Select value={line.brand_id} onValueChange={(v) => handleBrandChange(index, v)}>
+                        <SelectTrigger className="min-w-[180px]"><SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} /></SelectTrigger>
+                        <SelectContent>{brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select value={line.supplier_id} onValueChange={(v) => updateLine(index, "supplier_id", v)}>
+                        <SelectTrigger className="min-w-[180px]"><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
+                        <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="min-w-[120px]"
+                        value={line.amount_in_currency}
+                        onChange={e => updateLine(index, "amount_in_currency", e.target.value)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="min-w-[120px] bg-muted"
+                        value={line.base_amount_sar}
+                        readOnly
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeLine(index)}
+                        disabled={lines.length <= 1}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
