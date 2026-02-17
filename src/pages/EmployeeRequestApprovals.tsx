@@ -201,7 +201,7 @@ const EmployeeRequestApprovals = () => {
         .from('timesheets')
         .update({
           is_absent: false,
-          status: 'on_leave',
+          status: 'vacation',
           notes: leaveLabel,
           late_minutes: 0,
           deduction_rule_id: null,
