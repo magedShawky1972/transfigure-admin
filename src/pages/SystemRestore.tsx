@@ -219,6 +219,23 @@ const SystemRestore = () => {
   const [showMigrationSyncDialog, setShowMigrationSyncDialog] = useState(false);
   const [migrationSyncErrors, setMigrationSyncErrors] = useState<string[]>([]);
   const [matchingCurrentSituation, setMatchingCurrentSituation] = useState(false);
+  const [showComparisonDialog, setShowComparisonDialog] = useState(false);
+  const [comparisonResults, setComparisonResults] = useState<{
+    localTables: string[];
+    externalTables: string[];
+    missingTables: string[];
+    localFunctions: string[];
+    externalFunctions: string[];
+    missingFunctions: string[];
+    localTriggers: string[];
+    externalTriggers: string[];
+    missingTriggers: string[];
+    localViews: string[];
+    externalViews: string[];
+    missingViews: string[];
+    matchedMigrations: string[];
+    unmatchedMigrations: string[];
+  } | null>(null);
 
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
@@ -369,61 +386,96 @@ const SystemRestore = () => {
     await loadMigrationTrackingState(externalUrl);
   };
 
-  // Match current situation - query external DB to see what's actually applied there
+  // Match current situation - compare local vs external DB objects
   const handleMatchCurrentSituation = async () => {
     setMatchingCurrentSituation(true);
     try {
-      // Query external DB's schema_migrations to see what's actually there
-      const result = await callExternalProxy('exec_sql', { 
-        sql: `SELECT version::text FROM supabase_migrations.schema_migrations ORDER BY version ASC` 
-      });
-      
-      let externalVersions: string[] = [];
-      
-      if (result.success && Array.isArray(result.data)) {
-        // exec_sql returned results as JSON array
-        externalVersions = result.data.map((r: any) => r.version);
+      // Query LOCAL tables, functions, triggers, views
+      const [localTablesRes, localFunctionsRes, localTriggersRes, localViewsRes] = await Promise.all([
+        supabase.rpc('exec_sql', { sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name` }) as any,
+        supabase.rpc('exec_sql', { sql: `SELECT proname AS function_name FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.prokind = 'f' ORDER BY proname` }) as any,
+        supabase.rpc('exec_sql', { sql: `SELECT DISTINCT trigger_name, event_object_table FROM information_schema.triggers WHERE trigger_schema = 'public' ORDER BY trigger_name` }) as any,
+        supabase.rpc('exec_sql', { sql: `SELECT table_name FROM information_schema.views WHERE table_schema = 'public' ORDER BY table_name` }) as any,
+      ]);
+
+      const localTables = Array.isArray(localTablesRes.data) ? localTablesRes.data.map((r: any) => r.table_name) : [];
+      const localFunctions = Array.isArray(localFunctionsRes.data) ? [...new Set(localFunctionsRes.data.map((r: any) => r.function_name))] as string[] : [];
+      const localTriggers = Array.isArray(localTriggersRes.data) ? localTriggersRes.data.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`) : [];
+      const localViews = Array.isArray(localViewsRes.data) ? localViewsRes.data.map((r: any) => r.table_name) : [];
+
+      // Query EXTERNAL tables, functions, triggers, views
+      const [extTablesRes, extFunctionsRes, extTriggersRes, extViewsRes] = await Promise.all([
+        callExternalProxy('exec_sql', { sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name` }),
+        callExternalProxy('exec_sql', { sql: `SELECT proname AS function_name FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.prokind = 'f' ORDER BY proname` }),
+        callExternalProxy('exec_sql', { sql: `SELECT DISTINCT trigger_name, event_object_table FROM information_schema.triggers WHERE trigger_schema = 'public' ORDER BY trigger_name` }),
+        callExternalProxy('exec_sql', { sql: `SELECT table_name FROM information_schema.views WHERE table_schema = 'public' ORDER BY table_name` }),
+      ]);
+
+      const externalTables = (extTablesRes.success && Array.isArray(extTablesRes.data)) ? extTablesRes.data.map((r: any) => r.table_name) : [];
+      const externalFunctions = (extFunctionsRes.success && Array.isArray(extFunctionsRes.data)) ? [...new Set(extFunctionsRes.data.map((r: any) => r.function_name))] as string[] : [];
+      const externalTriggers = (extTriggersRes.success && Array.isArray(extTriggersRes.data)) ? extTriggersRes.data.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`) : [];
+      const externalViews = (extViewsRes.success && Array.isArray(extViewsRes.data)) ? extViewsRes.data.map((r: any) => r.table_name) : [];
+
+      const extTablesSet = new Set(externalTables);
+      const extFunctionsSet = new Set(externalFunctions);
+      const extTriggersSet = new Set(externalTriggers);
+      const extViewsSet = new Set(externalViews);
+
+      const missingTables = localTables.filter((t: string) => !extTablesSet.has(t));
+      const missingFunctions = localFunctions.filter((f: string) => !extFunctionsSet.has(f));
+      const missingTriggers = localTriggers.filter((t: string) => !extTriggersSet.has(t));
+      const missingViews = localViews.filter((v: string) => !extViewsSet.has(v));
+
+      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0;
+
+      // Determine which migrations to mark as applied
+      // If everything matches, mark all. Otherwise mark based on what exists.
+      let matchedMigrations: string[] = [];
+      let unmatchedMigrations: string[] = [];
+
+      if (!hasMissing) {
+        // All objects exist in external - mark all local migrations as applied
+        matchedMigrations = localMigrations.map(m => m.version);
       } else {
-        // Fallback: try to get migrations via the get_schema_migrations RPC on external
-        const rpcResult = await callExternalProxy('rpc', { 
-          functionName: 'get_schema_migrations', 
-          params: {} 
-        });
-        if (rpcResult.success && Array.isArray(rpcResult.data)) {
-          externalVersions = rpcResult.data.map((r: any) => r.version);
-        }
-      }
-      
-      if (externalVersions.length === 0) {
-        // If we couldn't query migrations, check if tables exist as a fallback
-        // Try to at least detect the external DB has data by listing tables
-        const tablesResult = await callExternalProxy('exec_sql', {
-          sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`
+        // Try to query external migration history to find what's actually been applied
+        const migResult = await callExternalProxy('exec_sql', {
+          sql: `SELECT version::text FROM supabase_migrations.schema_migrations ORDER BY version ASC`
         });
         
-        if (tablesResult.success && Array.isArray(tablesResult.data) && tablesResult.data.length > 0) {
-          // External DB has tables but we couldn't read migrations - mark all local as applied
-          externalVersions = localMigrations.map(m => m.version);
-          toast.info(isRTL 
-            ? 'لم يتم العثور على سجل الترحيل في قاعدة البيانات الخارجية، تم تحديد جميع الملفات المحلية كمطبقة بناءً على وجود الجداول' 
-            : 'Could not read migration log from external DB, marked all local files as applied based on existing tables');
+        if (migResult.success && Array.isArray(migResult.data) && migResult.data.length > 0) {
+          const extVersions = migResult.data.map((r: any) => r.version);
+          const localVersionSet = new Set(localMigrations.map(m => m.version));
+          matchedMigrations = extVersions.filter((v: string) => localVersionSet.has(v));
+          unmatchedMigrations = localMigrations.filter(m => !new Set(matchedMigrations).has(m.version)).map(m => m.version);
         } else {
-          toast.warning(isRTL 
-            ? 'لم يتم العثور على جداول في قاعدة البيانات الخارجية' 
-            : 'No tables found in external database');
-          setMatchingCurrentSituation(false);
-          return;
+          // No migration history found - use object comparison to estimate
+          // Mark all as matched since tables exist, but flag the missing ones
+          matchedMigrations = localMigrations.map(m => m.version);
+          unmatchedMigrations = [];
         }
       }
-      
-      // Save only the versions that actually exist in external DB AND match local migrations
-      const localVersionSet = new Set(localMigrations.map(m => m.version));
-      const matchedVersions = externalVersions.filter(v => localVersionSet.has(v));
-      
-      await saveMigrationLog(matchedVersions);
-      toast.success(isRTL 
-        ? `تم مطابقة الوضع الحالي بنجاح - ${matchedVersions.length} ملف مطابق` 
-        : `Current situation matched successfully - ${matchedVersions.length} files matched from external DB`);
+
+      setComparisonResults({
+        localTables, externalTables, missingTables,
+        localFunctions, externalFunctions, missingFunctions,
+        localTriggers, externalTriggers, missingTriggers,
+        localViews, externalViews, missingViews,
+        matchedMigrations, unmatchedMigrations,
+      });
+
+      // Save matched migrations
+      await saveMigrationLog(matchedMigrations);
+
+      // Show comparison dialog
+      setShowComparisonDialog(true);
+
+      if (hasMissing) {
+        toast.warning(isRTL
+          ? `تم العثور على ${missingTables.length} جداول و ${missingFunctions.length} دوال و ${missingTriggers.length} مشغلات مفقودة`
+          : `Found ${missingTables.length} missing tables, ${missingFunctions.length} functions, ${missingTriggers.length} triggers`);
+      } else {
+        toast.success(isRTL ? 'جميع الكائنات متطابقة' : 'All objects match between local and external DB');
+      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -3178,6 +3230,179 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               </Button>
             </DialogFooter>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DB Comparison Results Dialog */}
+      <Dialog open={showComparisonDialog} onOpenChange={setShowComparisonDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5" />
+              {isRTL ? 'نتائج مقارنة قاعدة البيانات' : 'Database Comparison Results'}
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL ? 'مقارنة بين قاعدة البيانات المحلية والخارجية' : 'Comparison between local and external database objects'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {comparisonResults && (
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 pr-4">
+                {/* Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="border rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{comparisonResults.localTables.length}</div>
+                    <div className="text-xs text-muted-foreground">{isRTL ? 'جداول محلية' : 'Local Tables'}</div>
+                    {comparisonResults.missingTables.length > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-xs">{comparisonResults.missingTables.length} {isRTL ? 'مفقود' : 'missing'}</Badge>
+                    )}
+                  </div>
+                  <div className="border rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{comparisonResults.localFunctions.length}</div>
+                    <div className="text-xs text-muted-foreground">{isRTL ? 'دوال محلية' : 'Local Functions'}</div>
+                    {comparisonResults.missingFunctions.length > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-xs">{comparisonResults.missingFunctions.length} {isRTL ? 'مفقود' : 'missing'}</Badge>
+                    )}
+                  </div>
+                  <div className="border rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{comparisonResults.localTriggers.length}</div>
+                    <div className="text-xs text-muted-foreground">{isRTL ? 'مشغلات محلية' : 'Local Triggers'}</div>
+                    {comparisonResults.missingTriggers.length > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-xs">{comparisonResults.missingTriggers.length} {isRTL ? 'مفقود' : 'missing'}</Badge>
+                    )}
+                  </div>
+                  <div className="border rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{comparisonResults.localViews.length}</div>
+                    <div className="text-xs text-muted-foreground">{isRTL ? 'عروض محلية' : 'Local Views'}</div>
+                    {comparisonResults.missingViews.length > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-xs">{comparisonResults.missingViews.length} {isRTL ? 'مفقود' : 'missing'}</Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Migration Files Status */}
+                <div className="border rounded-lg p-3">
+                  <p className="text-sm font-medium mb-2">{isRTL ? 'حالة ملفات الترحيل' : 'Migration Files Status'}</p>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1 text-green-600">
+                      <CheckCircle2 className="h-3 w-3" /> {comparisonResults.matchedMigrations.length} {isRTL ? 'مطبق' : 'applied'}
+                    </span>
+                    {comparisonResults.unmatchedMigrations.length > 0 && (
+                      <span className="flex items-center gap-1 text-amber-600">
+                        <AlertTriangle className="h-3 w-3" /> {comparisonResults.unmatchedMigrations.length} {isRTL ? 'معلق' : 'pending'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Missing Tables */}
+                {comparisonResults.missingTables.length > 0 && (
+                  <div className="border border-destructive/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      {isRTL ? 'جداول مفقودة في قاعدة البيانات الخارجية' : 'Missing Tables in External Database'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {comparisonResults.missingTables.map(t => (
+                        <Badge key={t} variant="outline" className="text-xs font-mono border-destructive/50 text-destructive">{t}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing Functions */}
+                {comparisonResults.missingFunctions.length > 0 && (
+                  <div className="border border-destructive/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      {isRTL ? 'دوال مفقودة في قاعدة البيانات الخارجية' : 'Missing Functions in External Database'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {comparisonResults.missingFunctions.map(f => (
+                        <Badge key={f} variant="outline" className="text-xs font-mono border-destructive/50 text-destructive">{f}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing Triggers */}
+                {comparisonResults.missingTriggers.length > 0 && (
+                  <div className="border border-destructive/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      {isRTL ? 'مشغلات مفقودة في قاعدة البيانات الخارجية' : 'Missing Triggers in External Database'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {comparisonResults.missingTriggers.map(t => (
+                        <Badge key={t} variant="outline" className="text-xs font-mono border-destructive/50 text-destructive">{t}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing Views */}
+                {comparisonResults.missingViews.length > 0 && (
+                  <div className="border border-destructive/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      {isRTL ? 'عروض مفقودة في قاعدة البيانات الخارجية' : 'Missing Views in External Database'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {comparisonResults.missingViews.map(v => (
+                        <Badge key={v} variant="outline" className="text-xs font-mono border-destructive/50 text-destructive">{v}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending Migration Files */}
+                {comparisonResults.unmatchedMigrations.length > 0 && (
+                  <div className="border border-amber-500/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-amber-600 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      {isRTL ? 'ملفات الترحيل المعلقة (تحتاج تشغيل)' : 'Pending Migration Files (need to run)'}
+                    </p>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {comparisonResults.unmatchedMigrations.map(v => {
+                        const mig = localMigrations.find(m => m.version === v);
+                        return (
+                          <div key={v} className="text-xs font-mono text-muted-foreground flex items-center gap-2">
+                            <Clock className="h-3 w-3 text-amber-500" />
+                            <span>{v}</span>
+                            {mig?.name && mig.name !== v && <span className="text-muted-foreground/60">({mig.name})</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* All matched */}
+                {comparisonResults.missingTables.length === 0 && comparisonResults.missingFunctions.length === 0 && 
+                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (
+                  <div className="border border-green-500/30 rounded-lg p-4 text-center">
+                    <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-green-600">
+                      {isRTL ? 'جميع الكائنات متطابقة بين قاعدة البيانات المحلية والخارجية' : 'All objects match between local and external database'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
+              {isRTL ? 'إغلاق' : 'Close'}
+            </Button>
+            {comparisonResults && comparisonResults.unmatchedMigrations.length > 0 && (
+              <Button onClick={() => { setShowComparisonDialog(false); runMissingMigrations(); }}>
+                <Play className="h-3 w-3 mr-1" />
+                {isRTL ? `تشغيل ${comparisonResults.unmatchedMigrations.length} ملف معلق` : `Run ${comparisonResults.unmatchedMigrations.length} Pending`}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
