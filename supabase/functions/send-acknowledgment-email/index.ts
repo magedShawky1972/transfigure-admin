@@ -103,6 +103,7 @@ async function sendRawEmail(
 }
 
 function buildEmailHtml(title: string, content: string): string {
+  const logoUrl = "https://ysqqnkbgkrjoxrzlejxy.supabase.co/storage/v1/object/public/email-assets/asus-card-logo.png";
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -131,6 +132,11 @@ function buildEmailHtml(title: string, content: string): string {
       color: white;
       padding: 30px;
       text-align: center;
+    }
+    .header img {
+      width: 120px;
+      height: auto;
+      margin-bottom: 15px;
     }
     .header h1 {
       margin: 0;
@@ -167,6 +173,7 @@ function buildEmailHtml(title: string, content: string): string {
 <body>
   <div class="container">
     <div class="header">
+      <img src="${logoUrl}" alt="ASUS Card Logo" />
       <h1>📋 قرار إداري جديد</h1>
     </div>
     <div class="content">
