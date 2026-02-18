@@ -220,6 +220,7 @@ const SystemRestore = () => {
   const [migrationSyncErrors, setMigrationSyncErrors] = useState<string[]>([]);
   const [matchingCurrentSituation, setMatchingCurrentSituation] = useState(false);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
+  const [applyingMissingObjects, setApplyingMissingObjects] = useState(false);
   const [comparisonResults, setComparisonResults] = useState<{
     localTables: string[];
     externalTables: string[];
@@ -398,6 +399,162 @@ const SystemRestore = () => {
     await loadMigrationTrackingState(externalUrl);
   };
 
+  // Apply missing objects directly to external DB by fetching DDL from local
+  const applyMissingObjects = async () => {
+    if (!comparisonResults) return;
+    setApplyingMissingObjects(true);
+    setShowComparisonDialog(false);
+    setShowMigrationSyncDialog(true);
+    setMigrationSyncErrors([]);
+    const errors: string[] = [];
+    
+    const totalSteps = comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length;
+    let currentStep = 0;
+    
+    setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
+
+    // 1. Create missing tables - get full DDL from local
+    for (const tableName of comparisonResults.missingTables) {
+      currentStep++;
+      setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
+      
+      try {
+        // Get column info for this table
+        const { data: cols } = await supabase.rpc('get_table_columns_info') as any;
+        const tableCols = (cols || []).filter((c: any) => c.table_name === tableName);
+        
+        if (tableCols.length === 0) {
+          errors.push(`Table ${tableName}: No column info found`);
+          continue;
+        }
+
+        // Build CREATE TABLE statement
+        const colDefs = tableCols.map((c: any) => {
+          let def = `"${c.column_name}" `;
+          if (c.udt_name === 'uuid') def += 'UUID';
+          else if (c.udt_name === 'text') def += 'TEXT';
+          else if (c.udt_name === 'bool') def += 'BOOLEAN';
+          else if (c.udt_name === 'int4') def += 'INTEGER';
+          else if (c.udt_name === 'int8') def += 'BIGINT';
+          else if (c.udt_name === 'float8') def += 'DOUBLE PRECISION';
+          else if (c.udt_name === 'numeric') def += 'NUMERIC';
+          else if (c.udt_name === 'timestamptz') def += 'TIMESTAMP WITH TIME ZONE';
+          else if (c.udt_name === 'timestamp') def += 'TIMESTAMP WITHOUT TIME ZONE';
+          else if (c.udt_name === 'date') def += 'DATE';
+          else if (c.udt_name === 'jsonb') def += 'JSONB';
+          else if (c.udt_name === 'json') def += 'JSON';
+          else if (c.udt_name === '_text') def += 'TEXT[]';
+          else if (c.udt_name === '_int4') def += 'INTEGER[]';
+          else if (c.udt_name === '_uuid') def += 'UUID[]';
+          else if (c.udt_name === 'varchar') def += c.character_maximum_length ? `VARCHAR(${c.character_maximum_length})` : 'VARCHAR';
+          else def += c.data_type.toUpperCase();
+
+          if (c.column_default) def += ` DEFAULT ${c.column_default}`;
+          if (c.is_nullable === 'NO') def += ' NOT NULL';
+          return def;
+        }).join(',\n  ');
+
+        // Get primary key
+        const { data: pks } = await supabase.rpc('get_primary_keys_info') as any;
+        const tablePks = (pks || []).filter((p: any) => p.table_name === tableName).map((p: any) => `"${p.column_name}"`);
+        const pkClause = tablePks.length > 0 ? `,\n  PRIMARY KEY (${tablePks.join(', ')})` : '';
+
+        const createSql = `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n);\nALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;`;
+        
+        const result = await callExternalProxy('exec_sql', { sql: createSql });
+        if (!result.success && result.error) {
+          errors.push(`Table ${tableName}: ${result.error}`);
+        }
+      } catch (err: any) {
+        errors.push(`Table ${tableName}: ${err.message}`);
+      }
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    // 2. Create missing functions - get full definition from local
+    for (const funcName of comparisonResults.missingFunctions) {
+      currentStep++;
+      setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Function: ${funcName}` });
+      
+      try {
+        const { data: funcs } = await supabase.rpc('get_db_functions_info') as any;
+        const funcDef = (funcs || []).find((f: any) => f.function_name === funcName);
+        
+        if (!funcDef?.function_definition) {
+          errors.push(`Function ${funcName}: No definition found`);
+          continue;
+        }
+
+        // pg_get_functiondef returns CREATE OR REPLACE already
+        const result = await callExternalProxy('exec_sql', { sql: funcDef.function_definition });
+        if (!result.success && result.error) {
+          errors.push(`Function ${funcName}: ${result.error}`);
+        }
+      } catch (err: any) {
+        errors.push(`Function ${funcName}: ${err.message}`);
+      }
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    // 3. Create missing triggers
+    for (const triggerStr of comparisonResults.missingTriggers) {
+      currentStep++;
+      setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Trigger: ${triggerStr}` });
+      
+      try {
+        const { data: triggers } = await supabase.rpc('get_triggers_info') as any;
+        const [trigName, , tableName] = triggerStr.split(' ');
+        const trigDef = (triggers || []).find((t: any) => t.trigger_name === trigName && t.event_object_table === tableName);
+        
+        if (!trigDef) {
+          errors.push(`Trigger ${triggerStr}: No definition found`);
+          continue;
+        }
+
+        const createTriggerSql = `CREATE OR REPLACE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement};`;
+        
+        const result = await callExternalProxy('exec_sql', { sql: createTriggerSql });
+        if (!result.success && result.error) {
+          // Try without OR REPLACE for older PG versions
+          const fallbackSql = `DROP TRIGGER IF EXISTS "${trigDef.trigger_name}" ON public."${trigDef.event_object_table}"; CREATE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement};`;
+          const retryResult = await callExternalProxy('exec_sql', { sql: fallbackSql });
+          if (!retryResult.success && retryResult.error) {
+            errors.push(`Trigger ${triggerStr}: ${retryResult.error}`);
+          }
+        }
+      } catch (err: any) {
+        errors.push(`Trigger ${triggerStr}: ${err.message}`);
+      }
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    // 4. Add foreign keys for missing tables
+    try {
+      const { data: fks } = await supabase.rpc('get_foreign_keys_info') as any;
+      const relevantFks = (fks || []).filter((fk: any) => comparisonResults.missingTables.includes(fk.table_name));
+      for (const fk of relevantFks) {
+        const fkSql = `ALTER TABLE public."${fk.table_name}" ADD CONSTRAINT "${fk.constraint_name}" FOREIGN KEY ("${fk.column_name}") REFERENCES public."${fk.foreign_table_name}"("${fk.foreign_column_name}");`;
+        await callExternalProxy('exec_sql', { sql: fkSql }).catch(() => {});
+      }
+    } catch {
+      // Non-critical
+    }
+
+    // 5. Reload PostgREST schema cache
+    try {
+      await callExternalProxy('exec_sql', { sql: `NOTIFY pgrst, 'reload schema'` });
+    } catch {}
+
+    setMigrationSyncErrors(errors);
+    setApplyingMissingObjects(false);
+    
+    if (errors.length === 0) {
+      toast.success(isRTL ? 'تم تطبيق جميع الكائنات المفقودة بنجاح' : 'All missing objects applied successfully');
+    } else {
+      toast.warning(isRTL ? `تم التطبيق مع ${errors.length} أخطاء` : `Applied with ${errors.length} errors`);
+    }
+  };
+
   // Match current situation - compare local vs external DB objects
   const handleMatchCurrentSituation = async () => {
     setMatchingCurrentSituation(true);
@@ -452,56 +609,10 @@ const SystemRestore = () => {
 
       const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0;
 
-      // Determine which migrations to mark as applied
-      // If everything matches, mark all. Otherwise mark based on what exists.
-      let matchedMigrations: string[] = [];
-      let unmatchedMigrations: string[] = [];
-
-      if (!hasMissing) {
-        // All objects exist in external - mark all local migrations as applied
-        matchedMigrations = localMigrations.map(m => m.version);
-      } else {
-        // Objects are missing — find which migration files contain the missing objects
-        // by scanning each migration's SQL content for references to missing items
-        const allMissingNames = [
-          ...missingTables,
-          ...missingFunctions,
-          ...missingTriggers.map(t => t.split(' ON ')[0]), // extract trigger name
-          ...missingViews,
-        ].map(n => n.toLowerCase());
-
-        const migrationsThatNeedRerun: string[] = [];
-        
-        // Check each local migration's content to see if it creates any missing object
-        for (const mig of localMigrations) {
-          try {
-            const { data: contentResult } = await supabase.functions.invoke('migrate-to-external', {
-              body: { action: 'get_migration_content', tableName: mig.version }
-            });
-            
-            if (contentResult?.success && contentResult.statements) {
-              const sqlLower = contentResult.statements.toLowerCase();
-              const createsMissingObject = allMissingNames.some(name => sqlLower.includes(name));
-              if (createsMissingObject) {
-                migrationsThatNeedRerun.push(mig.version);
-              }
-            }
-          } catch {
-            // Skip on error
-          }
-        }
-
-        if (migrationsThatNeedRerun.length > 0) {
-          unmatchedMigrations = migrationsThatNeedRerun;
-          matchedMigrations = localMigrations
-            .filter(m => !new Set(migrationsThatNeedRerun).has(m.version))
-            .map(m => m.version);
-        } else {
-          // Could not identify specific migrations — mark all as applied
-          // but still show the missing objects
-          matchedMigrations = localMigrations.map(m => m.version);
-        }
-      }
+      // Mark all migrations as applied (the migration records exist in external DB)
+      // The missing objects will be applied directly via "Apply Missing Objects"
+      const matchedMigrations = localMigrations.map(m => m.version);
+      const unmatchedMigrations: string[] = [];
 
       setComparisonResults({
         localTables, externalTables, missingTables,
@@ -3445,11 +3556,11 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
             {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0) && (
-              <Button onClick={() => { setShowComparisonDialog(false); runMissingMigrations(); }}>
+              <Button onClick={applyMissingObjects} disabled={applyingMissingObjects}>
                 <Play className="h-3 w-3 mr-1" />
                 {isRTL 
-                  ? `تطبيق ${comparisonResults.unmatchedMigrations.length || pendingMigrations.length} ملف ترحيل معلق` 
-                  : `Apply ${comparisonResults.unmatchedMigrations.length || pendingMigrations.length} Pending Migrations`}
+                  ? `تطبيق ${comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} كائن مفقود` 
+                  : `Apply ${comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} Missing Objects`}
               </Button>
             )}
           </DialogFooter>
