@@ -598,7 +598,7 @@ const ApiDocumentation = () => {
       {/* Cover Page - Only visible when printing */}
       <div className="hidden print:flex print:flex-col print:items-center print:justify-center print:h-screen print:page-break-after">
         <h1 className="text-5xl font-bold text-gray-900 mb-8 text-center">
-          API Integration for Odoo
+          API Integration for Edara
         </h1>
         <h2 className="text-3xl font-semibold text-gray-800 mb-6 text-center">
           Asus Cards
