@@ -234,6 +234,9 @@ const SystemRestore = () => {
     localViews: string[];
     externalViews: string[];
     missingViews: string[];
+    localTypes: { name: string; type: string; values?: string[]; base?: string }[];
+    externalTypes: string[];
+    missingTypes: { name: string; type: string; values?: string[]; base?: string }[];
     matchedMigrations: string[];
     unmatchedMigrations: string[];
   } | null>(null);
@@ -408,10 +411,38 @@ const SystemRestore = () => {
     setMigrationSyncErrors([]);
     const errors: string[] = [];
     
-    const totalSteps = comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length;
+    const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length;
     let currentStep = 0;
     
     setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
+
+    // 0. Create missing types (enums, domains) FIRST - required by tables and functions
+    if (comparisonResults.missingTypes && comparisonResults.missingTypes.length > 0) {
+      for (const typeInfo of comparisonResults.missingTypes) {
+        currentStep++;
+        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Type: ${typeInfo.name}` });
+        
+        try {
+          let createSql = '';
+          if (typeInfo.type === 'enum' && typeInfo.values) {
+            const vals = typeInfo.values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
+            createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE TYPE public."${typeInfo.name}" AS ENUM (${vals}); END IF; END $$;`;
+          } else if (typeInfo.type === 'domain' && typeInfo.base) {
+            createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE DOMAIN public."${typeInfo.name}" AS ${typeInfo.base}; END IF; END $$;`;
+          }
+          
+          if (createSql) {
+            const result = await callExternalProxy('exec_sql', { sql: createSql });
+            if (!result.success && result.error) {
+              errors.push(`Type ${typeInfo.name}: ${result.error}`);
+            }
+          }
+        } catch (err: any) {
+          errors.push(`Type ${typeInfo.name}: ${err.message}`);
+        }
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
 
     // 1. Create missing tables - get full DDL from local
     for (const tableName of comparisonResults.missingTables) {
@@ -533,7 +564,7 @@ const SystemRestore = () => {
       const { data: fks } = await supabase.rpc('get_foreign_keys_info') as any;
       const relevantFks = (fks || []).filter((fk: any) => comparisonResults.missingTables.includes(fk.table_name));
       for (const fk of relevantFks) {
-        const fkSql = `ALTER TABLE public."${fk.table_name}" ADD CONSTRAINT "${fk.constraint_name}" FOREIGN KEY ("${fk.column_name}") REFERENCES public."${fk.foreign_table_name}"("${fk.foreign_column_name}");`;
+        const fkSql = `DO $$ BEGIN ALTER TABLE public."${fk.table_name}" ADD CONSTRAINT "${fk.constraint_name}" FOREIGN KEY ("${fk.column_name}") REFERENCES public."${fk.foreign_table_name}"("${fk.foreign_column_name}"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`;
         await callExternalProxy('exec_sql', { sql: fkSql }).catch(() => {});
       }
     } catch {
@@ -559,12 +590,12 @@ const SystemRestore = () => {
   const handleMatchCurrentSituation = async () => {
     setMatchingCurrentSituation(true);
     try {
-      // Query LOCAL tables, functions, triggers, views using existing helper RPCs
-      // (exec_sql returns void locally, so we use dedicated helper functions)
-      const [localColsRes, localFunctionsRes, localTriggersRes] = await Promise.all([
+      // Query LOCAL tables, functions, triggers, types using existing helper RPCs
+      const [localColsRes, localFunctionsRes, localTriggersRes, localTypesRes] = await Promise.all([
         supabase.rpc('get_table_columns_info') as any,
         supabase.rpc('get_db_functions_info') as any,
         supabase.rpc('get_triggers_info') as any,
+        supabase.rpc('get_user_defined_types_info') as any,
       ]);
 
       const localTables = Array.isArray(localColsRes.data) 
@@ -576,41 +607,42 @@ const SystemRestore = () => {
       const localTriggers = Array.isArray(localTriggersRes.data) 
         ? [...new Set(localTriggersRes.data.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`))].sort() as string[]
         : [];
-      // For views, query via the migrate-to-external function which can return data
-      const localViewsResult = await supabase.functions.invoke('migrate-to-external', {
-        body: { action: 'list_tables' }
-      });
-      // Views: get from information_schema via external proxy pointing to self isn't ideal,
-      // so we'll compare tables only and note views separately
+      const localTypes = Array.isArray(localTypesRes.data)
+        ? localTypesRes.data
+            .filter((t: any) => t.type_type === 'enum' || t.type_type === 'domain')
+            .map((t: any) => ({ name: t.type_name, type: t.type_type, values: t.enum_values, base: t.base_type }))
+        : [];
       const localViews: string[] = [];
 
-      // Query EXTERNAL tables, functions, triggers, views
-      const [extTablesRes, extFunctionsRes, extTriggersRes, extViewsRes] = await Promise.all([
+      // Query EXTERNAL tables, functions, triggers, views, types
+      const [extTablesRes, extFunctionsRes, extTriggersRes, extViewsRes, extTypesRes] = await Promise.all([
         callExternalProxy('exec_sql', { sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name` }),
         callExternalProxy('exec_sql', { sql: `SELECT proname AS function_name FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.prokind = 'f' ORDER BY proname` }),
         callExternalProxy('exec_sql', { sql: `SELECT DISTINCT trigger_name, event_object_table FROM information_schema.triggers WHERE trigger_schema = 'public' ORDER BY trigger_name` }),
         callExternalProxy('exec_sql', { sql: `SELECT table_name FROM information_schema.views WHERE table_schema = 'public' ORDER BY table_name` }),
+        callExternalProxy('exec_sql', { sql: `SELECT typname AS type_name FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname = 'public' AND t.typtype IN ('e', 'd') ORDER BY typname` }),
       ]);
 
       const externalTables = (extTablesRes.success && Array.isArray(extTablesRes.data)) ? extTablesRes.data.map((r: any) => r.table_name) : [];
       const externalFunctions = (extFunctionsRes.success && Array.isArray(extFunctionsRes.data)) ? [...new Set(extFunctionsRes.data.map((r: any) => r.function_name))] as string[] : [];
       const externalTriggers = (extTriggersRes.success && Array.isArray(extTriggersRes.data)) ? extTriggersRes.data.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`) : [];
       const externalViews = (extViewsRes.success && Array.isArray(extViewsRes.data)) ? extViewsRes.data.map((r: any) => r.table_name) : [];
+      const externalTypes = (extTypesRes.success && Array.isArray(extTypesRes.data)) ? extTypesRes.data.map((r: any) => r.type_name) : [];
 
       const extTablesSet = new Set(externalTables);
       const extFunctionsSet = new Set(externalFunctions);
       const extTriggersSet = new Set(externalTriggers);
       const extViewsSet = new Set(externalViews);
+      const extTypesSet = new Set(externalTypes);
 
       const missingTables = localTables.filter((t: string) => !extTablesSet.has(t));
       const missingFunctions = localFunctions.filter((f: string) => !extFunctionsSet.has(f));
       const missingTriggers = localTriggers.filter((t: string) => !extTriggersSet.has(t));
       const missingViews = localViews.filter((v: string) => !extViewsSet.has(v));
+      const missingTypes = localTypes.filter((t: any) => !extTypesSet.has(t.name));
 
-      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0;
+      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0;
 
-      // Mark all migrations as applied (the migration records exist in external DB)
-      // The missing objects will be applied directly via "Apply Missing Objects"
       const matchedMigrations = localMigrations.map(m => m.version);
       const unmatchedMigrations: string[] = [];
 
@@ -619,19 +651,17 @@ const SystemRestore = () => {
         localFunctions, externalFunctions, missingFunctions,
         localTriggers, externalTriggers, missingTriggers,
         localViews, externalViews, missingViews,
+        localTypes, externalTypes, missingTypes,
         matchedMigrations, unmatchedMigrations,
       });
 
-      // Save matched migrations
       await saveMigrationLog(matchedMigrations);
-
-      // Show comparison dialog
       setShowComparisonDialog(true);
 
       if (hasMissing) {
         toast.warning(isRTL
-          ? `تم العثور على ${missingTables.length} جداول و ${missingFunctions.length} دوال و ${missingTriggers.length} مشغلات مفقودة`
-          : `Found ${missingTables.length} missing tables, ${missingFunctions.length} functions, ${missingTriggers.length} triggers`);
+          ? `تم العثور على ${missingTypes.length} أنواع و ${missingTables.length} جداول و ${missingFunctions.length} دوال و ${missingTriggers.length} مشغلات مفقودة`
+          : `Found ${missingTypes.length} types, ${missingTables.length} tables, ${missingFunctions.length} functions, ${missingTriggers.length} triggers missing`);
       } else {
         toast.success(isRTL ? 'جميع الكائنات متطابقة' : 'All objects match between local and external DB');
       }
@@ -3409,7 +3439,14 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-4 pr-4">
                 {/* Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="border rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{comparisonResults.localTypes?.length || 0}</div>
+                    <div className="text-xs text-muted-foreground">{isRTL ? 'أنواع محلية' : 'Local Types'}</div>
+                    {(comparisonResults.missingTypes?.length || 0) > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-xs">{comparisonResults.missingTypes.length} {isRTL ? 'مفقود' : 'missing'}</Badge>
+                    )}
+                  </div>
                   <div className="border rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-foreground">{comparisonResults.localTables.length}</div>
                     <div className="text-xs text-muted-foreground">{isRTL ? 'جداول محلية' : 'Local Tables'}</div>
@@ -3454,6 +3491,21 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                     )}
                   </div>
                 </div>
+
+                {/* Missing Types */}
+                {(comparisonResults.missingTypes?.length || 0) > 0 && (
+                  <div className="border border-destructive/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      {isRTL ? 'أنواع مفقودة في قاعدة البيانات الخارجية' : 'Missing Types in External Database'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {comparisonResults.missingTypes.map(t => (
+                        <Badge key={t.name} variant="outline" className="text-xs font-mono border-destructive/50 text-destructive">{t.name} ({t.type})</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Missing Tables */}
                 {comparisonResults.missingTables.length > 0 && (
@@ -3539,7 +3591,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
 
                 {/* All matched */}
                 {comparisonResults.missingTables.length === 0 && comparisonResults.missingFunctions.length === 0 && 
-                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (
+                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (comparisonResults.missingTypes?.length || 0) === 0 && (
                   <div className="border border-green-500/30 rounded-lg p-4 text-center">
                     <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
                     <p className="text-sm font-medium text-green-600">
@@ -3555,12 +3607,12 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
-            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0) && (
+            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0) && (
               <Button onClick={applyMissingObjects} disabled={applyingMissingObjects}>
                 <Play className="h-3 w-3 mr-1" />
                 {isRTL 
-                  ? `تطبيق ${comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} كائن مفقود` 
-                  : `Apply ${comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} Missing Objects`}
+                  ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} كائن مفقود` 
+                  : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} Missing Objects`}
               </Button>
             )}
           </DialogFooter>
