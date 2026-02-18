@@ -598,9 +598,19 @@ const SystemRestore = () => {
     const execWithCapture = async (category: string, name: string, sql: string): Promise<boolean> => {
       try {
         const result = await callExternalProxy('exec_sql', { sql });
+        // Check for proxy-level error
         if (result && !result.success && result.error) {
           const errMsg = `❌ ${category} ${name}: ${result.error}`;
           failedItems.push({ category, name, sql, error: result.error });
+          errors.push(errMsg);
+          setMigrationSyncErrors([...errors]);
+          return false;
+        }
+        // Check for SQL-level error embedded in data (exec_sql returns json with error field)
+        if (result && result.data && typeof result.data === 'object' && result.data.error) {
+          const sqlErr = result.data.detail ? `${result.data.error} (${result.data.detail})` : result.data.error;
+          const errMsg = `❌ ${category} ${name}: ${sqlErr}`;
+          failedItems.push({ category, name, sql, error: sqlErr });
           errors.push(errMsg);
           setMigrationSyncErrors([...errors]);
           return false;
@@ -729,8 +739,11 @@ const SystemRestore = () => {
         
         try {
           const result = await callExternalProxy('exec_sql', { sql: sqlToTry });
-          if (result && !result.success && result.error) {
-            const errMsg = `❌ ${item.category} ${item.name}:\nError: ${result.error}\nSQL: ${item.sql.substring(0, 800)}${item.sql.length > 800 ? '...' : ''}`;
+          const hasProxyError = result && !result.success && result.error;
+          const hasSqlError = result && result.data && typeof result.data === 'object' && result.data.error;
+          if (hasProxyError || hasSqlError) {
+            const errorDetail = hasProxyError ? result.error : (result.data.detail ? `${result.data.error} (${result.data.detail})` : result.data.error);
+            const errMsg = `❌ ${item.category} ${item.name}:\nError: ${errorDetail}\nSQL: ${item.sql.substring(0, 800)}${item.sql.length > 800 ? '...' : ''}`;
             errors.push(errMsg);
             setMigrationSyncErrors([...errors]);
           }
