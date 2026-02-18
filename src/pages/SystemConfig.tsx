@@ -36,6 +36,8 @@ interface ApiKey {
   allow_supplier_product: boolean;
   allow_brand: boolean;
   allow_product: boolean;
+  allow_zk_attendance: boolean;
+  allow_salla_transaction: boolean;
   created_at: string;
 }
 
@@ -69,6 +71,7 @@ const SystemConfig = () => {
     allow_brand: false,
     allow_product: false,
     allow_zk_attendance: false,
+    allow_salla_transaction: false,
   });
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
     mobile_number: "",
@@ -336,6 +339,7 @@ const SystemConfig = () => {
       allow_brand: false,
       allow_product: false,
       allow_zk_attendance: false,
+      allow_salla_transaction: false,
     });
     loadApiKeys();
   };
@@ -749,6 +753,18 @@ const SystemConfig = () => {
                     ZK Attendance
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="salla_transaction"
+                    checked={permissions.allow_salla_transaction}
+                    onCheckedChange={(checked) =>
+                      setPermissions({ ...permissions, allow_salla_transaction: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="salla_transaction" className="cursor-pointer text-sm">
+                    Salla Transaction
+                  </Label>
+                </div>
               </div>
             </div>
 
@@ -834,6 +850,12 @@ const SystemConfig = () => {
                       )}
                       {key.allow_product && (
                         <span className="bg-primary/10 px-2 py-1 rounded">Product</span>
+                      )}
+                      {key.allow_zk_attendance && (
+                        <span className="bg-primary/10 px-2 py-1 rounded">ZK Attendance</span>
+                      )}
+                      {key.allow_salla_transaction && (
+                        <span className="bg-primary/10 px-2 py-1 rounded">Salla Transaction</span>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
