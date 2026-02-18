@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, externalUrl, externalAnonKey, sql, tableName, data } = await req.json();
+    const { action, externalUrl, externalAnonKey, sql, tableName, data, functionName, params } = await req.json();
 
     console.log(`External Supabase Proxy - Action: ${action}`);
 
@@ -164,6 +164,26 @@ serve(async (req) => {
         }
         result = { success: true, data: insertData };
         break;
+
+      case 'rpc': {
+        if (!functionName) {
+          return new Response(
+            JSON.stringify({ error: 'Missing functionName for rpc action' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const { data: rpcData, error: rpcError } = await externalClient.rpc(functionName, params || {});
+        if (rpcError) {
+          const e = normalizeExternalError(rpcError);
+          console.error('RPC error:', e);
+          return new Response(
+            JSON.stringify({ success: false, error: e.message, code: e.code }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        result = { success: true, data: rpcData };
+        break;
+      }
 
       default:
         return new Response(
