@@ -15,45 +15,39 @@ const getKSATimestamp = (): string => {
 };
 
 /**
- * Parse a date string and convert to KSA timezone-aware timestamp
- * Handles formats: YYYY-MM-DD, DD/MM/YYYY, ISO strings
+ * Parse a date string and return it as-is (no timezone conversion).
+ * The date from the API source is the correct local date — store it directly.
+ * Handles formats: YYYY-MM-DD HH:MM:SS, YYYY-MM-DD, DD/MM/YYYY, ISO strings
  */
-const parseToKSATimestamp = (dateStr: string | null | undefined): string | null => {
+const parseDateDirect = (dateStr: string | null | undefined): string | null => {
   if (!dateStr) return null;
   
   try {
-    let date: Date;
+    // If it's "YYYY-MM-DD HH:MM:SS" format, just replace space with T — no timezone append
+    if (dateStr.includes('-') && dateStr.includes(' ') && !dateStr.includes('T')) {
+      return dateStr.replace(' ', 'T');
+    }
     
-    // Check if it's already an ISO string with time (contains T)
+    // If it's already an ISO string with T, return as-is
     if (dateStr.includes('T')) {
-      date = new Date(dateStr);
-    } 
-    // Check for DD/MM/YYYY format
-    else if (dateStr.includes('/')) {
+      return dateStr;
+    }
+    
+    // DD/MM/YYYY format → convert to YYYY-MM-DD
+    if (dateStr.includes('/')) {
       const parts = dateStr.split('/');
       if (parts.length === 3) {
-        date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00+03:00`);
-      } else {
-        return null;
+        return `${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`;
       }
-    }
-    // Handle "YYYY-MM-DD HH:MM:SS" format (space-separated, no timezone = treat as KSA)
-    else if (dateStr.includes('-') && dateStr.includes(' ')) {
-      // Replace space with T and append KSA timezone
-      const isoStr = dateStr.replace(' ', 'T') + '+03:00';
-      date = new Date(isoStr);
-    }
-    // Assume YYYY-MM-DD format (date only)
-    else if (dateStr.includes('-')) {
-      // Treat as KSA local date (add KSA timezone offset)
-      date = new Date(`${dateStr}T00:00:00+03:00`);
-    } else {
       return null;
     }
     
-    if (isNaN(date.getTime())) return null;
+    // YYYY-MM-DD format (date only)
+    if (dateStr.includes('-')) {
+      return `${dateStr}T00:00:00`;
+    }
     
-    return date.toISOString();
+    return null;
   } catch {
     return null;
   }
@@ -224,9 +218,9 @@ Deno.serve(async (req) => {
 
     // Parse order_date as KSA time
     const orderDateRaw = body.Order_date || body.created_at_date || body.order_date;
-    const parsedOrderDate = parseToKSATimestamp(orderDateRaw);
+    const parsedOrderDate = parseDateDirect(orderDateRaw);
     
-    console.log(`Order date parsing: raw="${orderDateRaw}", parsed="${parsedOrderDate}"`);
+    console.log(`Order date parsing: raw="${orderDateRaw}", stored as="${parsedOrderDate}" (no timezone conversion)`);
 
     // Build the insert object with all available fields
     // Map to sales_order_header columns - handle both PascalCase and snake_case inputs
