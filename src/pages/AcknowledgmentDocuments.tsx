@@ -35,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye, Printer, UserCheck, Clock, CheckCircle, Mail } from "lucide-react";
+import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye, Printer, UserCheck, Clock, CheckCircle, Mail, SendHorizonal } from "lucide-react";
 import { printAcknowledgmentDocument } from "@/components/AcknowledgmentDocumentPrint";
 import { AcknowledgmentApprovalDialog } from "@/components/AcknowledgmentApprovalDialog";
 import { format } from "date-fns";
@@ -99,6 +99,7 @@ const AcknowledgmentDocuments = () => {
   const [testMailDialogOpen, setTestMailDialogOpen] = useState(false);
   const [testMailEmail, setTestMailEmail] = useState("");
   const [sendingTestMail, setSendingTestMail] = useState(false);
+  const [sendingAllMail, setSendingAllMail] = useState<string | null>(null);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AcknowledgmentDocument | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<AcknowledgmentDocument | null>(null);
@@ -581,6 +582,24 @@ const AcknowledgmentDocuments = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{language === "ar" ? "إرسال بريد تجريبي" : "Test Email"}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" disabled={sendingAllMail === doc.id} onClick={async () => {
+                                setSendingAllMail(doc.id);
+                                try {
+                                  await sendAcknowledgmentEmail(doc.id, false);
+                                  toast.success(language === "ar" ? "تم إرسال البريد لجميع الأطراف" : "Email sent to all parties");
+                                } finally {
+                                  setSendingAllMail(null);
+                                }
+                              }}>
+                                <SendHorizonal className={`h-4 w-4 ${sendingAllMail === doc.id ? "animate-pulse" : ""}`} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{language === "ar" ? "إرسال بريد لجميع الأطراف" : "Send Email to All Parties"}</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
