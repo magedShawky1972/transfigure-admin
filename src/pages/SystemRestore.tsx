@@ -305,7 +305,12 @@ const SystemRestore = () => {
 
   // Run missing migration files on external DB
   const runMissingMigrations = async (): Promise<boolean> => {
-    if (pendingMigrations.length === 0) return true;
+    // Use comparison results if available, otherwise fall back to pendingMigrations
+    const migrationsToRun = comparisonResults?.unmatchedMigrations?.length 
+      ? localMigrations.filter(m => comparisonResults.unmatchedMigrations.includes(m.version))
+      : pendingMigrations;
+    
+    if (migrationsToRun.length === 0) return true;
     
     setRunningMigrationSync(true);
     setShowMigrationSyncDialog(true);
@@ -313,11 +318,11 @@ const SystemRestore = () => {
     const errors: string[] = [];
     const appliedVersions: string[] = [...(migrationLog?.migration_files_applied || [])];
     
-    setMigrationSyncProgress({ current: 0, total: pendingMigrations.length, currentFile: '' });
+    setMigrationSyncProgress({ current: 0, total: migrationsToRun.length, currentFile: '' });
     
-    for (let i = 0; i < pendingMigrations.length; i++) {
-      const mig = pendingMigrations[i];
-      setMigrationSyncProgress({ current: i + 1, total: pendingMigrations.length, currentFile: mig.version });
+    for (let i = 0; i < migrationsToRun.length; i++) {
+      const mig = migrationsToRun[i];
+      setMigrationSyncProgress({ current: i + 1, total: migrationsToRun.length, currentFile: mig.version });
       
       try {
         // Get migration content from local DB
@@ -349,6 +354,13 @@ const SystemRestore = () => {
       }
       
       await new Promise(r => setTimeout(r, 50));
+    }
+    
+    // Notify PostgREST to reload schema cache after DDL changes
+    try {
+      await callExternalProxy('exec_sql', { sql: `NOTIFY pgrst, 'reload schema'` });
+    } catch {
+      // Non-critical
     }
     
     // Update tracking log
@@ -449,28 +461,45 @@ const SystemRestore = () => {
         // All objects exist in external - mark all local migrations as applied
         matchedMigrations = localMigrations.map(m => m.version);
       } else {
-        // Try to query external migration history to find what's actually been applied
-        const migResult = await callExternalProxy('exec_sql', {
-          sql: `SELECT version::text FROM supabase_migrations.schema_migrations ORDER BY version ASC`
-        });
+        // Objects are missing — find which migration files contain the missing objects
+        // by scanning each migration's SQL content for references to missing items
+        const allMissingNames = [
+          ...missingTables,
+          ...missingFunctions,
+          ...missingTriggers.map(t => t.split(' ON ')[0]), // extract trigger name
+          ...missingViews,
+        ].map(n => n.toLowerCase());
+
+        const migrationsThatNeedRerun: string[] = [];
         
-        if (migResult.success && Array.isArray(migResult.data) && migResult.data.length > 0) {
-          const extVersions = new Set(migResult.data.map((r: any) => r.version));
-          matchedMigrations = localMigrations.filter(m => extVersions.has(m.version)).map(m => m.version);
-          unmatchedMigrations = localMigrations.filter(m => !extVersions.has(m.version)).map(m => m.version);
-        } else {
-          // No migration history accessible on external DB
-          // We know objects are missing, so we need to find which migrations create them
-          // Use the migration log (previously saved) to determine what was already applied
-          const previouslyApplied = new Set(migrationLog?.migration_files_applied || []);
-          if (previouslyApplied.size > 0) {
-            matchedMigrations = localMigrations.filter(m => previouslyApplied.has(m.version)).map(m => m.version);
-            unmatchedMigrations = localMigrations.filter(m => !previouslyApplied.has(m.version)).map(m => m.version);
-          } else {
-            // No previous log either - mark none as applied so user can run all
-            matchedMigrations = [];
-            unmatchedMigrations = localMigrations.map(m => m.version);
+        // Check each local migration's content to see if it creates any missing object
+        for (const mig of localMigrations) {
+          try {
+            const { data: contentResult } = await supabase.functions.invoke('migrate-to-external', {
+              body: { action: 'get_migration_content', tableName: mig.version }
+            });
+            
+            if (contentResult?.success && contentResult.statements) {
+              const sqlLower = contentResult.statements.toLowerCase();
+              const createsMissingObject = allMissingNames.some(name => sqlLower.includes(name));
+              if (createsMissingObject) {
+                migrationsThatNeedRerun.push(mig.version);
+              }
+            }
+          } catch {
+            // Skip on error
           }
+        }
+
+        if (migrationsThatNeedRerun.length > 0) {
+          unmatchedMigrations = migrationsThatNeedRerun;
+          matchedMigrations = localMigrations
+            .filter(m => !new Set(migrationsThatNeedRerun).has(m.version))
+            .map(m => m.version);
+        } else {
+          // Could not identify specific migrations — mark all as applied
+          // but still show the missing objects
+          matchedMigrations = localMigrations.map(m => m.version);
         }
       }
 
