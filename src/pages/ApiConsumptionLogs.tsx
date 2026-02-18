@@ -91,14 +91,26 @@ const getOrderDateIntFromBody = (log: ApiLog): string => {
   return datePart || "";
 };
 
-// Get order date directly from request body - always use API source data as-is
-const getDisplayOrderDate = (log: ApiLog, _dbDateMap?: Map<string, any>): string => {
-  return getOrderDateFromBody(log);
+// Get order date directly from request body, fallback to salesheader log map for salesline/payment
+const getDisplayOrderDate = (log: ApiLog, headerDateMap?: Map<string, { orderDate: string; orderDateInt: string }>): string => {
+  const fromBody = getOrderDateFromBody(log);
+  if (fromBody) return fromBody;
+  const orderNum = getOrderNumber(log);
+  if (orderNum && headerDateMap?.has(orderNum)) {
+    return headerDateMap.get(orderNum)!.orderDate;
+  }
+  return "";
 };
 
-// Get order date int directly from request body - always use API source data as-is
-const getDisplayOrderDateInt = (log: ApiLog, _dbDateMap?: Map<string, any>): string => {
-  return getOrderDateIntFromBody(log);
+// Get order date int directly from request body, fallback to salesheader log map
+const getDisplayOrderDateInt = (log: ApiLog, headerDateIntMap?: Map<string, { orderDate: string; orderDateInt: string }>): string => {
+  const fromBody = getOrderDateIntFromBody(log);
+  if (fromBody) return fromBody;
+  const orderNum = getOrderNumber(log);
+  if (orderNum && headerDateIntMap?.has(orderNum)) {
+    return headerDateIntMap.get(orderNum)!.orderDateInt;
+  }
+  return "";
 };
 
 const ApiConsumptionLogs = () => {
