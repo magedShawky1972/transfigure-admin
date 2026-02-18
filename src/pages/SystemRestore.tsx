@@ -455,15 +455,22 @@ const SystemRestore = () => {
         });
         
         if (migResult.success && Array.isArray(migResult.data) && migResult.data.length > 0) {
-          const extVersions = migResult.data.map((r: any) => r.version);
-          const localVersionSet = new Set(localMigrations.map(m => m.version));
-          matchedMigrations = extVersions.filter((v: string) => localVersionSet.has(v));
-          unmatchedMigrations = localMigrations.filter(m => !new Set(matchedMigrations).has(m.version)).map(m => m.version);
+          const extVersions = new Set(migResult.data.map((r: any) => r.version));
+          matchedMigrations = localMigrations.filter(m => extVersions.has(m.version)).map(m => m.version);
+          unmatchedMigrations = localMigrations.filter(m => !extVersions.has(m.version)).map(m => m.version);
         } else {
-          // No migration history found - use object comparison to estimate
-          // Mark all as matched since tables exist, but flag the missing ones
-          matchedMigrations = localMigrations.map(m => m.version);
-          unmatchedMigrations = [];
+          // No migration history accessible on external DB
+          // We know objects are missing, so we need to find which migrations create them
+          // Use the migration log (previously saved) to determine what was already applied
+          const previouslyApplied = new Set(migrationLog?.migration_files_applied || []);
+          if (previouslyApplied.size > 0) {
+            matchedMigrations = localMigrations.filter(m => previouslyApplied.has(m.version)).map(m => m.version);
+            unmatchedMigrations = localMigrations.filter(m => !previouslyApplied.has(m.version)).map(m => m.version);
+          } else {
+            // No previous log either - mark none as applied so user can run all
+            matchedMigrations = [];
+            unmatchedMigrations = localMigrations.map(m => m.version);
+          }
         }
       }
 
@@ -3404,14 +3411,16 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             </ScrollArea>
           )}
           
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
-            {comparisonResults && comparisonResults.unmatchedMigrations.length > 0 && (
+            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0) && (
               <Button onClick={() => { setShowComparisonDialog(false); runMissingMigrations(); }}>
                 <Play className="h-3 w-3 mr-1" />
-                {isRTL ? `تشغيل ${comparisonResults.unmatchedMigrations.length} ملف معلق` : `Run ${comparisonResults.unmatchedMigrations.length} Pending`}
+                {isRTL 
+                  ? `تطبيق ${comparisonResults.unmatchedMigrations.length || pendingMigrations.length} ملف ترحيل معلق` 
+                  : `Apply ${comparisonResults.unmatchedMigrations.length || pendingMigrations.length} Pending Migrations`}
               </Button>
             )}
           </DialogFooter>
