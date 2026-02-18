@@ -308,13 +308,10 @@ Deno.serve(async (req) => {
       }
 
       case 'list_local_migrations': {
-        // Query the supabase_migrations schema to get applied migration versions
-        const { data: migData, error: migErr } = await supabase.rpc('exec_sql', {
-          sql: `SELECT version, name, statements_applied FROM supabase_migrations.schema_migrations ORDER BY version ASC`
-        });
+        const { data: migData, error: migErr } = await supabase.rpc('get_schema_migrations');
         
         let migrations: { version: string; name: string }[] = [];
-        if (Array.isArray(migData)) {
+        if (!migErr && Array.isArray(migData)) {
           migrations = migData.map((m: any) => ({ version: m.version, name: m.name || m.version }));
         }
         

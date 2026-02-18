@@ -9007,6 +9007,13 @@ export type Database = {
           with_check: string
         }[]
       }
+      get_schema_migrations: {
+        Args: never
+        Returns: {
+          name: string
+          version: string
+        }[]
+      }
       get_table_columns_info: {
         Args: never
         Returns: {
