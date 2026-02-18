@@ -100,8 +100,10 @@ const ApiConsumptionLogs = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("today");
   const [dateType, setDateType] = useState<"sendingDate" | "orderDate">("sendingDate");
-  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>(undefined);
+  const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
+  const [datePickerFromOpen, setDatePickerFromOpen] = useState(false);
+  const [datePickerToOpen, setDatePickerToOpen] = useState(false);
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string>("created_at");
@@ -141,12 +143,12 @@ const ApiConsumptionLogs = () => {
     if (hasAccess) {
       fetchLogs();
     }
-  }, [endpointFilter, statusFilter, dateFilter, customDate, hasAccess, currentPage, pageSize, hasActiveColumnFilters, dateType]);
+  }, [endpointFilter, statusFilter, dateFilter, customDateFrom, customDateTo, hasAccess, currentPage, pageSize, hasActiveColumnFilters, dateType]);
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [endpointFilter, statusFilter, dateFilter, customDate, searchTerm, dateType]);
+  }, [endpointFilter, statusFilter, dateFilter, customDateFrom, customDateTo, searchTerm, dateType]);
 
   // KSA is UTC+3, so KSA midnight = 21:00 UTC previous day
   const getDateRange = () => {
@@ -200,14 +202,21 @@ const ApiConsumptionLogs = () => {
         return { start: utcStart.toISOString(), end: nowUTC.toISOString() };
       }
       case "custom": {
-        if (customDate) {
-          // customDate is a Date object from the calendar picker (local timezone)
-          // We treat the selected date as a KSA date
-          const selectedYear = customDate.getFullYear();
-          const selectedMonth = customDate.getMonth();
-          const selectedDay = customDate.getDate();
-          const utcStart = getKSAMidnightUTC(selectedYear, selectedMonth, selectedDay);
-          const utcEnd = getKSAEndOfDayUTC(selectedYear, selectedMonth, selectedDay);
+        if (customDateFrom) {
+          const fromYear = customDateFrom.getFullYear();
+          const fromMonth = customDateFrom.getMonth();
+          const fromDay = customDateFrom.getDate();
+          const utcStart = getKSAMidnightUTC(fromYear, fromMonth, fromDay);
+          
+          if (customDateTo) {
+            const toYear = customDateTo.getFullYear();
+            const toMonth = customDateTo.getMonth();
+            const toDay = customDateTo.getDate();
+            const utcEnd = getKSAEndOfDayUTC(toYear, toMonth, toDay);
+            return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
+          }
+          // If only from date, use same day
+          const utcEnd = getKSAEndOfDayUTC(fromYear, fromMonth, fromDay);
           return { start: utcStart.toISOString(), end: utcEnd.toISOString() };
         }
         // Fallback to today
@@ -1042,9 +1051,6 @@ const ApiConsumptionLogs = () => {
 
             <Select value={dateFilter} onValueChange={(value) => {
               setDateFilter(value);
-              if (value === "custom") {
-                setDatePickerOpen(true);
-              }
             }}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder={language === "ar" ? "الفترة" : "Period"} />
@@ -1054,37 +1060,65 @@ const ApiConsumptionLogs = () => {
                 <SelectItem value="yesterday">{language === "ar" ? "أمس" : "Yesterday"}</SelectItem>
                 <SelectItem value="week">{language === "ar" ? "آخر أسبوع" : "Last Week"}</SelectItem>
                 <SelectItem value="month">{language === "ar" ? "آخر شهر" : "Last Month"}</SelectItem>
-                <SelectItem value="custom">{language === "ar" ? "تحديد تاريخ" : "Select Date"}</SelectItem>
+                <SelectItem value="custom">{language === "ar" ? "نطاق تاريخ" : "Date Range"}</SelectItem>
               </SelectContent>
             </Select>
 
             {dateFilter === "custom" && (
-              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[180px] justify-start text-left font-normal",
-                      !customDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customDate ? format(customDate, "yyyy-MM-dd") : (language === "ar" ? "اختر تاريخ" : "Pick a date")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customDate}
-                    onSelect={(date) => {
-                      setCustomDate(date);
-                      setDatePickerOpen(false);
-                    }}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <>
+                <Popover open={datePickerFromOpen} onOpenChange={setDatePickerFromOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[180px] justify-start text-left font-normal",
+                        !customDateFrom && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customDateFrom ? format(customDateFrom, "yyyy-MM-dd") : (language === "ar" ? "من تاريخ" : "From")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customDateFrom}
+                      onSelect={(date) => {
+                        setCustomDateFrom(date);
+                        setDatePickerFromOpen(false);
+                      }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Popover open={datePickerToOpen} onOpenChange={setDatePickerToOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[180px] justify-start text-left font-normal",
+                        !customDateTo && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customDateTo ? format(customDateTo, "yyyy-MM-dd") : (language === "ar" ? "إلى تاريخ" : "To")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customDateTo}
+                      onSelect={(date) => {
+                        setCustomDateTo(date);
+                        setDatePickerToOpen(false);
+                      }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </>
             )}
           </div>
         </CardContent>
