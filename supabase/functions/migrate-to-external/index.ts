@@ -96,6 +96,9 @@ Deno.serve(async (req) => {
         const colNames = columnNames.map(c => `"${c}"`).join(', ');
         const insertStatements: string[] = [];
         
+        // Detect primary key column (prefer 'id', fallback to first column)
+        const pkCol = columnNames.includes('id') ? 'id' : columnNames[0];
+        
         for (const row of rows) {
           const values = columnNames.map(colName => {
             const val = row[colName];
@@ -105,7 +108,18 @@ Deno.serve(async (req) => {
             if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
             return `'${String(val).replace(/'/g, "''")}'`;
           }).join(', ');
-          insertStatements.push(`INSERT INTO public."${tableName}" (${colNames}) VALUES (${values});`);
+          
+          // Build ON CONFLICT DO UPDATE for upsert behavior
+          const updateCols = columnNames
+            .filter(c => c !== pkCol)
+            .map(c => `"${c}" = EXCLUDED."${c}"`)
+            .join(', ');
+          
+          const onConflict = updateCols 
+            ? ` ON CONFLICT ("${pkCol}") DO UPDATE SET ${updateCols}`
+            : ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+          
+          insertStatements.push(`INSERT INTO public."${tableName}" (${colNames}) VALUES (${values})${onConflict};`);
         }
 
         return jsonResponse({ 
@@ -291,6 +305,39 @@ Deno.serve(async (req) => {
           success: true, 
           signedUrl: signedData?.signedUrl || null 
         });
+      }
+
+      case 'list_local_migrations': {
+        // Query the supabase_migrations schema to get applied migration versions
+        const { data: migData, error: migErr } = await supabase.rpc('exec_sql', {
+          sql: `SELECT version, name, statements_applied FROM supabase_migrations.schema_migrations ORDER BY version ASC`
+        });
+        
+        let migrations: { version: string; name: string }[] = [];
+        if (Array.isArray(migData)) {
+          migrations = migData.map((m: any) => ({ version: m.version, name: m.name || m.version }));
+        }
+        
+        return jsonResponse({ success: true, migrations });
+      }
+
+      case 'get_migration_content': {
+        // Get the SQL content of a specific migration by reading from pg_catalog
+        // Since we can't read files, we'll get the migration DDL from the current schema
+        const migVersion = tableName; // reuse tableName param for version
+        if (!migVersion) throw new Error('Missing migration version');
+        
+        // Try to get the migration statements from schema_migrations
+        const { data: stmtData } = await supabase.rpc('exec_sql', {
+          sql: `SELECT statements FROM supabase_migrations.schema_migrations WHERE version = '${migVersion.replace(/'/g, "''")}'`
+        });
+        
+        let statements = '';
+        if (Array.isArray(stmtData) && stmtData.length > 0) {
+          statements = stmtData[0].statements || '';
+        }
+        
+        return jsonResponse({ success: true, version: migVersion, statements });
       }
 
       default:
