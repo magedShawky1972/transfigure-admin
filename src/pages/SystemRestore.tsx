@@ -369,13 +369,61 @@ const SystemRestore = () => {
     await loadMigrationTrackingState(externalUrl);
   };
 
-  // Match current situation - mark all local migrations as applied without running them
+  // Match current situation - query external DB to see what's actually applied there
   const handleMatchCurrentSituation = async () => {
     setMatchingCurrentSituation(true);
     try {
-      const allVersions = localMigrations.map(m => m.version);
-      await saveMigrationLog(allVersions);
-      toast.success(isRTL ? 'تم مطابقة الوضع الحالي بنجاح' : 'Current situation matched successfully');
+      // Query external DB's schema_migrations to see what's actually there
+      const result = await callExternalProxy('exec_sql', { 
+        sql: `SELECT version::text FROM supabase_migrations.schema_migrations ORDER BY version ASC` 
+      });
+      
+      let externalVersions: string[] = [];
+      
+      if (result.success && Array.isArray(result.data)) {
+        // exec_sql returned results as JSON array
+        externalVersions = result.data.map((r: any) => r.version);
+      } else {
+        // Fallback: try to get migrations via the get_schema_migrations RPC on external
+        const rpcResult = await callExternalProxy('rpc', { 
+          functionName: 'get_schema_migrations', 
+          params: {} 
+        });
+        if (rpcResult.success && Array.isArray(rpcResult.data)) {
+          externalVersions = rpcResult.data.map((r: any) => r.version);
+        }
+      }
+      
+      if (externalVersions.length === 0) {
+        // If we couldn't query migrations, check if tables exist as a fallback
+        // Try to at least detect the external DB has data by listing tables
+        const tablesResult = await callExternalProxy('exec_sql', {
+          sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`
+        });
+        
+        if (tablesResult.success && Array.isArray(tablesResult.data) && tablesResult.data.length > 0) {
+          // External DB has tables but we couldn't read migrations - mark all local as applied
+          externalVersions = localMigrations.map(m => m.version);
+          toast.info(isRTL 
+            ? 'لم يتم العثور على سجل الترحيل في قاعدة البيانات الخارجية، تم تحديد جميع الملفات المحلية كمطبقة بناءً على وجود الجداول' 
+            : 'Could not read migration log from external DB, marked all local files as applied based on existing tables');
+        } else {
+          toast.warning(isRTL 
+            ? 'لم يتم العثور على جداول في قاعدة البيانات الخارجية' 
+            : 'No tables found in external database');
+          setMatchingCurrentSituation(false);
+          return;
+        }
+      }
+      
+      // Save only the versions that actually exist in external DB AND match local migrations
+      const localVersionSet = new Set(localMigrations.map(m => m.version));
+      const matchedVersions = externalVersions.filter(v => localVersionSet.has(v));
+      
+      await saveMigrationLog(matchedVersions);
+      toast.success(isRTL 
+        ? `تم مطابقة الوضع الحالي بنجاح - ${matchedVersions.length} ملف مطابق` 
+        : `Current situation matched successfully - ${matchedVersions.length} files matched from external DB`);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
