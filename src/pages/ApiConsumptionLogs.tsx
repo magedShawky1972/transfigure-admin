@@ -91,38 +91,24 @@ const getOrderDateIntFromBody = (log: ApiLog): string => {
   return datePart || "";
 };
 
-// Build a map of order_number -> { orderDate, orderDateInt } from salesheader logs
-const buildOrderDateMap = (allLogs: ApiLog[]): Map<string, { orderDate: string; orderDateInt: string }> => {
-  const map = new Map<string, { orderDate: string; orderDateInt: string }>();
-  for (const log of allLogs) {
-    if (log.endpoint === "api-salesheader") {
-      const orderNum = getOrderNumber(log);
-      const orderDate = getOrderDateFromBody(log);
-      if (orderNum && orderDate) {
-        const orderDateInt = orderDate.replace(/-/g, "");
-        map.set(orderNum, { orderDate, orderDateInt });
-      }
-    }
+// Get order date for any log using DB lookup map, fallback to request body
+const getDisplayOrderDate = (log: ApiLog, dbDateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
+  const orderNum = getOrderNumber(log);
+  if (orderNum && dbDateMap.has(orderNum)) {
+    return dbDateMap.get(orderNum)!.orderDate;
   }
-  return map;
+  // Fallback to request body for logs without DB match
+  return getOrderDateFromBody(log);
 };
 
-// Get order date for any log (direct from body or via lookup)
-const getDisplayOrderDate = (log: ApiLog, dateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
-  const direct = getOrderDateFromBody(log);
-  if (direct) return direct;
+// Get order date int for any log using DB lookup map, fallback to request body
+const getDisplayOrderDateInt = (log: ApiLog, dbDateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
   const orderNum = getOrderNumber(log);
-  if (orderNum) return dateMap.get(orderNum)?.orderDate || "";
-  return "";
-};
-
-// Get order date int for any log (direct from body or via lookup)
-const getDisplayOrderDateInt = (log: ApiLog, dateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
-  const direct = getOrderDateIntFromBody(log);
-  if (direct) return direct;
-  const orderNum = getOrderNumber(log);
-  if (orderNum) return dateMap.get(orderNum)?.orderDateInt || "";
-  return "";
+  if (orderNum && dbDateMap.has(orderNum)) {
+    return dbDateMap.get(orderNum)!.orderDateInt;
+  }
+  // Fallback to request body for logs without DB match
+  return getOrderDateIntFromBody(log);
 };
 
 const ApiConsumptionLogs = () => {
@@ -149,6 +135,9 @@ const ApiConsumptionLogs = () => {
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
   const [datePickerFromOpen, setDatePickerFromOpen] = useState(false);
   const [datePickerToOpen, setDatePickerToOpen] = useState(false);
+
+  // DB-fetched order date map: order_number -> { orderDate, orderDateInt }
+  const [orderDateMap, setOrderDateMap] = useState<Map<string, { orderDate: string; orderDateInt: string }>>(new Map());
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string>("created_at");
@@ -419,6 +408,41 @@ const ApiConsumptionLogs = () => {
       
       setLogs(data);
       setTotalRecords(logsResult.count || 0);
+
+      // Fetch actual order_date_int from sales_order_header for all order numbers
+      const orderNumbers = new Set<string>();
+      for (const log of data) {
+        const orderNum = getOrderNumber(log);
+        if (orderNum) orderNumbers.add(orderNum);
+      }
+      if (orderNumbers.size > 0) {
+        const orderNumArray = Array.from(orderNumbers);
+        const dbDateMap = new Map<string, { orderDate: string; orderDateInt: string }>();
+        // Batch fetch in chunks of 500
+        for (let i = 0; i < orderNumArray.length; i += 500) {
+          const chunk = orderNumArray.slice(i, i + 500);
+          const { data: headerData } = await supabase
+            .from("sales_order_header")
+            .select("order_number, order_date, order_date_int")
+            .in("order_number", chunk);
+          if (headerData) {
+            for (const row of headerData) {
+              const orderDateInt = String(row.order_date_int || "");
+              // Derive date from order_date_int (YYYYMMDD -> YYYY-MM-DD)
+              let orderDate = "";
+              if (orderDateInt.length === 8) {
+                orderDate = `${orderDateInt.substring(0, 4)}-${orderDateInt.substring(4, 6)}-${orderDateInt.substring(6, 8)}`;
+              } else if (row.order_date) {
+                orderDate = String(row.order_date).substring(0, 10);
+              }
+              dbDateMap.set(String(row.order_number), { orderDate, orderDateInt });
+            }
+          }
+        }
+        setOrderDateMap(dbDateMap);
+      } else {
+        setOrderDateMap(new Map());
+      }
       
       // Calculate avg time from fetched data
       const avgTime = data.length > 0 
@@ -499,21 +523,17 @@ const ApiConsumptionLogs = () => {
     return [...new Set(dates)];
   };
 
-  // Build order date lookup map from salesheader logs
-  const orderDateMap = buildOrderDateMap(logs);
+  // orderDateMap is now fetched from DB in fetchLogs and stored in state
 
-  // Pre-compute matching order numbers from salesheader logs for orderDate filtering
+  // Pre-compute matching order numbers for orderDate filtering using DB map
   const orderDateMatchingOrderNumbers = (() => {
     if (dateType !== "orderDate") return null;
     const targetDates = getTargetDateStrings();
     const matchingNumbers = new Set<string>();
-    for (const log of logs) {
-      if (log.endpoint === "api-salesheader") {
-        const orderDate = getOrderDateFromBody(log);
-        if (orderDate && targetDates.includes(orderDate)) {
-          const orderNum = getOrderNumber(log);
-          if (orderNum) matchingNumbers.add(orderNum);
-        }
+    // Use DB date map for accurate filtering
+    for (const [orderNum, dateInfo] of orderDateMap.entries()) {
+      if (targetDates.includes(dateInfo.orderDate)) {
+        matchingNumbers.add(orderNum);
       }
     }
     return matchingNumbers;
@@ -522,16 +542,8 @@ const ApiConsumptionLogs = () => {
   const filteredLogs = logs.filter(log => {
     // Apply order date filter first (when dateType is orderDate)
     if (dateType === "orderDate") {
-      const orderDate = getOrderDateFromBody(log);
-      if (orderDate) {
-        // Log has its own order date - check directly
-        const targetDates = getTargetDateStrings();
-        if (!targetDates.includes(orderDate)) return false;
-      } else {
-        // salesline/payment don't have Order_date - match by order number from salesheader
-        const orderNum = getOrderNumber(log);
-        if (!orderNum || !orderDateMatchingOrderNumbers?.has(orderNum)) return false;
-      }
+      const orderNum = getOrderNumber(log);
+      if (!orderNum || !orderDateMatchingOrderNumbers?.has(orderNum)) return false;
     }
 
     if (searchTerm) {
