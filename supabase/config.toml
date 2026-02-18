@@ -158,3 +158,6 @@ verify_jwt = false
 
 [functions.send-deduction-notification]
 verify_jwt = false
+
+[functions.api-salla-transaction]
+verify_jwt = false
