@@ -35,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye, Printer, UserCheck, Clock, CheckCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Send, Users, Briefcase, FileCheck, Eye, Printer, UserCheck, Clock, CheckCircle, Mail } from "lucide-react";
 import { printAcknowledgmentDocument } from "@/components/AcknowledgmentDocumentPrint";
 import { AcknowledgmentApprovalDialog } from "@/components/AcknowledgmentApprovalDialog";
 import { format } from "date-fns";
@@ -96,6 +96,9 @@ const AcknowledgmentDocuments = () => {
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [signaturesDialogOpen, setSignaturesDialogOpen] = useState(false);
+  const [testMailDialogOpen, setTestMailDialogOpen] = useState(false);
+  const [testMailEmail, setTestMailEmail] = useState("");
+  const [sendingTestMail, setSendingTestMail] = useState(false);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AcknowledgmentDocument | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<AcknowledgmentDocument | null>(null);
@@ -278,7 +281,7 @@ const AcknowledgmentDocuments = () => {
         if (error) throw error;
         toast.success(language === "ar" ? "تم تحديث الإقرار" : "Document updated");
       } else {
-        const { error } = await supabase.from("acknowledgment_documents").insert({
+        const { data: newDoc, error } = await supabase.from("acknowledgment_documents").insert({
           title: finalTitle,
           title_ar: finalTitleAr || null,
           content: finalContent,
@@ -286,16 +289,53 @@ const AcknowledgmentDocuments = () => {
           is_active: form.is_active,
           requires_signature: form.requires_signature,
           created_by: user.id,
-        });
+        }).select("id").single();
 
         if (error) throw error;
         toast.success(language === "ar" ? "تم إنشاء الإقرار" : "Document created");
+
+        // Auto-send email to fixed recipients on creation
+        if (newDoc) {
+          sendAcknowledgmentEmail(newDoc.id, false);
+        }
       }
 
       setDialogOpen(false);
       fetchData();
     } catch (error: any) {
       toast.error(error.message);
+    }
+  };
+
+  const sendAcknowledgmentEmail = async (documentId: string, isTest: boolean, testEmails?: string[]) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("send-acknowledgment-email", {
+        body: {
+          documentId,
+          recipientEmails: testEmails || [],
+          isTest,
+        },
+      });
+      if (error) throw error;
+      const msg = language === "ar"
+        ? `تم إرسال البريد بنجاح (${data?.sentCount || 0} مستلم)`
+        : `Email sent successfully (${data?.sentCount || 0} recipients)`;
+      toast.success(msg);
+    } catch (err: any) {
+      console.error("Email send error:", err);
+      toast.error(language === "ar" ? "فشل إرسال البريد" : "Failed to send email");
+    }
+  };
+
+  const handleTestMail = async () => {
+    if (!selectedDoc || !testMailEmail.trim()) return;
+    setSendingTestMail(true);
+    try {
+      await sendAcknowledgmentEmail(selectedDoc.id, true, [testMailEmail.trim()]);
+      setTestMailDialogOpen(false);
+      setTestMailEmail("");
+    } finally {
+      setSendingTestMail(false);
     }
   };
 
@@ -527,6 +567,20 @@ const AcknowledgmentDocuments = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{texts.signatures}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                setSelectedDoc(doc);
+                                setTestMailEmail("");
+                                setTestMailDialogOpen(true);
+                              }}>
+                                <Mail className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{language === "ar" ? "إرسال بريد تجريبي" : "Test Email"}</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
@@ -840,6 +894,46 @@ const AcknowledgmentDocuments = () => {
         users={users}
         onApprovalSent={fetchData}
       />
+
+      {/* Test Mail Dialog */}
+      <Dialog open={testMailDialogOpen} onOpenChange={setTestMailDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              {language === "ar" ? "إرسال بريد تجريبي" : "Send Test Email"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {language === "ar"
+                ? "أدخل البريد الإلكتروني لإرسال نسخة تجريبية من القرار الإداري"
+                : "Enter email address to send a test copy of this document"}
+            </p>
+            <div>
+              <Label>{language === "ar" ? "البريد الإلكتروني" : "Email Address"}</Label>
+              <Input
+                type="email"
+                value={testMailEmail}
+                onChange={(e) => setTestMailEmail(e.target.value)}
+                placeholder="example@email.com"
+                dir="ltr"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestMailDialogOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleTestMail} disabled={!testMailEmail.trim() || sendingTestMail}>
+              <Mail className="h-4 w-4 mr-2" />
+              {sendingTestMail
+                ? (language === "ar" ? "جاري الإرسال..." : "Sending...")
+                : (language === "ar" ? "إرسال تجريبي" : "Send Test")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
