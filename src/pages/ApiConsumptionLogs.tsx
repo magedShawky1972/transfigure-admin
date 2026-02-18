@@ -91,6 +91,40 @@ const getOrderDateIntFromBody = (log: ApiLog): string => {
   return datePart || "";
 };
 
+// Build a map of order_number -> { orderDate, orderDateInt } from salesheader logs
+const buildOrderDateMap = (allLogs: ApiLog[]): Map<string, { orderDate: string; orderDateInt: string }> => {
+  const map = new Map<string, { orderDate: string; orderDateInt: string }>();
+  for (const log of allLogs) {
+    if (log.endpoint === "api-salesheader") {
+      const orderNum = getOrderNumber(log);
+      const orderDate = getOrderDateFromBody(log);
+      if (orderNum && orderDate) {
+        const orderDateInt = orderDate.replace(/-/g, "");
+        map.set(orderNum, { orderDate, orderDateInt });
+      }
+    }
+  }
+  return map;
+};
+
+// Get order date for any log (direct from body or via lookup)
+const getDisplayOrderDate = (log: ApiLog, dateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
+  const direct = getOrderDateFromBody(log);
+  if (direct) return direct;
+  const orderNum = getOrderNumber(log);
+  if (orderNum) return dateMap.get(orderNum)?.orderDate || "";
+  return "";
+};
+
+// Get order date int for any log (direct from body or via lookup)
+const getDisplayOrderDateInt = (log: ApiLog, dateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
+  const direct = getOrderDateIntFromBody(log);
+  if (direct) return direct;
+  const orderNum = getOrderNumber(log);
+  if (orderNum) return dateMap.get(orderNum)?.orderDateInt || "";
+  return "";
+};
+
 const ApiConsumptionLogs = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -465,6 +499,9 @@ const ApiConsumptionLogs = () => {
     return [...new Set(dates)];
   };
 
+  // Build order date lookup map from salesheader logs
+  const orderDateMap = buildOrderDateMap(logs);
+
   // Pre-compute matching order numbers from salesheader logs for orderDate filtering
   const orderDateMatchingOrderNumbers = (() => {
     if (dateType !== "orderDate") return null;
@@ -509,8 +546,8 @@ const ApiConsumptionLogs = () => {
 
     // Apply column filters
     const orderNumber = getOrderNumber(log);
-    const orderDate = getOrderDateFromBody(log);
-    const orderDateInt = getOrderDateIntFromBody(log);
+    const orderDate = getDisplayOrderDate(log, orderDateMap);
+    const orderDateInt = getDisplayOrderDateInt(log, orderDateMap);
     
     if (columnFilters.orderNumber) {
       if (!orderNumber || !orderNumber.toLowerCase().includes(columnFilters.orderNumber.toLowerCase())) {
@@ -560,12 +597,12 @@ const ApiConsumptionLogs = () => {
         bValue = parseInt(getOrderNumber(b)) || 0;
         break;
       case "orderDate":
-        aValue = getOrderDateFromBody(a) || "";
-        bValue = getOrderDateFromBody(b) || "";
+        aValue = getDisplayOrderDate(a, orderDateMap) || "";
+        bValue = getDisplayOrderDate(b, orderDateMap) || "";
         break;
       case "orderDateInt":
-        aValue = getOrderDateIntFromBody(a) || "";
-        bValue = getOrderDateIntFromBody(b) || "";
+        aValue = getDisplayOrderDateInt(a, orderDateMap) || "";
+        bValue = getDisplayOrderDateInt(b, orderDateMap) || "";
         break;
       case "endpoint":
         aValue = a.endpoint.toLowerCase();
@@ -1240,10 +1277,10 @@ const ApiConsumptionLogs = () => {
                         {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {getOrderDateFromBody(log) || "-"}
+                        {getDisplayOrderDate(log, orderDateMap) || "-"}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {getOrderDateIntFromBody(log) || "-"}
+                        {getDisplayOrderDateInt(log, orderDateMap) || "-"}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {getOrderNumber(log) || "-"}
