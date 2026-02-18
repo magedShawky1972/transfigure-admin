@@ -717,21 +717,26 @@ const SystemRestore = () => {
       await new Promise(r => setTimeout(r, 50));
     }
 
-    // === AUTO-FIX RETRY PHASE ===
-    if (failedItems.length > 0) {
-      // Clear first-pass errors before retry - we'll re-add any that still fail
-      const firstPassErrorCount = errors.length;
-      errors.splice(0, firstPassErrorCount);
+    // === MULTI-PASS AUTO-FIX RETRY PHASE ===
+    // Retry failed items up to 3 passes to resolve dependency chains
+    // (e.g. pass 1 creates tables, pass 2 creates functions that need those tables, 
+    //  pass 3 creates functions that need those functions)
+    const MAX_RETRY_PASSES = 3;
+    let retryItems = [...failedItems];
+    failedItems.length = 0;
+
+    for (let pass = 1; pass <= MAX_RETRY_PASSES && retryItems.length > 0; pass++) {
+      // Clear errors from previous pass - only keep final pass errors
+      errors.splice(0, errors.length);
       setMigrationSyncErrors([]);
       
-      const retryItems = [...failedItems];
-      failedItems.length = 0; // clear for retry phase
+      const stillFailing: FailedItem[] = [];
       
-      setMigrationSyncProgress({ current: 0, total: retryItems.length, currentFile: 'Auto-fix retry phase...' });
+      setMigrationSyncProgress({ current: 0, total: retryItems.length, currentFile: `Retry pass ${pass}/${MAX_RETRY_PASSES}...` });
       
       for (let i = 0; i < retryItems.length; i++) {
         const item = retryItems[i];
-        setMigrationSyncProgress({ current: i + 1, total: retryItems.length, currentFile: `Retry: ${item.category} ${item.name}` });
+        setMigrationSyncProgress({ current: i + 1, total: retryItems.length, currentFile: `Pass ${pass}: ${item.category} ${item.name}` });
         
         // Try auto-fix based on error
         const fixedSql = autoFixSql(item.sql, item.error);
@@ -743,17 +748,31 @@ const SystemRestore = () => {
           const hasSqlError = result && result.data && typeof result.data === 'object' && result.data.error;
           if (hasProxyError || hasSqlError) {
             const errorDetail = hasProxyError ? result.error : (result.data.detail ? `${result.data.error} (${result.data.detail})` : result.data.error);
-            const errMsg = `❌ ${item.category} ${item.name}:\nError: ${errorDetail}\nSQL: ${item.sql.substring(0, 800)}${item.sql.length > 800 ? '...' : ''}`;
-            errors.push(errMsg);
-            setMigrationSyncErrors([...errors]);
+            stillFailing.push({ category: item.category, name: item.name, sql: item.sql, error: errorDetail });
           }
         } catch (err: any) {
-          const errMsg = `❌ ${item.category} ${item.name}:\nError: ${err.message}\nSQL: ${item.sql.substring(0, 800)}${item.sql.length > 800 ? '...' : ''}`;
-          errors.push(errMsg);
-          setMigrationSyncErrors([...errors]);
+          stillFailing.push({ category: item.category, name: item.name, sql: item.sql, error: err.message });
         }
         await new Promise(r => setTimeout(r, 50));
       }
+      
+      // If nothing was resolved this pass, stop retrying
+      if (stillFailing.length === retryItems.length && pass > 1) {
+        // No progress made, stop
+        retryItems = stillFailing;
+        break;
+      }
+      
+      retryItems = stillFailing;
+    }
+    
+    // Add final remaining errors to display
+    for (const item of retryItems) {
+      const errMsg = `❌ ${item.category} ${item.name}:\nError: ${item.error}\nSQL: ${item.sql.substring(0, 800)}${item.sql.length > 800 ? '...' : ''}`;
+      errors.push(errMsg);
+    }
+    if (errors.length > 0) {
+      setMigrationSyncErrors([...errors]);
     }
 
     // 4. Add foreign keys for missing tables
