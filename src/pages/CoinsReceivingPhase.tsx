@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus } from "lucide-react";
 import { format } from "date-fns";
@@ -22,11 +23,13 @@ const CoinsReceivingPhase = () => {
   const [view, setView] = useState<"list" | "detail">("list");
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [orderLines, setOrderLines] = useState<any[]>([]);
   const [receivings, setReceivings] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // New receiving form
+  // New receiving form - per brand
+  const [selectedBrandId, setSelectedBrandId] = useState("");
   const [newReceivingImage, setNewReceivingImage] = useState("");
   const [newReceivingNotes, setNewReceivingNotes] = useState("");
 
@@ -46,13 +49,20 @@ const CoinsReceivingPhase = () => {
   };
 
   const loadOrder = async (id: string) => {
-    const [orderRes, recRes] = await Promise.all([
+    const [orderRes, linesRes, recRes] = await Promise.all([
       supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle(),
-      supabase.from("coins_purchase_receiving").select("*").eq("purchase_order_id", id).order("created_at", { ascending: false }),
+      supabase.from("coins_purchase_order_lines").select("*, brands(brand_name), suppliers(supplier_name)").eq("purchase_order_id", id).order("line_number"),
+      supabase.from("coins_purchase_receiving").select("*, brands(brand_name)").eq("purchase_order_id", id).order("created_at", { ascending: false }),
     ]);
     if (orderRes.data) {
       setSelectedOrder(orderRes.data);
+      setOrderLines(linesRes.data || []);
       setReceivings(recRes.data || []);
+      // Auto-select first brand if only one line
+      const lines = linesRes.data || [];
+      if (lines.length === 1) {
+        setSelectedBrandId(lines[0].brand_id);
+      }
       setView("detail");
     }
   };
@@ -88,15 +98,21 @@ const CoinsReceivingPhase = () => {
       toast.error(isArabic ? "يرجى رفع صورة الاستلام" : "Please upload a receiving image");
       return;
     }
+    if (orderLines.length > 1 && !selectedBrandId) {
+      toast.error(isArabic ? "يرجى اختيار العلامة التجارية" : "Please select a brand");
+      return;
+    }
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const brandId = orderLines.length === 1 ? orderLines[0].brand_id : selectedBrandId;
       await supabase.from("coins_purchase_receiving").insert({
         purchase_order_id: selectedOrder.id,
         receiving_image: newReceivingImage,
         received_by: user?.email || "",
         received_by_name: user?.user_metadata?.display_name || user?.email || "",
         notes: newReceivingNotes,
+        brand_id: brandId || null,
         is_confirmed: true,
         confirmed_at: new Date().toISOString(),
         confirmed_by: user?.email || "",
@@ -116,6 +132,7 @@ const CoinsReceivingPhase = () => {
       toast.success(isArabic ? "تم تسجيل الاستلام" : "Receiving recorded");
       setNewReceivingImage("");
       setNewReceivingNotes("");
+      if (orderLines.length > 1) setSelectedBrandId("");
       loadOrder(selectedOrder.id);
     } catch (err: any) {
       toast.error(err.message || "Error");
@@ -146,7 +163,6 @@ const CoinsReceivingPhase = () => {
         action_by_name: user?.user_metadata?.display_name || user?.email || "",
       });
 
-      // Notify coins_entry phase responsible
       await notifyResponsible(selectedOrder.brand_id, "coins_entry", selectedOrder.id);
 
       toast.success(isArabic ? "تم الإرسال لمرحلة إدخال العملات" : "Sent to Coins Entry phase");
@@ -193,10 +209,23 @@ const CoinsReceivingPhase = () => {
     } catch (err) { console.error("Notification error:", err); }
   };
 
+  // Group receivings by brand
+  const getReceivingsByBrand = () => {
+    const grouped: Record<string, any[]> = {};
+    for (const r of receivings) {
+      const key = r.brand_id || "unassigned";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(r);
+    }
+    return grouped;
+  };
+
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
 
   if (view === "detail" && selectedOrder) {
+    const receivingsByBrand = getReceivingsByBrand();
+
     return (
       <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
         <div className="flex items-center justify-between">
@@ -223,7 +252,7 @@ const CoinsReceivingPhase = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div><span className="font-medium">{isArabic ? "رقم الطلب:" : "Order #:"}</span> {selectedOrder.order_number}</div>
-              <div><span className="font-medium">{isArabic ? "المبلغ (SAR):" : "Amount (SAR):"}</span> {parseFloat(selectedOrder.base_amount_sar || 0).toFixed(2)}</div>
+              <div><span className="font-medium">{isArabic ? "المبلغ (SAR):" : "Amount (SAR):"}</span> {parseFloat(selectedOrder.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <div><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(selectedOrder.created_at), "yyyy-MM-dd")}</div>
             </div>
             {selectedOrder.bank_transfer_image && (
@@ -234,23 +263,76 @@ const CoinsReceivingPhase = () => {
           </CardContent>
         </Card>
 
-        {/* Previous Receivings */}
+        {/* Order Lines Breakdown */}
+        {orderLines.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle>{isArabic ? "تفاصيل العلامات التجارية" : "Brands Breakdown"}</CardTitle></CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
+                      <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
+                      <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
+                      <TableHead>{isArabic ? "صور الاستلام" : "Receiving Images"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orderLines.map((line, idx) => {
+                      const brandReceivings = receivingsByBrand[line.brand_id] || [];
+                      return (
+                        <TableRow key={line.id}>
+                          <TableCell>{idx + 1}</TableCell>
+                          <TableCell className="font-medium">{line.brands?.brand_name || "-"}</TableCell>
+                          <TableCell>{line.suppliers?.supplier_name || "-"}</TableCell>
+                          <TableCell>{parseFloat(line.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell>
+                            {brandReceivings.length > 0 ? (
+                              <div className="flex items-center gap-1">
+                                <Image className="h-4 w-4 text-green-600" />
+                                <span className="text-green-600 font-medium">{brandReceivings.length}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">{isArabic ? "لا يوجد" : "None"}</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Previous Receivings grouped by brand */}
         {receivings.length > 0 && (
           <Card>
             <CardHeader><CardTitle>{isArabic ? "سجلات الاستلام السابقة" : "Previous Receivings"}</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {receivings.map(r => (
-                  <Card key={r.id} className="border">
-                    <CardContent className="p-4 space-y-2">
-                      {r.receiving_image && <img src={r.receiving_image} alt="Receiving" className="max-h-32 rounded border object-contain" />}
-                      <div className="text-sm"><span className="font-medium">{isArabic ? "المستلم:" : "By:"}</span> {r.received_by_name || r.received_by}</div>
-                      <div className="text-sm"><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(r.received_at), "yyyy-MM-dd HH:mm")}</div>
-                      {r.notes && <div className="text-sm text-muted-foreground">{r.notes}</div>}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+            <CardContent className="space-y-4">
+              {Object.entries(receivingsByBrand).map(([brandId, brandReceivings]) => {
+                const brandName = brandReceivings[0]?.brands?.brand_name || (brandId === "unassigned" ? (isArabic ? "غير محدد" : "Unassigned") : brandId);
+                return (
+                  <div key={brandId} className="space-y-2">
+                    <h4 className="font-semibold text-sm border-b pb-1">{brandName}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {brandReceivings.map((r: any) => (
+                        <Card key={r.id} className="border">
+                          <CardContent className="p-4 space-y-2">
+                            {r.receiving_image && <img src={r.receiving_image} alt="Receiving" className="max-h-32 rounded border object-contain" />}
+                            <div className="text-sm"><span className="font-medium">{isArabic ? "المستلم:" : "By:"}</span> {r.received_by_name || r.received_by}</div>
+                            <div className="text-sm"><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(r.received_at), "yyyy-MM-dd HH:mm")}</div>
+                            {r.notes && <div className="text-sm text-muted-foreground">{r.notes}</div>}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}
@@ -259,6 +341,25 @@ const CoinsReceivingPhase = () => {
         <Card>
           <CardHeader><CardTitle>{isArabic ? "إضافة استلام جديد" : "Add New Receiving"}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {/* Brand selection - only show if multi-line */}
+            {orderLines.length > 1 && (
+              <div className="space-y-2">
+                <Label>{isArabic ? "العلامة التجارية" : "Brand"}</Label>
+                <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isArabic ? "اختر العلامة التجارية" : "Select brand"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orderLines.map(line => (
+                      <SelectItem key={line.brand_id} value={line.brand_id}>
+                        {line.brands?.brand_name || line.brand_id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>{isArabic ? "صورة الاستلام من تطبيق المورد" : "Receiving Image from Supplier App"}</Label>
               {newReceivingImage ? (
@@ -278,7 +379,7 @@ const CoinsReceivingPhase = () => {
               <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
               <Textarea value={newReceivingNotes} onChange={e => setNewReceivingNotes(e.target.value)} />
             </div>
-            <Button onClick={handleAddReceiving} disabled={saving || !newReceivingImage}>
+            <Button onClick={handleAddReceiving} disabled={saving || !newReceivingImage || (orderLines.length > 1 && !selectedBrandId)}>
               <Plus className="h-4 w-4 mr-2" />
               {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "تسجيل الاستلام" : "Record Receiving")}
             </Button>

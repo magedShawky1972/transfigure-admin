@@ -1338,6 +1338,7 @@ export type Database = {
       }
       coins_purchase_receiving: {
         Row: {
+          brand_id: string | null
           confirmed_at: string | null
           confirmed_by: string | null
           confirmed_by_name: string | null
@@ -1352,6 +1353,7 @@ export type Database = {
           receiving_image: string | null
         }
         Insert: {
+          brand_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           confirmed_by_name?: string | null
@@ -1366,6 +1368,7 @@ export type Database = {
           receiving_image?: string | null
         }
         Update: {
+          brand_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           confirmed_by_name?: string | null
@@ -1380,6 +1383,13 @@ export type Database = {
           receiving_image?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "coins_purchase_receiving_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "coins_purchase_receiving_purchase_order_id_fkey"
             columns: ["purchase_order_id"]

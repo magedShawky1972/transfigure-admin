@@ -22,6 +22,7 @@ const CoinsSending = () => {
   const [view, setView] = useState<"list" | "detail">("list");
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [orderLines, setOrderLines] = useState<any[]>([]);
   const [sendingConfirmed, setSendingConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -41,10 +42,14 @@ const CoinsSending = () => {
   };
 
   const loadOrder = async (id: string) => {
-    const { data } = await supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle();
-    if (data) {
-      setSelectedOrder(data);
-      setSendingConfirmed(data.sending_confirmed || false);
+    const [orderRes, linesRes] = await Promise.all([
+      supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle(),
+      supabase.from("coins_purchase_order_lines").select("*, brands(brand_name), suppliers(supplier_name)").eq("purchase_order_id", id).order("line_number"),
+    ]);
+    if (orderRes.data) {
+      setSelectedOrder(orderRes.data);
+      setSendingConfirmed(orderRes.data.sending_confirmed || false);
+      setOrderLines(linesRes.data || []);
       setView("detail");
     }
   };
@@ -147,8 +152,55 @@ const CoinsSending = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div><span className="font-medium">{isArabic ? "رقم الطلب:" : "Order #:"}</span> {selectedOrder.order_number}</div>
-              <div><span className="font-medium">{isArabic ? "المبلغ (SAR):" : "Amount (SAR):"}</span> {parseFloat(selectedOrder.base_amount_sar || 0).toFixed(2)}</div>
+              <div><span className="font-medium">{isArabic ? "إجمالي المبلغ (SAR):" : "Total Amount (SAR):"}</span> {parseFloat(selectedOrder.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <div><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(selectedOrder.created_at), "yyyy-MM-dd")}</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Order Lines - Brands & Suppliers Breakdown */}
+        <Card>
+          <CardHeader><CardTitle>{isArabic ? "تفاصيل العلامات التجارية والمبالغ" : "Brands & Amounts Breakdown"}</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
+                    <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
+                    <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
+                    <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
+                    <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderLines.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-4">
+                        {isArabic ? "لا توجد تفاصيل أسطر" : "No line details available"}
+                      </TableCell>
+                    </TableRow>
+                  ) : orderLines.map((line, idx) => (
+                    <TableRow key={line.id}>
+                      <TableCell className="font-mono text-sm">{idx + 1}</TableCell>
+                      <TableCell className="font-medium">{line.brands?.brand_name || "-"}</TableCell>
+                      <TableCell>{line.suppliers?.supplier_name || "-"}</TableCell>
+                      <TableCell>{parseFloat(line.amount_in_currency || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell>{parseFloat(line.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{line.notes || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                  {orderLines.length > 0 && (
+                    <TableRow className="bg-muted/30 font-semibold">
+                      <TableCell colSpan={3} className="text-end">{isArabic ? "الإجمالي" : "Total"}</TableCell>
+                      <TableCell>{orderLines.reduce((s, l) => s + (parseFloat(l.amount_in_currency) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell>{orderLines.reduce((s, l) => s + (parseFloat(l.base_amount_sar) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
