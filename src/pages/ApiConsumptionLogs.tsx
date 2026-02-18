@@ -91,23 +91,13 @@ const getOrderDateIntFromBody = (log: ApiLog): string => {
   return datePart || "";
 };
 
-// Get order date for any log using DB lookup map, fallback to request body
-const getDisplayOrderDate = (log: ApiLog, dbDateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
-  const orderNum = getOrderNumber(log);
-  if (orderNum && dbDateMap.has(orderNum)) {
-    return dbDateMap.get(orderNum)!.orderDate;
-  }
-  // Fallback to request body for logs without DB match
+// Get order date directly from request body - always use API source data as-is
+const getDisplayOrderDate = (log: ApiLog, _dbDateMap?: Map<string, any>): string => {
   return getOrderDateFromBody(log);
 };
 
-// Get order date int for any log using DB lookup map, fallback to request body
-const getDisplayOrderDateInt = (log: ApiLog, dbDateMap: Map<string, { orderDate: string; orderDateInt: string }>): string => {
-  const orderNum = getOrderNumber(log);
-  if (orderNum && dbDateMap.has(orderNum)) {
-    return dbDateMap.get(orderNum)!.orderDateInt;
-  }
-  // Fallback to request body for logs without DB match
+// Get order date int directly from request body - always use API source data as-is
+const getDisplayOrderDateInt = (log: ApiLog, _dbDateMap?: Map<string, any>): string => {
   return getOrderDateIntFromBody(log);
 };
 
