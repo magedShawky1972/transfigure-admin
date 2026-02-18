@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, RefreshCw, Printer, Download, Calendar, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from "xlsx";
 
 interface SalesOrderDetail {
@@ -47,10 +48,29 @@ const SalesOrderDetailReport = () => {
   const [loading, setLoading] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [filterOrderNumber, setFilterOrderNumber] = useState("");
+  const [filterCustomerPhone, setFilterCustomerPhone] = useState("");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState("");
   const [filterSalesPerson, setFilterSalesPerson] = useState("");
   const [filterProductSku, setFilterProductSku] = useState("");
+  const [filterProduct, setFilterProduct] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
   const [reportData, setReportData] = useState<SalesOrderDetail[]>([]);
+  const [productOptions, setProductOptions] = useState<{ id: string; name: string }[]>([]);
+  const [brandOptions, setBrandOptions] = useState<{ id: string; name: string }[]>([]);
+
+  // Load product and brand options for dropdowns
+  useEffect(() => {
+    const fetchOptions = async () => {
+      const [{ data: products }, { data: brands }] = await Promise.all([
+        supabase.from("products").select("product_id, product_name").order("product_name").limit(2000),
+        supabase.from("brands").select("id, brand_name").eq("status", "active").order("brand_name"),
+      ]);
+      if (products) setProductOptions(products.map((p: any) => ({ id: String(p.product_id), name: p.product_name || p.product_id })));
+      if (brands) setBrandOptions(brands.map((b: any) => ({ id: b.brand_name, name: b.brand_name })));
+    };
+    fetchOptions();
+  }, []);
 
   const formatNumber = (value: number) =>
     new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -87,6 +107,12 @@ const SalesOrderDetailReport = () => {
 
       if (filterSalesPerson) {
         headerQuery = headerQuery.ilike("register_user_id", `%${filterSalesPerson}%`);
+      }
+      if (filterOrderNumber) {
+        headerQuery = headerQuery.ilike("order_number", `%${filterOrderNumber}%`);
+      }
+      if (filterCustomerPhone) {
+        headerQuery = headerQuery.ilike("customer_phone", `%${filterCustomerPhone}%`);
       }
 
       let allHeaders: any[] = [];
@@ -132,6 +158,9 @@ const SalesOrderDetailReport = () => {
 
         if (filterProductSku) {
           lineQuery = lineQuery.ilike("product_sku", `%${filterProductSku}%`);
+        }
+        if (filterProduct && filterProduct !== "all") {
+          lineQuery = lineQuery.eq("product_id", Number(filterProduct));
         }
 
         let lineOffset = 0;
@@ -214,6 +243,8 @@ const SalesOrderDetailReport = () => {
         if (!header) return;
 
         const prod = productMap.get(Number(line.product_id)) || { product_name: "", brand_name: "" };
+        // Skip if brand filter is active and doesn't match
+        if (filterBrand && filterBrand !== "all" && prod.brand_name !== filterBrand) return;
         const payments = paymentMap.get(line.order_number) || [{ payment_method: "", payment_brand: "", payment_amount: 0, payment_reference: "", payment_card_number: "", bank_transaction_id: "", payment_location: "" }];
 
         // Create one row per line per payment
@@ -417,6 +448,52 @@ const SalesOrderDetailReport = () => {
             <div className="space-y-2">
               <Label>{language === "ar" ? "إلى تاريخ" : "To Date"}</Label>
               <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-40" />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "رقم الطلب" : "Order Number"}</Label>
+              <Input
+                placeholder={language === "ar" ? "رقم الطلب" : "Order #"}
+                value={filterOrderNumber}
+                onChange={(e) => setFilterOrderNumber(e.target.value)}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "هاتف العميل" : "Customer Phone"}</Label>
+              <Input
+                placeholder={language === "ar" ? "رقم الهاتف" : "Phone"}
+                value={filterCustomerPhone}
+                onChange={(e) => setFilterCustomerPhone(e.target.value)}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "المنتج" : "Product"}</Label>
+              <Select value={filterProduct} onValueChange={setFilterProduct}>
+                <SelectTrigger className="w-48 bg-background">
+                  <SelectValue placeholder={language === "ar" ? "الكل" : "All"} />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-60">
+                  <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+                  {productOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الماركة" : "Brand"}</Label>
+              <Select value={filterBrand} onValueChange={setFilterBrand}>
+                <SelectTrigger className="w-44 bg-background">
+                  <SelectValue placeholder={language === "ar" ? "الكل" : "All"} />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-60">
+                  <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+                  {brandOptions.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>{language === "ar" ? "طريقة الدفع" : "Payment Method"}</Label>
