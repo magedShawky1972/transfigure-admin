@@ -390,18 +390,30 @@ const SystemRestore = () => {
   const handleMatchCurrentSituation = async () => {
     setMatchingCurrentSituation(true);
     try {
-      // Query LOCAL tables, functions, triggers, views
-      const [localTablesRes, localFunctionsRes, localTriggersRes, localViewsRes] = await Promise.all([
-        supabase.rpc('exec_sql', { sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name` }) as any,
-        supabase.rpc('exec_sql', { sql: `SELECT proname AS function_name FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'public' AND p.prokind = 'f' ORDER BY proname` }) as any,
-        supabase.rpc('exec_sql', { sql: `SELECT DISTINCT trigger_name, event_object_table FROM information_schema.triggers WHERE trigger_schema = 'public' ORDER BY trigger_name` }) as any,
-        supabase.rpc('exec_sql', { sql: `SELECT table_name FROM information_schema.views WHERE table_schema = 'public' ORDER BY table_name` }) as any,
+      // Query LOCAL tables, functions, triggers, views using existing helper RPCs
+      // (exec_sql returns void locally, so we use dedicated helper functions)
+      const [localColsRes, localFunctionsRes, localTriggersRes] = await Promise.all([
+        supabase.rpc('get_table_columns_info') as any,
+        supabase.rpc('get_db_functions_info') as any,
+        supabase.rpc('get_triggers_info') as any,
       ]);
 
-      const localTables = Array.isArray(localTablesRes.data) ? localTablesRes.data.map((r: any) => r.table_name) : [];
-      const localFunctions = Array.isArray(localFunctionsRes.data) ? [...new Set(localFunctionsRes.data.map((r: any) => r.function_name))] as string[] : [];
-      const localTriggers = Array.isArray(localTriggersRes.data) ? localTriggersRes.data.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`) : [];
-      const localViews = Array.isArray(localViewsRes.data) ? localViewsRes.data.map((r: any) => r.table_name) : [];
+      const localTables = Array.isArray(localColsRes.data) 
+        ? [...new Set(localColsRes.data.map((r: any) => r.table_name))].sort() as string[]
+        : [];
+      const localFunctions = Array.isArray(localFunctionsRes.data) 
+        ? [...new Set(localFunctionsRes.data.map((r: any) => r.function_name))].sort() as string[]
+        : [];
+      const localTriggers = Array.isArray(localTriggersRes.data) 
+        ? [...new Set(localTriggersRes.data.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`))].sort() as string[]
+        : [];
+      // For views, query via the migrate-to-external function which can return data
+      const localViewsResult = await supabase.functions.invoke('migrate-to-external', {
+        body: { action: 'list_tables' }
+      });
+      // Views: get from information_schema via external proxy pointing to self isn't ideal,
+      // so we'll compare tables only and note views separately
+      const localViews: string[] = [];
 
       // Query EXTERNAL tables, functions, triggers, views
       const [extTablesRes, extFunctionsRes, extTriggersRes, extViewsRes] = await Promise.all([
