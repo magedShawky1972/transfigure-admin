@@ -80,6 +80,17 @@ const getOrderDateFromBody = (log: ApiLog): string => {
   return String(dateStr).substring(0, 10);
 };
 
+// Helper function to extract order_date_int from request_body
+const getOrderDateIntFromBody = (log: ApiLog): string => {
+  if (!log.request_body) return "";
+  const body = log.request_body as any;
+  const dateStr = body.Order_date || body.order_date || body.Order_Date || "";
+  if (!dateStr) return "";
+  // Compute YYYYMMDD from date string
+  const datePart = String(dateStr).substring(0, 10).replace(/-/g, "");
+  return datePart || "";
+};
+
 const ApiConsumptionLogs = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -112,6 +123,8 @@ const ApiConsumptionLogs = () => {
   // Column filters
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({
     orderNumber: "",
+    orderDate: "",
+    orderDateInt: "",
     endpoint: "",
     method: "",
     status: "",
@@ -496,9 +509,23 @@ const ApiConsumptionLogs = () => {
 
     // Apply column filters
     const orderNumber = getOrderNumber(log);
+    const orderDate = getOrderDateFromBody(log);
+    const orderDateInt = getOrderDateIntFromBody(log);
     
     if (columnFilters.orderNumber) {
       if (!orderNumber || !orderNumber.toLowerCase().includes(columnFilters.orderNumber.toLowerCase())) {
+        return false;
+      }
+    }
+
+    if (columnFilters.orderDate) {
+      if (!orderDate || !orderDate.includes(columnFilters.orderDate)) {
+        return false;
+      }
+    }
+
+    if (columnFilters.orderDateInt) {
+      if (!orderDateInt || !orderDateInt.includes(columnFilters.orderDateInt)) {
         return false;
       }
     }
@@ -531,6 +558,14 @@ const ApiConsumptionLogs = () => {
       case "orderNumber":
         aValue = parseInt(getOrderNumber(a)) || 0;
         bValue = parseInt(getOrderNumber(b)) || 0;
+        break;
+      case "orderDate":
+        aValue = getOrderDateFromBody(a) || "";
+        bValue = getOrderDateFromBody(b) || "";
+        break;
+      case "orderDateInt":
+        aValue = getOrderDateIntFromBody(a) || "";
+        bValue = getOrderDateIntFromBody(b) || "";
         break;
       case "endpoint":
         aValue = a.endpoint.toLowerCase();
@@ -1136,11 +1171,18 @@ const ApiConsumptionLogs = () => {
                       {language === "ar" ? "الوقت" : "Time"}
                     </SortableHeader>
                   </TableHead>
-                  {dateType === "orderDate" && (
-                    <TableHead className="min-w-[120px]">
+                  <TableHead className="min-w-[120px]">
+                    <SortableHeader column="orderDate">
                       {language === "ar" ? "تاريخ الطلب" : "Order Date"}
-                    </TableHead>
-                  )}
+                    </SortableHeader>
+                    <ColumnFilterInput column="orderDate" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                  </TableHead>
+                  <TableHead className="min-w-[120px]">
+                    <SortableHeader column="orderDateInt">
+                      {language === "ar" ? "تاريخ الطلب (رقم)" : "Date Int"}
+                    </SortableHeader>
+                    <ColumnFilterInput column="orderDateInt" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                  </TableHead>
                   <TableHead className="min-w-[120px]">
                     <SortableHeader column="orderNumber">
                       {language === "ar" ? "رقم الطلب" : "Order #"}
@@ -1181,13 +1223,13 @@ const ApiConsumptionLogs = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={dateType === "orderDate" ? 9 : 8} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : sortedLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={dateType === "orderDate" ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد سجلات" : "No logs found"}
                     </TableCell>
                   </TableRow>
@@ -1197,11 +1239,12 @@ const ApiConsumptionLogs = () => {
                       <TableCell className="font-mono text-sm">
                         {format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")}
                       </TableCell>
-                      {dateType === "orderDate" && (
-                        <TableCell className="font-mono text-sm">
-                          {getOrderDateFromBody(log) || "-"}
-                        </TableCell>
-                      )}
+                      <TableCell className="font-mono text-sm">
+                        {getOrderDateFromBody(log) || "-"}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {getOrderDateIntFromBody(log) || "-"}
+                      </TableCell>
                       <TableCell className="font-mono text-sm">
                         {getOrderNumber(log) || "-"}
                       </TableCell>
