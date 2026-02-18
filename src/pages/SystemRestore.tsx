@@ -434,25 +434,7 @@ const SystemRestore = () => {
           const tableCols = (cols || []).filter((c: any) => c.table_name === tableName);
           if (tableCols.length === 0) { lines.push(`-- Table ${tableName}: No column info found`); continue; }
           const colDefs = tableCols.map((c: any) => {
-            let def = `"${c.column_name}" `;
-            if (c.udt_name === 'uuid') def += 'UUID';
-            else if (c.udt_name === 'text') def += 'TEXT';
-            else if (c.udt_name === 'bool') def += 'BOOLEAN';
-            else if (c.udt_name === 'int4') def += 'INTEGER';
-            else if (c.udt_name === 'int8') def += 'BIGINT';
-            else if (c.udt_name === 'float8') def += 'DOUBLE PRECISION';
-            else if (c.udt_name === 'numeric') def += 'NUMERIC';
-            else if (c.udt_name === 'timestamptz') def += 'TIMESTAMP WITH TIME ZONE';
-            else if (c.udt_name === 'timestamp') def += 'TIMESTAMP WITHOUT TIME ZONE';
-            else if (c.udt_name === 'date') def += 'DATE';
-            else if (c.udt_name === 'jsonb') def += 'JSONB';
-            else if (c.udt_name === 'json') def += 'JSON';
-            else if (c.udt_name === '_text') def += 'TEXT[]';
-            else if (c.udt_name === '_int4') def += 'INTEGER[]';
-            else if (c.udt_name === '_uuid') def += 'UUID[]';
-            else if (c.udt_name === 'varchar') def += c.character_maximum_length ? `VARCHAR(${c.character_maximum_length})` : 'VARCHAR';
-            else if (c.data_type === 'USER-DEFINED') def += `public."${c.udt_name}"`;
-            else def += c.data_type.toUpperCase();
+            let def = `"${c.column_name}" ${mapColumnToSqlType(c)}`;
             if (c.column_default) def += ` DEFAULT ${c.column_default}`;
             if (c.is_nullable === 'NO') def += ' NOT NULL';
             return def;
@@ -514,129 +496,191 @@ const SystemRestore = () => {
     }
   };
 
-  // Apply missing objects directly to external DB by fetching DDL from local
+  // Helper: map column info to SQL type
+  const mapColumnToSqlType = (c: any): string => {
+    if (c.udt_name === 'uuid') return 'UUID';
+    if (c.udt_name === 'text') return 'TEXT';
+    if (c.udt_name === 'bool') return 'BOOLEAN';
+    if (c.udt_name === 'int4') return 'INTEGER';
+    if (c.udt_name === 'int8') return 'BIGINT';
+    if (c.udt_name === 'float8') return 'DOUBLE PRECISION';
+    if (c.udt_name === 'float4') return 'REAL';
+    if (c.udt_name === 'numeric') return 'NUMERIC';
+    if (c.udt_name === 'timestamptz') return 'TIMESTAMP WITH TIME ZONE';
+    if (c.udt_name === 'timestamp') return 'TIMESTAMP WITHOUT TIME ZONE';
+    if (c.udt_name === 'date') return 'DATE';
+    if (c.udt_name === 'time') return 'TIME';
+    if (c.udt_name === 'timetz') return 'TIME WITH TIME ZONE';
+    if (c.udt_name === 'jsonb') return 'JSONB';
+    if (c.udt_name === 'json') return 'JSON';
+    if (c.udt_name === 'bytea') return 'BYTEA';
+    if (c.udt_name === 'inet') return 'INET';
+    if (c.udt_name === 'cidr') return 'CIDR';
+    if (c.udt_name === 'macaddr') return 'MACADDR';
+    if (c.udt_name === 'interval') return 'INTERVAL';
+    if (c.udt_name === '_text') return 'TEXT[]';
+    if (c.udt_name === '_int4') return 'INTEGER[]';
+    if (c.udt_name === '_int8') return 'BIGINT[]';
+    if (c.udt_name === '_uuid') return 'UUID[]';
+    if (c.udt_name === '_float8') return 'DOUBLE PRECISION[]';
+    if (c.udt_name === '_bool') return 'BOOLEAN[]';
+    if (c.udt_name === '_numeric') return 'NUMERIC[]';
+    if (c.udt_name === '_jsonb') return 'JSONB[]';
+    if (c.udt_name === 'varchar') return c.character_maximum_length ? `VARCHAR(${c.character_maximum_length})` : 'VARCHAR';
+    if (c.data_type === 'USER-DEFINED') return `public."${c.udt_name}"`;
+    if (c.data_type === 'ARRAY') return `${c.udt_name.replace(/^_/, '')}[]`;
+    return c.data_type.toUpperCase();
+  };
+
+  // Helper: attempt to auto-fix SQL based on error message
+  const autoFixSql = (sql: string, error: string): string | null => {
+    const errLower = error.toLowerCase();
+
+    // Fix: type does not exist - try creating it inline or removing the cast
+    const typeNotExist = errLower.match(/type ["']?([^"'\s]+)["']? does not exist/);
+    if (typeNotExist) {
+      const missingType = typeNotExist[1];
+      // Replace the custom type with TEXT as a safe fallback
+      const fixed = sql.replace(new RegExp(`public\\."${missingType}"`, 'g'), 'TEXT')
+                       .replace(new RegExp(`"${missingType}"`, 'g'), 'TEXT')
+                       .replace(new RegExp(`::${missingType}`, 'g'), '::TEXT');
+      return fixed;
+    }
+
+    // Fix: column default references missing type cast
+    const castNotExist = errLower.match(/cannot cast.*to\s+(\w+)/);
+    if (castNotExist) {
+      // Remove the problematic default
+      return sql.replace(/DEFAULT\s+[^,\n]+::[^,\n]+/g, '');
+    }
+
+    // Fix: relation already exists
+    if (errLower.includes('already exists')) {
+      return null; // Skip, it's already there
+    }
+
+    // Fix: syntax error near a keyword - try quoting the word
+    const syntaxNear = errLower.match(/syntax error at or near "(\w+)"/);
+    if (syntaxNear) {
+      const keyword = syntaxNear[1];
+      // If the keyword is a SQL reserved word used as type, it's likely USER-DEFINED not mapped
+      const fixed = sql.replace(new RegExp(`\\b${keyword}-DEFINED\\b`, 'gi'), 'TEXT');
+      if (fixed !== sql) return fixed;
+    }
+
+    // Fix: function/trigger references missing function
+    const funcNotExist = errLower.match(/function\s+([^\s(]+)\s*\(/);
+    if (funcNotExist && errLower.includes('does not exist')) {
+      return null; // Can't fix missing dependency, will retry after functions are created
+    }
+
+    return null;
+  };
+
+  // Apply missing objects directly to external DB with auto-fix retry
   const applyMissingObjects = async () => {
     if (!comparisonResults) return;
     setApplyingMissingObjects(true);
     setShowComparisonDialog(false);
     setShowMigrationSyncDialog(true);
     setMigrationSyncErrors([]);
+    
+    interface FailedItem { category: string; name: string; sql: string; error: string; }
     const errors: string[] = [];
+    const failedItems: FailedItem[] = [];
     
     const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length;
     let currentStep = 0;
     
     setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
 
-    // 0. Create missing types (enums, domains) FIRST - required by tables and functions
+    // Helper to execute SQL with error capture
+    const execWithCapture = async (category: string, name: string, sql: string): Promise<boolean> => {
+      try {
+        const result = await callExternalProxy('exec_sql', { sql });
+        if (!result.success && result.error) {
+          failedItems.push({ category, name, sql, error: result.error });
+          return false;
+        }
+        return true;
+      } catch (err: any) {
+        failedItems.push({ category, name, sql, error: err.message });
+        return false;
+      }
+    };
+
+    // Fetch all metadata upfront to avoid repeated calls
+    const [colsRes, pksRes, funcsRes, triggersRes, fksRes] = await Promise.all([
+      supabase.rpc('get_table_columns_info') as any,
+      supabase.rpc('get_primary_keys_info') as any,
+      supabase.rpc('get_db_functions_info') as any,
+      supabase.rpc('get_triggers_info') as any,
+      supabase.rpc('get_foreign_keys_info') as any,
+    ]);
+    const allCols = colsRes.data || [];
+    const allPks = pksRes.data || [];
+    const allFuncs = funcsRes.data || [];
+    const allTriggers = triggersRes.data || [];
+    const allFks = fksRes.data || [];
+
+    // 0. Create missing types
     if (comparisonResults.missingTypes && comparisonResults.missingTypes.length > 0) {
       for (const typeInfo of comparisonResults.missingTypes) {
         currentStep++;
         setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Type: ${typeInfo.name}` });
         
-        try {
-          let createSql = '';
-          if (typeInfo.type === 'enum' && typeInfo.values) {
-            const vals = typeInfo.values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
-            createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE TYPE public."${typeInfo.name}" AS ENUM (${vals}); END IF; END $$;`;
-          } else if (typeInfo.type === 'domain' && typeInfo.base) {
-            createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE DOMAIN public."${typeInfo.name}" AS ${typeInfo.base}; END IF; END $$;`;
-          }
-          
-          if (createSql) {
-            const result = await callExternalProxy('exec_sql', { sql: createSql });
-            if (!result.success && result.error) {
-              errors.push(`Type ${typeInfo.name}: ${result.error}`);
-            }
-          }
-        } catch (err: any) {
-          errors.push(`Type ${typeInfo.name}: ${err.message}`);
+        let createSql = '';
+        if (typeInfo.type === 'enum' && typeInfo.values) {
+          const vals = typeInfo.values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
+          createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE TYPE public."${typeInfo.name}" AS ENUM (${vals}); END IF; END $$;`;
+        } else if (typeInfo.type === 'domain' && typeInfo.base) {
+          createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE DOMAIN public."${typeInfo.name}" AS ${typeInfo.base}; END IF; END $$;`;
+        }
+        
+        if (createSql) {
+          await execWithCapture('Type', typeInfo.name, createSql);
         }
         await new Promise(r => setTimeout(r, 50));
       }
     }
 
-    // 1. Create missing tables - get full DDL from local
+    // 1. Create missing tables
     for (const tableName of comparisonResults.missingTables) {
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
       
-      try {
-        // Get column info for this table
-        const { data: cols } = await supabase.rpc('get_table_columns_info') as any;
-        const tableCols = (cols || []).filter((c: any) => c.table_name === tableName);
-        
-        if (tableCols.length === 0) {
-          errors.push(`Table ${tableName}: No column info found`);
-          continue;
-        }
-
-        // Build CREATE TABLE statement
-        const colDefs = tableCols.map((c: any) => {
-          let def = `"${c.column_name}" `;
-          if (c.udt_name === 'uuid') def += 'UUID';
-          else if (c.udt_name === 'text') def += 'TEXT';
-          else if (c.udt_name === 'bool') def += 'BOOLEAN';
-          else if (c.udt_name === 'int4') def += 'INTEGER';
-          else if (c.udt_name === 'int8') def += 'BIGINT';
-          else if (c.udt_name === 'float8') def += 'DOUBLE PRECISION';
-          else if (c.udt_name === 'numeric') def += 'NUMERIC';
-          else if (c.udt_name === 'timestamptz') def += 'TIMESTAMP WITH TIME ZONE';
-          else if (c.udt_name === 'timestamp') def += 'TIMESTAMP WITHOUT TIME ZONE';
-          else if (c.udt_name === 'date') def += 'DATE';
-          else if (c.udt_name === 'jsonb') def += 'JSONB';
-          else if (c.udt_name === 'json') def += 'JSON';
-          else if (c.udt_name === '_text') def += 'TEXT[]';
-          else if (c.udt_name === '_int4') def += 'INTEGER[]';
-          else if (c.udt_name === '_uuid') def += 'UUID[]';
-          else if (c.udt_name === 'varchar') def += c.character_maximum_length ? `VARCHAR(${c.character_maximum_length})` : 'VARCHAR';
-          else if (c.data_type === 'USER-DEFINED') def += `public."${c.udt_name}"`;
-          else def += c.data_type.toUpperCase();
-
-          if (c.column_default) def += ` DEFAULT ${c.column_default}`;
-          if (c.is_nullable === 'NO') def += ' NOT NULL';
-          return def;
-        }).join(',\n  ');
-
-        // Get primary key
-        const { data: pks } = await supabase.rpc('get_primary_keys_info') as any;
-        const tablePks = (pks || []).filter((p: any) => p.table_name === tableName).map((p: any) => `"${p.column_name}"`);
-        const pkClause = tablePks.length > 0 ? `,\n  PRIMARY KEY (${tablePks.join(', ')})` : '';
-
-        const createSql = `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n);\nALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;`;
-        
-        const result = await callExternalProxy('exec_sql', { sql: createSql });
-        if (!result.success && result.error) {
-          errors.push(`Table ${tableName}: ${result.error}`);
-        }
-      } catch (err: any) {
-        errors.push(`Table ${tableName}: ${err.message}`);
+      const tableCols = allCols.filter((c: any) => c.table_name === tableName);
+      if (tableCols.length === 0) {
+        errors.push(`Table ${tableName}: No column info found locally`);
+        continue;
       }
+
+      const colDefs = tableCols.map((c: any) => {
+        let def = `"${c.column_name}" ${mapColumnToSqlType(c)}`;
+        if (c.column_default) def += ` DEFAULT ${c.column_default}`;
+        if (c.is_nullable === 'NO') def += ' NOT NULL';
+        return def;
+      }).join(',\n  ');
+
+      const tablePks = allPks.filter((p: any) => p.table_name === tableName).map((p: any) => `"${p.column_name}"`);
+      const pkClause = tablePks.length > 0 ? `,\n  PRIMARY KEY (${tablePks.join(', ')})` : '';
+
+      const createSql = `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n);\nALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;`;
+      await execWithCapture('Table', tableName, createSql);
       await new Promise(r => setTimeout(r, 50));
     }
 
-    // 2. Create missing functions - get full definition from local
+    // 2. Create missing functions
     for (const funcName of comparisonResults.missingFunctions) {
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Function: ${funcName}` });
       
-      try {
-        const { data: funcs } = await supabase.rpc('get_db_functions_info') as any;
-        const funcDef = (funcs || []).find((f: any) => f.function_name === funcName);
-        
-        if (!funcDef?.function_definition) {
-          errors.push(`Function ${funcName}: No definition found`);
-          continue;
-        }
-
-        // pg_get_functiondef returns CREATE OR REPLACE already
-        const result = await callExternalProxy('exec_sql', { sql: funcDef.function_definition });
-        if (!result.success && result.error) {
-          errors.push(`Function ${funcName}: ${result.error}`);
-        }
-      } catch (err: any) {
-        errors.push(`Function ${funcName}: ${err.message}`);
+      const funcDef = allFuncs.find((f: any) => f.function_name === funcName);
+      if (!funcDef?.function_definition) {
+        errors.push(`Function ${funcName}: No definition found locally`);
+        continue;
       }
+      await execWithCapture('Function', funcName, funcDef.function_definition);
       await new Promise(r => setTimeout(r, 50));
     }
 
@@ -645,43 +689,61 @@ const SystemRestore = () => {
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Trigger: ${triggerStr}` });
       
-      try {
-        const { data: triggers } = await supabase.rpc('get_triggers_info') as any;
-        const [trigName, , tableName] = triggerStr.split(' ');
-        const trigDef = (triggers || []).find((t: any) => t.trigger_name === trigName && t.event_object_table === tableName);
-        
-        if (!trigDef) {
-          errors.push(`Trigger ${triggerStr}: No definition found`);
-          continue;
-        }
-
-        const createTriggerSql = `CREATE OR REPLACE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement};`;
-        
-        const result = await callExternalProxy('exec_sql', { sql: createTriggerSql });
-        if (!result.success && result.error) {
-          // Try without OR REPLACE for older PG versions
-          const fallbackSql = `DROP TRIGGER IF EXISTS "${trigDef.trigger_name}" ON public."${trigDef.event_object_table}"; CREATE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement};`;
-          const retryResult = await callExternalProxy('exec_sql', { sql: fallbackSql });
-          if (!retryResult.success && retryResult.error) {
-            errors.push(`Trigger ${triggerStr}: ${retryResult.error}`);
-          }
-        }
-      } catch (err: any) {
-        errors.push(`Trigger ${triggerStr}: ${err.message}`);
+      const [trigName, , tableName] = triggerStr.split(' ');
+      const trigDef = allTriggers.find((t: any) => t.trigger_name === trigName && t.event_object_table === tableName);
+      
+      if (!trigDef) {
+        errors.push(`Trigger ${triggerStr}: No definition found locally`);
+        continue;
       }
+      const createTriggerSql = `DROP TRIGGER IF EXISTS "${trigDef.trigger_name}" ON public."${trigDef.event_object_table}"; CREATE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement};`;
+      await execWithCapture('Trigger', triggerStr, createTriggerSql);
       await new Promise(r => setTimeout(r, 50));
     }
 
-    // 4. Add foreign keys for missing tables
-    try {
-      const { data: fks } = await supabase.rpc('get_foreign_keys_info') as any;
-      const relevantFks = (fks || []).filter((fk: any) => comparisonResults.missingTables.includes(fk.table_name));
-      for (const fk of relevantFks) {
-        const fkSql = `DO $$ BEGIN ALTER TABLE public."${fk.table_name}" ADD CONSTRAINT "${fk.constraint_name}" FOREIGN KEY ("${fk.column_name}") REFERENCES public."${fk.foreign_table_name}"("${fk.foreign_column_name}"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`;
-        await callExternalProxy('exec_sql', { sql: fkSql }).catch(() => {});
+    // === AUTO-FIX RETRY PHASE ===
+    if (failedItems.length > 0) {
+      setMigrationSyncProgress({ current: 0, total: failedItems.length, currentFile: 'Auto-fix retry...' });
+      const stillFailed: FailedItem[] = [];
+      
+      for (let i = 0; i < failedItems.length; i++) {
+        const item = failedItems[i];
+        setMigrationSyncProgress({ current: i + 1, total: failedItems.length, currentFile: `Retry: ${item.category} ${item.name}` });
+        
+        // Try auto-fix
+        const fixedSql = autoFixSql(item.sql, item.error);
+        if (fixedSql) {
+          const success = await execWithCapture(item.category, item.name, fixedSql);
+          if (!success) {
+            // Get the new error from the last failed item
+            const newFailed = failedItems[failedItems.length - 1];
+            stillFailed.push(newFailed);
+            failedItems.pop(); // remove the duplicate added by execWithCapture
+          }
+        } else {
+          // No fix available, try raw retry (dependency might be resolved now)
+          const success = await execWithCapture(item.category, item.name, item.sql);
+          if (!success) {
+            const newFailed = failedItems[failedItems.length - 1];
+            stillFailed.push(newFailed);
+            failedItems.pop();
+          }
+        }
+        await new Promise(r => setTimeout(r, 50));
       }
-    } catch {
-      // Non-critical
+
+      // Report final errors with SQL for debugging
+      for (const item of stillFailed) {
+        errors.push(`❌ ${item.category} ${item.name}:\nError: ${item.error}\nSQL: ${item.sql.substring(0, 500)}${item.sql.length > 500 ? '...' : ''}`);
+      }
+    }
+
+    // 4. Add foreign keys for missing tables
+    setMigrationSyncProgress({ current: totalSteps, total: totalSteps, currentFile: 'Foreign keys...' });
+    const relevantFks = allFks.filter((fk: any) => comparisonResults.missingTables.includes(fk.table_name));
+    for (const fk of relevantFks) {
+      const fkSql = `DO $$ BEGIN ALTER TABLE public."${fk.table_name}" ADD CONSTRAINT "${fk.constraint_name}" FOREIGN KEY ("${fk.column_name}") REFERENCES public."${fk.foreign_table_name}"("${fk.foreign_column_name}"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`;
+      await callExternalProxy('exec_sql', { sql: fkSql }).catch(() => {});
     }
 
     // 5. Reload PostgREST schema cache
@@ -698,11 +760,13 @@ const SystemRestore = () => {
       toast.warning(isRTL ? `تم التطبيق مع ${errors.length} أخطاء` : `Applied with ${errors.length} errors`);
     }
 
-    // Auto-close the progress dialog and re-run matching
-    setShowMigrationSyncDialog(false);
-    setTimeout(() => {
-      handleMatchCurrentSituation();
-    }, 500);
+    // Only auto-close and re-run if no errors; otherwise keep dialog open so user can see failed SQL
+    if (errors.length === 0) {
+      setShowMigrationSyncDialog(false);
+      setTimeout(() => {
+        handleMatchCurrentSituation();
+      }, 500);
+    }
   };
 
   // Match current situation - compare local vs external DB objects
@@ -3492,11 +3556,11 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
       </Dialog>
 
       {/* Migration Sync Progress Dialog */}
-      <Dialog open={showMigrationSyncDialog} onOpenChange={(open) => { if (!runningMigrationSync) setShowMigrationSyncDialog(open); }}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={showMigrationSyncDialog} onOpenChange={(open) => { if (!runningMigrationSync && !applyingMissingObjects) setShowMigrationSyncDialog(open); }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {runningMigrationSync ? (
+              {(runningMigrationSync || applyingMissingObjects) ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : migrationSyncErrors.length > 0 ? (
                 <AlertCircle className="h-5 w-5 text-destructive" />
@@ -3506,7 +3570,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               {isRTL ? 'تقدم ملفات الترحيل' : 'Migration Files Progress'}
             </DialogTitle>
             <DialogDescription>
-              {runningMigrationSync
+              {(runningMigrationSync || applyingMissingObjects)
                 ? `${migrationSyncProgress.current}/${migrationSyncProgress.total} - ${migrationSyncProgress.currentFile}`
                 : (isRTL ? 'اكتمل تشغيل ملفات الترحيل' : 'Migration files execution completed')}
             </DialogDescription>
@@ -3522,18 +3586,33 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
           )}
           
           {migrationSyncErrors.length > 0 && (
-            <ScrollArea className="max-h-48">
-              <div className="space-y-1">
+            <ScrollArea className="max-h-[50vh]">
+              <div className="space-y-2">
                 {migrationSyncErrors.map((err, i) => (
-                  <div key={i} className="text-xs text-destructive p-2 bg-destructive/10 rounded font-mono">{err}</div>
+                  <div key={i} className="text-xs text-destructive p-3 bg-destructive/10 rounded font-mono whitespace-pre-wrap break-all" dir="ltr">{err}</div>
                 ))}
               </div>
             </ScrollArea>
           )}
           
-          {!runningMigrationSync && (
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowMigrationSyncDialog(false)}>
+          {!runningMigrationSync && !applyingMissingObjects && (
+            <DialogFooter className="gap-2">
+              {migrationSyncErrors.length > 0 && (
+                <Button variant="secondary" onClick={() => {
+                  const allErrors = migrationSyncErrors.join('\n\n');
+                  navigator.clipboard.writeText(allErrors);
+                  toast.success(isRTL ? 'تم نسخ الأخطاء' : 'Errors copied to clipboard');
+                }}>
+                  <Copy className="h-3 w-3 mr-1" />
+                  {isRTL ? 'نسخ الأخطاء' : 'Copy Errors'}
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => {
+                setShowMigrationSyncDialog(false);
+                if (migrationSyncErrors.length > 0) {
+                  setTimeout(() => handleMatchCurrentSituation(), 500);
+                }
+              }}>
                 {isRTL ? 'إغلاق' : 'Close'}
               </Button>
             </DialogFooter>
