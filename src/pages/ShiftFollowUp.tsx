@@ -467,10 +467,14 @@ export default function ShiftFollowUp() {
   const handleHardCloseShift = async () => {
     if (!assignmentToHardClose) return;
     
-    // Filter sessions to only those opened on the selected date using KSA timezone
-    const sessionsForDate = normalizeSessionsToArray(assignmentToHardClose.shift_sessions).filter(session => {
+    // Filter sessions: match by KSA date OR include if it's the only session for this assignment
+    const allSessions = normalizeSessionsToArray(assignmentToHardClose.shift_sessions);
+    const sessionsForDate = allSessions.filter(session => {
       if (!session.opened_at) return false;
-      return isOnKSADate(session.opened_at, selectedDate);
+      if (isOnKSADate(session.opened_at, selectedDate)) return true;
+      // Include if it's the only session (e.g. opened late night UTC = next day KSA)
+      if (allSessions.length === 1) return true;
+      return false;
     });
     
     // Get the latest open session for this date
@@ -783,6 +787,7 @@ export default function ShiftFollowUp() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-right">{t("Shift Name")}</TableHead>
+                    <TableHead className="text-right">{"كود الوردية"}</TableHead>
                     <TableHead className="text-right">{t("Start Time")}</TableHead>
                     <TableHead className="text-right">{t("End Time")}</TableHead>
                     <TableHead className="text-right">{t("Assigned Person")}</TableHead>
@@ -825,6 +830,11 @@ export default function ShiftFollowUp() {
                           />
                           {assignment.shifts.shift_name}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-mono text-muted-foreground" title={latestSession?.id || ''}>
+                          {latestSession?.id ? latestSession.id.substring(0, 8) : '-'}
+                        </span>
                       </TableCell>
                       <TableCell>{assignment.shifts.shift_start_time}</TableCell>
                       <TableCell>{assignment.shifts.shift_end_time}</TableCell>
