@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS purpletransaction_temp_order_number_unique ON public.purpletransaction_temp (order_number);
