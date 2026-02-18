@@ -331,6 +331,7 @@ export type Database = {
           allow_product: boolean
           allow_sales_header: boolean
           allow_sales_line: boolean
+          allow_salla_transaction: boolean | null
           allow_supplier: boolean
           allow_supplier_product: boolean
           allow_zk_attendance: boolean | null
@@ -349,6 +350,7 @@ export type Database = {
           allow_product?: boolean
           allow_sales_header?: boolean
           allow_sales_line?: boolean
+          allow_salla_transaction?: boolean | null
           allow_supplier?: boolean
           allow_supplier_product?: boolean
           allow_zk_attendance?: boolean | null
@@ -367,6 +369,7 @@ export type Database = {
           allow_product?: boolean
           allow_sales_header?: boolean
           allow_sales_line?: boolean
+          allow_salla_transaction?: boolean | null
           allow_supplier?: boolean
           allow_supplier_product?: boolean
           allow_zk_attendance?: boolean | null
@@ -4902,6 +4905,150 @@ export type Database = {
         Relationships: []
       }
       purpletransaction: {
+        Row: {
+          bank_fee: number | null
+          brand_code: string | null
+          brand_name: string | null
+          coins_number: number | null
+          company: string | null
+          cost_price: number | null
+          cost_sold: number | null
+          created_at: string
+          created_at_date: string | null
+          created_at_date_int: number | null
+          customer_ip: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          device_fingerprint: string | null
+          id: string
+          is_api_reviewed: boolean | null
+          is_deleted: boolean
+          is_point: boolean | null
+          media: string | null
+          order_number: string | null
+          order_status: string | null
+          ordernumber: string | null
+          payment_brand: string | null
+          payment_method: string | null
+          payment_term: string | null
+          payment_type: string | null
+          player_id: string | null
+          point_value: number | null
+          product_id: string | null
+          product_name: string | null
+          profit: number | null
+          profit_center: string | null
+          qty: number | null
+          register_user_id: number | null
+          sendodoo: boolean | null
+          status: number | null
+          status_description: string | null
+          total: number | null
+          trans_type: string | null
+          transaction_location: string | null
+          transaction_type: string | null
+          unit_price: number | null
+          updated_at: string
+          user_name: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          bank_fee?: number | null
+          brand_code?: string | null
+          brand_name?: string | null
+          coins_number?: number | null
+          company?: string | null
+          cost_price?: number | null
+          cost_sold?: number | null
+          created_at?: string
+          created_at_date?: string | null
+          created_at_date_int?: number | null
+          customer_ip?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          device_fingerprint?: string | null
+          id?: string
+          is_api_reviewed?: boolean | null
+          is_deleted?: boolean
+          is_point?: boolean | null
+          media?: string | null
+          order_number?: string | null
+          order_status?: string | null
+          ordernumber?: string | null
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_term?: string | null
+          payment_type?: string | null
+          player_id?: string | null
+          point_value?: number | null
+          product_id?: string | null
+          product_name?: string | null
+          profit?: number | null
+          profit_center?: string | null
+          qty?: number | null
+          register_user_id?: number | null
+          sendodoo?: boolean | null
+          status?: number | null
+          status_description?: string | null
+          total?: number | null
+          trans_type?: string | null
+          transaction_location?: string | null
+          transaction_type?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_name?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          bank_fee?: number | null
+          brand_code?: string | null
+          brand_name?: string | null
+          coins_number?: number | null
+          company?: string | null
+          cost_price?: number | null
+          cost_sold?: number | null
+          created_at?: string
+          created_at_date?: string | null
+          created_at_date_int?: number | null
+          customer_ip?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          device_fingerprint?: string | null
+          id?: string
+          is_api_reviewed?: boolean | null
+          is_deleted?: boolean
+          is_point?: boolean | null
+          media?: string | null
+          order_number?: string | null
+          order_status?: string | null
+          ordernumber?: string | null
+          payment_brand?: string | null
+          payment_method?: string | null
+          payment_term?: string | null
+          payment_type?: string | null
+          player_id?: string | null
+          point_value?: number | null
+          product_id?: string | null
+          product_name?: string | null
+          profit?: number | null
+          profit_center?: string | null
+          qty?: number | null
+          register_user_id?: number | null
+          sendodoo?: boolean | null
+          status?: number | null
+          status_description?: string | null
+          total?: number | null
+          trans_type?: string | null
+          transaction_location?: string | null
+          transaction_type?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_name?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: []
+      }
+      purpletransaction_temp: {
         Row: {
           bank_fee: number | null
           brand_code: string | null
