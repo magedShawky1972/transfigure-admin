@@ -584,6 +584,12 @@ const SystemRestore = () => {
     } else {
       toast.warning(isRTL ? `تم التطبيق مع ${errors.length} أخطاء` : `Applied with ${errors.length} errors`);
     }
+
+    // Auto-close the progress dialog and re-run matching
+    setShowMigrationSyncDialog(false);
+    setTimeout(() => {
+      handleMatchCurrentSituation();
+    }, 500);
   };
 
   // Match current situation - compare local vs external DB objects
