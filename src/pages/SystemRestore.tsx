@@ -221,6 +221,9 @@ const SystemRestore = () => {
   const [matchingCurrentSituation, setMatchingCurrentSituation] = useState(false);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [applyingMissingObjects, setApplyingMissingObjects] = useState(false);
+  const [showScriptDialog, setShowScriptDialog] = useState(false);
+  const [generatedScript, setGeneratedScript] = useState('');
+  const [generatingScript, setGeneratingScript] = useState(false);
   const [comparisonResults, setComparisonResults] = useState<{
     localTables: string[];
     externalTables: string[];
@@ -400,6 +403,114 @@ const SystemRestore = () => {
     
     // Refresh state
     await loadMigrationTrackingState(externalUrl);
+  };
+
+  // Generate SQL script for preview
+  const generateMissingObjectsScript = async () => {
+    if (!comparisonResults) return;
+    setGeneratingScript(true);
+    const lines: string[] = ['-- Script to apply missing objects to external database\n'];
+
+    try {
+      // Types
+      if (comparisonResults.missingTypes?.length) {
+        lines.push('-- ======= MISSING TYPES =======');
+        for (const typeInfo of comparisonResults.missingTypes) {
+          if (typeInfo.type === 'enum' && typeInfo.values) {
+            const vals = typeInfo.values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
+            lines.push(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE TYPE public."${typeInfo.name}" AS ENUM (${vals}); END IF; END $$;\n`);
+          } else if (typeInfo.type === 'domain' && typeInfo.base) {
+            lines.push(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE DOMAIN public."${typeInfo.name}" AS ${typeInfo.base}; END IF; END $$;\n`);
+          }
+        }
+      }
+
+      // Tables
+      if (comparisonResults.missingTables.length) {
+        lines.push('\n-- ======= MISSING TABLES =======');
+        const { data: cols } = await supabase.rpc('get_table_columns_info') as any;
+        const { data: pks } = await supabase.rpc('get_primary_keys_info') as any;
+        for (const tableName of comparisonResults.missingTables) {
+          const tableCols = (cols || []).filter((c: any) => c.table_name === tableName);
+          if (tableCols.length === 0) { lines.push(`-- Table ${tableName}: No column info found`); continue; }
+          const colDefs = tableCols.map((c: any) => {
+            let def = `"${c.column_name}" `;
+            if (c.udt_name === 'uuid') def += 'UUID';
+            else if (c.udt_name === 'text') def += 'TEXT';
+            else if (c.udt_name === 'bool') def += 'BOOLEAN';
+            else if (c.udt_name === 'int4') def += 'INTEGER';
+            else if (c.udt_name === 'int8') def += 'BIGINT';
+            else if (c.udt_name === 'float8') def += 'DOUBLE PRECISION';
+            else if (c.udt_name === 'numeric') def += 'NUMERIC';
+            else if (c.udt_name === 'timestamptz') def += 'TIMESTAMP WITH TIME ZONE';
+            else if (c.udt_name === 'timestamp') def += 'TIMESTAMP WITHOUT TIME ZONE';
+            else if (c.udt_name === 'date') def += 'DATE';
+            else if (c.udt_name === 'jsonb') def += 'JSONB';
+            else if (c.udt_name === 'json') def += 'JSON';
+            else if (c.udt_name === '_text') def += 'TEXT[]';
+            else if (c.udt_name === '_int4') def += 'INTEGER[]';
+            else if (c.udt_name === '_uuid') def += 'UUID[]';
+            else if (c.udt_name === 'varchar') def += c.character_maximum_length ? `VARCHAR(${c.character_maximum_length})` : 'VARCHAR';
+            else def += c.data_type.toUpperCase();
+            if (c.column_default) def += ` DEFAULT ${c.column_default}`;
+            if (c.is_nullable === 'NO') def += ' NOT NULL';
+            return def;
+          }).join(',\n  ');
+          const tablePks = (pks || []).filter((p: any) => p.table_name === tableName).map((p: any) => `"${p.column_name}"`);
+          const pkClause = tablePks.length > 0 ? `,\n  PRIMARY KEY (${tablePks.join(', ')})` : '';
+          lines.push(`CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n);\nALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;\n`);
+        }
+      }
+
+      // Functions
+      if (comparisonResults.missingFunctions.length) {
+        lines.push('\n-- ======= MISSING FUNCTIONS =======');
+        const { data: funcs } = await supabase.rpc('get_db_functions_info') as any;
+        for (const funcName of comparisonResults.missingFunctions) {
+          const funcDef = (funcs || []).find((f: any) => f.function_name === funcName);
+          if (funcDef?.function_definition) {
+            lines.push(funcDef.function_definition + ';\n');
+          } else {
+            lines.push(`-- Function ${funcName}: No definition found`);
+          }
+        }
+      }
+
+      // Triggers
+      if (comparisonResults.missingTriggers.length) {
+        lines.push('\n-- ======= MISSING TRIGGERS =======');
+        const { data: triggers } = await supabase.rpc('get_triggers_info') as any;
+        for (const triggerStr of comparisonResults.missingTriggers) {
+          const [trigName, , tableName] = triggerStr.split(' ');
+          const trigDef = (triggers || []).find((t: any) => t.trigger_name === trigName && t.event_object_table === tableName);
+          if (trigDef) {
+            lines.push(`CREATE OR REPLACE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement};\n`);
+          } else {
+            lines.push(`-- Trigger ${triggerStr}: No definition found`);
+          }
+        }
+      }
+
+      // Foreign keys
+      if (comparisonResults.missingTables.length) {
+        const { data: fks } = await supabase.rpc('get_foreign_keys_info') as any;
+        const relevantFks = (fks || []).filter((fk: any) => comparisonResults.missingTables.includes(fk.table_name));
+        if (relevantFks.length) {
+          lines.push('\n-- ======= FOREIGN KEYS =======');
+          for (const fk of relevantFks) {
+            lines.push(`DO $$ BEGIN ALTER TABLE public."${fk.table_name}" ADD CONSTRAINT "${fk.constraint_name}" FOREIGN KEY ("${fk.column_name}") REFERENCES public."${fk.foreign_table_name}"("${fk.foreign_column_name}"); EXCEPTION WHEN duplicate_object THEN NULL; END $$;\n`);
+          }
+        }
+      }
+
+      lines.push("\nNOTIFY pgrst, 'reload schema';");
+      setGeneratedScript(lines.join('\n'));
+      setShowScriptDialog(true);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setGeneratingScript(false);
+    }
   };
 
   // Apply missing objects directly to external DB by fetching DDL from local
@@ -3614,13 +3725,46 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
             {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0) && (
-              <Button onClick={applyMissingObjects} disabled={applyingMissingObjects}>
-                <Play className="h-3 w-3 mr-1" />
-                {isRTL 
-                  ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} كائن مفقود` 
-                  : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} Missing Objects`}
-              </Button>
+              <>
+                <Button variant="secondary" onClick={generateMissingObjectsScript} disabled={generatingScript}>
+                  <FileText className="h-3 w-3 mr-1" />
+                  {generatingScript ? (isRTL ? 'جاري التوليد...' : 'Generating...') : (isRTL ? 'عرض السكريبت' : 'Show Script')}
+                </Button>
+                <Button onClick={applyMissingObjects} disabled={applyingMissingObjects}>
+                  <Play className="h-3 w-3 mr-1" />
+                  {isRTL 
+                    ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} كائن مفقود` 
+                    : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} Missing Objects`}
+                </Button>
+              </>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Show Script Dialog */}
+      <Dialog open={showScriptDialog} onOpenChange={setShowScriptDialog}>
+        <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? 'سكريبت SQL المُولّد' : 'Generated SQL Script'}</DialogTitle>
+            <DialogDescription>{isRTL ? 'السكريبت الذي سيتم تنفيذه لتطبيق الكائنات المفقودة' : 'The script that will be executed to apply missing objects'}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <pre className="text-xs p-4 bg-muted rounded-lg whitespace-pre-wrap font-mono leading-relaxed" dir="ltr">
+              {generatedScript}
+            </pre>
+          </ScrollArea>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => {
+              navigator.clipboard.writeText(generatedScript);
+              toast.success(isRTL ? 'تم نسخ السكريبت' : 'Script copied to clipboard');
+            }}>
+              <Copy className="h-3 w-3 mr-1" />
+              {isRTL ? 'نسخ' : 'Copy'}
+            </Button>
+            <Button variant="outline" onClick={() => setShowScriptDialog(false)}>
+              {isRTL ? 'إغلاق' : 'Close'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
