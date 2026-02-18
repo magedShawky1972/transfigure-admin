@@ -3275,6 +3275,42 @@ export type Database = {
           },
         ]
       }
+      external_migration_log: {
+        Row: {
+          connection_name: string | null
+          connection_url: string
+          created_at: string
+          id: string
+          last_data_sync_at: string | null
+          last_migration_file: string | null
+          last_migration_run_at: string | null
+          migration_files_applied: Json | null
+          updated_at: string
+        }
+        Insert: {
+          connection_name?: string | null
+          connection_url: string
+          created_at?: string
+          id?: string
+          last_data_sync_at?: string | null
+          last_migration_file?: string | null
+          last_migration_run_at?: string | null
+          migration_files_applied?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          connection_name?: string | null
+          connection_url?: string
+          created_at?: string
+          id?: string
+          last_data_sync_at?: string | null
+          last_migration_file?: string | null
+          last_migration_run_at?: string | null
+          migration_files_applied?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       generated_tables: {
         Row: {
           columns: Json

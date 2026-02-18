@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save, ArrowRightLeft, Users, HardDrive } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save, ArrowRightLeft, Users, HardDrive, RefreshCw, Clock, GitBranch } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
@@ -201,6 +201,25 @@ const SystemRestore = () => {
   const [loadingAvailableTables, setLoadingAvailableTables] = useState(false);
   const [tablesLoaded, setTablesLoaded] = useState(false);
   
+  // Migration tracking state
+  const [migrationLog, setMigrationLog] = useState<{
+    id?: string;
+    connection_url: string;
+    connection_name?: string;
+    last_migration_file?: string;
+    last_migration_run_at?: string;
+    last_data_sync_at?: string;
+    migration_files_applied: string[];
+  } | null>(null);
+  const [localMigrations, setLocalMigrations] = useState<{ version: string; name: string }[]>([]);
+  const [pendingMigrations, setPendingMigrations] = useState<{ version: string; name: string }[]>([]);
+  const [loadingMigrationState, setLoadingMigrationState] = useState(false);
+  const [runningMigrationSync, setRunningMigrationSync] = useState(false);
+  const [migrationSyncProgress, setMigrationSyncProgress] = useState<{ current: number; total: number; currentFile: string }>({ current: 0, total: 0, currentFile: '' });
+  const [showMigrationSyncDialog, setShowMigrationSyncDialog] = useState(false);
+  const [migrationSyncErrors, setMigrationSyncErrors] = useState<string[]>([]);
+  const [matchingCurrentSituation, setMatchingCurrentSituation] = useState(false);
+
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
   
@@ -222,6 +241,155 @@ const SystemRestore = () => {
     return data;
   };
   
+  // Load migration tracking state for current connection
+  const loadMigrationTrackingState = async (url: string) => {
+    setLoadingMigrationState(true);
+    try {
+      // Load log from DB
+      const { data: logData } = await supabase
+        .from('external_migration_log')
+        .select('*')
+        .eq('connection_url', url)
+        .maybeSingle();
+      
+      if (logData) {
+        setMigrationLog({
+          ...logData,
+          migration_files_applied: Array.isArray(logData.migration_files_applied) 
+            ? logData.migration_files_applied as string[]
+            : []
+        });
+      } else {
+        setMigrationLog(null);
+      }
+      
+      // Load local migrations list
+      const { data: migResult, error: migErr } = await supabase.functions.invoke('migrate-to-external', {
+        body: { action: 'list_local_migrations' }
+      });
+      
+      if (!migErr && migResult?.success) {
+        const migrations = migResult.migrations || [];
+        setLocalMigrations(migrations);
+        
+        // Calculate pending
+        const appliedFiles = logData?.migration_files_applied;
+        const appliedArray: string[] = Array.isArray(appliedFiles) ? (appliedFiles as any[]).map(String) : [];
+        const appliedSet = new Set(appliedArray);
+        const pending = migrations.filter((m: any) => !appliedSet.has(m.version));
+        setPendingMigrations(pending);
+      }
+    } catch (err) {
+      console.error('Error loading migration state:', err);
+    } finally {
+      setLoadingMigrationState(false);
+    }
+  };
+
+  // Run missing migration files on external DB
+  const runMissingMigrations = async (): Promise<boolean> => {
+    if (pendingMigrations.length === 0) return true;
+    
+    setRunningMigrationSync(true);
+    setShowMigrationSyncDialog(true);
+    setMigrationSyncErrors([]);
+    const errors: string[] = [];
+    const appliedVersions: string[] = [...(migrationLog?.migration_files_applied || [])];
+    
+    setMigrationSyncProgress({ current: 0, total: pendingMigrations.length, currentFile: '' });
+    
+    for (let i = 0; i < pendingMigrations.length; i++) {
+      const mig = pendingMigrations[i];
+      setMigrationSyncProgress({ current: i + 1, total: pendingMigrations.length, currentFile: mig.version });
+      
+      try {
+        // Get migration content from local DB
+        const { data: contentResult, error: contentErr } = await supabase.functions.invoke('migrate-to-external', {
+          body: { action: 'get_migration_content', tableName: mig.version }
+        });
+        
+        if (contentErr || !contentResult?.success) {
+          errors.push(`${mig.version}: Failed to get content`);
+          continue;
+        }
+        
+        const statements = contentResult.statements;
+        if (!statements || statements === '') {
+          // Migration has no stored statements, skip
+          appliedVersions.push(mig.version);
+          continue;
+        }
+        
+        // Execute on external DB
+        const result = await callExternalProxy('exec_sql', { sql: statements });
+        if (!result.success && result.error) {
+          errors.push(`${mig.version}: ${result.error}`);
+        } else {
+          appliedVersions.push(mig.version);
+        }
+      } catch (err: any) {
+        errors.push(`${mig.version}: ${err.message}`);
+      }
+      
+      await new Promise(r => setTimeout(r, 50));
+    }
+    
+    // Update tracking log
+    await saveMigrationLog(appliedVersions);
+    setMigrationSyncErrors(errors);
+    setRunningMigrationSync(false);
+    
+    return errors.length === 0;
+  };
+
+  // Save migration log to DB
+  const saveMigrationLog = async (appliedVersions: string[]) => {
+    const lastVersion = appliedVersions.length > 0 ? appliedVersions[appliedVersions.length - 1] : null;
+    
+    const logData = {
+      connection_url: externalUrl,
+      connection_name: savedConnections.find(c => c.url === externalUrl)?.name || new URL(externalUrl).hostname,
+      last_migration_file: lastVersion,
+      last_migration_run_at: new Date().toISOString(),
+      migration_files_applied: appliedVersions,
+    };
+    
+    if (migrationLog?.id) {
+      await supabase
+        .from('external_migration_log')
+        .update(logData)
+        .eq('id', migrationLog.id);
+    } else {
+      await supabase
+        .from('external_migration_log')
+        .upsert(logData, { onConflict: 'connection_url' });
+    }
+    
+    // Refresh state
+    await loadMigrationTrackingState(externalUrl);
+  };
+
+  // Match current situation - mark all local migrations as applied without running them
+  const handleMatchCurrentSituation = async () => {
+    setMatchingCurrentSituation(true);
+    try {
+      const allVersions = localMigrations.map(m => m.version);
+      await saveMigrationLog(allVersions);
+      toast.success(isRTL ? 'تم مطابقة الوضع الحالي بنجاح' : 'Current situation matched successfully');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setMatchingCurrentSituation(false);
+    }
+  };
+
+  // Auto-load migration tracking state when connection changes
+  useEffect(() => {
+    if (useExternalSupabase && externalUrl && connectionValid === true) {
+      loadMigrationTrackingState(externalUrl);
+    }
+  }, [useExternalSupabase, externalUrl, connectionValid]);
+
   // Fetch tables from external Supabase
   const fetchExternalTables = async (url: string, anonKey: string) => {
     setLoadingTables(true);
@@ -1139,6 +1307,15 @@ const SystemRestore = () => {
     const errors: string[] = [];
 
     try {
+      // Step 0: Run pending migration files first
+      if (pendingMigrations.length > 0) {
+        setMigrationCurrentStep(isRTL ? 'تشغيل ملفات الترحيل المعلقة...' : 'Running pending migration files...');
+        const migSuccess = await runMissingMigrations();
+        if (!migSuccess) {
+          toast.warning(isRTL ? 'بعض ملفات الترحيل فشلت، متابعة ترحيل البيانات...' : 'Some migration files failed, continuing with data migration...');
+        }
+      }
+      
       // Step 1: Migrate Data
       if (migrateDataEnabled) {
         setMigrationCurrentStep(isRTL ? 'تحميل قائمة الجداول...' : 'Loading table list...');
@@ -1373,6 +1550,21 @@ const SystemRestore = () => {
     } catch (err: any) {
       errors.push(`Migration: ${err.message}`);
     }
+
+    // Update data sync timestamp
+    try {
+      const logUpdate: any = {
+        connection_url: externalUrl,
+        connection_name: savedConnections.find(c => c.url === externalUrl)?.name || new URL(externalUrl).hostname,
+        last_data_sync_at: new Date().toISOString(),
+      };
+      if (migrationLog?.id) {
+        await supabase.from('external_migration_log').update(logUpdate).eq('id', migrationLog.id);
+      } else {
+        await supabase.from('external_migration_log').upsert(logUpdate, { onConflict: 'connection_url' });
+      }
+      await loadMigrationTrackingState(externalUrl);
+    } catch { /* ignore */ }
 
     setIsMigrating(false);
     setIsMigrationComplete(true);
@@ -2074,6 +2266,105 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Migration Tracking Status */}
+            <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <GitBranch className="h-4 w-4" />
+                  {isRTL ? 'حالة الترحيل' : 'Migration Status'}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => loadMigrationTrackingState(externalUrl)}
+                  disabled={loadingMigrationState}
+                >
+                  {loadingMigrationState ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
+              
+              {migrationLog ? (
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{isRTL ? 'آخر ملف ترحيل:' : 'Last Migration File:'}</span>
+                    <span className="font-mono text-xs">{migrationLog.last_migration_file || '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{isRTL ? 'آخر تشغيل:' : 'Last Run:'}</span>
+                    <span className="text-xs">
+                      {migrationLog.last_migration_run_at 
+                        ? new Date(migrationLog.last_migration_run_at).toLocaleString()
+                        : '-'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{isRTL ? 'الملفات المطبقة:' : 'Applied Files:'}</span>
+                    <Badge variant="secondary">{migrationLog.migration_files_applied.length}/{localMigrations.length}</Badge>
+                  </div>
+                  {pendingMigrations.length > 0 && (
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2 mt-2">
+                      <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                        <AlertTriangle className="h-3 w-3" />
+                        {isRTL 
+                          ? `${pendingMigrations.length} ملف ترحيل معلق` 
+                          : `${pendingMigrations.length} pending migration file(s)`}
+                      </div>
+                    </div>
+                  )}
+                  {pendingMigrations.length === 0 && localMigrations.length > 0 && (
+                    <div className="flex items-center gap-2 text-green-600 text-xs">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {isRTL ? 'جميع الملفات مطبقة' : 'All migration files applied'}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {loadingMigrationState 
+                    ? (isRTL ? 'جاري التحميل...' : 'Loading...')
+                    : (isRTL ? 'لم يتم العثور على سجل ترحيل لهذا الاتصال' : 'No migration log found for this connection')}
+                </p>
+              )}
+              
+              {/* Action buttons */}
+              <div className="flex gap-2 flex-wrap pt-2">
+                {pendingMigrations.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={runMissingMigrations}
+                    disabled={runningMigrationSync}
+                  >
+                    {runningMigrationSync ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Play className="h-3 w-3 mr-1" />
+                    )}
+                    {isRTL 
+                      ? `تشغيل ${pendingMigrations.length} ملف معلق` 
+                      : `Run ${pendingMigrations.length} Pending`}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMatchCurrentSituation}
+                  disabled={matchingCurrentSituation || localMigrations.length === 0}
+                >
+                  {matchingCurrentSituation ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                  )}
+                  {isRTL ? 'مطابقة الوضع الحالي' : 'Match Current Situation'}
+                </Button>
+              </div>
+            </div>
+            
             {/* Migration Options */}
             <div className="border rounded-lg p-4 space-y-3">
               <p className="text-sm font-medium">{isRTL ? 'خيارات الترحيل:' : 'Migration Options:'}</p>
@@ -2789,6 +3080,56 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Migration Sync Progress Dialog */}
+      <Dialog open={showMigrationSyncDialog} onOpenChange={(open) => { if (!runningMigrationSync) setShowMigrationSyncDialog(open); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {runningMigrationSync ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : migrationSyncErrors.length > 0 ? (
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              )}
+              {isRTL ? 'تقدم ملفات الترحيل' : 'Migration Files Progress'}
+            </DialogTitle>
+            <DialogDescription>
+              {runningMigrationSync
+                ? `${migrationSyncProgress.current}/${migrationSyncProgress.total} - ${migrationSyncProgress.currentFile}`
+                : (isRTL ? 'اكتمل تشغيل ملفات الترحيل' : 'Migration files execution completed')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {migrationSyncProgress.total > 0 && (
+            <div className="space-y-2">
+              <Progress value={(migrationSyncProgress.current / migrationSyncProgress.total) * 100} className="h-3" />
+              <p className="text-xs text-muted-foreground text-center">
+                {migrationSyncProgress.current}/{migrationSyncProgress.total}
+              </p>
+            </div>
+          )}
+          
+          {migrationSyncErrors.length > 0 && (
+            <ScrollArea className="max-h-48">
+              <div className="space-y-1">
+                {migrationSyncErrors.map((err, i) => (
+                  <div key={i} className="text-xs text-destructive p-2 bg-destructive/10 rounded font-mono">{err}</div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+          
+          {!runningMigrationSync && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowMigrationSyncDialog(false)}>
+                {isRTL ? 'إغلاق' : 'Close'}
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>
