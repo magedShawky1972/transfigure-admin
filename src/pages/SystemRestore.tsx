@@ -451,6 +451,7 @@ const SystemRestore = () => {
             else if (c.udt_name === '_int4') def += 'INTEGER[]';
             else if (c.udt_name === '_uuid') def += 'UUID[]';
             else if (c.udt_name === 'varchar') def += c.character_maximum_length ? `VARCHAR(${c.character_maximum_length})` : 'VARCHAR';
+            else if (c.data_type === 'USER-DEFINED') def += `public."${c.udt_name}"`;
             else def += c.data_type.toUpperCase();
             if (c.column_default) def += ` DEFAULT ${c.column_default}`;
             if (c.is_nullable === 'NO') def += ' NOT NULL';
@@ -589,6 +590,7 @@ const SystemRestore = () => {
           else if (c.udt_name === '_int4') def += 'INTEGER[]';
           else if (c.udt_name === '_uuid') def += 'UUID[]';
           else if (c.udt_name === 'varchar') def += c.character_maximum_length ? `VARCHAR(${c.character_maximum_length})` : 'VARCHAR';
+          else if (c.data_type === 'USER-DEFINED') def += `public."${c.udt_name}"`;
           else def += c.data_type.toUpperCase();
 
           if (c.column_default) def += ` DEFAULT ${c.column_default}`;
