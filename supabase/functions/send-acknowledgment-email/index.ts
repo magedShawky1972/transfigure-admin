@@ -174,7 +174,7 @@ function buildEmailHtml(title: string, content: string): string {
   <div class="container">
     <div class="header">
       <img src="${logoUrl}" alt="ASUS Card Logo" />
-      <h1>📋 قرار إداري جديد</h1>
+      <h1>قرار إداري جديد</h1>
     </div>
     <div class="content">
       <h2>${title}</h2>
