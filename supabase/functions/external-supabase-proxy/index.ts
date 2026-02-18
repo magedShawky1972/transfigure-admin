@@ -119,8 +119,9 @@ serve(async (req) => {
           const e = normalizeExternalError(sqlError);
           console.error('Exec SQL error:', e);
           
-          // Check if exec_sql function doesn't exist
-          if (e.message?.includes('function') || e.message?.includes('PGRST202') || e.message?.includes('does not exist')) {
+          // Check if exec_sql function itself doesn't exist (not a function referenced in SQL)
+          // Only trigger EXEC_SQL_NOT_FOUND for PGRST202 (function not found via PostgREST)
+          if (e.code === 'PGRST202' || (e.message?.includes('exec_sql') && e.message?.includes('does not exist'))) {
             return new Response(
               JSON.stringify({ 
                 success: false, 

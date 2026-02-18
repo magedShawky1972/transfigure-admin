@@ -594,17 +594,23 @@ const SystemRestore = () => {
     
     setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
 
-    // Helper to execute SQL with error capture
+    // Helper to execute SQL with error capture and real-time display
     const execWithCapture = async (category: string, name: string, sql: string): Promise<boolean> => {
       try {
         const result = await callExternalProxy('exec_sql', { sql });
-        if (!result.success && result.error) {
+        if (result && !result.success && result.error) {
+          const errMsg = `❌ ${category} ${name}: ${result.error}`;
           failedItems.push({ category, name, sql, error: result.error });
+          errors.push(errMsg);
+          setMigrationSyncErrors([...errors]);
           return false;
         }
         return true;
       } catch (err: any) {
+        const errMsg = `❌ ${category} ${name}: ${err.message}`;
         failedItems.push({ category, name, sql, error: err.message });
+        errors.push(errMsg);
+        setMigrationSyncErrors([...errors]);
         return false;
       }
     };
@@ -703,38 +709,37 @@ const SystemRestore = () => {
 
     // === AUTO-FIX RETRY PHASE ===
     if (failedItems.length > 0) {
-      setMigrationSyncProgress({ current: 0, total: failedItems.length, currentFile: 'Auto-fix retry...' });
-      const stillFailed: FailedItem[] = [];
+      // Clear first-pass errors before retry - we'll re-add any that still fail
+      const firstPassErrorCount = errors.length;
+      errors.splice(0, firstPassErrorCount);
+      setMigrationSyncErrors([]);
       
-      for (let i = 0; i < failedItems.length; i++) {
-        const item = failedItems[i];
-        setMigrationSyncProgress({ current: i + 1, total: failedItems.length, currentFile: `Retry: ${item.category} ${item.name}` });
+      const retryItems = [...failedItems];
+      failedItems.length = 0; // clear for retry phase
+      
+      setMigrationSyncProgress({ current: 0, total: retryItems.length, currentFile: 'Auto-fix retry phase...' });
+      
+      for (let i = 0; i < retryItems.length; i++) {
+        const item = retryItems[i];
+        setMigrationSyncProgress({ current: i + 1, total: retryItems.length, currentFile: `Retry: ${item.category} ${item.name}` });
         
-        // Try auto-fix
+        // Try auto-fix based on error
         const fixedSql = autoFixSql(item.sql, item.error);
-        if (fixedSql) {
-          const success = await execWithCapture(item.category, item.name, fixedSql);
-          if (!success) {
-            // Get the new error from the last failed item
-            const newFailed = failedItems[failedItems.length - 1];
-            stillFailed.push(newFailed);
-            failedItems.pop(); // remove the duplicate added by execWithCapture
+        const sqlToTry = fixedSql || item.sql;
+        
+        try {
+          const result = await callExternalProxy('exec_sql', { sql: sqlToTry });
+          if (result && !result.success && result.error) {
+            const errMsg = `❌ ${item.category} ${item.name}:\nError: ${result.error}\nSQL: ${item.sql.substring(0, 800)}${item.sql.length > 800 ? '...' : ''}`;
+            errors.push(errMsg);
+            setMigrationSyncErrors([...errors]);
           }
-        } else {
-          // No fix available, try raw retry (dependency might be resolved now)
-          const success = await execWithCapture(item.category, item.name, item.sql);
-          if (!success) {
-            const newFailed = failedItems[failedItems.length - 1];
-            stillFailed.push(newFailed);
-            failedItems.pop();
-          }
+        } catch (err: any) {
+          const errMsg = `❌ ${item.category} ${item.name}:\nError: ${err.message}\nSQL: ${item.sql.substring(0, 800)}${item.sql.length > 800 ? '...' : ''}`;
+          errors.push(errMsg);
+          setMigrationSyncErrors([...errors]);
         }
         await new Promise(r => setTimeout(r, 50));
-      }
-
-      // Report final errors with SQL for debugging
-      for (const item of stillFailed) {
-        errors.push(`❌ ${item.category} ${item.name}:\nError: ${item.error}\nSQL: ${item.sql.substring(0, 500)}${item.sql.length > 500 ? '...' : ''}`);
       }
     }
 
