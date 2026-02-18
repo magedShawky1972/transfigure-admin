@@ -132,6 +132,7 @@ const ApiConsumptionLogs = () => {
     "api-brand",
     "api-product",
     "api-zk-attendance",
+    "api-salla-transaction",
   ];
 
   const hasActiveColumnFilters = Object.values(columnFilters).some(v => v.trim() !== "");
