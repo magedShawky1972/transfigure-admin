@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -9,10 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Check, RotateCcw } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Plus, Trash2, Check, RotateCcw, ChevronsUpDown } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface OrderLine {
   id: string;
@@ -35,6 +38,8 @@ const SalesOrderEntry = () => {
   const [orderDate, setOrderDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerOpen, setCustomerOpen] = useState(false);
   const [brandId, setBrandId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentBrand, setPaymentBrand] = useState("");
@@ -174,6 +179,7 @@ const SalesOrderEntry = () => {
         ordernumber: orderNumber,
         user_name: currentUser?.name || "",
         trans_type: "manual",
+        company: "SupPurple",
         created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
         is_deleted: false,
       }));
@@ -260,14 +266,53 @@ const SalesOrderEntry = () => {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>{language === 'ar' ? 'اسم العميل' : 'Customer Name'}</Label>
-              <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder={language === 'ar' ? 'اسم العميل' : 'Customer Name'} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === 'ar' ? 'هاتف العميل' : 'Customer Phone'}</Label>
-              <Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder={language === 'ar' ? 'هاتف العميل' : 'Phone'} />
+            <div className="space-y-2 md:col-span-2">
+              <Label>{language === 'ar' ? 'العميل' : 'Customer'}</Label>
+              <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" aria-expanded={customerOpen} className="w-full justify-between font-normal">
+                    {customerName
+                      ? `${customerName}${customerPhone ? ` - ${customerPhone}` : ''}`
+                      : (language === 'ar' ? 'ابحث عن عميل...' : 'Search customer...')}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder={language === 'ar' ? 'ابحث بالاسم أو الهاتف...' : 'Search by name or phone...'}
+                      value={customerSearch}
+                      onValueChange={setCustomerSearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>{language === 'ar' ? 'لا يوجد عملاء' : 'No customers found'}</CommandEmpty>
+                      <CommandGroup>
+                        {customers
+                          .filter(c => {
+                            const q = customerSearch.toLowerCase();
+                            return !q || (c.customer_name?.toLowerCase().includes(q) || c.customer_phone?.toLowerCase().includes(q));
+                          })
+                          .slice(0, 50)
+                          .map(c => (
+                            <CommandItem
+                              key={c.id}
+                              value={`${c.customer_name || ''} ${c.customer_phone || ''}`}
+                              onSelect={() => {
+                                setCustomerName(c.customer_name || "");
+                                setCustomerPhone(c.customer_phone || "");
+                                setCustomerOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", customerPhone === c.customer_phone ? "opacity-100" : "opacity-0")} />
+                              <span className="font-medium">{c.customer_name || '—'}</span>
+                              <span className="text-muted-foreground ml-2">{c.customer_phone || ''}</span>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
