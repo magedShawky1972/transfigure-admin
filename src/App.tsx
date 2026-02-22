@@ -137,6 +137,7 @@ import CoinsReceivingPhase from "./pages/CoinsReceivingPhase";
 import CoinsWorkflowSetup from "./pages/CoinsWorkflowSetup";
 import CoinsPurchaseFollowUp from "./pages/CoinsPurchaseFollowUp";
 import MissingShiftImages from "./pages/MissingShiftImages";
+import SalesOrderEntry from "./pages/SalesOrderEntry";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -281,6 +282,7 @@ const App = () => (
               <Route path="/coins-workflow-setup" element={<CoinsWorkflowSetup />} />
               <Route path="/coins-purchase-followup" element={<CoinsPurchaseFollowUp />} />
               <Route path="/missing-shift-images" element={<MissingShiftImages />} />
+              <Route path="/sales-order-entry" element={<SalesOrderEntry />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
