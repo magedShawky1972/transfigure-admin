@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, Trash2, Check, RotateCcw, ChevronsUpDown } from "lucide-react";
+import { Plus, Trash2, Check, RotateCcw, ChevronsUpDown, Loader2 } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
@@ -52,6 +52,8 @@ const SalesOrderEntry = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [customerLoading, setCustomerLoading] = useState(false);
+  const customerSearchTimer = useRef<NodeJS.Timeout | null>(null);
   const [products, setProducts] = useState<any[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -75,17 +77,40 @@ const SalesOrderEntry = () => {
   };
 
   const fetchLookups = async () => {
-    const [brandsRes, pmRes, custRes, prodRes] = await Promise.all([
+    const [brandsRes, pmRes, prodRes] = await Promise.all([
       supabase.from("brands").select("id, brand_name, brand_code").eq("status", "active").order("brand_name"),
       supabase.from("payment_methods").select("id, payment_method, payment_type").eq("is_active", true).order("payment_method"),
-      supabase.from("customers").select("id, customer_name, customer_phone").order("customer_name").limit(500),
       supabase.from("products").select("id, product_name, cost_price, selling_price, brand_id").eq("status", "active").order("product_name").limit(1000),
     ]);
     setBrands(brandsRes.data || []);
     setPaymentMethods(pmRes.data || []);
-    setCustomers(custRes.data || []);
     setProducts(prodRes.data || []);
   };
+
+  const searchCustomers = useCallback(async (query: string) => {
+    if (!query || query.length < 2) {
+      setCustomers([]);
+      return;
+    }
+    setCustomerLoading(true);
+    try {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, customer_name, customer_phone")
+        .or(`customer_name.ilike.%${query}%,customer_phone.ilike.%${query}%`)
+        .order("customer_name")
+        .limit(50);
+      setCustomers(data || []);
+    } finally {
+      setCustomerLoading(false);
+    }
+  }, []);
+
+  const handleCustomerSearch = useCallback((value: string) => {
+    setCustomerSearch(value);
+    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current);
+    customerSearchTimer.current = setTimeout(() => searchCustomers(value), 300);
+  }, [searchCustomers]);
 
   const getFilteredProducts = (brandId: string) => {
     return brandId ? products.filter(p => p.brand_id === brandId) : products;
@@ -270,29 +295,32 @@ const SalesOrderEntry = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput
-                      placeholder={language === 'ar' ? 'ابحث بالاسم أو الهاتف...' : 'Search by name or phone...'}
+                      placeholder={language === 'ar' ? 'اكتب حرفين على الأقل للبحث...' : 'Type at least 2 chars to search...'}
                       value={customerSearch}
-                      onValueChange={setCustomerSearch}
+                      onValueChange={handleCustomerSearch}
                     />
                     <CommandList>
-                      <CommandEmpty>{language === 'ar' ? 'لا يوجد عملاء' : 'No customers found'}</CommandEmpty>
-                      <CommandGroup>
-                        {customers
-                          .filter(c => {
-                            const q = customerSearch.toLowerCase();
-                            return !q || (c.customer_name?.toLowerCase().includes(q) || c.customer_phone?.toLowerCase().includes(q));
-                          })
-                          .slice(0, 50)
-                          .map(c => (
+                      {customerLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : customerSearch.length < 2 ? (
+                        <CommandEmpty>{language === 'ar' ? 'اكتب حرفين على الأقل للبحث' : 'Type at least 2 characters to search'}</CommandEmpty>
+                      ) : customers.length === 0 ? (
+                        <CommandEmpty>{language === 'ar' ? 'لا يوجد عملاء' : 'No customers found'}</CommandEmpty>
+                      ) : (
+                        <CommandGroup>
+                          {customers.map(c => (
                             <CommandItem
                               key={c.id}
-                              value={`${c.customer_name || ''} ${c.customer_phone || ''}`}
+                              value={c.id}
                               onSelect={() => {
                                 setCustomerName(c.customer_name || "");
                                 setCustomerPhone(c.customer_phone || "");
                                 setCustomerOpen(false);
+                                setCustomerSearch("");
                               }}
                             >
                               <Check className={cn("mr-2 h-4 w-4", customerPhone === c.customer_phone ? "opacity-100" : "opacity-0")} />
@@ -300,7 +328,8 @@ const SalesOrderEntry = () => {
                               <span className="text-muted-foreground ml-2">{c.customer_phone || ''}</span>
                             </CommandItem>
                           ))}
-                      </CommandGroup>
+                        </CommandGroup>
+                      )}
                     </CommandList>
                   </Command>
                 </PopoverContent>
