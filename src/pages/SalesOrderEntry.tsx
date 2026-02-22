@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 interface OrderLine {
   id: string;
+  brand_id: string;
   product_name: string;
   qty: number;
   unit_price: number;
@@ -40,7 +41,6 @@ const SalesOrderEntry = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerOpen, setCustomerOpen] = useState(false);
-  const [brandId, setBrandId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentBrand, setPaymentBrand] = useState("");
   const [notes, setNotes] = useState("");
@@ -87,15 +87,14 @@ const SalesOrderEntry = () => {
     setProducts(prodRes.data || []);
   };
 
-  const selectedBrand = brands.find(b => b.id === brandId);
-
-  const filteredProducts = brandId
-    ? products.filter(p => p.brand_id === brandId)
-    : products;
+  const getFilteredProducts = (brandId: string) => {
+    return brandId ? products.filter(p => p.brand_id === brandId) : products;
+  };
 
   const addLine = () => {
     setLines(prev => [...prev, {
       id: generateTempId(),
+      brand_id: "",
       product_name: "",
       qty: 1,
       unit_price: 0,
@@ -114,6 +113,13 @@ const SalesOrderEntry = () => {
       if (line.id !== id) return line;
       const updated = { ...line, [field]: value };
       
+      // When brand changes, reset product
+      if (field === "brand_id") {
+        updated.product_name = "";
+        updated.unit_price = 0;
+        updated.cost_price = 0;
+      }
+
       if (field === "product_name") {
         const product = products.find(p => p.product_name === value);
         if (product) {
@@ -138,10 +144,6 @@ const SalesOrderEntry = () => {
   };
 
   const handleConfirm = async () => {
-    if (!brandId) {
-      toast({ title: language === 'ar' ? "يرجى اختيار العلامة التجارية" : "Please select a brand", variant: "destructive" });
-      return;
-    }
     if (!paymentMethod) {
       toast({ title: language === 'ar' ? "يرجى اختيار طريقة الدفع" : "Please select a payment method", variant: "destructive" });
       return;
@@ -150,8 +152,8 @@ const SalesOrderEntry = () => {
       toast({ title: language === 'ar' ? "يرجى إضافة سطر واحد على الأقل" : "Please add at least one line", variant: "destructive" });
       return;
     }
-    if (lines.some(l => !l.product_name || l.qty <= 0)) {
-      toast({ title: language === 'ar' ? "يرجى تعبئة جميع الأسطر بشكل صحيح" : "Please fill all lines correctly", variant: "destructive" });
+    if (lines.some(l => !l.brand_id || !l.product_name || l.qty <= 0)) {
+      toast({ title: language === 'ar' ? "يرجى تعبئة جميع الأسطر بشكل صحيح (العلامة التجارية والمنتج)" : "Please fill all lines correctly (Brand and Product)", variant: "destructive" });
       return;
     }
 
@@ -161,9 +163,11 @@ const SalesOrderEntry = () => {
       const orderDateObj = new Date(orderDate);
       const selectedPM = paymentMethods.find(pm => pm.payment_method === paymentMethod);
 
-      const rows = lines.map(line => ({
-        brand_name: selectedBrand?.brand_name || "",
-        brand_code: selectedBrand?.brand_code || "",
+      const rows = lines.map(line => {
+        const lineBrand = brands.find(b => b.id === line.brand_id);
+        return {
+          brand_name: lineBrand?.brand_name || "",
+          brand_code: lineBrand?.brand_code || "",
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
         product_name: line.product_name,
@@ -182,7 +186,8 @@ const SalesOrderEntry = () => {
         company: "SupPurple",
         created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
         is_deleted: false,
-      }));
+      };
+      });
 
       const { error } = await supabase.from("purpletransaction").insert(rows);
 
@@ -196,7 +201,7 @@ const SalesOrderEntry = () => {
       // Reset form
       setCustomerName("");
       setCustomerPhone("");
-      setBrandId("");
+      setPaymentMethod("");
       setPaymentMethod("");
       setPaymentBrand("");
       setNotes("");
@@ -212,7 +217,6 @@ const SalesOrderEntry = () => {
   const handleReset = () => {
     setCustomerName("");
     setCustomerPhone("");
-    setBrandId("");
     setPaymentMethod("");
     setPaymentBrand("");
     setNotes("");
@@ -240,18 +244,6 @@ const SalesOrderEntry = () => {
             <div className="space-y-2">
               <Label>{language === 'ar' ? 'التاريخ' : 'Date'}</Label>
               <Input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</Label>
-              <Select value={brandId} onValueChange={setBrandId}>
-                <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر العلامة التجارية' : 'Select Brand'} /></SelectTrigger>
-                <SelectContent>
-                  {brands.map(b => (
-                    <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">
@@ -340,6 +332,7 @@ const SalesOrderEntry = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8">#</TableHead>
+                  <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
                   <TableHead className="w-24">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
@@ -352,7 +345,7 @@ const SalesOrderEntry = () => {
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       {language === 'ar' ? 'لا توجد بنود. اضغط "إضافة سطر" لبدء الإدخال.' : 'No lines. Click "Add Line" to start.'}
                     </TableCell>
                   </TableRow>
@@ -361,12 +354,24 @@ const SalesOrderEntry = () => {
                     <TableRow key={line.id}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
+                        <Select value={line.brand_id} onValueChange={v => updateLine(line.id, "brand_id", v)}>
+                          <SelectTrigger className="min-w-[150px]">
+                            <SelectValue placeholder={language === 'ar' ? 'العلامة' : 'Brand'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {brands.map(b => (
+                              <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
                         <Select value={line.product_name} onValueChange={v => updateLine(line.id, "product_name", v)}>
                           <SelectTrigger className="min-w-[200px]">
                             <SelectValue placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'} />
                           </SelectTrigger>
                           <SelectContent>
-                            {filteredProducts.map(p => (
+                            {getFilteredProducts(line.brand_id).map(p => (
                               <SelectItem key={p.id} value={p.product_name}>{p.product_name}</SelectItem>
                             ))}
                           </SelectContent>
