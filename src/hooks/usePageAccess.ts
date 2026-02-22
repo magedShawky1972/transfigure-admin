@@ -126,6 +126,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/coins-purchase-followup": "coinsPurchaseFollowUp",
   "/acknowledgment-documents": "acknowledgmentDocuments",
   "/missing-shift-images": "missingShiftImages",
+  "/sales-order-entry": "salesOrderEntry",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {
