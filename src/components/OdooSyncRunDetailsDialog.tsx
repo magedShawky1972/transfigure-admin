@@ -482,28 +482,69 @@ export function OdooSyncRunDetailsDialog({
     }
   };
 
+  const saveSupplierToTransactions = useCallback(
+    async (row: DetailRow, supplierCode: string) => {
+      try {
+        // Find the supplier name from code
+        const supplier = suppliers.find(s => s.supplier_code === supplierCode);
+        if (!supplier) return;
+
+        // Get order numbers to update
+        const orderNumbers = row.original_orders && row.original_orders.length > 0
+          ? row.original_orders
+          : [row.order_number];
+
+        // Update purpletransaction records with the selected supplier
+        const { error } = await supabase
+          .from("purpletransaction")
+          .update({ vendor_name: supplier.supplier_name })
+          .in("order_number", orderNumbers);
+
+        if (error) {
+          console.error("Failed to save supplier to transactions:", error);
+        } else {
+          console.log(`Saved supplier ${supplier.supplier_name} to ${orderNumbers.length} orders`);
+        }
+      } catch (e) {
+        console.error("Error saving supplier:", e);
+      }
+    },
+    [suppliers]
+  );
+
   const retryDetail = useCallback(
     async (detailId: string, retryType: "all" | "order" | "purchase" = "all", supplierCode?: string) => {
       setRetryingId(`${detailId}_${retryType}`);
       try {
-        const { error } = await supabase.functions.invoke("retry-odoo-sync-detail", {
+        const { data, error } = await supabase.functions.invoke("retry-odoo-sync-detail", {
           body: { detailId, retryType, supplierCode },
         });
         if (error) throw error;
-        // Clear selected supplier for this row after successful retry
+        
+        const result = data as { success: boolean; finalStatus?: string; error?: string };
+        
+        // Clear selected supplier for this row after retry
         setSelectedSuppliers(prev => {
           const next = { ...prev };
           delete next[detailId];
           return next;
         });
         await fetchDetails();
-        toast({
-          title: language === "ar" ? "تمت إعادة المحاولة" : "Retried",
-          description:
-            language === "ar"
-              ? "تم تحديث حالة السجل"
-              : "Record status updated",
-        });
+        
+        if (result?.success) {
+          toast({
+            title: language === "ar" ? "نجحت إعادة المحاولة ✅" : "Retry Successful ✅",
+            description: language === "ar"
+              ? "تم إرسال الطلب بنجاح إلى Odoo"
+              : "Order sent successfully to Odoo",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: language === "ar" ? "فشل إعادة المحاولة ❌" : "Retry Failed ❌",
+            description: result?.error || (language === "ar" ? "فشل في الإرسال" : "Failed to sync"),
+          });
+        }
       } catch (e) {
         console.error("Retry failed", e);
         toast({
@@ -703,7 +744,10 @@ export function OdooSyncRunDetailsDialog({
                                 ) : (
                                   <Select
                                     value={selectedSuppliers[r.id] || ""}
-                                    onValueChange={(value) => setSelectedSuppliers(prev => ({ ...prev, [r.id]: value }))}
+                                    onValueChange={(value) => {
+                                      setSelectedSuppliers(prev => ({ ...prev, [r.id]: value }));
+                                      saveSupplierToTransactions(r, value);
+                                    }}
                                   >
                                     <SelectTrigger className="w-[180px] h-8 text-sm border-orange-400">
                                       <SelectValue placeholder={language === "ar" ? "اختر المورد" : "Select Supplier"} />
