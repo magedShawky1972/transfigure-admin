@@ -9254,6 +9254,25 @@ export type Database = {
         Args: { date_from: string; date_to: string; p_brand_type?: string }
         Returns: {
           brand_type_name: string
+          total_qty: number
+          total_revenue: number
+          transaction_count: number
+        }[]
+      }
+      revenue_by_brand_type_brands: {
+        Args: { date_from: string; date_to: string; p_brand_type: string }
+        Returns: {
+          brand_name: string
+          total_qty: number
+          total_revenue: number
+          transaction_count: number
+        }[]
+      }
+      revenue_by_brand_type_products: {
+        Args: { date_from: string; date_to: string; p_brand_name: string }
+        Returns: {
+          product_name: string
+          total_qty: number
           total_revenue: number
           transaction_count: number
         }[]
