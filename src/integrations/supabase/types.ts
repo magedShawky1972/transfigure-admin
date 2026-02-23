@@ -8960,6 +8960,7 @@ export type Database = {
         Returns: {
           brand_type_name: string
           total_cost: number
+          total_qty: number
           transaction_count: number
         }[]
       }
@@ -8968,6 +8969,7 @@ export type Database = {
         Returns: {
           brand_name: string
           total_cost: number
+          total_qty: number
           transaction_count: number
         }[]
       }
@@ -8976,6 +8978,7 @@ export type Database = {
         Returns: {
           product_name: string
           total_cost: number
+          total_qty: number
           transaction_count: number
         }[]
       }
