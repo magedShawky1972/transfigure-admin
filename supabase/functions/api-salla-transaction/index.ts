@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// KSA timezone offset (UTC+3)
 const KSA_OFFSET_HOURS = 3;
 
 const getKSATimestamp = (): string => {
@@ -40,7 +39,6 @@ const computeDateInt = (dateStr: string | null): number | null => {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return null;
-    // Convert to KSA time
     const ksaTime = new Date(d.getTime() + (KSA_OFFSET_HOURS * 60 * 60 * 1000));
     const year = ksaTime.getUTCFullYear();
     const month = String(ksaTime.getUTCMonth() + 1).padStart(2, '0');
@@ -49,6 +47,13 @@ const computeDateInt = (dateStr: string | null): number | null => {
   } catch {
     return null;
   }
+};
+
+const getField = (obj: Record<string, any>, ...keys: string[]): any => {
+  for (const key of keys) {
+    if (obj[key] !== undefined) return obj[key];
+  }
+  return undefined;
 };
 
 Deno.serve(async (req) => {
@@ -110,7 +115,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify API key and permissions
     const { data: apiKey, error: keyError } = await supabase
       .from('api_keys')
       .select('*')
@@ -154,9 +158,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate required fields
-    const requiredFields = fieldConfigs.map((config: any) => config.field_name);
-    const missingFields = requiredFields.filter((field: string) => !body[field]);
+    // Validate required fields (check header-level fields only, exclude line-level fields)
+    const lineFieldNames = ['Product_Name', 'product_name', 'Total', 'total', 'Quantity', 'quantity', 'qty', 'Coins_Number', 'coins_number'];
+    const requiredFields = (fieldConfigs || []).map((config: any) => config.field_name);
+    const headerRequiredFields = requiredFields.filter((field: string) => !lineFieldNames.includes(field));
+    const missingFields = headerRequiredFields.filter((field: string) => !body[field]);
     
     if (missingFields.length > 0) {
       responseStatus = 400;
@@ -173,12 +179,12 @@ Deno.serve(async (req) => {
     }
 
     // Parse order_date as KSA time
-    const orderDateRaw = body.Order_Date || body.order_date || body.Order_date || body.created_at_date;
+    const orderDateRaw = getField(body, 'Order_Date', 'order_date', 'Order_date', 'created_at_date');
     const parsedOrderDate = parseToKSATimestamp(orderDateRaw);
     const dateInt = computeDateInt(parsedOrderDate || orderDateRaw);
 
     // Parse status
-    let statusValue = body.Status || body.status;
+    let statusValue = getField(body, 'Status', 'status');
     if (typeof statusValue === 'string') {
       const statusMap: Record<string, number> = {
         'pending': 0, 'processing': 1, 'completed': 2, 'cancelled': 3, 'refunded': 4,
@@ -186,60 +192,88 @@ Deno.serve(async (req) => {
       statusValue = statusMap[statusValue.toLowerCase()] ?? (parseInt(statusValue, 10) || 0);
     }
 
-    const insertData: Record<string, any> = {
-      order_number: body.Order_Number || body.order_number,
-      customer_phone: body.Customer_Phone || body.customer_phone,
-      customer_name: body.Customer_Name || body.customer_name,
+    // Build shared header data
+    const headerData: Record<string, any> = {
+      order_number: getField(body, 'Order_Number', 'order_number'),
+      customer_phone: getField(body, 'Customer_Phone', 'customer_phone'),
+      customer_name: getField(body, 'Customer_Name', 'customer_name'),
       created_at_date: parsedOrderDate || orderDateRaw,
       created_at_date_int: dateInt,
-      brand_name: body.Brand_Name || body.brand_name,
-      brand_code: body.Brand_Code || body.brand_code,
-      product_name: body.Product_Name || body.product_name,
-      product_id: body.Product_Id || body.product_id,
-      coins_number: body.Coins_Number || body.coins_number,
-      unit_price: body.Unit_Price || body.unit_price,
-      cost_price: body.Cost_Price || body.cost_price,
-      qty: body.Quantity || body.qty || body.quantity,
-      cost_sold: body.Cost_Sold || body.cost_sold,
-      total: body.Total || body.total,
-      profit: body.Profit || body.profit,
-      payment_method: body.Payment_Method || body.payment_method,
-      payment_type: body.Payment_Type || body.payment_type,
-      payment_brand: body.Payment_Brand || body.payment_brand,
-      company: body.Company || body.company || 'Purple',
+      brand_name: getField(body, 'Brand_Name', 'brand_name'),
+      brand_code: getField(body, 'Brand_Code', 'brand_code'),
+      payment_method: getField(body, 'Payment_Method', 'payment_method'),
+      payment_type: getField(body, 'Payment_Type', 'payment_type'),
+      payment_brand: getField(body, 'Payment_Brand', 'payment_brand'),
+      company: getField(body, 'Company', 'company') || 'Purple',
       status: statusValue,
-      status_description: body.Status_Description || body.status_description,
-      user_name: body.Sales_Person || body.user_name || body.sales_person,
-      transaction_type: body.Transaction_Type || body.transaction_type,
-      media: body.Media || body.media,
-      profit_center: body.Profit_Center || body.profit_center || 'Salla',
-      customer_ip: body.Customer_IP || body.customer_ip,
-      device_fingerprint: body.Device_Fingerprint || body.device_fingerprint,
-      transaction_location: body.Transaction_Location || body.transaction_location,
-      payment_term: body.Payment_Term || body.payment_term,
-      player_id: body.Player_Id || body.player_id,
+      status_description: getField(body, 'Status_Description', 'status_description'),
+      user_name: getField(body, 'Sales_Person', 'user_name', 'sales_person'),
+      transaction_type: getField(body, 'Transaction_Type', 'transaction_type'),
+      media: getField(body, 'Media', 'media'),
+      profit_center: getField(body, 'Profit_Center', 'profit_center') || 'Salla',
+      customer_ip: getField(body, 'Customer_IP', 'customer_ip'),
+      device_fingerprint: getField(body, 'Device_Fingerprint', 'device_fingerprint'),
+      transaction_location: getField(body, 'Transaction_Location', 'transaction_location'),
+      payment_term: getField(body, 'Payment_Term', 'payment_term'),
       is_point: body.Point !== undefined ? body.Point : (body.is_point ?? false),
-      point_value: body.Point_Value || body.point_value,
-      vendor_name: body.Vendor_Name || body.vendor_name,
-      order_status: body.Order_Status || body.order_status,
-      ordernumber: body.Order_Number || body.order_number,
+      point_value: getField(body, 'Point_Value', 'point_value'),
+      vendor_name: getField(body, 'Vendor_Name', 'vendor_name'),
+      order_status: getField(body, 'Order_Status', 'order_status'),
       created_at: getKSATimestamp(),
     };
 
-    // Remove undefined values
-    Object.keys(insertData).forEach(key => {
-      if (insertData[key] === undefined) delete insertData[key];
-    });
+    // Determine lines: support both array "lines" and flat single-product body
+    const rawLines: any[] = body.lines || body.Lines || [];
+    
+    let lines: any[];
+    if (rawLines.length > 0) {
+      // Multi-line: use the lines array
+      lines = rawLines;
+    } else {
+      // Backward-compatible: treat the body itself as a single line
+      lines = [body];
+    }
 
-    // Upsert with order_number as conflict key
+    const insertRows: Record<string, any>[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineOrderNumber = rawLines.length > 0
+        ? `${headerData.order_number}-${i + 1}`
+        : headerData.order_number;
+
+      const row: Record<string, any> = {
+        ...headerData,
+        order_number: lineOrderNumber,
+        ordernumber: headerData.order_number, // original order number for grouping
+        product_name: getField(line, 'Product_Name', 'product_name'),
+        product_id: getField(line, 'Product_Id', 'product_id'),
+        coins_number: getField(line, 'Coins_Number', 'coins_number'),
+        unit_price: getField(line, 'Unit_Price', 'unit_price'),
+        cost_price: getField(line, 'Cost_Price', 'cost_price'),
+        qty: getField(line, 'Quantity', 'qty', 'quantity'),
+        cost_sold: getField(line, 'Cost_Sold', 'cost_sold'),
+        total: getField(line, 'Total', 'total'),
+        profit: getField(line, 'Profit', 'profit'),
+        player_id: getField(line, 'Player_Id', 'player_id'),
+      };
+
+      // Remove undefined values
+      Object.keys(row).forEach(key => {
+        if (row[key] === undefined) delete row[key];
+      });
+
+      insertRows.push(row);
+    }
+
+    // Upsert all rows
     const { data: insertedData, error: insertError } = await supabase
       .from('purpletransaction_temp')
-      .upsert(insertData, { 
+      .upsert(insertRows, { 
         onConflict: 'order_number',
         ignoreDuplicates: false 
       })
-      .select('id, created_at')
-      .single();
+      .select('id, order_number, created_at');
 
     if (insertError) {
       console.error('Error inserting Salla transaction:', insertError);
@@ -257,15 +291,13 @@ Deno.serve(async (req) => {
     }
 
     console.log('Salla transaction inserted successfully:', insertedData);
-    responseMessage = 'Salla transaction created/updated successfully';
+    responseMessage = `Salla transaction created/updated successfully (${insertRows.length} line(s))`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
-      data: {
-        id: insertedData.id,
-        created_at: insertedData.created_at
-      }
+      lines_count: insertRows.length,
+      data: insertedData
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
