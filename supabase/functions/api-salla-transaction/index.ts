@@ -199,8 +199,6 @@ Deno.serve(async (req) => {
       customer_name: getField(body, 'Customer_Name', 'customer_name'),
       created_at_date: parsedOrderDate || orderDateRaw,
       created_at_date_int: dateInt,
-      brand_name: getField(body, 'Brand_Name', 'brand_name'),
-      brand_code: getField(body, 'Brand_Code', 'brand_code'),
       payment_method: getField(body, 'Payment_Method', 'payment_method'),
       payment_type: getField(body, 'Payment_Type', 'payment_type'),
       payment_brand: getField(body, 'Payment_Brand', 'payment_brand'),
@@ -246,6 +244,8 @@ Deno.serve(async (req) => {
         ...headerData,
         order_number: lineOrderNumber,
         ordernumber: headerData.order_number, // original order number for grouping
+        brand_name: getField(line, 'Brand_Name', 'brand_name'),
+        brand_code: getField(line, 'Brand_Code', 'brand_code'),
         product_name: getField(line, 'Product_Name', 'product_name'),
         product_id: getField(line, 'Product_Id', 'product_id'),
         coins_number: getField(line, 'Coins_Number', 'coins_number'),
