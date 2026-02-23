@@ -486,7 +486,7 @@ const ApiDocumentation = () => {
     const arrayFields: Record<string, any[]> = {};
     const regularFields: any[] = [];
 
-    fields.filter((field: any) => field.required).forEach((field: any) => {
+    fields.forEach((field: any) => {
       const match = field.name.match(/^(\w+)\[\]\.(\w+)$/);
       if (match) {
         const arrayName = match[1];
@@ -494,11 +494,10 @@ const ApiDocumentation = () => {
         if (!arrayFields[arrayName]) {
           arrayFields[arrayName] = [];
         }
-        arrayFields[arrayName].push({ name: propName, type: field.type });
+        arrayFields[arrayName].push({ name: propName, type: field.type, required: field.required });
       } else if (field.type === 'Array') {
-        // This is the array field itself, skip it as we'll handle it via child fields
         arrayFields[field.name] = arrayFields[field.name] || [];
-      } else if (field.type !== 'Query Param' && field.type !== 'Header') {
+      } else if (field.required && field.type !== 'Query Param' && field.type !== 'Header') {
         regularFields.push(field);
       }
     });
