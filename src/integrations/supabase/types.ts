@@ -8963,6 +8963,22 @@ export type Database = {
           transaction_count: number
         }[]
       }
+      cost_by_brand_type_brands: {
+        Args: { date_from: string; date_to: string; p_brand_type: string }
+        Returns: {
+          brand_name: string
+          total_cost: number
+          transaction_count: number
+        }[]
+      }
+      cost_by_brand_type_products: {
+        Args: { date_from: string; date_to: string; p_brand_name: string }
+        Returns: {
+          product_name: string
+          total_cost: number
+          transaction_count: number
+        }[]
+      }
       customer_stats: {
         Args: never
         Returns: {
