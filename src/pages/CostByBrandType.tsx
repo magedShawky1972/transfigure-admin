@@ -17,18 +17,21 @@ interface ReportResult {
   brand_type_name: string;
   total_cost: number;
   transaction_count: number;
+  total_qty: number;
 }
 
 interface BrandDetail {
   brand_name: string;
   total_cost: number;
   transaction_count: number;
+  total_qty: number;
 }
 
 interface ProductDetail {
   product_name: string;
   total_cost: number;
   transaction_count: number;
+  total_qty: number;
 }
 
 const CostByBrandType = () => {
@@ -92,7 +95,7 @@ const CostByBrandType = () => {
       });
       if (error) throw error;
       setReportResults((data || []).map((row: any) => ({
-        brand_type_name: row.brand_type_name, total_cost: Number(row.total_cost), transaction_count: Number(row.transaction_count),
+        brand_type_name: row.brand_type_name, total_cost: Number(row.total_cost), transaction_count: Number(row.transaction_count), total_qty: Number(row.total_qty),
       })));
       setDateRun(new Date().toLocaleString());
       toast.success("Report generated successfully");
@@ -121,7 +124,7 @@ const CostByBrandType = () => {
         setBrandDetails(prev => ({
           ...prev,
           [typeName]: (data || []).map((r: any) => ({
-            brand_name: r.brand_name, total_cost: Number(r.total_cost), transaction_count: Number(r.transaction_count),
+            brand_name: r.brand_name, total_cost: Number(r.total_cost), transaction_count: Number(r.transaction_count), total_qty: Number(r.total_qty),
           }))
         }));
       } catch (e: any) { toast.error(e.message); }
@@ -145,7 +148,7 @@ const CostByBrandType = () => {
         setProductDetails(prev => ({
           ...prev,
           [brandName]: (data || []).map((r: any) => ({
-            product_name: r.product_name, total_cost: Number(r.total_cost), transaction_count: Number(r.transaction_count),
+            product_name: r.product_name, total_cost: Number(r.total_cost), transaction_count: Number(r.transaction_count), total_qty: Number(r.total_qty),
           }))
         }));
       } catch (e: any) { toast.error(e.message); }
@@ -156,6 +159,7 @@ const CostByBrandType = () => {
   const fmtNum = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const totalCost = reportResults.reduce((s, r) => s + r.total_cost, 0);
   const totalTransactions = reportResults.reduce((s, r) => s + r.transaction_count, 0);
+  const totalQty = reportResults.reduce((s, r) => s + r.total_qty, 0);
 
   const exportToCSV = () => {
     if (reportResults.length === 0) { toast.error("No data to export"); return; }
@@ -272,6 +276,7 @@ const CostByBrandType = () => {
                 <tr className="border-b-2 border-border print:border-black">
                   <th className="text-left py-3 px-4 font-semibold print:text-black">Brand Type</th>
                   <th className="text-right py-3 px-4 font-semibold print:text-black">Amount</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">Quantity</th>
                   <th className="text-right py-3 px-4 font-semibold print:text-black">Transaction Count</th>
                   <th className="text-right py-3 px-4 font-semibold print:text-black">Average</th>
                 </tr>
@@ -296,6 +301,7 @@ const CostByBrandType = () => {
                         </div>
                       </td>
                       <td className="text-right py-3 px-4 print:text-black">{fmtNum(row.total_cost)}</td>
+                      <td className="text-right py-3 px-4 print:text-black">{row.total_qty.toLocaleString()}</td>
                       <td className="text-right py-3 px-4 print:text-black">{row.transaction_count}</td>
                       <td className="text-right py-3 px-4 print:text-black">
                         {fmtNum(row.transaction_count > 0 ? row.total_cost / row.transaction_count : 0)}
@@ -306,7 +312,7 @@ const CostByBrandType = () => {
                     {expandedTypes.has(row.brand_type_name) && (
                       loadingBrands.has(row.brand_type_name) ? (
                         <tr key={`loading-brands-${index}`}>
-                          <td colSpan={4} className="py-2 px-8">
+                          <td colSpan={5} className="py-2 px-8">
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Loader2 className="h-4 w-4 animate-spin" /> Loading brands...
                             </div>
@@ -331,6 +337,7 @@ const CostByBrandType = () => {
                                 </div>
                               </td>
                               <td className="text-right py-2 px-4 print:text-black">{fmtNum(brand.total_cost)}</td>
+                              <td className="text-right py-2 px-4 print:text-black">{brand.total_qty.toLocaleString()}</td>
                               <td className="text-right py-2 px-4 print:text-black">{brand.transaction_count}</td>
                               <td className="text-right py-2 px-4 print:text-black">
                                 {fmtNum(brand.transaction_count > 0 ? brand.total_cost / brand.transaction_count : 0)}
@@ -341,7 +348,7 @@ const CostByBrandType = () => {
                             {expandedBrands.has(brand.brand_name) && (
                               loadingProducts.has(brand.brand_name) ? (
                                 <tr key={`loading-products-${index}-${bIdx}`}>
-                                  <td colSpan={4} className="py-2 px-12">
+                                  <td colSpan={5} className="py-2 px-12">
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                       <Loader2 className="h-3 w-3 animate-spin" /> Loading products...
                                     </div>
@@ -357,6 +364,7 @@ const CostByBrandType = () => {
                                       {product.product_name}
                                     </td>
                                     <td className="text-right py-1.5 px-4 text-sm print:text-black">{fmtNum(product.total_cost)}</td>
+                                    <td className="text-right py-1.5 px-4 text-sm print:text-black">{product.total_qty.toLocaleString()}</td>
                                     <td className="text-right py-1.5 px-4 text-sm print:text-black">{product.transaction_count}</td>
                                     <td className="text-right py-1.5 px-4 text-sm print:text-black">
                                       {fmtNum(product.transaction_count > 0 ? product.total_cost / product.transaction_count : 0)}
@@ -376,6 +384,7 @@ const CostByBrandType = () => {
                 <tr className="border-t-2 border-border print:border-black font-bold bg-muted/30 print:bg-gray-200">
                   <td className="py-3 px-4 print:text-black">Total</td>
                   <td className="text-right py-3 px-4 print:text-black">{fmtNum(totalCost)}</td>
+                  <td className="text-right py-3 px-4 print:text-black">{totalQty.toLocaleString()}</td>
                   <td className="text-right py-3 px-4 print:text-black">{totalTransactions}</td>
                   <td className="text-right py-3 px-4 print:text-black">
                     {fmtNum(totalTransactions > 0 ? totalCost / totalTransactions : 0)}
