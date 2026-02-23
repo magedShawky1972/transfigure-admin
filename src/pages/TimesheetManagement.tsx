@@ -112,7 +112,9 @@ export default function TimesheetManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(null);
   const [sendingDeductionMails, setSendingDeductionMails] = useState(false);
-  const [filterMode, setFilterMode] = useState<"date" | "month">("date");
+  const [filterMode, setFilterMode] = useState<"date" | "month" | "range">("date");
+  const [dateFrom, setDateFrom] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
@@ -137,7 +139,7 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, selectedMonth, filterMode, selectedEmployee]);
+  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
@@ -241,6 +243,11 @@ export default function TimesheetManagement() {
         setLoading(false);
         return;
       }
+      if (filterMode === "range" && (!dateFrom || !dateTo)) {
+        setTimesheets([]);
+        setLoading(false);
+        return;
+      }
 
       // Fetch timesheets
       let query = supabase
@@ -254,6 +261,8 @@ export default function TimesheetManagement() {
 
       if (filterMode === "date") {
         query = query.eq("work_date", selectedDate);
+      } else if (filterMode === "range") {
+        query = query.gte("work_date", dateFrom).lte("work_date", dateTo);
       } else {
         // Month mode: filter by month range
         const [year, month] = selectedMonth.split("-").map(Number);
@@ -563,7 +572,7 @@ export default function TimesheetManagement() {
   };
 
   const handleResendDeductionMails = async () => {
-    if (filterMode === "month") {
+    if (filterMode !== "date") {
       toast.error(language === "ar" ? "يرجى اختيار يوم محدد لإرسال رسائل الخصم" : "Please select a specific date to send deduction mails");
       return;
     }
@@ -663,12 +672,13 @@ export default function TimesheetManagement() {
           <div className="flex flex-wrap gap-4 mb-6">
             <div className="space-y-2">
               <Label>{language === "ar" ? "نوع الفلتر" : "Filter By"}</Label>
-              <Select value={filterMode} onValueChange={(v) => setFilterMode(v as "date" | "month")}>
+              <Select value={filterMode} onValueChange={(v) => setFilterMode(v as "date" | "month" | "range")}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="date">{language === "ar" ? "يوم محدد" : "Specific Date"}</SelectItem>
+                  <SelectItem value="range">{language === "ar" ? "نطاق تاريخ" : "Date Range"}</SelectItem>
                   <SelectItem value="month">{language === "ar" ? "شهر كامل" : "Full Month"}</SelectItem>
                 </SelectContent>
               </Select>
@@ -683,6 +693,27 @@ export default function TimesheetManagement() {
                   className="w-40"
                 />
               </div>
+            ) : filterMode === "range" ? (
+              <>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "من تاريخ" : "Date From"}</Label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "إلى تاريخ" : "Date To"}</Label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+              </>
             ) : (
               <div className="space-y-2">
                 <Label>{language === "ar" ? "الشهر" : "Month"}</Label>
@@ -796,7 +827,7 @@ export default function TimesheetManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {filterMode === "month" && <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>}
+                  {filterMode !== "date" && <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>}
                   <TableHead>{language === "ar" ? "الموظف" : "Employee"}</TableHead>
                   <TableHead>{language === "ar" ? "المجدول" : "Scheduled"}</TableHead>
                   <TableHead>{language === "ar" ? "الفعلي" : "Actual"}</TableHead>
@@ -813,20 +844,20 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode === "month" ? 12 : 11} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 12 : 11} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : timesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode === "month" ? 12 : 11} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 12 : 11} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   timesheets.map((ts) => (
                     <TableRow key={ts.id}>
-                      {filterMode === "month" && (
+                      {filterMode !== "date" && (
                         <TableCell className="font-medium text-sm">
                           {format(parseISO(ts.work_date), "dd MMM")}
                         </TableCell>
