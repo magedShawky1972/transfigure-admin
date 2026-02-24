@@ -36,7 +36,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       from: "Edara Support <edara@asuscards.com>",
       to,
       subject,
-      content: "auto",
+      content: "text/html",
       html,
     });
     await smtpClient.close();
