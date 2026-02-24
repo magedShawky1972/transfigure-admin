@@ -158,13 +158,9 @@ All colors MUST be HSL.
     overflow: visible !important;
   }
 
-  /* Hide sidebar and layout chrome in print */
-  aside,
-  nav,
-  header,
-  [data-sidebar],
-  [data-radix-scroll-area-viewport] {
-    border: none !important;
+  /* Remove ALL borders/lines from entire page when printing */
+  body *:not([data-print-content="true"] *) {
+    border-color: transparent !important;
     box-shadow: none !important;
   }
 }
