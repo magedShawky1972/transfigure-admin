@@ -775,14 +775,18 @@ const ReceivingCoins = () => {
                 {isArabic ? "صور الاستلام من المورد" : "Receiving Images from Supplier"}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {lines.filter(l => l.brand_id && receivingImages[l.brand_id]).map(l => (
-                  <div key={l.brand_id} className="border rounded-lg p-2 space-y-1">
-                    <p className="text-xs font-medium text-center">{l.brand_name}</p>
-                    <a href={receivingImages[l.brand_id]} target="_blank" rel="noopener noreferrer">
-                      <img src={receivingImages[l.brand_id]} alt={l.brand_name} className="w-full h-32 object-contain rounded border" />
-                    </a>
-                  </div>
-                ))}
+                {Object.entries(receivingImages).map(([brandId, imageUrl]) => {
+                  const brandLine = lines.find(l => l.brand_id === brandId);
+                  const brandName = brandLine?.brand_name || brandId;
+                  return (
+                    <div key={brandId} className="border rounded-lg p-2 space-y-1">
+                      <p className="text-xs font-medium text-center">{brandName}</p>
+                      <a href={imageUrl} target="_blank" rel="noopener noreferrer">
+                        <img src={imageUrl} alt={brandName} className="w-full h-32 object-contain rounded border" />
+                      </a>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
