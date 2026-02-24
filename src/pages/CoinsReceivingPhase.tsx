@@ -80,8 +80,10 @@ const CoinsReceivingPhase = () => {
       });
       if (error) throw error;
       if (!data?.url) throw new Error("Upload failed");
+      // Store image in state first so it stays visible
+      setBrandReceivingImages(prev => ({ ...prev, [brandId]: data.url }));
       toast.success(isArabic ? "تم رفع الصورة" : "Image uploaded");
-      // Auto-save receiving record
+      // Auto-save receiving record (keeps image in state)
       await saveReceiving(brandId, data.url);
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
@@ -119,7 +121,6 @@ const CoinsReceivingPhase = () => {
       });
 
       toast.success(isArabic ? "تم تسجيل الاستلام" : "Receiving recorded");
-      setBrandReceivingImages(prev => { const n = { ...prev }; delete n[brandId]; return n; });
       setBrandReceivingNotes(prev => { const n = { ...prev }; delete n[brandId]; return n; });
       loadOrder(selectedOrder.id);
     } catch (err: any) {
@@ -356,9 +357,18 @@ const CoinsReceivingPhase = () => {
                   <div className="space-y-2">
                     <Label>{isArabic ? "صورة الاستلام من تطبيق المورد" : "Receiving Image from Supplier App"}</Label>
                     {image ? (
-                      <div className="relative inline-block">
-                        <img src={image} alt="Receiving" className="max-w-sm max-h-48 rounded-lg border object-contain" />
-                        <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setBrandReceivingImages(prev => { const n = { ...prev }; delete n[brandId]; return n; })}>✕</Button>
+                      <div className="space-y-2">
+                        <div className="relative inline-block">
+                          <img src={image} alt="Receiving" className="max-w-sm max-h-48 rounded-lg border object-contain" />
+                          <div className="absolute top-2 right-2 bg-green-600 text-white rounded-full p-1">
+                            <CheckCircle className="h-4 w-4" />
+                          </div>
+                        </div>
+                        <label className="inline-flex items-center gap-2 text-sm text-primary cursor-pointer hover:underline">
+                          <Upload className="h-4 w-4" />
+                          {isArabic ? "رفع صورة أخرى" : "Upload another image"}
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, brandId)} disabled={isUploading} />
+                        </label>
                       </div>
                     ) : (
                       <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
