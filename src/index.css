@@ -106,7 +106,7 @@ All colors MUST be HSL.
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border print:border-0 print:shadow-none;
   }
 
   body {
@@ -151,12 +151,25 @@ All colors MUST be HSL.
     color: black !important;
   }
 
-  /* Remove ALL borders and lines from the entire document when printing */
+  /* Force all text to dark black and remove all borders */
   * {
     border-width: 0 !important;
     border-style: none !important;
     box-shadow: none !important;
     outline: none !important;
+  }
+
+  body, body * {
+    color: #000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Keep primary color for headings only */
+  #coins-guide-print h1,
+  #coins-guide-print h2,
+  #coins-guide-print h3 {
+    color: #6b21a8 !important;
   }
 
   #coins-guide-print,
