@@ -493,7 +493,7 @@ const ReceivingCoins = () => {
       }
     }
     if (linesRes.data) {
-      setLines((linesRes.data as any[]).map(l => ({
+      const mappedLines = (linesRes.data as any[]).map(l => ({
         id: l.id,
         brand_id: l.brand_id || "",
         brand_name: l.brand_name || l.product_name || "",
@@ -503,7 +503,16 @@ const ReceivingCoins = () => {
         total: (l.coins || 0) * (l.unit_price || 0),
         is_confirmed: l.is_confirmed || false,
         confirmed_by_name: l.confirmed_by_name || "",
-      })));
+      }));
+      setLines(mappedLines);
+
+      // Auto-fix status: if any line confirmed but header still draft, update to partial_delivery
+      const anyConfirmed = mappedLines.some(l => l.is_confirmed);
+      const currentStatus = (headerRes.data as any)?.status || "draft";
+      if (anyConfirmed && currentStatus === "draft" && receiptId) {
+        await supabase.from("receiving_coins_header").update({ status: "partial_delivery" } as any).eq("id", receiptId);
+        setReceiptStatus("partial_delivery");
+      }
 
       // Try to load receiving images and confirmation status for brands in lines
       const brandIds = (linesRes.data as any[]).filter(l => l.brand_id).map(l => l.brand_id);
