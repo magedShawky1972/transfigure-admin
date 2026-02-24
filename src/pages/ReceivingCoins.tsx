@@ -161,7 +161,7 @@ const ReceivingCoins = () => {
   const fetchReceipts = async () => {
     const { data } = await supabase
       .from("receiving_coins_header")
-      .select("*")
+      .select("*, currencies(currency_code)")
       .order("created_at", { ascending: false })
       .limit(50);
     if (data) setReceipts(data);
@@ -415,7 +415,10 @@ const ReceivingCoins = () => {
                   <TableRow>
                     <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
                     <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                    <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
+                    <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
+                    <TableHead>{isArabic ? "سعر الصرف" : "Rate"}</TableHead>
+                    <TableHead>{isArabic ? "مبلغ المعاملة" : "Transaction Amt"}</TableHead>
+                    <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
                     <TableHead>{isArabic ? "المستلم" : "Receiver"}</TableHead>
                     <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                     <TableHead></TableHead>
@@ -424,25 +427,33 @@ const ReceivingCoins = () => {
                 <TableBody>
                   {receipts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                         {isArabic ? "لا توجد إيصالات" : "No receipts found"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    receipts.map(r => (
-                      <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadReceipt(r.id)}>
-                        <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
-                        <TableCell>{r.receipt_date}</TableCell>
-                        <TableCell>{parseFloat(r.total_amount).toFixed(2)}</TableCell>
-                        <TableCell>{r.receiver_name || "-"}</TableCell>
-                        <TableCell>{r.status}</TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    receipts.map(r => {
+                      const rate = parseFloat(r.exchange_rate) || 0;
+                      const sarAmount = parseFloat(r.control_amount) || 0;
+                      const txnAmount = rate > 0 ? sarAmount / rate : sarAmount;
+                      return (
+                        <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadReceipt(r.id)}>
+                          <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
+                          <TableCell>{r.receipt_date}</TableCell>
+                          <TableCell>{(r as any).currencies?.currency_code || "-"}</TableCell>
+                          <TableCell>{rate > 0 ? rate.toFixed(4) : "-"}</TableCell>
+                          <TableCell>{rate > 0 ? txnAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
+                          <TableCell>{sarAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell>{r.receiver_name || "-"}</TableCell>
+                          <TableCell>{r.status}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
