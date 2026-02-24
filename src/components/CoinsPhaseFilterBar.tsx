@@ -17,9 +17,9 @@ interface CoinsPhaseFilterBarProps {
   onFromDateChange: (date: Date | undefined) => void;
   onToDateChange: (date: Date | undefined) => void;
   /** Label for the "pending" option */
-  pendingLabel?: { ar: string; en: string };
+  pendingLabel?: string;
   /** Label for the "sent" option — what "sent to next phase" means */
-  sentLabel?: { ar: string; en: string };
+  sentLabel?: string;
 }
 
 const CoinsPhaseFilterBar = ({
@@ -29,11 +29,14 @@ const CoinsPhaseFilterBar = ({
   toDate,
   onFromDateChange,
   onToDateChange,
-  pendingLabel = { ar: "المعلقة فقط", en: "Pending Only" },
-  sentLabel = { ar: "المرسلة فقط", en: "Sent Only" },
+  pendingLabel,
+  sentLabel,
 }: CoinsPhaseFilterBarProps) => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
+
+  const displayPendingLabel = pendingLabel || (isArabic ? "المعلقة" : "Pending");
+  const displaySentLabel = sentLabel || (isArabic ? "المرسلة فقط" : "Sent Only");
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -43,8 +46,8 @@ const CoinsPhaseFilterBar = ({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="pending">{isArabic ? pendingLabel.ar : pendingLabel.en}</SelectItem>
-          <SelectItem value="sent">{isArabic ? sentLabel.ar : sentLabel.en}</SelectItem>
+          <SelectItem value="pending">{displayPendingLabel}</SelectItem>
+          <SelectItem value="sent">{displaySentLabel}</SelectItem>
           <SelectItem value="all">{isArabic ? "الكل" : "All"}</SelectItem>
         </SelectContent>
       </Select>
