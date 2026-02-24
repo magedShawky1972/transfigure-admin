@@ -25,7 +25,9 @@ interface LineItem {
   supplier_id: string;
   coins: number; 
   unit_price: number; 
-  total: number; 
+  total: number;
+  is_confirmed: boolean;
+  confirmed_by_name: string;
 }
 interface Attachment {
   id: string;
@@ -60,6 +62,7 @@ const ReceivingCoins = () => {
 
   // Receiving images from coins_purchase_receiving (per brand)
   const [receivingImages, setReceivingImages] = useState<Record<string, string>>({});
+  // confirmedBrands kept for receiving images only
   const [confirmedBrands, setConfirmedBrands] = useState<Record<string, { confirmed: boolean; confirmedBy: string; confirmedAt: string }>>({});
 
   // Dropdown data
@@ -145,6 +148,8 @@ const ReceivingCoins = () => {
           coins: 0,
           unit_price: 0,
           total: 0,
+          is_confirmed: false,
+          confirmed_by_name: "",
         })));
       }
 
@@ -173,14 +178,22 @@ const ReceivingCoins = () => {
   };
 
   const addLine = () => {
+    const lastLine = lines.length > 0 ? lines[lines.length - 1] : null;
+    const controlNum = parseFloat(controlAmount) || 0;
+    const remainingAmount = controlNum > 0 ? Math.max(0, controlNum - totalAmount) : 0;
+    const lastUnitPrice = lastLine?.unit_price || 0;
+    const remainingCoins = lastUnitPrice > 0 ? Math.round(remainingAmount / lastUnitPrice) : 0;
+    
     setLines([...lines, {
       id: crypto.randomUUID(),
-      brand_id: "",
-      brand_name: "",
-      supplier_id: "",
-      coins: 0,
-      unit_price: 0,
-      total: 0,
+      brand_id: lastLine?.brand_id || "",
+      brand_name: lastLine?.brand_name || "",
+      supplier_id: lastLine?.supplier_id || "",
+      coins: remainingCoins,
+      unit_price: lastUnitPrice,
+      total: remainingCoins * lastUnitPrice,
+      is_confirmed: false,
+      confirmed_by_name: "",
     }]);
   };
 
@@ -283,24 +296,45 @@ const ReceivingCoins = () => {
         const { error } = await supabase.from("receiving_coins_header").update(updateData as any).eq("id", selectedReceiptId);
         if (error) throw error;
         headerId = selectedReceiptId;
-        await supabase.from("receiving_coins_line").delete().eq("header_id", headerId);
+        // Only delete non-confirmed lines; confirmed lines stay
+        const confirmedLineIds = lines.filter(l => l.is_confirmed).map(l => l.id);
+        if (confirmedLineIds.length > 0) {
+          await supabase.from("receiving_coins_line").delete().eq("header_id", headerId).not("id", "in", `(${confirmedLineIds.join(",")})`);
+        } else {
+          await supabase.from("receiving_coins_line").delete().eq("header_id", headerId);
+        }
       } else {
         const { data, error } = await supabase.from("receiving_coins_header").insert(headerData as any).select("id").single();
         if (error) throw error;
         headerId = data.id;
       }
-      const lineInserts = lines.map(l => ({
-        header_id: headerId,
-        brand_id: l.brand_id || null,
-        brand_name: l.brand_name,
-        supplier_id: l.supplier_id || null,
-        product_id: null,
-        product_name: l.brand_name,
-        coins: l.coins,
-        unit_price: l.unit_price,
-      }));
-      const { error: lineError } = await supabase.from("receiving_coins_line").insert(lineInserts as any);
-      if (lineError) throw lineError;
+      // Only insert non-confirmed lines (confirmed ones were preserved)
+      const newLines = lines.filter(l => !l.is_confirmed);
+      if (newLines.length > 0) {
+        const lineInserts = newLines.map(l => ({
+          header_id: headerId,
+          brand_id: l.brand_id || null,
+          brand_name: l.brand_name,
+          supplier_id: l.supplier_id || null,
+          product_id: null,
+          product_name: l.brand_name,
+          coins: l.coins,
+          unit_price: l.unit_price,
+        }));
+        const { error: lineError } = await supabase.from("receiving_coins_line").insert(lineInserts as any);
+        if (lineError) throw lineError;
+      }
+      // Update confirmed lines data (coins, unit_price etc) in case they were modified before confirmation
+      const existingConfirmedLines = lines.filter(l => l.is_confirmed);
+      for (const cl of existingConfirmedLines) {
+        await supabase.from("receiving_coins_line").update({
+          brand_id: cl.brand_id || null,
+          brand_name: cl.brand_name,
+          supplier_id: cl.supplier_id || null,
+          coins: cl.coins,
+          unit_price: cl.unit_price,
+        } as any).eq("id", cl.id);
+      }
       if (attachments.length > 0) {
         const attInserts = attachments.map(a => ({
           header_id: headerId,
@@ -340,9 +374,9 @@ const ReceivingCoins = () => {
     setConfirmedBrands({});
   };
 
-  const handleConfirmBrand = async (brandId: string) => {
-    if (!linkedPurchaseOrderId) {
-      toast.error(isArabic ? "لا يوجد طلب شراء مرتبط" : "No linked purchase order");
+  const handleConfirmLine = async (lineId: string) => {
+    if (!selectedReceiptId) {
+      toast.error(isArabic ? "يرجى حفظ الإيصال أولاً" : "Please save the receipt first");
       return;
     }
     try {
@@ -351,45 +385,35 @@ const ReceivingCoins = () => {
       const userName = (profile as any)?.display_name || user?.email || "";
       const now = new Date().toISOString();
       const { error } = await supabase
-        .from("coins_purchase_receiving")
+        .from("receiving_coins_line")
         .update({
           is_confirmed: true,
           confirmed_by: user?.id,
           confirmed_by_name: userName,
           confirmed_at: now,
-        })
-        .eq("purchase_order_id", linkedPurchaseOrderId)
-        .eq("brand_id", brandId);
+        } as any)
+        .eq("id", lineId);
       if (error) throw error;
-      setConfirmedBrands(prev => ({
-        ...prev,
-        [brandId]: { confirmed: true, confirmedBy: userName, confirmedAt: now },
-      }));
+      setLines(prev => prev.map(l => l.id === lineId ? { ...l, is_confirmed: true, confirmed_by_name: userName } : l));
       toast.success(isArabic ? "تم تأكيد الاستلام" : "Receiving confirmed");
     } catch (err: any) {
       toast.error(err.message || "Error confirming");
     }
   };
 
-  const handleRollbackConfirm = async (brandId: string) => {
-    if (!linkedPurchaseOrderId) return;
+  const handleRollbackLine = async (lineId: string) => {
     try {
       const { error } = await supabase
-        .from("coins_purchase_receiving")
+        .from("receiving_coins_line")
         .update({
           is_confirmed: false,
           confirmed_by: null,
           confirmed_by_name: null,
           confirmed_at: null,
-        })
-        .eq("purchase_order_id", linkedPurchaseOrderId)
-        .eq("brand_id", brandId);
+        } as any)
+        .eq("id", lineId);
       if (error) throw error;
-      setConfirmedBrands(prev => {
-        const next = { ...prev };
-        next[brandId] = { confirmed: false, confirmedBy: "", confirmedAt: "" };
-        return next;
-      });
+      setLines(prev => prev.map(l => l.id === lineId ? { ...l, is_confirmed: false, confirmed_by_name: "" } : l));
       toast.success(isArabic ? "تم التراجع عن التأكيد" : "Confirmation rolled back");
     } catch (err: any) {
       toast.error(err.message || "Error rolling back");
@@ -463,6 +487,8 @@ const ReceivingCoins = () => {
         coins: l.coins || 0,
         unit_price: l.unit_price || 0,
         total: (l.coins || 0) * (l.unit_price || 0),
+        is_confirmed: l.is_confirmed || false,
+        confirmed_by_name: l.confirmed_by_name || "",
       })));
 
       // Try to load receiving images and confirmation status for brands in lines
@@ -790,10 +816,12 @@ const ReceivingCoins = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>{isArabic ? "العلامات التجارية" : "Brands"}</span>
+            {receiptStatus !== "closed" && (
             <Button size="sm" onClick={addLine}>
               <Plus className="h-4 w-4 mr-1" />
-              {isArabic ? "إضافة علامة" : "Add Brand"}
+              {isArabic ? "إضافة سطر جديد" : "Add New Line"}
             </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -807,20 +835,20 @@ const ReceivingCoins = () => {
                   <TableHead>{isArabic ? "العملات" : "Coins"}</TableHead>
                   <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                   <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
-                  {selectedReceiptId && linkedPurchaseOrderId && <TableHead>{isArabic ? "تأكيد الاستلام" : "Confirm"}</TableHead>}
+                  {selectedReceiptId && <TableHead>{isArabic ? "تأكيد الاستلام" : "Confirm"}</TableHead>}
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                     <TableCell colSpan={selectedReceiptId && linkedPurchaseOrderId ? 8 : 7} className="text-center text-muted-foreground">
+                     <TableCell colSpan={selectedReceiptId ? 8 : 7} className="text-center text-muted-foreground">
                       {isArabic ? "لا توجد علامات تجارية" : "No brands added"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   lines.map((line, idx) => {
-                    const isConfirmed = !!(line.brand_id && confirmedBrands[line.brand_id]?.confirmed);
+                    const isConfirmed = line.is_confirmed;
                     const isLocked = isConfirmed || receiptStatus === "closed";
                     return (
                     <TableRow key={line.id} className={isConfirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
@@ -860,7 +888,7 @@ const ReceivingCoins = () => {
                         <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[140px]" step="0.00000001" disabled={isLocked} />
                       </TableCell>
                       <TableCell className="font-semibold">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      {selectedReceiptId && linkedPurchaseOrderId && (
+                      {selectedReceiptId && (
                         <TableCell>
                           {isConfirmed ? (
                             <div className="flex items-center gap-2">
@@ -868,8 +896,8 @@ const ReceivingCoins = () => {
                                 <ShieldCheck className="h-4 w-4 text-green-600" />
                                 <div className="flex flex-col">
                                   <span className="font-medium text-green-600">{isArabic ? "مؤكد" : "Confirmed"}</span>
-                                  {confirmedBrands[line.brand_id]?.confirmedBy && (
-                                    <span className="text-muted-foreground">{confirmedBrands[line.brand_id].confirmedBy}</span>
+                                  {line.confirmed_by_name && (
+                                    <span className="text-muted-foreground">{line.confirmed_by_name}</span>
                                   )}
                                 </div>
                               </div>
@@ -877,7 +905,7 @@ const ReceivingCoins = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleRollbackConfirm(line.brand_id)}
+                                  onClick={() => handleRollbackLine(line.id)}
                                   title={isArabic ? "تراجع" : "Rollback"}
                                   className="h-7 w-7"
                                 >
@@ -889,7 +917,7 @@ const ReceivingCoins = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleConfirmBrand(line.brand_id)}
+                              onClick={() => handleConfirmLine(line.id)}
                               disabled={!line.brand_id || receiptStatus === "closed"}
                               className="text-xs"
                             >

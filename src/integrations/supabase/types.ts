@@ -5398,9 +5398,13 @@ export type Database = {
           brand_id: string | null
           brand_name: string | null
           coins: number
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_by_name: string | null
           created_at: string
           header_id: string
           id: string
+          is_confirmed: boolean | null
           product_id: string | null
           product_name: string | null
           supplier_id: string | null
@@ -5412,9 +5416,13 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string | null
           coins?: number
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_by_name?: string | null
           created_at?: string
           header_id: string
           id?: string
+          is_confirmed?: boolean | null
           product_id?: string | null
           product_name?: string | null
           supplier_id?: string | null
@@ -5426,9 +5434,13 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string | null
           coins?: number
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_by_name?: string | null
           created_at?: string
           header_id?: string
           id?: string
+          is_confirmed?: boolean | null
           product_id?: string | null
           product_name?: string | null
           supplier_id?: string | null
