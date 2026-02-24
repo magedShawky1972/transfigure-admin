@@ -349,6 +349,20 @@ const CoinsCreation = () => {
     setBankTransferFee(""); setSelectedOrderId(null); setLines([emptyLine(1)]);
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm(isArabic ? "هل أنت متأكد من حذف هذا الطلب؟" : "Are you sure you want to delete this order?")) return;
+    try {
+      await supabase.from("coins_purchase_order_lines").delete().eq("purchase_order_id", orderId);
+      await supabase.from("coins_purchase_phase_history").delete().eq("purchase_order_id", orderId);
+      const { error } = await supabase.from("coins_purchase_orders").delete().eq("id", orderId);
+      if (error) throw error;
+      toast.success(isArabic ? "تم حذف الطلب بنجاح" : "Order deleted successfully");
+      fetchOrders();
+    } catch (err: any) {
+      toast.error(err.message || "Delete failed");
+    }
+  };
+
   const loadOrder = async (id: string) => {
     const [orderRes, linesRes] = await Promise.all([
       supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle(),
@@ -468,7 +482,21 @@ const CoinsCreation = () => {
                       <TableCell>{parseFloat(o.base_amount_sar || 0).toFixed(2)}</TableCell>
                       <TableCell><Badge className={getPhaseColor(o.current_phase)}>{getPhaseLabel(o.current_phase)}</Badge></TableCell>
                       <TableCell>{o.created_by_name || o.created_by}</TableCell>
-                      <TableCell><Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                          {o.current_phase === "creation" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title={isArabic ? "حذف الطلب" : "Delete Order"}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o.id); }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
