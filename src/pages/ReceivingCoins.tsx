@@ -22,6 +22,7 @@ interface LineItem {
   id: string; 
   brand_id: string; 
   brand_name: string; 
+  supplier_id: string;
   coins: number; 
   unit_price: number; 
   total: number; 
@@ -137,6 +138,7 @@ const ReceivingCoins = () => {
           id: crypto.randomUUID(),
           brand_id: ol.brand_id,
           brand_name: ol.brands?.brand_name || "",
+          supplier_id: ol.supplier_id || "",
           coins: 0,
           unit_price: 0,
           total: 0,
@@ -172,6 +174,7 @@ const ReceivingCoins = () => {
       id: crypto.randomUUID(),
       brand_id: "",
       brand_name: "",
+      supplier_id: "",
       coins: 0,
       unit_price: 0,
       total: 0,
@@ -287,6 +290,7 @@ const ReceivingCoins = () => {
         header_id: headerId,
         brand_id: l.brand_id || null,
         brand_name: l.brand_name,
+        supplier_id: l.supplier_id || null,
         product_id: null,
         product_name: l.brand_name,
         coins: l.coins,
@@ -357,6 +361,7 @@ const ReceivingCoins = () => {
         id: l.id,
         brand_id: l.brand_id || "",
         brand_name: l.brand_name || l.product_name || "",
+        supplier_id: l.supplier_id || "",
         coins: l.coins || 0,
         unit_price: l.unit_price || 0,
         total: (l.coins || 0) * (l.unit_price || 0),
@@ -493,7 +498,7 @@ const ReceivingCoins = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>{isArabic ? "المورد *" : "Supplier *"}</Label>
+              <Label>{isArabic ? "المورد الرئيسي *" : "Main Supplier *"}</Label>
               <Select value={supplierId} onValueChange={setSupplierId}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
                 <SelectContent>
@@ -622,6 +627,7 @@ const ReceivingCoins = () => {
                 <TableRow>
                   <TableHead>#</TableHead>
                   <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
+                  <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
                   <TableHead>{isArabic ? "العملات" : "Coins"}</TableHead>
                   <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                   <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
@@ -631,7 +637,7 @@ const ReceivingCoins = () => {
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       {isArabic ? "لا توجد علامات تجارية" : "No brands added"}
                     </TableCell>
                   </TableRow>
@@ -641,11 +647,21 @@ const ReceivingCoins = () => {
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
                         <Select value={line.brand_id} onValueChange={v => updateLine(line.id, "brand_id", v)}>
-                          <SelectTrigger className="w-[200px]">
+                          <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} />
                           </SelectTrigger>
                           <SelectContent>
                             {brands.map(b => (<SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={line.supplier_id} onValueChange={v => updateLine(line.id, "supplier_id", v)}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {suppliers.map(s => (<SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>))}
                           </SelectContent>
                         </Select>
                       </TableCell>

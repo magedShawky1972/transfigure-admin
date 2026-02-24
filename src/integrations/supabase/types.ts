@@ -5393,6 +5393,7 @@ export type Database = {
           id: string
           product_id: string | null
           product_name: string | null
+          supplier_id: string | null
           total: number | null
           unit_price: number
           updated_at: string
@@ -5406,6 +5407,7 @@ export type Database = {
           id?: string
           product_id?: string | null
           product_name?: string | null
+          supplier_id?: string | null
           total?: number | null
           unit_price?: number
           updated_at?: string
@@ -5419,6 +5421,7 @@ export type Database = {
           id?: string
           product_id?: string | null
           product_name?: string | null
+          supplier_id?: string | null
           total?: number | null
           unit_price?: number
           updated_at?: string
@@ -5443,6 +5446,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_coins_line_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
