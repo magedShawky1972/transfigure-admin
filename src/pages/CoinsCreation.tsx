@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
+import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 
 interface OrderLine {
   id?: string;
@@ -54,6 +55,11 @@ const CoinsCreation = () => {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  // Filters
+  const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
 
   // Lines state
   const [lines, setLines] = useState<OrderLine[]>([emptyLine(1)]);
@@ -104,13 +110,26 @@ const CoinsCreation = () => {
   const totalBaseSar = lines.reduce((sum, l) => sum + (parseFloat(l.base_amount_sar) || 0), 0) + (parseFloat(bankTransferFee) || 0);
 
   const fetchOrders = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("coins_purchase_orders")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
+
+    if (viewFilter === "pending") {
+      query = query.eq("current_phase", "creation");
+    } else if (viewFilter === "sent") {
+      query = query.neq("current_phase", "creation");
+    }
+
+    if (fromDate) query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
+    if (toDate) query = query.lte("created_at", format(toDate, "yyyy-MM-dd") + "T23:59:59");
+
+    const { data } = await query;
     if (data) setOrders(data);
   };
+
+  useEffect(() => { fetchOrders(); }, [viewFilter, fromDate, toDate]);
 
   const fetchDropdowns = async () => {
     const [brandRes, suppRes, bankRes, currRes, rateRes] = await Promise.all([
@@ -399,15 +418,27 @@ const CoinsCreation = () => {
   if (view === "list") {
     return (
       <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Coins className="h-7 w-7 text-primary" />
             <h1 className="text-2xl font-bold">{isArabic ? "إنشاء طلب شراء عملات" : "Coins Purchase Creation"}</h1>
           </div>
-          <Button onClick={() => { resetForm(); setView("form"); }}>
-            <Plus className="h-4 w-4 mr-1" />
-            {isArabic ? "طلب جديد" : "New Order"}
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <CoinsPhaseFilterBar
+              viewFilter={viewFilter}
+              onViewFilterChange={setViewFilter}
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromDateChange={setFromDate}
+              onToDateChange={setToDate}
+              pendingLabel={{ ar: "المعلقة (إنشاء)", en: "Pending (Creation)" }}
+              sentLabel={{ ar: "المرسلة فقط", en: "Sent Only" }}
+            />
+            <Button onClick={() => { resetForm(); setView("form"); }}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isArabic ? "طلب جديد" : "New Order"}
+            </Button>
+          </div>
         </div>
         <Card>
           <CardContent className="p-0">
