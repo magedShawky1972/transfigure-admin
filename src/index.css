@@ -155,5 +155,6 @@ All colors MUST be HSL.
   #coins-guide-print * {
     border: none !important;
     box-shadow: none !important;
+    overflow: visible !important;
   }
 }
