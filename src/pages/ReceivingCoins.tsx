@@ -599,13 +599,16 @@ const ReceivingCoins = () => {
       }));
       setLines(mappedLines);
 
-      // Auto-fix status: if any line confirmed but header still draft, update status
+      // Auto-fix status based on confirmed lines and brand control amounts
       const anyConfirmed = mappedLines.some(l => l.is_confirmed);
       const currentStatus = (headerRes.data as any)?.status || "draft";
-      if (anyConfirmed && currentStatus === "draft" && receiptId) {
-        const newStatus = computeDeliveryStatus(mappedLines, (headerRes.data as any)?._brandAmounts || {});
-        await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", receiptId);
-        setReceiptStatus(newStatus);
+      const loadedBrandAmounts = (headerRes.data as any)?._brandAmounts || {};
+      if (anyConfirmed && currentStatus !== "closed" && receiptId) {
+        const newStatus = computeDeliveryStatus(mappedLines, loadedBrandAmounts);
+        if (newStatus !== currentStatus) {
+          await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", receiptId);
+          setReceiptStatus(newStatus);
+        }
       }
 
       // Try to load receiving images and confirmation status for brands in lines
