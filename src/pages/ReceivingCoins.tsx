@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 
@@ -60,6 +60,7 @@ const ReceivingCoins = () => {
 
   // Receiving images from coins_purchase_receiving (per brand)
   const [receivingImages, setReceivingImages] = useState<Record<string, string>>({});
+  const [confirmedBrands, setConfirmedBrands] = useState<Record<string, { confirmed: boolean; confirmedBy: string; confirmedAt: string }>>({});
 
   // Dropdown data
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -336,6 +337,38 @@ const ReceivingCoins = () => {
     setOrderNumber("");
     setLinkedPurchaseOrderId(null);
     setReceivingImages({});
+    setConfirmedBrands({});
+  };
+
+  const handleConfirmBrand = async (brandId: string) => {
+    if (!linkedPurchaseOrderId) {
+      toast.error(isArabic ? "لا يوجد طلب شراء مرتبط" : "No linked purchase order");
+      return;
+    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user?.id).maybeSingle();
+      const userName = (profile as any)?.display_name || user?.email || "";
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from("coins_purchase_receiving")
+        .update({
+          is_confirmed: true,
+          confirmed_by: user?.id,
+          confirmed_by_name: userName,
+          confirmed_at: now,
+        })
+        .eq("purchase_order_id", linkedPurchaseOrderId)
+        .eq("brand_id", brandId);
+      if (error) throw error;
+      setConfirmedBrands(prev => ({
+        ...prev,
+        [brandId]: { confirmed: true, confirmedBy: userName, confirmedAt: now },
+      }));
+      toast.success(isArabic ? "تم تأكيد الاستلام" : "Receiving confirmed");
+    } catch (err: any) {
+      toast.error(err.message || "Error confirming");
+    }
   };
 
   const [receiptStatus, setReceiptStatus] = useState("draft");
@@ -407,19 +440,29 @@ const ReceivingCoins = () => {
         total: (l.coins || 0) * (l.unit_price || 0),
       })));
 
-      // Try to load receiving images for brands in lines
+      // Try to load receiving images and confirmation status for brands in lines
       const brandIds = (linesRes.data as any[]).filter(l => l.brand_id).map(l => l.brand_id);
-      if (brandIds.length > 0) {
-        const { data: recImages } = await supabase
-          .from("coins_purchase_receiving")
-          .select("brand_id, receiving_image")
-          .in("brand_id", brandIds);
-        if (recImages) {
+      if (brandIds.length > 0 && headerRes.data) {
+        const purchaseOrderId = (headerRes.data as any).purchase_order_id;
+        const query = purchaseOrderId
+          ? supabase.from("coins_purchase_receiving").select("brand_id, receiving_image, is_confirmed, confirmed_by_name, confirmed_at").eq("purchase_order_id", purchaseOrderId)
+          : supabase.from("coins_purchase_receiving").select("brand_id, receiving_image, is_confirmed, confirmed_by_name, confirmed_at").in("brand_id", brandIds);
+        const { data: recData } = await query;
+        if (recData) {
           const imgMap: Record<string, string> = {};
-          for (const r of recImages) {
+          const confMap: Record<string, { confirmed: boolean; confirmedBy: string; confirmedAt: string }> = {};
+          for (const r of recData) {
             if (r.brand_id && r.receiving_image) imgMap[r.brand_id] = r.receiving_image;
+            if (r.brand_id) {
+              confMap[r.brand_id] = {
+                confirmed: r.is_confirmed || false,
+                confirmedBy: r.confirmed_by_name || "",
+                confirmedAt: r.confirmed_at || "",
+              };
+            }
           }
           setReceivingImages(imgMap);
+          setConfirmedBrands(confMap);
         }
       }
     }
@@ -739,13 +782,14 @@ const ReceivingCoins = () => {
                   <TableHead>{isArabic ? "العملات" : "Coins"}</TableHead>
                   <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                   <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                  {selectedReceiptId && linkedPurchaseOrderId && <TableHead>{isArabic ? "تأكيد الاستلام" : "Confirm"}</TableHead>}
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                     <TableCell colSpan={selectedReceiptId && linkedPurchaseOrderId ? 8 : 7} className="text-center text-muted-foreground">
                       {isArabic ? "لا توجد علامات تجارية" : "No brands added"}
                     </TableCell>
                   </TableRow>
@@ -780,6 +824,32 @@ const ReceivingCoins = () => {
                         <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[140px]" step="0.00000001" />
                       </TableCell>
                       <TableCell className="font-semibold">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      {selectedReceiptId && linkedPurchaseOrderId && (
+                        <TableCell>
+                          {line.brand_id && confirmedBrands[line.brand_id]?.confirmed ? (
+                            <div className="flex items-center gap-1 text-xs">
+                              <ShieldCheck className="h-4 w-4 text-green-600" />
+                              <div className="flex flex-col">
+                                <span className="font-medium text-green-600">{isArabic ? "مؤكد" : "Confirmed"}</span>
+                                {confirmedBrands[line.brand_id]?.confirmedBy && (
+                                  <span className="text-muted-foreground">{confirmedBrands[line.brand_id].confirmedBy}</span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleConfirmBrand(line.brand_id)}
+                              disabled={!line.brand_id || receiptStatus === "closed"}
+                              className="text-xs"
+                            >
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              {isArabic ? "تأكيد" : "Confirm"}
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeLine(line.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
