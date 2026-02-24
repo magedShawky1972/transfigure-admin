@@ -97,6 +97,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/coins-receiving-phase": "coinsReceivingPhase",
   "/coins-workflow-setup": "coinsWorkflowSetup",
   "/coins-purchase-followup": "coinsPurchaseFollowUp",
+  "/coins-transaction-guide": "coinsTransactionGuide",
   "/shift-attendance-report": "shiftAttendanceReport",
   "/missing-shift-images": "missingShiftImages",
   "/project-setup": "projectSetup",
@@ -229,6 +230,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Workflow Setup", titleAr: "إعداد سير العمل", url: "/coins-workflow-setup", icon: Settings },
       { title: "Purchase Follow-Up", titleAr: "متابعة شراء العملات", url: "/coins-purchase-followup", icon: DollarSign },
       { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
+      { title: "User Guide", titleAr: "دليل المستخدم", url: "/coins-transaction-guide", icon: FileText },
     ]
   },
   {
