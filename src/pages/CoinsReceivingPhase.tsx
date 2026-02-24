@@ -147,14 +147,6 @@ const CoinsReceivingPhase = () => {
         const brandId = line.brand_id;
         const brandName = line.brands?.brand_name || "";
 
-        // Fetch products for this brand
-        const { data: products } = await supabase
-          .from("products")
-          .select("id, product_name, coins_number, product_price, brand_name")
-          .eq("allow_purchase", true)
-          .eq("brand_name", brandName)
-          .order("product_name");
-
         // Create receiving_coins_header
         const headerData = {
           receipt_number: generateReceiptNumber(),
@@ -166,6 +158,8 @@ const CoinsReceivingPhase = () => {
           receiver_name: user?.user_metadata?.display_name || user?.email || "",
           total_amount: 0,
           created_by: user?.email || "",
+          currency_id: selectedOrder.currency_id || null,
+          exchange_rate: selectedOrder.exchange_rate || null,
         };
 
         const { data: headerResult, error: headerError } = await supabase
@@ -176,15 +170,17 @@ const CoinsReceivingPhase = () => {
 
         if (headerError) throw headerError;
 
-        // Create receiving_coins_line entries from products
-        if (headerResult && products && products.length > 0) {
-          const lineInserts = products.map(p => ({
+        // Create receiving_coins_line entry for the brand
+        if (headerResult) {
+          const lineInserts = [{
             header_id: headerResult.id,
-            product_id: p.id,
-            product_name: p.product_name,
+            brand_id: brandId,
+            brand_name: brandName,
+            product_id: null,
+            product_name: brandName,
             coins: 0,
             unit_price: 0,
-          }));
+          }];
           await supabase.from("receiving_coins_line").insert(lineInserts as any);
         }
       }

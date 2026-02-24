@@ -10,18 +10,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 
 interface Supplier { id: string; supplier_name: string; }
 interface Brand { id: string; brand_name: string; }
 interface Bank { id: string; bank_name: string; }
-interface Product { id: string; product_name: string; coins_number: number; product_price: number; }
+interface Currency { id: string; currency_code: string; currency_name: string; }
 interface LineItem { 
   id: string; 
-  product_id: string; 
-  product_name: string; 
+  brand_id: string; 
+  brand_name: string; 
   coins: number; 
   unit_price: number; 
   total: number; 
@@ -39,35 +39,39 @@ const ReceivingCoins = () => {
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/receiving-coins");
   const [searchParams] = useSearchParams();
 
-  // View mode: "list" or "form"
   const [view, setView] = useState<"list" | "form">("list");
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
   const [receiptDate, setReceiptDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [brandId, setBrandId] = useState("");
   const [controlAmount, setControlAmount] = useState("");
   const [bankId, setBankId] = useState("");
   const [receiverName, setReceiverName] = useState("");
+  const [currencyId, setCurrencyId] = useState("");
+  const [exchangeRate, setExchangeRate] = useState("");
 
-  // Line items
+  // Line items (brand-based)
   const [lines, setLines] = useState<LineItem[]>([]);
 
   // Attachments
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  // Receiving images from coins_purchase_receiving (per brand)
+  const [receivingImages, setReceivingImages] = useState<Record<string, string>>({});
+
   // Dropdown data
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
 
   const [saving, setSaving] = useState(false);
-
-  // Saved receipts list
   const [receipts, setReceipts] = useState<any[]>([]);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
+
+  // Track the linked purchase order to fetch receiving images
+  const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReceipts();
@@ -83,52 +87,30 @@ const ReceivingCoins = () => {
     }
   }, [view]);
 
-  useEffect(() => {
-    if (brandId) {
-      fetchAndAutoAddProducts();
-      fetchBrandSuppliers();
-    } else {
-      setProducts([]);
-      setLines([]);
-    }
-  }, [brandId]);
-
   const fetchDropdowns = async () => {
-    const [suppRes, brandRes, bankRes] = await Promise.all([
+    const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
       supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
+      supabase.from("currencies").select("id, currency_code, currency_name").order("currency_code"),
     ]);
     if (suppRes.data) setSuppliers(suppRes.data);
     if (brandRes.data) setBrands(brandRes.data);
     if (bankRes.data) setBanks(bankRes.data);
-  };
-
-  const fetchBrandSuppliers = async () => {
-    const { data } = await supabase
-      .from("brand_suppliers")
-      .select("supplier_id")
-      .eq("brand_id", brandId);
-    if (data && data.length > 0) {
-      // Filter suppliers list to only brand-linked ones
-      const linkedIds = data.map(d => d.supplier_id);
-      const filtered = suppliers.filter(s => linkedIds.includes(s.id));
-      if (filtered.length === 1) {
-        setSupplierId(filtered[0].id);
-      }
-    }
+    if (currRes.data) setCurrencies(currRes.data as Currency[]);
   };
 
   const loadFromPurchaseOrder = async (orderId: string) => {
-    // First fetch dropdowns so we can set values
-    const [suppRes, brandRes, bankRes] = await Promise.all([
+    const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
       supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
+      supabase.from("currencies").select("id, currency_code, currency_name").order("currency_code"),
     ]);
     if (suppRes.data) setSuppliers(suppRes.data);
     if (brandRes.data) setBrands(brandRes.data);
     if (bankRes.data) setBanks(bankRes.data);
+    if (currRes.data) setCurrencies(currRes.data as Currency[]);
 
     const { data: order } = await supabase
       .from("coins_purchase_orders")
@@ -137,35 +119,42 @@ const ReceivingCoins = () => {
       .maybeSingle();
     if (order) {
       if (order.supplier_id) setSupplierId(order.supplier_id);
-      if (order.brand_id) setBrandId(order.brand_id);
       if (order.bank_id) setBankId(order.bank_id);
+      if (order.currency_id) setCurrencyId(order.currency_id);
+      if (order.exchange_rate) setExchangeRate(String(order.exchange_rate));
       setControlAmount(String(parseFloat(String(order.base_amount_sar || "0"))));
+      setLinkedPurchaseOrderId(orderId);
       setView("form");
-    }
-  };
 
+      // Load order lines as brand-based lines
+      const { data: orderLines } = await supabase
+        .from("coins_purchase_order_lines")
+        .select("*, brands(brand_name)")
+        .eq("purchase_order_id", orderId)
+        .order("line_number");
+      if (orderLines && orderLines.length > 0) {
+        setLines(orderLines.map((ol: any) => ({
+          id: crypto.randomUUID(),
+          brand_id: ol.brand_id,
+          brand_name: ol.brands?.brand_name || "",
+          coins: 0,
+          unit_price: 0,
+          total: 0,
+        })));
+      }
 
-  const fetchAndAutoAddProducts = async () => {
-    const selectedBrand = brands.find(b => b.id === brandId);
-    if (!selectedBrand) return;
-
-    const { data } = await supabase
-      .from("products")
-      .select("id, product_name, coins_number, product_price, brand_name")
-      .eq("allow_purchase", true)
-      .eq("brand_name", selectedBrand.brand_name)
-      .order("product_name");
-    if (data) {
-      const parsed = data.map(d => ({ ...d, product_price: parseFloat(String(d.product_price)) || 0 })) as Product[];
-      setProducts(parsed);
-      setLines(parsed.map(p => ({
-        id: crypto.randomUUID(),
-        product_id: p.id,
-        product_name: p.product_name,
-        coins: 0,
-        unit_price: 0,
-        total: 0,
-      })));
+      // Load receiving images for this purchase order
+      const { data: recImages } = await supabase
+        .from("coins_purchase_receiving")
+        .select("brand_id, receiving_image")
+        .eq("purchase_order_id", orderId);
+      if (recImages) {
+        const imgMap: Record<string, string> = {};
+        for (const r of recImages) {
+          if (r.brand_id && r.receiving_image) imgMap[r.brand_id] = r.receiving_image;
+        }
+        setReceivingImages(imgMap);
+      }
     }
   };
 
@@ -181,8 +170,8 @@ const ReceivingCoins = () => {
   const addLine = () => {
     setLines([...lines, {
       id: crypto.randomUUID(),
-      product_id: "",
-      product_name: "",
+      brand_id: "",
+      brand_name: "",
       coins: 0,
       unit_price: 0,
       total: 0,
@@ -193,12 +182,10 @@ const ReceivingCoins = () => {
     setLines(lines.map(line => {
       if (line.id !== id) return line;
       const updated = { ...line, [field]: value };
-      if (field === "product_id") {
-        const product = products.find(p => p.id === value);
-        if (product) {
-          updated.product_name = product.product_name;
-          updated.coins = product.coins_number || 0;
-          updated.unit_price = product.product_price || 0;
+      if (field === "brand_id") {
+        const brand = brands.find(b => b.id === value);
+        if (brand) {
+          updated.brand_name = brand.brand_name;
         }
       }
       updated.total = updated.coins * updated.unit_price;
@@ -260,12 +247,12 @@ const ReceivingCoins = () => {
   };
 
   const handleSave = async () => {
-    if (!supplierId || !brandId || !bankId) {
+    if (!supplierId || !bankId) {
       toast.error(isArabic ? "يرجى تعبئة جميع الحقول المطلوبة" : "Please fill all required fields");
       return;
     }
     if (lines.length === 0) {
-      toast.error(isArabic ? "يرجى إضافة منتج واحد على الأقل" : "Please add at least one product line");
+      toast.error(isArabic ? "يرجى إضافة علامة تجارية واحدة على الأقل" : "Please add at least one brand line");
       return;
     }
     setSaving(true);
@@ -275,12 +262,14 @@ const ReceivingCoins = () => {
         receipt_number: selectedReceiptId ? undefined : generateReceiptNumber(),
         supplier_id: supplierId,
         receipt_date: receiptDate,
-        brand_id: brandId,
+        brand_id: lines[0]?.brand_id || null, // keep first brand for backward compat
         control_amount: parseFloat(controlAmount) || 0,
         bank_id: bankId,
         receiver_name: receiverName,
         total_amount: totalAmount,
         created_by: user?.email || "",
+        currency_id: currencyId || null,
+        exchange_rate: parseFloat(exchangeRate) || null,
       };
       let headerId: string;
       if (selectedReceiptId) {
@@ -296,8 +285,10 @@ const ReceivingCoins = () => {
       }
       const lineInserts = lines.map(l => ({
         header_id: headerId,
-        product_id: l.product_id || null,
-        product_name: l.product_name,
+        brand_id: l.brand_id || null,
+        brand_name: l.brand_name,
+        product_id: null,
+        product_name: l.brand_name,
         coins: l.coins,
         unit_price: l.unit_price,
       }));
@@ -327,13 +318,16 @@ const ReceivingCoins = () => {
   const resetForm = () => {
     setSupplierId("");
     setReceiptDate(format(new Date(), "yyyy-MM-dd"));
-    setBrandId("");
     setControlAmount("");
     setBankId("");
     setReceiverName("");
+    setCurrencyId("");
+    setExchangeRate("");
     setLines([]);
     setAttachments([]);
     setSelectedReceiptId(null);
+    setLinkedPurchaseOrderId(null);
+    setReceivingImages({});
   };
 
   const openNewEntry = () => {
@@ -352,20 +346,37 @@ const ReceivingCoins = () => {
       setSelectedReceiptId(h.id);
       setSupplierId(h.supplier_id || "");
       setReceiptDate(h.receipt_date || format(new Date(), "yyyy-MM-dd"));
-      setBrandId(h.brand_id || "");
       setControlAmount(h.control_amount?.toString() || "");
       setBankId(h.bank_id || "");
       setReceiverName(h.receiver_name || "");
+      setCurrencyId(h.currency_id || "");
+      setExchangeRate(h.exchange_rate?.toString() || "");
     }
     if (linesRes.data) {
       setLines((linesRes.data as any[]).map(l => ({
         id: l.id,
-        product_id: l.product_id || "",
-        product_name: l.product_name || "",
+        brand_id: l.brand_id || "",
+        brand_name: l.brand_name || l.product_name || "",
         coins: l.coins || 0,
         unit_price: l.unit_price || 0,
         total: (l.coins || 0) * (l.unit_price || 0),
       })));
+
+      // Try to load receiving images for brands in lines
+      const brandIds = (linesRes.data as any[]).filter(l => l.brand_id).map(l => l.brand_id);
+      if (brandIds.length > 0) {
+        const { data: recImages } = await supabase
+          .from("coins_purchase_receiving")
+          .select("brand_id, receiving_image")
+          .in("brand_id", brandIds);
+        if (recImages) {
+          const imgMap: Record<string, string> = {};
+          for (const r of recImages) {
+            if (r.brand_id && r.receiving_image) imgMap[r.brand_id] = r.receiving_image;
+          }
+          setReceivingImages(imgMap);
+        }
+      }
     }
     if (attRes.data) {
       setAttachments((attRes.data as any[]).map(a => ({
@@ -484,16 +495,20 @@ const ReceivingCoins = () => {
               <Input type="date" value={receiptDate} onChange={e => setReceiptDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>{isArabic ? "العلامة التجارية *" : "Brand *"}</Label>
-              <Select value={brandId} onValueChange={setBrandId}>
-                <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} /></SelectTrigger>
+              <Label>{isArabic ? "العملة" : "Currency"}</Label>
+              <Select value={currencyId} onValueChange={setCurrencyId}>
+                <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العملة" : "Select currency"} /></SelectTrigger>
                 <SelectContent>
-                  {brands.map(b => (<SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>))}
+                  {currencies.map(c => (<SelectItem key={c.id} value={c.id}>{c.currency_code} - {c.currency_name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>{isArabic ? "المبلغ المتحكم" : "Control Amount"}</Label>
+              <Label>{isArabic ? "سعر الصرف" : "Exchange Rate"}</Label>
+              <Input type="number" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} placeholder="0.00" step="0.0001" />
+            </div>
+            <div className="space-y-2">
+              <Label>{isArabic ? "المبلغ المتحكم (SAR)" : "Control Amount (SAR)"}</Label>
               <Input type="number" value={controlAmount} onChange={e => setControlAmount(e.target.value)} placeholder="0.00" />
             </div>
             <div className="space-y-2">
@@ -517,7 +532,7 @@ const ReceivingCoins = () => {
         </CardContent>
       </Card>
 
-      {/* Attachments */}
+      {/* Attachments + Receiving Images */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -533,95 +548,114 @@ const ReceivingCoins = () => {
             </label>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {attachments.length === 0 ? (
+        <CardContent className="space-y-4">
+          {/* Receiving Images per Brand */}
+          {Object.keys(receivingImages).length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                {isArabic ? "صور الاستلام من المورد" : "Receiving Images from Supplier"}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {lines.filter(l => l.brand_id && receivingImages[l.brand_id]).map(l => (
+                  <div key={l.brand_id} className="border rounded-lg p-2 space-y-1">
+                    <p className="text-xs font-medium text-center">{l.brand_name}</p>
+                    <a href={receivingImages[l.brand_id]} target="_blank" rel="noopener noreferrer">
+                      <img src={receivingImages[l.brand_id]} alt={l.brand_name} className="w-full h-32 object-contain rounded border" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Uploaded Attachments */}
+          {attachments.length === 0 && Object.keys(receivingImages).length === 0 ? (
             <p className="text-muted-foreground text-sm">{isArabic ? "لا توجد مرفقات" : "No attachments"}</p>
           ) : (
-            <div className="space-y-2">
-              {attachments.map(att => (
-                <div key={att.id} className="flex items-center justify-between p-2 border rounded-md">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <a href={att.file_path} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{att.file_name}</a>
-                    <span className="text-xs text-muted-foreground">({(att.file_size / 1024).toFixed(1)} KB)</span>
+            attachments.length > 0 && (
+              <div className="space-y-2">
+                {attachments.map(att => (
+                  <div key={att.id} className="flex items-center justify-between p-2 border rounded-md">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <a href={att.file_path} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{att.file_name}</a>
+                      <span className="text-xs text-muted-foreground">({(att.file_size / 1024).toFixed(1)} KB)</span>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => removeAttachment(att.id)}>
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeAttachment(att.id)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
           )}
         </CardContent>
       </Card>
 
-      {/* Line Items */}
+      {/* Line Items - Brand based */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>{isArabic ? "المنتجات" : "Products"}</span>
-            <Button size="sm" onClick={addLine} disabled={!brandId}>
+            <span>{isArabic ? "العلامات التجارية" : "Brands"}</span>
+            <Button size="sm" onClick={addLine}>
               <Plus className="h-4 w-4 mr-1" />
-              {isArabic ? "إضافة منتج" : "Add Product"}
+              {isArabic ? "إضافة علامة" : "Add Brand"}
             </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!brandId ? (
-            <p className="text-muted-foreground text-sm">{isArabic ? "اختر العلامة التجارية أولاً" : "Select a brand first"}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
+                  <TableHead>{isArabic ? "العملات" : "Coins"}</TableHead>
+                  <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
+                  <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.length === 0 ? (
                   <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>{isArabic ? "المنتج" : "Product"}</TableHead>
-                    <TableHead>{isArabic ? "العملات" : "Coins"}</TableHead>
-                    <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
-                    <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
-                    <TableHead></TableHead>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      {isArabic ? "لا توجد علامات تجارية" : "No brands added"}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
-                        {isArabic ? "لا توجد منتجات" : "No products added"}
+                ) : (
+                  lines.map((line, idx) => (
+                    <TableRow key={line.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>
+                        <Select value={line.brand_id} onValueChange={v => updateLine(line.id, "brand_id", v)}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {brands.map(b => (<SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[120px]" step="0.01" />
+                      </TableCell>
+                      <TableCell className="font-semibold">{line.total.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => removeLine(line.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    lines.map((line, idx) => (
-                      <TableRow key={line.id}>
-                        <TableCell>{idx + 1}</TableCell>
-                        <TableCell>
-                          <Select value={line.product_id} onValueChange={v => updateLine(line.id, "product_id", v)}>
-                            <SelectTrigger className="w-[200px]">
-                              <SelectValue placeholder={isArabic ? "اختر المنتج" : "Select product"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.map(p => (<SelectItem key={p.id} value={p.id}>{p.product_name}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[120px]" step="0.01" />
-                        </TableCell>
-                        <TableCell className="font-semibold">{line.total.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => removeLine(line.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
