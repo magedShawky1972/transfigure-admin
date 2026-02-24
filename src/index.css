@@ -151,16 +151,16 @@ All colors MUST be HSL.
     color: black !important;
   }
 
-  #coins-guide-print,
-  #coins-guide-print * {
-    border: none !important;
+  /* Remove ALL borders and lines from the entire document when printing */
+  * {
+    border-width: 0 !important;
+    border-style: none !important;
     box-shadow: none !important;
-    overflow: visible !important;
+    outline: none !important;
   }
 
-  /* Remove ALL borders/lines from entire page when printing */
-  body *:not([data-print-content="true"] *) {
-    border-color: transparent !important;
-    box-shadow: none !important;
+  #coins-guide-print,
+  #coins-guide-print * {
+    overflow: visible !important;
   }
 }
