@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
+import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 
 const CoinsSending = () => {
   const { language } = useLanguage();
@@ -26,6 +27,11 @@ const CoinsSending = () => {
   const [sendingConfirmed, setSendingConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Filters
+  const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
+
   useEffect(() => {
     fetchOrders();
     const orderId = searchParams.get("order");
@@ -33,13 +39,27 @@ const CoinsSending = () => {
   }, []);
 
   const fetchOrders = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("coins_purchase_orders")
       .select("*")
-      .eq("current_phase", "sending")
       .order("created_at", { ascending: false });
+
+    if (viewFilter === "pending") {
+      query = query.eq("current_phase", "sending");
+    } else if (viewFilter === "sent") {
+      query = query.neq("current_phase", "sending").in("current_phase", ["receiving", "coins_entry", "completed"]);
+    }
+    // "all" = no phase filter, but still show orders that passed through sending
+    // For simplicity, show all orders when "all"
+
+    if (fromDate) query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
+    if (toDate) query = query.lte("created_at", format(toDate, "yyyy-MM-dd") + "T23:59:59");
+
+    const { data } = await query;
     if (data) setOrders(data);
   };
+
+  useEffect(() => { fetchOrders(); }, [viewFilter, fromDate, toDate]);
 
   const loadOrder = async (id: string) => {
     const [orderRes, linesRes] = await Promise.all([
@@ -250,9 +270,21 @@ const CoinsSending = () => {
 
   return (
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
-      <div className="flex items-center gap-3">
-        <Coins className="h-7 w-7 text-primary" />
-        <h1 className="text-2xl font-bold">{isArabic ? "توجيه التحويلات" : "Sending Transfers"}</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Coins className="h-7 w-7 text-primary" />
+          <h1 className="text-2xl font-bold">{isArabic ? "توجيه التحويلات" : "Sending Transfers"}</h1>
+        </div>
+        <CoinsPhaseFilterBar
+          viewFilter={viewFilter}
+          onViewFilterChange={setViewFilter}
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          pendingLabel={{ ar: "المعلقة (توجيه)", en: "Pending (Sending)" }}
+          sentLabel={{ ar: "المرسلة فقط", en: "Sent Only" }}
+        />
       </div>
       <Card>
         <CardContent className="p-0">

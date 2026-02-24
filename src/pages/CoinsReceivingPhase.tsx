@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 
 const CoinsReceivingPhase = () => {
   const { language } = useLanguage();
@@ -27,6 +28,11 @@ const CoinsReceivingPhase = () => {
   const [receivings, setReceivings] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Filters
+  const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
+
   // New receiving form - per brand (keyed by brand_id)
   const [brandReceivingImages, setBrandReceivingImages] = useState<Record<string, string>>({});
   const [brandReceivingNotes, setBrandReceivingNotes] = useState<Record<string, string>>({});
@@ -40,13 +46,25 @@ const CoinsReceivingPhase = () => {
   }, []);
 
   const fetchOrders = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("coins_purchase_orders")
       .select("*, currencies(currency_code, currency_name)")
-      .eq("current_phase", "receiving")
       .order("created_at", { ascending: false });
+
+    if (viewFilter === "pending") {
+      query = query.eq("current_phase", "receiving");
+    } else if (viewFilter === "sent") {
+      query = query.neq("current_phase", "receiving").in("current_phase", ["coins_entry", "completed"]);
+    }
+
+    if (fromDate) query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
+    if (toDate) query = query.lte("created_at", format(toDate, "yyyy-MM-dd") + "T23:59:59");
+
+    const { data } = await query;
     if (data) setOrders(data);
   };
+
+  useEffect(() => { fetchOrders(); }, [viewFilter, fromDate, toDate]);
 
   const loadOrder = async (id: string) => {
     const [orderRes, linesRes, recRes] = await Promise.all([
@@ -456,9 +474,21 @@ const CoinsReceivingPhase = () => {
 
   return (
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
-      <div className="flex items-center gap-3">
-        <Coins className="h-7 w-7 text-primary" />
-        <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات" : "Receiving Phase"}</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Coins className="h-7 w-7 text-primary" />
+          <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات" : "Receiving Phase"}</h1>
+        </div>
+        <CoinsPhaseFilterBar
+          viewFilter={viewFilter}
+          onViewFilterChange={setViewFilter}
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          pendingLabel={{ ar: "المعلقة (استلام)", en: "Pending (Receiving)" }}
+          sentLabel={{ ar: "المرسلة فقط", en: "Sent Only" }}
+        />
       </div>
       <Card>
         <CardContent className="p-0">
