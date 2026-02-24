@@ -199,10 +199,27 @@ const CoinsWorkflowSetup = () => {
                   );
                 })}
               </div>
-              <Select value="" onValueChange={(val) => { if (!selectedBrandIds.includes(val)) setSelectedBrandIds(prev => [...prev, val]); }}>
-                <SelectTrigger><SelectValue placeholder={isArabic ? "اختر علامة تجارية" : "Select brand"} /></SelectTrigger>
-                <SelectContent>{brands.filter(b => !selectedBrandIds.includes(b.id)).map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}</SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value="" onValueChange={(val) => { if (!selectedBrandIds.includes(val)) setSelectedBrandIds(prev => [...prev, val]); }}>
+                  <SelectTrigger><SelectValue placeholder={isArabic ? "اختر علامة تجارية" : "Select brand"} /></SelectTrigger>
+                  <SelectContent>{brands.filter(b => !selectedBrandIds.includes(b.id)).map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}</SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="whitespace-nowrap"
+                  onClick={() => setSelectedBrandIds(brands.map(b => b.id))}
+                  disabled={selectedBrandIds.length === brands.length}
+                >
+                  {isArabic ? "الكل" : "All"}
+                </Button>
+                {selectedBrandIds.length > 0 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedBrandIds([])}>
+                    {isArabic ? "مسح" : "Clear"}
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "المرحلة" : "Phase"}</Label>
