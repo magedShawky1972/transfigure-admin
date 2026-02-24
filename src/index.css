@@ -157,12 +157,34 @@ All colors MUST be HSL.
     border-style: none !important;
     box-shadow: none !important;
     outline: none !important;
+    scrollbar-width: none !important;
+  }
+
+  *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+  }
+
+  /* Hide sidebar, header, nav in print */
+  [data-sidebar],
+  aside,
+  header,
+  nav,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  main {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   body, body * {
     color: #000 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    overflow: visible !important;
   }
 
   /* Keep primary color for headings only */
