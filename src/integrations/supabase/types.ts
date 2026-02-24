@@ -5304,6 +5304,8 @@ export type Database = {
           control_amount: number
           created_at: string
           created_by: string | null
+          currency_id: string | null
+          exchange_rate: number | null
           id: string
           notes: string | null
           receipt_date: string
@@ -5320,6 +5322,8 @@ export type Database = {
           control_amount?: number
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
+          exchange_rate?: number | null
           id?: string
           notes?: string | null
           receipt_date?: string
@@ -5336,6 +5340,8 @@ export type Database = {
           control_amount?: number
           created_at?: string
           created_by?: string | null
+          currency_id?: string | null
+          exchange_rate?: number | null
           id?: string
           notes?: string | null
           receipt_date?: string
@@ -5362,6 +5368,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "receiving_coins_header_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "receiving_coins_header_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -5372,6 +5385,8 @@ export type Database = {
       }
       receiving_coins_line: {
         Row: {
+          brand_id: string | null
+          brand_name: string | null
           coins: number
           created_at: string
           header_id: string
@@ -5383,6 +5398,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_id?: string | null
+          brand_name?: string | null
           coins?: number
           created_at?: string
           header_id: string
@@ -5394,6 +5411,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_id?: string | null
+          brand_name?: string | null
           coins?: number
           created_at?: string
           header_id?: string
@@ -5405,6 +5424,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "receiving_coins_line_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "receiving_coins_line_header_id_fkey"
             columns: ["header_id"]
