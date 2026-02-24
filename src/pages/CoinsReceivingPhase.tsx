@@ -128,10 +128,7 @@ const CoinsReceivingPhase = () => {
     }
   };
 
-  const generateReceiptNumber = () => {
-    const now = new Date();
-    return `RC-${format(now, "yyyyMMdd")}-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}`;
-  };
+  // generateReceiptNumber is no longer needed - we use the purchase order number
 
   const handleMoveToCoinsEntry = async () => {
     if (receivings.length === 0) {
@@ -142,18 +139,56 @@ const CoinsReceivingPhase = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Fetch brand USD values for coins calculation
+      const brandIds = orderLines.map((l: any) => l.brand_id);
+      const { data: brandsData } = await supabase
+        .from("brands")
+        .select("id, usd_value_for_coins")
+        .in("id", brandIds);
+      const brandUsdMap: Record<string, number> = {};
+      if (brandsData) {
+        for (const b of brandsData) {
+          if (b.usd_value_for_coins) brandUsdMap[b.id] = b.usd_value_for_coins;
+        }
+      }
+
+      // Get USD exchange rate for converting SAR to USD
+      const { data: usdCurrency } = await supabase
+        .from("currencies")
+        .select("id")
+        .eq("currency_code", "USD")
+        .maybeSingle();
+      let usdRate = 3.75; // default SAR to USD
+      if (usdCurrency) {
+        const { data: rateData } = await supabase
+          .from("currency_rates")
+          .select("rate_to_base, conversion_operator")
+          .eq("currency_id", usdCurrency.id)
+          .order("effective_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (rateData?.rate_to_base) usdRate = rateData.rate_to_base;
+      }
+
       // Auto-create receiving entries for each brand line
       for (const line of orderLines) {
         const brandId = line.brand_id;
         const brandName = line.brands?.brand_name || "";
+        const sarAmount = parseFloat(String(line.base_amount_sar || 0));
 
-        // Create receiving_coins_header - use main supplier from order
+        // Calculate expected coins: convert SAR to USD, then divide by usd_value_for_coins
+        const usdAmount = sarAmount / usdRate;
+        const usdValuePerCoin = brandUsdMap[brandId] || 0;
+        const expectedCoins = usdValuePerCoin > 0 ? Math.floor(usdAmount / usdValuePerCoin) : 0;
+
+        // Create receiving_coins_header - use purchase order number
         const headerData = {
-          receipt_number: generateReceiptNumber(),
+          receipt_number: selectedOrder.order_number,
+          purchase_order_id: selectedOrder.id,
           supplier_id: selectedOrder.supplier_id,
           receipt_date: format(new Date(), "yyyy-MM-dd"),
           brand_id: brandId,
-          control_amount: parseFloat(String(line.base_amount_sar || 0)),
+          control_amount: sarAmount,
           bank_id: selectedOrder.bank_id,
           receiver_name: user?.user_metadata?.display_name || user?.email || "",
           total_amount: 0,
@@ -170,7 +205,7 @@ const CoinsReceivingPhase = () => {
 
         if (headerError) throw headerError;
 
-        // Create receiving_coins_line entry for the brand with supplier
+        // Create receiving_coins_line entry for the brand with supplier and expected coins
         if (headerResult) {
           const lineInserts = [{
             header_id: headerResult.id,
@@ -179,8 +214,8 @@ const CoinsReceivingPhase = () => {
             supplier_id: line.supplier_id || null,
             product_id: null,
             product_name: brandName,
-            coins: 0,
-            unit_price: 0,
+            coins: expectedCoins,
+            unit_price: usdValuePerCoin,
           }];
           await supabase.from("receiving_coins_line").insert(lineInserts as any);
         }
