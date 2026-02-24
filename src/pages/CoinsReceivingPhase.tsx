@@ -294,47 +294,21 @@ const CoinsReceivingPhase = () => {
           </Card>
         )}
 
-        {/* Previous Receivings grouped by brand */}
-        {receivings.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle>{isArabic ? "سجلات الاستلام السابقة" : "Previous Receivings"}</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {Object.entries(receivingsByBrand).map(([brandId, brandReceivings]) => {
-                const brandName = brandReceivings[0]?.brands?.brand_name || (brandId === "unassigned" ? (isArabic ? "غير محدد" : "Unassigned") : brandId);
-                return (
-                  <div key={brandId} className="space-y-2">
-                    <h4 className="font-semibold text-sm border-b pb-1">{brandName}</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {brandReceivings.map((r: any) => (
-                        <Card key={r.id} className="border">
-                          <CardContent className="p-4 space-y-2">
-                            {r.receiving_image && <img src={r.receiving_image} alt="Receiving" className="max-h-32 rounded border object-contain" />}
-                            <div className="text-sm"><span className="font-medium">{isArabic ? "المستلم:" : "By:"}</span> {r.received_by_name || r.received_by}</div>
-                            <div className="text-sm"><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(r.received_at), "yyyy-MM-dd HH:mm")}</div>
-                            {r.notes && <div className="text-sm text-muted-foreground">{r.notes}</div>}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Add New Receiving - Per Brand */}
+        {/* Receiving Images - Per Brand */}
         <Card>
-          <CardHeader><CardTitle>{isArabic ? "إضافة استلام جديد" : "Add New Receiving"}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{isArabic ? "صور الاستلام" : "Receiving Images"}</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             {orderLines.map((line) => {
               const brandId = line.brand_id;
               const brandName = line.brands?.brand_name || brandId;
-              const image = brandReceivingImages[brandId] || "";
-              const notes = brandReceivingNotes[brandId] || "";
               const isUploading = uploadingBrand === brandId;
               const isSaving = savingBrand === brandId;
-              const existingCount = (receivingsByBrand[brandId] || []).length;
+              // Check if there's already a saved receiving for this brand
+              const existingReceiving = (receivingsByBrand[brandId] || [])[0];
+              const pendingImage = brandReceivingImages[brandId] || "";
+              // Show saved image or pending upload
+              const displayImage = existingReceiving?.receiving_image || pendingImage;
+              const isSaved = !!existingReceiving;
 
               return (
                 <div key={brandId} className="border rounded-lg p-4 space-y-3">
@@ -343,20 +317,28 @@ const CoinsReceivingPhase = () => {
                       <Coins className="h-4 w-4 text-primary" />
                       {brandName}
                     </h4>
-                    {existingCount > 0 && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Image className="h-3 w-3 text-green-600" />
-                        {existingCount} {isArabic ? "صورة مرفوعة" : "uploaded"}
+                    {isSaved && (
+                      <span className="text-xs flex items-center gap-1 text-green-600">
+                        <CheckCircle className="h-3 w-3" />
+                        {isArabic ? "تم الاستلام" : "Received"}
                       </span>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <Label>{isArabic ? "صورة الاستلام من تطبيق المورد" : "Receiving Image from Supplier App"}</Label>
-                    {image ? (
+                    {displayImage ? (
                       <div className="relative inline-block">
-                        <img src={image} alt="Receiving" className="max-w-sm max-h-48 rounded-lg border object-contain" />
-                        <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setBrandReceivingImages(prev => { const n = { ...prev }; delete n[brandId]; return n; })}>✕</Button>
+                        <img src={displayImage} alt="Receiving" className="max-w-sm max-h-48 rounded-lg border object-contain" />
+                        <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={async () => {
+                          if (isSaved && existingReceiving) {
+                            // Delete from DB
+                            await supabase.from("coins_purchase_receiving").delete().eq("id", existingReceiving.id);
+                            toast.success(isArabic ? "تم حذف صورة الاستلام" : "Receiving image removed");
+                            loadOrder(selectedOrder.id);
+                          }
+                          setBrandReceivingImages(prev => { const n = { ...prev }; delete n[brandId]; return n; });
+                        }}>✕</Button>
                       </div>
                     ) : (
                       <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
@@ -367,15 +349,22 @@ const CoinsReceivingPhase = () => {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-                    <Textarea value={notes} onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))} />
-                  </div>
+                  {!isSaved && pendingImage && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                        <Textarea value={brandReceivingNotes[brandId] || ""} onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))} />
+                      </div>
+                      <Button onClick={() => saveReceiving(brandId, pendingImage)} disabled={isSaving} size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        {isSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "تسجيل الاستلام" : "Record Receiving")}
+                      </Button>
+                    </>
+                  )}
 
-                  <Button onClick={() => saveReceiving(brandId, image)} disabled={isSaving || !image} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    {isSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "تسجيل الاستلام" : "Record Receiving")}
-                  </Button>
+                  {isSaved && existingReceiving?.notes && (
+                    <div className="text-sm text-muted-foreground">{existingReceiving.notes}</div>
+                  )}
                 </div>
               );
             })}
