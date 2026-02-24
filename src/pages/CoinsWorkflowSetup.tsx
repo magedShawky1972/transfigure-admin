@@ -85,21 +85,23 @@ const CoinsWorkflowSetup = () => {
       if (error) throw error;
       toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
 
-      // Send notifications for each assignment
+      // Send ONE notification with all brand names
       const phaseLabel = getPhaseLabel(selectedPhase);
-      for (const brandId of selectedBrandIds) {
-        const brand = brands.find(b => b.id === brandId);
-        supabase.functions.invoke("send-coins-workflow-notification", {
-          body: {
-            type: "assignment_added",
-            userId: selectedUserId,
-            userName: user?.user_name || user?.email || "",
-            brandName: brand?.brand_name || "",
-            phase: selectedPhase,
-            phaseLabel,
-          },
-        }).catch(err => console.error("Notification error:", err));
-      }
+      const allBrandNames = selectedBrandIds.map(id => brands.find(b => b.id === id)?.brand_name || "").filter(Boolean);
+      const isAllBrands = selectedBrandIds.length === brands.length && brands.length > 0;
+      const brandNameDisplay = isAllBrands
+        ? (isArabic ? "جميع العلامات التجارية" : "All Brands")
+        : allBrandNames.join(", ");
+      supabase.functions.invoke("send-coins-workflow-notification", {
+        body: {
+          type: "assignment_added",
+          userId: selectedUserId,
+          userName: user?.user_name || user?.email || "",
+          brandName: brandNameDisplay,
+          phase: selectedPhase,
+          phaseLabel,
+        },
+      }).catch(err => console.error("Notification error:", err));
 
       setSelectedBrandIds([]); setSelectedPhase(""); setSelectedUserId("");
       fetchAssignments();
@@ -189,15 +191,22 @@ const CoinsWorkflowSetup = () => {
             <div className="space-y-2">
               <Label>{isArabic ? "العلامات التجارية" : "Brands"}</Label>
               <div className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded-md bg-background">
-                {selectedBrandIds.map(id => {
-                  const brand = brands.find(b => b.id === id);
-                  return (
-                    <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-sm">
-                      {brand?.brand_name}
-                      <button type="button" className="hover:text-destructive" onClick={() => setSelectedBrandIds(prev => prev.filter(b => b !== id))}>×</button>
-                    </span>
-                  );
-                })}
+                {selectedBrandIds.length === brands.length && brands.length > 0 ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                    {isArabic ? "جميع العلامات التجارية" : "All Brands"}
+                    <button type="button" className="hover:text-destructive" onClick={() => setSelectedBrandIds([])}>×</button>
+                  </span>
+                ) : (
+                  selectedBrandIds.map(id => {
+                    const brand = brands.find(b => b.id === id);
+                    return (
+                      <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-sm">
+                        {brand?.brand_name}
+                        <button type="button" className="hover:text-destructive" onClick={() => setSelectedBrandIds(prev => prev.filter(b => b !== id))}>×</button>
+                      </span>
+                    );
+                  })
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Select value="" onValueChange={(val) => { if (!selectedBrandIds.includes(val)) setSelectedBrandIds(prev => [...prev, val]); }}>
