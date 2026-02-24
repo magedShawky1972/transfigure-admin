@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 
@@ -123,7 +123,7 @@ const ReceivingCoins = () => {
       if (order.bank_id) setBankId(order.bank_id);
       if (order.currency_id) setCurrencyId(order.currency_id);
       if (order.exchange_rate) setExchangeRate(String(order.exchange_rate));
-      setControlAmount(String(parseFloat(String(order.base_amount_sar || "0"))));
+      setControlAmount(String(parseFloat(String(order.amount_in_currency || "0"))));
       setLinkedPurchaseOrderId(orderId);
       setView("form");
 
@@ -334,8 +334,29 @@ const ReceivingCoins = () => {
     setReceivingImages({});
   };
 
+  const [receiptStatus, setReceiptStatus] = useState("draft");
+
+  const handleCloseEntry = async () => {
+    if (!selectedReceiptId) return;
+    const controlNum = parseFloat(controlAmount) || 0;
+    if (controlNum > 0 && totalAmount < controlNum) {
+      toast.error(isArabic ? "لا يمكن إغلاق الإيصال - المبلغ المستلم أقل من المبلغ المتحكم" : "Cannot close - received amount is less than control amount");
+      return;
+    }
+    try {
+      const { error } = await supabase.from("receiving_coins_header").update({ status: "closed" } as any).eq("id", selectedReceiptId);
+      if (error) throw error;
+      setReceiptStatus("closed");
+      toast.success(isArabic ? "تم إغلاق الإيصال بنجاح" : "Entry closed successfully");
+      fetchReceipts();
+    } catch (err: any) {
+      toast.error(err.message || "Error closing entry");
+    }
+  };
+
   const openNewEntry = () => {
     resetForm();
+    setReceiptStatus("draft");
     setView("form");
   };
 
@@ -355,6 +376,7 @@ const ReceivingCoins = () => {
       setReceiverName(h.receiver_name || "");
       setCurrencyId(h.currency_id || "");
       setExchangeRate(h.exchange_rate?.toString() || "");
+      setReceiptStatus(h.status || "draft");
     }
     if (linesRes.data) {
       setLines((linesRes.data as any[]).map(l => ({
@@ -486,10 +508,31 @@ const ReceivingCoins = () => {
               : (isArabic ? "إيصال جديد" : "New Receipt")}
           </h1>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-1" />
-          {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ" : "Save")}
-        </Button>
+        <div className="flex items-center gap-2">
+          {receiptStatus === "closed" && (
+            <span className="flex items-center gap-1 text-sm font-medium text-green-600 bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded-md">
+              <Lock className="h-4 w-4" />
+              {isArabic ? "مغلق" : "Closed"}
+            </span>
+          )}
+          {receiptStatus !== "closed" && (
+            <Button onClick={handleSave} disabled={saving}>
+              <Save className="h-4 w-4 mr-1" />
+              {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ" : "Save")}
+            </Button>
+          )}
+          {selectedReceiptId && receiptStatus !== "closed" && (
+            <Button 
+              variant="outline" 
+              onClick={handleCloseEntry} 
+              disabled={(() => { const c = parseFloat(controlAmount) || 0; return c > 0 && totalAmount < c; })()}
+              className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1" />
+              {isArabic ? "إغلاق الإيصال" : "Close Entry"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Header Form */}
@@ -526,7 +569,7 @@ const ReceivingCoins = () => {
               <Input type="number" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} placeholder="0.00" step="0.0001" />
             </div>
             <div className="space-y-2">
-              <Label>{isArabic ? "المبلغ المتحكم (SAR)" : "Control Amount (SAR)"}</Label>
+              <Label>{isArabic ? "المبلغ المتحكم (بالعملة)" : "Control Amount (Currency)"}</Label>
               <Input type="number" value={controlAmount} onChange={e => setControlAmount(e.target.value)} placeholder="0.00" />
             </div>
             <div className="space-y-2">
@@ -543,10 +586,43 @@ const ReceivingCoins = () => {
               <Input value={receiverName} onChange={e => setReceiverName(e.target.value)} placeholder={isArabic ? "أدخل اسم المستلم" : "Enter receiver name"} />
             </div>
           </div>
-          <div className="mt-4 p-3 bg-muted rounded-lg flex items-center justify-between">
-            <span className="font-semibold">{isArabic ? "إجمالي المبلغ" : "Total Amount"}</span>
-            <span className="text-xl font-bold text-primary">{totalAmount.toFixed(2)}</span>
-          </div>
+          {(() => {
+            const controlNum = parseFloat(controlAmount) || 0;
+            const remaining = controlNum - totalAmount;
+            const isComplete = controlNum > 0 && totalAmount >= controlNum;
+            const progressPct = controlNum > 0 ? Math.min((totalAmount / controlNum) * 100, 100) : 0;
+            const currencyCode = currencies.find(c => c.id === currencyId)?.currency_code || "";
+            return (
+              <div className="mt-4 space-y-3">
+                <div className="p-3 bg-muted rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">{isArabic ? "إجمالي المستلم" : "Total Received"}</span>
+                    <span className={`text-xl font-bold ${isComplete ? "text-green-600" : "text-primary"}`}>
+                      {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}
+                    </span>
+                  </div>
+                  {controlNum > 0 && (
+                    <>
+                      <div className="w-full bg-muted-foreground/20 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all ${isComplete ? "bg-green-600" : "bg-primary"}`}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>{isArabic ? "المبلغ المتحكم" : "Control Amount"}: {controlNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}</span>
+                        <span className={remaining > 0 ? "text-orange-500 font-medium" : "text-green-600 font-medium"}>
+                          {remaining > 0
+                            ? `${isArabic ? "متبقي" : "Remaining"}: ${remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currencyCode}`
+                            : (isArabic ? "✓ مكتمل" : "✓ Complete")}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
