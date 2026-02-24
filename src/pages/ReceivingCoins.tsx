@@ -671,9 +671,9 @@ const ReceivingCoins = () => {
                         <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[120px]" step="0.01" />
+                        <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[140px]" step="0.00000001" />
                       </TableCell>
-                      <TableCell className="font-semibold">{line.total.toFixed(2)}</TableCell>
+                      <TableCell className="font-semibold">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeLine(line.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
