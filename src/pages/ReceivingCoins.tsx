@@ -70,6 +70,8 @@ const ReceivingCoins = () => {
   const [saving, setSaving] = useState(false);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const [orderNumber, setOrderNumber] = useState("");
 
   // Track the linked purchase order to fetch receiving images
   const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState<string | null>(null);
@@ -330,6 +332,8 @@ const ReceivingCoins = () => {
     setLines([]);
     setAttachments([]);
     setSelectedReceiptId(null);
+    setReceiptNumber("");
+    setOrderNumber("");
     setLinkedPurchaseOrderId(null);
     setReceivingImages({});
   };
@@ -369,6 +373,7 @@ const ReceivingCoins = () => {
     if (headerRes.data) {
       const h = headerRes.data as any;
       setSelectedReceiptId(h.id);
+      setReceiptNumber(h.receipt_number || "");
       setSupplierId(h.supplier_id || "");
       setReceiptDate(h.receipt_date || format(new Date(), "yyyy-MM-dd"));
       setControlAmount(h.control_amount?.toString() || "");
@@ -377,6 +382,19 @@ const ReceivingCoins = () => {
       setCurrencyId(h.currency_id || "");
       setExchangeRate(h.exchange_rate?.toString() || "");
       setReceiptStatus(h.status || "draft");
+      setLinkedPurchaseOrderId(h.purchase_order_id || null);
+
+      // Fetch order number if linked
+      if (h.purchase_order_id) {
+        const { data: orderData } = await supabase
+          .from("coins_purchase_orders")
+          .select("order_number")
+          .eq("id", h.purchase_order_id)
+          .maybeSingle();
+        setOrderNumber(orderData?.order_number || "");
+      } else {
+        setOrderNumber("");
+      }
     }
     if (linesRes.data) {
       setLines((linesRes.data as any[]).map(l => ({
@@ -502,11 +520,23 @@ const ReceivingCoins = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <Coins className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">
-            {selectedReceiptId
-              ? (isArabic ? "تعديل الإيصال" : "Edit Receipt")
-              : (isArabic ? "إيصال جديد" : "New Receipt")}
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold">
+              {selectedReceiptId
+                ? (isArabic ? "تعديل الإيصال" : "Edit Receipt")
+                : (isArabic ? "إيصال جديد" : "New Receipt")}
+            </h1>
+            {selectedReceiptId && (
+              <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                {orderNumber && (
+                  <span>{isArabic ? "رقم الطلب" : "Order #"}: <span className="font-mono font-medium text-foreground">{orderNumber}</span></span>
+                )}
+                {receiptNumber && (
+                  <span>{isArabic ? "رقم الإيصال" : "Receipt #"}: <span className="font-mono font-medium text-foreground">{receiptNumber}</span></span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {receiptStatus === "closed" && (
@@ -525,7 +555,7 @@ const ReceivingCoins = () => {
             <Button 
               variant="outline" 
               onClick={handleCloseEntry} 
-              disabled={(() => { const c = parseFloat(controlAmount) || 0; return c > 0 && totalAmount < c; })()}
+              disabled={(() => { const c = parseFloat(controlAmount) || 0; return c <= 0 || totalAmount < c; })()}
               className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
             >
               <CheckCircle2 className="h-4 w-4 mr-1" />
