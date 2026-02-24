@@ -64,6 +64,8 @@ const ReceivingCoins = () => {
   const [receivingImages, setReceivingImages] = useState<Record<string, string>>({});
   // confirmedBrands kept for receiving images only
   const [confirmedBrands, setConfirmedBrands] = useState<Record<string, { confirmed: boolean; confirmedBy: string; confirmedAt: string }>>({});
+  // Per-brand control amounts from purchase order lines (brand_id → amount_in_currency)
+  const [brandControlAmounts, setBrandControlAmounts] = useState<Record<string, number>>({});
 
   // Dropdown data
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -156,6 +158,15 @@ const ReceivingCoins = () => {
         .eq("purchase_order_id", orderId)
         .order("line_number");
       if (orderLines && orderLines.length > 0) {
+        // Build per-brand control amounts
+        const brandAmounts: Record<string, number> = {};
+        for (const ol of orderLines) {
+          if (ol.brand_id) {
+            brandAmounts[ol.brand_id] = (brandAmounts[ol.brand_id] || 0) + (ol.amount_in_currency || 0);
+          }
+        }
+        setBrandControlAmounts(brandAmounts);
+        
         setLines(orderLines.map((ol: any) => ({
           id: crypto.randomUUID(),
           brand_id: ol.brand_id,
@@ -219,14 +230,18 @@ const ReceivingCoins = () => {
 
   const addLine = () => {
     const lastLine = lines.length > 0 ? lines[lines.length - 1] : null;
-    const controlNum = parseFloat(controlAmount) || 0;
-    const remainingAmount = controlNum > 0 ? Math.max(0, controlNum - totalAmount) : 0;
+    const lastBrandId = lastLine?.brand_id || "";
     const lastUnitPrice = lastLine?.unit_price || 0;
+    
+    // Calculate remaining for the specific brand
+    const brandControl = lastBrandId ? (brandControlAmounts[lastBrandId] || 0) : 0;
+    const brandUsed = lines.filter(l => l.brand_id === lastBrandId).reduce((sum, l) => sum + l.total, 0);
+    const remainingAmount = brandControl > 0 ? Math.max(0, brandControl - brandUsed) : 0;
     const remainingCoins = lastUnitPrice > 0 ? Math.round(remainingAmount / lastUnitPrice) : 0;
     
     setLines([...lines, {
       id: crypto.randomUUID(),
-      brand_id: lastLine?.brand_id || "",
+      brand_id: lastBrandId,
       brand_name: lastLine?.brand_name || "",
       supplier_id: lastLine?.supplier_id || "",
       coins: remainingCoins,
@@ -245,6 +260,15 @@ const ReceivingCoins = () => {
         const brand = brands.find(b => b.id === value);
         if (brand) {
           updated.brand_name = brand.brand_name;
+        }
+        // Recalculate remaining coins for the new brand
+        const brandControl = brandControlAmounts[value] || 0;
+        const brandUsed = lines.filter(l => l.id !== id && l.brand_id === value).reduce((sum, l) => sum + l.total, 0);
+        const remainingAmount = brandControl > 0 ? Math.max(0, brandControl - brandUsed) : 0;
+        const unitPrice = updated.unit_price || 0;
+        if (unitPrice > 0 && brandControl > 0) {
+          updated.coins = Math.round(remainingAmount / unitPrice);
+          updated.total = updated.coins * unitPrice;
         }
       }
       updated.total = updated.coins * updated.unit_price;
@@ -412,6 +436,7 @@ const ReceivingCoins = () => {
     setLinkedPurchaseOrderId(null);
     setReceivingImages({});
     setConfirmedBrands({});
+    setBrandControlAmounts({});
   };
 
   const handleConfirmLine = async (lineId: string) => {
@@ -522,14 +547,25 @@ const ReceivingCoins = () => {
 
       // Fetch order number if linked
       if (h.purchase_order_id) {
-        const { data: orderData } = await supabase
-          .from("coins_purchase_orders")
-          .select("order_number")
-          .eq("id", h.purchase_order_id)
-          .maybeSingle();
-        setOrderNumber(orderData?.order_number || "");
+        const [orderDataRes, orderLinesRes] = await Promise.all([
+          supabase.from("coins_purchase_orders").select("order_number").eq("id", h.purchase_order_id).maybeSingle(),
+          supabase.from("coins_purchase_order_lines").select("brand_id, amount_in_currency").eq("purchase_order_id", h.purchase_order_id),
+        ]);
+        setOrderNumber(orderDataRes.data?.order_number || "");
+        
+        // Load per-brand control amounts
+        if (orderLinesRes.data) {
+          const brandAmounts: Record<string, number> = {};
+          for (const ol of orderLinesRes.data) {
+            if (ol.brand_id) {
+              brandAmounts[ol.brand_id] = (brandAmounts[ol.brand_id] || 0) + (ol.amount_in_currency || 0);
+            }
+          }
+          setBrandControlAmounts(brandAmounts);
+        }
       } else {
         setOrderNumber("");
+        setBrandControlAmounts({});
       }
     }
     if (linesRes.data) {
@@ -898,7 +934,7 @@ const ReceivingCoins = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>#</TableHead>
@@ -907,6 +943,9 @@ const ReceivingCoins = () => {
                   <TableHead>{isArabic ? "العملات" : "Coins"}</TableHead>
                   <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                   <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
+                  {Object.keys(brandControlAmounts).length > 0 && (
+                    <TableHead>{isArabic ? "المتبقي للعلامة" : "Brand Remaining"}</TableHead>
+                  )}
                   {selectedReceiptId && <TableHead>{isArabic ? "تأكيد الاستلام" : "Confirm"}</TableHead>}
                   <TableHead></TableHead>
                 </TableRow>
@@ -914,7 +953,7 @@ const ReceivingCoins = () => {
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                     <TableCell colSpan={selectedReceiptId ? 8 : 7} className="text-center text-muted-foreground">
+                     <TableCell colSpan={selectedReceiptId ? (Object.keys(brandControlAmounts).length > 0 ? 10 : 8) : (Object.keys(brandControlAmounts).length > 0 ? 8 : 7)} className="text-center text-muted-foreground">
                       {isArabic ? "لا توجد علامات تجارية" : "No brands added"}
                     </TableCell>
                   </TableRow>
@@ -960,6 +999,20 @@ const ReceivingCoins = () => {
                         <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[140px]" step="0.00000001" disabled={isLocked} />
                       </TableCell>
                       <TableCell className="font-semibold">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      {Object.keys(brandControlAmounts).length > 0 && (
+                        <TableCell>
+                          {line.brand_id && brandControlAmounts[line.brand_id] ? (() => {
+                            const brandControl = brandControlAmounts[line.brand_id];
+                            const brandUsed = lines.filter(l => l.brand_id === line.brand_id).reduce((sum, l) => sum + l.total, 0);
+                            const remaining = Math.max(0, brandControl - brandUsed);
+                            return (
+                              <span className={remaining <= 0 ? "text-green-600 font-semibold" : "text-orange-500 font-semibold"}>
+                                {remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            );
+                          })() : "-"}
+                        </TableCell>
+                      )}
                       {selectedReceiptId && (
                         <TableCell>
                           {isConfirmed ? (
