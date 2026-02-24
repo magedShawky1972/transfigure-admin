@@ -36,6 +36,21 @@ interface Attachment {
   file_size: number;
 }
 
+// Determine if all brands are fully delivered or only partial
+const computeDeliveryStatus = (currentLines: LineItem[], controlAmounts: Record<string, number>): string => {
+  const confirmedLines = currentLines.filter(l => l.is_confirmed);
+  if (confirmedLines.length === 0) return "draft";
+  const brandIds = Object.keys(controlAmounts);
+  if (brandIds.length === 0) return "partial_delivery";
+  for (const brandId of brandIds) {
+    const control = controlAmounts[brandId] || 0;
+    if (control <= 0) continue;
+    const received = confirmedLines.filter(l => l.brand_id === brandId).reduce((sum, l) => sum + l.total, 0);
+    if (received < control) return "partial_delivery";
+  }
+  return "full_delivery";
+};
+
 const ReceivingCoins = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
@@ -459,11 +474,13 @@ const ReceivingCoins = () => {
         } as any)
         .eq("id", lineId);
       if (error) throw error;
-      setLines(prev => prev.map(l => l.id === lineId ? { ...l, is_confirmed: true, confirmed_by_name: userName } : l));
-      // Update header status to partial_delivery if not already closed
+      const updatedLines = lines.map(l => l.id === lineId ? { ...l, is_confirmed: true, confirmed_by_name: userName } : l);
+      setLines(updatedLines);
+      // Determine if all brands are fully delivered or partial
       if (selectedReceiptId && receiptStatus !== "closed") {
-        await supabase.from("receiving_coins_header").update({ status: "partial_delivery" } as any).eq("id", selectedReceiptId);
-        setReceiptStatus("partial_delivery");
+        const newStatus = computeDeliveryStatus(updatedLines, brandControlAmounts);
+        await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", selectedReceiptId);
+        setReceiptStatus(newStatus);
       }
       toast.success(isArabic ? "تم تأكيد الاستلام" : "Receiving confirmed");
     } catch (err: any) {
@@ -483,16 +500,15 @@ const ReceivingCoins = () => {
         } as any)
         .eq("id", lineId);
       if (error) throw error;
-      setLines(prev => {
-        const updated = prev.map(l => l.id === lineId ? { ...l, is_confirmed: false, confirmed_by_name: "" } : l);
-        // If no lines are confirmed anymore, revert status to draft
-        const anyConfirmed = updated.some(l => l.is_confirmed);
-        if (!anyConfirmed && selectedReceiptId && receiptStatus === "partial_delivery") {
-          supabase.from("receiving_coins_header").update({ status: "draft" } as any).eq("id", selectedReceiptId);
-          setReceiptStatus("draft");
-        }
-        return updated;
-      });
+      const updatedLines = lines.map(l => l.id === lineId ? { ...l, is_confirmed: false, confirmed_by_name: "" } : l);
+      setLines(updatedLines);
+      // Recompute status
+      if (selectedReceiptId && receiptStatus !== "closed") {
+        const anyConfirmed = updatedLines.some(l => l.is_confirmed);
+        const newStatus = anyConfirmed ? computeDeliveryStatus(updatedLines, brandControlAmounts) : "draft";
+        await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", selectedReceiptId);
+        setReceiptStatus(newStatus);
+      }
       toast.success(isArabic ? "تم التراجع عن التأكيد" : "Confirmation rolled back");
     } catch (err: any) {
       toast.error(err.message || "Error rolling back");
@@ -555,13 +571,14 @@ const ReceivingCoins = () => {
         
         // Load per-brand control amounts
         if (orderLinesRes.data) {
-          const brandAmounts: Record<string, number> = {};
+          const loadedBrandAmounts: Record<string, number> = {};
           for (const ol of orderLinesRes.data) {
             if (ol.brand_id) {
-              brandAmounts[ol.brand_id] = (brandAmounts[ol.brand_id] || 0) + (ol.amount_in_currency || 0);
+              loadedBrandAmounts[ol.brand_id] = (loadedBrandAmounts[ol.brand_id] || 0) + (ol.amount_in_currency || 0);
             }
           }
-          setBrandControlAmounts(brandAmounts);
+          setBrandControlAmounts(loadedBrandAmounts);
+          (headerRes.data as any)._brandAmounts = loadedBrandAmounts;
         }
       } else {
         setOrderNumber("");
@@ -582,12 +599,13 @@ const ReceivingCoins = () => {
       }));
       setLines(mappedLines);
 
-      // Auto-fix status: if any line confirmed but header still draft, update to partial_delivery
+      // Auto-fix status: if any line confirmed but header still draft, update status
       const anyConfirmed = mappedLines.some(l => l.is_confirmed);
       const currentStatus = (headerRes.data as any)?.status || "draft";
       if (anyConfirmed && currentStatus === "draft" && receiptId) {
-        await supabase.from("receiving_coins_header").update({ status: "partial_delivery" } as any).eq("id", receiptId);
-        setReceiptStatus("partial_delivery");
+        const newStatus = computeDeliveryStatus(mappedLines, (headerRes.data as any)?._brandAmounts || {});
+        await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", receiptId);
+        setReceiptStatus(newStatus);
       }
 
       // Try to load receiving images and confirmation status for brands in lines
@@ -685,7 +703,12 @@ const ReceivingCoins = () => {
                           <TableCell>{rate > 0 ? txnAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
                           <TableCell>{sarAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                           <TableCell>{r.receiver_name || "-"}</TableCell>
-                          <TableCell>{r.status}</TableCell>
+                          <TableCell>
+                            {r.status === "closed" && <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">{isArabic ? "مغلق" : "Closed"}</span>}
+                            {r.status === "full_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{isArabic ? "تسليم كامل" : "Full Delivery"}</span>}
+                            {r.status === "partial_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{isArabic ? "تسليم جزئي" : "Partial Delivery"}</span>}
+                            {(r.status === "draft" || !r.status) && <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">{isArabic ? "مسودة" : "Draft"}</span>}
+                          </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
                               <Eye className="h-4 w-4" />
@@ -741,6 +764,11 @@ const ReceivingCoins = () => {
           {receiptStatus === "partial_delivery" && (
             <span className="flex items-center gap-1 text-sm font-medium text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30 px-3 py-2 rounded-md">
               {isArabic ? "تسليم جزئي" : "Partial Delivery"}
+            </span>
+          )}
+          {receiptStatus === "full_delivery" && (
+            <span className="flex items-center gap-1 text-sm font-medium text-green-600 bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded-md">
+              {isArabic ? "تسليم كامل" : "Full Delivery"}
             </span>
           )}
           {receiptStatus !== "closed" && (
