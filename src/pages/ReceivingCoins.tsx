@@ -174,7 +174,31 @@ const ReceivingCoins = () => {
       .select("*, currencies(currency_code), coins_purchase_orders(order_number)")
       .order("created_at", { ascending: false })
       .limit(50);
-    if (data) setReceipts(data);
+    if (data) {
+      // Auto-fix: check draft receipts for confirmed lines and update to partial_delivery
+      const draftReceipts = data.filter((r: any) => r.status === "draft" || !r.status);
+      if (draftReceipts.length > 0) {
+        const draftIds = draftReceipts.map((r: any) => r.id);
+        const { data: confirmedLines } = await supabase
+          .from("receiving_coins_line")
+          .select("header_id")
+          .in("header_id", draftIds)
+          .eq("is_confirmed", true);
+        if (confirmedLines && confirmedLines.length > 0) {
+          const headerIdsToFix = [...new Set(confirmedLines.map((l: any) => l.header_id))];
+          for (const hid of headerIdsToFix) {
+            await supabase.from("receiving_coins_header").update({ status: "partial_delivery" } as any).eq("id", hid);
+          }
+          // Update local data
+          for (const r of data as any[]) {
+            if (headerIdsToFix.includes(r.id)) {
+              r.status = "partial_delivery";
+            }
+          }
+        }
+      }
+      setReceipts(data);
+    }
   };
 
   const addLine = () => {
