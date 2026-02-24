@@ -150,4 +150,10 @@ All colors MUST be HSL.
   .print-black-text * {
     color: black !important;
   }
+
+  #coins-guide-print,
+  #coins-guide-print * {
+    border: none !important;
+    box-shadow: none !important;
+  }
 }

@@ -8,12 +8,12 @@ import { getPrintLogoUrl, PRINT_LOGO_STYLES } from "@/lib/printLogo";
 
 // Mock UI Screenshot Components
 const MockScreenshot = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div className="border-2 border-border rounded-lg overflow-hidden my-4 print:border print:border-gray-300">
-    <div className="bg-muted/80 px-3 py-1.5 border-b flex items-center justify-between text-xs">
+  <div className="border-2 border-border rounded-lg overflow-hidden my-4 print:border-0 print:shadow-none">
+    <div className="bg-muted/80 px-3 py-1.5 border-b flex items-center justify-between text-xs print:border-0 print:bg-transparent">
       <span className="font-semibold text-muted-foreground">📸 {title}</span>
       <span className="text-muted-foreground/60">شاشة النظام</span>
     </div>
-    <div className="bg-card p-3 text-sm" dir="rtl">{children}</div>
+    <div className="bg-card p-3 text-sm print:bg-transparent print:p-0" dir="rtl">{children}</div>
   </div>
 );
 
@@ -31,9 +31,9 @@ const MockBadge = ({ children, color }: { children: React.ReactNode; color: stri
 );
 
 const MockTableRow = ({ cells, highlighted }: { cells: string[]; highlighted?: boolean }) => (
-  <tr className={highlighted ? "bg-primary/5" : ""}>
+  <tr className={highlighted ? "bg-primary/5 print:bg-transparent" : ""}>
     {cells.map((cell, i) => (
-      <td key={i} className="border border-border/50 px-2 py-1.5 text-xs">{cell}</td>
+      <td key={i} className="border border-border/50 px-2 py-1.5 text-xs print:border-0">{cell}</td>
     ))}
   </tr>
 );
