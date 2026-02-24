@@ -12,10 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2 } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
+import CoinsPhaseSteps from "@/components/CoinsPhaseSteps";
 
 interface OrderLine {
   id?: string;
@@ -55,6 +56,7 @@ const CoinsCreation = () => {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrderPhase, setSelectedOrderPhase] = useState<string>("creation");
 
   // Filters
   const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
@@ -346,7 +348,7 @@ const CoinsCreation = () => {
   const resetForm = () => {
     setSupplierId(""); setBankId(""); setCurrencyId("");
     setExchangeRate("1"); setNotes(""); setBankTransferImage("");
-    setBankTransferFee(""); setSelectedOrderId(null); setLines([emptyLine(1)]);
+    setBankTransferFee(""); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
   };
 
   const handleDeleteOrder = async (orderId: string) => {
@@ -371,6 +373,7 @@ const CoinsCreation = () => {
     const data = orderRes.data;
     if (data) {
       setSelectedOrderId(data.id);
+      setSelectedOrderPhase(data.current_phase || "creation");
       setSupplierId(data.supplier_id || "");
       setBankId(data.bank_id || "");
       setCurrencyId(data.currency_id || "");
@@ -512,6 +515,8 @@ const CoinsCreation = () => {
     );
   }
 
+  const isReadOnly = selectedOrderId !== null && selectedOrderPhase !== "creation";
+
   return (
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between">
@@ -520,19 +525,35 @@ const CoinsCreation = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <Coins className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">{isArabic ? "إنشاء طلب شراء عملات" : "Create Coins Purchase Order"}</h1>
+          <h1 className="text-2xl font-bold">
+            {isReadOnly
+              ? (isArabic ? "عرض طلب شراء عملات" : "View Coins Purchase Order")
+              : (isArabic ? "إنشاء طلب شراء عملات" : "Create Coins Purchase Order")}
+          </h1>
+          {isReadOnly && <Lock className="h-5 w-5 text-muted-foreground" />}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
-            <Save className="h-4 w-4 mr-1" />
-            {isArabic ? "حفظ كمسودة" : "Save Draft"}
-          </Button>
-          <Button onClick={() => handleSave(true)} disabled={saving}>
-            <Send className="h-4 w-4 mr-1" />
-            {isArabic ? "إرسال للتوجيه" : "Send to Sending"}
-          </Button>
-        </div>
+        {!isReadOnly && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+              <Save className="h-4 w-4 mr-1" />
+              {isArabic ? "حفظ كمسودة" : "Save Draft"}
+            </Button>
+            <Button onClick={() => handleSave(true)} disabled={saving}>
+              <Send className="h-4 w-4 mr-1" />
+              {isArabic ? "إرسال للتوجيه" : "Send to Sending"}
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Phase Stepper */}
+      {selectedOrderId && (
+        <Card>
+          <CardContent className="py-3 px-4">
+            <CoinsPhaseSteps currentPhase={selectedOrderPhase} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Bank Transfer Image Upload */}
       <Card>
@@ -542,14 +563,16 @@ const CoinsCreation = () => {
             {bankTransferImage ? (
               <div className="relative">
                 <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
-                <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setBankTransferImage("")}>✕</Button>
+                {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setBankTransferImage("")}>✕</Button>}
               </div>
-            ) : (
+            ) : !isReadOnly ? (
               <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
                 <Upload className="h-10 w-10 text-muted-foreground mb-2" />
                 <span className="text-muted-foreground">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع صورة التحويل" : "Click to upload transfer image")}</span>
                 <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
               </label>
+            ) : (
+              <span className="text-muted-foreground">{isArabic ? "لا توجد صورة" : "No image"}</span>
             )}
           </div>
         </CardContent>
@@ -562,32 +585,32 @@ const CoinsCreation = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
+              <Select value={supplierId} onValueChange={setSupplierId} disabled={isReadOnly}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
                 <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "البنك *" : "Bank *"}</Label>
-              <Select value={bankId} onValueChange={setBankId}>
+              <Select value={bankId} onValueChange={setBankId} disabled={isReadOnly}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر البنك" : "Select bank"} /></SelectTrigger>
                 <SelectContent>{banks.map(b => <SelectItem key={b.id} value={b.id}>{b.bank_name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "العملة *" : "Currency *"}</Label>
-              <Select value={currencyId} onValueChange={setCurrencyId}>
+              <Select value={currencyId} onValueChange={setCurrencyId} disabled={isReadOnly}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العملة" : "Select currency"} /></SelectTrigger>
                 <SelectContent>{currencies.map(c => <SelectItem key={c.id} value={c.id}>{c.currency_name} ({c.currency_code})</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "سعر الصرف" : "Exchange Rate"}</Label>
-              <Input type="number" step="0.0001" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} />
+              <Input type="number" step="0.0001" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "رسوم التحويل البنكي" : "Bank Transfer Fee"}</Label>
-              <Input type="number" step="0.01" value={bankTransferFee} onChange={e => setBankTransferFee(e.target.value)} />
+              <Input type="number" step="0.01" value={bankTransferFee} onChange={e => setBankTransferFee(e.target.value)} readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "إجمالي التحويل البنكي" : "Total Bank Transfer"}</Label>
@@ -600,7 +623,7 @@ const CoinsCreation = () => {
           </div>
           <div className="mt-4 space-y-2">
             <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-            <Textarea value={notes} onChange={e => setNotes(e.target.value)} />
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
           </div>
         </CardContent>
       </Card>
@@ -610,10 +633,12 @@ const CoinsCreation = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>{isArabic ? "بنود الطلب" : "Order Lines"}</CardTitle>
-            <Button size="sm" onClick={addLine}>
-              <Plus className="h-4 w-4 mr-1" />
-              {isArabic ? "إضافة سطر" : "Add Line"}
-            </Button>
+            {!isReadOnly && (
+              <Button size="sm" onClick={addLine}>
+                <Plus className="h-4 w-4 mr-1" />
+                {isArabic ? "إضافة سطر" : "Add Line"}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -626,7 +651,7 @@ const CoinsCreation = () => {
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount in Currency"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
-                  <TableHead className="w-10"></TableHead>
+                  {!isReadOnly && <TableHead className="w-10"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -634,13 +659,13 @@ const CoinsCreation = () => {
                   <TableRow key={index}>
                     <TableCell className="text-center font-medium">{index + 1}</TableCell>
                     <TableCell>
-                      <Select value={line.brand_id} onValueChange={(v) => handleBrandChange(index, v)}>
+                      <Select value={line.brand_id} onValueChange={(v) => handleBrandChange(index, v)} disabled={isReadOnly}>
                         <SelectTrigger className="min-w-[180px]"><SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} /></SelectTrigger>
                         <SelectContent>{brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}</SelectContent>
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Select value={line.supplier_id} onValueChange={(v) => updateLine(index, "supplier_id", v)}>
+                      <Select value={line.supplier_id} onValueChange={(v) => updateLine(index, "supplier_id", v)} disabled={isReadOnly}>
                         <SelectTrigger className="min-w-[180px]"><SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} /></SelectTrigger>
                         <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>)}</SelectContent>
                       </Select>
@@ -649,9 +674,10 @@ const CoinsCreation = () => {
                       <Input
                         type="number"
                         step="0.01"
-                        className="min-w-[120px]"
+                        className={`min-w-[120px] ${isReadOnly ? "bg-muted" : ""}`}
                         value={line.amount_in_currency}
                         onChange={e => updateLine(index, "amount_in_currency", e.target.value)}
+                        readOnly={isReadOnly}
                       />
                     </TableCell>
                     <TableCell>
@@ -663,17 +689,19 @@ const CoinsCreation = () => {
                         readOnly
                       />
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeLine(index)}
-                        disabled={lines.length <= 1}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+                    {!isReadOnly && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeLine(index)}
+                          disabled={lines.length <= 1}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
