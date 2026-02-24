@@ -108,6 +108,22 @@ const ReceivingCoins = () => {
   };
 
   const loadFromPurchaseOrder = async (orderId: string) => {
+    // Check if a receiving entry already exists for this purchase order
+    const { data: existingHeader } = await supabase
+      .from("receiving_coins_header")
+      .select("id")
+      .eq("purchase_order_id", orderId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingHeader) {
+      // Load the existing receipt instead of creating a new one
+      await loadReceipt(existingHeader.id);
+      setView("form");
+      return;
+    }
+
     const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
       supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
