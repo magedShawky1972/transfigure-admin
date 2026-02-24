@@ -395,6 +395,11 @@ const ReceivingCoins = () => {
         .eq("id", lineId);
       if (error) throw error;
       setLines(prev => prev.map(l => l.id === lineId ? { ...l, is_confirmed: true, confirmed_by_name: userName } : l));
+      // Update header status to partial_delivery if not already closed
+      if (selectedReceiptId && receiptStatus !== "closed") {
+        await supabase.from("receiving_coins_header").update({ status: "partial_delivery" } as any).eq("id", selectedReceiptId);
+        setReceiptStatus("partial_delivery");
+      }
       toast.success(isArabic ? "تم تأكيد الاستلام" : "Receiving confirmed");
     } catch (err: any) {
       toast.error(err.message || "Error confirming");
@@ -413,7 +418,16 @@ const ReceivingCoins = () => {
         } as any)
         .eq("id", lineId);
       if (error) throw error;
-      setLines(prev => prev.map(l => l.id === lineId ? { ...l, is_confirmed: false, confirmed_by_name: "" } : l));
+      setLines(prev => {
+        const updated = prev.map(l => l.id === lineId ? { ...l, is_confirmed: false, confirmed_by_name: "" } : l);
+        // If no lines are confirmed anymore, revert status to draft
+        const anyConfirmed = updated.some(l => l.is_confirmed);
+        if (!anyConfirmed && selectedReceiptId && receiptStatus === "partial_delivery") {
+          supabase.from("receiving_coins_header").update({ status: "draft" } as any).eq("id", selectedReceiptId);
+          setReceiptStatus("draft");
+        }
+        return updated;
+      });
       toast.success(isArabic ? "تم التراجع عن التأكيد" : "Confirmation rolled back");
     } catch (err: any) {
       toast.error(err.message || "Error rolling back");
@@ -633,10 +647,15 @@ const ReceivingCoins = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {receiptStatus === "closed" && (
+           {receiptStatus === "closed" && (
             <span className="flex items-center gap-1 text-sm font-medium text-green-600 bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded-md">
               <Lock className="h-4 w-4" />
               {isArabic ? "مغلق" : "Closed"}
+            </span>
+          )}
+          {receiptStatus === "partial_delivery" && (
+            <span className="flex items-center gap-1 text-sm font-medium text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30 px-3 py-2 rounded-md">
+              {isArabic ? "تسليم جزئي" : "Partial Delivery"}
             </span>
           )}
           {receiptStatus !== "closed" && (
