@@ -147,10 +147,10 @@ const CoinsReceivingPhase = () => {
         const brandId = line.brand_id;
         const brandName = line.brands?.brand_name || "";
 
-        // Create receiving_coins_header
+        // Create receiving_coins_header - use main supplier from order
         const headerData = {
           receipt_number: generateReceiptNumber(),
-          supplier_id: line.supplier_id || selectedOrder.supplier_id,
+          supplier_id: selectedOrder.supplier_id,
           receipt_date: format(new Date(), "yyyy-MM-dd"),
           brand_id: brandId,
           control_amount: parseFloat(String(line.base_amount_sar || 0)),
@@ -170,12 +170,13 @@ const CoinsReceivingPhase = () => {
 
         if (headerError) throw headerError;
 
-        // Create receiving_coins_line entry for the brand
+        // Create receiving_coins_line entry for the brand with supplier
         if (headerResult) {
           const lineInserts = [{
             header_id: headerResult.id,
             brand_id: brandId,
             brand_name: brandName,
+            supplier_id: line.supplier_id || null,
             product_id: null,
             product_name: brandName,
             coins: 0,
