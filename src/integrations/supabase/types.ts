@@ -5308,6 +5308,7 @@ export type Database = {
           exchange_rate: number | null
           id: string
           notes: string | null
+          purchase_order_id: string | null
           receipt_date: string
           receipt_number: string
           receiver_name: string | null
@@ -5326,6 +5327,7 @@ export type Database = {
           exchange_rate?: number | null
           id?: string
           notes?: string | null
+          purchase_order_id?: string | null
           receipt_date?: string
           receipt_number: string
           receiver_name?: string | null
@@ -5344,6 +5346,7 @@ export type Database = {
           exchange_rate?: number | null
           id?: string
           notes?: string | null
+          purchase_order_id?: string | null
           receipt_date?: string
           receipt_number?: string
           receiver_name?: string | null
@@ -5372,6 +5375,13 @@ export type Database = {
             columns: ["currency_id"]
             isOneToOne: false
             referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receiving_coins_header_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "coins_purchase_orders"
             referencedColumns: ["id"]
           },
           {

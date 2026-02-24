@@ -90,6 +90,23 @@ const CoinsPurchaseFollowUp = () => {
     const previousPhase = phaseOrder[currentIdx - 1];
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // If rolling back FROM coins_entry, delete auto-created receiving entries
+      if (order.current_phase === "coins_entry") {
+        // Find headers linked to this purchase order
+        const { data: headers } = await supabase
+          .from("receiving_coins_header")
+          .select("id")
+          .eq("purchase_order_id", order.id);
+        if (headers && headers.length > 0) {
+          const headerIds = headers.map((h: any) => h.id);
+          // Delete lines first (FK constraint), then headers
+          await supabase.from("receiving_coins_line").delete().in("header_id", headerIds);
+          await supabase.from("receiving_coins_attachments").delete().in("header_id", headerIds);
+          await supabase.from("receiving_coins_header").delete().in("id", headerIds);
+        }
+      }
+
       await supabase.from("coins_purchase_orders").update({
         current_phase: previousPhase,
       }).eq("id", order.id);
