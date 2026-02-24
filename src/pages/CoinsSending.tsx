@@ -270,7 +270,7 @@ const CoinsSending = () => {
 
   return (
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <Coins className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-bold">{isArabic ? "توجيه التحويلات" : "Sending Transfers"}</h1>
@@ -282,8 +282,8 @@ const CoinsSending = () => {
           toDate={toDate}
           onFromDateChange={setFromDate}
           onToDateChange={setToDate}
-          pendingLabel={{ ar: "المعلقة (توجيه)", en: "Pending (Sending)" }}
-          sentLabel={{ ar: "المرسلة فقط", en: "Sent Only" }}
+          pendingLabel={isArabic ? "المعلقة (توجيه)" : "Pending (Sending)"}
+          sentLabel={isArabic ? "المرسلة فقط" : "Sent Only"}
         />
       </div>
       <Card>
