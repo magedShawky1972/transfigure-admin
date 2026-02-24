@@ -80,8 +80,9 @@ const CoinsReceivingPhase = () => {
       });
       if (error) throw error;
       if (!data?.url) throw new Error("Upload failed");
-      setBrandReceivingImages(prev => ({ ...prev, [brandId]: data.url }));
       toast.success(isArabic ? "تم رفع الصورة" : "Image uploaded");
+      // Auto-save receiving record
+      await saveReceiving(brandId, data.url);
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
@@ -90,18 +91,13 @@ const CoinsReceivingPhase = () => {
     }
   };
 
-  const handleAddReceiving = async (brandId: string) => {
-    const image = brandReceivingImages[brandId];
-    if (!image) {
-      toast.error(isArabic ? "يرجى رفع صورة الاستلام" : "Please upload a receiving image");
-      return;
-    }
+  const saveReceiving = async (brandId: string, imageUrl: string) => {
     setSavingBrand(brandId);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("coins_purchase_receiving").insert({
         purchase_order_id: selectedOrder.id,
-        receiving_image: image,
+        receiving_image: imageUrl,
         received_by: user?.email || "",
         received_by_name: user?.user_metadata?.display_name || user?.email || "",
         notes: brandReceivingNotes[brandId] || "",
@@ -378,10 +374,12 @@ const CoinsReceivingPhase = () => {
                     <Textarea value={notes} onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))} />
                   </div>
 
-                  <Button onClick={() => handleAddReceiving(brandId)} disabled={isSaving || !image} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    {isSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "تسجيل الاستلام" : "Record Receiving")}
-                  </Button>
+                  {isSaving && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      {isArabic ? "جاري الحفظ..." : "Saving..."}
+                    </div>
+                  )}
                 </div>
               );
             })}
