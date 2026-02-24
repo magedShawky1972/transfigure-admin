@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Eye, ClipboardList, RefreshCw } from "lucide-react";
+import { Eye, ClipboardList, RefreshCw, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const phaseConfig = {
   creation: { label: "Creation", labelAr: "الإنشاء", color: "bg-blue-100 text-blue-800" },
@@ -75,6 +76,40 @@ const CoinsPurchaseFollowUp = () => {
     };
     const route = phaseRoutes[order.current_phase];
     if (route) navigate(route);
+  };
+
+  const phaseOrder = ["creation", "sending", "receiving", "coins_entry", "completed"];
+
+  const returnToPreviousPhase = async (order: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentIdx = phaseOrder.indexOf(order.current_phase);
+    if (currentIdx <= 0) {
+      toast.error(isArabic ? "لا يمكن الرجوع من هذه المرحلة" : "Cannot go back from this phase");
+      return;
+    }
+    const previousPhase = phaseOrder[currentIdx - 1];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("coins_purchase_orders").update({
+        current_phase: previousPhase,
+      }).eq("id", order.id);
+
+      await supabase.from("coins_purchase_phase_history").insert({
+        purchase_order_id: order.id,
+        from_phase: order.current_phase,
+        to_phase: previousPhase,
+        action: "return_to_previous",
+        action_by: user?.email || "",
+        action_by_name: user?.user_metadata?.display_name || user?.email || "",
+        notes: isArabic ? "إرجاع للمرحلة السابقة" : "Returned to previous phase",
+      });
+
+      const prevLabel = phaseConfig[previousPhase as keyof typeof phaseConfig];
+      toast.success(isArabic ? `تم إرجاع الطلب إلى مرحلة ${prevLabel?.labelAr}` : `Order returned to ${prevLabel?.label} phase`);
+      fetchOrders();
+    } catch (err: any) {
+      toast.error(err.message || "Error");
+    }
   };
 
   const phaseCounts = orders.reduce((acc, o) => {
@@ -188,7 +223,16 @@ const CoinsPurchaseFollowUp = () => {
                       <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
                       <TableCell>{o.created_by_name || o.created_by}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" title={isArabic ? "فتح" : "Open"}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {o.current_phase !== "creation" && o.current_phase !== "completed" && (
+                            <Button variant="ghost" size="icon" title={isArabic ? "إرجاع للمرحلة السابقة" : "Return to previous phase"} onClick={(e) => returnToPreviousPhase(o, e)}>
+                              <Undo2 className="h-4 w-4 text-orange-500" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

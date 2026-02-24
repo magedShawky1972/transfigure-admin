@@ -388,7 +388,7 @@ const ReceivingCoins = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Coins className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات" : "Receiving Coins"}</h1>
+            <h1 className="text-2xl font-bold">{isArabic ? "إيصال الاستلام" : "Receiving Entry"}</h1>
           </div>
           <Button onClick={openNewEntry}>
             <Plus className="h-4 w-4 mr-1" />
