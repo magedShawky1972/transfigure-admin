@@ -1,4 +1,6 @@
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePageAccess } from "@/hooks/usePageAccess";
+import { AccessDenied } from "@/components/AccessDenied";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Printer, ArrowRight, ArrowLeft, CheckCircle, Send, Package, Coins, FileText, Settings, Mail, Bell } from "lucide-react";
@@ -7,6 +9,10 @@ import { getPrintLogoUrl, PRINT_LOGO_STYLES } from "@/lib/printLogo";
 const CoinsTransactionGuide = () => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
+  const { hasAccess, isLoading: accessLoading } = usePageAccess("/coins-transaction-guide");
+
+  if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (hasAccess === false) return <AccessDenied />;
 
   const handlePrint = () => {
     window.print();

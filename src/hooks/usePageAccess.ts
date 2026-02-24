@@ -124,6 +124,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/coins-receiving-phase": "coinsReceivingPhase",
   "/coins-workflow-setup": "coinsWorkflowSetup",
   "/coins-purchase-followup": "coinsPurchaseFollowUp",
+  "/coins-transaction-guide": "coinsTransactionGuide",
   "/acknowledgment-documents": "acknowledgmentDocuments",
   "/missing-shift-images": "missingShiftImages",
   "/sales-order-entry": "salesOrderEntry",

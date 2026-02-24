@@ -161,6 +161,7 @@ export function AppSidebar() {
     "/coins-receiving-phase": "coinsReceivingPhase",
     "/coins-workflow-setup": "coinsWorkflowSetup",
     "/coins-purchase-followup": "coinsPurchaseFollowUp",
+    "/coins-transaction-guide": "coinsTransactionGuide",
     "/missing-shift-images": "missingShiftImages",
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
@@ -394,6 +395,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد سير العمل' : 'Workflow Setup', url: "/coins-workflow-setup", icon: Settings },
         { title: language === 'ar' ? 'متابعة شراء العملات' : 'Purchase Follow-Up', url: "/coins-purchase-followup", icon: ClipboardCheck },
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
+        { title: language === 'ar' ? 'دليل المستخدم' : 'User Guide', url: "/coins-transaction-guide", icon: FileText },
       ]
     },
     {
