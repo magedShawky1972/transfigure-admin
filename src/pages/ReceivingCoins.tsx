@@ -36,13 +36,16 @@ interface Attachment {
   file_size: number;
 }
 
-// Determine if all brands are fully delivered or only partial
+// Determine if all brands in this receipt are fully delivered
 const computeDeliveryStatus = (currentLines: LineItem[], controlAmounts: Record<string, number>): string => {
   const confirmedLines = currentLines.filter(l => l.is_confirmed);
   if (confirmedLines.length === 0) return "draft";
-  const brandIds = Object.keys(controlAmounts);
-  if (brandIds.length === 0) return "partial_delivery";
-  for (const brandId of brandIds) {
+  
+  // Only check brands that exist in the current receipt's lines
+  const receiptBrandIds = [...new Set(currentLines.map(l => l.brand_id).filter(Boolean))];
+  if (receiptBrandIds.length === 0) return "partial_delivery";
+  
+  for (const brandId of receiptBrandIds) {
     const control = controlAmounts[brandId] || 0;
     if (control <= 0) continue;
     const received = confirmedLines.filter(l => l.brand_id === brandId).reduce((sum, l) => sum + l.total, 0);
