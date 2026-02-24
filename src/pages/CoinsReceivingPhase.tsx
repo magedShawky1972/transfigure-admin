@@ -192,21 +192,22 @@ const CoinsReceivingPhase = () => {
       for (const line of orderLines) {
         const brandId = line.brand_id;
         const brandName = line.brands?.brand_name || "";
+        const lineAmountInCurrency = parseFloat(String(line.amount_in_currency || 0));
         const sarAmount = parseFloat(String(line.base_amount_sar || 0));
 
-        // Calculate expected coins: convert SAR to USD, then divide by usd_value_for_coins
-        const usdAmount = sarAmount / usdRate;
+        // Calculate expected coins using the line's amount_in_currency (USD) directly
         const usdValuePerCoin = brandUsdMap[brandId] || 0;
-        const expectedCoins = usdValuePerCoin > 0 ? Math.floor(usdAmount / usdValuePerCoin) : 0;
+        const expectedCoins = usdValuePerCoin > 0 ? Math.floor(lineAmountInCurrency / usdValuePerCoin) : 0;
 
         // Create receiving_coins_header - use purchase order number
+        // Control amount = line's amount in original currency (e.g. USD)
         const headerData = {
           receipt_number: selectedOrder.order_number,
           purchase_order_id: selectedOrder.id,
           supplier_id: selectedOrder.supplier_id,
           receipt_date: format(new Date(), "yyyy-MM-dd"),
           brand_id: brandId,
-          control_amount: sarAmount,
+          control_amount: lineAmountInCurrency,
           bank_id: selectedOrder.bank_id,
           receiver_name: user?.user_metadata?.display_name || user?.email || "",
           total_amount: 0,
