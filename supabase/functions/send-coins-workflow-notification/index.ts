@@ -11,12 +11,21 @@ interface CoinsNotificationRequest {
   userId: string;
   userName?: string;
   brandName?: string;
+  brandNames?: string[];
   phase?: string;
   phaseLabel?: string;
   orderNumber?: string;
   orderId?: string;
   link?: string;
 }
+
+const phaseLabelsAr: Record<string, string> = {
+  creation: "الإنشاء",
+  sending: "التوجيه",
+  receiving: "الاستلام",
+  coins_entry: "إدخال العملات",
+  completed: "مكتمل",
+};
 
 // Encode subject to Base64 for proper UTF-8 handling (RFC 2047)
 function encodeSubject(subject: string): string {
@@ -145,7 +154,29 @@ serve(async (req) => {
     const data: CoinsNotificationRequest = await req.json();
     console.log("Coins workflow notification request:", data);
 
-    const { type, userId, userName, brandName, phase, phaseLabel, orderNumber, orderId, link } = data;
+    const { type, userId, userName, brandName, brandNames, phase, phaseLabel, orderNumber, orderId, link } = data;
+
+    // Resolve brand display names - support both single brandName and array brandNames
+    let resolvedBrandNames: string[] = [];
+    if (brandNames && brandNames.length > 0) {
+      resolvedBrandNames = brandNames;
+    } else if (brandName) {
+      // Check if brandName is a UUID (old callers might pass brand_id)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(brandName)) {
+        const { data: brand } = await supabase.from("brands").select("brand_name").eq("id", brandName).maybeSingle();
+        resolvedBrandNames = [brand?.brand_name || brandName];
+      } else {
+        resolvedBrandNames = [brandName];
+      }
+    }
+
+    const brandDisplayHtml = resolvedBrandNames.length > 0
+      ? resolvedBrandNames.map(n => `<div style="padding: 2px 0;">${n}</div>`).join("")
+      : "-";
+
+    // Always use Arabic phase label
+    const arPhaseLabel = phaseLabel || phaseLabelsAr[phase || ""] || phase || "-";
 
     // Get user email
     const { data: profile } = await supabase
@@ -169,8 +200,8 @@ serve(async (req) => {
             <p>مرحبا ${displayName},</p>
             <p>لديك مهمة جديدة في سير عمل العملات:</p>
             <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">العلامة التجارية / Brand:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${brandName || "-"}</td></tr>
-              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">المرحلة / Phase:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${phaseLabel || phase || "-"}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">العلامة التجارية / Brand:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${brandDisplayHtml}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">المرحلة / Phase:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${arPhaseLabel}</td></tr>
               <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">رقم الطلب / Order #:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${orderNumber || "-"}</td></tr>
             </table>
             <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">هذه رسالة تلقائية من نظام ادارة</p>
@@ -179,7 +210,7 @@ serve(async (req) => {
       `;
 
       if (userEmail) await sendEmail(userEmail, subject, html);
-      await sendPushNotification(supabase, userId, "مهمة جديدة في سير عمل العملات", `${brandName || ""} - ${phaseLabel || phase || ""}`);
+      await sendPushNotification(supabase, userId, "مهمة جديدة في سير عمل العملات", `${resolvedBrandNames.join(", ") || ""} - ${arPhaseLabel}`);
 
     } else if (type === "assignment_added") {
       const subject = `Edara - تم تعيينك في سير عمل العملات | Coins Workflow Assignment`;
@@ -193,8 +224,8 @@ serve(async (req) => {
             <p>مرحبا ${displayName},</p>
             <p>تم تعيينك كمسؤول في سير عمل العملات:</p>
             <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">العلامة التجارية / Brand:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${brandName || "-"}</td></tr>
-              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">المرحلة / Phase:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${phaseLabel || phase || "-"}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">العلامة التجارية / Brand:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${brandDisplayHtml}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">المرحلة / Phase:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${arPhaseLabel}</td></tr>
             </table>
             <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">هذه رسالة تلقائية من نظام ادارة</p>
           </div>
@@ -202,7 +233,7 @@ serve(async (req) => {
       `;
 
       if (userEmail) await sendEmail(userEmail, subject, html);
-      await sendPushNotification(supabase, userId, "تم تعيينك في سير عمل العملات", `${brandName || ""} - ${phaseLabel || phase || ""}`);
+      await sendPushNotification(supabase, userId, "تم تعيينك في سير عمل العملات", `${resolvedBrandNames.join(", ") || ""} - ${arPhaseLabel}`);
 
     } else if (type === "assignment_removed") {
       const subject = `Edara - تم ازالة تعيينك من سير عمل العملات | Coins Workflow Unassignment`;
@@ -216,8 +247,8 @@ serve(async (req) => {
             <p>مرحبا ${displayName},</p>
             <p>تم ازالة تعيينك من سير عمل العملات:</p>
             <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">العلامة التجارية / Brand:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${brandName || "-"}</td></tr>
-              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">المرحلة / Phase:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${phaseLabel || phase || "-"}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">العلامة التجارية / Brand:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${brandDisplayHtml}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">المرحلة / Phase:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${arPhaseLabel}</td></tr>
             </table>
             <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">هذه رسالة تلقائية من نظام ادارة</p>
           </div>
@@ -225,7 +256,7 @@ serve(async (req) => {
       `;
 
       if (userEmail) await sendEmail(userEmail, subject, html);
-      await sendPushNotification(supabase, userId, "تم ازالة تعيينك من سير عمل العملات", `${brandName || ""} - ${phaseLabel || phase || ""}`);
+      await sendPushNotification(supabase, userId, "تم ازالة تعيينك من سير عمل العملات", `${resolvedBrandNames.join(", ") || ""} - ${arPhaseLabel}`);
     }
 
     return new Response(

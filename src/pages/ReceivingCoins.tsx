@@ -163,7 +163,7 @@ const ReceivingCoins = () => {
   const fetchReceipts = async () => {
     const { data } = await supabase
       .from("receiving_coins_header")
-      .select("*, currencies(currency_code)")
+      .select("*, currencies(currency_code), coins_purchase_orders(order_number)")
       .order("created_at", { ascending: false })
       .limit(50);
     if (data) setReceipts(data);
@@ -418,6 +418,7 @@ const ReceivingCoins = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
                     <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
                     <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
                     <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
@@ -432,7 +433,7 @@ const ReceivingCoins = () => {
                 <TableBody>
                   {receipts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                         {isArabic ? "لا توجد إيصالات" : "No receipts found"}
                       </TableCell>
                     </TableRow>
@@ -443,6 +444,7 @@ const ReceivingCoins = () => {
                       const txnAmount = rate > 0 ? sarAmount / rate : sarAmount;
                       return (
                         <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadReceipt(r.id)}>
+                          <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
                           <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
                           <TableCell>{r.receipt_date}</TableCell>
                           <TableCell>{(r as any).currencies?.currency_code || "-"}</TableCell>

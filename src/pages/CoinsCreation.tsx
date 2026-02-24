@@ -312,7 +312,7 @@ const CoinsCreation = () => {
       if (!assignments || assignments.length === 0) return;
 
       const brand = brands.find(b => b.id === bId);
-      const phaseLabels: Record<string, string> = { sending: isArabic ? "التوجيه" : "Sending", receiving: isArabic ? "الاستلام" : "Receiving", coins_entry: isArabic ? "إدخال العملات" : "Coins Entry" };
+      const phaseLabelsAr: Record<string, string> = { sending: "التوجيه", receiving: "الاستلام", coins_entry: "إدخال العملات" };
       const order = orders.find(o => o.id === orderId);
 
       for (const assignment of assignments) {
@@ -320,7 +320,7 @@ const CoinsCreation = () => {
           user_id: assignment.user_id,
           title: isArabic ? "مهمة معاملات عملات جديدة" : "New Coins Transaction Task",
           message: isArabic
-            ? `لديك مهمة جديدة في مرحلة ${phaseLabels[phase] || phase}`
+            ? `لديك مهمة جديدة في مرحلة ${phaseLabelsAr[phase] || phase}`
             : `You have a new task in the ${phase} phase`,
           type: "coins_workflow",
           link: phase === "sending" ? `/coins-sending?order=${orderId}` : phase === "receiving" ? `/coins-receiving-phase?order=${orderId}` : `/receiving-coins`,
@@ -331,9 +331,9 @@ const CoinsCreation = () => {
             type: "phase_transition",
             userId: assignment.user_id,
             userName: assignment.user_name || "",
-            brandName: brand?.brand_name || "",
+            brandNames: [brand?.brand_name || ""],
             phase,
-            phaseLabel: phaseLabels[phase] || phase,
+            phaseLabel: phaseLabelsAr[phase] || phase,
             orderNumber: order?.order_number || "",
             orderId,
             link: phase === "sending" ? `/coins-sending?order=${orderId}` : phase === "receiving" ? `/coins-receiving-phase?order=${orderId}` : `/receiving-coins`,
