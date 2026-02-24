@@ -157,4 +157,14 @@ All colors MUST be HSL.
     box-shadow: none !important;
     overflow: visible !important;
   }
+
+  /* Hide sidebar and layout chrome in print */
+  aside,
+  nav,
+  header,
+  [data-sidebar],
+  [data-radix-scroll-area-viewport] {
+    border: none !important;
+    box-shadow: none !important;
+  }
 }
