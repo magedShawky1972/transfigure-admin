@@ -199,6 +199,7 @@ interface UserPermission {
         { key: "coinsWorkflowSetup", label: "إعداد سير العمل", labelEn: "Workflow Setup" },
         { key: "coinsPurchaseFollowUp", label: "متابعة شراء العملات", labelEn: "Purchase Follow-Up" },
         { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
+        { key: "coinsTransactionGuide", label: "دليل المستخدم", labelEn: "User Guide" },
       ]
     },
     {
