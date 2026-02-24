@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 
@@ -368,6 +368,31 @@ const ReceivingCoins = () => {
       toast.success(isArabic ? "تم تأكيد الاستلام" : "Receiving confirmed");
     } catch (err: any) {
       toast.error(err.message || "Error confirming");
+    }
+  };
+
+  const handleRollbackConfirm = async (brandId: string) => {
+    if (!linkedPurchaseOrderId) return;
+    try {
+      const { error } = await supabase
+        .from("coins_purchase_receiving")
+        .update({
+          is_confirmed: false,
+          confirmed_by: null,
+          confirmed_by_name: null,
+          confirmed_at: null,
+        })
+        .eq("purchase_order_id", linkedPurchaseOrderId)
+        .eq("brand_id", brandId);
+      if (error) throw error;
+      setConfirmedBrands(prev => {
+        const next = { ...prev };
+        next[brandId] = { confirmed: false, confirmedBy: "", confirmedAt: "" };
+        return next;
+      });
+      toast.success(isArabic ? "تم التراجع عن التأكيد" : "Confirmation rolled back");
+    } catch (err: any) {
+      toast.error(err.message || "Error rolling back");
     }
   };
 
@@ -794,10 +819,16 @@ const ReceivingCoins = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  lines.map((line, idx) => (
-                    <TableRow key={line.id}>
+                  lines.map((line, idx) => {
+                    const isConfirmed = !!(line.brand_id && confirmedBrands[line.brand_id]?.confirmed);
+                    const isLocked = isConfirmed || receiptStatus === "closed";
+                    return (
+                    <TableRow key={line.id} className={isConfirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
+                        {isLocked ? (
+                          <span className="text-sm font-medium">{line.brand_name}</span>
+                        ) : (
                         <Select value={line.brand_id} onValueChange={v => updateLine(line.id, "brand_id", v)}>
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={isArabic ? "اختر العلامة" : "Select brand"} />
@@ -806,8 +837,12 @@ const ReceivingCoins = () => {
                             {brands.map(b => (<SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>))}
                           </SelectContent>
                         </Select>
+                        )}
                       </TableCell>
                       <TableCell>
+                        {isLocked ? (
+                          <span className="text-sm">{suppliers.find(s => s.id === line.supplier_id)?.supplier_name || "-"}</span>
+                        ) : (
                         <Select value={line.supplier_id} onValueChange={v => updateLine(line.id, "supplier_id", v)}>
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={isArabic ? "اختر المورد" : "Select supplier"} />
@@ -816,25 +851,39 @@ const ReceivingCoins = () => {
                             {suppliers.map(s => (<SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>))}
                           </SelectContent>
                         </Select>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" />
+                        <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" disabled={isLocked} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[140px]" step="0.00000001" />
+                        <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[140px]" step="0.00000001" disabled={isLocked} />
                       </TableCell>
                       <TableCell className="font-semibold">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       {selectedReceiptId && linkedPurchaseOrderId && (
                         <TableCell>
-                          {line.brand_id && confirmedBrands[line.brand_id]?.confirmed ? (
-                            <div className="flex items-center gap-1 text-xs">
-                              <ShieldCheck className="h-4 w-4 text-green-600" />
-                              <div className="flex flex-col">
-                                <span className="font-medium text-green-600">{isArabic ? "مؤكد" : "Confirmed"}</span>
-                                {confirmedBrands[line.brand_id]?.confirmedBy && (
-                                  <span className="text-muted-foreground">{confirmedBrands[line.brand_id].confirmedBy}</span>
-                                )}
+                          {isConfirmed ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 text-xs">
+                                <ShieldCheck className="h-4 w-4 text-green-600" />
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-green-600">{isArabic ? "مؤكد" : "Confirmed"}</span>
+                                  {confirmedBrands[line.brand_id]?.confirmedBy && (
+                                    <span className="text-muted-foreground">{confirmedBrands[line.brand_id].confirmedBy}</span>
+                                  )}
+                                </div>
                               </div>
+                              {receiptStatus !== "closed" && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRollbackConfirm(line.brand_id)}
+                                  title={isArabic ? "تراجع" : "Rollback"}
+                                  className="h-7 w-7"
+                                >
+                                  <Undo2 className="h-3.5 w-3.5 text-orange-500" />
+                                </Button>
+                              )}
                             </div>
                           ) : (
                             <Button
@@ -851,12 +900,15 @@ const ReceivingCoins = () => {
                         </TableCell>
                       )}
                       <TableCell>
+                        {!isLocked && (
                         <Button variant="ghost" size="icon" onClick={() => removeLine(line.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
+                        )}
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
