@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { toast } from "sonner";
 import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus } from "lucide-react";
 import { format } from "date-fns";
@@ -25,13 +25,13 @@ const CoinsReceivingPhase = () => {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderLines, setOrderLines] = useState<any[]>([]);
   const [receivings, setReceivings] = useState<any[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // New receiving form - per brand
-  const [selectedBrandId, setSelectedBrandId] = useState("");
-  const [newReceivingImage, setNewReceivingImage] = useState("");
-  const [newReceivingNotes, setNewReceivingNotes] = useState("");
+  // New receiving form - per brand (keyed by brand_id)
+  const [brandReceivingImages, setBrandReceivingImages] = useState<Record<string, string>>({});
+  const [brandReceivingNotes, setBrandReceivingNotes] = useState<Record<string, string>>({});
+  const [uploadingBrand, setUploadingBrand] = useState<string | null>(null);
+  const [savingBrand, setSavingBrand] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -58,19 +58,16 @@ const CoinsReceivingPhase = () => {
       setSelectedOrder(orderRes.data);
       setOrderLines(linesRes.data || []);
       setReceivings(recRes.data || []);
-      // Auto-select first brand if only one line
-      const lines = linesRes.data || [];
-      if (lines.length === 1) {
-        setSelectedBrandId(lines[0].brand_id);
-      }
+      setBrandReceivingImages({});
+      setBrandReceivingNotes({});
       setView("detail");
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, brandId: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
+    setUploadingBrand(brandId);
     try {
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -83,36 +80,32 @@ const CoinsReceivingPhase = () => {
       });
       if (error) throw error;
       if (!data?.url) throw new Error("Upload failed");
-      setNewReceivingImage(data.url);
+      setBrandReceivingImages(prev => ({ ...prev, [brandId]: data.url }));
       toast.success(isArabic ? "تم رفع الصورة" : "Image uploaded");
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
-      setUploading(false);
+      setUploadingBrand(null);
       e.target.value = "";
     }
   };
 
-  const handleAddReceiving = async () => {
-    if (!newReceivingImage) {
+  const handleAddReceiving = async (brandId: string) => {
+    const image = brandReceivingImages[brandId];
+    if (!image) {
       toast.error(isArabic ? "يرجى رفع صورة الاستلام" : "Please upload a receiving image");
       return;
     }
-    if (orderLines.length > 1 && !selectedBrandId) {
-      toast.error(isArabic ? "يرجى اختيار العلامة التجارية" : "Please select a brand");
-      return;
-    }
-    setSaving(true);
+    setSavingBrand(brandId);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const brandId = orderLines.length === 1 ? orderLines[0].brand_id : selectedBrandId;
       await supabase.from("coins_purchase_receiving").insert({
         purchase_order_id: selectedOrder.id,
-        receiving_image: newReceivingImage,
+        receiving_image: image,
         received_by: user?.email || "",
         received_by_name: user?.user_metadata?.display_name || user?.email || "",
-        notes: newReceivingNotes,
-        brand_id: brandId || null,
+        notes: brandReceivingNotes[brandId] || "",
+        brand_id: brandId,
         is_confirmed: true,
         confirmed_at: new Date().toISOString(),
         confirmed_by: user?.email || "",
@@ -126,18 +119,17 @@ const CoinsReceivingPhase = () => {
         action: "add_receiving",
         action_by: user?.email || "",
         action_by_name: user?.user_metadata?.display_name || user?.email || "",
-        notes: newReceivingNotes,
+        notes: brandReceivingNotes[brandId] || "",
       });
 
       toast.success(isArabic ? "تم تسجيل الاستلام" : "Receiving recorded");
-      setNewReceivingImage("");
-      setNewReceivingNotes("");
-      if (orderLines.length > 1) setSelectedBrandId("");
+      setBrandReceivingImages(prev => { const n = { ...prev }; delete n[brandId]; return n; });
+      setBrandReceivingNotes(prev => { const n = { ...prev }; delete n[brandId]; return n; });
       loadOrder(selectedOrder.id);
     } catch (err: any) {
       toast.error(err.message || "Error");
     } finally {
-      setSaving(false);
+      setSavingBrand(null);
     }
   };
 
@@ -337,52 +329,62 @@ const CoinsReceivingPhase = () => {
           </Card>
         )}
 
-        {/* Add New Receiving */}
+        {/* Add New Receiving - Per Brand */}
         <Card>
           <CardHeader><CardTitle>{isArabic ? "إضافة استلام جديد" : "Add New Receiving"}</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {/* Brand selection - only show if multi-line */}
-            {orderLines.length > 1 && (
-              <div className="space-y-2">
-                <Label>{isArabic ? "العلامة التجارية" : "Brand"}</Label>
-                <Select value={selectedBrandId} onValueChange={setSelectedBrandId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isArabic ? "اختر العلامة التجارية" : "Select brand"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {orderLines.map(line => (
-                      <SelectItem key={line.brand_id} value={line.brand_id}>
-                        {line.brands?.brand_name || line.brand_id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          <CardContent className="space-y-6">
+            {orderLines.map((line) => {
+              const brandId = line.brand_id;
+              const brandName = line.brands?.brand_name || brandId;
+              const image = brandReceivingImages[brandId] || "";
+              const notes = brandReceivingNotes[brandId] || "";
+              const isUploading = uploadingBrand === brandId;
+              const isSaving = savingBrand === brandId;
+              const existingCount = (receivingsByBrand[brandId] || []).length;
 
-            <div className="space-y-2">
-              <Label>{isArabic ? "صورة الاستلام من تطبيق المورد" : "Receiving Image from Supplier App"}</Label>
-              {newReceivingImage ? (
-                <div className="relative inline-block">
-                  <img src={newReceivingImage} alt="Receiving" className="max-w-sm max-h-48 rounded-lg border object-contain" />
-                  <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setNewReceivingImage("")}>✕</Button>
+              return (
+                <div key={brandId} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-base flex items-center gap-2">
+                      <Coins className="h-4 w-4 text-primary" />
+                      {brandName}
+                    </h4>
+                    {existingCount > 0 && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Image className="h-3 w-3 text-green-600" />
+                        {existingCount} {isArabic ? "صورة مرفوعة" : "uploaded"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "صورة الاستلام من تطبيق المورد" : "Receiving Image from Supplier App"}</Label>
+                    {image ? (
+                      <div className="relative inline-block">
+                        <img src={image} alt="Receiving" className="max-w-sm max-h-48 rounded-lg border object-contain" />
+                        <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setBrandReceivingImages(prev => { const n = { ...prev }; delete n[brandId]; return n; })}>✕</Button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
+                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                        <span className="text-muted-foreground text-sm">{isUploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع صورة الاستلام" : "Upload receiving image")}</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, brandId)} disabled={isUploading} />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                    <Textarea value={notes} onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))} />
+                  </div>
+
+                  <Button onClick={() => handleAddReceiving(brandId)} disabled={isSaving || !image} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    {isSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "تسجيل الاستلام" : "Record Receiving")}
+                  </Button>
                 </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <span className="text-muted-foreground text-sm">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع صورة الاستلام" : "Upload receiving image")}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
-                </label>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-              <Textarea value={newReceivingNotes} onChange={e => setNewReceivingNotes(e.target.value)} />
-            </div>
-            <Button onClick={handleAddReceiving} disabled={saving || !newReceivingImage || (orderLines.length > 1 && !selectedBrandId)}>
-              <Plus className="h-4 w-4 mr-2" />
-              {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "تسجيل الاستلام" : "Record Receiving")}
-            </Button>
+              );
+            })}
           </CardContent>
         </Card>
       </div>
