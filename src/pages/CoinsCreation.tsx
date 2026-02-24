@@ -112,7 +112,7 @@ const CoinsCreation = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*")
+      .select("*, currencies(currency_code)")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -459,27 +459,31 @@ const CoinsCreation = () => {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                    <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                    <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
-                    <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
-                    <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {isArabic ? "لا توجد طلبات" : "No orders found"}
-                      </TableCell>
-                    </TableRow>
-                  ) : orders.map(o => (
-                    <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
-                      <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
-                      <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
-                      <TableCell>{parseFloat(o.base_amount_sar || 0).toFixed(2)}</TableCell>
+                   <TableRow>
+                     <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
+                     <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                     <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
+                     <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
+                     <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
+                     <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
+                     <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
+                     <TableHead></TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {orders.length === 0 ? (
+                     <TableRow>
+                       <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                         {isArabic ? "لا توجد طلبات" : "No orders found"}
+                       </TableCell>
+                     </TableRow>
+                   ) : orders.map(o => (
+                     <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
+                       <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
+                       <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
+                       <TableCell>{(o.currencies as any)?.currency_code || "-"}</TableCell>
+                       <TableCell>{parseFloat(o.amount_in_currency || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                       <TableCell>{parseFloat(o.base_amount_sar || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell><Badge className={getPhaseColor(o.current_phase)}>{getPhaseLabel(o.current_phase)}</Badge></TableCell>
                       <TableCell>{o.created_by_name || o.created_by}</TableCell>
                       <TableCell>
