@@ -80,8 +80,9 @@ const CoinsReceivingPhase = () => {
       });
       if (error) throw error;
       if (!data?.url) throw new Error("Upload failed");
-      setBrandReceivingImages(prev => ({ ...prev, [brandId]: data.url }));
-      toast.success(isArabic ? "تم رفع الصورة" : "Image uploaded");
+      // Auto-save receiving record immediately after upload
+      await saveReceiving(brandId, data.url);
+      toast.success(isArabic ? "تم رفع وحفظ صورة الاستلام" : "Receiving image uploaded and saved");
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
@@ -350,16 +351,10 @@ const CoinsReceivingPhase = () => {
                   </div>
 
                   {!isSaved && pendingImage && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-                        <Textarea value={brandReceivingNotes[brandId] || ""} onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))} />
-                      </div>
-                      <Button onClick={() => saveReceiving(brandId, pendingImage)} disabled={isSaving} size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        {isSaving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "تسجيل الاستلام" : "Record Receiving")}
-                      </Button>
-                    </>
+                    <div className="space-y-2">
+                      <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                      <Textarea value={brandReceivingNotes[brandId] || ""} onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))} />
+                    </div>
                   )}
 
                   {isSaved && existingReceiving?.notes && (
