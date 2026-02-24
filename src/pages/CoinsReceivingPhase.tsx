@@ -128,6 +128,11 @@ const CoinsReceivingPhase = () => {
     }
   };
 
+  const generateReceiptNumber = () => {
+    const now = new Date();
+    return `RC-${format(now, "yyyyMMdd")}-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}`;
+  };
+
   const handleMoveToCoinsEntry = async () => {
     if (receivings.length === 0) {
       toast.error(isArabic ? "يجب تسجيل استلام واحد على الأقل" : "At least one receiving must be recorded");
@@ -136,6 +141,54 @@ const CoinsReceivingPhase = () => {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Auto-create receiving entries for each brand line
+      for (const line of orderLines) {
+        const brandId = line.brand_id;
+        const brandName = line.brands?.brand_name || "";
+
+        // Fetch products for this brand
+        const { data: products } = await supabase
+          .from("products")
+          .select("id, product_name, coins_number, product_price, brand_name")
+          .eq("allow_purchase", true)
+          .eq("brand_name", brandName)
+          .order("product_name");
+
+        // Create receiving_coins_header
+        const headerData = {
+          receipt_number: generateReceiptNumber(),
+          supplier_id: line.supplier_id || selectedOrder.supplier_id,
+          receipt_date: format(new Date(), "yyyy-MM-dd"),
+          brand_id: brandId,
+          control_amount: parseFloat(String(line.base_amount_sar || 0)),
+          bank_id: selectedOrder.bank_id,
+          receiver_name: user?.user_metadata?.display_name || user?.email || "",
+          total_amount: 0,
+          created_by: user?.email || "",
+        };
+
+        const { data: headerResult, error: headerError } = await supabase
+          .from("receiving_coins_header")
+          .insert(headerData as any)
+          .select("id")
+          .single();
+
+        if (headerError) throw headerError;
+
+        // Create receiving_coins_line entries from products
+        if (headerResult && products && products.length > 0) {
+          const lineInserts = products.map(p => ({
+            header_id: headerResult.id,
+            product_id: p.id,
+            product_name: p.product_name,
+            coins: 0,
+            unit_price: 0,
+          }));
+          await supabase.from("receiving_coins_line").insert(lineInserts as any);
+        }
+      }
+
       await supabase.from("coins_purchase_orders").update({
         current_phase: "coins_entry",
         status: "in_progress",
@@ -152,7 +205,7 @@ const CoinsReceivingPhase = () => {
 
       await notifyResponsible(selectedOrder.brand_id, "coins_entry", selectedOrder.id);
 
-      toast.success(isArabic ? "تم الإرسال لمرحلة إدخال العملات" : "Sent to Coins Entry phase");
+      toast.success(isArabic ? "تم الإرسال لمرحلة إدخال العملات وإنشاء إيصالات الاستلام" : "Sent to Coins Entry phase and receiving entries created");
       setView("list");
       fetchOrders();
     } catch (err: any) {
