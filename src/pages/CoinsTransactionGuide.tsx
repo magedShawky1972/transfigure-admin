@@ -178,9 +178,9 @@ const CoinsTransactionGuide = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <MockTableRow cells={["iTunes", "الإنشاء", "أحمد محمد", "🗑️"]} />
-                    <MockTableRow cells={["iTunes", "التوجيه", "سارة علي", "🗑️"]} highlighted />
-                    <MockTableRow cells={["iTunes", "الاستلام", "محمد خالد", "🗑️"]} />
+                    <MockTableRow cells={["يلا لايف", "الإنشاء", "أحمد محمد", "🗑️"]} />
+                    <MockTableRow cells={["يلا لايف", "التوجيه", "سارة علي", "🗑️"]} highlighted />
+                    <MockTableRow cells={["يلا لايف", "الاستلام", "محمد خالد", "🗑️"]} />
                     <MockTableRow cells={["كل العلامات التجارية", "إدخال العملات", "فهد سعود", "🗑️"]} highlighted />
                   </tbody>
                 </table>
@@ -285,9 +285,9 @@ const CoinsTransactionGuide = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <MockTableRow cells={["1", "iTunes", "مورد iTunes", "2,000.00", "7,500.00"]} />
-                      <MockTableRow cells={["2", "PUBG", "مورد الألعاب", "1,500.00", "5,625.00"]} highlighted />
-                      <MockTableRow cells={["3", "PlayStation", "مورد PlayStation", "1,500.00", "5,625.00"]} />
+                      <MockTableRow cells={["1", "يلا لايف", "مورد يلا لايف", "2,000.00", "7,500.00"]} />
+                      <MockTableRow cells={["2", "هوى", "مورد هوى", "1,500.00", "5,625.00"]} highlighted />
+                      <MockTableRow cells={["3", "بينمو", "مورد بينمو", "1,500.00", "5,625.00"]} />
                     </tbody>
                   </table>
                 </div>
@@ -395,9 +395,9 @@ const CoinsTransactionGuide = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <MockTableRow cells={["iTunes", "مورد iTunes", "2,000.00", "7,500.00"]} />
-                      <MockTableRow cells={["PUBG", "مورد الألعاب", "1,500.00", "5,625.00"]} highlighted />
-                      <MockTableRow cells={["PlayStation", "مورد PlayStation", "1,500.00", "5,625.00"]} />
+                      <MockTableRow cells={["يلا لايف", "مورد يلا لايف", "2,000.00", "7,500.00"]} />
+                      <MockTableRow cells={["هوى", "مورد هوى", "1,500.00", "5,625.00"]} highlighted />
+                      <MockTableRow cells={["بينمو", "مورد بينمو", "1,500.00", "5,625.00"]} />
                     </tbody>
                   </table>
                 </div>
@@ -468,7 +468,7 @@ const CoinsTransactionGuide = () => {
                   {/* Brand with uploaded image */}
                   <div className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs">iTunes</span>
+                      <span className="font-bold text-xs">يلا لايف</span>
                       <MockBadge color="bg-green-100 text-green-800">✅ تم الاستلام</MockBadge>
                     </div>
                     <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 rounded h-16 flex items-center justify-center">
@@ -479,7 +479,7 @@ const CoinsTransactionGuide = () => {
                   {/* Brand with upload button */}
                   <div className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs">PUBG</span>
+                      <span className="font-bold text-xs">هوى</span>
                       <MockBadge color="bg-amber-100 text-amber-800">⏳ بانتظار</MockBadge>
                     </div>
                     <div className="border-2 border-dashed rounded h-16 flex items-center justify-center">
@@ -493,7 +493,7 @@ const CoinsTransactionGuide = () => {
                   {/* Brand with upload button */}
                   <div className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs">PlayStation</span>
+                      <span className="font-bold text-xs">بينمو</span>
                       <MockBadge color="bg-amber-100 text-amber-800">⏳ بانتظار</MockBadge>
                     </div>
                     <div className="border-2 border-dashed rounded h-16 flex items-center justify-center">
@@ -574,21 +574,21 @@ const CoinsTransactionGuide = () => {
                   </thead>
                   <tbody>
                     <tr className="bg-green-50/50 dark:bg-green-950/20">
-                      {["1", "iTunes", "مورد iTunes", "200", "10.00", "2,000.00", "0.00", ""].map((cell, i) => (
+                      {["1", "يلا لايف", "مورد يلا لايف", "200", "10.00", "2,000.00", "0.00", ""].map((cell, i) => (
                         <td key={i} className="border border-border/50 px-2 py-1.5 text-xs">
                           {i === 7 ? <span className="flex items-center gap-1"><Lock className="h-3 w-3 text-green-600" /> <MockBadge color="bg-green-100 text-green-800">مؤكد ✅</MockBadge></span> : cell}
                         </td>
                       ))}
                     </tr>
                     <tr>
-                      {["2", "PUBG", "مورد الألعاب", "150", "10.00", "1,500.00", "0.00", ""].map((cell, i) => (
+                      {["2", "هوى", "مورد هوى", "150", "10.00", "1,500.00", "0.00", ""].map((cell, i) => (
                         <td key={i} className="border border-border/50 px-2 py-1.5 text-xs">
                           {i === 7 ? <MockButton variant="outline">تأكيد ✅</MockButton> : cell}
                         </td>
                       ))}
                     </tr>
                     <tr className="bg-muted/30">
-                      {["3", "PlayStation", "مورد PlayStation", "100", "10.00", "1,000.00", "500.00", ""].map((cell, i) => (
+                      {["3", "بينمو", "مورد بينمو", "100", "10.00", "1,000.00", "500.00", ""].map((cell, i) => (
                         <td key={i} className="border border-border/50 px-2 py-1.5 text-xs">
                           {i === 7 ? <MockButton variant="outline">تأكيد ✅</MockButton> : cell}
                         </td>
@@ -713,7 +713,7 @@ const CoinsTransactionGuide = () => {
                   <div className="bg-muted/50 rounded p-2 space-y-1">
                     <div><span className="text-muted-foreground">رقم الطلب: </span><strong>PO-2026-001</strong></div>
                     <div><span className="text-muted-foreground">المرحلة: </span><strong>التوجيه</strong></div>
-                    <div><span className="text-muted-foreground">العلامات التجارية: </span><strong>iTunes, PUBG, PlayStation</strong></div>
+                    <div><span className="text-muted-foreground">العلامات التجارية: </span><strong>يلا لايف, هوى, بينمو</strong></div>
                     <div><span className="text-muted-foreground">المبلغ: </span><strong>5,000.00 USD</strong></div>
                   </div>
                   <div className="text-center pt-2">
@@ -844,7 +844,7 @@ const CoinsTransactionGuide = () => {
               <div className="space-y-2">
                 <h4 className="font-bold text-xs">📎 المرفقات</h4>
                 <div className="grid grid-cols-3 gap-3">
-                  {["iTunes", "PUBG", "PlayStation"].map((brand, i) => (
+                  {["يلا لايف", "هوى", "بينمو"].map((brand, i) => (
                     <div key={i} className="border rounded p-2 text-center space-y-1">
                       <span className="text-[10px] font-bold">{brand}</span>
                       <div className="bg-muted/30 rounded h-12 flex items-center justify-center">
@@ -883,10 +883,10 @@ const CoinsTransactionGuide = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <MockTableRow cells={["PO-2026-001", "2026/02/20", "iTunes, PUBG", "5,000 USD", "إدخال العملات 🪙", "فهد سعود"]} />
-                    <MockTableRow cells={["PO-2026-002", "2026/02/22", "PlayStation", "3,200 USD", "الاستلام 📦", "محمد خالد"]} highlighted />
-                    <MockTableRow cells={["PO-2026-003", "2026/02/24", "iTunes", "2,800 EUR", "التوجيه 📤", "سارة علي"]} />
-                    <MockTableRow cells={["PO-2026-004", "2026/02/10", "PUBG, PSN", "4,000 USD", "مكتمل ✅", "-"]} />
+                    <MockTableRow cells={["PO-2026-001", "2026/02/20", "يلا لايف, هوى", "5,000 USD", "إدخال العملات 🪙", "فهد سعود"]} />
+                    <MockTableRow cells={["PO-2026-002", "2026/02/22", "بينمو", "3,200 USD", "الاستلام 📦", "محمد خالد"]} highlighted />
+                    <MockTableRow cells={["PO-2026-003", "2026/02/24", "صدى لايف", "2,800 EUR", "التوجيه 📤", "سارة علي"]} />
+                    <MockTableRow cells={["PO-2026-004", "2026/02/10", "هوى, سول فري", "4,000 USD", "مكتمل ✅", "-"]} />
                   </tbody>
                 </table>
               </div>
