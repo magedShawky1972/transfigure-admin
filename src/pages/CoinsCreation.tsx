@@ -566,27 +566,16 @@ const CoinsCreation = () => {
           <div className="flex flex-col items-center gap-4">
             {bankTransferImage ? (
               <div className="relative">
-                {bankTransferImage.includes("cloudinary.com") && (bankTransferImage.includes("/raw/upload/") || bankTransferImage.match(/\.pdf$/i)) ? (
-                  <img 
-                    src={bankTransferImage.replace("/raw/upload/", "/image/upload/").replace("/upload/", "/upload/pg_1,f_jpg/")} 
-                    alt="Bank Transfer" 
-                    className="max-w-md max-h-64 rounded-lg border object-contain" 
-                    onError={(e) => {
-                      // Fallback: show file icon if preview fails
-                      (e.target as HTMLImageElement).style.display = "none";
-                      (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-                    }}
+                {bankTransferImage.match(/\.pdf$/i) || bankTransferImage.includes("/raw/upload/") ? (
+                  <iframe
+                    src={bankTransferImage}
+                    title="Bank Transfer"
+                    className="w-full h-[300px] rounded-lg border"
                   />
                 ) : (
                   <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
                 )}
-                <div className="hidden flex-col items-center justify-center w-full h-40 border rounded-lg bg-muted/30">
-                  <FileText className="h-10 w-10 text-muted-foreground mb-2" />
-                  <a href={bankTransferImage} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">
-                    {isArabic ? "فتح الملف" : "Open File"}
-                  </a>
-                </div>
-                {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setBankTransferImage("")}>✕</Button>}
+                {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2 z-10" onClick={() => setBankTransferImage("")}>✕</Button>}
               </div>
             ) : !isReadOnly ? (
               <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">

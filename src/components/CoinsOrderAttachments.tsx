@@ -128,23 +128,13 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
     }
   };
 
-  const getPreviewUrl = (att: Attachment): string | null => {
-    if (!att.file_url) return null;
-    if (att.file_type?.startsWith("image/")) return att.file_url;
-    // Cloudinary: convert PDF first page to image
-    if (att.file_type?.includes("pdf") && att.file_url.includes("cloudinary.com")) {
-      // Works for both /raw/upload/ and /image/upload/ paths
-      const url = att.file_url.replace("/raw/upload/", "/image/upload/");
-      // Insert pg_1 transformation
-      return url.replace("/upload/", "/upload/pg_1,f_jpg/");
-    }
-    return null;
-  };
+  const isPdf = (att: Attachment) => att.file_type?.includes("pdf") || att.file_url?.match(/\.pdf$/i);
+  const isImage = (att: Attachment) => att.file_type?.startsWith("image/");
+  const hasPreview = (att: Attachment) => isImage(att) || isPdf(att);
 
   const handlePreview = (att: Attachment) => {
-    const url = getPreviewUrl(att);
-    if (url) {
-      setPreviewUrl(url);
+    if (hasPreview(att)) {
+      setPreviewUrl(att.file_url);
       setPreviewType(att.file_type);
     } else {
       window.open(att.file_url, "_blank");
@@ -198,27 +188,29 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
           ) : (
             <div className="space-y-2">
               {attachments.map((att) => {
-                const preview = getPreviewUrl(att);
+                const canPreview = hasPreview(att);
                 return (
                   <div key={att.id} className="rounded-lg border bg-muted/30 overflow-hidden">
                     {/* Inline thumbnail preview */}
-                    {preview && (
+                    {isImage(att) && (
                       <div
                         className="relative w-full bg-black/5 flex items-center justify-center cursor-pointer group"
                         style={{ maxHeight: 200 }}
                         onClick={() => handlePreview(att)}
                       >
-                        <img
-                          src={preview}
-                          alt={att.file_name}
-                          className="max-h-[200px] object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
-                          }}
-                        />
+                        <img src={att.file_url} alt={att.file_name} className="max-h-[200px] object-contain" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                           <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
+                      </div>
+                    )}
+                    {isPdf(att) && (
+                      <div className="w-full cursor-pointer" onClick={() => handlePreview(att)}>
+                        <iframe
+                          src={att.file_url}
+                          title={att.file_name}
+                          className="w-full h-[200px] pointer-events-none"
+                        />
                       </div>
                     )}
                     <div className="flex items-center justify-between p-2 gap-2">
@@ -234,7 +226,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        {preview && (
+                        {canPreview && (
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePreview(att)}>
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -258,16 +250,22 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
       </Card>
 
       {/* Full-size preview dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-1">
+      <Dialog open={!!previewUrl} onOpenChange={() => { setPreviewUrl(null); setPreviewType(null); }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-2">
           <div className="relative w-full h-full flex items-center justify-center overflow-auto">
-            {previewUrl && (
+            {previewUrl && previewType?.includes("pdf") ? (
+              <iframe
+                src={previewUrl}
+                title="PDF Preview"
+                className="w-full h-[80vh] rounded"
+              />
+            ) : previewUrl ? (
               <img
                 src={previewUrl}
                 alt="Preview"
                 className="max-w-full max-h-[85vh] object-contain"
               />
-            )}
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
