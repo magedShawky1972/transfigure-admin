@@ -129,8 +129,7 @@ const ProjectsTasksReport = () => {
           project_id,
           department_id,
           projects(name, status),
-          departments(department_name),
-          profiles!tasks_assigned_to_fkey(user_name)
+          departments(department_name)
         `)
         .order("created_at", { ascending: false });
 
@@ -152,7 +151,7 @@ const ProjectsTasksReport = () => {
         task_title: t.title,
         task_status: t.status,
         priority: t.priority,
-        assigned_to_name: t.profiles?.user_name || "-",
+        assigned_to_name: users.find((u) => u.user_id === t.assigned_to)?.user_name || "-",
         department_name: t.departments?.department_name || "-",
         deadline: t.deadline,
         created_at: t.created_at,
@@ -261,18 +260,18 @@ const ProjectsTasksReport = () => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MultiSelectPopover
-              label="Projects"
-              options={projects.map((p) => ({ value: p.id, label: p.name }))}
-              selected={selectedProjects}
-              onToggle={(v) => toggleSelection(selectedProjects, v, setSelectedProjects)}
-              renderLabel={(v) => projects.find((p) => p.id === v)?.name || v}
-            />
-            <MultiSelectPopover
               label="Departments"
               options={departments.map((d) => ({ value: d.id, label: d.department_name }))}
               selected={selectedDepartments}
               onToggle={(v) => toggleSelection(selectedDepartments, v, setSelectedDepartments)}
               renderLabel={(v) => departments.find((d) => d.id === v)?.department_name || v}
+            />
+            <MultiSelectPopover
+              label="Projects"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              selected={selectedProjects}
+              onToggle={(v) => toggleSelection(selectedProjects, v, setSelectedProjects)}
+              renderLabel={(v) => projects.find((p) => p.id === v)?.name || v}
             />
             <MultiSelectPopover
               label="Users"
