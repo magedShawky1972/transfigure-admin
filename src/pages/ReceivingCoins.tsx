@@ -100,6 +100,9 @@ const ReceivingCoins = () => {
 
   // Track the linked purchase order to fetch receiving images
   const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState<string | null>(null);
+  // Bank transfer image & sending phase attachments from purchase order
+  const [bankTransferImage, setBankTransferImage] = useState("");
+  const [sendingAttachments, setSendingAttachments] = useState<{ id: string; file_name: string; file_url: string; file_type: string | null; uploaded_by_name: string | null }[]>([]);
 
   useEffect(() => {
     fetchReceipts();
@@ -167,7 +170,15 @@ const ReceivingCoins = () => {
       if (order.currency_id) setCurrencyId(order.currency_id);
       if (order.exchange_rate) setExchangeRate(String(order.exchange_rate));
       setControlAmount(String(parseFloat(String(order.amount_in_currency || "0"))));
+      setBankTransferImage(order.bank_transfer_image || "");
       setLinkedPurchaseOrderId(orderId);
+      // Load sending phase attachments
+      const { data: sendingAtts } = await supabase
+        .from("coins_purchase_attachments")
+        .select("id, file_name, file_url, file_type, uploaded_by_name")
+        .eq("purchase_order_id", orderId)
+        .eq("phase", "sending");
+      setSendingAttachments(sendingAtts || []);
       setView("form");
 
       // Load order lines as brand-based lines
@@ -470,6 +481,8 @@ const ReceivingCoins = () => {
     setOrderNumber("");
     setLinkedPurchaseOrderId(null);
     setReceivingImages({});
+    setBankTransferImage("");
+    setSendingAttachments([]);
     setConfirmedBrands({});
     setBrandControlAmounts({});
   };
@@ -583,11 +596,14 @@ const ReceivingCoins = () => {
 
       // Fetch order number if linked
       if (h.purchase_order_id) {
-        const [orderDataRes, orderLinesRes] = await Promise.all([
-          supabase.from("coins_purchase_orders").select("order_number").eq("id", h.purchase_order_id).maybeSingle(),
+        const [orderDataRes, orderLinesRes, sendingAttsRes] = await Promise.all([
+          supabase.from("coins_purchase_orders").select("order_number, bank_transfer_image").eq("id", h.purchase_order_id).maybeSingle(),
           supabase.from("coins_purchase_order_lines").select("brand_id, amount_in_currency").eq("purchase_order_id", h.purchase_order_id),
+          supabase.from("coins_purchase_attachments").select("id, file_name, file_url, file_type, uploaded_by_name").eq("purchase_order_id", h.purchase_order_id).eq("phase", "sending"),
         ]);
         setOrderNumber(orderDataRes.data?.order_number || "");
+        setBankTransferImage(orderDataRes.data?.bank_transfer_image || "");
+        setSendingAttachments(sendingAttsRes.data || []);
         
         // Load per-brand control amounts
         if (orderLinesRes.data) {
@@ -999,6 +1015,69 @@ const ReceivingCoins = () => {
           </div>
         );
       })()}
+
+      {/* Bank Transfer Document */}
+      {bankTransferImage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {isArabic ? "مستند التحويل البنكي" : "Bank Transfer Document"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-w-md">
+              {bankTransferImage.match(/\.pdf($|\?)/i) || bankTransferImage.includes("/raw/upload/") ? (
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
+                  title="Bank Transfer"
+                  className="w-full h-[300px] rounded-lg border"
+                />
+              ) : (
+                <a href={bankTransferImage} target="_blank" rel="noopener noreferrer">
+                  <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-64 rounded-lg border object-contain" />
+                </a>
+              )}
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => window.open(bankTransferImage, "_blank")}>
+                <Eye className="h-4 w-4 mr-1" />
+                {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sending Phase Attachments */}
+      {sendingAttachments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {isArabic ? "مرفقات التوجيه - إرسال التحويل" : "Attachments Sending - Transfer Dispatch"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sendingAttachments.map(att => {
+                const isPdf = att.file_type?.toLowerCase().includes("pdf") || att.file_name?.toLowerCase().endsWith(".pdf") || /\.pdf($|\?)/i.test(att.file_url);
+                return (
+                  <div key={att.id} className="flex items-center justify-between p-2 border rounded-md">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{att.file_name}</a>
+                      {att.uploaded_by_name && <span className="text-xs text-muted-foreground">• {att.uploaded_by_name}</span>}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => window.open(att.file_url, "_blank")}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      {isArabic ? "عرض" : "View"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Attachments + Receiving Images */}
       <Card>
