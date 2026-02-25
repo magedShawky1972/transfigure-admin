@@ -7568,6 +7568,10 @@ export type Database = {
           department_id: string
           description: string
           external_link: string | null
+          extra_approval_responded_at: string | null
+          extra_approval_sent_by: string | null
+          extra_approval_status: string | null
+          extra_approval_user_id: string | null
           id: string
           is_deleted: boolean
           is_purchase_ticket: boolean
@@ -7597,6 +7601,10 @@ export type Database = {
           department_id: string
           description: string
           external_link?: string | null
+          extra_approval_responded_at?: string | null
+          extra_approval_sent_by?: string | null
+          extra_approval_status?: string | null
+          extra_approval_user_id?: string | null
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean
@@ -7626,6 +7634,10 @@ export type Database = {
           department_id?: string
           description?: string
           external_link?: string | null
+          extra_approval_responded_at?: string | null
+          extra_approval_sent_by?: string | null
+          extra_approval_status?: string | null
+          extra_approval_user_id?: string | null
           id?: string
           is_deleted?: boolean
           is_purchase_ticket?: boolean

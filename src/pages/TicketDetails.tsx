@@ -392,16 +392,9 @@ const TicketDetails = () => {
       setIsDepartmentAdmin(!!data);
 
       // Check if user is a recipient of an extra approval request for this ticket
-      const { data: extraApprovalNotification } = await supabase
-        .from("notifications")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("ticket_id", ticket.id)
-        .eq("type", "extra_approval_request")
-        .limit(1)
-        .maybeSingle();
-
-      setIsExtraApprovalRecipient(!!extraApprovalNotification);
+      const isExtraRecipient = (ticket as any).extra_approval_user_id === user.id 
+        && (ticket as any).extra_approval_status === 'pending';
+      setIsExtraApprovalRecipient(isExtraRecipient);
 
       // Check if current admin can approve (is at the correct approval level)
       if (data && !ticket.approved_at) {
@@ -881,7 +874,20 @@ const TicketDetails = () => {
           description: language === 'ar' ? 'تم تمرير التذكرة للمستوى التالي' : 'Ticket passed to next approval level',
         });
       } else {
-        // No more admins - fully approve the ticket
+        // No more admins - check if extra approval is pending before fully approving
+        const extraStatus = (ticket as any).extra_approval_status;
+        if (extraStatus === 'pending') {
+          toast({
+            title: language === 'ar' ? 'تنبيه' : 'Notice',
+            description: language === 'ar' 
+              ? 'لا يمكن الموافقة النهائية حتى يتم الرد على الموافقة الإضافية'
+              : 'Cannot fully approve until extra approval is responded to',
+            variant: "destructive",
+          });
+          setApprovingTicket(false);
+          return;
+        }
+        // Fully approve the ticket
         const { error } = await supabase
           .from("tickets")
           .update({
@@ -1030,18 +1036,14 @@ const TicketDetails = () => {
         .eq("user_id", selectedAdminId)
         .single();
 
-      // Create notification for the selected admin
-      await supabase.from("notifications").insert({
-        user_id: selectedAdminId,
-        type: "extra_approval_request",
-        title: language === 'ar' ? 'طلب موافقة إضافية' : 'Extra Approval Request',
-        message: language === 'ar' 
-          ? `طلب ${senderProfile?.user_name || 'مستخدم'} موافقتك على التذكرة ${ticket.ticket_number}`
-          : `${senderProfile?.user_name || 'User'} requested your approval on ticket ${ticket.ticket_number}`,
-        ticket_id: ticket.id,
-      });
+      // Update ticket with extra approval tracking (no email, no notification)
+      await supabase.from("tickets").update({
+        extra_approval_user_id: selectedAdminId,
+        extra_approval_status: 'pending',
+        extra_approval_sent_by: user.id,
+      }).eq("id", ticket.id);
 
-      // Log the activity
+      // Log the activity only
       await supabase.from("ticket_activity_logs").insert({
         ticket_id: ticket.id,
         activity_type: "extra_approval_sent",
@@ -1054,16 +1056,6 @@ const TicketDetails = () => {
           : `Extra approval request sent to ${recipientProfile?.user_name}`,
       });
 
-      // Send email notification
-      await supabase.functions.invoke("send-ticket-notification", {
-        body: {
-          type: "extra_approval_request",
-          ticketId: ticket.id,
-          recipientUserId: selectedAdminId,
-          senderName: senderProfile?.user_name,
-        },
-      });
-
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
         description: language === 'ar' 
@@ -1072,6 +1064,7 @@ const TicketDetails = () => {
       });
 
       setExtraApprovalDialogOpen(false);
+      fetchTicket();
     } catch (error: any) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
@@ -1080,6 +1073,51 @@ const TicketDetails = () => {
       });
     } finally {
       setSendingExtraApproval(false);
+    }
+  };
+
+  const handleExtraApprovalResponse = async (approved: boolean) => {
+    if (!ticket) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      await supabase.from("tickets").update({
+        extra_approval_status: approved ? 'approved' : 'rejected',
+        extra_approval_responded_at: new Date().toISOString(),
+      }).eq("id", ticket.id);
+
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: approved ? "extra_approval_approved" : "extra_approval_rejected",
+        user_id: user.id,
+        user_name: userProfile?.user_name,
+        description: language === 'ar'
+          ? (approved ? 'تمت الموافقة الإضافية' : 'تم رفض الموافقة الإضافية')
+          : (approved ? 'Extra approval granted' : 'Extra approval rejected'),
+      });
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar'
+          ? (approved ? 'تمت الموافقة' : 'تم الرفض')
+          : (approved ? 'Approved' : 'Rejected'),
+      });
+
+      fetchTicket();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -1121,8 +1159,7 @@ const TicketDetails = () => {
     );
   }
 
-  // Check if user can view ticket details (owner or department admin)
-  // Check if user can view ticket details (owner, department admin, or extra approval recipient)
+  // Check if user can view ticket details (owner, department admin, or extra approval user)
   const canViewDetails = isDepartmentAdmin || isTicketOwner || isExtraApprovalRecipient;
 
   return (
@@ -1578,7 +1615,51 @@ const TicketDetails = () => {
               </>
             )}
 
-            <Separator />
+            {/* Extra Approval Pending Status */}
+            {(ticket as any).extra_approval_status === 'pending' && (
+              <div className="p-4 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  {language === 'ar' ? '⏳ في انتظار الموافقة الإضافية' : '⏳ Awaiting Extra Approval'}
+                </p>
+              </div>
+            )}
+            {(ticket as any).extra_approval_status === 'approved' && (
+              <div className="p-4 border-2 border-green-500/50 bg-green-50/50 dark:bg-green-950/20 rounded-lg">
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                  {language === 'ar' ? '✅ تمت الموافقة الإضافية' : '✅ Extra Approval Granted'}
+                </p>
+              </div>
+            )}
+            {(ticket as any).extra_approval_status === 'rejected' && (
+              <div className="p-4 border-2 border-red-500/50 bg-red-50/50 dark:bg-red-950/20 rounded-lg">
+                <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                  {language === 'ar' ? '❌ تم رفض الموافقة الإضافية' : '❌ Extra Approval Rejected'}
+                </p>
+              </div>
+            )}
+
+            {/* Extra Approval Response Buttons for recipient */}
+            {isExtraApprovalRecipient && (
+              <>
+                <Separator />
+                <div className="p-4 border-2 border-cyan-500/50 bg-cyan-50/50 dark:bg-cyan-950/20 rounded-lg space-y-3">
+                  <p className="font-semibold text-sm">
+                    {language === 'ar' ? 'مطلوب موافقتك الإضافية على هذه التذكرة' : 'Your extra approval is requested for this ticket'}
+                  </p>
+                  <div className="flex gap-3">
+                    <Button onClick={() => handleExtraApprovalResponse(true)} className="bg-green-600 hover:bg-green-700">
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'موافقة' : 'Approve'}
+                    </Button>
+                    <Button variant="destructive" onClick={() => handleExtraApprovalResponse(false)}>
+                      <X className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'رفض' : 'Reject'}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
 
             <div>
               <h3 className="font-semibold mb-4">
