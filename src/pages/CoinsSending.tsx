@@ -301,6 +301,22 @@ const CoinsSending = () => {
             </Button>
           </CardContent>
         </Card>
+        {/* Maximize preview dialog */}
+        <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+          <DialogContent className="max-w-6xl max-h-[95vh] p-2">
+            {selectedOrder?.bank_transfer_image && (
+              selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
+                  title="Transfer Preview"
+                  className="w-full h-[85vh] rounded"
+                />
+              ) : (
+                <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+              )
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -365,22 +381,6 @@ const CoinsSending = () => {
         </CardContent>
       </Card>
 
-      {/* Maximize preview dialog */}
-      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
-        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
-          {selectedOrder?.bank_transfer_image && (
-            selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
-              <iframe
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
-                title="Transfer Preview"
-                className="w-full h-[85vh] rounded"
-              />
-            ) : (
-              <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
-            )
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
