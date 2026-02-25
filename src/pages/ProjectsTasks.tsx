@@ -22,8 +22,9 @@ import {
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
-  GanttChart
+  GanttChart, FileSpreadsheet
 } from "lucide-react";
+import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
@@ -190,6 +191,7 @@ const ProjectsTasks = () => {
   const [timeEntriesDialogOpen, setTimeEntriesDialogOpen] = useState(false);
   const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
   const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
+  const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
   const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null);
   
   // Form states
@@ -1141,6 +1143,11 @@ const ProjectsTasks = () => {
                 </SelectContent>
               </Select>
 
+              {/* Import from Excel */}
+              <Button variant="outline" size="sm" onClick={() => setExcelImportDialogOpen(true)}>
+                <FileSpreadsheet className="h-4 w-4 mr-1" />{language === 'ar' ? 'استيراد Excel' : 'Import Excel'}
+              </Button>
+
               {/* Add buttons */}
               <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
                 <DialogTrigger asChild>
@@ -1953,6 +1960,18 @@ const ProjectsTasks = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Excel Import Dialog */}
+      <ProjectTaskExcelImport
+        open={excelImportDialogOpen}
+        onOpenChange={setExcelImportDialogOpen}
+        language={language}
+        departments={accessibleDepartments}
+        users={users}
+        projects={projects.filter(p => p.department_id === selectedDepartment)}
+        selectedDepartment={selectedDepartment}
+        currentUserId={currentUserId || ""}
+        onImportComplete={fetchData}
+      />
     </div>
   );
 };
