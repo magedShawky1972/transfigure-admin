@@ -757,9 +757,9 @@ const ProjectsTasks = () => {
     if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
     if (selectedUser !== 'all' && task.assigned_to !== selectedUser) return false;
     
-    // Date filter - for done tasks use updated_at (completion date), otherwise created_at
+    // Date filter - use start_date if available, otherwise created_at; for done tasks use updated_at
     if (dateMode !== 'all') {
-      const dateField = task.status === 'done' ? (task as any).updated_at : task.created_at;
+      const dateField = task.start_date || (task.status === 'done' ? (task as any).updated_at : task.created_at);
       const taskDate = dateField ? parseISO(dateField) : null;
       if (!taskDate) return false;
       const now = new Date();
