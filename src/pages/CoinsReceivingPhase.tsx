@@ -70,7 +70,7 @@ const CoinsReceivingPhase = () => {
   const loadOrder = async (id: string) => {
     const [orderRes, linesRes, recRes] = await Promise.all([
       supabase.from("coins_purchase_orders").select("*, currencies(currency_code, currency_name)").eq("id", id).maybeSingle(),
-      supabase.from("coins_purchase_order_lines").select("*, brands(brand_name, usd_value_for_coins), suppliers(supplier_name)").eq("purchase_order_id", id).order("line_number"),
+      supabase.from("coins_purchase_order_lines").select("*, brands(brand_name, one_usd_to_coins), suppliers(supplier_name)").eq("purchase_order_id", id).order("line_number"),
       supabase.from("coins_purchase_receiving").select("*, brands(brand_name)").eq("purchase_order_id", id).order("created_at", { ascending: false }),
     ]);
     if (orderRes.data) {
@@ -162,12 +162,12 @@ const CoinsReceivingPhase = () => {
       const brandIds = orderLines.map((l: any) => l.brand_id);
       const { data: brandsData } = await supabase
         .from("brands")
-        .select("id, usd_value_for_coins")
+        .select("id, one_usd_to_coins")
         .in("id", brandIds);
       const brandUsdMap: Record<string, number> = {};
       if (brandsData) {
         for (const b of brandsData) {
-          if (b.usd_value_for_coins) brandUsdMap[b.id] = b.usd_value_for_coins;
+          if (b.one_usd_to_coins) brandUsdMap[b.id] = b.one_usd_to_coins;
         }
       }
 
@@ -196,9 +196,9 @@ const CoinsReceivingPhase = () => {
         const lineAmountInCurrency = parseFloat(String(line.amount_in_currency || 0));
         const sarAmount = parseFloat(String(line.base_amount_sar || 0));
 
-        // Calculate expected coins using the line's amount_in_currency (USD) directly
-        const usdValuePerCoin = brandUsdMap[brandId] || 0;
-        const expectedCoins = usdValuePerCoin > 0 ? Math.floor(lineAmountInCurrency / usdValuePerCoin) : 0;
+        // Calculate expected coins using 1 USD = X coins rate
+        const oneUsdToCoins = brandUsdMap[brandId] || 0;
+        const expectedCoins = oneUsdToCoins > 0 ? Math.floor(lineAmountInCurrency * oneUsdToCoins) : 0;
 
         // Create receiving_coins_header - use purchase order number
         // Control amount = line's amount in original currency (e.g. USD)
@@ -235,7 +235,7 @@ const CoinsReceivingPhase = () => {
             product_id: null,
             product_name: brandName,
             coins: expectedCoins,
-            unit_price: usdValuePerCoin,
+            unit_price: oneUsdToCoins,
           }];
           await supabase.from("receiving_coins_line").insert(lineInserts as any);
         }
@@ -381,7 +381,7 @@ const CoinsReceivingPhase = () => {
                       <TableHead>#</TableHead>
                       <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
                       <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
-                      <TableHead>{isArabic ? "قيمة الكوين (USD)" : "USD/Coin"}</TableHead>
+                      <TableHead>{isArabic ? "1 USD = كوينز" : "1 USD = Coins"}</TableHead>
                       <TableHead>{isArabic ? "الكوينز المتوقعة" : "Expected Coins"}</TableHead>
                       <TableHead>{isArabic ? "صور الاستلام" : "Receiving Images"}</TableHead>
                     </TableRow>
@@ -390,8 +390,8 @@ const CoinsReceivingPhase = () => {
                     {orderLines.map((line, idx) => {
                       const brandReceivings = receivingsByBrand[line.brand_id] || [];
                       const amountInCurrency = parseFloat(line.amount_in_currency || 0);
-                      const usdValue = line.brands?.usd_value_for_coins || 0;
-                      const expectedCoins = usdValue > 0 && amountInCurrency > 0 ? Math.floor(amountInCurrency / usdValue) : 0;
+                      const oneUsdToCoins = line.brands?.one_usd_to_coins || 0;
+                      const expectedCoins = oneUsdToCoins > 0 && amountInCurrency > 0 ? Math.floor(amountInCurrency * oneUsdToCoins) : 0;
                       return (
                         <TableRow key={line.id}>
                           <TableCell>{idx + 1}</TableCell>
@@ -400,7 +400,7 @@ const CoinsReceivingPhase = () => {
                             {amountInCurrency > 0 ? amountInCurrency.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
                           </TableCell>
                           <TableCell className="font-medium text-primary">
-                            {usdValue > 0 ? `$${usdValue.toFixed(8)}` : "-"}
+                            {oneUsdToCoins > 0 ? oneUsdToCoins.toFixed(8) : "-"}
                           </TableCell>
                           <TableCell className="font-bold text-lg">
                             {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
