@@ -71,13 +71,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get department admins
       const { data: departmentAdmins, error: adminsError } = await supabase
         .from("department_admins")
-        .select(`
-          user_id,
-          profiles:user_id (
-            user_name,
-            email
-          )
-        `)
+        .select("user_id")
         .eq("department_id", departmentId);
 
       if (adminsError) {
@@ -85,7 +79,18 @@ const handler = async (req: Request): Promise<Response> => {
         throw adminsError;
       }
 
-      console.log("Department admins found:", departmentAdmins?.length);
+      // Get profiles for each admin
+      const adminUserIds = (departmentAdmins || []).map((a: any) => a.user_id);
+      const { data: adminProfiles } = adminUserIds.length > 0
+        ? await supabase.from("profiles").select("user_id, user_name, email").in("user_id", adminUserIds)
+        : { data: [] };
+
+      const adminsWithProfiles = (departmentAdmins || []).map((a: any) => ({
+        ...a,
+        profile: (adminProfiles || []).find((p: any) => p.user_id === a.user_id),
+      }));
+
+      console.log("Department admins found:", adminsWithProfiles.length);
 
       // Get department name
       const { data: department } = await supabase
@@ -109,10 +114,10 @@ const handler = async (req: Request): Promise<Response> => {
       });
 
       // Send notifications to each department admin (except the one who completed the task)
-      for (const admin of departmentAdmins || []) {
-        if (admin.user_id === completedByUserId) continue; // Skip the user who completed the task
+      for (const admin of adminsWithProfiles) {
+        if (admin.user_id === completedByUserId) continue;
         
-        const profile = admin.profiles as any;
+        const profile = admin.profile;
         if (!profile?.email) continue;
 
         // Create in-app notification
