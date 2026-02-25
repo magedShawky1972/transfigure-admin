@@ -754,8 +754,8 @@ const ReceivingCoins = () => {
                   ) : (
                     receipts.map(r => {
                       const rate = parseFloat(r.exchange_rate) || 0;
-                      const sarAmount = parseFloat(r.control_amount) || 0;
-                      const txnAmount = rate > 0 ? sarAmount / rate : sarAmount;
+                      const txnAmount = parseFloat(r.control_amount) || 0;
+                      const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
                       return (
                         <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadReceipt(r.id)}>
                           <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
