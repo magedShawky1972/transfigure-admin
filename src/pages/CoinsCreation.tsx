@@ -592,7 +592,7 @@ const CoinsCreation = () => {
                 {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2 z-10" onClick={() => setBankTransferImage("")}>✕</Button>}
               </div>
             ) : !isReadOnly ? (
-              <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
+              <label className="flex flex-col items-center justify-center text-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
                 <Upload className="h-10 w-10 text-muted-foreground mb-2" />
                 <span className="text-muted-foreground">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع ملف التحويل" : "Click to upload transfer file")}</span>
                 <input type="file" accept="*/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
