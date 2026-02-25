@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN one_usd_to_coins numeric(20,8) DEFAULT NULL;

@@ -1071,6 +1071,7 @@ export type Database = {
           id: string
           leadtime: number | null
           odoo_category_id: number | null
+          one_usd_to_coins: number | null
           recharge_usd_value: number | null
           reorder_point: number | null
           safety_stock: number | null
@@ -1090,6 +1091,7 @@ export type Database = {
           id?: string
           leadtime?: number | null
           odoo_category_id?: number | null
+          one_usd_to_coins?: number | null
           recharge_usd_value?: number | null
           reorder_point?: number | null
           safety_stock?: number | null
@@ -1109,6 +1111,7 @@ export type Database = {
           id?: string
           leadtime?: number | null
           odoo_category_id?: number | null
+          one_usd_to_coins?: number | null
           recharge_usd_value?: number | null
           reorder_point?: number | null
           safety_stock?: number | null
