@@ -14,6 +14,7 @@ import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus } 
 import { format } from "date-fns";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
+import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
 
 const CoinsReceivingPhase = () => {
   const { language } = useLanguage();
@@ -469,6 +470,12 @@ const CoinsReceivingPhase = () => {
             })}
           </CardContent>
         </Card>
+
+        {/* Attachments */}
+        <CoinsOrderAttachments
+          purchaseOrderId={selectedOrder.id}
+          currentPhase="receiving"
+        />
       </div>
     );
   }
