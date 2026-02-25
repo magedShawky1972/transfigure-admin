@@ -232,14 +232,11 @@ const CoinsSending = () => {
           <CardHeader><CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {selectedOrder.bank_transfer_image && (
-              selectedOrder.bank_transfer_image.includes("cloudinary.com") && (selectedOrder.bank_transfer_image.includes("/raw/upload/") || selectedOrder.bank_transfer_image.match(/\.pdf$/i)) ? (
-                <img 
-                  src={selectedOrder.bank_transfer_image.replace("/raw/upload/", "/image/upload/").replace("/upload/", "/upload/pg_1,f_jpg/")} 
-                  alt="Transfer" 
-                  className="max-w-md max-h-64 rounded-lg border object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
+              selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
+                <iframe
+                  src={selectedOrder.bank_transfer_image}
+                  title="Transfer"
+                  className="w-full h-[300px] rounded-lg border"
                 />
               ) : (
                 <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
