@@ -16,7 +16,7 @@ import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
 
 interface Supplier { id: string; supplier_name: string; }
-interface Brand { id: string; brand_name: string; usd_value_for_coins?: number | null; }
+interface Brand { id: string; brand_name: string; one_usd_to_coins?: number | null; }
 interface Bank { id: string; bank_name: string; }
 interface Currency { id: string; currency_code: string; currency_name: string; }
 interface LineItem { 
@@ -118,7 +118,7 @@ const ReceivingCoins = () => {
   const fetchDropdowns = async () => {
     const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
-      supabase.from("brands").select("id, brand_name, abc_analysis, usd_value_for_coins").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis, one_usd_to_coins").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
       supabase.from("currencies").select("id, currency_code, currency_name").order("currency_code"),
     ]);
@@ -147,7 +147,7 @@ const ReceivingCoins = () => {
 
     const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
-      supabase.from("brands").select("id, brand_name, abc_analysis, usd_value_for_coins").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis, one_usd_to_coins").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
       supabase.from("currencies").select("id, currency_code, currency_name").order("currency_code"),
     ]);
@@ -288,6 +288,13 @@ const ReceivingCoins = () => {
         if (unitPrice > 0 && brandControl > 0) {
           updated.coins = Math.round(remainingAmount / unitPrice);
           updated.total = updated.coins * unitPrice;
+        }
+      }
+      // Auto-calculate unit_price when received coins changes: unit_price = brandControlAmt / receivedCoins
+      if (field === "coins" && updated.coins > 0 && updated.brand_id) {
+        const brandControl = brandControlAmounts[updated.brand_id] || 0;
+        if (brandControl > 0) {
+          updated.unit_price = brandControl / updated.coins;
         }
       }
       updated.total = updated.coins * updated.unit_price;
@@ -1009,7 +1016,7 @@ const ReceivingCoins = () => {
                   <TableHead>#</TableHead>
                   <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                  <TableHead>{isArabic ? "قيمة الكوين (USD)" : "USD/Coin"}</TableHead>
+                  <TableHead>{isArabic ? "1 USD = كوينز" : "1 USD = Coins"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
                   <TableHead>{isArabic ? "الكوينز المتوقعة" : "Expected Coins"}</TableHead>
                   <TableHead>{isArabic ? "الكوينز المستلمة" : "Received Coins"}</TableHead>
@@ -1034,9 +1041,9 @@ const ReceivingCoins = () => {
                     const isConfirmed = line.is_confirmed;
                     const isLocked = isConfirmed || receiptStatus === "closed";
                     const brand = brands.find(b => b.id === line.brand_id);
-                    const usdValueForCoins = brand?.usd_value_for_coins || 0;
+                    const oneUsdToCoins = brand?.one_usd_to_coins || 0;
                     const brandControlAmt = line.brand_id ? (brandControlAmounts[line.brand_id] || 0) : 0;
-                    const expectedCoins = usdValueForCoins > 0 && brandControlAmt > 0 ? Math.floor(brandControlAmt / usdValueForCoins) : 0;
+                    const expectedCoins = oneUsdToCoins > 0 && brandControlAmt > 0 ? Math.floor(brandControlAmt * oneUsdToCoins) : 0;
                     return (
                     <TableRow key={line.id} className={isConfirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
                       <TableCell>{idx + 1}</TableCell>
@@ -1069,7 +1076,7 @@ const ReceivingCoins = () => {
                         )}
                       </TableCell>
                       <TableCell className="font-medium text-primary">
-                        {usdValueForCoins > 0 ? `$${usdValueForCoins.toFixed(2)}` : "-"}
+                        {oneUsdToCoins > 0 ? oneUsdToCoins.toFixed(8) : "-"}
                       </TableCell>
                       <TableCell className="font-bold text-lg text-primary">
                         {brandControlAmt > 0 ? brandControlAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
