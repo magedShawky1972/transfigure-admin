@@ -410,7 +410,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="usd_value_for_coins">USD Value For Coins</Label>
+              <Label htmlFor="usd_value_for_coins">One Coins = USD</Label>
               <Input
                 id="usd_value_for_coins"
                 type="number"
