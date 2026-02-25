@@ -244,6 +244,7 @@ const CoinsReceivingPhase = () => {
       await supabase.from("coins_purchase_orders").update({
         current_phase: "coins_entry",
         status: "in_progress",
+        phase_updated_at: new Date().toISOString(),
       }).eq("id", selectedOrder.id);
 
       await supabase.from("coins_purchase_phase_history").insert({

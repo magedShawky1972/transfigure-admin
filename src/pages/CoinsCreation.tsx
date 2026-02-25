@@ -257,6 +257,7 @@ const CoinsCreation = () => {
         created_by_name: user?.user_metadata?.display_name || user?.email || "",
         current_phase: sendToNext ? "sending" : "creation",
         status: sendToNext ? "in_progress" : "draft",
+        phase_updated_at: new Date().toISOString(),
       };
 
       let orderId: string;
