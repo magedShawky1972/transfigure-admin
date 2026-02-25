@@ -280,6 +280,7 @@ const REPORTS = [
   { key: "expense-pending", labelEn: "Pending Expenses", labelAr: "المصروفات المعلقة" },
   { key: "expense-paid", labelEn: "Paid Expenses", labelAr: "المصروفات المدفوعة" },
   { key: "bank-balance-by-date", labelEn: "Bank Balance by Date", labelAr: "تقرير رصيد البنك بالتاريخ" },
+  { key: "projects-tasks", labelEn: "Projects & Tasks Report", labelAr: "تقرير المشاريع والمهام" },
 ];
 
 const UserSetup = () => {
