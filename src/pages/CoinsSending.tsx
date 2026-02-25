@@ -98,6 +98,7 @@ const CoinsSending = () => {
         sending_confirmed_at: new Date().toISOString(),
         current_phase: "receiving",
         status: "in_progress",
+        phase_updated_at: new Date().toISOString(),
       }).eq("id", selectedOrder.id);
 
       await supabase.from("coins_purchase_phase_history").insert({

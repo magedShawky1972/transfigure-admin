@@ -109,6 +109,7 @@ const CoinsPurchaseFollowUp = () => {
 
       await supabase.from("coins_purchase_orders").update({
         current_phase: previousPhase,
+        phase_updated_at: new Date().toISOString(),
       }).eq("id", order.id);
 
       await supabase.from("coins_purchase_phase_history").insert({

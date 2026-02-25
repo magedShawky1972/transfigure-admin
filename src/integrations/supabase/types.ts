@@ -1255,6 +1255,7 @@ export type Database = {
           id: string
           notes: string | null
           order_number: string
+          phase_updated_at: string | null
           sending_confirmed: boolean | null
           sending_confirmed_at: string | null
           sending_confirmed_by: string | null
@@ -1279,6 +1280,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number: string
+          phase_updated_at?: string | null
           sending_confirmed?: boolean | null
           sending_confirmed_at?: string | null
           sending_confirmed_by?: string | null
@@ -1303,6 +1305,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: string
+          phase_updated_at?: string | null
           sending_confirmed?: boolean | null
           sending_confirmed_at?: string | null
           sending_confirmed_by?: string | null
@@ -1486,6 +1489,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coins_workflow_supervisors: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
       }
       company_news: {
         Row: {

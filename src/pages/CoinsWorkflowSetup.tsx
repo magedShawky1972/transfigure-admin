@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Plus, Trash2, Settings, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Settings, ChevronDown, ChevronRight, Eye, Shield } from "lucide-react";
 
 const PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
@@ -27,6 +27,9 @@ const CoinsWorkflowSetup = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [supervisors, setSupervisors] = useState<any[]>([]);
+  const [selectedSupervisorUserId, setSelectedSupervisorUserId] = useState("");
+  const [savingSupervisor, setSavingSupervisor] = useState(false);
 
   const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [selectedPhase, setSelectedPhase] = useState("");
@@ -43,7 +46,6 @@ const CoinsWorkflowSetup = () => {
     fetchAssignments();
   }, [filterBrandId]);
 
-  // Initialize all phases as expanded
   useEffect(() => {
     const initial: Record<string, boolean> = {};
     PHASES.forEach(p => { initial[p.key] = true; });
@@ -58,6 +60,12 @@ const CoinsWorkflowSetup = () => {
     if (brandRes.data) setBrands(brandRes.data);
     if (userRes.data) setUsers(userRes.data);
     fetchAssignments();
+    fetchSupervisors();
+  };
+
+  const fetchSupervisors = async () => {
+    const { data } = await supabase.from("coins_workflow_supervisors").select("*").eq("is_active", true).order("created_at");
+    if (data) setSupervisors(data);
   };
 
   const fetchAssignments = async () => {
@@ -65,6 +73,39 @@ const CoinsWorkflowSetup = () => {
     if (filterBrandId && filterBrandId !== "all") query = query.eq("brand_id", filterBrandId);
     const { data } = await query;
     if (data) setAssignments(data);
+  };
+
+  const handleAddSupervisor = async () => {
+    if (!selectedSupervisorUserId) {
+      toast.error(isArabic ? "يرجى اختيار المستخدم" : "Please select a user");
+      return;
+    }
+    setSavingSupervisor(true);
+    try {
+      const user = users.find(u => u.user_id === selectedSupervisorUserId || u.id === selectedSupervisorUserId);
+      const { error } = await supabase.from("coins_workflow_supervisors").insert({
+        user_id: selectedSupervisorUserId,
+        user_name: user?.user_name || user?.email || "",
+      });
+      if (error) throw error;
+      toast.success(isArabic ? "تمت إضافة المشرف بنجاح" : "Supervisor added successfully");
+      setSelectedSupervisorUserId("");
+      fetchSupervisors();
+    } catch (err: any) {
+      if (err.message?.includes("duplicate")) {
+        toast.error(isArabic ? "المشرف موجود بالفعل" : "Supervisor already exists");
+      } else {
+        toast.error(err.message || "Error");
+      }
+    } finally {
+      setSavingSupervisor(false);
+    }
+  };
+
+  const handleDeleteSupervisor = async (id: string) => {
+    await supabase.from("coins_workflow_supervisors").delete().eq("id", id);
+    toast.success(isArabic ? "تم حذف المشرف" : "Supervisor removed");
+    fetchSupervisors();
   };
 
   const handleAdd = async () => {
@@ -85,7 +126,6 @@ const CoinsWorkflowSetup = () => {
       if (error) throw error;
       toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
 
-      // Send ONE notification with all brand names
       const phaseLabel = getPhaseLabel(selectedPhase);
       const allBrandNames = selectedBrandIds.map(id => brands.find(b => b.id === id)?.brand_name || "").filter(Boolean);
       const isAllBrands = selectedBrandIds.length === brands.length && brands.length > 0;
@@ -117,7 +157,6 @@ const CoinsWorkflowSetup = () => {
   };
 
   const handleDelete = async (id: string) => {
-    // Get assignment details before deleting for notification
     const assignment = assignments.find(a => a.id === id);
     await supabase.from("coins_workflow_assignments").delete().eq("id", id);
     toast.success(isArabic ? "تم الحذف" : "Deleted");
@@ -149,7 +188,6 @@ const CoinsWorkflowSetup = () => {
     setExpandedPhases(prev => ({ ...prev, [phase]: !prev[phase] }));
   };
 
-  // Group by phase -> user
   const groupedAssignments = useMemo(() => {
     const grouped: Record<string, Record<string, any[]>> = {};
     PHASES.forEach(p => { grouped[p.key] = {}; });
@@ -173,6 +211,12 @@ const CoinsWorkflowSetup = () => {
     return user?.user_name || user?.email || a.user_id;
   };
 
+  const getSupervisorDisplay = (s: any) => {
+    if (s.user_name) return s.user_name;
+    const user = users.find(u => u.user_id === s.user_id || u.id === s.user_id);
+    return user?.user_name || user?.email || s.user_id;
+  };
+
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
 
@@ -182,6 +226,74 @@ const CoinsWorkflowSetup = () => {
         <Settings className="h-7 w-7 text-primary" />
         <h1 className="text-2xl font-bold">{isArabic ? "إعداد سير عمل الكوينز" : "Coins Workflow Setup"}</h1>
       </div>
+
+      {/* Supervisors Section */}
+      <Card className="border-amber-200 dark:border-amber-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+            <Eye className="h-5 w-5" />
+            {isArabic ? "المشرفين على سير العمل" : "Workflow Supervisors"}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {isArabic
+              ? "المشرفين يتلقون إشعارات عند كل مرحلة وتنبيهات عند التأخير أكثر من يوم"
+              : "Supervisors receive notifications at every phase transition and delay alerts after 1+ day"}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3 mb-4">
+            <div className="flex-1 space-y-2">
+              <Label>{isArabic ? "اختيار مشرف" : "Select Supervisor"}</Label>
+              <Select value={selectedSupervisorUserId} onValueChange={setSelectedSupervisorUserId}>
+                <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المستخدم" : "Select user"} /></SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter(u => !supervisors.some(s => s.user_id === (u.user_id || u.id)))
+                    .map(u => (
+                      <SelectItem key={u.user_id || u.id} value={u.user_id || u.id}>
+                        {u.user_name || u.email}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleAddSupervisor} disabled={savingSupervisor}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isArabic ? "إضافة مشرف" : "Add Supervisor"}
+            </Button>
+          </div>
+
+          {supervisors.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{isArabic ? "المشرف" : "Supervisor"}</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {supervisors.map(s => (
+                  <TableRow key={s.id}>
+                    <TableCell className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-amber-600" />
+                      <span className="font-medium">{getSupervisorDisplay(s)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteSupervisor(s.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center text-muted-foreground py-4">
+              {isArabic ? "لم يتم إضافة مشرفين بعد" : "No supervisors added yet"}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add New Assignment */}
       <Card>
