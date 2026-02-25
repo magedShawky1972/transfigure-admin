@@ -400,7 +400,7 @@ const CoinsReceivingPhase = () => {
                             {amountInCurrency > 0 ? amountInCurrency.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
                           </TableCell>
                           <TableCell className="font-medium text-primary">
-                            {usdValue > 0 ? `$${usdValue.toFixed(2)}` : "-"}
+                            {usdValue > 0 ? `$${usdValue.toFixed(8)}` : "-"}
                           </TableCell>
                           <TableCell className="font-bold text-lg">
                             {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
