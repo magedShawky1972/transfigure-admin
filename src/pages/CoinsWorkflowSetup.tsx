@@ -183,6 +183,21 @@ const CoinsWorkflowSetup = () => {
     const ids = items.map((a: any) => a.id);
     await supabase.from("coins_workflow_assignments").delete().in("id", ids);
     toast.success(isArabic ? "تم حذف جميع التعيينات" : "All assignments deleted");
+
+    // Send one notification for all brands removed
+    const userName = items[0]?.user_name || getUserDisplay(items[0]);
+    const allBrandNames = items.map((a: any) => getBrandName(a.brand_id)).filter(Boolean).join(", ");
+    supabase.functions.invoke("send-coins-workflow-notification", {
+      body: {
+        type: "assignment_removed",
+        userId,
+        userName,
+        brandName: allBrandNames,
+        phase: phaseKey,
+        phaseLabel: getPhaseLabel(phaseKey),
+      },
+    }).catch(err => console.error("Notification error:", err));
+
     fetchAssignments();
   };
 
