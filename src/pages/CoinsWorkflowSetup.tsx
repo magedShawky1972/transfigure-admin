@@ -178,6 +178,14 @@ const CoinsWorkflowSetup = () => {
     fetchAssignments();
   };
 
+  const handleDeleteUserAssignments = async (phaseKey: string, userId: string, items: any[]) => {
+    if (!confirm(isArabic ? "هل أنت متأكد من حذف جميع العلامات التجارية لهذا المستخدم؟" : "Are you sure you want to delete all brands for this user?")) return;
+    const ids = items.map((a: any) => a.id);
+    await supabase.from("coins_workflow_assignments").delete().in("id", ids);
+    toast.success(isArabic ? "تم حذف جميع التعيينات" : "All assignments deleted");
+    fetchAssignments();
+  };
+
   const getBrandName = (id: string) => brands.find(b => b.id === id)?.brand_name || id;
   const getPhaseLabel = (key: string) => {
     const p = PHASES.find(ph => ph.key === key);
@@ -412,19 +420,24 @@ const CoinsWorkflowSetup = () => {
                       </div>
                     ) : userIds.map(userId => {
                       const userKey = `${phase.key}_${userId}`;
-                      const isUserOpen = expandedPhases[userKey] ?? true;
+                      const isUserOpen = expandedPhases[userKey] ?? false;
                       const items = phaseUsers[userId];
                       const displayName = getUserDisplay(items[0]);
 
                       return (
                         <Collapsible key={userId} open={isUserOpen} onOpenChange={() => togglePhase(userKey)}>
-                          <CollapsibleTrigger asChild>
-                            <div className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-muted/30 border-t">
-                              {isUserOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              <span className="font-medium text-sm">{displayName}</span>
-                              <span className="text-xs text-muted-foreground">({items.length})</span>
-                            </div>
-                          </CollapsibleTrigger>
+                          <div className="flex items-center justify-between px-4 py-2 border-t hover:bg-muted/30">
+                            <CollapsibleTrigger asChild>
+                              <div className="flex items-center gap-2 cursor-pointer flex-1">
+                                {isUserOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                <span className="font-medium text-sm">{displayName}</span>
+                                <span className="text-xs text-muted-foreground">({items.length})</span>
+                              </div>
+                            </CollapsibleTrigger>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteUserAssignments(phase.key, userId, items)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                           <CollapsibleContent>
                             <Table>
                               <TableBody>
