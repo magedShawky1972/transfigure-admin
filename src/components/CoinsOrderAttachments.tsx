@@ -128,7 +128,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
     }
   };
 
-  const isPdf = (att: Attachment) => att.file_type?.includes("pdf") || att.file_url?.match(/\.pdf$/i);
+  const isPdf = (att: Attachment) => att.file_type?.includes("pdf") || att.file_url?.match(/\.pdf$/i) || att.file_url?.includes("/raw/upload/");
   const isImage = (att: Attachment) => att.file_type?.startsWith("image/");
   const hasPreview = (att: Attachment) => isImage(att) || isPdf(att);
 
@@ -253,7 +253,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
       <Dialog open={!!previewUrl} onOpenChange={() => { setPreviewUrl(null); setPreviewType(null); }}>
         <DialogContent className="max-w-5xl max-h-[90vh] p-2">
           <div className="relative w-full h-full flex items-center justify-center overflow-auto">
-            {previewUrl && previewType?.includes("pdf") ? (
+            {previewUrl && (previewType?.includes("pdf") || previewUrl.includes("/raw/upload/")) ? (
               <iframe
                 src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`}
                 title="PDF Preview"
