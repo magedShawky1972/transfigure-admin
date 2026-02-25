@@ -186,17 +186,24 @@ const ReceivingCoins = () => {
         }
         setBrandControlAmounts(brandAmounts);
         
-        setLines(orderLines.map((ol: any) => ({
-          id: crypto.randomUUID(),
-          brand_id: ol.brand_id,
-          brand_name: ol.brands?.brand_name || "",
-          supplier_id: ol.supplier_id || "",
-          coins: 0,
-          unit_price: 0,
-          total: 0,
-          is_confirmed: false,
-          confirmed_by_name: "",
-        })));
+        setLines(orderLines.map((ol: any) => {
+          const brandControl = brandAmounts[ol.brand_id] || 0;
+          const brand = brandRes?.data?.find((b: any) => b.id === ol.brand_id);
+          const oneUsdToCoins = brand?.one_usd_to_coins || 0;
+          const expectedCoins = oneUsdToCoins > 0 && brandControl > 0 ? Math.floor(brandControl * oneUsdToCoins) : 0;
+          const unitPrice = expectedCoins > 0 && brandControl > 0 ? brandControl / expectedCoins : 0;
+          return {
+            id: crypto.randomUUID(),
+            brand_id: ol.brand_id,
+            brand_name: ol.brands?.brand_name || "",
+            supplier_id: ol.supplier_id || "",
+            coins: expectedCoins,
+            unit_price: unitPrice,
+            total: expectedCoins * unitPrice,
+            is_confirmed: false,
+            confirmed_by_name: "",
+          };
+        }));
       }
 
       // Load receiving images for this purchase order
