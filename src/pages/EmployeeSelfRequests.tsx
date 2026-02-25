@@ -346,7 +346,7 @@ const EmployeeSelfRequests = () => {
       }
 
       if (selectedType === 'sick_leave' || selectedType === 'vacation') {
-        requestData.vacation_code_id = vacationCodeId;
+        requestData.vacation_code_id = vacationCodeId || null;
         requestData.start_date = startDate ? format(startDate, 'yyyy-MM-dd') : null;
         requestData.end_date = endDate ? format(endDate, 'yyyy-MM-dd') : null;
         requestData.total_days = calculateTotalDays();
