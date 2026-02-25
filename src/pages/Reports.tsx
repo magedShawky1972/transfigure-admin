@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList, FileSpreadsheet, AlertTriangle, Scale } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList, FileSpreadsheet, AlertTriangle, Scale, FolderKanban } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks']);
         setLoading(false);
         return;
       }
@@ -306,6 +306,15 @@ const Reports = () => {
         : "Compare actual transaction coins vs expected product coins to find discrepancies",
       icon: Scale,
       route: "/reports/coins-comparison",
+    },
+    {
+      id: "projects-tasks",
+      name: language === "ar" ? "تقرير المشاريع والمهام" : "Projects & Tasks Report",
+      description: language === "ar"
+        ? "تقرير شامل للمشاريع والمهام مع نسبة الإنجاز وفلاتر متعددة للمشاريع والأقسام والمستخدمين"
+        : "Comprehensive projects & tasks report with achievement percentage and multi-filters",
+      icon: FolderKanban,
+      route: "/reports/projects-tasks",
     },
   ];
 
