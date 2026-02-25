@@ -131,11 +131,12 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
   const getPreviewUrl = (att: Attachment): string | null => {
     if (!att.file_url) return null;
     if (att.file_type?.startsWith("image/")) return att.file_url;
-    // Cloudinary: convert PDF first page to image by changing /raw/upload/ to /image/upload/pg_1/
+    // Cloudinary: convert PDF first page to image
     if (att.file_type?.includes("pdf") && att.file_url.includes("cloudinary.com")) {
-      return att.file_url
-        .replace("/raw/upload/", "/image/upload/pg_1/")
-        .replace(/\.pdf$/i, ".jpg");
+      // Works for both /raw/upload/ and /image/upload/ paths
+      const url = att.file_url.replace("/raw/upload/", "/image/upload/");
+      // Insert pg_1 transformation
+      return url.replace("/upload/", "/upload/pg_1,f_jpg/");
     }
     return null;
   };
@@ -171,7 +172,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
                   id="coins-attachment-upload"
                   className="hidden"
                   multiple
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                  accept="*/*"
                   onChange={handleUpload}
                 />
                 <Button
