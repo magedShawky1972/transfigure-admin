@@ -856,7 +856,7 @@ export default function TimesheetManagement() {
                   </TableRow>
                 ) : (
                   timesheets.map((ts) => (
-                    <TableRow key={ts.id}>
+                    <TableRow key={ts.id} className={ts.status === 'vacation' ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500' : ''}>
                       {filterMode !== "date" && (
                         <TableCell className="font-medium text-sm">
                           {format(parseISO(ts.work_date), "dd MMM")}
