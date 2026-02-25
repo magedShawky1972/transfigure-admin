@@ -279,15 +279,14 @@ const ReceivingCoins = () => {
         const brand = brands.find(b => b.id === value);
         if (brand) {
           updated.brand_name = brand.brand_name;
-        }
-        // Recalculate remaining coins for the new brand
-        const brandControl = brandControlAmounts[value] || 0;
-        const brandUsed = lines.filter(l => l.id !== id && l.brand_id === value).reduce((sum, l) => sum + l.total, 0);
-        const remainingAmount = brandControl > 0 ? Math.max(0, brandControl - brandUsed) : 0;
-        const unitPrice = updated.unit_price || 0;
-        if (unitPrice > 0 && brandControl > 0) {
-          updated.coins = Math.round(remainingAmount / unitPrice);
-          updated.total = updated.coins * unitPrice;
+          // Auto-calculate unit_price from brand data: Amount / Expected Coins
+          const oneUsdToCoins = brand.one_usd_to_coins || 0;
+          const brandControl = brandControlAmounts[value] || 0;
+          const expectedCoins = oneUsdToCoins > 0 && brandControl > 0 ? Math.floor(brandControl * oneUsdToCoins) : 0;
+          if (expectedCoins > 0 && brandControl > 0) {
+            updated.unit_price = brandControl / expectedCoins;
+            updated.coins = expectedCoins;
+          }
         }
       }
       // Auto-calculate unit_price when received coins changes: unit_price = brandControlAmt / receivedCoins
@@ -1088,7 +1087,7 @@ const ReceivingCoins = () => {
                         <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" disabled={isLocked} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", parseFloat(e.target.value) || 0)} className="w-[140px]" step="0.00000001" disabled={isLocked} />
+                        <Input type="number" value={line.unit_price} className="w-[140px] bg-muted" step="0.00000001" disabled readOnly />
                       </TableCell>
                       <TableCell className="font-semibold">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       {Object.keys(brandControlAmounts).length > 0 && (
