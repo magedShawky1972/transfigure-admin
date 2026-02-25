@@ -66,7 +66,7 @@ const CoinsSending = () => {
 
   const loadOrder = async (id: string) => {
     const [orderRes, linesRes] = await Promise.all([
-      supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle(),
+      supabase.from("coins_purchase_orders").select("*, currencies(currency_code)").eq("id", id).maybeSingle(),
       supabase.from("coins_purchase_order_lines").select("*, brands(brand_name), suppliers(supplier_name)").eq("purchase_order_id", id).order("line_number"),
     ]);
     if (orderRes.data) {
@@ -173,11 +173,25 @@ const CoinsSending = () => {
         <Card>
           <CardHeader><CardTitle>{isArabic ? "تفاصيل الطلب" : "Order Details"}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-              <div><span className="font-medium">{isArabic ? "رقم الطلب:" : "Order #:"}</span> {selectedOrder.order_number}</div>
-              <div><span className="font-medium">{isArabic ? "إجمالي المبلغ (SAR):" : "Total Amount (SAR):"}</span> {parseFloat(selectedOrder.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div><span className="font-medium">{isArabic ? "رسوم التحويل البنكي:" : "Bank Transfer Fee:"}</span> {parseFloat(selectedOrder.bank_transfer_fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(selectedOrder.created_at), "yyyy-MM-dd")}</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="text-sm"><span className="font-medium">{isArabic ? "رقم الطلب:" : "Order #:"}</span> {selectedOrder.order_number}</div>
+              <div className="text-sm"><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(selectedOrder.created_at), "yyyy-MM-dd")}</div>
+              <div className="text-sm"><span className="font-medium">{isArabic ? "سعر الصرف:" : "Exchange Rate:"}</span> {selectedOrder.exchange_rate ?? "-"}</div>
+              <div className="text-sm"><span className="font-medium">{isArabic ? "رسوم التحويل البنكي:" : "Bank Transfer Fee:"}</span> {parseFloat(selectedOrder.bank_transfer_fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-muted/40 rounded-lg border">
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "العملة" : "Currency"}</div>
+                <div className="text-2xl font-bold text-primary">{(selectedOrder as any).currencies?.currency_code || "-"}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</div>
+                <div className="text-2xl font-bold text-primary">{parseFloat(selectedOrder.amount_in_currency || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</div>
+                <div className="text-2xl font-bold">{parseFloat(selectedOrder.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              </div>
             </div>
           </CardContent>
         </Card>
