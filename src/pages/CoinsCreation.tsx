@@ -79,12 +79,12 @@ const CoinsCreation = () => {
   useEffect(() => { fetchOrders(); }, []);
   useEffect(() => { if (view === "form") fetchDropdowns(); }, [view]);
 
-  const skipRateAutoFill = useRef(false);
+  const loadedOrderRateRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (currencyId) {
-      if (skipRateAutoFill.current) {
-        skipRateAutoFill.current = false;
+      // Skip auto-fill if we loaded an order with a saved rate
+      if (loadedOrderRateRef.current !== null) {
         return;
       }
       const baseCurrency = currencies.find(c => c.is_base);
@@ -358,6 +358,7 @@ const CoinsCreation = () => {
   };
 
   const resetForm = () => {
+    loadedOrderRateRef.current = null;
     setSupplierId(""); setBankId(""); setCurrencyId("");
     setExchangeRate("1"); setNotes(""); setBankTransferImage("");
     setBankTransferFee(""); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
@@ -388,7 +389,7 @@ const CoinsCreation = () => {
       setSelectedOrderPhase(data.current_phase || "creation");
       setSupplierId(data.supplier_id || "");
       setBankId(data.bank_id || "");
-      skipRateAutoFill.current = true;
+      loadedOrderRateRef.current = String(data.exchange_rate || 1);
       setCurrencyId(data.currency_id || "");
       setExchangeRate(String(data.exchange_rate || 1));
       setNotes(data.notes || "");
@@ -625,7 +626,7 @@ const CoinsCreation = () => {
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "العملة *" : "Currency *"}</Label>
-              <Select value={currencyId} onValueChange={setCurrencyId} disabled={isReadOnly}>
+              <Select value={currencyId} onValueChange={(v) => { loadedOrderRateRef.current = null; setCurrencyId(v); }} disabled={isReadOnly}>
                 <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العملة" : "Select currency"} /></SelectTrigger>
                 <SelectContent>{currencies.map(c => <SelectItem key={c.id} value={c.id}>{c.currency_name} ({c.currency_code})</SelectItem>)}</SelectContent>
               </Select>
