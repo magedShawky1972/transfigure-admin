@@ -3,17 +3,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, Download, Filter } from "lucide-react";
+import { FileText, Download, Filter, FolderKanban } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
+import ProjectsTasksReport from "@/components/ProjectsTasksReport";
 
 const Reports = () => {
   const { toast } = useToast();
-  const [activeReport, setActiveReport] = useState<"tickets" | "licenses">("tickets");
+  const [activeReport, setActiveReport] = useState<"tickets" | "licenses" | "projects">("tickets");
   
   // Tickets filters
   const [ticketStatus, setTicketStatus] = useState<string>("all");
@@ -157,14 +158,18 @@ const Reports = () => {
       </div>
 
       <Tabs value={activeReport} onValueChange={(v) => setActiveReport(v as any)}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="tickets">
             <FileText className="mr-2 h-4 w-4" />
-            Tickets Report
+            Tickets
           </TabsTrigger>
           <TabsTrigger value="licenses">
             <FileText className="mr-2 h-4 w-4" />
-            Licenses Report
+            Licenses
+          </TabsTrigger>
+          <TabsTrigger value="projects">
+            <FolderKanban className="mr-2 h-4 w-4" />
+            Projects & Tasks
           </TabsTrigger>
         </TabsList>
 
@@ -484,6 +489,10 @@ const Reports = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="projects">
+          <ProjectsTasksReport />
         </TabsContent>
       </Tabs>
     </div>
