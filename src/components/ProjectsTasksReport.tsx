@@ -12,7 +12,11 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, parse } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProjectOption {
   id: string;
@@ -54,6 +58,9 @@ const ProjectsTasksReport = () => {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [dateMode, setDateMode] = useState<string>("this_month");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [specificDate, setSpecificDate] = useState<Date | undefined>(undefined);
 
   const [reportData, setReportData] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,6 +87,37 @@ const ProjectsTasksReport = () => {
     setter(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
 
+  const getDateRange = (): { from: string; to: string } => {
+    const now = new Date();
+    switch (dateMode) {
+      case "this_month": {
+        const s = startOfMonth(now);
+        const e = endOfMonth(now);
+        return { from: format(s, "yyyy-MM-dd"), to: format(e, "yyyy-MM-dd") };
+      }
+      case "last_month": {
+        const last = subMonths(now, 1);
+        return { from: format(startOfMonth(last), "yyyy-MM-dd"), to: format(endOfMonth(last), "yyyy-MM-dd") };
+      }
+      case "select_month": {
+        if (!selectedMonth) {
+          return { from: format(startOfMonth(now), "yyyy-MM-dd"), to: format(endOfMonth(now), "yyyy-MM-dd") };
+        }
+        const d = parse(selectedMonth + "-01", "yyyy-MM-dd", new Date());
+        return { from: format(startOfMonth(d), "yyyy-MM-dd"), to: format(endOfMonth(d), "yyyy-MM-dd") };
+      }
+      case "specific_date": {
+        if (!specificDate) return { from: "", to: "" };
+        const ds = format(specificDate, "yyyy-MM-dd");
+        return { from: ds, to: ds };
+      }
+      case "date_range":
+        return { from: dateFrom, to: dateTo };
+      default:
+        return { from: "", to: "" };
+    }
+  };
+
   const runReport = async () => {
     setLoading(true);
     try {
@@ -100,8 +138,10 @@ const ProjectsTasksReport = () => {
       if (selectedDepartments.length > 0) query = query.in("department_id", selectedDepartments);
       if (selectedUsers.length > 0) query = query.in("assigned_to", selectedUsers);
       if (selectedStatuses.length > 0) query = query.in("status", selectedStatuses);
-      if (dateFrom) query = query.gte("created_at", dateFrom);
-      if (dateTo) query = query.lte("created_at", dateTo + "T23:59:59");
+
+      const { from: df, to: dt } = getDateRange();
+      if (df) query = query.gte("created_at", df);
+      if (dt) query = query.lte("created_at", dt + "T23:59:59");
 
       const { data, error } = await query;
       if (error) throw error;
@@ -249,13 +289,57 @@ const ProjectsTasksReport = () => {
               renderLabel={(v) => v.replace("_", " ").toUpperCase()}
             />
             <div className="space-y-2">
-              <Label>Date From</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <Label>Date Filter</Label>
+              <Select value={dateMode} onValueChange={setDateMode}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="this_month">This Month</SelectItem>
+                  <SelectItem value="last_month">Last Month</SelectItem>
+                  <SelectItem value="select_month">Select Month</SelectItem>
+                  <SelectItem value="specific_date">Specific Date</SelectItem>
+                  <SelectItem value="date_range">Date Range</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Date To</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-            </div>
+
+            {dateMode === "select_month" && (
+              <div className="space-y-2">
+                <Label>Month</Label>
+                <Input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
+              </div>
+            )}
+
+            {dateMode === "specific_date" && (
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !specificDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {specificDate ? format(specificDate, "PPP") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={specificDate} onSelect={setSpecificDate} className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
+            {dateMode === "date_range" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Date From</Label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Date To</Label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex gap-3">
