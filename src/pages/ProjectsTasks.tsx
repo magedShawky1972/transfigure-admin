@@ -799,6 +799,10 @@ const ProjectsTasks = () => {
     }
     
     return true;
+  }).sort((a, b) => {
+    const dateA = a.start_date || a.created_at || '';
+    const dateB = b.start_date || b.created_at || '';
+    return dateB.localeCompare(dateA);
   });
 
   const handleDragStart = (event: DragStartEvent) => {
