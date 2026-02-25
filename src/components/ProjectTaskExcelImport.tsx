@@ -57,6 +57,7 @@ export const ProjectTaskExcelImport = ({
   const [importing, setImporting] = useState(false);
   const [errors, setErrors] = useState<ImportError[]>([]);
   const [importResults, setImportResults] = useState<{ success: number; failed: number } | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAr = language === "ar";
@@ -80,8 +81,10 @@ export const ProjectTaskExcelImport = ({
       : "1. Select import mode\n2. Download template\n3. Fill in data\n4. Upload file",
     instructionsTitle: isAr ? "التعليمات" : "Instructions",
     tasksOnlyNote: isAr 
-      ? "استيراد مهام فقط للمشاريع الموجودة في القسم المحدد" 
-      : "Import tasks only for existing projects in the selected department",
+      ? "استيراد مهام فقط للمشروع المحدد" 
+      : "Import tasks only for the selected project",
+    selectProject: isAr ? "اختر المشروع" : "Select Project",
+    projectRequired: isAr ? "يجب اختيار المشروع أولاً" : "Please select a project first",
     projectsAndTasksNote: isAr 
       ? "استيراد مشاريع جديدة مع مهامها - سيتم إنشاء المشاريع تلقائياً" 
       : "Import new projects with their tasks - projects will be created automatically",
@@ -91,15 +94,15 @@ export const ProjectTaskExcelImport = ({
     const wb = XLSX.utils.book_new();
 
     if (importMode === "tasks_only") {
-      // Tasks only template
+      // Tasks only template - no project_name column, project is selected from UI
       const headers = [
-        "project_name", "task_title", "description", "assigned_to_username",
+        "task_title", "description", "assigned_to_username",
         "priority", "status", "start_date", "deadline"
       ];
       const sampleData = [
         headers,
-        ["My Project", "Design Homepage", "Create UI mockups", "john", "medium", "todo", "2026-03-01", "2026-03-15"],
-        ["My Project", "Build API", "Create REST endpoints", "jane", "high", "todo", "2026-03-05", "2026-03-20"],
+        ["Design Homepage", "Create UI mockups", "john", "medium", "todo", "2026-03-01", "2026-03-15"],
+        ["Build API", "Create REST endpoints", "jane", "high", "todo", "2026-03-05", "2026-03-20"],
       ];
       const ws = XLSX.utils.aoa_to_sheet(sampleData);
 
@@ -110,8 +113,9 @@ export const ProjectTaskExcelImport = ({
       const instrData = [
         [isAr ? "تعليمات قالب استيراد المهام" : "Tasks Import Template Instructions"],
         [""],
+        [isAr ? "ملاحظة: المشروع يتم اختياره من الواجهة قبل الاستيراد" : "Note: Project is selected from the UI before importing"],
+        [""],
         [isAr ? "الحقل" : "Field", isAr ? "مطلوب" : "Required", isAr ? "الوصف" : "Description"],
-        ["project_name", isAr ? "نعم" : "Yes", isAr ? "اسم المشروع الموجود في القسم" : "Existing project name in the department"],
         ["task_title", isAr ? "نعم" : "Yes", isAr ? "عنوان المهمة" : "Task title"],
         ["description", isAr ? "لا" : "No", isAr ? "وصف المهمة" : "Task description"],
         ["assigned_to_username", isAr ? "نعم" : "Yes", isAr ? "اسم المستخدم المسند إليه" : "Username of assignee"],
@@ -123,23 +127,13 @@ export const ProjectTaskExcelImport = ({
       const instrWs = XLSX.utils.aoa_to_sheet(instrData);
       instrWs["!cols"] = [{ wch: 25 }, { wch: 10 }, { wch: 50 }];
 
-      // Add reference sheets
-      const projectNames = projects
-        .filter(p => {
-          const dept = departments.find(d => d.id === selectedDepartment);
-          return dept !== undefined;
-        })
-        .map(p => [p.name]);
-      const projectRefData = [[isAr ? "المشاريع المتاحة" : "Available Projects"], ...projectNames];
-      const projectRefWs = XLSX.utils.aoa_to_sheet(projectRefData);
-
+      // Add reference sheet for users only
       const userNames = users.map(u => [u.user_name]);
       const userRefData = [[isAr ? "المستخدمون المتاحون" : "Available Users"], ...userNames];
       const userRefWs = XLSX.utils.aoa_to_sheet(userRefData);
 
       XLSX.utils.book_append_sheet(wb, ws, "Tasks");
       XLSX.utils.book_append_sheet(wb, instrWs, "Instructions");
-      XLSX.utils.book_append_sheet(wb, projectRefWs, "Projects Reference");
       XLSX.utils.book_append_sheet(wb, userRefWs, "Users Reference");
       XLSX.writeFile(wb, "tasks_import_template.xlsx");
     } else {
@@ -216,6 +210,11 @@ export const ProjectTaskExcelImport = ({
       const dataRows = rows.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ""));
 
       if (importMode === "tasks_only") {
+        if (!selectedProjectId) {
+          toast({ title: t.projectRequired, variant: "destructive" });
+          setImporting(false);
+          return;
+        }
         await importTasksOnly(headerRow, dataRows);
       } else {
         await importProjectsAndTasks(headerRow, dataRows);
@@ -282,7 +281,6 @@ export const ProjectTaskExcelImport = ({
 
   const importTasksOnly = async (headers: string[], dataRows: any[][]) => {
     const colIdx = {
-      project_name: getColumnIndex(headers, "project_name"),
       task_title: getColumnIndex(headers, "task_title"),
       description: getColumnIndex(headers, "description"),
       assigned_to: getColumnIndex(headers, "assigned_to_username"),
@@ -298,15 +296,13 @@ export const ProjectTaskExcelImport = ({
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-      const rowNum = i + 2; // +2 for header + 0-index
+      const rowNum = i + 2;
 
-      const projectName = getCellValue(row, colIdx.project_name);
       const taskTitle = getCellValue(row, colIdx.task_title);
       const assignedToName = getCellValue(row, colIdx.assigned_to);
       const priority = getCellValue(row, colIdx.priority).toLowerCase() || "medium";
       const status = getCellValue(row, colIdx.status).toLowerCase() || "todo";
 
-      // Validate required fields
       if (!taskTitle) {
         importErrors.push({ row: rowNum, message: isAr ? "عنوان المهمة مطلوب" : "Task title is required" });
         continue;
@@ -321,15 +317,6 @@ export const ProjectTaskExcelImport = ({
       if (!assignedToId) {
         importErrors.push({ row: rowNum, message: isAr ? `المستخدم "${assignedToName}" غير موجود` : `User "${assignedToName}" not found` });
         continue;
-      }
-
-      let projectId: string | null = null;
-      if (projectName) {
-        projectId = findProject(projectName);
-        if (!projectId) {
-          importErrors.push({ row: rowNum, message: isAr ? `المشروع "${projectName}" غير موجود` : `Project "${projectName}" not found` });
-          continue;
-        }
       }
 
       if (!validPriorities.includes(priority)) {
@@ -348,7 +335,7 @@ export const ProjectTaskExcelImport = ({
       tasksToInsert.push({
         title: taskTitle,
         description: getCellValue(row, colIdx.description) || null,
-        project_id: projectId,
+        project_id: selectedProjectId,
         department_id: selectedDepartment,
         assigned_to: assignedToId,
         created_by: currentUserId,
@@ -530,6 +517,7 @@ export const ProjectTaskExcelImport = ({
   const handleClose = () => {
     setErrors([]);
     setImportResults(null);
+    setSelectedProjectId("");
     onOpenChange(false);
   };
 
@@ -566,6 +554,23 @@ export const ProjectTaskExcelImport = ({
               {importMode === "tasks_only" ? t.tasksOnlyNote : t.projectsAndTasksNote}
             </p>
           </div>
+
+          {/* Project Selection for Tasks Only mode */}
+          {importMode === "tasks_only" && (
+            <div>
+              <label className="text-sm font-medium">{t.selectProject}</label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t.selectProject} />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Download Template */}
           <Button variant="outline" className="w-full" onClick={downloadTemplate}>
