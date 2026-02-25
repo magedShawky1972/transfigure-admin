@@ -80,6 +80,12 @@ const TicketActivityLogDialog = ({
         return <FileCheck className="h-5 w-5 text-green-600" />;
       case "passed_to_next_level":
         return <User className="h-5 w-5 text-orange-500" />;
+      case "extra_approval_sent":
+        return <UserPlus className="h-5 w-5 text-cyan-500" />;
+      case "extra_approval_approved":
+        return <CheckCircle className="h-5 w-5 text-cyan-600" />;
+      case "extra_approval_rejected":
+        return <XCircle className="h-5 w-5 text-rose-500" />;
       default:
         return <Clock className="h-5 w-5 text-muted-foreground" />;
     }
@@ -98,8 +104,15 @@ const TicketActivityLogDialog = ({
       ticket_closed: { ar: "تم إغلاق التذكرة", en: "Ticket Closed" },
       passed_to_next_level: { ar: "تم تمرير للمستوى التالي", en: "Passed to Next Level" },
       ticket_approved: { ar: "تمت الموافقة النهائية", en: "Final Approval" },
+      extra_approval_sent: { ar: "طلب موافقة إضافية", en: "Extra Approval Requested" },
+      extra_approval_approved: { ar: "تمت الموافقة الإضافية", en: "Extra Approval Granted" },
+      extra_approval_rejected: { ar: "تم رفض الموافقة الإضافية", en: "Extra Approval Rejected" },
     };
     return labels[type]?.[language] || type;
+  };
+
+  const isExtraApprovalActivity = (type: string) => {
+    return type.startsWith("extra_approval_");
   };
 
   return (
@@ -153,7 +166,8 @@ const TicketActivityLogDialog = ({
                     <div
                       className={cn(
                         "flex-1 rounded-lg border bg-card p-4 shadow-sm",
-                        index === activities.length - 1 && "border-green-500/50 bg-green-50/50 dark:bg-green-950/20"
+                        isExtraApprovalActivity(activity.activity_type) && "border-cyan-500/50 bg-cyan-50/50 dark:bg-cyan-950/20",
+                        !isExtraApprovalActivity(activity.activity_type) && index === activities.length - 1 && "border-green-500/50 bg-green-50/50 dark:bg-green-950/20"
                       )}
                     >
                       <div className="flex items-center gap-2 mb-2">
