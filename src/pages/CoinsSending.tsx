@@ -125,30 +125,45 @@ const CoinsSending = () => {
 
   const notifyResponsible = async (bId: string, phase: string, orderId: string) => {
     try {
-      const { data: assignments } = await supabase
-        .from("coins_workflow_assignments")
-        .select("user_id, user_name")
-        .eq("brand_id", bId)
-        .eq("phase", phase);
-      if (!assignments || assignments.length === 0) return;
+      const [assignmentsRes, supervisorsRes] = await Promise.all([
+        supabase.from("coins_workflow_assignments").select("user_id, user_name").eq("brand_id", bId).eq("phase", phase),
+        supabase.from("coins_workflow_supervisors").select("user_id, user_name").eq("is_active", true),
+      ]);
+      const assignments = assignmentsRes.data || [];
+      const supervisors = supervisorsRes.data || [];
 
-      for (const assignment of assignments) {
+      const notifiedUserIds = new Set<string>();
+      const allRecipients = [...assignments];
+      for (const sup of supervisors) {
+        if (!allRecipients.some(a => a.user_id === sup.user_id)) {
+          allRecipients.push(sup);
+        }
+      }
+      if (allRecipients.length === 0) return;
+
+      const phaseLabelsAr: Record<string, string> = { sending: "التوجيه", receiving: "الاستلام", coins_entry: "إدخال الكوينز" };
+      const link = phase === "receiving" ? `/coins-receiving-phase?order=${orderId}` : phase === "coins_entry" ? `/receiving-coins` : `/coins-sending?order=${orderId}`;
+
+      for (const recipient of allRecipients) {
+        if (notifiedUserIds.has(recipient.user_id)) continue;
+        notifiedUserIds.add(recipient.user_id);
+
         await supabase.from("notifications").insert({
-          user_id: assignment.user_id,
-          title: isArabic ? "مهمة معاملات عملات جديدة" : "New Coins Transaction Task",
-          message: isArabic ? "لديك مهمة جديدة في مرحلة الاستلام" : "You have a new task in the receiving phase",
+          user_id: recipient.user_id,
+          title: isArabic ? "مهمة معاملات كوينز جديدة" : "New Coins Transaction Task",
+          message: isArabic ? `لديك مهمة جديدة في مرحلة ${phaseLabelsAr[phase] || phase}` : `You have a new task in the ${phase} phase`,
           type: "coins_workflow",
-          link: `/coins-receiving-phase?order=${orderId}`,
+          link,
         } as any);
 
         supabase.functions.invoke("send-coins-workflow-notification", {
           body: {
             type: "phase_transition",
-            userId: assignment.user_id,
-            userName: assignment.user_name || "",
+            userId: recipient.user_id,
+            userName: recipient.user_name || "",
             brandNames: orderLines.map((l: any) => l.brands?.brand_name || "").filter(Boolean),
             phase,
-            phaseLabel: "الاستلام",
+            phaseLabel: phaseLabelsAr[phase] || phase,
             orderNumber: selectedOrder?.order_number || "",
             orderId,
           },
