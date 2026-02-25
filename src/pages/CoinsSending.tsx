@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle } from "lucide-react";
+import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle, Maximize2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
@@ -27,6 +28,7 @@ const CoinsSending = () => {
   const [orderLines, setOrderLines] = useState<any[]>([]);
   const [sendingConfirmed, setSendingConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
 
   // Filters
   const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
@@ -232,15 +234,20 @@ const CoinsSending = () => {
           <CardHeader><CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {selectedOrder.bank_transfer_image && (
-              selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
-                <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
-                  title="Transfer"
-                  className="w-full h-[400px] rounded-lg border"
-                />
-              ) : (
-                <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
-              )
+              <div className="relative">
+                {selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
+                    title="Transfer"
+                    className="w-full h-[400px] rounded-lg border"
+                  />
+                ) : (
+                  <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
+                )}
+                <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => setShowImagePreview(true)}>
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </div>
             )}
             <Button onClick={handleDownload} variant="outline">
               <Download className="h-4 w-4 mr-2" />
@@ -336,6 +343,23 @@ const CoinsSending = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Maximize preview dialog */}
+      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
+          {selectedOrder?.bank_transfer_image && (
+            selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
+              <iframe
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
+                title="Transfer Preview"
+                className="w-full h-[85vh] rounded"
+              />
+            ) : (
+              <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
