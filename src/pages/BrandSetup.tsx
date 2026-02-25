@@ -348,7 +348,7 @@ const BrandSetup = () => {
                   ABC Analysis {sortColumn === "abc_analysis" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("usd_value_for_coins")}>
-                  USD Value {sortColumn === "usd_value_for_coins" && (sortDirection === "asc" ? "↑" : "↓")}
+                  1 Coins= USD {sortColumn === "usd_value_for_coins" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("one_usd_to_coins")}>
                   1 USD=Coins {sortColumn === "one_usd_to_coins" && (sortDirection === "asc" ? "↑" : "↓")}
