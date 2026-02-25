@@ -16,7 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, parse, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { ar } from "date-fns/locale";
 import { 
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
@@ -182,6 +182,11 @@ const ProjectsTasks = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>(searchParams.get('projectId') || "all");
   const [selectedUser, setSelectedUser] = useState<string>("all");
+  const [dateMode, setDateMode] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [specificDate, setSpecificDate] = useState<Date | undefined>(undefined);
   
   // Dialog states
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -751,6 +756,47 @@ const ProjectsTasks = () => {
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
     if (selectedUser !== 'all' && task.assigned_to !== selectedUser) return false;
+    
+    // Date filter
+    if (dateMode !== 'all') {
+      const taskDate = task.created_at ? parseISO(task.created_at) : null;
+      if (!taskDate) return false;
+      const now = new Date();
+      let rangeStart: Date | null = null;
+      let rangeEnd: Date | null = null;
+      switch (dateMode) {
+        case 'this_month':
+          rangeStart = startOfMonth(now);
+          rangeEnd = endOfMonth(now);
+          break;
+        case 'last_month': {
+          const last = subMonths(now, 1);
+          rangeStart = startOfMonth(last);
+          rangeEnd = endOfMonth(last);
+          break;
+        }
+        case 'select_month':
+          if (selectedMonth) {
+            const d = parse(selectedMonth + "-01", "yyyy-MM-dd", new Date());
+            rangeStart = startOfMonth(d);
+            rangeEnd = endOfMonth(d);
+          }
+          break;
+        case 'specific_date':
+          if (specificDate) {
+            rangeStart = startOfDay(specificDate);
+            rangeEnd = endOfDay(specificDate);
+          }
+          break;
+        case 'date_range':
+          if (dateFrom) rangeStart = startOfDay(parseISO(dateFrom));
+          if (dateTo) rangeEnd = endOfDay(parseISO(dateTo));
+          break;
+      }
+      if (rangeStart && taskDate < rangeStart) return false;
+      if (rangeEnd && taskDate > rangeEnd) return false;
+    }
+    
     return true;
   });
 
@@ -1610,6 +1656,46 @@ const ProjectsTasks = () => {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Date Filter */}
+            <Select value={dateMode} onValueChange={setDateMode}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder={language === 'ar' ? 'فلتر التاريخ' : 'Date Filter'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All Dates'}</SelectItem>
+                <SelectItem value="this_month">{language === 'ar' ? 'هذا الشهر' : 'This Month'}</SelectItem>
+                <SelectItem value="last_month">{language === 'ar' ? 'الشهر الماضي' : 'Last Month'}</SelectItem>
+                <SelectItem value="select_month">{language === 'ar' ? 'اختر شهر' : 'Select Month'}</SelectItem>
+                <SelectItem value="specific_date">{language === 'ar' ? 'تاريخ محدد' : 'Specific Date'}</SelectItem>
+                <SelectItem value="date_range">{language === 'ar' ? 'نطاق تاريخ' : 'Date Range'}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {dateMode === "select_month" && (
+              <Input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="w-[160px]" />
+            )}
+
+            {dateMode === "specific_date" && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !specificDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {specificDate ? format(specificDate, "yyyy-MM-dd") : (language === 'ar' ? 'اختر تاريخ' : 'Pick date')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={specificDate} onSelect={setSpecificDate} className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {dateMode === "date_range" && (
+              <>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[140px]" />
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
+              </>
+            )}
             
             {/* User avatars */}
             <div className="flex -space-x-2">
