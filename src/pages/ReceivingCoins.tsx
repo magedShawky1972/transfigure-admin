@@ -16,7 +16,7 @@ import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
 
 interface Supplier { id: string; supplier_name: string; }
-interface Brand { id: string; brand_name: string; }
+interface Brand { id: string; brand_name: string; usd_value_for_coins?: number | null; }
 interface Bank { id: string; bank_name: string; }
 interface Currency { id: string; currency_code: string; currency_name: string; }
 interface LineItem { 
@@ -118,7 +118,7 @@ const ReceivingCoins = () => {
   const fetchDropdowns = async () => {
     const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
-      supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis, usd_value_for_coins").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
       supabase.from("currencies").select("id, currency_code, currency_name").order("currency_code"),
     ]);
@@ -147,7 +147,7 @@ const ReceivingCoins = () => {
 
     const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
-      supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis, usd_value_for_coins").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("banks").select("id, bank_name").eq("is_active", true).order("bank_name"),
       supabase.from("currencies").select("id, currency_code, currency_name").order("currency_code"),
     ]);
@@ -889,13 +889,39 @@ const ReceivingCoins = () => {
         </CardContent>
       </Card>
 
-      {/* Purchase Order Attachments */}
-      {linkedPurchaseOrderId && (
-        <CoinsOrderAttachments
-          purchaseOrderId={linkedPurchaseOrderId}
-          currentPhase="coins_entry"
-        />
-      )}
+      {/* Currency & Transaction Amount - Prominent Display */}
+      {(() => {
+        const currencyCode = currencies.find(c => c.id === currencyId)?.currency_code || "";
+        const controlNum = parseFloat(controlAmount) || 0;
+        const rate = parseFloat(exchangeRate) || 0;
+        const sarAmount = rate > 0 ? controlNum * rate : controlNum;
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-2 border-primary/30">
+              <CardContent className="p-4 text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "العملة" : "Currency"}</div>
+                <div className="text-2xl font-bold text-primary">{currencyCode || "-"}</div>
+              </CardContent>
+            </Card>
+            <Card className="border-2 border-primary/30">
+              <CardContent className="p-4 text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "المبلغ بالعملة" : "Transaction Amount"}</div>
+                <div className="text-2xl font-bold text-primary">
+                  {controlNum > 0 ? controlNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"} {currencyCode}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-2 border-primary/30">
+              <CardContent className="p-4 text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "المبلغ بالريال" : "Amount (SAR)"}</div>
+                <div className="text-2xl font-bold text-primary">
+                  {sarAmount > 0 ? sarAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"} SAR
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Attachments + Receiving Images */}
       <Card>
@@ -983,7 +1009,10 @@ const ReceivingCoins = () => {
                   <TableHead>#</TableHead>
                   <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                  <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
+                  <TableHead>{isArabic ? "قيمة الكوين (USD)" : "USD/Coin"}</TableHead>
+                  <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
+                  <TableHead>{isArabic ? "الكوينز المتوقعة" : "Expected Coins"}</TableHead>
+                  <TableHead>{isArabic ? "الكوينز المستلمة" : "Received Coins"}</TableHead>
                   <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                   <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
                   {Object.keys(brandControlAmounts).length > 0 && (
@@ -996,7 +1025,7 @@ const ReceivingCoins = () => {
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                     <TableCell colSpan={selectedReceiptId ? (Object.keys(brandControlAmounts).length > 0 ? 10 : 8) : (Object.keys(brandControlAmounts).length > 0 ? 8 : 7)} className="text-center text-muted-foreground">
+                     <TableCell colSpan={selectedReceiptId ? (Object.keys(brandControlAmounts).length > 0 ? 12 : 11) : (Object.keys(brandControlAmounts).length > 0 ? 11 : 10)} className="text-center text-muted-foreground">
                       {isArabic ? "لا توجد علامات تجارية" : "No brands added"}
                     </TableCell>
                   </TableRow>
@@ -1004,6 +1033,10 @@ const ReceivingCoins = () => {
                   lines.map((line, idx) => {
                     const isConfirmed = line.is_confirmed;
                     const isLocked = isConfirmed || receiptStatus === "closed";
+                    const brand = brands.find(b => b.id === line.brand_id);
+                    const usdValueForCoins = brand?.usd_value_for_coins || 0;
+                    const brandControlAmt = line.brand_id ? (brandControlAmounts[line.brand_id] || 0) : 0;
+                    const expectedCoins = usdValueForCoins > 0 && brandControlAmt > 0 ? Math.floor(brandControlAmt / usdValueForCoins) : 0;
                     return (
                     <TableRow key={line.id} className={isConfirmed ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
                       <TableCell>{idx + 1}</TableCell>
@@ -1034,6 +1067,15 @@ const ReceivingCoins = () => {
                           </SelectContent>
                         </Select>
                         )}
+                      </TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {usdValueForCoins > 0 ? `$${usdValueForCoins.toFixed(2)}` : "-"}
+                      </TableCell>
+                      <TableCell className="font-bold text-lg text-primary">
+                        {brandControlAmt > 0 ? brandControlAmt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                      </TableCell>
+                      <TableCell className="font-bold text-lg">
+                        {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
                       </TableCell>
                       <TableCell>
                         <Input type="number" value={line.coins} onChange={e => updateLine(line.id, "coins", parseFloat(e.target.value) || 0)} className="w-[120px]" disabled={isLocked} />
