@@ -1782,7 +1782,7 @@ const ShiftSession = () => {
                   required
                 />
                 <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
-                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
+                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر الكوينز
                 </p>
               </div>
 
@@ -2068,7 +2068,7 @@ const ShiftSession = () => {
                   required
                 />
                 <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
-                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر العملات
+                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر الكوينز
                 </p>
               </div>
 

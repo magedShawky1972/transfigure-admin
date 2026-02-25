@@ -367,7 +367,7 @@ const SalesOrderDetailReport = () => {
     { key: "quantity", label: language === "ar" ? "الكمية" : "Quantity" },
     { key: "unit_price", label: language === "ar" ? "سعر الوحدة" : "Unit Price" },
     { key: "total", label: language === "ar" ? "الإجمالي" : "Total" },
-    { key: "coins_number", label: language === "ar" ? "عدد العملات" : "Coins #" },
+    { key: "coins_number", label: language === "ar" ? "عدد الكوينز" : "Coins #" },
     { key: "total_cost", label: language === "ar" ? "إجمالي التكلفة" : "Total Cost" },
     { key: "payment_method", label: language === "ar" ? "طريقة الدفع" : "Payment Method" },
     { key: "payment_brand", label: language === "ar" ? "ماركة الدفع" : "Payment Brand" },

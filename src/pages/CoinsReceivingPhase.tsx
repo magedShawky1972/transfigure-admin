@@ -256,7 +256,7 @@ const CoinsReceivingPhase = () => {
 
       await notifyResponsible(selectedOrder.brand_id, "coins_entry", selectedOrder.id);
 
-      toast.success(isArabic ? "تم الإرسال لمرحلة إدخال العملات وإنشاء إيصالات الاستلام" : "Sent to Coins Entry phase and receiving entries created");
+      toast.success(isArabic ? "تم الإرسال لمرحلة إدخال الكوينز وإنشاء إيصالات الاستلام" : "Sent to Coins Entry phase and receiving entries created");
       setView("list");
       fetchOrders();
     } catch (err: any) {
@@ -278,8 +278,8 @@ const CoinsReceivingPhase = () => {
       for (const assignment of assignments) {
         await supabase.from("notifications").insert({
           user_id: assignment.user_id,
-          title: isArabic ? "مهمة إدخال عملات جديدة" : "New Coins Entry Task",
-          message: isArabic ? "لديك مهمة جديدة في مرحلة إدخال العملات" : "You have a new task in the coins entry phase",
+          title: isArabic ? "مهمة إدخال كوينز جديدة" : "New Coins Entry Task",
+          message: isArabic ? "لديك مهمة جديدة في مرحلة إدخال الكوينز" : "You have a new task in the coins entry phase",
           type: "coins_workflow",
           link: `/receiving-coins`,
         } as any);
@@ -291,7 +291,7 @@ const CoinsReceivingPhase = () => {
             userName: assignment.user_name || "",
             brandNames: orderLines.map((l: any) => l.brands?.brand_name || "").filter(Boolean),
             phase,
-            phaseLabel: "إدخال العملات",
+            phaseLabel: "إدخال الكوينز",
             orderNumber: selectedOrder?.order_number || "",
             orderId,
           },
@@ -323,7 +323,7 @@ const CoinsReceivingPhase = () => {
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setView("list")}><ArrowLeft className="h-5 w-5" /></Button>
             <Coins className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات من المورد" : "Receiving Coins from Supplier"}</h1>
+            <h1 className="text-2xl font-bold">{isArabic ? "استلام الكوينز من المورد" : "Receiving Coins from Supplier"}</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate(`/receiving-coins?fromOrder=${selectedOrder.id}`)}>
@@ -332,7 +332,7 @@ const CoinsReceivingPhase = () => {
             </Button>
             <Button onClick={handleMoveToCoinsEntry} disabled={saving || receivings.length === 0}>
               <CheckCircle className="h-4 w-4 mr-2" />
-              {isArabic ? "إرسال لإدخال العملات" : "Send to Coins Entry"}
+              {isArabic ? "إرسال لإدخال الكوينز" : "Send to Coins Entry"}
             </Button>
           </div>
         </div>
@@ -478,7 +478,7 @@ const CoinsReceivingPhase = () => {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <Coins className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">{isArabic ? "استلام العملات" : "Coins Receiving"}</h1>
+          <h1 className="text-2xl font-bold">{isArabic ? "استلام الكوينز" : "Coins Receiving"}</h1>
         </div>
         <CoinsPhaseFilterBar
           viewFilter={viewFilter}

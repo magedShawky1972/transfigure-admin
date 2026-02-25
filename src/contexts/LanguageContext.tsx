@@ -1272,7 +1272,7 @@ const translations = {
     "transactions.unitPrice": "سعر الوحدة",
     "transactions.costSold": "التكلفة المباعة",
     "transactions.qty": "الكمية",
-    "transactions.coinsNumber": "رقم العملات",
+    "transactions.coinsNumber": "رقم الكوينز",
     "transactions.vendorName": "اسم المورد",
     "transactions.orderStatus": "حالة الطلب",
     

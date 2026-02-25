@@ -5,7 +5,7 @@ const phases = [
   { key: "creation", en: "Creation", ar: "الإنشاء" },
   { key: "sending", en: "Sending", ar: "الإرسال" },
   { key: "receiving", en: "Receiving", ar: "الاستلام" },
-  { key: "coins_entry", en: "Coins Entry", ar: "إدخال العملات" },
+  { key: "coins_entry", en: "Coins Entry", ar: "إدخال الكوينز" },
   { key: "completed", en: "Completed", ar: "مكتمل" },
 ];
 

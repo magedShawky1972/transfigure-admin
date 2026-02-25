@@ -221,14 +221,14 @@ const menuGroups: MenuGroup[] = [
   },
   {
     label: "Coins Transaction",
-    labelAr: "معاملات العملات",
+    labelAr: "معاملات الكوينز",
     items: [
       { title: "Coins Purchase Creation", titleAr: "إنشاء طلب شراء", url: "/coins-creation", icon: DollarSign },
       { title: "Sending Transfers", titleAr: "توجيه التحويلات", url: "/coins-sending", icon: DollarSign },
       { title: "Receiving Phase", titleAr: "استلام من المورد", url: "/coins-receiving-phase", icon: DollarSign },
-      { title: "Receiving Coins", titleAr: "استلام العملات", url: "/receiving-coins", icon: DollarSign },
+      { title: "Receiving Coins", titleAr: "استلام الكوينز", url: "/receiving-coins", icon: DollarSign },
       { title: "Workflow Setup", titleAr: "إعداد سير العمل", url: "/coins-workflow-setup", icon: Settings },
-      { title: "Purchase Follow-Up", titleAr: "متابعة شراء العملات", url: "/coins-purchase-followup", icon: DollarSign },
+      { title: "Purchase Follow-Up", titleAr: "متابعة شراء الكوينز", url: "/coins-purchase-followup", icon: DollarSign },
       { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
       { title: "User Guide", titleAr: "دليل المستخدم", url: "/coins-transaction-guide", icon: FileText },
     ]

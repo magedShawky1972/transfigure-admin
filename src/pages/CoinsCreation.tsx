@@ -312,13 +312,13 @@ const CoinsCreation = () => {
       if (!assignments || assignments.length === 0) return;
 
       const brand = brands.find(b => b.id === bId);
-      const phaseLabelsAr: Record<string, string> = { sending: "التوجيه", receiving: "الاستلام", coins_entry: "إدخال العملات" };
+      const phaseLabelsAr: Record<string, string> = { sending: "التوجيه", receiving: "الاستلام", coins_entry: "إدخال الكوينز" };
       const order = orders.find(o => o.id === orderId);
 
       for (const assignment of assignments) {
         await supabase.from("notifications").insert({
           user_id: assignment.user_id,
-          title: isArabic ? "مهمة معاملات عملات جديدة" : "New Coins Transaction Task",
+          title: isArabic ? "مهمة معاملات كوينز جديدة" : "New Coins Transaction Task",
           message: isArabic
             ? `لديك مهمة جديدة في مرحلة ${phaseLabelsAr[phase] || phase}`
             : `You have a new task in the ${phase} phase`,
@@ -412,7 +412,7 @@ const CoinsCreation = () => {
       creation: { ar: "إنشاء", en: "Creation" },
       sending: { ar: "توجيه", en: "Sending" },
       receiving: { ar: "استلام", en: "Receiving" },
-      coins_entry: { ar: "إدخال العملات", en: "Coins Entry" },
+      coins_entry: { ar: "إدخال الكوينز", en: "Coins Entry" },
       completed: { ar: "مكتمل", en: "Completed" },
     };
     return isArabic ? map[phase]?.ar || phase : map[phase]?.en || phase;

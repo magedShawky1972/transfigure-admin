@@ -78,7 +78,7 @@ export const VirtualizedTransactionTable = ({
       cost_price: language === 'ar' ? 'سعر التكلفة' : 'Cost Price',
       unit_price: language === 'ar' ? 'سعر الوحدة' : 'Unit Price',
       cost_sold: language === 'ar' ? 'تكلفة البيع' : 'Cost Sold',
-      coins_number: language === 'ar' ? 'عدد العملات' : 'Coins',
+      coins_number: language === 'ar' ? 'عدد الكوينز' : 'Coins',
       is_deleted: language === 'ar' ? 'محذوف' : 'Deleted',
       sendodoo: language === 'ar' ? 'مرسل لـ Odoo' : 'Sent to Odoo',
       odoo_sync: language === 'ar' ? 'إرسال لـ Odoo' : 'Sync to Odoo',

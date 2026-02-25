@@ -2093,7 +2093,7 @@ const Dashboard = () => {
     { key: "metrics_cards", label: "Metrics Cards", labelAr: "بطاقات المؤشرات", enabled: metricCards.length > 0 },
     { key: "income_statement", label: "Income Statement", labelAr: "قائمة الدخل", enabled: hasAccess("income_statement") },
     { key: "brand_sales_grid", label: "Brand Sales Overview", labelAr: "مبيعات العلامات التجارية", enabled: hasAccess("brand_sales_grid") },
-    { key: "coins_by_brand", label: "Coins by Brand", labelAr: "العملات حسب العلامة التجارية", enabled: hasAccess("coins_by_brand") },
+    { key: "coins_by_brand", label: "Coins by Brand", labelAr: "الكوينز حسب العلامة التجارية", enabled: hasAccess("coins_by_brand") },
     { key: "sales_trend", label: "Sales Trend", labelAr: "اتجاه المبيعات", enabled: hasAccess("sales_trend_chart") },
     { key: "top_brands", label: "Top 5 Brands", labelAr: "أفضل 5 علامات تجارية", enabled: hasAccess("top_brands_chart") },
     { key: "top_products", label: "Top 5 Products", labelAr: "أفضل 5 منتجات", enabled: hasAccess("top_products_chart") },

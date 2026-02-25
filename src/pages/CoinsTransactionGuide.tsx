@@ -54,7 +54,7 @@ const CoinsTransactionGuide = () => {
     <div className={`p-4 md:p-8 ${isArabic ? "rtl" : "ltr"}`} dir="rtl">
       {/* Print button - hidden in print */}
       <div className="print:hidden flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">دليل المستخدم - معاملات العملات</h1>
+        <h1 className="text-2xl font-bold text-foreground">دليل المستخدم - معاملات الكوينز</h1>
         <Button onClick={handlePrint} className="gap-2">
           <Printer className="h-4 w-4" />
           طباعة الدليل
@@ -68,10 +68,10 @@ const CoinsTransactionGuide = () => {
         <div className="text-center space-y-4 pb-6 border-b-2 border-primary print:break-after-page">
           <img src={getPrintLogoUrl()} alt="Logo" style={PRINT_LOGO_STYLES} className="mx-auto" />
           <h1 className="text-3xl font-bold text-primary">دليل المستخدم</h1>
-          <h2 className="text-2xl font-semibold text-foreground">نظام معاملات العملات (Coins Transaction)</h2>
+          <h2 className="text-2xl font-semibold text-foreground">نظام معاملات الكوينز (Coins Transaction)</h2>
           <p className="text-muted-foreground text-lg">دليل تدريبي شامل لجميع مراحل سير العمل</p>
           <div className="flex items-center justify-center gap-2 pt-4">
-            {["الإنشاء", "التوجيه", "الاستلام", "إدخال العملات", "مكتمل"].map((phase, idx) => (
+            {["الإنشاء", "التوجيه", "الاستلام", "إدخال الكوينز", "مكتمل"].map((phase, idx) => (
               <div key={idx} className="flex items-center gap-1">
                 <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">{idx + 1}</div>
                 <span className="text-sm font-medium">{phase}</span>
@@ -94,7 +94,7 @@ const CoinsTransactionGuide = () => {
               <li className="font-medium">المرحلة الأولى: إنشاء طلب الشراء (Creation)</li>
               <li className="font-medium">المرحلة الثانية: التوجيه والإرسال (Sending)</li>
               <li className="font-medium">المرحلة الثالثة: الاستلام (Receiving)</li>
-              <li className="font-medium">المرحلة الرابعة: إدخال العملات (Coins Entry)</li>
+              <li className="font-medium">المرحلة الرابعة: إدخال الكوينز (Coins Entry)</li>
               <li className="font-medium">المرحلة الخامسة: مكتمل (Completed)</li>
               <li className="font-medium">الإشعارات والبريد الإلكتروني</li>
               <li className="font-medium">إدخال الاستلام (Receiving Entry)</li>
@@ -111,7 +111,7 @@ const CoinsTransactionGuide = () => {
               نظرة عامة على النظام
             </h2>
             <p className="text-base leading-relaxed">
-              نظام معاملات العملات هو نظام متكامل لإدارة عمليات شراء العملات الرقمية (Coins) من الموردين. 
+              نظام معاملات الكوينز هو نظام متكامل لإدارة عمليات شراء الكوينز الرقمية (Coins) من الموردين. 
               يعتمد النظام على <strong>خمس مراحل متتالية</strong> يمر بها كل طلب شراء، مع تعيين مسؤولين لكل مرحلة حسب العلامة التجارية.
             </p>
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
@@ -120,8 +120,8 @@ const CoinsTransactionGuide = () => {
                 {[
                   { icon: <FileText className="h-5 w-5" />, title: "الإنشاء", desc: "إنشاء طلب الشراء وتحديد المبالغ والعلامات التجارية" },
                   { icon: <Send className="h-5 w-5" />, title: "التوجيه", desc: "إرسال التحويل البنكي للمورد وتأكيد الإرسال" },
-                  { icon: <Package className="h-5 w-5" />, title: "الاستلام", desc: "تأكيد استلام العملات ورفع صور الإثبات" },
-                  { icon: <Coins className="h-5 w-5" />, title: "إدخال العملات", desc: "تسجيل العملات المستلمة في النظام" },
+                  { icon: <Package className="h-5 w-5" />, title: "الاستلام", desc: "تأكيد استلام الكوينز ورفع صور الإثبات" },
+                  { icon: <Coins className="h-5 w-5" />, title: "إدخال الكوينز", desc: "تسجيل الكوينز المستلمة في النظام" },
                   { icon: <CheckCircle className="h-5 w-5" />, title: "مكتمل", desc: "إتمام العملية بالكامل" },
                 ].map((phase, idx) => (
                   <div key={idx} className="bg-background rounded-lg p-3 border text-center space-y-1">
@@ -134,10 +134,10 @@ const CoinsTransactionGuide = () => {
             </div>
 
             {/* Screenshot: Sidebar menu */}
-            <MockScreenshot title="القائمة الجانبية - قسم معاملات العملات">
+            <MockScreenshot title="القائمة الجانبية - قسم معاملات الكوينز">
               <div className="bg-muted/30 rounded-lg p-2 max-w-[250px] space-y-1">
-                <div className="text-primary font-bold text-xs mb-2">معاملات العملات</div>
-                {["إنشاء طلب شراء", "توجيه التحويلات", "استلام من المورد", "استلام العملات", "إعداد سير العمل", "متابعة شراء العملات", "إعداد الموردين", "دليل المستخدم"].map((item, i) => (
+                <div className="text-primary font-bold text-xs mb-2">معاملات الكوينز</div>
+                {["إنشاء طلب شراء", "توجيه التحويلات", "استلام من المورد", "استلام الكوينز", "إعداد سير العمل", "متابعة شراء الكوينز", "إعداد الموردين", "دليل المستخدم"].map((item, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-muted/50">
                     <span className="text-primary">●</span>
                     <span>{item}</span>
@@ -158,14 +158,14 @@ const CoinsTransactionGuide = () => {
             </h2>
             <p className="text-base leading-relaxed">
               قبل البدء باستخدام النظام، يجب إعداد <strong>المسؤولين عن كل مرحلة</strong> لكل علامة تجارية. 
-              يتم ذلك من صفحة <strong>"إعداد سير عمل العملات"</strong>.
+              يتم ذلك من صفحة <strong>"إعداد سير عمل الكوينز"</strong>.
             </p>
             
             {/* Screenshot: Workflow Setup */}
             <MockScreenshot title="صفحة إعداد سير العمل">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-primary">⚙️ إعداد سير عمل العملات</h3>
+                  <h3 className="font-bold text-sm text-primary">⚙️ إعداد سير عمل الكوينز</h3>
                   <MockButton variant="primary"><Plus className="h-3 w-3" /> إضافة تعيين</MockButton>
                 </div>
                 <table className="w-full border-collapse">
@@ -181,7 +181,7 @@ const CoinsTransactionGuide = () => {
                     <MockTableRow cells={["يلا لايف", "الإنشاء", "أحمد محمد", "🗑️"]} />
                     <MockTableRow cells={["يلا لايف", "التوجيه", "سارة علي", "🗑️"]} highlighted />
                     <MockTableRow cells={["يلا لايف", "الاستلام", "محمد خالد", "🗑️"]} />
-                    <MockTableRow cells={["كل العلامات التجارية", "إدخال العملات", "فهد سعود", "🗑️"]} highlighted />
+                    <MockTableRow cells={["كل العلامات التجارية", "إدخال الكوينز", "فهد سعود", "🗑️"]} highlighted />
                   </tbody>
                 </table>
               </div>
@@ -190,9 +190,9 @@ const CoinsTransactionGuide = () => {
             <div className="border rounded-lg p-4 space-y-3">
               <h3 className="font-semibold text-primary">خطوات الإعداد:</h3>
               <ol className="space-y-3 list-decimal list-inside">
-                <li><strong>الدخول إلى صفحة الإعداد:</strong> من القائمة الجانبية، اختر <strong>"إعداد سير عمل العملات"</strong></li>
+                <li><strong>الدخول إلى صفحة الإعداد:</strong> من القائمة الجانبية، اختر <strong>"إعداد سير عمل الكوينز"</strong></li>
                 <li><strong>اختيار العلامة التجارية:</strong> اختر العلامة التجارية التي تريد تعيين المسؤولين لها</li>
-                <li><strong>تعيين المسؤولين:</strong> لكل مرحلة (إنشاء - توجيه - استلام - إدخال العملات)، قم بتعيين المستخدم المسؤول</li>
+                <li><strong>تعيين المسؤولين:</strong> لكل مرحلة (إنشاء - توجيه - استلام - إدخال الكوينز)، قم بتعيين المستخدم المسؤول</li>
                 <li><strong>تعيين جماعي:</strong> يمكنك اختيار <strong>"كل العلامات التجارية"</strong> لتعيين مستخدم واحد لجميع العلامات في مرحلة محددة</li>
               </ol>
             </div>
@@ -214,14 +214,14 @@ const CoinsTransactionGuide = () => {
               المرحلة الأولى: إنشاء طلب الشراء (Creation)
             </h2>
             <p className="text-base leading-relaxed">
-              تبدأ العملية بإنشاء طلب شراء جديد من صفحة <strong>"إنشاء طلب عملات"</strong>. يتم فيها تحديد جميع تفاصيل الطلب.
+              تبدأ العملية بإنشاء طلب شراء جديد من صفحة <strong>"إنشاء طلب كوينز"</strong>. يتم فيها تحديد جميع تفاصيل الطلب.
             </p>
             
             {/* Screenshot: Creation main grid */}
-            <MockScreenshot title="صفحة إنشاء طلب شراء العملات - قائمة الطلبات">
+            <MockScreenshot title="صفحة إنشاء طلب شراء الكوينز - قائمة الطلبات">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-primary">💰 إنشاء طلب شراء عملات</h3>
+                  <h3 className="font-bold text-sm text-primary">💰 إنشاء طلب شراء كوينز</h3>
                   <MockButton><Plus className="h-3 w-3" /> طلب جديد</MockButton>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
@@ -452,7 +452,7 @@ const CoinsTransactionGuide = () => {
               المرحلة الثالثة: الاستلام (Receiving)
             </h2>
             <p className="text-base leading-relaxed">
-              يقوم المسؤول عن الاستلام بتأكيد استلام العملات من المورد ورفع صور الإثبات لكل علامة تجارية.
+              يقوم المسؤول عن الاستلام بتأكيد استلام الكوينز من المورد ورفع صور الإثبات لكل علامة تجارية.
             </p>
             
             {/* Screenshot: Receiving phase with brand images */}
@@ -507,7 +507,7 @@ const CoinsTransactionGuide = () => {
                 </div>
 
                 <div className="flex justify-end pt-2 border-t">
-                  <MockButton variant="success"><Package className="h-3 w-3" /> تأكيد الاستلام والانتقال لإدخال العملات</MockButton>
+                  <MockButton variant="success"><Package className="h-3 w-3" /> تأكيد الاستلام والانتقال لإدخال الكوينز</MockButton>
                 </div>
               </div>
             </MockScreenshot>
@@ -516,7 +516,7 @@ const CoinsTransactionGuide = () => {
               <h3 className="font-semibold text-primary">خطوات الاستلام:</h3>
               <ol className="space-y-3 list-decimal list-inside">
                 <li><strong>فتح الطلب:</strong> من قائمة الطلبات المعلقة في مرحلة الاستلام</li>
-                <li><strong>رفع صور الاستلام:</strong> لكل علامة تجارية، ارفع صورة تثبت استلام العملات
+                <li><strong>رفع صور الاستلام:</strong> لكل علامة تجارية، ارفع صورة تثبت استلام الكوينز
                   <ul className="mr-6 mt-1 space-y-1 list-disc list-inside text-sm">
                     <li>يظهر لكل علامة تجارية مربع رفع صورة منفصل</li>
                     <li>بعد الرفع، يظهر حالة <strong>"تم الاستلام"</strong> بجانب العلامة التجارية</li>
@@ -524,13 +524,13 @@ const CoinsTransactionGuide = () => {
                   </ul>
                 </li>
                 <li><strong>إضافة ملاحظات:</strong> يمكن إضافة ملاحظات لكل علامة تجارية</li>
-                <li><strong>تأكيد الاستلام:</strong> بعد رفع صور جميع العلامات التجارية، اضغط <strong>"تأكيد الاستلام والانتقال لإدخال العملات"</strong></li>
+                <li><strong>تأكيد الاستلام:</strong> بعد رفع صور جميع العلامات التجارية، اضغط <strong>"تأكيد الاستلام والانتقال لإدخال الكوينز"</strong></li>
               </ol>
             </div>
 
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
               <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                ⚠️ <strong>مهم:</strong> عند الانتقال لمرحلة إدخال العملات، يتم تلقائياً إنشاء سجل "إدخال استلام" (Receiving Entry) يحتوي على العملات المتوقعة لكل علامة تجارية محسوبة بناءً على المبلغ وقيمة العملة الواحدة.
+                ⚠️ <strong>مهم:</strong> عند الانتقال لمرحلة إدخال الكوينز، يتم تلقائياً إنشاء سجل "إدخال استلام" (Receiving Entry) يحتوي على الكوينز المتوقعة لكل علامة تجارية محسوبة بناءً على المبلغ وقيمة الكوينز الواحدة.
               </p>
             </div>
           </CardContent>
@@ -542,14 +542,14 @@ const CoinsTransactionGuide = () => {
             <h2 className="text-xl font-bold text-primary flex items-center gap-2">
               <span className="bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center text-sm">6</span>
               <Coins className="h-5 w-5" />
-              المرحلة الرابعة: إدخال العملات (Coins Entry)
+              المرحلة الرابعة: إدخال الكوينز (Coins Entry)
             </h2>
             <p className="text-base leading-relaxed">
-              يتم في هذه المرحلة تسجيل العملات المستلمة فعلياً في النظام من خلال صفحة <strong>"إدخال الاستلام"</strong>.
+              يتم في هذه المرحلة تسجيل الكوينز المستلمة فعلياً في النظام من خلال صفحة <strong>"إدخال الاستلام"</strong>.
             </p>
             
             {/* Screenshot: Receiving Entry */}
-            <MockScreenshot title="صفحة إدخال الاستلام - تسجيل العملات المستلمة">
+            <MockScreenshot title="صفحة إدخال الاستلام - تسجيل الكوينز المستلمة">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-sm text-primary">🪙 إدخال الاستلام</h3>
@@ -567,7 +567,7 @@ const CoinsTransactionGuide = () => {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-muted/50">
-                      {["#", "العلامة التجارية", "المورد", "العملات", "سعر الوحدة", "الإجمالي", "المتبقي", "الحالة"].map(h => (
+                      {["#", "العلامة التجارية", "المورد", "الكوينز", "سعر الوحدة", "الإجمالي", "المتبقي", "الحالة"].map(h => (
                         <th key={h} className="border border-border/50 px-2 py-1 text-[10px] text-right">{h}</th>
                       ))}
                     </tr>
@@ -605,18 +605,18 @@ const CoinsTransactionGuide = () => {
             </MockScreenshot>
 
             <div className="border rounded-lg p-4 space-y-3">
-              <h3 className="font-semibold text-primary">خطوات إدخال العملات:</h3>
+              <h3 className="font-semibold text-primary">خطوات إدخال الكوينز:</h3>
               <ol className="space-y-3 list-decimal list-inside">
                 <li><strong>فتح سجل الاستلام:</strong> من صفحة "إدخال الاستلام"، افتح السجل المُنشأ تلقائياً</li>
                 <li><strong>مراجعة الأسطر:</strong> يظهر لكل علامة تجارية:
                   <ul className="mr-6 mt-1 space-y-1 list-disc list-inside text-sm">
-                    <li><strong>عدد العملات المتوقع:</strong> محسوب تلقائياً</li>
-                    <li><strong>سعر الوحدة:</strong> سعر العملة الواحدة</li>
+                    <li><strong>عدد الكوينز المتوقع:</strong> محسوب تلقائياً</li>
+                    <li><strong>سعر الوحدة:</strong> سعر الكوينز الواحدة</li>
                     <li><strong>الإجمالي:</strong> العدد × السعر</li>
                     <li><strong>المبلغ المتبقي للعلامة:</strong> يُظهر المبلغ المتبقي من مبلغ التحكم</li>
                   </ul>
                 </li>
-                <li><strong>تعديل الكميات:</strong> يمكن تعديل عدد العملات وسعر الوحدة يدوياً</li>
+                <li><strong>تعديل الكميات:</strong> يمكن تعديل عدد الكوينز وسعر الوحدة يدوياً</li>
                 <li><strong>إضافة أسطر جديدة:</strong> يمكن إضافة أسطر إضافية لنفس العلامة التجارية أو علامات أخرى</li>
                 <li><strong>تأكيد كل سطر:</strong> اضغط ✅ لتأكيد كل سطر على حدة - السطر المؤكد يصبح للقراءة فقط</li>
                 <li><strong>حالة التسليم:</strong>
@@ -649,7 +649,7 @@ const CoinsTransactionGuide = () => {
 
             <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                💡 <strong>التراجع:</strong> يمكن التراجع عن تأكيد سطر (إلغاء التأكيد) طالما لم يتم إغلاق السجل. كما يمكن إرجاع الطلب من مرحلة إدخال العملات إلى مرحلة الاستلام مع حذف جميع سجلات الاستلام المُنشأة تلقائياً.
+                💡 <strong>التراجع:</strong> يمكن التراجع عن تأكيد سطر (إلغاء التأكيد) طالما لم يتم إغلاق السجل. كما يمكن إرجاع الطلب من مرحلة إدخال الكوينز إلى مرحلة الاستلام مع حذف جميع سجلات الاستلام المُنشأة تلقائياً.
               </p>
             </div>
           </CardContent>
@@ -664,7 +664,7 @@ const CoinsTransactionGuide = () => {
               المرحلة الخامسة: مكتمل (Completed)
             </h2>
             <p className="text-base leading-relaxed">
-              بعد إغلاق سجل إدخال العملات وتأكيد جميع المبالغ، ينتقل الطلب تلقائياً إلى حالة <strong>"مكتمل"</strong>. 
+              بعد إغلاق سجل إدخال الكوينز وتأكيد جميع المبالغ، ينتقل الطلب تلقائياً إلى حالة <strong>"مكتمل"</strong>. 
               في هذه الحالة، يكون الطلب للقراءة فقط ولا يمكن إجراء أي تعديلات عليه.
             </p>
 
@@ -679,7 +679,7 @@ const CoinsTransactionGuide = () => {
                 </div>
                 <div className="text-xs text-muted-foreground">جميع البيانات للقراءة فقط - لا يمكن التعديل</div>
                 <div className="grid grid-cols-5 gap-2 text-xs">
-                  {["الإنشاء ✅", "التوجيه ✅", "الاستلام ✅", "إدخال العملات ✅", "مكتمل ✅"].map((p, i) => (
+                  {["الإنشاء ✅", "التوجيه ✅", "الاستلام ✅", "إدخال الكوينز ✅", "مكتمل ✅"].map((p, i) => (
                     <div key={i} className="bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 text-center py-1 rounded text-[10px] font-medium">{p}</div>
                   ))}
                 </div>
@@ -704,7 +704,7 @@ const CoinsTransactionGuide = () => {
             <MockScreenshot title="مثال على البريد الإلكتروني المُرسل تلقائياً">
               <div className="border rounded-lg p-4 space-y-3 max-w-md mx-auto bg-background">
                 <div className="text-center border-b pb-3">
-                  <div className="text-primary font-bold text-sm">نظام إدارة معاملات العملات</div>
+                  <div className="text-primary font-bold text-sm">نظام إدارة معاملات الكوينز</div>
                 </div>
                 <div className="space-y-2 text-xs">
                   <p className="font-bold">مهمة جديدة في مرحلة التوجيه</p>
@@ -751,12 +751,12 @@ const CoinsTransactionGuide = () => {
                     <td className="border p-2">مهمة جديدة في مرحلة الاستلام</td>
                   </tr>
                   <tr>
-                    <td className="border p-2">الاستلام → إدخال العملات</td>
+                    <td className="border p-2">الاستلام → إدخال الكوينز</td>
                     <td className="border p-2">
                       <div className="flex items-center gap-1"><Bell className="h-3 w-3" /> إشعار داخلي + <Mail className="h-3 w-3" /> بريد</div>
                     </td>
-                    <td className="border p-2">مسؤول مرحلة إدخال العملات</td>
-                    <td className="border p-2">مهمة جديدة في مرحلة إدخال العملات</td>
+                    <td className="border p-2">مسؤول مرحلة إدخال الكوينز</td>
+                    <td className="border p-2">مهمة جديدة في مرحلة إدخال الكوينز</td>
                   </tr>
                 </tbody>
               </table>
@@ -802,8 +802,8 @@ const CoinsTransactionGuide = () => {
               إدخال الاستلام (Receiving Entry)
             </h2>
             <p className="text-base leading-relaxed">
-              صفحة <strong>"إدخال الاستلام"</strong> هي المكان الذي يتم فيه تسجيل العملات المستلمة فعلياً. 
-              يتم إنشاء السجلات تلقائياً عند انتقال الطلب لمرحلة إدخال العملات.
+              صفحة <strong>"إدخال الاستلام"</strong> هي المكان الذي يتم فيه تسجيل الكوينز المستلمة فعلياً. 
+              يتم إنشاء السجلات تلقائياً عند انتقال الطلب لمرحلة إدخال الكوينز.
             </p>
             
             {/* Screenshot: Receiving Entry main grid */}
@@ -871,9 +871,9 @@ const CoinsTransactionGuide = () => {
             </p>
             
             {/* Screenshot: Purchase Follow-up */}
-            <MockScreenshot title="صفحة متابعة طلبات العملات">
+            <MockScreenshot title="صفحة متابعة طلبات الكوينز">
               <div className="space-y-3">
-                <h3 className="font-bold text-sm text-primary">📊 متابعة شراء العملات</h3>
+                <h3 className="font-bold text-sm text-primary">📊 متابعة شراء الكوينز</h3>
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-muted/50">
@@ -883,7 +883,7 @@ const CoinsTransactionGuide = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <MockTableRow cells={["PO-2026-001", "2026/02/20", "يلا لايف, هوى", "5,000 USD", "إدخال العملات 🪙", "فهد سعود"]} />
+                    <MockTableRow cells={["PO-2026-001", "2026/02/20", "يلا لايف, هوى", "5,000 USD", "إدخال الكوينز 🪙", "فهد سعود"]} />
                     <MockTableRow cells={["PO-2026-002", "2026/02/22", "بينمو", "3,200 USD", "الاستلام 📦", "محمد خالد"]} highlighted />
                     <MockTableRow cells={["PO-2026-003", "2026/02/24", "صدى لايف", "2,800 EUR", "التوجيه 📤", "سارة علي"]} />
                     <MockTableRow cells={["PO-2026-004", "2026/02/10", "هوى, سول فري", "4,000 USD", "مكتمل ✅", "-"]} />
@@ -894,21 +894,21 @@ const CoinsTransactionGuide = () => {
 
             <div className="space-y-3">
               <div className="border rounded-lg p-3 space-y-1">
-                <h4 className="font-semibold">📊 متابعة طلبات العملات</h4>
+                <h4 className="font-semibold">📊 متابعة طلبات الكوينز</h4>
                 <p className="text-sm text-muted-foreground">
                   عرض جميع الطلبات مع حالة كل طلب والمرحلة الحالية وإمكانية الفلترة حسب التاريخ والحالة
                 </p>
               </div>
               <div className="border rounded-lg p-3 space-y-1">
-                <h4 className="font-semibold">📊 تقرير دفتر العملات</h4>
+                <h4 className="font-semibold">📊 تقرير دفتر الكوينز</h4>
                 <p className="text-sm text-muted-foreground">
-                  عرض رصيد العملات لكل علامة تجارية مع تفاصيل حركات الاستلام والصرف
+                  عرض رصيد الكوينز لكل علامة تجارية مع تفاصيل حركات الاستلام والصرف
                 </p>
               </div>
               <div className="border rounded-lg p-3 space-y-1">
-                <h4 className="font-semibold">📊 تقرير مقارنة العملات</h4>
+                <h4 className="font-semibold">📊 تقرير مقارنة الكوينز</h4>
                 <p className="text-sm text-muted-foreground">
-                  مقارنة العملات الفعلية المصروفة في المعاملات مع القيم المتوقعة من إعداد المنتجات
+                  مقارنة الكوينز الفعلية المصروفة في المعاملات مع القيم المتوقعة من إعداد المنتجات
                 </p>
               </div>
             </div>
@@ -917,7 +917,7 @@ const CoinsTransactionGuide = () => {
 
         {/* Footer */}
         <div className="text-center py-6 border-t text-sm text-muted-foreground print:mt-8">
-          <p>تم إعداد هذا الدليل التدريبي لنظام إدارة معاملات العملات</p>
+          <p>تم إعداد هذا الدليل التدريبي لنظام إدارة معاملات الكوينز</p>
           <p className="mt-1">© {new Date().getFullYear()} - جميع الحقوق محفوظة</p>
         </div>
       </div>
