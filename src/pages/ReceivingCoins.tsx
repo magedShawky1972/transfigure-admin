@@ -923,6 +923,43 @@ const ReceivingCoins = () => {
                     </>
                   )}
                 </div>
+                {/* Coins Received Progress Bar */}
+                {(() => {
+                  const totalExpectedCoins = lines.reduce((sum, l) => {
+                    const brand = brands.find(b => b.id === l.brand_id);
+                    const rate = brand?.one_usd_to_coins || 0;
+                    const amt = l.brand_id ? (brandControlAmounts[l.brand_id] || 0) : 0;
+                    return sum + (rate > 0 && amt > 0 ? Math.floor(amt * rate) : 0);
+                  }, 0);
+                  const totalReceivedCoins = lines.reduce((sum, l) => sum + l.coins, 0);
+                  const coinsRemaining = totalExpectedCoins - totalReceivedCoins;
+                  const coinsComplete = totalExpectedCoins > 0 && totalReceivedCoins >= totalExpectedCoins;
+                  const coinsPct = totalExpectedCoins > 0 ? Math.min((totalReceivedCoins / totalExpectedCoins) * 100, 100) : 0;
+                  return totalExpectedCoins > 0 ? (
+                    <div className="p-3 bg-muted rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold">{isArabic ? "إجمالي الكوينز المستلمة" : "Total Coins Received"}</span>
+                        <span className={`text-xl font-bold ${coinsComplete ? "text-green-600" : "text-primary"}`}>
+                          {totalReceivedCoins.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted-foreground/20 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all ${coinsComplete ? "bg-green-600" : "bg-primary"}`}
+                          style={{ width: `${coinsPct}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>{isArabic ? "الكوينز المتوقعة" : "Expected Coins"}: {totalExpectedCoins.toLocaleString()}</span>
+                        <span className={coinsRemaining > 0 ? "text-orange-500 font-medium" : "text-green-600 font-medium"}>
+                          {coinsRemaining > 0
+                            ? `${isArabic ? "متبقي" : "Remaining"}: ${coinsRemaining.toLocaleString()}`
+                            : (isArabic ? "✓ مكتمل" : "✓ Complete")}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             );
           })()}
