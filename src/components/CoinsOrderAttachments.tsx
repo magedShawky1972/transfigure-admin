@@ -57,6 +57,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string | null>(null);
 
   useEffect(() => {
     if (purchaseOrderId) fetchAttachments();
@@ -128,7 +129,12 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
     }
   };
 
-  const isPdf = (att: Attachment) => att.file_type?.includes("pdf") || att.file_url?.match(/\.pdf$/i) || att.file_url?.includes("/raw/upload/");
+  const isPdf = (att: Attachment) => {
+    const type = att.file_type?.toLowerCase() || "";
+    const name = att.file_name?.toLowerCase() || "";
+    const url = att.file_url?.toLowerCase() || "";
+    return type.includes("pdf") || name.endsWith(".pdf") || /\.pdf($|\?)/i.test(url);
+  };
   const isImage = (att: Attachment) => att.file_type?.startsWith("image/");
   const hasPreview = (att: Attachment) => isImage(att) || isPdf(att);
 
@@ -136,10 +142,26 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
     if (hasPreview(att)) {
       setPreviewUrl(att.file_url);
       setPreviewType(att.file_type);
+      setPreviewName(att.file_name);
     } else {
       window.open(att.file_url, "_blank");
     }
   };
+
+  const isPreviewPdf =
+    (previewType?.toLowerCase().includes("pdf") ?? false) ||
+    (previewName?.toLowerCase().endsWith(".pdf") ?? false) ||
+    (previewUrl ? /\.pdf($|\?)/i.test(previewUrl) : false);
+
+  const PdfEmbed = ({ url, title, className }: { url: string; title: string; className: string }) => (
+    <object data={url} type="application/pdf" className={className}>
+      <iframe
+        src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`}
+        title={title}
+        className={className}
+      />
+    </object>
+  );
 
   if (!purchaseOrderId) return null;
 
@@ -206,8 +228,8 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
                     )}
                     {isPdf(att) && (
                       <div className="w-full cursor-pointer" onClick={() => handlePreview(att)}>
-                        <iframe
-                          src={`https://docs.google.com/gview?url=${encodeURIComponent(att.file_url)}&embedded=true`}
+                        <PdfEmbed
+                          url={att.file_url}
                           title={att.file_name}
                           className="w-full h-[200px] pointer-events-none"
                         />
@@ -250,15 +272,23 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
       </Card>
 
       {/* Full-size preview dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={() => { setPreviewUrl(null); setPreviewType(null); }}>
+      <Dialog open={!!previewUrl} onOpenChange={() => { setPreviewUrl(null); setPreviewType(null); setPreviewName(null); }}>
         <DialogContent className="max-w-5xl max-h-[90vh] p-2">
           <div className="relative w-full h-full flex items-center justify-center overflow-auto">
-            {previewUrl && (previewType?.includes("pdf") || previewUrl.includes("/raw/upload/")) ? (
-              <iframe
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`}
-                title="PDF Preview"
-                className="w-full h-[80vh] rounded"
-              />
+            {previewUrl && isPreviewPdf ? (
+              <div className="w-full">
+                <PdfEmbed
+                  url={previewUrl}
+                  title="PDF Preview"
+                  className="w-full h-[80vh] rounded"
+                />
+                <div className="mt-2 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewUrl, "_blank")}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "فتح PDF" : "Open PDF"}
+                  </Button>
+                </div>
+              </div>
             ) : previewUrl ? (
               <img
                 src={previewUrl}
