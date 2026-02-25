@@ -296,11 +296,14 @@ const ReceivingCoins = () => {
           }
         }
       }
-      // Auto-calculate unit_price when received coins changes: unit_price = brandControlAmt / receivedCoins
-      if (field === "coins" && updated.coins > 0 && updated.brand_id) {
+      // Keep unit_price based on expected coins only: unit_price = brandControlAmt / expectedCoins
+      if (field === "coins" && updated.brand_id) {
+        const brand = brands.find(b => b.id === updated.brand_id);
+        const oneUsdToCoins = brand?.one_usd_to_coins || 0;
         const brandControl = brandControlAmounts[updated.brand_id] || 0;
-        if (brandControl > 0) {
-          updated.unit_price = brandControl / updated.coins;
+        const expectedCoins = oneUsdToCoins > 0 && brandControl > 0 ? Math.floor(brandControl * oneUsdToCoins) : 0;
+        if (expectedCoins > 0 && brandControl > 0) {
+          updated.unit_price = brandControl / expectedCoins;
         }
       }
       updated.total = updated.coins * updated.unit_price;
@@ -603,17 +606,41 @@ const ReceivingCoins = () => {
       }
     }
     if (linesRes.data) {
-      const mappedLines = (linesRes.data as any[]).map(l => ({
-        id: l.id,
-        brand_id: l.brand_id || "",
-        brand_name: l.brand_name || l.product_name || "",
-        supplier_id: l.supplier_id || "",
-        coins: l.coins || 0,
-        unit_price: l.unit_price || 0,
-        total: (l.coins || 0) * (l.unit_price || 0),
-        is_confirmed: l.is_confirmed || false,
-        confirmed_by_name: l.confirmed_by_name || "",
-      }));
+      const rawLines = linesRes.data as any[];
+      const controlAmountsForReceipt = (headerRes.data as any)?._brandAmounts || {};
+      const lineBrandIds = [...new Set(rawLines.map(l => l.brand_id).filter(Boolean))] as string[];
+
+      const brandRateMap: Record<string, number> = {};
+      if (lineBrandIds.length > 0) {
+        const { data: brandRates } = await supabase
+          .from("brands")
+          .select("id, one_usd_to_coins")
+          .in("id", lineBrandIds);
+
+        for (const b of brandRates || []) {
+          brandRateMap[b.id] = b.one_usd_to_coins || 0;
+        }
+      }
+
+      const mappedLines = rawLines.map(l => {
+        const brandControl = l.brand_id ? (controlAmountsForReceipt[l.brand_id] || 0) : 0;
+        const oneUsdToCoins = l.brand_id ? (brandRateMap[l.brand_id] || 0) : 0;
+        const expectedCoins = oneUsdToCoins > 0 && brandControl > 0 ? Math.floor(brandControl * oneUsdToCoins) : 0;
+        const coins = (l.coins || 0) > 0 ? (l.coins || 0) : expectedCoins;
+        const unitPrice = expectedCoins > 0 && brandControl > 0 ? (brandControl / expectedCoins) : (l.unit_price || 0);
+
+        return {
+          id: l.id,
+          brand_id: l.brand_id || "",
+          brand_name: l.brand_name || l.product_name || "",
+          supplier_id: l.supplier_id || "",
+          coins,
+          unit_price: unitPrice,
+          total: coins * unitPrice,
+          is_confirmed: l.is_confirmed || false,
+          confirmed_by_name: l.confirmed_by_name || "",
+        };
+      });
       setLines(mappedLines);
 
       // Auto-fix status based on confirmed lines and brand control amounts
