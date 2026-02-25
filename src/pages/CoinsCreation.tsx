@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 import CoinsPhaseSteps from "@/components/CoinsPhaseSteps";
+import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
 
 interface OrderLine {
   id?: string;
@@ -709,6 +710,14 @@ const CoinsCreation = () => {
           </div>
         </CardContent>
       </Card>
+      {/* Attachments */}
+      {selectedOrderId && (
+        <CoinsOrderAttachments
+          purchaseOrderId={selectedOrderId}
+          currentPhase="creation"
+          readOnly={isReadOnly}
+        />
+      )}
     </div>
   );
 };

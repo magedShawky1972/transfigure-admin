@@ -13,6 +13,7 @@ import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle } from "lucide-react
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
+import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
 
 const CoinsSending = () => {
   const { language } = useLanguage();
@@ -239,6 +240,12 @@ const CoinsSending = () => {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Attachments */}
+        <CoinsOrderAttachments
+          purchaseOrderId={selectedOrder.id}
+          currentPhase="sending"
+        />
 
         {/* Confirm Sending */}
         <Card>
