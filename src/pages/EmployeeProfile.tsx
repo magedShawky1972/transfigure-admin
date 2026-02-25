@@ -483,6 +483,49 @@ export default function EmployeeProfile() {
     setVacationDialogOpen(true);
   };
 
+  const syncVacationToTimesheets = async (employeeId: string, startDate: string, endDate: string, vacationCodeId: string) => {
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const dates: string[] = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0]);
+      }
+      if (dates.length === 0) return;
+
+      let leaveLabel = 'Vacation';
+      if (vacationCodeId) {
+        const { data: vacType } = await supabase
+          .from('vacation_codes')
+          .select('name_en, name_ar')
+          .eq('id', vacationCodeId)
+          .maybeSingle();
+        if (vacType) {
+          leaveLabel = language === 'ar' ? (vacType.name_ar || vacType.name_en) : vacType.name_en;
+        }
+      }
+
+      const upsertPayloads = dates.map(date => ({
+        employee_id: employeeId,
+        work_date: date,
+        is_absent: false,
+        status: 'vacation' as const,
+        notes: leaveLabel,
+        late_minutes: 0,
+        deduction_rule_id: null,
+        deduction_amount: 0,
+      }));
+
+      const { error } = await supabase
+        .from('timesheets')
+        .upsert(upsertPayloads, { onConflict: 'employee_id,work_date' });
+
+      if (error) console.error('Error syncing vacation to timesheets:', error);
+    } catch (err) {
+      console.error('Error in syncVacationToTimesheets:', err);
+    }
+  };
+
   const handleSaveVacation = async () => {
     if (!vacationFormData.vacation_code_id || !vacationFormData.start_date || !vacationFormData.end_date) {
       toast.error(language === "ar" ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
@@ -552,6 +595,11 @@ export default function EmployeeProfile() {
           }
         }
 
+        // Sync timesheets for approved vacation (edit case)
+        if (updateData.status === "approved" || editingVacation?.status === "approved") {
+          await syncVacationToTimesheets(id!, vacationFormData.start_date, vacationFormData.end_date, vacationFormData.vacation_code_id);
+        }
+
         toast.success(language === "ar" ? "تم تحديث الإجازة بنجاح" : "Vacation updated successfully");
       } else {
         // Insert new vacation request with approved status
@@ -583,6 +631,9 @@ export default function EmployeeProfile() {
 
           if (updateError) throw updateError;
         }
+
+        // Sync timesheets for new approved vacation
+        await syncVacationToTimesheets(id!, vacationFormData.start_date, vacationFormData.end_date, vacationFormData.vacation_code_id);
 
         toast.success(language === "ar" ? "تم إضافة الإجازة بنجاح" : "Vacation added successfully");
       }
