@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { Download, Upload, Loader2, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 interface Department {
   id: string;
@@ -88,95 +89,177 @@ export const ProjectTaskExcelImport = ({
       : "Import new projects with their tasks - projects will be created automatically",
   };
 
-  const downloadTemplate = () => {
-    const wb = XLSX.utils.book_new();
+  const downloadTemplate = async () => {
+    const wb = new ExcelJS.Workbook();
+    const maxDataRows = 500;
+
+    const priorityList = ['"low,medium,high,urgent"'];
+    const statusList = ['"todo,in_progress,review,done"'];
+    const projectStatusList = ['"active,completed,on_hold,cancelled"'];
+
+    const saveWorkbook = async (fileName: string) => {
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    const styleHeader = (sheet: ExcelJS.Worksheet) => {
+      sheet.getRow(1).eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+      });
+    };
 
     if (importMode === "tasks_only") {
-      const headers = [
-        "project_name", "task_title", "description", "assigned_to_username",
-        "priority", "status", "start_date", "deadline"
-      ];
-      const sampleData = [
-        headers,
-        ["My Project", "Design Homepage", "Create UI mockups", "john", "medium", "todo", "2026-03-01", "2026-03-15"],
-        ["", "Build API", "Create REST endpoints", "jane", "high", "todo", "2026-03-05", "2026-03-20"],
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(sampleData);
-      ws["!cols"] = headers.map(() => ({ wch: 22 }));
+      const projectNames = projects.map(p => p.name);
+      const userNames = users.map(u => u.user_name);
 
-      const instrData = [
-        [isAr ? "تعليمات قالب استيراد المهام" : "Tasks Import Template Instructions"],
-        [""],
-        [isAr ? "الحقل" : "Field", isAr ? "مطلوب" : "Required", isAr ? "الوصف" : "Description"],
-        ["project_name", isAr ? "لا" : "No", isAr ? "اسم المشروع الموجود - اتركه فارغاً إذا المهمة بدون مشروع" : "Existing project name - leave empty if task has no project"],
-        ["task_title", isAr ? "نعم" : "Yes", isAr ? "عنوان المهمة" : "Task title"],
-        ["description", isAr ? "لا" : "No", isAr ? "وصف المهمة" : "Task description"],
-        ["assigned_to_username", isAr ? "نعم" : "Yes", isAr ? "اسم المستخدم المسند إليه" : "Username of assignee"],
-        ["priority", isAr ? "لا" : "No", isAr ? "الأولوية: low, medium, high, urgent (الافتراضي: medium)" : "Priority: low, medium, high, urgent (default: medium)"],
-        ["status", isAr ? "لا" : "No", isAr ? "الحالة: todo, in_progress, review, done (الافتراضي: todo)" : "Status: todo, in_progress, review, done (default: todo)"],
-        ["start_date", isAr ? "لا" : "No", isAr ? "تاريخ البداية بصيغة YYYY-MM-DD" : "Start date in YYYY-MM-DD format"],
-        ["deadline", isAr ? "لا" : "No", isAr ? "الموعد النهائي بصيغة YYYY-MM-DD" : "Deadline in YYYY-MM-DD format"],
-      ];
-      const instrWs = XLSX.utils.aoa_to_sheet(instrData);
-      instrWs["!cols"] = [{ wch: 25 }, { wch: 10 }, { wch: 50 }];
+      // 1. Tasks sheet
+      const tasksSheet = wb.addWorksheet("Tasks");
+      const taskHeaders = ["project_name", "task_title", "description", "assigned_to_username", "priority", "status", "start_date", "deadline"];
+      tasksSheet.addRow(taskHeaders);
+      styleHeader(tasksSheet);
+      tasksSheet.addRow([projects[0]?.name || "My Project", "Design Homepage", "Create UI mockups", users[0]?.user_name || "john", "medium", "todo", "2026-03-01", "2026-03-15"]);
+      tasksSheet.addRow(["", "Build API", "Create REST endpoints", users[1]?.user_name || "jane", "high", "todo", "2026-03-05", "2026-03-20"]);
+      taskHeaders.forEach((_, i) => { tasksSheet.getColumn(i + 1).width = 22; });
 
-      const projectNames = projects.map(p => [p.name]);
-      const projectRefData = [[isAr ? "المشاريع المتاحة" : "Available Projects"], ...projectNames];
-      const projectRefWs = XLSX.utils.aoa_to_sheet(projectRefData);
+      // 2. Lists sheet (hidden, for dropdown references)
+      const listsSheet = wb.addWorksheet("Lists");
+      listsSheet.getColumn(1).values = [isAr ? "المشاريع" : "Projects", ...projectNames];
+      listsSheet.getColumn(2).values = [isAr ? "المستخدمون" : "Users", ...userNames];
+      listsSheet.state = 'veryHidden';
 
-      const userNames = users.map(u => [u.user_name]);
-      const userRefData = [[isAr ? "المستخدمون المتاحون" : "Available Users"], ...userNames];
-      const userRefWs = XLSX.utils.aoa_to_sheet(userRefData);
+      // Data validations on Tasks sheet
+      const projectFormula = `Lists!$A$2:$A$${projectNames.length + 1}`;
+      const userFormula = `Lists!$B$2:$B$${userNames.length + 1}`;
+      for (let r = 2; r <= maxDataRows; r++) {
+        tasksSheet.getCell(r, 1).dataValidation = {
+          type: 'list', allowBlank: true, formulae: [projectFormula],
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر مشروع من القائمة' : 'Select a project from the list',
+        };
+        tasksSheet.getCell(r, 4).dataValidation = {
+          type: 'list', allowBlank: false, formulae: [userFormula],
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر مستخدم من القائمة' : 'Select a user from the list',
+        };
+        tasksSheet.getCell(r, 5).dataValidation = {
+          type: 'list', allowBlank: true, formulae: priorityList,
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر أولوية صحيحة' : 'Select a valid priority',
+        };
+        tasksSheet.getCell(r, 6).dataValidation = {
+          type: 'list', allowBlank: true, formulae: statusList,
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر حالة صحيحة' : 'Select a valid status',
+        };
+      }
 
-      XLSX.utils.book_append_sheet(wb, ws, "Tasks");
-      XLSX.utils.book_append_sheet(wb, instrWs, "Instructions");
-      XLSX.utils.book_append_sheet(wb, projectRefWs, "Projects Reference");
-      XLSX.utils.book_append_sheet(wb, userRefWs, "Users Reference");
-      XLSX.writeFile(wb, "tasks_import_template.xlsx");
+      // 3. Instructions sheet
+      const instrSheet = wb.addWorksheet("Instructions");
+      instrSheet.addRow([isAr ? "تعليمات قالب استيراد المهام" : "Tasks Import Template Instructions"]);
+      instrSheet.addRow([]);
+      instrSheet.addRow([isAr ? "الحقل" : "Field", isAr ? "مطلوب" : "Required", isAr ? "الوصف" : "Description"]);
+      instrSheet.addRow(["project_name", isAr ? "لا" : "No", isAr ? "اختر من القائمة المنسدلة - اتركه فارغاً إذا المهمة بدون مشروع" : "Select from dropdown - leave empty if task has no project"]);
+      instrSheet.addRow(["task_title", isAr ? "نعم" : "Yes", isAr ? "عنوان المهمة" : "Task title"]);
+      instrSheet.addRow(["description", isAr ? "لا" : "No", isAr ? "وصف المهمة" : "Task description"]);
+      instrSheet.addRow(["assigned_to_username", isAr ? "نعم" : "Yes", isAr ? "اختر من القائمة المنسدلة" : "Select from dropdown"]);
+      instrSheet.addRow(["priority", isAr ? "لا" : "No", isAr ? "اختر من القائمة المنسدلة (الافتراضي: medium)" : "Select from dropdown (default: medium)"]);
+      instrSheet.addRow(["status", isAr ? "لا" : "No", isAr ? "اختر من القائمة المنسدلة (الافتراضي: todo)" : "Select from dropdown (default: todo)"]);
+      instrSheet.addRow(["start_date", isAr ? "لا" : "No", isAr ? "تاريخ البداية بصيغة YYYY-MM-DD" : "Start date in YYYY-MM-DD format"]);
+      instrSheet.addRow(["deadline", isAr ? "لا" : "No", isAr ? "الموعد النهائي بصيغة YYYY-MM-DD" : "Deadline in YYYY-MM-DD format"]);
+      instrSheet.getColumn(1).width = 25;
+      instrSheet.getColumn(2).width = 10;
+      instrSheet.getColumn(3).width = 50;
+      instrSheet.getRow(1).font = { bold: true, size: 14 };
+      instrSheet.getRow(3).font = { bold: true };
+
+      // 4. Projects Reference sheet
+      const projRefSheet = wb.addWorksheet("Projects Reference");
+      projRefSheet.getColumn(1).values = [isAr ? "المشاريع المتاحة" : "Available Projects", ...projectNames];
+      projRefSheet.getRow(1).font = { bold: true };
+      projRefSheet.getColumn(1).width = 30;
+
+      // 5. Users Reference sheet
+      const userRefSheet = wb.addWorksheet("Users Reference");
+      userRefSheet.getColumn(1).values = [isAr ? "المستخدمون المتاحون" : "Available Users", ...userNames];
+      userRefSheet.getRow(1).font = { bold: true };
+      userRefSheet.getColumn(1).width = 25;
+
+      await saveWorkbook('tasks_import_template.xlsx');
+
     } else {
-      // Projects and tasks template
-      const headers = [
+      const userNames = users.map(u => u.user_name);
+
+      // 1. Projects & Tasks sheet
+      const ptSheet = wb.addWorksheet("Projects & Tasks");
+      const ptHeaders = [
         "project_name", "project_description", "project_status", "project_start_date", "project_end_date",
-        "task_title", "task_description", "assigned_to_username",
-        "priority", "status", "start_date", "deadline"
+        "task_title", "task_description", "assigned_to_username", "priority", "status", "start_date", "deadline"
       ];
-      const sampleData = [
-        headers,
-        ["New Project", "Project description", "active", "2026-03-01", "2026-06-30", "Task 1", "First task desc", "john", "high", "todo", "2026-03-01", "2026-03-15"],
-        ["New Project", "", "", "", "", "Task 2", "Second task desc", "jane", "medium", "todo", "2026-03-05", "2026-03-20"],
-        ["Another Project", "Another project desc", "active", "2026-04-01", "2026-09-30", "Task A", "Task A desc", "john", "low", "todo", "2026-04-01", "2026-04-15"],
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(sampleData);
-      ws["!cols"] = headers.map(() => ({ wch: 22 }));
+      ptSheet.addRow(ptHeaders);
+      styleHeader(ptSheet);
+      ptSheet.addRow(["New Project", "Project description", "active", "2026-03-01", "2026-06-30", "Task 1", "First task desc", users[0]?.user_name || "john", "high", "todo", "2026-03-01", "2026-03-15"]);
+      ptSheet.addRow(["New Project", "", "", "", "", "Task 2", "Second task desc", users[1]?.user_name || "jane", "medium", "todo", "2026-03-05", "2026-03-20"]);
+      ptHeaders.forEach((_, i) => { ptSheet.getColumn(i + 1).width = 22; });
 
-      const instrData = [
-        [isAr ? "تعليمات قالب استيراد المشاريع والمهام" : "Projects & Tasks Import Template Instructions"],
-        [""],
-        [isAr ? "الحقل" : "Field", isAr ? "مطلوب" : "Required", isAr ? "الوصف" : "Description"],
-        ["project_name", isAr ? "نعم" : "Yes", isAr ? "اسم المشروع - المهام بنفس الاسم ستنتمي لنفس المشروع" : "Project name - tasks with same name belong to the same project"],
-        ["project_description", isAr ? "لا" : "No", isAr ? "وصف المشروع (فقط في أول صف للمشروع)" : "Project description (only in first row of project)"],
-        ["project_status", isAr ? "لا" : "No", isAr ? "حالة المشروع: active, completed, on_hold, cancelled (الافتراضي: active)" : "Project status: active, completed, on_hold, cancelled (default: active)"],
-        ["project_start_date", isAr ? "لا" : "No", isAr ? "تاريخ بداية المشروع YYYY-MM-DD" : "Project start date YYYY-MM-DD"],
-        ["project_end_date", isAr ? "لا" : "No", isAr ? "تاريخ نهاية المشروع YYYY-MM-DD" : "Project end date YYYY-MM-DD"],
-        ["task_title", isAr ? "نعم" : "Yes", isAr ? "عنوان المهمة" : "Task title"],
-        ["task_description", isAr ? "لا" : "No", isAr ? "وصف المهمة" : "Task description"],
-        ["assigned_to_username", isAr ? "نعم" : "Yes", isAr ? "اسم المستخدم المسند إليه" : "Username of assignee"],
-        ["priority", isAr ? "لا" : "No", isAr ? "الأولوية: low, medium, high, urgent (الافتراضي: medium)" : "Priority: low, medium, high, urgent (default: medium)"],
-        ["status", isAr ? "لا" : "No", isAr ? "الحالة: todo, in_progress, review, done (الافتراضي: todo)" : "Status: todo, in_progress, review, done (default: todo)"],
-        ["start_date", isAr ? "لا" : "No", isAr ? "تاريخ بداية المهمة YYYY-MM-DD" : "Task start date YYYY-MM-DD"],
-        ["deadline", isAr ? "لا" : "No", isAr ? "الموعد النهائي YYYY-MM-DD" : "Deadline YYYY-MM-DD"],
-      ];
-      const instrWs = XLSX.utils.aoa_to_sheet(instrData);
-      instrWs["!cols"] = [{ wch: 25 }, { wch: 10 }, { wch: 60 }];
+      // 2. Lists sheet (hidden)
+      const listsSheet = wb.addWorksheet("Lists");
+      listsSheet.getColumn(1).values = [isAr ? "المستخدمون" : "Users", ...userNames];
+      listsSheet.state = 'veryHidden';
 
-      const userNames = users.map(u => [u.user_name]);
-      const userRefData = [[isAr ? "المستخدمون المتاحون" : "Available Users"], ...userNames];
-      const userRefWs = XLSX.utils.aoa_to_sheet(userRefData);
+      // Data validations
+      const userFormula = `Lists!$A$2:$A$${userNames.length + 1}`;
+      for (let r = 2; r <= maxDataRows; r++) {
+        ptSheet.getCell(r, 3).dataValidation = {
+          type: 'list', allowBlank: true, formulae: projectStatusList,
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر حالة مشروع صحيحة' : 'Select a valid project status',
+        };
+        ptSheet.getCell(r, 8).dataValidation = {
+          type: 'list', allowBlank: false, formulae: [userFormula],
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر مستخدم من القائمة' : 'Select a user from the list',
+        };
+        ptSheet.getCell(r, 9).dataValidation = {
+          type: 'list', allowBlank: true, formulae: priorityList,
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر أولوية صحيحة' : 'Select a valid priority',
+        };
+        ptSheet.getCell(r, 10).dataValidation = {
+          type: 'list', allowBlank: true, formulae: statusList,
+          showErrorMessage: true, errorTitle: 'Invalid', error: isAr ? 'اختر حالة صحيحة' : 'Select a valid status',
+        };
+      }
 
-      XLSX.utils.book_append_sheet(wb, ws, "Projects & Tasks");
-      XLSX.utils.book_append_sheet(wb, instrWs, "Instructions");
-      XLSX.utils.book_append_sheet(wb, userRefWs, "Users Reference");
-      XLSX.writeFile(wb, "projects_tasks_import_template.xlsx");
+      // 3. Instructions sheet
+      const instrSheet = wb.addWorksheet("Instructions");
+      instrSheet.addRow([isAr ? "تعليمات قالب استيراد المشاريع والمهام" : "Projects & Tasks Import Template Instructions"]);
+      instrSheet.addRow([]);
+      instrSheet.addRow([isAr ? "الحقل" : "Field", isAr ? "مطلوب" : "Required", isAr ? "الوصف" : "Description"]);
+      instrSheet.addRow(["project_name", isAr ? "نعم" : "Yes", isAr ? "اسم المشروع - المهام بنفس الاسم ستنتمي لنفس المشروع" : "Project name - tasks with same name belong to the same project"]);
+      instrSheet.addRow(["project_description", isAr ? "لا" : "No", isAr ? "وصف المشروع (فقط في أول صف للمشروع)" : "Project description (only in first row of project)"]);
+      instrSheet.addRow(["project_status", isAr ? "لا" : "No", isAr ? "اختر من القائمة المنسدلة (الافتراضي: active)" : "Select from dropdown (default: active)"]);
+      instrSheet.addRow(["project_start_date", isAr ? "لا" : "No", isAr ? "تاريخ بداية المشروع YYYY-MM-DD" : "Project start date YYYY-MM-DD"]);
+      instrSheet.addRow(["project_end_date", isAr ? "لا" : "No", isAr ? "تاريخ نهاية المشروع YYYY-MM-DD" : "Project end date YYYY-MM-DD"]);
+      instrSheet.addRow(["task_title", isAr ? "نعم" : "Yes", isAr ? "عنوان المهمة" : "Task title"]);
+      instrSheet.addRow(["task_description", isAr ? "لا" : "No", isAr ? "وصف المهمة" : "Task description"]);
+      instrSheet.addRow(["assigned_to_username", isAr ? "نعم" : "Yes", isAr ? "اختر من القائمة المنسدلة" : "Select from dropdown"]);
+      instrSheet.addRow(["priority", isAr ? "لا" : "No", isAr ? "اختر من القائمة المنسدلة (الافتراضي: medium)" : "Select from dropdown (default: medium)"]);
+      instrSheet.addRow(["status", isAr ? "لا" : "No", isAr ? "اختر من القائمة المنسدلة (الافتراضي: todo)" : "Select from dropdown (default: todo)"]);
+      instrSheet.addRow(["start_date", isAr ? "لا" : "No", isAr ? "تاريخ بداية المهمة YYYY-MM-DD" : "Task start date YYYY-MM-DD"]);
+      instrSheet.addRow(["deadline", isAr ? "لا" : "No", isAr ? "الموعد النهائي YYYY-MM-DD" : "Deadline YYYY-MM-DD"]);
+      instrSheet.getColumn(1).width = 25;
+      instrSheet.getColumn(2).width = 10;
+      instrSheet.getColumn(3).width = 60;
+      instrSheet.getRow(1).font = { bold: true, size: 14 };
+      instrSheet.getRow(3).font = { bold: true };
+
+      // 4. Users Reference
+      const userRefSheet = wb.addWorksheet("Users Reference");
+      userRefSheet.getColumn(1).values = [isAr ? "المستخدمون المتاحون" : "Available Users", ...userNames];
+      userRefSheet.getRow(1).font = { bold: true };
+      userRefSheet.getColumn(1).width = 25;
+
+      await saveWorkbook('projects_tasks_import_template.xlsx');
     }
 
     toast({ title: isAr ? "تم تحميل القالب" : "Template downloaded" });
