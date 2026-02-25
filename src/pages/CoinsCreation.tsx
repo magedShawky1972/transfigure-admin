@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
@@ -159,14 +159,17 @@ const CoinsCreation = () => {
         reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
       const publicId = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
-        body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType: "image" },
+        body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
       });
       if (error) throw error;
       if (!data?.url) throw new Error("Upload failed");
       setBankTransferImage(data.url);
-      toast.success(isArabic ? "تم رفع الصورة بنجاح" : "Image uploaded successfully");
+      toast.success(isArabic ? "تم رفع الملف بنجاح" : "File uploaded successfully");
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
@@ -563,14 +566,33 @@ const CoinsCreation = () => {
           <div className="flex flex-col items-center gap-4">
             {bankTransferImage ? (
               <div className="relative">
-                <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
+                {bankTransferImage.includes("cloudinary.com") && (bankTransferImage.includes("/raw/upload/") || bankTransferImage.match(/\.pdf$/i)) ? (
+                  <img 
+                    src={bankTransferImage.replace("/raw/upload/", "/image/upload/").replace("/upload/", "/upload/pg_1,f_jpg/")} 
+                    alt="Bank Transfer" 
+                    className="max-w-md max-h-64 rounded-lg border object-contain" 
+                    onError={(e) => {
+                      // Fallback: show file icon if preview fails
+                      (e.target as HTMLImageElement).style.display = "none";
+                      (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                    }}
+                  />
+                ) : (
+                  <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
+                )}
+                <div className="hidden flex-col items-center justify-center w-full h-40 border rounded-lg bg-muted/30">
+                  <FileText className="h-10 w-10 text-muted-foreground mb-2" />
+                  <a href={bankTransferImage} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">
+                    {isArabic ? "فتح الملف" : "Open File"}
+                  </a>
+                </div>
                 {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setBankTransferImage("")}>✕</Button>}
               </div>
             ) : !isReadOnly ? (
               <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
                 <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                <span className="text-muted-foreground">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع صورة التحويل" : "Click to upload transfer image")}</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                <span className="text-muted-foreground">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع ملف التحويل" : "Click to upload transfer file")}</span>
+                <input type="file" accept="*/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
               </label>
             ) : (
               <span className="text-muted-foreground">{isArabic ? "لا توجد صورة" : "No image"}</span>
