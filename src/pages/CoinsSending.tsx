@@ -234,9 +234,9 @@ const CoinsSending = () => {
             {selectedOrder.bank_transfer_image && (
               selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
                 <iframe
-                  src={selectedOrder.bank_transfer_image}
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
                   title="Transfer"
-                  className="w-full h-[300px] rounded-lg border"
+                  className="w-full h-[400px] rounded-lg border"
                 />
               ) : (
                 <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
