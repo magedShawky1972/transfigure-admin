@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
@@ -79,8 +79,14 @@ const CoinsCreation = () => {
   useEffect(() => { fetchOrders(); }, []);
   useEffect(() => { if (view === "form") fetchDropdowns(); }, [view]);
 
+  const skipRateAutoFill = useRef(false);
+
   useEffect(() => {
     if (currencyId) {
+      if (skipRateAutoFill.current) {
+        skipRateAutoFill.current = false;
+        return;
+      }
       const baseCurrency = currencies.find(c => c.is_base);
       const rate = currencyRates.find(r => r.currency_id === currencyId);
       if (rate) {
@@ -382,6 +388,7 @@ const CoinsCreation = () => {
       setSelectedOrderPhase(data.current_phase || "creation");
       setSupplierId(data.supplier_id || "");
       setBankId(data.bank_id || "");
+      skipRateAutoFill.current = true;
       setCurrencyId(data.currency_id || "");
       setExchangeRate(String(data.exchange_rate || 1));
       setNotes(data.notes || "");
