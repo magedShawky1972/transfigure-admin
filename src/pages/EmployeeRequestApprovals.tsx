@@ -196,19 +196,23 @@ const EmployeeRequestApprovals = () => {
         }
       }
 
-      // Update existing timesheet records for these dates
+      // Upsert timesheet records for these dates (insert if missing, update if exists)
+      const upsertPayloads = dates.map(date => ({
+        employee_id: request.employee_id,
+        work_date: date,
+        is_absent: false,
+        status: 'vacation' as const,
+        notes: leaveLabel,
+        late_minutes: 0,
+        deduction_rule_id: null,
+        deduction_amount: 0,
+      }));
+
       const { error } = await supabase
         .from('timesheets')
-        .update({
-          is_absent: false,
-          status: 'vacation',
-          notes: leaveLabel,
-          late_minutes: 0,
-          deduction_rule_id: null,
-          deduction_amount: 0,
-        })
-        .eq('employee_id', request.employee_id)
-        .in('work_date', dates);
+        .upsert(upsertPayloads, {
+          onConflict: 'employee_id,work_date',
+        });
 
       if (error) {
         console.error('Error updating timesheets for leave:', error);
