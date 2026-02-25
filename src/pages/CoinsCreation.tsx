@@ -568,9 +568,9 @@ const CoinsCreation = () => {
               <div className="relative">
                 {bankTransferImage.match(/\.pdf$/i) || bankTransferImage.includes("/raw/upload/") ? (
                   <iframe
-                    src={bankTransferImage}
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
                     title="Bank Transfer"
-                    className="w-full h-[300px] rounded-lg border"
+                    className="w-full h-[400px] rounded-lg border"
                   />
                 ) : (
                   <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />

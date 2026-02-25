@@ -207,7 +207,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
                     {isPdf(att) && (
                       <div className="w-full cursor-pointer" onClick={() => handlePreview(att)}>
                         <iframe
-                          src={att.file_url}
+                          src={`https://docs.google.com/gview?url=${encodeURIComponent(att.file_url)}&embedded=true`}
                           title={att.file_name}
                           className="w-full h-[200px] pointer-events-none"
                         />
@@ -255,7 +255,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
           <div className="relative w-full h-full flex items-center justify-center overflow-auto">
             {previewUrl && previewType?.includes("pdf") ? (
               <iframe
-                src={previewUrl}
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`}
                 title="PDF Preview"
                 className="w-full h-[80vh] rounded"
               />
