@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Upload, Trash2, FileText, Image, File, Download } from "lucide-react";
+import { Upload, Trash2, FileText, Image, File, Download, Eye, X } from "lucide-react";
 
 interface Attachment {
   id: string;
@@ -54,6 +55,8 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
   const isArabic = language === "ar";
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<string | null>(null);
 
   useEffect(() => {
     if (purchaseOrderId) fetchAttachments();
@@ -125,80 +128,149 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
     }
   };
 
+  const getPreviewUrl = (att: Attachment): string | null => {
+    if (!att.file_url) return null;
+    if (att.file_type?.startsWith("image/")) return att.file_url;
+    // Cloudinary: convert PDF first page to image by changing /raw/upload/ to /image/upload/pg_1/
+    if (att.file_type?.includes("pdf") && att.file_url.includes("cloudinary.com")) {
+      return att.file_url
+        .replace("/raw/upload/", "/image/upload/pg_1/")
+        .replace(/\.pdf$/i, ".jpg");
+    }
+    return null;
+  };
+
+  const handlePreview = (att: Attachment) => {
+    const url = getPreviewUrl(att);
+    if (url) {
+      setPreviewUrl(url);
+      setPreviewType(att.file_type);
+    } else {
+      window.open(att.file_url, "_blank");
+    }
+  };
+
   if (!purchaseOrderId) return null;
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            {isArabic ? "المرفقات" : "Attachments"}
-            {attachments.length > 0 && (
-              <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{attachments.length}</span>
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {isArabic ? "المرفقات" : "Attachments"}
+              {attachments.length > 0 && (
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{attachments.length}</span>
+              )}
+            </CardTitle>
+            {!readOnly && (
+              <div>
+                <input
+                  type="file"
+                  id="coins-attachment-upload"
+                  className="hidden"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                  onChange={handleUpload}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById("coins-attachment-upload")?.click()}
+                  disabled={uploading}
+                >
+                  <Upload className="h-4 w-4 mr-1" />
+                  {uploading
+                    ? (isArabic ? "جاري الرفع..." : "Uploading...")
+                    : (isArabic ? "رفع ملف" : "Upload File")}
+                </Button>
+              </div>
             )}
-          </CardTitle>
-          {!readOnly && (
-            <div>
-              <input
-                type="file"
-                id="coins-attachment-upload"
-                className="hidden"
-                multiple
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
-                onChange={handleUpload}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => document.getElementById("coins-attachment-upload")?.click()}
-                disabled={uploading}
-              >
-                <Upload className="h-4 w-4 mr-1" />
-                {uploading
-                  ? (isArabic ? "جاري الرفع..." : "Uploading...")
-                  : (isArabic ? "رفع ملف" : "Upload File")}
-              </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {attachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {isArabic ? "لا توجد مرفقات" : "No attachments"}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {attachments.map((att) => {
+                const preview = getPreviewUrl(att);
+                return (
+                  <div key={att.id} className="rounded-lg border bg-muted/30 overflow-hidden">
+                    {/* Inline thumbnail preview */}
+                    {preview && (
+                      <div
+                        className="relative w-full bg-black/5 flex items-center justify-center cursor-pointer group"
+                        style={{ maxHeight: 200 }}
+                        onClick={() => handlePreview(att)}
+                      >
+                        <img
+                          src={preview}
+                          alt={att.file_name}
+                          className="max-h-[200px] object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between p-2 gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {getFileIcon(att.file_type)}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{att.file_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isArabic ? phaseLabels[att.phase]?.ar : phaseLabels[att.phase]?.en}
+                            {att.uploaded_by_name && ` • ${att.uploaded_by_name}`}
+                            {att.file_size ? ` • ${formatFileSize(att.file_size)}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {preview && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePreview(att)}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(att.file_url, "_blank")}>
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                        {!readOnly && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(att.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {attachments.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            {isArabic ? "لا توجد مرفقات" : "No attachments"}
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {attachments.map((att) => (
-              <div key={att.id} className="flex items-center justify-between p-2 rounded-lg border bg-muted/30 gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {getFileIcon(att.file_type)}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{att.file_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {isArabic ? phaseLabels[att.phase]?.ar : phaseLabels[att.phase]?.en}
-                      {att.uploaded_by_name && ` • ${att.uploaded_by_name}`}
-                      {att.file_size ? ` • ${formatFileSize(att.file_size)}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(att.file_url, "_blank")}>
-                    <Download className="h-3.5 w-3.5" />
-                  </Button>
-                  {!readOnly && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(att.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+        </CardContent>
+      </Card>
+
+      {/* Full-size preview dialog */}
+      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-1">
+          <div className="relative w-full h-full flex items-center justify-center overflow-auto">
+            {previewUrl && (
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="max-w-full max-h-[85vh] object-contain"
+              />
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
