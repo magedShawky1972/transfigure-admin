@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText, Maximize2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
@@ -56,6 +57,7 @@ const CoinsCreation = () => {
   const [bankTransferFee, setBankTransferFee] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrderPhase, setSelectedOrderPhase] = useState<string>("creation");
 
@@ -575,6 +577,11 @@ const CoinsCreation = () => {
                 ) : (
                   <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
                 )}
+                <div className="absolute top-2 left-2 z-10 flex gap-1">
+                  <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => setShowImagePreview(true)}>
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                </div>
                 {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2 z-10" onClick={() => setBankTransferImage("")}>✕</Button>}
               </div>
             ) : !isReadOnly ? (
@@ -729,6 +736,23 @@ const CoinsCreation = () => {
           readOnly={isReadOnly}
         />
       )}
+
+      {/* Maximize preview dialog */}
+      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
+          {bankTransferImage && (
+            bankTransferImage.match(/\.pdf$/i) || bankTransferImage.includes("/raw/upload/") ? (
+              <iframe
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
+                title="Bank Transfer Preview"
+                className="w-full h-[85vh] rounded"
+              />
+            ) : (
+              <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
