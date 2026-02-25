@@ -2077,7 +2077,7 @@ const OrderPaymentReport = () => {
                           <TableHead>{isRTL ? "الكمية" : "Qty"}</TableHead>
                           <TableHead>{isRTL ? "سعر الوحدة" : "Unit Price"}</TableHead>
                           <TableHead>{isRTL ? "الإجمالي" : "Total"}</TableHead>
-                          <TableHead>{isRTL ? "العملات" : "Coins"}</TableHead>
+                          <TableHead>{isRTL ? "الكوينز" : "Coins"}</TableHead>
                           <TableHead>{isRTL ? "التكلفة" : "Cost"}</TableHead>
                           <TableHead>{isRTL ? "التكلفة المباعة" : "Cost Sold"}</TableHead>
                         </TableRow>

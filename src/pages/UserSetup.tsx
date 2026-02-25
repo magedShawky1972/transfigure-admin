@@ -189,7 +189,7 @@ interface UserPermission {
     },
     {
       groupKey: "coins",
-      labelAr: "معاملات العملات",
+      labelAr: "معاملات الكوينز",
       labelEn: "Coins Transaction",
       items: [
         { key: "coinsCreation", label: "إنشاء طلب شراء", labelEn: "Coins Purchase Creation" },
@@ -197,7 +197,7 @@ interface UserPermission {
         { key: "coinsReceivingPhase", label: "استلام من المورد", labelEn: "Receiving Phase" },
         { key: "receivingCoins", label: "إيصال الاستلام", labelEn: "Receiving Entry" },
         { key: "coinsWorkflowSetup", label: "إعداد سير العمل", labelEn: "Workflow Setup" },
-        { key: "coinsPurchaseFollowUp", label: "متابعة شراء العملات", labelEn: "Purchase Follow-Up" },
+        { key: "coinsPurchaseFollowUp", label: "متابعة شراء الكوينز", labelEn: "Purchase Follow-Up" },
         { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
         { key: "coinsTransactionGuide", label: "دليل المستخدم", labelEn: "User Guide" },
       ]

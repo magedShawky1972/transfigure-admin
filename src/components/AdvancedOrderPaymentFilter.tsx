@@ -35,7 +35,7 @@ const purpletransactionFields = [
   { name: "product_name", label: "Product Name", labelAr: "اسم المنتج", type: "text" },
   { name: "product_id", label: "Product ID", labelAr: "معرف المنتج", type: "text" },
   { name: "vendor_name", label: "Vendor Name", labelAr: "اسم المورد", type: "text" },
-  { name: "coins_number", label: "Coins Number", labelAr: "عدد العملات", type: "number" },
+  { name: "coins_number", label: "Coins Number", labelAr: "عدد الكوينز", type: "number" },
   { name: "unit_price", label: "Unit Price", labelAr: "سعر الوحدة", type: "number" },
   { name: "cost_price", label: "Cost Price", labelAr: "سعر التكلفة", type: "number" },
   { name: "qty", label: "Quantity", labelAr: "الكمية", type: "number" },

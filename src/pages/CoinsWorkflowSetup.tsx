@@ -16,7 +16,7 @@ const PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
   { key: "sending", ar: "توجيه", en: "Sending" },
   { key: "receiving", ar: "استلام", en: "Receiving" },
-  { key: "coins_entry", ar: "إدخال العملات", en: "Coins Entry" },
+  { key: "coins_entry", ar: "إدخال الكوينز", en: "Coins Entry" },
 ];
 
 const CoinsWorkflowSetup = () => {
@@ -180,7 +180,7 @@ const CoinsWorkflowSetup = () => {
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex items-center gap-3">
         <Settings className="h-7 w-7 text-primary" />
-        <h1 className="text-2xl font-bold">{isArabic ? "إعداد سير عمل العملات" : "Coins Workflow Setup"}</h1>
+        <h1 className="text-2xl font-bold">{isArabic ? "إعداد سير عمل الكوينز" : "Coins Workflow Setup"}</h1>
       </div>
 
       {/* Add New Assignment */}

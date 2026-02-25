@@ -386,14 +386,14 @@ export function AppSidebar() {
       ]
     },
     {
-      label: language === 'ar' ? 'معاملات العملات' : 'Coins Transaction',
+      label: language === 'ar' ? 'معاملات الكوينز' : 'Coins Transaction',
       items: [
         { title: language === 'ar' ? 'إنشاء طلب شراء' : 'Coins Purchase Creation', url: "/coins-creation", icon: FileText },
         { title: language === 'ar' ? 'توجيه التحويلات' : 'Sending Transfers', url: "/coins-sending", icon: Mail },
         { title: language === 'ar' ? 'استلام من المورد' : 'Receiving Phase', url: "/coins-receiving-phase", icon: ClipboardCheck },
         { title: language === 'ar' ? 'إيصال الاستلام' : 'Receiving Entry', url: "/receiving-coins", icon: Coins },
         { title: language === 'ar' ? 'إعداد سير العمل' : 'Workflow Setup', url: "/coins-workflow-setup", icon: Settings },
-        { title: language === 'ar' ? 'متابعة شراء العملات' : 'Purchase Follow-Up', url: "/coins-purchase-followup", icon: ClipboardCheck },
+        { title: language === 'ar' ? 'متابعة شراء الكوينز' : 'Purchase Follow-Up', url: "/coins-purchase-followup", icon: ClipboardCheck },
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
         { title: language === 'ar' ? 'دليل المستخدم' : 'User Guide', url: "/coins-transaction-guide", icon: FileText },
       ]

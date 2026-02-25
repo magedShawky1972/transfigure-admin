@@ -974,7 +974,7 @@ const ReceivingCoins = () => {
                   <TableHead>#</TableHead>
                   <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                  <TableHead>{isArabic ? "العملات" : "Coins"}</TableHead>
+                  <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                   <TableHead>{isArabic ? "سعر الوحدة" : "Unit Price"}</TableHead>
                   <TableHead>{isArabic ? "الإجمالي" : "Total"}</TableHead>
                   {Object.keys(brandControlAmounts).length > 0 && (

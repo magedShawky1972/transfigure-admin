@@ -18,7 +18,7 @@ const phaseConfig = {
   creation: { label: "Creation", labelAr: "الإنشاء", color: "bg-blue-100 text-blue-800" },
   sending: { label: "Sending", labelAr: "الإرسال", color: "bg-yellow-100 text-yellow-800" },
   receiving: { label: "Receiving", labelAr: "الاستلام", color: "bg-orange-100 text-orange-800" },
-  coins_entry: { label: "Coins Entry", labelAr: "إدخال العملات", color: "bg-purple-100 text-purple-800" },
+  coins_entry: { label: "Coins Entry", labelAr: "إدخال الكوينز", color: "bg-purple-100 text-purple-800" },
   completed: { label: "Completed", labelAr: "مكتمل", color: "bg-green-100 text-green-800" },
 };
 
@@ -142,7 +142,7 @@ const CoinsPurchaseFollowUp = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <ClipboardList className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">{isArabic ? "متابعة شراء العملات" : "Coins Purchase Follow-Up"}</h1>
+          <h1 className="text-2xl font-bold">{isArabic ? "متابعة شراء الكوينز" : "Coins Purchase Follow-Up"}</h1>
         </div>
         <Button variant="outline" size="sm" onClick={fetchOrders} disabled={loading}>
           <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${loading ? "animate-spin" : ""}`} />
