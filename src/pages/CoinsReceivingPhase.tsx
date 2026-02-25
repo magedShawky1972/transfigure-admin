@@ -69,8 +69,8 @@ const CoinsReceivingPhase = () => {
 
   const loadOrder = async (id: string) => {
     const [orderRes, linesRes, recRes] = await Promise.all([
-      supabase.from("coins_purchase_orders").select("*").eq("id", id).maybeSingle(),
-      supabase.from("coins_purchase_order_lines").select("*, brands(brand_name), suppliers(supplier_name)").eq("purchase_order_id", id).order("line_number"),
+      supabase.from("coins_purchase_orders").select("*, currencies(currency_code, currency_name)").eq("id", id).maybeSingle(),
+      supabase.from("coins_purchase_order_lines").select("*, brands(brand_name, usd_value_for_coins), suppliers(supplier_name)").eq("purchase_order_id", id).order("line_number"),
       supabase.from("coins_purchase_receiving").select("*, brands(brand_name)").eq("purchase_order_id", id).order("created_at", { ascending: false }),
     ]);
     if (orderRes.data) {
@@ -344,14 +344,28 @@ const CoinsReceivingPhase = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div><span className="font-medium">{isArabic ? "رقم الطلب:" : "Order #:"}</span> {selectedOrder.order_number}</div>
-              <div><span className="font-medium">{isArabic ? "المبلغ (SAR):" : "Amount (SAR):"}</span> {parseFloat(selectedOrder.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <div><span className="font-medium">{isArabic ? "التاريخ:" : "Date:"}</span> {format(new Date(selectedOrder.created_at), "yyyy-MM-dd")}</div>
+              <div><span className="font-medium">{isArabic ? "أنشئ بواسطة:" : "Created By:"}</span> {selectedOrder.created_by_name || selectedOrder.created_by}</div>
             </div>
-            {selectedOrder.bank_transfer_image && (
-              <div className="mt-4">
-                <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-sm max-h-48 rounded-lg border object-contain" />
+            {/* Prominent Currency & Transaction Amount */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div className="p-4 bg-muted/40 rounded-lg border text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "العملة" : "Currency"}</div>
+                <div className="text-2xl font-bold text-primary">{selectedOrder.currencies?.currency_code || orders.find(o => o.id === selectedOrder.id)?.currencies?.currency_code || "-"}</div>
               </div>
-            )}
+              <div className="p-4 bg-muted/40 rounded-lg border text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "المبلغ بالعملة" : "Transaction Amount"}</div>
+                <div className="text-2xl font-bold text-primary">
+                  {selectedOrder.amount_in_currency ? parseFloat(selectedOrder.amount_in_currency).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                </div>
+              </div>
+              <div className="p-4 bg-muted/40 rounded-lg border text-center">
+                <div className="text-xs text-muted-foreground mb-1">{isArabic ? "المبلغ بالريال" : "Amount (SAR)"}</div>
+                <div className="text-2xl font-bold text-primary">
+                  {parseFloat(selectedOrder.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -366,20 +380,31 @@ const CoinsReceivingPhase = () => {
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
-                      <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
+                      <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
+                      <TableHead>{isArabic ? "قيمة الكوين (USD)" : "USD/Coin"}</TableHead>
+                      <TableHead>{isArabic ? "الكوينز المتوقعة" : "Expected Coins"}</TableHead>
                       <TableHead>{isArabic ? "صور الاستلام" : "Receiving Images"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {orderLines.map((line, idx) => {
                       const brandReceivings = receivingsByBrand[line.brand_id] || [];
+                      const amountInCurrency = parseFloat(line.amount_in_currency || 0);
+                      const usdValue = line.brands?.usd_value_for_coins || 0;
+                      const expectedCoins = usdValue > 0 && amountInCurrency > 0 ? Math.floor(amountInCurrency / usdValue) : 0;
                       return (
                         <TableRow key={line.id}>
                           <TableCell>{idx + 1}</TableCell>
                           <TableCell className="font-medium">{line.brands?.brand_name || "-"}</TableCell>
-                          <TableCell>{line.suppliers?.supplier_name || "-"}</TableCell>
-                          <TableCell>{parseFloat(line.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="font-bold text-lg text-primary">
+                            {amountInCurrency > 0 ? amountInCurrency.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
+                          </TableCell>
+                          <TableCell className="font-medium text-primary">
+                            {usdValue > 0 ? `$${usdValue.toFixed(2)}` : "-"}
+                          </TableCell>
+                          <TableCell className="font-bold text-lg">
+                            {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
+                          </TableCell>
                           <TableCell>
                             {brandReceivings.length > 0 ? (
                               <div className="flex items-center gap-1">
