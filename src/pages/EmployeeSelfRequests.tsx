@@ -331,6 +331,9 @@ const EmployeeSelfRequests = () => {
       const targetEmployeeId = selectedEmployeeId || employee.id;
       const isOnBehalf = selectedEmployeeId && selectedEmployeeId !== employee.id;
       
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const requestData: any = {
         employee_id: targetEmployeeId,
         request_type: selectedType,
@@ -343,6 +346,43 @@ const EmployeeSelfRequests = () => {
       // Only set submitted_by_id if submitting on behalf of someone else
       if (isOnBehalf) {
         requestData.submitted_by_id = employee.id;
+      }
+
+      // Check if the submitter (or the employee on whose behalf) is a department manager
+      // If so, skip manager approval levels where the submitter would approve their own request
+      if (selectedType !== 'other' && user) {
+        const { data: deptAdmins } = await supabase
+          .from('department_admins')
+          .select('user_id, admin_order')
+          .eq('department_id', employee.department_id)
+          .eq('approve_employee_request', true)
+          .order('admin_order');
+
+        if (deptAdmins && deptAdmins.length > 0) {
+          // Find the first manager level that is NOT the submitter
+          const submitterUserId = user.id;
+          const nextNonSelfAdmin = deptAdmins.find(a => a.user_id !== submitterUserId);
+          
+          if (nextNonSelfAdmin) {
+            // Skip to the next non-self manager level
+            requestData.current_approval_level = nextNonSelfAdmin.admin_order;
+            requestData.current_phase = 'manager';
+          } else {
+            // All manager levels are the submitter themselves - skip to HR
+            const { data: firstHR } = await supabase
+              .from('hr_managers')
+              .select('admin_order')
+              .eq('is_active', true)
+              .order('admin_order')
+              .limit(1);
+
+            requestData.current_phase = 'hr';
+            requestData.status = 'manager_approved';
+            requestData.manager_approved_at = new Date().toISOString();
+            requestData.manager_approved_by = submitterUserId;
+            requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
+          }
+        }
       }
 
       if (selectedType === 'sick_leave' || selectedType === 'vacation') {
