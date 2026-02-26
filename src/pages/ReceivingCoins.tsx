@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2 } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download } from "lucide-react";
+import { downloadFile } from "@/lib/fileDownload";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
@@ -1038,9 +1039,9 @@ const ReceivingCoins = () => {
                   <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-64 rounded-lg border object-contain" />
                 </a>
               )}
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => window.open(bankTransferImage, "_blank")}>
-                <Eye className="h-4 w-4 mr-1" />
-                {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
+                <Download className="h-4 w-4 mr-1" />
+                {isArabic ? "تحميل الملف" : "Download File"}
               </Button>
             </div>
           </CardContent>
@@ -1067,9 +1068,9 @@ const ReceivingCoins = () => {
                       <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{att.file_name}</a>
                       {att.uploaded_by_name && <span className="text-xs text-muted-foreground">• {att.uploaded_by_name}</span>}
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => window.open(att.file_url, "_blank")}>
-                      <Eye className="h-4 w-4 mr-1" />
-                      {isArabic ? "عرض" : "View"}
+                    <Button variant="outline" size="sm" onClick={() => downloadFile(att.file_url, att.file_name || "attachment")}>
+                      <Download className="h-4 w-4 mr-1" />
+                      {isArabic ? "تحميل" : "Download"}
                     </Button>
                   </div>
                 );

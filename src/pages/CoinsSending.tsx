@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle, Maximize2 } from "lucide-react";
+import { downloadFile } from "@/lib/fileDownload";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
@@ -79,7 +80,7 @@ const CoinsSending = () => {
 
   const handleDownload = () => {
     if (selectedOrder?.bank_transfer_image) {
-      window.open(selectedOrder.bank_transfer_image, "_blank");
+      downloadFile(selectedOrder.bank_transfer_image, selectedOrder.order_number || "bank-transfer");
     }
   };
 
@@ -281,7 +282,7 @@ const CoinsSending = () => {
             )}
             <Button onClick={handleDownload} variant="outline">
               <Download className="h-4 w-4 mr-2" />
-              {isArabic ? "تحميل الصورة" : "Download Image"}
+              {isArabic ? "تحميل الملف" : "Download File"}
             </Button>
           </CardContent>
         </Card>
