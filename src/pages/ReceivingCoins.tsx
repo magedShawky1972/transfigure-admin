@@ -236,7 +236,7 @@ const ReceivingCoins = () => {
   const fetchReceipts = async () => {
     const { data } = await supabase
       .from("receiving_coins_header")
-      .select("*, currencies(currency_code), coins_purchase_orders(order_number)")
+      .select("*, currencies(currency_code), coins_purchase_orders(order_number, suppliers(supplier_name))")
       .order("created_at", { ascending: false })
       .limit(50);
     if (data) {
@@ -736,6 +736,7 @@ const ReceivingCoins = () => {
                     <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
                     <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
                     <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                    <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
                     <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                     <TableHead>{isArabic ? "سعر الصرف" : "Rate"}</TableHead>
                     <TableHead>{isArabic ? "مبلغ المعاملة" : "Transaction Amt"}</TableHead>
@@ -748,7 +749,7 @@ const ReceivingCoins = () => {
                 <TableBody>
                   {receipts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                         {isArabic ? "لا توجد إيصالات" : "No receipts found"}
                       </TableCell>
                     </TableRow>
@@ -762,6 +763,7 @@ const ReceivingCoins = () => {
                           <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
                           <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
                           <TableCell>{r.receipt_date}</TableCell>
+                          <TableCell>{(r as any).coins_purchase_orders?.suppliers?.supplier_name || "-"}</TableCell>
                           <TableCell>{(r as any).currencies?.currency_code || "-"}</TableCell>
                           <TableCell>{rate > 0 ? rate.toFixed(4) : "-"}</TableCell>
                           <TableCell>{rate > 0 ? txnAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>

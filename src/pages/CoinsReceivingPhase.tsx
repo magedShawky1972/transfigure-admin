@@ -49,7 +49,7 @@ const CoinsReceivingPhase = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*, currencies(currency_code, currency_name)")
+      .select("*, currencies(currency_code, currency_name), suppliers(supplier_name)")
       .order("created_at", { ascending: false });
 
     if (viewFilter === "pending") {
@@ -547,6 +547,7 @@ const CoinsReceivingPhase = () => {
                 <TableRow>
                   <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
                   <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                  <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
@@ -557,7 +558,7 @@ const CoinsReceivingPhase = () => {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       {isArabic ? "لا توجد طلبات للاستلام" : "No orders pending receiving"}
                     </TableCell>
                   </TableRow>
@@ -565,6 +566,7 @@ const CoinsReceivingPhase = () => {
                   <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                     <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
                     <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
+                    <TableCell>{(o as any).suppliers?.supplier_name || "-"}</TableCell>
                     <TableCell>{o.currencies?.currency_code || "-"}</TableCell>
                     <TableCell>{o.amount_in_currency ? parseFloat(o.amount_in_currency).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
                     <TableCell>{parseFloat(o.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
