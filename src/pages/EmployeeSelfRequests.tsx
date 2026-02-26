@@ -348,8 +348,9 @@ const EmployeeSelfRequests = () => {
         requestData.submitted_by_id = employee.id;
       }
 
-      // Check if the submitter (or the employee on whose behalf) is a department manager
-      // If so, skip manager approval levels where the submitter would approve their own request
+      // For non-other requests, find the correct first approver level
+      // This handles: 1) setting correct initial level when first approver isn't at level 0
+      //               2) skipping self-approval when submitter is a department manager
       if (selectedType !== 'other' && user) {
         const { data: deptAdmins } = await supabase
           .from('department_admins')
@@ -359,13 +360,13 @@ const EmployeeSelfRequests = () => {
           .order('admin_order');
 
         if (deptAdmins && deptAdmins.length > 0) {
-          // Find the first manager level that is NOT the submitter
           const submitterUserId = user.id;
-          const nextNonSelfAdmin = deptAdmins.find(a => a.user_id !== submitterUserId);
+          // Find the first approver that is NOT the submitter themselves
+          const firstValidApprover = deptAdmins.find(a => a.user_id !== submitterUserId);
           
-          if (nextNonSelfAdmin) {
-            // Skip to the next non-self manager level
-            requestData.current_approval_level = nextNonSelfAdmin.admin_order;
+          if (firstValidApprover) {
+            // Set approval level to the first valid approver's level
+            requestData.current_approval_level = firstValidApprover.admin_order;
             requestData.current_phase = 'manager';
           } else {
             // All manager levels are the submitter themselves - skip to HR
