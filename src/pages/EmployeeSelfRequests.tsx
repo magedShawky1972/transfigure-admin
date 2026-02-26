@@ -348,40 +348,47 @@ const EmployeeSelfRequests = () => {
         requestData.submitted_by_id = employee.id;
       }
 
-      // For non-other requests, find the correct first approver level
-      // This handles: 1) setting correct initial level when first approver isn't at level 0
-      //               2) skipping self-approval when submitter is a department manager
+      // For non-other requests, check if submitter is a department manager
+      // Any department manager's request should skip directly to HR Manager
       if (selectedType !== 'other' && user) {
-        const { data: deptAdmins } = await supabase
+        const submitterUserId = user.id;
+        
+        // Check if the submitter is a department admin (manager) in their department
+        const { data: submitterAdminRecord } = await supabase
           .from('department_admins')
           .select('user_id, admin_order')
           .eq('department_id', employee.department_id)
+          .eq('user_id', submitterUserId)
           .eq('approve_employee_request', true)
-          .order('admin_order');
+          .maybeSingle();
 
-        if (deptAdmins && deptAdmins.length > 0) {
-          const submitterUserId = user.id;
-          // Find the first approver that is NOT the submitter themselves
-          const firstValidApprover = deptAdmins.find(a => a.user_id !== submitterUserId);
-          
-          if (firstValidApprover) {
-            // Set approval level to the first valid approver's level
+        if (submitterAdminRecord) {
+          // Submitter IS a department manager - skip directly to HR
+          const { data: firstHR } = await supabase
+            .from('hr_managers')
+            .select('admin_order')
+            .eq('is_active', true)
+            .order('admin_order')
+            .limit(1);
+
+          requestData.current_phase = 'hr';
+          requestData.status = 'manager_approved';
+          requestData.manager_approved_at = new Date().toISOString();
+          requestData.manager_approved_by = submitterUserId;
+          requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
+        } else {
+          // Submitter is NOT a department manager - find the first valid approver
+          const { data: deptAdmins } = await supabase
+            .from('department_admins')
+            .select('user_id, admin_order')
+            .eq('department_id', employee.department_id)
+            .eq('approve_employee_request', true)
+            .order('admin_order');
+
+          if (deptAdmins && deptAdmins.length > 0) {
+            const firstValidApprover = deptAdmins[0];
             requestData.current_approval_level = firstValidApprover.admin_order;
             requestData.current_phase = 'manager';
-          } else {
-            // All manager levels are the submitter themselves - skip to HR
-            const { data: firstHR } = await supabase
-              .from('hr_managers')
-              .select('admin_order')
-              .eq('is_active', true)
-              .order('admin_order')
-              .limit(1);
-
-            requestData.current_phase = 'hr';
-            requestData.status = 'manager_approved';
-            requestData.manager_approved_at = new Date().toISOString();
-            requestData.manager_approved_by = submitterUserId;
-            requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
           }
         }
       }
