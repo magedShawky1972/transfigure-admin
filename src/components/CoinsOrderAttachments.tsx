@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Upload, Trash2, FileText, Image, File, Download, Eye, X } from "lucide-react";
+import { downloadFile } from "@/lib/fileDownload";
 
 interface Attachment {
   id: string;
@@ -144,7 +145,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
       setPreviewType(att.file_type);
       setPreviewName(att.file_name);
     } else {
-      window.open(att.file_url, "_blank");
+      downloadFile(att.file_url, att.file_name || "attachment");
     }
   };
 
@@ -253,7 +254,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(att.file_url, "_blank")}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadFile(att.file_url, att.file_name || "attachment")}>
                           <Download className="h-3.5 w-3.5" />
                         </Button>
                         {!readOnly && (
@@ -283,7 +284,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
                   className="w-full h-[80vh] rounded"
                 />
                 <div className="mt-2 flex justify-end">
-                  <Button variant="outline" size="sm" onClick={() => window.open(previewUrl, "_blank")}>
+                  <Button variant="outline" size="sm" onClick={() => downloadFile(previewUrl!, previewName || "document")}>
                     <Download className="h-4 w-4 mr-1" />
                     {isArabic ? "فتح PDF" : "Open PDF"}
                   </Button>
