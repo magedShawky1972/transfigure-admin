@@ -4,25 +4,29 @@
  */
 export const downloadFile = async (url: string, fallbackName = "download") => {
   try {
-    // Extract filename from URL
-    const urlPath = new URL(url).pathname;
-    const segments = urlPath.split("/").filter(Boolean);
-    const lastSegment = segments[segments.length - 1] || fallbackName;
-    
-    // Determine a good filename
-    let filename = decodeURIComponent(lastSegment);
-    
-    // If no extension, try to detect from content-type after fetch
     const response = await fetch(url);
     if (!response.ok) {
-      // Fallback: open in new tab
       window.open(url, "_blank");
       return;
     }
 
     const blob = await response.blob();
-    
-    // If filename has no extension, add one based on MIME type
+    const contentType = blob.type || response.headers.get("content-type") || "";
+
+    // Try to get filename from Content-Disposition header
+    const disposition = response.headers.get("content-disposition");
+    let filename = "";
+    if (disposition) {
+      const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
+      if (match?.[2]) filename = decodeURIComponent(match[2]);
+    }
+
+    // If no filename from header, use fallbackName
+    if (!filename) {
+      filename = fallbackName;
+    }
+
+    // If filename has no extension, add one based on content-type
     if (!filename.includes(".")) {
       const mimeToExt: Record<string, string> = {
         "application/pdf": ".pdf",
@@ -35,9 +39,13 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
         "application/vnd.ms-excel": ".xls",
         "application/msword": ".doc",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+        "text/plain": ".txt",
+        "text/csv": ".csv",
       };
-      const ext = mimeToExt[blob.type] || "";
-      filename = fallbackName + ext;
+      // Match base mime type (ignore charset etc.)
+      const baseMime = contentType.split(";")[0].trim().toLowerCase();
+      const ext = mimeToExt[baseMime] || "";
+      filename = filename + ext;
     }
 
     const blobUrl = window.URL.createObjectURL(blob);
@@ -49,7 +57,6 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(blobUrl);
   } catch {
-    // Fallback: open in new tab
     window.open(url, "_blank");
   }
 };
