@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -19,42 +18,94 @@ interface TaskNotificationRequest {
   completedByUserName: string;
 }
 
-async function sendEmailInBackground(
-  email: string,
-  userName: string,
-  emailSubject: string,
-  emailHtml: string
-) {
-  try {
-    const smtpClient = new SMTPClient({
-      connection: {
-        hostname: "smtp.hostinger.com",
-        port: 465,
-        tls: true,
-        auth: {
-          username: "edara@asuscards.com",
-          password: Deno.env.get("SMTP_PASSWORD") ?? "",
-        },
-      },
-    });
+// Encode subject to Base64 for proper UTF-8 handling
+function encodeSubject(subject: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(subject);
+  const base64 = btoa(String.fromCharCode(...bytes));
+  return `=?UTF-8?B?${base64}?=`;
+}
 
-    console.log("Attempting to send task notification email to:", email);
-    await smtpClient.send({
-      from: "Edara Support <edara@asuscards.com>",
-      to: email,
-      subject: emailSubject,
-      content: "auto",
-      html: emailHtml,
-    });
-    await smtpClient.close();
-    console.log("Email sent successfully to:", email);
-  } catch (emailError) {
-    console.error("Failed to send email to", email, ":", emailError);
+// Build raw email message with proper encoding for Arabic
+function buildRawEmail(
+  from: string,
+  to: string,
+  subject: string,
+  htmlBody: string
+): string {
+  const encodedSubject = encodeSubject(subject);
+
+  const headers = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${encodedSubject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    "",
+  ].join("\r\n");
+
+  const encoder = new TextEncoder();
+  const htmlBytes = encoder.encode(htmlBody);
+  const htmlBase64 = btoa(String.fromCharCode(...htmlBytes));
+  const lines = htmlBase64.match(/.{1,76}/g) || [];
+
+  return headers + "\r\n" + lines.join("\r\n");
+}
+
+// Raw SMTP client for proper Arabic email delivery
+async function sendRawEmail(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  from: string,
+  to: string,
+  rawMessage: string
+): Promise<void> {
+  const conn = await Deno.connectTls({ hostname: host, port });
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  async function read(): Promise<string> {
+    const buffer = new Uint8Array(1024);
+    const n = await conn.read(buffer);
+    return n ? decoder.decode(buffer.subarray(0, n)) : "";
+  }
+
+  async function write(cmd: string): Promise<void> {
+    await conn.write(encoder.encode(cmd + "\r\n"));
+  }
+
+  try {
+    await read();
+    await write(`EHLO localhost`);
+    await read();
+    await write(`AUTH LOGIN`);
+    await read();
+    await write(btoa(username));
+    await read();
+    await write(btoa(password));
+    const authResponse = await read();
+    if (!authResponse.startsWith("235")) {
+      throw new Error("SMTP Authentication failed");
+    }
+    await write(`MAIL FROM:<${username}>`);
+    await read();
+    await write(`RCPT TO:<${to}>`);
+    await read();
+    await write(`DATA`);
+    await read();
+    await conn.write(encoder.encode(rawMessage + "\r\n.\r\n"));
+    await read();
+    await write(`QUIT`);
+    console.log("Task notification email sent successfully via raw SMTP to:", to);
+  } finally {
+    conn.close();
   }
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -68,7 +119,6 @@ const handler = async (req: Request): Promise<Response> => {
     const { type, taskId, taskTitle, departmentId, completedByUserId, completedByUserName } = requestData;
 
     if (type === "task_completed") {
-      // Get department admins
       const { data: departmentAdmins, error: adminsError } = await supabase
         .from("department_admins")
         .select("user_id")
@@ -79,7 +129,6 @@ const handler = async (req: Request): Promise<Response> => {
         throw adminsError;
       }
 
-      // Get profiles for each admin
       const adminUserIds = (departmentAdmins || []).map((a: any) => a.user_id);
       const { data: adminProfiles } = adminUserIds.length > 0
         ? await supabase.from("profiles").select("user_id, user_name, email").in("user_id", adminUserIds)
@@ -92,7 +141,6 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log("Department admins found:", adminsWithProfiles.length);
 
-      // Get department name
       const { data: department } = await supabase
         .from("departments")
         .select("department_name")
@@ -101,7 +149,6 @@ const handler = async (req: Request): Promise<Response> => {
 
       const departmentName = department?.department_name || "Unknown Department";
 
-      // Current time in KSA
       const now = new Date();
       const ksaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
       const formattedTime = ksaTime.toLocaleString('ar-SA', { 
@@ -113,7 +160,12 @@ const handler = async (req: Request): Promise<Response> => {
         minute: '2-digit'
       });
 
-      // Send notifications to each department admin (except the one who completed the task)
+      const smtpHost = "smtp.hostinger.com";
+      const smtpPort = 465;
+      const smtpUsername = "edara@asuscards.com";
+      const smtpPassword = Deno.env.get("SMTP_PASSWORD") ?? "";
+      const fromAddress = "Edara Support <edara@asuscards.com>";
+
       for (const admin of adminsWithProfiles) {
         if (admin.user_id === completedByUserId) continue;
         
@@ -129,31 +181,46 @@ const handler = async (req: Request): Promise<Response> => {
           is_read: false,
         });
 
-        // Send email notification
+        // Send email notification via raw SMTP
         const emailSubject = "إشعار إكمال مهمة";
-        const emailHtml = `
-          <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
-            <h3 style="color: #22c55e;">تم إكمال مهمة</h3>
-            <p style="font-size: 16px;">
-              <strong>عنوان المهمة:</strong> ${taskTitle}
-            </p>
-            <p style="font-size: 16px;">
-              <strong>القسم:</strong> ${departmentName}
-            </p>
-            <p style="font-size: 16px;">
-              <strong>تم الإكمال بواسطة:</strong> ${completedByUserName}
-            </p>
-            <p style="font-size: 16px;">
-              <strong>وقت الإكمال:</strong> ${formattedTime}
-            </p>
-            <hr style="border: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #666; font-size: 14px;">
-              هذا إشعار تلقائي من نظام إدارة المهام.
-            </p>
-          </div>
-        `;
+        const emailHtml = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; direction: rtl; margin: 0; padding: 0; background-color: #f4f4f4;">
+  <div style="max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+    <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 600;">تم إكمال مهمة</h1>
+    </div>
+    <div style="padding: 30px;">
+      <p style="font-size: 16px; line-height: 1.8; margin: 10px 0;">
+        <strong>عنوان المهمة:</strong> ${taskTitle}
+      </p>
+      <p style="font-size: 16px; line-height: 1.8; margin: 10px 0;">
+        <strong>القسم:</strong> ${departmentName}
+      </p>
+      <p style="font-size: 16px; line-height: 1.8; margin: 10px 0;">
+        <strong>تم الإكمال بواسطة:</strong> ${completedByUserName}
+      </p>
+      <p style="font-size: 16px; line-height: 1.8; margin: 10px 0;">
+        <strong>وقت الإكمال:</strong> ${formattedTime}
+      </p>
+    </div>
+    <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px;">
+      <p style="margin: 0;">هذا إشعار تلقائي من نظام إدارة المهام - Edara</p>
+    </div>
+  </div>
+</body>
+</html>`;
 
-        await sendEmailInBackground(profile.email, profile.user_name, emailSubject, emailHtml);
+        try {
+          const rawMessage = buildRawEmail(fromAddress, profile.email, emailSubject, emailHtml);
+          await sendRawEmail(smtpHost, smtpPort, smtpUsername, smtpPassword, fromAddress, profile.email, rawMessage);
+        } catch (emailError) {
+          console.error("Failed to send email to", profile.email, ":", emailError);
+        }
 
         // Send push notification
         try {
