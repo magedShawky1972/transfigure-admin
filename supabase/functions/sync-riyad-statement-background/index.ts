@@ -292,6 +292,11 @@ serve(async (req) => {
     await supabase.from("riyad_statement_auto_imports").update(updates).eq("id", logId);
   };
 
+  const updateStep = async (step: string) => {
+    console.log(`Step: ${step}`);
+    await updateLog({ current_step: step });
+  };
+
   try {
     const imapHost = "imap.hostinger.com";
     const imapPort = 993;
@@ -305,13 +310,14 @@ serve(async (req) => {
       });
     }
 
+    await updateStep("connecting_to_email");
     console.log("Connecting to IMAP...");
     const imap = new IMAPClient(imapHost, imapPort);
     await imap.connect();
     await imap.login(email, emailPassword);
     await imap.select("INBOX");
 
-    console.log("Searching for today's emails...");
+    await updateStep("searching_emails");
     const messageIds = await imap.searchToday();
     console.log(`Found ${messageIds.length} emails from today`);
 
@@ -331,6 +337,7 @@ serve(async (req) => {
       const subjectMatch = headers.match(/Subject:\s*(.+?)(?:\r?\n(?!\s))/i);
       emailSubject = subjectMatch?.[1]?.trim() || "Riyad Bank Statement";
 
+      await updateStep("downloading_attachment");
       console.log(`Found Riyad Bank email: "${emailSubject}" (msg ${uid})`);
 
       // Fetch full message for attachment
@@ -357,6 +364,7 @@ serve(async (req) => {
     await updateLog({ email_subject: emailSubject });
 
     // Parse Excel - handle report header rows by finding the actual data header row
+    await updateStep("parsing_excel");
     console.log("Parsing Excel file...");
     const workbook = XLSX.read(attachment.data, { type: "array" });
     const sheetName = workbook.SheetNames[0];
@@ -444,6 +452,7 @@ serve(async (req) => {
     console.log(`${validData.length} rows have txn_number`);
 
     // Check for duplicates by txn_number
+    await updateStep("checking_duplicates");
     const txnNumbers = validData.map((row) => row.txn_number);
     const existingTxnNumbers = new Set<string>();
 
@@ -473,6 +482,7 @@ serve(async (req) => {
     console.log(`New: ${newRows.length}, Skipped (duplicates): ${skippedCount}`);
 
     // Insert new records in batches
+    await updateStep("inserting_records");
     let insertedCount = 0;
     const insertBatchSize = 200;
 
@@ -508,6 +518,7 @@ serve(async (req) => {
 
     // Post-insert: Link acquirer_private_data to bank_ledger
     if (insertedCount > 0) {
+      await updateStep("matching_bank_ledger");
       console.log("Running bank_ledger matching...");
       try {
         // Get the new records' acquirer_private_data values
@@ -544,11 +555,13 @@ serve(async (req) => {
       }
     }
 
+    await updateStep("sending_notification");
     // Update log
     await updateLog({
       status: "completed",
       records_inserted: insertedCount,
       records_skipped: skippedCount,
+      current_step: "completed",
     });
 
     // Insert into upload_logs for Upload History page
