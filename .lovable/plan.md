@@ -1,49 +1,66 @@
 
 
-## Fix: Wrong `order_date_int` in Sales Order Header
+## Plan: Auto-Import Riyad Bank Statement from Email (Background Service)
 
-### Root Cause
-The trigger `set_order_date_int` on `sales_order_header` calls the wrong function: `calculate_order_date_int()` instead of `set_order_date_int()`.
+### Overview
+Create a background edge function that runs daily at 00:00, connects to `cto@asuscards.com` via IMAP, finds the Riyad Bank statement email, extracts the Excel attachment, parses it using the existing column mappings (sheet `riyadbankstatement`), skips duplicates, inserts new records into `riyadbankstatement` table, and sends a summary notification email to `maged.shawky@asuscards.com`.
 
-- `calculate_order_date_int()` computes the date from **`created_at`** (database insertion time), NOT from `order_date` (actual order time)
-- For order 822262: the order was placed at 21:15 KSA (Feb 17), but inserted into the database at 00:19 KSA (Feb 18). The trigger used the insertion time, producing `20260218` instead of the correct `20260217`
+### Prerequisites
+- `cto@asuscards.com` must be configured in `profiles` or we hardcode the IMAP credentials as secrets (since this email is not in profiles currently)
+- IMAP/SMTP settings from `mail_types` table (Hostinger: imap.hostinger.com:993, smtp.hostinger.com:465)
 
-### Fix Steps
+### Step 1: Add secrets for cto@asuscards.com IMAP credentials
+- Need `CTO_EMAIL_PASSWORD` secret for the cto@asuscards.com mailbox password
+- The IMAP host/port are already known (Hostinger)
 
-1. **Replace the trigger** to use the correct function `set_order_date_int()` which derives the date from `order_date`:
-   - Drop the current trigger that calls `calculate_order_date_int()`
-   - Create a new trigger that calls `set_order_date_int()` and fires on INSERT or UPDATE OF `order_date`
+### Step 2: Create edge function `sync-riyad-statement-background`
+This function will:
+1. **Connect to IMAP** (imap.hostinger.com:993) as `cto@asuscards.com`
+2. **Search for emails** from Riyad Bank received today (SEARCH FROM "riyadbank" or similar subject pattern — we'll need to confirm the sender/subject pattern)
+3. **Extract Excel attachment** from the email (parse MIME, find the .xlsx part, decode from base64)
+4. **Parse the Excel file** using the existing column mappings from `excel_column_mappings` for sheet `riyadbankstatement` (19 columns mapped: Txn. Number is PK)
+5. **Check for duplicates** by `txn_number` (unique constraint exists) — always **skip** duplicates
+6. **Handle missing/extra fields**: Map only known columns, log warnings for missing or extra columns in the Excel
+7. **Insert new records** into `riyadbankstatement` table
+8. **Post-insert**: Run the same bank_ledger matching logic as `load-excel-data` (linking via `acquirer_private_data` → `order_payment.paymentrefrence` → `bank_ledger.reference_number`)
+9. **Send notification email** to `maged.shawky@asuscards.com` using raw SMTP (same pattern as task notifications) with:
+   - Subject: "تم تحميل كشف بنك الرياض - Riyad Bank Statement Uploaded"
+   - Body: number of records uploaded, number of duplicates skipped, date range
 
-2. **Fix existing corrupted data** by recalculating `order_date_int` for all rows where `order_date` exists:
-   ```text
-   UPDATE sales_order_header
-   SET order_date_int = to_char(order_date, 'YYYYMMDD')::integer
-   WHERE order_date IS NOT NULL
-     AND order_date_int != to_char(order_date, 'YYYYMMDD')::integer;
-   ```
+### Step 3: Configure cron job (pg_cron)
+Schedule the function to run daily at 00:00 KSA (21:00 UTC):
+```sql
+SELECT cron.schedule(
+  'sync-riyad-statement-daily',
+  '0 21 * * *',  -- 00:00 KSA = 21:00 UTC
+  $$ SELECT net.http_post(...) $$
+);
+```
 
-3. **Propagate fixes to child tables** (`sales_order_line`, `payment_transactions`) so their `order_date_int` values also get corrected
+### Step 4: Add to `supabase/config.toml`
+```toml
+[functions.sync-riyad-statement-background]
+verify_jwt = false
+```
+
+### Step 5: Create a log table for tracking auto-imports
+- `riyad_statement_auto_imports` table with columns: id, import_date, records_inserted, records_skipped, status, error_message, email_subject, created_at
+- This provides visibility into the background process
 
 ### Technical Details
 
-The correct function already exists:
-```text
-set_order_date_int():
-  -- Uses order_date (actual order time), no timezone conversion needed
-  -- since order_date is already stored in KSA time
-  NEW.order_date_int := to_char(NEW.order_date, 'YYYYMMDD')::integer;
-```
+**Excel parsing in Deno**: Will use the `xlsx` library via esm.sh to parse the attachment in-memory (same approach as `load-excel-data` but reading from base64-decoded attachment bytes instead of frontend-uploaded data).
 
-The wrong function currently attached:
-```text
-calculate_order_date_int():
-  -- Uses created_at (DB insertion time) converted to KSA
-  NEW.order_date_int := TO_CHAR(NEW.created_at AT TIME ZONE 'Asia/Riyadh', 'YYYYMMDD')::INTEGER;
-```
+**IMAP attachment extraction**: Extend the existing IMAP client pattern from `fetch-email-body-imap` to extract binary attachments (base64-decoded MIME parts with `Content-Disposition: attachment` and `.xlsx` filename).
 
-SQL migration will:
-1. Drop the bad trigger
-2. Create a correct trigger using `set_order_date_int()` on INSERT/UPDATE OF `order_date`
-3. Bulk-fix all mismatched `order_date_int` values
-4. Propagate corrected values to `sales_order_line` and `payment_transactions`
+**Column mapping**: Hardcode the known 19 column mappings from the database (Txn. Date → txn_date, Card Number → card_number, etc.) to avoid querying `excel_column_mappings` at runtime, making it self-contained.
+
+**Duplicate handling**: Use `txn_number` as the unique key. Query existing `txn_number` values for the date range, skip any that already exist.
+
+**Email notification**: Uses the raw SMTP + Base64 approach (same as `send-task-notification`) to `maged.shawky@asuscards.com` with Arabic RTL template.
+
+### Questions Needed
+Before implementing, I need to confirm:
+- The **email password** for `cto@asuscards.com` (will request via secrets tool)
+- The **sender address or subject pattern** of the Riyad Bank daily statement email (to identify the correct email to process)
 
