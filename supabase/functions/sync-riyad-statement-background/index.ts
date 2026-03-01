@@ -100,11 +100,11 @@ class IMAPClient {
   }
 
   async searchToday(): Promise<number[]> {
-    // Search for emails from today
+    // Search for emails from 9910013@riyadbank.com with subject "Merchant Report"
     const today = new Date();
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const dateStr = `${today.getDate()}-${months[today.getMonth()]}-${today.getFullYear()}`;
-    const res = await this.sendCommand(`SEARCH SINCE ${dateStr}`);
+    const res = await this.sendCommand(`SEARCH SINCE ${dateStr} FROM "9910013@riyadbank.com" SUBJECT "Merchant Report"`);
     if (!res.ok) return [];
     const m = res.response.match(/\*\s+SEARCH\s+([0-9 ]+)\r?\n/i);
     const ids = (m?.[1] ?? "").trim().split(/\s+/).filter(Boolean).map(Number);
@@ -323,8 +323,8 @@ serve(async (req) => {
       const uid = messageIds[i];
       const headers = await imap.fetchHeaders(uid);
 
-      // Check if this is from Riyad Bank (flexible matching)
-      const isRiyadBank = /riyad/i.test(headers) || /riyadbank/i.test(headers) || /merchant.*statement/i.test(headers);
+      // Verify sender is 9910013@riyadbank.com and subject contains "Merchant Report"
+      const isRiyadBank = /9910013@riyadbank\.com/i.test(headers) && /Merchant\s*Report/i.test(headers);
       if (!isRiyadBank) continue;
 
       // Extract subject
