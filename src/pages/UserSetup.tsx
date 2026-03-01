@@ -226,6 +226,7 @@ interface UserPermission {
         { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
         { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
         { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
+        { key: "autoUpload", label: "التحميل التلقائي", labelEn: "Auto Upload" },
       ]
     }
   ];
