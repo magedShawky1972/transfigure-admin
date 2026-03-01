@@ -3368,6 +3368,36 @@ export type Database = {
           },
         ]
       }
+      external_db_connections: {
+        Row: {
+          anon_key: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          anon_key: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          anon_key?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       external_migration_log: {
         Row: {
           connection_name: string | null
