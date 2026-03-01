@@ -762,8 +762,11 @@ const SystemRestore = () => {
     }
 
     // 2. Create missing functions (dependency-aware ordering)
+    const skippedExternalOnlyFunctions = new Set(['get_schema_migrations']);
     const functionPriority = ['has_role', 'is_admin', 'update_updated_at_column'];
-    const sortedMissingFunctions = [...comparisonResults.missingFunctions].sort((a, b) => {
+    const sortedMissingFunctions = [...comparisonResults.missingFunctions]
+      .filter((f) => !skippedExternalOnlyFunctions.has(f))
+      .sort((a, b) => {
       const ai = functionPriority.indexOf(a);
       const bi = functionPriority.indexOf(b);
       if (ai === -1 && bi === -1) return a.localeCompare(b);
@@ -841,6 +844,7 @@ const SystemRestore = () => {
 
       for (let i = 0; i < retryItems.length; i++) {
         const item = retryItems[i];
+        if (item.category === 'Function' && item.name === 'get_schema_migrations') continue;
         setMigrationSyncProgress({ current: i + 1, total: retryItems.length, currentFile: `Pass ${pass}: ${item.category} ${item.name}` });
 
         // Try to auto-create missing dependencies (types/tables/functions) before retrying
@@ -998,7 +1002,8 @@ const SystemRestore = () => {
       const extTypesSet = new Set(externalTypes);
 
       const missingTablesBase = localTables.filter((t: string) => !extTablesSet.has(t));
-      const missingFunctions = localFunctions.filter((f: string) => !extFunctionsSet.has(f));
+      const skippedExternalOnlyFunctions = new Set(['get_schema_migrations']);
+      const missingFunctions = localFunctions.filter((f: string) => !extFunctionsSet.has(f) && !skippedExternalOnlyFunctions.has(f));
       const missingTriggers = localTriggers.filter((t: string) => !extTriggersSet.has(t));
       const missingViews = localViews.filter((v: string) => !extViewsSet.has(v));
       const missingTypes = localTypes.filter((t: any) => !extTypesSet.has(t.name));
