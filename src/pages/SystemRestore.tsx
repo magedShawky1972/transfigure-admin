@@ -292,6 +292,33 @@ const SystemRestore = () => {
     
     return data;
   };
+
+  // Fetch all rows from RPCs that can exceed PostgREST default page size (1000 rows)
+  const fetchAllRpcRows = async (rpcName: string, args: Record<string, any> = {}, pageSize = 1000) => {
+    const allRows: any[] = [];
+    let from = 0;
+
+    while (true) {
+      let query: any = supabase.rpc(rpcName as any, args as any);
+      if (typeof query.range === 'function') {
+        query = query.range(from, from + pageSize - 1);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const rows = Array.isArray(data) ? data : [];
+      allRows.push(...rows);
+
+      if (rows.length < pageSize) break;
+      from += pageSize;
+
+      // safety guard against infinite loops on unexpected API behavior
+      if (from > 200000) break;
+    }
+
+    return allRows;
+  };
   
   // Load migration tracking state for current connection
   const loadMigrationTrackingState = async (url: string) => {
@@ -456,8 +483,10 @@ const SystemRestore = () => {
       // Tables
       if (comparisonResults.missingTables.length) {
         lines.push('\n-- ======= MISSING TABLES =======');
-        const { data: cols } = await supabase.rpc('get_table_columns_info') as any;
-        const { data: pks } = await supabase.rpc('get_primary_keys_info') as any;
+        const [cols, pks] = await Promise.all([
+          fetchAllRpcRows('get_table_columns_info'),
+          fetchAllRpcRows('get_primary_keys_info'),
+        ]);
         for (const tableName of comparisonResults.missingTables) {
           const tableCols = (cols || []).filter((c: any) => c.table_name === tableName);
           if (tableCols.length === 0) { lines.push(`-- Table ${tableName}: No column info found`); continue; }
@@ -476,7 +505,7 @@ const SystemRestore = () => {
       // Functions
       if (comparisonResults.missingFunctions.length) {
         lines.push('\n-- ======= MISSING FUNCTIONS =======');
-        const { data: funcs } = await supabase.rpc('get_db_functions_info') as any;
+        const funcs = await fetchAllRpcRows('get_db_functions_info');
         for (const funcName of comparisonResults.missingFunctions) {
           const funcDef = (funcs || []).find((f: any) => f.function_name === funcName);
           if (funcDef?.function_definition) {
@@ -490,7 +519,7 @@ const SystemRestore = () => {
       // Triggers
       if (comparisonResults.missingTriggers.length) {
         lines.push('\n-- ======= MISSING TRIGGERS =======');
-        const { data: triggers } = await supabase.rpc('get_triggers_info') as any;
+        const triggers = await fetchAllRpcRows('get_triggers_info');
         for (const triggerStr of comparisonResults.missingTriggers) {
           const [trigName, , tableName] = triggerStr.split(' ');
           const trigDef = (triggers || []).find((t: any) => t.trigger_name === trigName && t.event_object_table === tableName);
@@ -504,7 +533,7 @@ const SystemRestore = () => {
 
       // Foreign keys
       if (comparisonResults.missingTables.length) {
-        const { data: fks } = await supabase.rpc('get_foreign_keys_info') as any;
+        const fks = await fetchAllRpcRows('get_foreign_keys_info');
         const relevantFks = (fks || []).filter((fk: any) => comparisonResults.missingTables.includes(fk.table_name));
         if (relevantFks.length) {
           lines.push('\n-- ======= FOREIGN KEYS =======');
@@ -654,18 +683,13 @@ const SystemRestore = () => {
     };
 
     // Fetch all metadata upfront to avoid repeated calls
-    const [colsRes, pksRes, funcsRes, triggersRes, fksRes] = await Promise.all([
-      supabase.rpc('get_table_columns_info') as any,
-      supabase.rpc('get_primary_keys_info') as any,
-      supabase.rpc('get_db_functions_info') as any,
-      supabase.rpc('get_triggers_info') as any,
-      supabase.rpc('get_foreign_keys_info') as any,
+    const [allCols, allPks, allFuncs, allTriggers, allFks] = await Promise.all([
+      fetchAllRpcRows('get_table_columns_info'),
+      fetchAllRpcRows('get_primary_keys_info'),
+      fetchAllRpcRows('get_db_functions_info'),
+      fetchAllRpcRows('get_triggers_info'),
+      fetchAllRpcRows('get_foreign_keys_info'),
     ]);
-    const allCols = colsRes.data || [];
-    const allPks = pksRes.data || [];
-    const allFuncs = funcsRes.data || [];
-    const allTriggers = triggersRes.data || [];
-    const allFks = fksRes.data || [];
 
     const buildCreateTypeSql = (typeInfo: any): string => {
       if (typeInfo?.type === 'enum' && typeInfo.values) {
@@ -918,28 +942,20 @@ const SystemRestore = () => {
   const handleMatchCurrentSituation = async () => {
     setMatchingCurrentSituation(true);
     try {
-      // Query LOCAL tables, functions, triggers, types using existing helper RPCs
-      const [localColsRes, localFunctionsRes, localTriggersRes, localTypesRes] = await Promise.all([
-        supabase.rpc('get_table_columns_info') as any,
-        supabase.rpc('get_db_functions_info') as any,
-        supabase.rpc('get_triggers_info') as any,
-        supabase.rpc('get_user_defined_types_info') as any,
+      // Query LOCAL tables, functions, triggers, types using paged RPC readers
+      const [localColsData, localFunctionsData, localTriggersData, localTypesData] = await Promise.all([
+        fetchAllRpcRows('get_table_columns_info'),
+        fetchAllRpcRows('get_db_functions_info'),
+        fetchAllRpcRows('get_triggers_info'),
+        fetchAllRpcRows('get_user_defined_types_info'),
       ]);
 
-      const localTables = Array.isArray(localColsRes.data) 
-        ? [...new Set(localColsRes.data.map((r: any) => r.table_name))].sort() as string[]
-        : [];
-      const localFunctions = Array.isArray(localFunctionsRes.data) 
-        ? [...new Set(localFunctionsRes.data.map((r: any) => r.function_name))].sort() as string[]
-        : [];
-      const localTriggers = Array.isArray(localTriggersRes.data) 
-        ? [...new Set(localTriggersRes.data.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`))].sort() as string[]
-        : [];
-      const localTypes = Array.isArray(localTypesRes.data)
-        ? localTypesRes.data
-            .filter((t: any) => t.type_type === 'enum' || t.type_type === 'domain')
-            .map((t: any) => ({ name: t.type_name, type: t.type_type, values: t.enum_values, base: t.base_type }))
-        : [];
+      const localTables = [...new Set(localColsData.map((r: any) => r.table_name))].sort() as string[];
+      const localFunctions = [...new Set(localFunctionsData.map((r: any) => r.function_name))].sort() as string[];
+      const localTriggers = [...new Set(localTriggersData.map((r: any) => `${r.trigger_name} ON ${r.event_object_table}`))].sort() as string[];
+      const localTypes = localTypesData
+        .filter((t: any) => t.type_type === 'enum' || t.type_type === 'domain')
+        .map((t: any) => ({ name: t.type_name, type: t.type_type, values: t.enum_values, base: t.base_type }));
       const localViews: string[] = [];
 
       // Query EXTERNAL tables, functions, triggers, views, types
@@ -972,9 +988,7 @@ const SystemRestore = () => {
       // Infer table dependencies from missing functions/triggers so critical tables (e.g. user_roles)
       // are visible in "Missing Tables" even when only discovered through function/trigger failures.
       const localFunctionDefMap = new Map<string, string>(
-        Array.isArray(localFunctionsRes.data)
-          ? localFunctionsRes.data.map((r: any) => [r.function_name, r.function_definition || ''])
-          : []
+        localFunctionsData.map((r: any) => [r.function_name, r.function_definition || ''])
       );
       const inferredDependencyTables = new Set<string>();
 
