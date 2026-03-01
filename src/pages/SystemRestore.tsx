@@ -963,11 +963,44 @@ const SystemRestore = () => {
       const extViewsSet = new Set(externalViews);
       const extTypesSet = new Set(externalTypes);
 
-      const missingTables = localTables.filter((t: string) => !extTablesSet.has(t));
+      const missingTablesBase = localTables.filter((t: string) => !extTablesSet.has(t));
       const missingFunctions = localFunctions.filter((f: string) => !extFunctionsSet.has(f));
       const missingTriggers = localTriggers.filter((t: string) => !extTriggersSet.has(t));
       const missingViews = localViews.filter((v: string) => !extViewsSet.has(v));
       const missingTypes = localTypes.filter((t: any) => !extTypesSet.has(t.name));
+
+      // Infer table dependencies from missing functions/triggers so critical tables (e.g. user_roles)
+      // are visible in "Missing Tables" even when only discovered through function/trigger failures.
+      const localFunctionDefMap = new Map<string, string>(
+        Array.isArray(localFunctionsRes.data)
+          ? localFunctionsRes.data.map((r: any) => [r.function_name, r.function_definition || ''])
+          : []
+      );
+      const inferredDependencyTables = new Set<string>();
+
+      for (const fnName of missingFunctions) {
+        const fnDef = localFunctionDefMap.get(fnName);
+        if (!fnDef || typeof fnDef !== 'string') continue;
+
+        const tableRefRegex = /(?:from|join|update|into|delete\s+from|table)\s+public\."?([a-zA-Z0-9_]+)"?/gi;
+        let match: RegExpExecArray | null;
+        while ((match = tableRefRegex.exec(fnDef)) !== null) {
+          inferredDependencyTables.add(match[1]);
+        }
+      }
+
+      for (const triggerLabel of missingTriggers) {
+        const [, triggerTable] = triggerLabel.split(' ON ');
+        if (triggerTable) inferredDependencyTables.add(triggerTable);
+      }
+
+      // Avoid misclassifying function names as table names.
+      for (const fnName of localFunctions) {
+        inferredDependencyTables.delete(fnName);
+      }
+
+      const inferredMissingTables = Array.from(inferredDependencyTables).filter((t) => !extTablesSet.has(t));
+      const missingTables = [...new Set([...missingTablesBase, ...inferredMissingTables])].sort();
 
       const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0;
 
