@@ -410,7 +410,7 @@ const SupplierAdvancePayment = () => {
             <CardHeader>
               <CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <label className="cursor-pointer">
                   <Button variant="outline" asChild disabled={uploading}>
@@ -422,26 +422,28 @@ const SupplierAdvancePayment = () => {
                   <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleImageUpload} disabled={uploading} />
                 </label>
                 {bankTransferImage && (
-                  <div className="flex items-center gap-2">
-                    {isPdf(bankTransferImage) ? (
-                      <div className="flex items-center gap-2 p-2 border rounded bg-muted">
-                        <FileText className="h-6 w-6 text-destructive" />
-                        <span className="text-sm">{isArabic ? "ملف PDF" : "PDF File"}</span>
-                        <Button size="sm" variant="ghost" onClick={() => window.open(bankTransferImage, "_blank")}>
-                          <Maximize2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <img src={bankTransferImage} alt="Bank Transfer" className="h-16 w-16 object-cover rounded border cursor-pointer" onClick={() => setShowImagePreview(true)} />
-                        <Button size="sm" variant="ghost" onClick={() => setShowImagePreview(true)}>
-                          <Maximize2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                  <Button variant="outline" size="sm" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تحميل" : "Download"}
+                  </Button>
                 )}
               </div>
+              {bankTransferImage && (
+                <div className="relative">
+                  {isPdf(bankTransferImage) ? (
+                    <iframe
+                      src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
+                      title="Transfer"
+                      className="w-full h-[400px] rounded-lg border"
+                    />
+                  ) : (
+                    <img src={bankTransferImage} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
+                  )}
+                  <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => setShowImagePreview(true)}>
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -501,9 +503,17 @@ const SupplierAdvancePayment = () => {
 
       {/* Image Preview Dialog */}
       <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
           {bankTransferImage && (
-            <img src={bankTransferImage} alt="Bank Transfer Preview" className="w-full h-auto object-contain" />
+            isPdf(bankTransferImage) ? (
+              <iframe
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
+                title="Transfer Preview"
+                className="w-full h-[85vh] rounded"
+              />
+            ) : (
+              <img src={bankTransferImage} alt="Transfer Preview" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+            )
           )}
         </DialogContent>
       </Dialog>
