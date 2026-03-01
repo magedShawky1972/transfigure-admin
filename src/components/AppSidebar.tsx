@@ -44,7 +44,8 @@ import {
   Target,
   Undo2,
   Coins,
-  ImageIcon
+  ImageIcon,
+  Bot
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -169,6 +170,7 @@ export function AppSidebar() {
     "/hr-manager-setup": "hrManagerSetup",
     "/acknowledgment-documents": "acknowledgmentDocuments",
     "/sales-order-entry": "salesOrderEntry",
+    "/auto-upload": "autoUpload",
   };
 
   useEffect(() => {
@@ -421,6 +423,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'لوحة الأمان' : 'Security Dashboard', url: "/security-dashboard", icon: Shield },
         { title: language === 'ar' ? 'سجلات استهلاك API' : 'API Consumption Logs', url: "/api-consumption-logs", icon: ScrollText },
         { title: language === 'ar' ? 'تحديث سجل البنك' : 'Update Bank Ledger', url: "/update-bank-ledger", icon: Database },
+        { title: language === 'ar' ? 'التحميل التلقائي' : 'Auto Upload', url: "/auto-upload", icon: Bot },
       ]
     }
   ];

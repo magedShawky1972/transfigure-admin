@@ -140,6 +140,7 @@ import CoinsPurchaseFollowUp from "./pages/CoinsPurchaseFollowUp";
 import MissingShiftImages from "./pages/MissingShiftImages";
 import SalesOrderEntry from "./pages/SalesOrderEntry";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
+import AutoUpload from "./pages/AutoUpload";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
 const queryClient = new QueryClient();
 
@@ -289,6 +290,7 @@ const App = () => (
               <Route path="/sales-order-entry" element={<SalesOrderEntry />} />
               <Route path="/coins-transaction-guide" element={<CoinsTransactionGuide />} />
               <Route path="/supplier-advance-payment" element={<SupplierAdvancePayment />} />
+              <Route path="/auto-upload" element={<AutoUpload />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
