@@ -389,6 +389,20 @@ const EmployeeSelfRequests = () => {
             const firstValidApprover = deptAdmins[0];
             requestData.current_approval_level = firstValidApprover.admin_order;
             requestData.current_phase = 'manager';
+          } else {
+            // No department-level approver exists - route directly to HR Manager
+            const { data: firstHR } = await supabase
+              .from('hr_managers')
+              .select('admin_order')
+              .eq('is_active', true)
+              .order('admin_order')
+              .limit(1);
+
+            requestData.current_phase = 'hr';
+            requestData.status = 'manager_approved';
+            requestData.manager_approved_at = new Date().toISOString();
+            requestData.manager_approved_by = submitterUserId;
+            requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
           }
         }
       }
