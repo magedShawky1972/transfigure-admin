@@ -5559,6 +5559,45 @@ export type Database = {
           },
         ]
       }
+      riyad_statement_auto_imports: {
+        Row: {
+          created_at: string
+          email_subject: string | null
+          error_message: string | null
+          extra_columns: string[] | null
+          id: string
+          import_date: string
+          missing_columns: string[] | null
+          records_inserted: number
+          records_skipped: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email_subject?: string | null
+          error_message?: string | null
+          extra_columns?: string[] | null
+          id?: string
+          import_date?: string
+          missing_columns?: string[] | null
+          records_inserted?: number
+          records_skipped?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email_subject?: string | null
+          error_message?: string | null
+          extra_columns?: string[] | null
+          id?: string
+          import_date?: string
+          missing_columns?: string[] | null
+          records_inserted?: number
+          records_skipped?: number
+          status?: string
+        }
+        Relationships: []
+      }
       riyadbankstatement: {
         Row: {
           acquirer_private_data: string | null
