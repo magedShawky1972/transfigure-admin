@@ -200,22 +200,31 @@ const AutoUpload = () => {
 
     try {
       let done = false;
+      let retries = 0;
       while (!done) {
-        const { data, error } = await supabase.functions.invoke("sync-riyad-statement-background", {
-          body: { mode: "process", log_id: activeLogId },
-        });
+        try {
+          const { data, error } = await supabase.functions.invoke("sync-riyad-statement-background", {
+            body: { mode: "process", log_id: activeLogId },
+          });
 
-        if (error) throw error;
+          if (error) throw error;
+          retries = 0; // reset on success
 
-        if (data?.files) {
-          setFoundFiles(data.files);
-        }
+          if (data?.files) {
+            setFoundFiles(data.files);
+          }
 
-        done = data?.done === true;
+          done = data?.done === true;
 
-        if (!done && data?.remaining > 0) {
-          // Small delay between batches
-          await new Promise(resolve => setTimeout(resolve, 500));
+          if (!done) {
+            // Small delay between files
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        } catch (batchErr: any) {
+          retries++;
+          if (retries >= 3) throw batchErr;
+          // Retry after a longer delay on transient errors
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
     } catch (err: any) {
