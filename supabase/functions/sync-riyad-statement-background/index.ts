@@ -554,9 +554,8 @@ serve(async (req) => {
       await imap.login(email, emailPassword);
       await imap.select("INBOX");
 
-      // Process max 3 files per call to stay within CPU limits
-      const MAX_FILES_PER_CALL = 3;
-      const filesToProcess = pendingFiles.slice(0, MAX_FILES_PER_CALL);
+      // Process only 1 file per call to stay within CPU limits
+      const filesToProcess = pendingFiles.slice(0, 1);
 
       let totalInserted = logEntry.records_inserted || 0;
       let totalSkipped = logEntry.records_skipped || 0;
