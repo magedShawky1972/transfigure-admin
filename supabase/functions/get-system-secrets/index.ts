@@ -60,6 +60,12 @@ serve(async (req) => {
           CLOUDINARY_API_SECRET: Deno.env.get("CLOUDINARY_API_SECRET") || "Not configured",
         };
         break;
+      case "cto_email":
+        secretData = {
+          CTO_EMAIL: "cto@asuscards.com",
+          CTO_EMAIL_PASSWORD: Deno.env.get("CTO_EMAIL_PASSWORD") || "Not configured",
+        };
+        break;
       default:
         return new Response(
           JSON.stringify({ error: "Invalid secret type" }),
