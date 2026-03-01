@@ -408,6 +408,7 @@ const EmployeeRequestApprovals = () => {
         <CardHeader><CardTitle>{language === 'ar' ? 'الطلبات' : 'Requests'}</CardTitle></CardHeader>
         <CardContent>
           <ScrollArea className="h-[500px]">
+            <div className="min-w-[700px]">
             <Table>
               <TableHeader><TableRow>
                 <TableHead>{language === 'ar' ? 'رقم' : '#'}</TableHead>
@@ -475,6 +476,7 @@ const EmployeeRequestApprovals = () => {
                 })}
               </TableBody>
             </Table>
+            </div>
           </ScrollArea>
         </CardContent>
       </Card>
