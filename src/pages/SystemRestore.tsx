@@ -692,7 +692,7 @@ const SystemRestore = () => {
       const tablePks = allPks.filter((p: any) => p.table_name === tableName).map((p: any) => `"${p.column_name}"`);
       const pkClause = tablePks.length > 0 ? `,\n  PRIMARY KEY (${tablePks.join(', ')})` : '';
 
-      return `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n);\nALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;`;
+      return `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n)`;
     };
 
     // 0. Create missing types
@@ -716,6 +716,7 @@ const SystemRestore = () => {
         continue;
       }
       await execWithCapture('Table', tableName, createSql);
+      await callExternalProxy('exec_sql', { sql: `ALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY` }).catch(() => {});
       await new Promise(r => setTimeout(r, 50));
     }
 
@@ -755,7 +756,7 @@ const SystemRestore = () => {
         errors.push(`Trigger ${triggerStr}: No definition found locally`);
         continue;
       }
-      const createTriggerSql = `DROP TRIGGER IF EXISTS "${trigDef.trigger_name}" ON public."${trigDef.event_object_table}"; CREATE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement};`;
+      const createTriggerSql = `DO $$ BEGIN CREATE TRIGGER "${trigDef.trigger_name}" ${trigDef.action_timing} ${trigDef.event_manipulation} ON public."${trigDef.event_object_table}" FOR EACH ROW ${trigDef.action_statement}; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`;
       await execWithCapture('Trigger', triggerStr, createTriggerSql);
       await new Promise(r => setTimeout(r, 50));
     }
@@ -805,9 +806,24 @@ const SystemRestore = () => {
         const relationMissing = item.error.match(/relation\s+"?public\.([a-zA-Z0-9_]+)"?\s+does not exist/i);
         if (relationMissing) {
           const depTable = relationMissing[1];
+
+          // Ensure user-defined types used by this table exist first
+          const depTableCols = allCols.filter((c: any) => c.table_name === depTable);
+          const depUdtNames = [...new Set(depTableCols.filter((c: any) => c.data_type === 'USER-DEFINED').map((c: any) => c.udt_name))];
+          for (const udtName of depUdtNames) {
+            const typeInfo = comparisonResults.localTypes?.find((t: any) => t.name === udtName);
+            const depTypeSql = buildCreateTypeSql(typeInfo);
+            if (depTypeSql) {
+              try { await callExternalProxy('exec_sql', { sql: depTypeSql }); } catch {}
+            }
+          }
+
           const depTableSql = buildCreateTableSql(depTable);
           if (depTableSql) {
-            try { await callExternalProxy('exec_sql', { sql: depTableSql }); } catch {}
+            try {
+              await callExternalProxy('exec_sql', { sql: depTableSql });
+              await callExternalProxy('exec_sql', { sql: `ALTER TABLE public."${depTable}" ENABLE ROW LEVEL SECURITY` });
+            } catch {}
           }
         }
 
