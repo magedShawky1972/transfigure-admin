@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Play, History, Bot, CheckCircle2, AlertCircle, Clock, Ban, Loader2 } from "lucide-react";
+import { Play, History, Bot, CheckCircle2, AlertCircle, Clock, Ban, Loader2, Mail, Download, FileSpreadsheet, Search, Database, Link2, Bell, CircleDot } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
@@ -24,6 +24,7 @@ interface AutoImportLog {
   error_message: string | null;
   email_subject: string | null;
   created_at: string;
+  current_step: string | null;
 }
 
 interface AutoJob {
@@ -36,6 +37,18 @@ interface AutoJob {
   schedule: string;
   icon: string;
 }
+
+const STEPS = [
+  { key: "connecting_to_email", label: "Connecting to Email Server", labelAr: "الاتصال بخادم البريد", icon: Mail },
+  { key: "searching_emails", label: "Searching for Emails", labelAr: "البحث عن الرسائل", icon: Search },
+  { key: "downloading_attachment", label: "Downloading Attachment", labelAr: "تحميل المرفق", icon: Download },
+  { key: "parsing_excel", label: "Parsing Excel File", labelAr: "تحليل ملف Excel", icon: FileSpreadsheet },
+  { key: "checking_duplicates", label: "Checking Duplicates", labelAr: "فحص التكرارات", icon: Database },
+  { key: "inserting_records", label: "Inserting Records", labelAr: "إدراج السجلات", icon: Database },
+  { key: "matching_bank_ledger", label: "Matching Bank Ledger", labelAr: "مطابقة سجل البنك", icon: Link2 },
+  { key: "sending_notification", label: "Sending Notification", labelAr: "إرسال الإشعار", icon: Bell },
+  { key: "completed", label: "Completed", labelAr: "مكتمل", icon: CheckCircle2 },
+];
 
 const AUTO_JOBS: AutoJob[] = [
   {
@@ -51,43 +64,107 @@ const AUTO_JOBS: AutoJob[] = [
 ];
 
 const AutoUpload = () => {
-  const { language, t } = useLanguage();
+  const { language } = useLanguage();
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/auto-upload");
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<AutoJob | null>(null);
   const [logs, setLogs] = useState<AutoImportLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [runningJobs, setRunningJobs] = useState<Set<string>>(new Set());
+  const [activeLogId, setActiveLogId] = useState<string | null>(null);
+  const [liveLog, setLiveLog] = useState<AutoImportLog | null>(null);
+  const channelRef = useRef<any>(null);
+
+  // Subscribe to realtime updates for the active log
+  useEffect(() => {
+    if (!activeLogId) {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      return;
+    }
+
+    const channel = supabase
+      .channel(`auto-import-${activeLogId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'riyad_statement_auto_imports',
+          filter: `id=eq.${activeLogId}`,
+        },
+        (payload) => {
+          const updated = payload.new as AutoImportLog;
+          setLiveLog(updated);
+          
+          if (updated.status === 'completed' || updated.status === 'error' || updated.status === 'no_email' || updated.status === 'empty') {
+            // Job finished
+            setRunningJobs(prev => {
+              const next = new Set(prev);
+              next.delete("riyad-bank");
+              return next;
+            });
+            
+            if (updated.status === 'completed') {
+              toast.success(
+                language === "ar"
+                  ? `تم: ${updated.records_inserted ?? 0} سجل جديد, ${updated.records_skipped ?? 0} مكرر`
+                  : `Done: ${updated.records_inserted ?? 0} inserted, ${updated.records_skipped ?? 0} skipped`
+              );
+            } else if (updated.status === 'error') {
+              toast.error(updated.error_message || "Error");
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeLogId, language]);
 
   if (accessLoading) return null;
   if (hasAccess === false) return <AccessDenied />;
 
   const handleManualRun = async (job: AutoJob) => {
     if (runningJobs.has(job.id)) return;
-    
+
     setRunningJobs((prev) => new Set(prev).add(job.id));
-    const loadingId = toast.loading(language === "ar" ? `جاري تشغيل ${job.nameAr}...` : `Running ${job.name}...`);
+    setLiveLog(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke(job.functionName, {
+      // First, find the latest "processing" log entry (created when edge function starts)
+      // We invoke the function and then poll for the log ID
+      const invokePromise = supabase.functions.invoke(job.functionName, {
         body: { time: "manual" },
       });
 
+      // Poll for the new log entry
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { data: latestLog } = await supabase
+        .from("riyad_statement_auto_imports")
+        .select("*")
+        .eq("status", "processing")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latestLog) {
+        setActiveLogId(latestLog.id);
+        setLiveLog(latestLog as AutoImportLog);
+      }
+
+      // Wait for the function to complete
+      const { error } = await invokePromise;
       if (error) throw error;
 
-      toast.success(
-        language === "ar"
-          ? `تم التشغيل: ${data?.records_inserted ?? 0} سجل جديد, ${data?.records_skipped ?? 0} مكرر`
-          : `Completed: ${data?.records_inserted ?? 0} inserted, ${data?.records_skipped ?? 0} skipped`
-      );
     } catch (err: any) {
-      toast.error(
-        language === "ar"
-          ? `خطأ: ${err.message}`
-          : `Error: ${err.message}`
-      );
-    } finally {
-      toast.dismiss(loadingId);
+      toast.error(err.message);
       setRunningJobs((prev) => {
         const next = new Set(prev);
         next.delete(job.id);
@@ -134,6 +211,12 @@ const AutoUpload = () => {
     }
   };
 
+  const currentStepIndex = liveLog?.current_step
+    ? STEPS.findIndex(s => s.key === liveLog.current_step)
+    : -1;
+
+  const isRunning = runningJobs.has("riyad-bank");
+
   return (
     <div className="space-y-6">
       <div>
@@ -175,14 +258,14 @@ const AutoUpload = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
                 <Button
                   onClick={() => handleManualRun(job)}
-                  disabled={runningJobs.has(job.id)}
+                  disabled={isRunning}
                   className="gap-2"
                 >
-                  {runningJobs.has(job.id) ? (
+                  {isRunning ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Play className="h-4 w-4" />
@@ -198,6 +281,79 @@ const AutoUpload = () => {
                   {language === "ar" ? "السجل" : "History"}
                 </Button>
               </div>
+
+              {/* Live Step Progress */}
+              {isRunning && liveLog && (
+                <Card className="border bg-muted/30">
+                  <CardContent className="pt-4 pb-3">
+                    {/* Email Subject / Date */}
+                    {liveLog.email_subject && (
+                      <div className="mb-4 p-3 rounded-lg bg-background border">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="h-4 w-4 text-primary" />
+                          <span className="font-medium">{language === "ar" ? "موضوع البريد:" : "Email Subject:"}</span>
+                          <span className="text-muted-foreground">{liveLog.email_subject}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Steps */}
+                    <div className="space-y-1">
+                      {STEPS.map((step, idx) => {
+                        const StepIcon = step.icon;
+                        const isActive = idx === currentStepIndex;
+                        const isDone = idx < currentStepIndex;
+                        const isPending = idx > currentStepIndex;
+
+                        return (
+                          <div
+                            key={step.key}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${
+                              isActive
+                                ? "bg-primary/10 border border-primary/30"
+                                : isDone
+                                ? "opacity-70"
+                                : "opacity-40"
+                            }`}
+                          >
+                            <div className="flex-shrink-0">
+                              {isDone ? (
+                                <CheckCircle2 className="h-4 w-4 text-primary" />
+                              ) : isActive ? (
+                                <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                              ) : (
+                                <CircleDot className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </div>
+                            <StepIcon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                            <span className={`text-sm ${isActive ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                              {language === "ar" ? step.labelAr : step.label}
+                            </span>
+                            {isActive && liveLog.records_inserted != null && step.key === "inserting_records" && (
+                              <Badge variant="secondary" className="ml-auto text-xs">
+                                {liveLog.records_inserted} {language === "ar" ? "سجل" : "records"}
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Summary when done */}
+                    {liveLog.status === "completed" && (
+                      <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-primary font-medium">
+                            ✅ {language === "ar" ? "مكتمل" : "Completed"}
+                          </span>
+                          <span>{liveLog.records_inserted ?? 0} {language === "ar" ? "سجل جديد" : "inserted"}</span>
+                          <span>{liveLog.records_skipped ?? 0} {language === "ar" ? "مكرر" : "skipped"}</span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
         ))}

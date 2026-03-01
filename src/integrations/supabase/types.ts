@@ -5562,6 +5562,7 @@ export type Database = {
       riyad_statement_auto_imports: {
         Row: {
           created_at: string
+          current_step: string | null
           email_subject: string | null
           error_message: string | null
           extra_columns: string[] | null
@@ -5574,6 +5575,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          current_step?: string | null
           email_subject?: string | null
           error_message?: string | null
           extra_columns?: string[] | null
@@ -5586,6 +5588,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          current_step?: string | null
           email_subject?: string | null
           error_message?: string | null
           extra_columns?: string[] | null
