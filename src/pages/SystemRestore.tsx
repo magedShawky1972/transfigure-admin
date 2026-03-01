@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save, ArrowRightLeft, Users, HardDrive, RefreshCw, Clock, GitBranch } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save, ArrowRightLeft, Users, HardDrive, RefreshCw, Clock, GitBranch, Eye, EyeOff } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
@@ -126,6 +126,7 @@ const SystemRestore = () => {
   const [loadingTables, setLoadingTables] = useState(false);
   const [tablesError, setTablesError] = useState<string | null>(null);
   const [savedConnectionName, setSavedConnectionName] = useState("");
+  const [showAnonKey, setShowAnonKey] = useState(false);
 
   // Load saved external DB connections from localStorage
   const getSavedConnections = (): { name: string; url: string; anonKey: string }[] => {
@@ -2231,17 +2232,29 @@ const SystemRestore = () => {
               <Label htmlFor="external-anon-key">
                 {isRTL ? 'مفتاح Anon Key' : 'Anon Key'}
               </Label>
-              <Input
-                id="external-anon-key"
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                value={externalAnonKey}
-                onChange={(e) => {
-                  setExternalAnonKey(e.target.value);
-                  setConnectionValid(null);
-                }}
-                type="password"
-                dir="ltr"
-              />
+              <div className="relative">
+                <Input
+                  id="external-anon-key"
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  value={externalAnonKey}
+                  onChange={(e) => {
+                    setExternalAnonKey(e.target.value);
+                    setConnectionValid(null);
+                  }}
+                  type={showAnonKey ? "text" : "password"}
+                  dir="ltr"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => setShowAnonKey(!showAnonKey)}
+                >
+                  {showAnonKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
             
             {/* Saved Connections */}
