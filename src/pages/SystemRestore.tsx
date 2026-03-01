@@ -128,28 +128,50 @@ const SystemRestore = () => {
   const [savedConnectionName, setSavedConnectionName] = useState("");
   const [showAnonKey, setShowAnonKey] = useState(false);
 
-  // Load saved external DB connections from localStorage
-  const getSavedConnections = (): { name: string; url: string; anonKey: string }[] => {
-    try {
-      const saved = localStorage.getItem('external_db_connections');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
+  // Load saved external DB connections from database
+  const [savedConnections, setSavedConnections] = useState<{ id?: string; name: string; url: string; anonKey: string }[]>([]);
+
+  const loadSavedConnections = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('external_db_connections')
+      .select('id, name, url, anon_key')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (data) {
+      setSavedConnections(data.map(c => ({ id: c.id, name: c.name, url: c.url, anonKey: c.anon_key })));
     }
   };
 
-  const [savedConnections, setSavedConnections] = useState<{ name: string; url: string; anonKey: string }[]>(getSavedConnections);
+  useEffect(() => {
+    loadSavedConnections();
+  }, []);
 
-  const handleSaveConnection = () => {
+  const handleSaveConnection = async () => {
     if (!externalUrl || !externalAnonKey) {
       toast.error(isRTL ? 'يرجى إدخال URL و Anon Key أولاً' : 'Please enter URL and Anon Key first');
       return;
     }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error(isRTL ? 'يرجى تسجيل الدخول أولاً' : 'Please login first');
+      return;
+    }
     const name = savedConnectionName.trim() || new URL(externalUrl).hostname;
-    const existing = savedConnections.filter(c => c.url !== externalUrl);
-    const updated = [...existing, { name, url: externalUrl, anonKey: externalAnonKey }];
-    localStorage.setItem('external_db_connections', JSON.stringify(updated));
-    setSavedConnections(updated);
+    const { error } = await supabase
+      .from('external_db_connections')
+      .upsert({
+        user_id: user.id,
+        name,
+        url: externalUrl,
+        anon_key: externalAnonKey,
+      }, { onConflict: 'user_id,url' });
+    if (error) {
+      toast.error(isRTL ? 'فشل حفظ الاتصال' : 'Failed to save connection');
+      return;
+    }
+    await loadSavedConnections();
     setSavedConnectionName("");
     toast.success(isRTL ? 'تم حفظ الاتصال' : 'Connection saved');
   };
@@ -161,10 +183,15 @@ const SystemRestore = () => {
     toast.success(isRTL ? `تم تحميل: ${conn.name}` : `Loaded: ${conn.name}`);
   };
 
-  const handleDeleteConnection = (url: string) => {
-    const updated = savedConnections.filter(c => c.url !== url);
-    localStorage.setItem('external_db_connections', JSON.stringify(updated));
-    setSavedConnections(updated);
+  const handleDeleteConnection = async (url: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from('external_db_connections')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('url', url);
+    await loadSavedConnections();
     toast.success(isRTL ? 'تم حذف الاتصال' : 'Connection deleted');
   };
   
