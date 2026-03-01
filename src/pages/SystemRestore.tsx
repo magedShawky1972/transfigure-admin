@@ -667,37 +667,20 @@ const SystemRestore = () => {
     const allTriggers = triggersRes.data || [];
     const allFks = fksRes.data || [];
 
-    // 0. Create missing types
-    if (comparisonResults.missingTypes && comparisonResults.missingTypes.length > 0) {
-      for (const typeInfo of comparisonResults.missingTypes) {
-        currentStep++;
-        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Type: ${typeInfo.name}` });
-        
-        let createSql = '';
-        if (typeInfo.type === 'enum' && typeInfo.values) {
-          const vals = typeInfo.values.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
-          createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE TYPE public."${typeInfo.name}" AS ENUM (${vals}); END IF; END $$;`;
-        } else if (typeInfo.type === 'domain' && typeInfo.base) {
-          createSql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE DOMAIN public."${typeInfo.name}" AS ${typeInfo.base}; END IF; END $$;`;
-        }
-        
-        if (createSql) {
-          await execWithCapture('Type', typeInfo.name, createSql);
-        }
-        await new Promise(r => setTimeout(r, 50));
+    const buildCreateTypeSql = (typeInfo: any): string => {
+      if (typeInfo?.type === 'enum' && typeInfo.values) {
+        const vals = typeInfo.values.map((v: string) => `'${v.replace(/'/g, "''")}'`).join(', ');
+        return `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE TYPE public."${typeInfo.name}" AS ENUM (${vals}); END IF; END $$;`;
       }
-    }
+      if (typeInfo?.type === 'domain' && typeInfo.base) {
+        return `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '${typeInfo.name}') THEN CREATE DOMAIN public."${typeInfo.name}" AS ${typeInfo.base}; END IF; END $$;`;
+      }
+      return '';
+    };
 
-    // 1. Create missing tables
-    for (const tableName of comparisonResults.missingTables) {
-      currentStep++;
-      setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
-      
+    const buildCreateTableSql = (tableName: string): string | null => {
       const tableCols = allCols.filter((c: any) => c.table_name === tableName);
-      if (tableCols.length === 0) {
-        errors.push(`Table ${tableName}: No column info found locally`);
-        continue;
-      }
+      if (tableCols.length === 0) return null;
 
       const colDefs = tableCols.map((c: any) => {
         let def = `"${c.column_name}" ${mapColumnToSqlType(c)}`;
@@ -709,16 +692,48 @@ const SystemRestore = () => {
       const tablePks = allPks.filter((p: any) => p.table_name === tableName).map((p: any) => `"${p.column_name}"`);
       const pkClause = tablePks.length > 0 ? `,\n  PRIMARY KEY (${tablePks.join(', ')})` : '';
 
-      const createSql = `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n);\nALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;`;
+      return `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n);\nALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY;`;
+    };
+
+    // 0. Create missing types
+    if (comparisonResults.missingTypes && comparisonResults.missingTypes.length > 0) {
+      for (const typeInfo of comparisonResults.missingTypes) {
+        currentStep++;
+        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Type: ${typeInfo.name}` });
+        const createSql = buildCreateTypeSql(typeInfo);
+        if (createSql) await execWithCapture('Type', typeInfo.name, createSql);
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
+
+    // 1. Create missing tables
+    for (const tableName of comparisonResults.missingTables) {
+      currentStep++;
+      setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
+      const createSql = buildCreateTableSql(tableName);
+      if (!createSql) {
+        errors.push(`Table ${tableName}: No column info found locally`);
+        continue;
+      }
       await execWithCapture('Table', tableName, createSql);
       await new Promise(r => setTimeout(r, 50));
     }
 
-    // 2. Create missing functions
-    for (const funcName of comparisonResults.missingFunctions) {
+    // 2. Create missing functions (dependency-aware ordering)
+    const functionPriority = ['has_role', 'is_admin', 'update_updated_at_column'];
+    const sortedMissingFunctions = [...comparisonResults.missingFunctions].sort((a, b) => {
+      const ai = functionPriority.indexOf(a);
+      const bi = functionPriority.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+
+    for (const funcName of sortedMissingFunctions) {
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Function: ${funcName}` });
-      
+
       const funcDef = allFuncs.find((f: any) => f.function_name === funcName);
       if (!funcDef?.function_definition) {
         errors.push(`Function ${funcName}: No definition found locally`);
@@ -753,26 +768,72 @@ const SystemRestore = () => {
     
     // Sort failed items by dependency order: Types → Tables → Functions → Triggers
     const categoryOrder: Record<string, number> = { 'Type': 0, 'Table': 1, 'Function': 2, 'Trigger': 3 };
-    let retryItems = [...failedItems].sort((a, b) => (categoryOrder[a.category] ?? 99) - (categoryOrder[b.category] ?? 99));
+    const functionPriorityMap = new Map<string, number>([
+      ['has_role', 0],
+      ['is_admin', 1],
+      ['update_updated_at_column', 2],
+    ]);
+    const sortRetryItems = (items: FailedItem[]) =>
+      [...items].sort((a, b) => {
+        const catDiff = (categoryOrder[a.category] ?? 99) - (categoryOrder[b.category] ?? 99);
+        if (catDiff !== 0) return catDiff;
+        if (a.category === 'Function' && b.category === 'Function') {
+          const ap = functionPriorityMap.get(a.name) ?? 999;
+          const bp = functionPriorityMap.get(b.name) ?? 999;
+          if (ap !== bp) return ap - bp;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+    let retryItems = sortRetryItems(failedItems);
     failedItems.length = 0;
 
     for (let pass = 1; pass <= MAX_RETRY_PASSES && retryItems.length > 0; pass++) {
       // Clear errors from previous pass - only keep final pass errors
       errors.splice(0, errors.length);
       setMigrationSyncErrors([]);
-      
+
       const stillFailing: FailedItem[] = [];
-      
+
       setMigrationSyncProgress({ current: 0, total: retryItems.length, currentFile: `Retry pass ${pass}/${MAX_RETRY_PASSES}...` });
-      
+
       for (let i = 0; i < retryItems.length; i++) {
         const item = retryItems[i];
         setMigrationSyncProgress({ current: i + 1, total: retryItems.length, currentFile: `Pass ${pass}: ${item.category} ${item.name}` });
-        
+
+        // Try to auto-create missing dependencies (types/tables/functions) before retrying
+        const relationMissing = item.error.match(/relation\s+"?public\.([a-zA-Z0-9_]+)"?\s+does not exist/i);
+        if (relationMissing) {
+          const depTable = relationMissing[1];
+          const depTableSql = buildCreateTableSql(depTable);
+          if (depTableSql) {
+            try { await callExternalProxy('exec_sql', { sql: depTableSql }); } catch {}
+          }
+        }
+
+        const typeMissing = item.error.match(/type\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
+        if (typeMissing) {
+          const depType = typeMissing[1];
+          const typeInfo = comparisonResults.localTypes?.find((t: any) => t.name === depType);
+          const depTypeSql = buildCreateTypeSql(typeInfo);
+          if (depTypeSql) {
+            try { await callExternalProxy('exec_sql', { sql: depTypeSql }); } catch {}
+          }
+        }
+
+        const functionMissing = item.error.match(/function\s+public\.([a-zA-Z0-9_]+)\s*\(/i);
+        if (functionMissing) {
+          const depFunc = functionMissing[1];
+          const depFuncDef = allFuncs.find((f: any) => f.function_name === depFunc)?.function_definition;
+          if (depFuncDef) {
+            try { await callExternalProxy('exec_sql', { sql: depFuncDef }); } catch {}
+          }
+        }
+
         // Try auto-fix based on error
         const fixedSql = autoFixSql(item.sql, item.error);
         const sqlToTry = fixedSql || item.sql;
-        
+
         try {
           const result = await callExternalProxy('exec_sql', { sql: sqlToTry });
           const hasProxyError = result && !result.success && result.error;
@@ -786,15 +847,15 @@ const SystemRestore = () => {
         }
         await new Promise(r => setTimeout(r, 50));
       }
-      
+
       // If nothing was resolved this pass, stop retrying
       if (stillFailing.length === retryItems.length && pass > 1) {
         retryItems = stillFailing;
         break;
       }
-      
+
       // Re-sort remaining items by dependency order for next pass
-      retryItems = stillFailing.sort((a, b) => (categoryOrder[a.category] ?? 99) - (categoryOrder[b.category] ?? 99));
+      retryItems = sortRetryItems(stillFailing);
     }
     
     // Add final remaining errors to display
