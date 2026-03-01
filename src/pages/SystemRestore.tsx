@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 
 import { toast } from "sonner";
-import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save, ArrowRightLeft, Users, HardDrive, RefreshCw, Clock, GitBranch, Eye, EyeOff } from "lucide-react";
+import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save, ArrowRightLeft, Users, HardDrive, RefreshCw, Clock, GitBranch, Eye, EyeOff, Pause, Square, Ban } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
@@ -246,6 +246,8 @@ const SystemRestore = () => {
   const [migrationSyncProgress, setMigrationSyncProgress] = useState<{ current: number; total: number; currentFile: string }>({ current: 0, total: 0, currentFile: '' });
   const [showMigrationSyncDialog, setShowMigrationSyncDialog] = useState(false);
   const [migrationSyncErrors, setMigrationSyncErrors] = useState<string[]>([]);
+  // Migration control: 'running' | 'paused' | 'stopped' | 'terminated'
+  const migrationControlRef = useRef<string>('running');
   const [matchingCurrentSituation, setMatchingCurrentSituation] = useState(false);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [applyingMissingObjects, setApplyingMissingObjects] = useState(false);
@@ -380,12 +382,21 @@ const SystemRestore = () => {
     setRunningMigrationSync(true);
     setShowMigrationSyncDialog(true);
     setMigrationSyncErrors([]);
+    migrationControlRef.current = 'running';
     const errors: string[] = [];
     const appliedVersions: string[] = [...(migrationLog?.migration_files_applied || [])];
     
     setMigrationSyncProgress({ current: 0, total: migrationsToRun.length, currentFile: '' });
     
     for (let i = 0; i < migrationsToRun.length; i++) {
+      // Check control state
+      while (migrationControlRef.current === 'paused') {
+        await new Promise(r => setTimeout(r, 300));
+      }
+      if (migrationControlRef.current === 'stopped' || migrationControlRef.current === 'terminated') {
+        errors.push(migrationControlRef.current === 'terminated' ? '⛔ Migration terminated by user' : '⏹ Migration stopped by user');
+        break;
+      }
       const mig = migrationsToRun[i];
       setMigrationSyncProgress({ current: i + 1, total: migrationsToRun.length, currentFile: mig.version });
       
@@ -644,6 +655,7 @@ const SystemRestore = () => {
     setShowComparisonDialog(false);
     setShowMigrationSyncDialog(true);
     setMigrationSyncErrors([]);
+    migrationControlRef.current = 'running';
     
     interface FailedItem { category: string; name: string; sql: string; error: string; }
     const errors: string[] = [];
@@ -653,6 +665,17 @@ const SystemRestore = () => {
     let currentStep = 0;
     
     setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
+
+    // Helper to check pause/stop/terminate control
+    const checkControl = async (): Promise<boolean> => {
+      while (migrationControlRef.current === 'paused') {
+        await new Promise(r => setTimeout(r, 300));
+      }
+      if (migrationControlRef.current === 'stopped' || migrationControlRef.current === 'terminated') {
+        return false; // signal to break
+      }
+      return true;
+    };
 
     // Helper to execute SQL with error capture and real-time display
     const execWithCapture = async (category: string, name: string, sql: string): Promise<boolean> => {
@@ -725,6 +748,7 @@ const SystemRestore = () => {
     // 0. Create missing types
     if (comparisonResults.missingTypes && comparisonResults.missingTypes.length > 0) {
       for (const typeInfo of comparisonResults.missingTypes) {
+        if (!(await checkControl())) break;
         currentStep++;
         setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Type: ${typeInfo.name}` });
         const createSql = buildCreateTypeSql(typeInfo);
@@ -751,6 +775,7 @@ const SystemRestore = () => {
     };
 
     for (const tableName of comparisonResults.missingTables) {
+      if (!(await checkControl())) break;
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
       const createSql = buildCreateTableSql(tableName);
@@ -779,6 +804,7 @@ const SystemRestore = () => {
     });
 
     for (const funcName of sortedMissingFunctions) {
+      if (!(await checkControl())) break;
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Function: ${funcName}` });
 
@@ -793,6 +819,7 @@ const SystemRestore = () => {
 
     // 3. Create missing triggers
     for (const triggerStr of comparisonResults.missingTriggers) {
+      if (!(await checkControl())) break;
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Trigger: ${triggerStr}` });
       
@@ -846,6 +873,7 @@ const SystemRestore = () => {
       setMigrationSyncProgress({ current: 0, total: retryItems.length, currentFile: `Retry pass ${pass}/${MAX_RETRY_PASSES}...` });
 
       for (let i = 0; i < retryItems.length; i++) {
+        if (!(await checkControl())) break;
         const item = retryItems[i];
         if (item.category === 'Function' && item.name === 'get_schema_migrations') continue;
         setMigrationSyncProgress({ current: i + 1, total: retryItems.length, currentFile: `Pass ${pass}: ${item.category} ${item.name}` });
@@ -3873,6 +3901,30 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             </ScrollArea>
           )}
           
+          {(runningMigrationSync || applyingMissingObjects) && (
+            <div className="flex items-center justify-center gap-2">
+              {migrationControlRef.current !== 'paused' ? (
+                <Button size="sm" variant="outline" onClick={() => { migrationControlRef.current = 'paused'; toast.info(isRTL ? 'تم إيقاف مؤقت' : 'Paused'); }}>
+                  <Pause className="h-3 w-3 mr-1" />
+                  {isRTL ? 'إيقاف مؤقت' : 'Pause'}
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => { migrationControlRef.current = 'running'; toast.info(isRTL ? 'تم الاستئناف' : 'Resumed'); }}>
+                  <Play className="h-3 w-3 mr-1" />
+                  {isRTL ? 'استئناف' : 'Resume'}
+                </Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={() => { migrationControlRef.current = 'stopped'; toast.warning(isRTL ? 'جاري الإيقاف...' : 'Stopping...'); }}>
+                <Square className="h-3 w-3 mr-1" />
+                {isRTL ? 'إيقاف' : 'Stop'}
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => { migrationControlRef.current = 'terminated'; toast.error(isRTL ? 'جاري الإنهاء...' : 'Terminating...'); }}>
+                <Ban className="h-3 w-3 mr-1" />
+                {isRTL ? 'إنهاء' : 'Terminate'}
+              </Button>
+            </div>
+          )}
+
           {!runningMigrationSync && !applyingMissingObjects && (
             <DialogFooter className="gap-2">
               {migrationSyncErrors.length > 0 && (
