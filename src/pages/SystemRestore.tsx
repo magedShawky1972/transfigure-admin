@@ -3808,6 +3808,11 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               <Progress value={(migrationSyncProgress.current / migrationSyncProgress.total) * 100} className="h-3" />
               <p className="text-xs text-muted-foreground text-center">
                 {migrationSyncProgress.current}/{migrationSyncProgress.total}
+                {migrationSyncProgress.currentFile && (
+                  <span className="block mt-1 font-mono text-[11px] truncate max-w-full" dir="ltr">
+                    {migrationSyncProgress.currentFile}
+                  </span>
+                )}
               </p>
             </div>
           )}
