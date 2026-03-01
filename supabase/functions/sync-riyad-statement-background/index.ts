@@ -99,12 +99,8 @@ class IMAPClient {
     if (!res.ok) throw new Error("IMAP SELECT failed");
   }
 
-  async searchToday(): Promise<number[]> {
-    // Search for emails from 9910013@riyadbank.com with subject "Merchant Report"
-    const today = new Date();
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const dateStr = `${today.getDate()}-${months[today.getMonth()]}-${today.getFullYear()}`;
-    const res = await this.sendCommand(`SEARCH SINCE ${dateStr} FROM "9910013@riyadbank.com" SUBJECT "Merchant Report"`);
+  async searchSince(sinceDate: string): Promise<number[]> {
+    const res = await this.sendCommand(`SEARCH SINCE ${sinceDate} FROM "9910013@riyadbank.com" SUBJECT "Merchant Report"`);
     if (!res.ok) return [];
     const m = res.response.match(/\*\s+SEARCH\s+([0-9 ]+)\r?\n/i);
     const ids = (m?.[1] ?? "").trim().split(/\s+/).filter(Boolean).map(Number);
@@ -117,16 +113,15 @@ class IMAPClient {
   }
 
   async fetchFull(uid: number): Promise<string> {
-    // Read full message for attachment extraction - use larger timeout and buffer
     const tag = this.nextTag();
     await this.conn!.write(this.encoder.encode(`${tag} FETCH ${uid} (BODY.PEEK[])\r\n`));
 
     let result = "";
     const started = Date.now();
-    const timeoutMs = 120000; // 2 minutes for large attachments
+    const timeoutMs = 120000;
 
     while (Date.now() - started < timeoutMs) {
-      const buffer = new Uint8Array(131072); // 128KB buffer
+      const buffer = new Uint8Array(131072);
       const readPromise = this.conn!.read(buffer);
       const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000));
       const n = (await Promise.race([readPromise, timeoutPromise])) as number | null;
@@ -148,14 +143,10 @@ class IMAPClient {
   }
 }
 
-// Extract Excel attachment from MIME body - handles nested multipart
+// Extract Excel attachment from MIME body
 function extractExcelAttachment(rawMessage: string): { data: Uint8Array; filename: string } | null {
-  // Find ALL boundaries in the message (for nested multipart)
   const boundaryMatches = [...rawMessage.matchAll(/boundary\s*=\s*"?([^";\r\n]+)"?/gi)];
-  if (boundaryMatches.length === 0) {
-    console.log("No MIME boundary found in message");
-    return null;
-  }
+  if (boundaryMatches.length === 0) return null;
 
   for (const bMatch of boundaryMatches) {
     const boundary = bMatch[1];
@@ -163,49 +154,45 @@ function extractExcelAttachment(rawMessage: string): { data: Uint8Array; filenam
     const parts = rawMessage.split(new RegExp(`--${esc}`, "g"));
 
     for (const part of parts) {
-      // Look for Excel attachment - check both attachment and name patterns
       const hasAttachment = /Content-Disposition:\s*attachment/i.test(part);
       const filenameMatch = part.match(/(?:filename|name)\*?=\s*"?([^";\r\n]+\.xlsx?)"?/i);
 
       if (!filenameMatch) continue;
-      // Accept if it has an Excel filename, even without explicit Content-Disposition: attachment
       if (!hasAttachment && !/\.xlsx?/i.test(filenameMatch[1])) continue;
 
-      const filename = filenameMatch[1].replace(/^.*''/, ""); // handle RFC 5987 encoding
+      const filename = filenameMatch[1].replace(/^.*''/, "");
       const isBase64 = /Content-Transfer-Encoding:\s*base64/i.test(part);
-
-      console.log(`Found Excel part: "${filename}", base64=${isBase64}, partLen=${part.length}`);
 
       if (!isBase64) continue;
 
-      // Extract the base64 body (after double newline in the part)
       const bodyStart = part.search(/\r?\n\r?\n/);
       if (bodyStart === -1) continue;
 
       let base64Body = part.slice(bodyStart).replace(/\r?\n/g, "").trim();
-      // Remove any trailing boundary markers or IMAP tags
       base64Body = base64Body.replace(/--[^\s]*--?\s*$/, "").replace(/\)\s*$/, "").replace(/A\d+\s+OK.*$/, "").trim();
 
-      // Ensure valid base64 length (multiple of 4)
       const padded = base64Body.length % 4 === 0 ? base64Body : base64Body + "=".repeat(4 - (base64Body.length % 4));
 
       try {
         const decoded = atob(padded);
         const bytes = new Uint8Array(decoded.length);
         for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-        console.log(`Decoded attachment: ${bytes.length} bytes`);
         return { data: bytes, filename };
       } catch (e) {
-        console.error(`Failed to decode base64 attachment (len=${base64Body.length}):`, e);
+        console.error(`Failed to decode base64 attachment:`, e);
       }
     }
   }
-
-  console.log("No Excel attachment found in any MIME part");
   return null;
 }
 
-// Encode subject for Arabic emails
+// Extract date from email subject like "Merchant Report - 28/02/2026"
+function extractDateFromSubject(subject: string): string | null {
+  const m = subject.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
+}
+
 function encodeSubject(subject: string): string {
   const encoder = new TextEncoder();
   const bytes = encoder.encode(subject);
@@ -213,7 +200,6 @@ function encodeSubject(subject: string): string {
   return `=?UTF-8?B?${base64}?=`;
 }
 
-// Build raw email
 function buildRawEmail(from: string, to: string, subject: string, htmlBody: string): string {
   const encodedSubject = encodeSubject(subject);
   const headers = [
@@ -233,7 +219,6 @@ function buildRawEmail(from: string, to: string, subject: string, htmlBody: stri
   return headers + "\r\n" + lines.join("\r\n");
 }
 
-// Send email via raw SMTP
 async function sendRawEmail(
   host: string, port: number, username: string, password: string,
   from: string, to: string, rawMessage: string
@@ -269,6 +254,150 @@ async function sendRawEmail(
   }
 }
 
+// Process a single Excel file and insert into DB
+async function processExcelFile(
+  supabase: any,
+  attachment: { data: Uint8Array; filename: string },
+  emailSubject: string
+): Promise<{ insertedCount: number; skippedCount: number; missingColumns: string[]; extraColumns: string[] }> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const workbook = XLSX.read(attachment.data, { type: "array" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+
+  const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+  let headerRowIndex = -1;
+  for (let i = 0; i < Math.min(allRows.length, 20); i++) {
+    const row = allRows[i];
+    const rowStr = row.map((v: any) => String(v ?? "").trim()).join("|");
+    if (rowStr.includes("Txn. Number") || rowStr.includes("Txn Number")) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) headerRowIndex = 0;
+
+  const rawData: any[] = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: "" });
+
+  if (rawData.length === 0) return { insertedCount: 0, skippedCount: 0, missingColumns: [], extraColumns: [] };
+
+  const excelHeaders = Object.keys(rawData[0]);
+  const normalizeKey = (v: string) => v.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const normalizedExpected = EXPECTED_COLUMNS.map(normalizeKey);
+  const normalizedActual = excelHeaders.map(normalizeKey);
+
+  const missingColumns = EXPECTED_COLUMNS.filter((col) => !normalizedActual.includes(normalizeKey(col)));
+  const extraColumns = excelHeaders.filter((col) => !normalizedExpected.includes(normalizeKey(col)));
+
+  const headerKeyMap: Record<string, string> = {};
+  for (const excelHeader of excelHeaders) {
+    const normalized = normalizeKey(excelHeader);
+    for (const [expectedHeader, dbColumn] of Object.entries(COLUMN_MAP)) {
+      if (normalizeKey(expectedHeader) === normalized) {
+        headerKeyMap[excelHeader] = dbColumn;
+        break;
+      }
+    }
+  }
+
+  const transformedData = rawData.map((row) => {
+    const newRow: Record<string, any> = {};
+    for (const [excelHeader, dbColumn] of Object.entries(headerKeyMap)) {
+      const value = row[excelHeader];
+      if (value !== undefined && value !== null && value !== "") {
+        newRow[dbColumn] = String(value);
+      }
+    }
+    return newRow;
+  });
+
+  const validData = transformedData.filter((row) => row.txn_number);
+
+  // Check duplicates
+  const txnNumbers = validData.map((row) => row.txn_number);
+  const existingTxnNumbers = new Set<string>();
+
+  const batchSize = 500;
+  for (let i = 0; i < txnNumbers.length; i += batchSize) {
+    const batch = txnNumbers.slice(i, i + batchSize);
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/riyadbankstatement?select=txn_number&txn_number=in.(${encodeURIComponent(batch.map((v) => `"${v}"`).join(","))})`,
+      {
+        headers: {
+          apikey: supabaseServiceKey,
+          Authorization: `Bearer ${supabaseServiceKey}`,
+        },
+      }
+    );
+    if (response.ok) {
+      const existing = await response.json();
+      existing.forEach((row: any) => existingTxnNumbers.add(String(row.txn_number)));
+    }
+  }
+
+  const newRows = validData.filter((row) => !existingTxnNumbers.has(row.txn_number));
+  const skippedCount = validData.length - newRows.length;
+
+  let insertedCount = 0;
+  const insertBatchSize = 200;
+
+  for (let i = 0; i < newRows.length; i += insertBatchSize) {
+    const batch = newRows.slice(i, i + insertBatchSize);
+    const { error: insertError } = await supabase.from("riyadbankstatement").insert(batch);
+
+    if (insertError) {
+      const colMatch = insertError.message?.match(/column "([^"]+)"/i);
+      if (colMatch) {
+        const badCol = colMatch[1];
+        const cleanBatch = batch.map((row: any) => {
+          const { [badCol]: _, ...rest } = row;
+          return rest;
+        });
+        const { error: retryError } = await supabase.from("riyadbankstatement").insert(cleanBatch);
+        if (!retryError) insertedCount += cleanBatch.length;
+      }
+    } else {
+      insertedCount += batch.length;
+    }
+  }
+
+  // Bank ledger matching
+  if (insertedCount > 0) {
+    try {
+      const apds = newRows.map((r) => r.acquirer_private_data).filter((v) => v && v.trim());
+      if (apds.length > 0) {
+        for (let i = 0; i < apds.length; i += 100) {
+          const batch = apds.slice(i, i + 100);
+          const { data: matchingPayments } = await supabase
+            .from("order_payment")
+            .select("paymentrefrence, id")
+            .in("paymentrefrence", batch);
+
+          if (matchingPayments && matchingPayments.length > 0) {
+            for (const payment of matchingPayments) {
+              if (payment.paymentrefrence) {
+                await supabase
+                  .from("bank_ledger")
+                  .update({ reference_number: payment.paymentrefrence })
+                  .eq("paymentrefrence", payment.paymentrefrence)
+                  .is("reference_number", null);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Bank ledger matching error (non-fatal):", e);
+    }
+  }
+
+  return { insertedCount, skippedCount, missingColumns, extraColumns };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -279,7 +408,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   // Create import log entry
-  const { data: logEntry, error: logError } = await supabase
+  const { data: logEntry } = await supabase
     .from("riyad_statement_auto_imports")
     .insert({ status: "processing" })
     .select()
@@ -310,277 +439,207 @@ serve(async (req) => {
       });
     }
 
+    // Step 1: Get last import date from settings
+    await updateStep("checking_last_date");
+    const { data: lastDateSetting } = await supabase
+      .from("api_integration_settings")
+      .select("setting_value")
+      .eq("setting_key", "riyad_bank_last_import_date")
+      .single();
+
+    // Default to 7 days ago if no last date
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() - 7);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    let sinceDate: string;
+    if (lastDateSetting?.setting_value) {
+      const d = new Date(lastDateSetting.setting_value);
+      sinceDate = `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear()}`;
+      console.log(`Last import date: ${lastDateSetting.setting_value}, searching since: ${sinceDate}`);
+    } else {
+      sinceDate = `${defaultDate.getDate()}-${months[defaultDate.getMonth()]}-${defaultDate.getFullYear()}`;
+      console.log(`No last import date, searching since: ${sinceDate}`);
+    }
+
+    // Step 2: Connect to email
     await updateStep("connecting_to_email");
-    console.log("Connecting to IMAP...");
     const imap = new IMAPClient(imapHost, imapPort);
     await imap.connect();
     await imap.login(email, emailPassword);
     await imap.select("INBOX");
 
+    // Step 3: Search for emails since last date
     await updateStep("searching_emails");
-    const messageIds = await imap.searchToday();
-    console.log(`Found ${messageIds.length} emails from today`);
+    const messageIds = await imap.searchSince(sinceDate);
+    console.log(`Found ${messageIds.length} emails since ${sinceDate}`);
 
-    let attachment: { data: Uint8Array; filename: string } | null = null;
-    let emailSubject = "";
+    if (messageIds.length === 0) {
+      await imap.logout();
+      await updateLog({ status: "no_email", error_message: "No Riyad Bank emails found since last import", current_step: "completed" });
+      return new Response(JSON.stringify({ message: "No emails found" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Look through today's emails for Riyad Bank statement (check most recent first)
-    for (let i = messageIds.length - 1; i >= 0; i--) {
-      const uid = messageIds[i];
+    // Step 4: Scan all emails - collect headers/subjects/dates first
+    await updateStep("scanning_emails");
+    interface EmailInfo {
+      uid: number;
+      subject: string;
+      date: string | null;
+      filename: string | null;
+    }
+    const emailInfos: EmailInfo[] = [];
+
+    for (const uid of messageIds) {
       const headers = await imap.fetchHeaders(uid);
-
-      // Verify sender is 9910013@riyadbank.com and subject contains "Merchant Report"
       const isRiyadBank = /9910013@riyadbank\.com/i.test(headers) && /Merchant\s*Report/i.test(headers);
       if (!isRiyadBank) continue;
 
-      // Extract subject
       const subjectMatch = headers.match(/Subject:\s*(.+?)(?:\r?\n(?!\s))/i);
-      emailSubject = subjectMatch?.[1]?.trim() || "Riyad Bank Statement";
+      const subject = subjectMatch?.[1]?.trim() || "Riyad Bank Statement";
+      const dateFromSubject = extractDateFromSubject(subject);
 
-      await updateStep("downloading_attachment");
-      console.log(`Found Riyad Bank email: "${emailSubject}" (msg ${uid})`);
+      emailInfos.push({ uid, subject, date: dateFromSubject, filename: null });
+    }
 
-      // Fetch full message for attachment
-      const fullMessage = await imap.fetchFull(uid);
-      attachment = extractExcelAttachment(fullMessage);
+    console.log(`Found ${emailInfos.length} Riyad Bank emails`);
 
-      if (attachment) {
-        console.log(`Extracted attachment: ${attachment.filename} (${attachment.data.length} bytes)`);
-        break;
+    if (emailInfos.length === 0) {
+      await imap.logout();
+      await updateLog({ status: "no_email", error_message: "No matching Riyad Bank emails found", current_step: "completed" });
+      return new Response(JSON.stringify({ message: "No matching emails" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Sort by date (oldest first)
+    emailInfos.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+    // Save found files list to log
+    const foundFiles = emailInfos.map((e, i) => ({
+      index: i,
+      subject: e.subject,
+      date: e.date,
+      status: "pending",
+      inserted: 0,
+      skipped: 0,
+    }));
+
+    await updateLog({
+      found_files: foundFiles,
+      total_files: emailInfos.length,
+      current_file_index: 0,
+    });
+
+    // Step 5: Process each email one by one
+    let totalInserted = 0;
+    let totalSkipped = 0;
+    let lastProcessedDate: string | null = null;
+
+    for (let i = 0; i < emailInfos.length; i++) {
+      const emailInfo = emailInfos[i];
+      console.log(`Processing file ${i + 1}/${emailInfos.length}: ${emailInfo.subject}`);
+
+      // Update current step with file info
+      await updateLog({
+        current_step: `downloading_file_${i}`,
+        current_file_index: i,
+        email_subject: emailInfo.subject,
+      });
+
+      // Download attachment
+      const fullMessage = await imap.fetchFull(emailInfo.uid);
+      const attachment = extractExcelAttachment(fullMessage);
+
+      if (!attachment) {
+        console.warn(`No Excel attachment in email: ${emailInfo.subject}`);
+        foundFiles[i].status = "no_attachment";
+        await updateLog({ found_files: foundFiles });
+        continue;
       }
+
+      foundFiles[i].filename = attachment.filename;
+      foundFiles[i].status = "processing";
+      await updateLog({
+        found_files: foundFiles,
+        current_step: `processing_file_${i}`,
+      });
+
+      // Process this file
+      const result = await processExcelFile(supabase, attachment, emailInfo.subject);
+
+      foundFiles[i].status = "completed";
+      foundFiles[i].inserted = result.insertedCount;
+      foundFiles[i].skipped = result.skippedCount;
+
+      totalInserted += result.insertedCount;
+      totalSkipped += result.skippedCount;
+
+      // Track latest date
+      if (emailInfo.date) {
+        if (!lastProcessedDate || emailInfo.date > lastProcessedDate) {
+          lastProcessedDate = emailInfo.date;
+        }
+      }
+
+      await updateLog({
+        found_files: foundFiles,
+        records_inserted: totalInserted,
+        records_skipped: totalSkipped,
+      });
+
+      console.log(`File ${i + 1} done: ${result.insertedCount} inserted, ${result.skippedCount} skipped`);
     }
 
     await imap.logout();
 
-    if (!attachment) {
-      const msg = "No Riyad Bank statement email with Excel attachment found today";
-      console.log(msg);
-      await updateLog({ status: "no_email", error_message: msg, email_subject: emailSubject || null });
-      return new Response(JSON.stringify({ message: msg }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Step 6: Save last import date
+    if (lastProcessedDate) {
+      await updateStep("saving_last_date");
+      // Add one day to last processed date so we don't re-process
+      const nextDate = new Date(lastProcessedDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextDateStr = nextDate.toISOString().split("T")[0];
+
+      await supabase
+        .from("api_integration_settings")
+        .upsert({
+          setting_key: "riyad_bank_last_import_date",
+          setting_value: nextDateStr,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "setting_key" });
+
+      console.log(`Saved last import date: ${nextDateStr}`);
     }
 
-    await updateLog({ email_subject: emailSubject });
-
-    // Parse Excel - handle report header rows by finding the actual data header row
-    await updateStep("parsing_excel");
-    console.log("Parsing Excel file...");
-    const workbook = XLSX.read(attachment.data, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-
-    // First, read all rows as raw arrays to find the header row containing "Txn. Number"
-    const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-    console.log(`Total raw rows: ${allRows.length}, sheet: "${sheetName}"`);
-
-    let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(allRows.length, 20); i++) {
-      const row = allRows[i];
-      const rowStr = row.map((v: any) => String(v ?? "").trim()).join("|");
-      if (rowStr.includes("Txn. Number") || rowStr.includes("Txn Number")) {
-        headerRowIndex = i;
-        console.log(`Found header row at index ${i}: ${rowStr.substring(0, 200)}`);
-        break;
-      }
-    }
-
-    if (headerRowIndex === -1) {
-      // Fallback: try default parsing
-      console.warn("Could not find header row with 'Txn. Number', using default row 0");
-      headerRowIndex = 0;
-    }
-
-    // Re-parse with the correct header row
-    const rawData: any[] = XLSX.utils.sheet_to_json(sheet, { 
-      range: headerRowIndex,
-      defval: "" 
-    });
-
-    console.log(`Parsed ${rawData.length} data rows (header at row ${headerRowIndex})`);
-
-    if (rawData.length === 0) {
-      await updateLog({ status: "empty", error_message: "Excel file has no data rows" });
-      return new Response(JSON.stringify({ message: "No data in Excel" }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Check for missing/extra columns
-    const excelHeaders = Object.keys(rawData[0]);
-    const normalizeKey = (v: string) => v.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
-    const normalizedExpected = EXPECTED_COLUMNS.map(normalizeKey);
-    const normalizedActual = excelHeaders.map(normalizeKey);
-
-    const missingColumns = EXPECTED_COLUMNS.filter((col) => !normalizedActual.includes(normalizeKey(col)));
-    const extraColumns = excelHeaders.filter((col) => !normalizedExpected.includes(normalizeKey(col)));
-
-    if (missingColumns.length > 0) {
-      console.warn(`Missing columns in Excel: ${missingColumns.join(", ")}`);
-    }
-    if (extraColumns.length > 0) {
-      console.warn(`Extra columns in Excel (ignored): ${extraColumns.join(", ")}`);
-    }
-
-    await updateLog({ missing_columns: missingColumns.length > 0 ? missingColumns : null, extra_columns: extraColumns.length > 0 ? extraColumns : null });
-
-    // Map data using fuzzy header matching
-    const headerKeyMap: Record<string, string> = {};
-    for (const excelHeader of excelHeaders) {
-      const normalized = normalizeKey(excelHeader);
-      for (const [expectedHeader, dbColumn] of Object.entries(COLUMN_MAP)) {
-        if (normalizeKey(expectedHeader) === normalized) {
-          headerKeyMap[excelHeader] = dbColumn;
-          break;
-        }
-      }
-    }
-
-    const transformedData = rawData.map((row) => {
-      const newRow: Record<string, any> = {};
-      for (const [excelHeader, dbColumn] of Object.entries(headerKeyMap)) {
-        const value = row[excelHeader];
-        if (value !== undefined && value !== null && value !== "") {
-          newRow[dbColumn] = String(value);
-        }
-      }
-      return newRow;
-    });
-
-    // Filter out rows without txn_number
-    const validData = transformedData.filter((row) => row.txn_number);
-    console.log(`${validData.length} rows have txn_number`);
-
-    // Check for duplicates by txn_number
-    await updateStep("checking_duplicates");
-    const txnNumbers = validData.map((row) => row.txn_number);
-    const existingTxnNumbers = new Set<string>();
-
-    // Check in batches
-    const batchSize = 500;
-    for (let i = 0; i < txnNumbers.length; i += batchSize) {
-      const batch = txnNumbers.slice(i, i + batchSize);
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/riyadbankstatement?select=txn_number&txn_number=in.(${encodeURIComponent(batch.map((v) => `"${v}"`).join(","))})`,
-        {
-          headers: {
-            apikey: supabaseServiceKey,
-            Authorization: `Bearer ${supabaseServiceKey}`,
-          },
-        }
-      );
-      if (response.ok) {
-        const existing = await response.json();
-        existing.forEach((row: any) => existingTxnNumbers.add(String(row.txn_number)));
-      }
-    }
-
-    // Filter out duplicates (always skip)
-    const newRows = validData.filter((row) => !existingTxnNumbers.has(row.txn_number));
-    const skippedCount = validData.length - newRows.length;
-
-    console.log(`New: ${newRows.length}, Skipped (duplicates): ${skippedCount}`);
-
-    // Insert new records in batches
-    await updateStep("inserting_records");
-    let insertedCount = 0;
-    const insertBatchSize = 200;
-
-    for (let i = 0; i < newRows.length; i += insertBatchSize) {
-      const batch = newRows.slice(i, i + insertBatchSize);
-      const { error: insertError } = await supabase.from("riyadbankstatement").insert(batch);
-
-      if (insertError) {
-        console.error(`Insert batch error at offset ${i}:`, insertError);
-
-        // Try removing unknown columns and retry
-        const colMatch = insertError.message?.match(/column "([^"]+)"/i);
-        if (colMatch) {
-          const badCol = colMatch[1];
-          console.warn(`Removing unknown column: ${badCol}`);
-          const cleanBatch = batch.map((row) => {
-            const { [badCol]: _, ...rest } = row;
-            return rest;
-          });
-          const { error: retryError } = await supabase.from("riyadbankstatement").insert(cleanBatch);
-          if (!retryError) {
-            insertedCount += cleanBatch.length;
-          } else {
-            console.error("Retry also failed:", retryError);
-          }
-        }
-      } else {
-        insertedCount += batch.length;
-      }
-    }
-
-    console.log(`Inserted ${insertedCount} records`);
-
-    // Post-insert: Link acquirer_private_data to bank_ledger
-    if (insertedCount > 0) {
-      await updateStep("matching_bank_ledger");
-      console.log("Running bank_ledger matching...");
-      try {
-        // Get the new records' acquirer_private_data values
-        const apds = newRows
-          .map((r) => r.acquirer_private_data)
-          .filter((v) => v && v.trim());
-
-        if (apds.length > 0) {
-          // Find matching order_payment records by paymentrefrence
-          for (let i = 0; i < apds.length; i += 100) {
-            const batch = apds.slice(i, i + 100);
-            const { data: matchingPayments } = await supabase
-              .from("order_payment")
-              .select("paymentrefrence, id")
-              .in("paymentrefrence", batch);
-
-            if (matchingPayments && matchingPayments.length > 0) {
-              console.log(`Found ${matchingPayments.length} matching order_payment records`);
-              // Update bank_ledger reference_number where it matches
-              for (const payment of matchingPayments) {
-                if (payment.paymentrefrence) {
-                  await supabase
-                    .from("bank_ledger")
-                    .update({ reference_number: payment.paymentrefrence })
-                    .eq("paymentrefrence", payment.paymentrefrence)
-                    .is("reference_number", null);
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Bank ledger matching error (non-fatal):", e);
-      }
-    }
-
-    await updateStep("sending_notification");
-    // Update log
+    // Final update
     await updateLog({
       status: "completed",
-      records_inserted: insertedCount,
-      records_skipped: skippedCount,
+      records_inserted: totalInserted,
+      records_skipped: totalSkipped,
       current_step: "completed",
+      found_files: foundFiles,
     });
 
-    // Insert into upload_logs for Upload History page
+    // Upload log for history page
     try {
       await supabase.from("upload_logs").insert({
-        file_name: emailSubject || "Riyad Bank Statement",
+        file_name: `Riyad Bank (${emailInfos.length} files)`,
         user_name: "EdaraBoot",
         user_id: null,
         status: "completed",
-        records_processed: insertedCount,
-        duplicate_records_count: skippedCount,
+        records_processed: totalInserted,
+        duplicate_records_count: totalSkipped,
         error_message: null,
       });
-      console.log("Upload log entry created for EdaraBoot");
     } catch (ulErr) {
       console.error("Failed to create upload_log entry (non-fatal):", ulErr);
     }
 
     // Send notification email
+    await updateStep("sending_notification");
     const smtpHost = "smtp.hostinger.com";
     const smtpPort = 465;
     const smtpUsername = "edara@asuscards.com";
@@ -599,37 +658,48 @@ serve(async (req) => {
       minute: "2-digit",
     });
 
-    const missingColsHtml = missingColumns.length > 0
-      ? `<p style="font-size:16px;line-height:1.8;margin:10px 0;color:#dc2626;"><strong>أعمدة مفقودة:</strong> ${missingColumns.join("، ")}</p>`
-      : "";
-    const extraColsHtml = extraColumns.length > 0
-      ? `<p style="font-size:16px;line-height:1.8;margin:10px 0;color:#d97706;"><strong>أعمدة إضافية (تم تجاهلها):</strong> ${extraColumns.join("، ")}</p>`
-      : "";
+    const filesTableRows = foundFiles.map((f) =>
+      `<tr><td style="padding:8px;border:1px solid #ddd;">${f.subject}</td>
+       <td style="padding:8px;border:1px solid #ddd;">${f.date || '-'}</td>
+       <td style="padding:8px;border:1px solid #ddd;">${f.inserted}</td>
+       <td style="padding:8px;border:1px solid #ddd;">${f.skipped}</td>
+       <td style="padding:8px;border:1px solid #ddd;">${f.status}</td></tr>`
+    ).join("");
 
     const emailSubjectLine = "تم تحميل كشف بنك الرياض - Riyad Bank Statement Uploaded";
     const emailHtml = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;direction:rtl;margin:0;padding:0;background-color:#f4f4f4;">
-  <div style="max-width:600px;margin:40px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+  <div style="max-width:700px;margin:40px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
     <div style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:30px;text-align:center;">
       <h1 style="margin:0;font-size:24px;font-weight:600;">تم تحميل كشف بنك الرياض تلقائياً</h1>
     </div>
     <div style="padding:30px;">
       <p style="font-size:16px;line-height:1.8;margin:10px 0;">
-        <strong>عدد السجلات المضافة:</strong> ${insertedCount}
+        <strong>عدد الملفات:</strong> ${emailInfos.length}
       </p>
       <p style="font-size:16px;line-height:1.8;margin:10px 0;">
-        <strong>عدد السجلات المتكررة (تم تخطيها):</strong> ${skippedCount}
+        <strong>إجمالي السجلات المضافة:</strong> ${totalInserted}
       </p>
       <p style="font-size:16px;line-height:1.8;margin:10px 0;">
-        <strong>عنوان الإيميل:</strong> ${emailSubject}
+        <strong>إجمالي السجلات المتكررة:</strong> ${totalSkipped}
       </p>
       <p style="font-size:16px;line-height:1.8;margin:10px 0;">
         <strong>وقت التحميل:</strong> ${formattedTime}
       </p>
-      ${missingColsHtml}
-      ${extraColsHtml}
+      <table style="width:100%;border-collapse:collapse;margin-top:15px;">
+        <thead>
+          <tr style="background:#f0f4ff;">
+            <th style="padding:8px;border:1px solid #ddd;">الموضوع</th>
+            <th style="padding:8px;border:1px solid #ddd;">التاريخ</th>
+            <th style="padding:8px;border:1px solid #ddd;">مضاف</th>
+            <th style="padding:8px;border:1px solid #ddd;">مكرر</th>
+            <th style="padding:8px;border:1px solid #ddd;">الحالة</th>
+          </tr>
+        </thead>
+        <tbody>${filesTableRows}</tbody>
+      </table>
     </div>
     <div style="background:#f8f9fa;padding:20px;text-align:center;color:#6c757d;font-size:14px;">
       <p style="margin:0;">هذا إشعار تلقائي من نظام إدارة - Edara</p>
@@ -648,19 +718,21 @@ serve(async (req) => {
       }
     }
 
+    await updateLog({ current_step: "completed" });
+
     return new Response(
       JSON.stringify({
         success: true,
-        records_inserted: insertedCount,
-        records_skipped: skippedCount,
-        missing_columns: missingColumns,
-        extra_columns: extraColumns,
+        total_files: emailInfos.length,
+        records_inserted: totalInserted,
+        records_skipped: totalSkipped,
+        files: foundFiles,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
     console.error("Error in sync-riyad-statement-background:", error);
-    await updateLog({ status: "error", error_message: error.message });
+    await updateLog({ status: "error", error_message: error.message, current_step: "error" });
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
