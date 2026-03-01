@@ -490,6 +490,14 @@ const SystemConfig = () => {
       icon: Database,
       category: "Media Storage",
       secretType: "cloudinary"
+    },
+    {
+      name: "CTO Email (cto@asuscards.com)",
+      description: "CTO email account credentials. Used for sending emails from the CTO account.",
+      usedIn: ["Email sending", "SMTP/IMAP access"],
+      icon: Mail,
+      category: "Email Services",
+      secretType: "cto_email"
     }
   ];
 
