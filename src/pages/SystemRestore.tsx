@@ -730,7 +730,23 @@ const SystemRestore = () => {
       }
     }
 
-    // 1. Create missing tables
+    // 1. Create missing tables (pre-create sequences referenced in column defaults)
+    const ensureSequencesForTable = async (tableName: string) => {
+      const tableCols = allCols.filter((c: any) => c.table_name === tableName);
+      const seqRegex = /nextval\('([^']+)'::regclass\)/gi;
+      for (const col of tableCols) {
+        if (col.column_default) {
+          let m: RegExpExecArray | null;
+          seqRegex.lastIndex = 0;
+          while ((m = seqRegex.exec(col.column_default)) !== null) {
+            const seqName = m[1].replace(/^public\./, '');
+            console.log(`Pre-creating sequence: ${seqName}`);
+            await callExternalProxy('exec_sql', { sql: `CREATE SEQUENCE IF NOT EXISTS public."${seqName}"` }).catch(() => {});
+          }
+        }
+      }
+    };
+
     for (const tableName of comparisonResults.missingTables) {
       currentStep++;
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
@@ -739,6 +755,7 @@ const SystemRestore = () => {
         errors.push(`Table ${tableName}: No column info found locally`);
         continue;
       }
+      await ensureSequencesForTable(tableName);
       await execWithCapture('Table', tableName, createSql);
       await callExternalProxy('exec_sql', { sql: `ALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY` }).catch(() => {});
       await new Promise(r => setTimeout(r, 50));
@@ -845,6 +862,7 @@ const SystemRestore = () => {
           const depTableSql = buildCreateTableSql(depTable);
           if (depTableSql) {
             try {
+              await ensureSequencesForTable(depTable);
               await callExternalProxy('exec_sql', { sql: depTableSql });
               await callExternalProxy('exec_sql', { sql: `ALTER TABLE public."${depTable}" ENABLE ROW LEVEL SECURITY` });
             } catch {}
