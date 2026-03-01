@@ -551,6 +551,22 @@ serve(async (req) => {
       records_skipped: skippedCount,
     });
 
+    // Insert into upload_logs for Upload History page
+    try {
+      await supabase.from("upload_logs").insert({
+        file_name: emailSubject || "Riyad Bank Statement",
+        user_name: "EdaraBoot",
+        user_id: null,
+        status: "completed",
+        records_processed: insertedCount,
+        duplicate_records_count: skippedCount,
+        error_message: null,
+      });
+      console.log("Upload log entry created for EdaraBoot");
+    } catch (ulErr) {
+      console.error("Failed to create upload_log entry (non-fatal):", ulErr);
+    }
+
     // Send notification email
     const smtpHost = "smtp.hostinger.com";
     const smtpPort = 465;
