@@ -6709,6 +6709,119 @@ export type Database = {
           },
         ]
       }
+      supplier_advance_payment_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          payment_id: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          payment_id: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          payment_id?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_advance_payment_attachments_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_advance_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_advance_payments: {
+        Row: {
+          bank_fee: number
+          bank_transfer_image: string | null
+          base_amount: number
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          currency_id: string | null
+          exchange_rate: number
+          id: string
+          notes: string | null
+          payment_date: string
+          status: string
+          supplier_id: string
+          transaction_amount: number
+          updated_at: string
+        }
+        Insert: {
+          bank_fee?: number
+          bank_transfer_image?: string | null
+          base_amount?: number
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          currency_id?: string | null
+          exchange_rate?: number
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          status?: string
+          supplier_id: string
+          transaction_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          bank_fee?: number
+          bank_transfer_image?: string | null
+          base_amount?: number
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          currency_id?: string | null
+          exchange_rate?: number
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          status?: string
+          supplier_id?: string
+          transaction_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_advance_payments_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_advance_payments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_products: {
         Row: {
           created_at: string

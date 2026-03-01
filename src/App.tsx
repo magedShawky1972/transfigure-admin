@@ -140,6 +140,7 @@ import CoinsPurchaseFollowUp from "./pages/CoinsPurchaseFollowUp";
 import MissingShiftImages from "./pages/MissingShiftImages";
 import SalesOrderEntry from "./pages/SalesOrderEntry";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
+import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -287,6 +288,7 @@ const App = () => (
               <Route path="/missing-shift-images" element={<MissingShiftImages />} />
               <Route path="/sales-order-entry" element={<SalesOrderEntry />} />
               <Route path="/coins-transaction-guide" element={<CoinsTransactionGuide />} />
+              <Route path="/supplier-advance-payment" element={<SupplierAdvancePayment />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
