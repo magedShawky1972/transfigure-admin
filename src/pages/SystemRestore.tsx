@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface RestoreProgress {
   structure: 'idle' | 'parsing' | 'executing' | 'done' | 'error';
@@ -213,6 +214,7 @@ const SystemRestore = () => {
   const [migrateDataEnabled, setMigrateDataEnabled] = useState(true);
   const [migrateUsersEnabled, setMigrateUsersEnabled] = useState(true);
   const [migrateStorageEnabled, setMigrateStorageEnabled] = useState(true);
+  const [conflictStrategy, setConflictStrategy] = useState<'update' | 'skip' | 'fail'>('update');
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationTables, setMigrationTables] = useState<MigrationTableItem[]>([]);
   const [migrationUsersStatus, setMigrationUsersStatus] = useState<'idle' | 'migrating' | 'done' | 'error'>('idle');
@@ -2133,7 +2135,7 @@ const SystemRestore = () => {
             try {
               while (true) {
                 const { data: sqlResult, error: sqlErr } = await supabase.functions.invoke('migrate-to-external', {
-                  body: { action: 'export_table_as_sql', tableName: table.name, offset, limit: batchSize }
+                  body: { action: 'export_table_as_sql', tableName: table.name, offset, limit: batchSize, conflictStrategy }
                 });
 
                 if (sqlErr || !sqlResult?.success) {
@@ -3232,6 +3234,42 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                   {isRTL ? 'ترحيل التخزين (Storage Buckets)' : 'Migrate Storage (Storage Buckets)'}
                 </label>
               </div>
+
+              {/* Duplicate Data Strategy */}
+              {migrateDataEnabled && (
+                <div className="ml-7 border rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {isRTL ? 'استراتيجية البيانات المكررة:' : 'Duplicate Data Strategy:'}
+                  </p>
+                  <RadioGroup
+                    value={conflictStrategy}
+                    onValueChange={(val) => setConflictStrategy(val as 'update' | 'skip' | 'fail')}
+                    className="space-y-1"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="update" id="strategy-update" />
+                      <Label htmlFor="strategy-update" className="text-xs cursor-pointer">
+                        <span className="font-medium">{isRTL ? 'تحديث الموجود' : 'Update Existing'}</span>
+                        <span className="text-muted-foreground ml-1">— {isRTL ? 'الكتابة فوق السجلات المتكررة' : 'Overwrite duplicate records'}</span>
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="skip" id="strategy-skip" />
+                      <Label htmlFor="strategy-skip" className="text-xs cursor-pointer">
+                        <span className="font-medium">{isRTL ? 'تخطي المكررات' : 'Skip Duplicates'}</span>
+                        <span className="text-muted-foreground ml-1">— {isRTL ? 'إدراج الجديد فقط' : 'Insert new records only'}</span>
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="fail" id="strategy-fail" />
+                      <Label htmlFor="strategy-fail" className="text-xs cursor-pointer">
+                        <span className="font-medium">{isRTL ? 'فشل عند التكرار' : 'Fail on Duplicates'}</span>
+                        <span className="text-muted-foreground ml-1">— {isRTL ? 'إيقاف عند وجود تعارض' : 'Stop on conflict'}</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
             </div>
 
             {/* Warning */}

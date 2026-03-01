@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, tableName, offset = 0, limit = 1000, bucketId, filePath } = await req.json();
+    const { action, tableName, offset = 0, limit = 1000, bucketId, filePath, conflictStrategy = 'update' } = await req.json();
     console.log(`Migrate action: ${action}`);
 
     switch (action) {
@@ -109,15 +109,20 @@ Deno.serve(async (req) => {
             return `'${String(val).replace(/'/g, "''")}'`;
           }).join(', ');
           
-          // Build ON CONFLICT DO UPDATE for upsert behavior
-          const updateCols = columnNames
-            .filter(c => c !== pkCol)
-            .map(c => `"${c}" = EXCLUDED."${c}"`)
-            .join(', ');
-          
-          const onConflict = updateCols 
-            ? ` ON CONFLICT ("${pkCol}") DO UPDATE SET ${updateCols}`
-            : ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+          // Build conflict clause based on strategy
+          let onConflict = '';
+          if (conflictStrategy === 'update') {
+            const updateCols = columnNames
+              .filter(c => c !== pkCol)
+              .map(c => `"${c}" = EXCLUDED."${c}"`)
+              .join(', ');
+            onConflict = updateCols 
+              ? ` ON CONFLICT ("${pkCol}") DO UPDATE SET ${updateCols}`
+              : ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+          } else if (conflictStrategy === 'skip') {
+            onConflict = ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+          }
+          // 'fail' strategy: no conflict clause, plain INSERT
           
           insertStatements.push(`INSERT INTO public."${tableName}" (${colNames}) VALUES (${values})${onConflict};`);
         }
