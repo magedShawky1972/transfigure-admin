@@ -5562,42 +5562,51 @@ export type Database = {
       riyad_statement_auto_imports: {
         Row: {
           created_at: string
+          current_file_index: number | null
           current_step: string | null
           email_subject: string | null
           error_message: string | null
           extra_columns: string[] | null
+          found_files: Json | null
           id: string
           import_date: string
           missing_columns: string[] | null
           records_inserted: number
           records_skipped: number
           status: string
+          total_files: number | null
         }
         Insert: {
           created_at?: string
+          current_file_index?: number | null
           current_step?: string | null
           email_subject?: string | null
           error_message?: string | null
           extra_columns?: string[] | null
+          found_files?: Json | null
           id?: string
           import_date?: string
           missing_columns?: string[] | null
           records_inserted?: number
           records_skipped?: number
           status?: string
+          total_files?: number | null
         }
         Update: {
           created_at?: string
+          current_file_index?: number | null
           current_step?: string | null
           email_subject?: string | null
           error_message?: string | null
           extra_columns?: string[] | null
+          found_files?: Json | null
           id?: string
           import_date?: string
           missing_columns?: string[] | null
           records_inserted?: number
           records_skipped?: number
           status?: string
+          total_files?: number | null
         }
         Relationships: []
       }

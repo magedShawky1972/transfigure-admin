@@ -7,11 +7,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Play, History, Bot, CheckCircle2, AlertCircle, Clock, Ban, Loader2, Mail, Download, FileSpreadsheet, Search, Database, Link2, Bell, CircleDot } from "lucide-react";
+import { Play, History, Bot, CheckCircle2, AlertCircle, Clock, Ban, Loader2, Mail, Download, FileSpreadsheet, Search, Database, Link2, Bell, CircleDot, CalendarDays, FileX } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import edaraLogo from "@/assets/edara-logo.png";
+
+interface FoundFile {
+  index: number;
+  subject: string;
+  date: string | null;
+  filename?: string | null;
+  status: string;
+  inserted: number;
+  skipped: number;
+}
 
 interface AutoImportLog {
   id: string;
@@ -25,6 +35,9 @@ interface AutoImportLog {
   email_subject: string | null;
   created_at: string;
   current_step: string | null;
+  found_files: any[] | null;
+  current_file_index: number | null;
+  total_files: number | null;
 }
 
 interface AutoJob {
@@ -37,18 +50,6 @@ interface AutoJob {
   schedule: string;
   icon: string;
 }
-
-const STEPS = [
-  { key: "connecting_to_email", label: "Connecting to Email Server", labelAr: "الاتصال بخادم البريد", icon: Mail },
-  { key: "searching_emails", label: "Searching for Emails", labelAr: "البحث عن الرسائل", icon: Search },
-  { key: "downloading_attachment", label: "Downloading Attachment", labelAr: "تحميل المرفق", icon: Download },
-  { key: "parsing_excel", label: "Parsing Excel File", labelAr: "تحليل ملف Excel", icon: FileSpreadsheet },
-  { key: "checking_duplicates", label: "Checking Duplicates", labelAr: "فحص التكرارات", icon: Database },
-  { key: "inserting_records", label: "Inserting Records", labelAr: "إدراج السجلات", icon: Database },
-  { key: "matching_bank_ledger", label: "Matching Bank Ledger", labelAr: "مطابقة سجل البنك", icon: Link2 },
-  { key: "sending_notification", label: "Sending Notification", labelAr: "إرسال الإشعار", icon: Bell },
-  { key: "completed", label: "Completed", labelAr: "مكتمل", icon: CheckCircle2 },
-];
 
 const AUTO_JOBS: AutoJob[] = [
   {
@@ -63,6 +64,17 @@ const AUTO_JOBS: AutoJob[] = [
   },
 ];
 
+const STEP_LABELS: Record<string, { en: string; ar: string; icon: typeof Mail }> = {
+  checking_last_date: { en: "Checking last import date", ar: "فحص آخر تاريخ تحميل", icon: CalendarDays },
+  connecting_to_email: { en: "Connecting to email server", ar: "الاتصال بخادم البريد", icon: Mail },
+  searching_emails: { en: "Searching for emails", ar: "البحث عن الرسائل", icon: Search },
+  scanning_emails: { en: "Scanning email headers", ar: "مسح عناوين الرسائل", icon: Search },
+  saving_last_date: { en: "Saving last import date", ar: "حفظ آخر تاريخ تحميل", icon: Database },
+  sending_notification: { en: "Sending notification", ar: "إرسال الإشعار", icon: Bell },
+  completed: { en: "Completed", ar: "مكتمل", icon: CheckCircle2 },
+  error: { en: "Error", ar: "خطأ", icon: AlertCircle },
+};
+
 const AutoUpload = () => {
   const { language } = useLanguage();
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/auto-upload");
@@ -75,7 +87,7 @@ const AutoUpload = () => {
   const [liveLog, setLiveLog] = useState<AutoImportLog | null>(null);
   const channelRef = useRef<any>(null);
 
-  // Subscribe to realtime updates for the active log
+  // Subscribe to realtime updates
   useEffect(() => {
     if (!activeLogId) {
       if (channelRef.current) {
@@ -96,25 +108,26 @@ const AutoUpload = () => {
           filter: `id=eq.${activeLogId}`,
         },
         (payload) => {
-          const updated = payload.new as AutoImportLog;
-          setLiveLog(updated);
-          
+          const updated = payload.new as any;
+          setLiveLog(updated as AutoImportLog);
+
           if (updated.status === 'completed' || updated.status === 'error' || updated.status === 'no_email' || updated.status === 'empty') {
-            // Job finished
             setRunningJobs(prev => {
               const next = new Set(prev);
               next.delete("riyad-bank");
               return next;
             });
-            
+
             if (updated.status === 'completed') {
               toast.success(
                 language === "ar"
-                  ? `تم: ${updated.records_inserted ?? 0} سجل جديد, ${updated.records_skipped ?? 0} مكرر`
-                  : `Done: ${updated.records_inserted ?? 0} inserted, ${updated.records_skipped ?? 0} skipped`
+                  ? `تم: ${updated.records_inserted ?? 0} سجل جديد, ${updated.records_skipped ?? 0} مكرر (${updated.total_files ?? 0} ملف)`
+                  : `Done: ${updated.records_inserted ?? 0} inserted, ${updated.records_skipped ?? 0} skipped (${updated.total_files ?? 0} files)`
               );
             } else if (updated.status === 'error') {
               toast.error(updated.error_message || "Error");
+            } else if (updated.status === 'no_email') {
+              toast.info(language === "ar" ? "لا توجد رسائل جديدة" : "No new emails found");
             }
           }
         }
@@ -138,13 +151,11 @@ const AutoUpload = () => {
     setLiveLog(null);
 
     try {
-      // First, find the latest "processing" log entry (created when edge function starts)
-      // We invoke the function and then poll for the log ID
       const invokePromise = supabase.functions.invoke(job.functionName, {
         body: { time: "manual" },
       });
 
-      // Poll for the new log entry
+      // Poll for log entry
       await new Promise(resolve => setTimeout(resolve, 1500));
       const { data: latestLog } = await supabase
         .from("riyad_statement_auto_imports")
@@ -156,10 +167,9 @@ const AutoUpload = () => {
 
       if (latestLog) {
         setActiveLogId(latestLog.id);
-        setLiveLog(latestLog as AutoImportLog);
+        setLiveLog(latestLog as unknown as AutoImportLog);
       }
 
-      // Wait for the function to complete
       const { error } = await invokePromise;
       if (error) throw error;
 
@@ -186,7 +196,7 @@ const AutoUpload = () => {
         .limit(50);
 
       if (error) throw error;
-      setLogs((data as AutoImportLog[]) || []);
+      setLogs((data as unknown as AutoImportLog[]) || []);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -211,11 +221,33 @@ const AutoUpload = () => {
     }
   };
 
-  const currentStepIndex = liveLog?.current_step
-    ? STEPS.findIndex(s => s.key === liveLog.current_step)
-    : -1;
+  const getFileStatusIcon = (status: string) => {
+    switch (status) {
+      case "completed": return <CheckCircle2 className="h-4 w-4 text-primary" />;
+      case "processing": return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
+      case "no_attachment": return <FileX className="h-4 w-4 text-destructive" />;
+      case "pending": return <CircleDot className="h-4 w-4 text-muted-foreground" />;
+      default: return <CircleDot className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
 
   const isRunning = runningJobs.has("riyad-bank");
+  const currentStep = liveLog?.current_step || "";
+  const isFileStep = currentStep.startsWith("downloading_file_") || currentStep.startsWith("processing_file_");
+
+  // Determine the overall step for the top-level progress
+  const getMainStepLabel = () => {
+    if (isFileStep) {
+      const fileIdx = (liveLog?.current_file_index ?? 0) + 1;
+      const total = liveLog?.total_files ?? 0;
+      const en = `Processing file ${fileIdx} of ${total}`;
+      const ar = `معالجة الملف ${fileIdx} من ${total}`;
+      return language === "ar" ? ar : en;
+    }
+    const info = STEP_LABELS[currentStep];
+    if (info) return language === "ar" ? info.ar : info.en;
+    return currentStep;
+  };
 
   return (
     <div className="space-y-6">
@@ -250,12 +282,10 @@ const AutoUpload = () => {
                     </CardDescription>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {job.schedule}
-                  </Badge>
-                </div>
+                <Badge variant="outline" className="text-xs">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {job.schedule}
+                </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -282,73 +312,78 @@ const AutoUpload = () => {
                 </Button>
               </div>
 
-              {/* Live Step Progress */}
-              {isRunning && liveLog && (
+              {/* Live Progress Panel */}
+              {(isRunning || (liveLog && liveLog.status === "completed")) && liveLog && (
                 <Card className="border bg-muted/30">
-                  <CardContent className="pt-4 pb-3">
-                    {/* Email Subject / Date */}
-                    {liveLog.email_subject && (
-                      <div className="mb-4 p-3 rounded-lg bg-background border">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-primary" />
-                          <span className="font-medium">{language === "ar" ? "موضوع البريد:" : "Email Subject:"}</span>
-                          <span className="text-muted-foreground">{liveLog.email_subject}</span>
-                        </div>
+                  <CardContent className="pt-4 pb-3 space-y-3">
+                    {/* Current Step Indicator */}
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      {liveLog.status === "completed" ? (
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                      )}
+                      <span>{getMainStepLabel()}</span>
+                    </div>
+
+                    {/* Totals bar */}
+                    {(liveLog.records_inserted != null || liveLog.records_skipped != null) && (
+                      <div className="flex gap-4 text-xs text-muted-foreground px-1">
+                        <span>📥 {language === "ar" ? "مضاف" : "Inserted"}: <span className="font-mono font-bold text-foreground">{liveLog.records_inserted ?? 0}</span></span>
+                        <span>🔄 {language === "ar" ? "مكرر" : "Skipped"}: <span className="font-mono font-bold text-foreground">{liveLog.records_skipped ?? 0}</span></span>
+                        {liveLog.total_files && (
+                          <span>📄 {language === "ar" ? "ملفات" : "Files"}: <span className="font-mono font-bold text-foreground">{liveLog.total_files}</span></span>
+                        )}
                       </div>
                     )}
 
-                    {/* Steps */}
-                    <div className="space-y-1">
-                      {STEPS.map((step, idx) => {
-                        const StepIcon = step.icon;
-                        const isActive = idx === currentStepIndex;
-                        const isDone = idx < currentStepIndex;
-                        const isPending = idx > currentStepIndex;
-
-                        return (
-                          <div
-                            key={step.key}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all ${
-                              isActive
-                                ? "bg-primary/10 border border-primary/30"
-                                : isDone
-                                ? "opacity-70"
-                                : "opacity-40"
-                            }`}
-                          >
-                            <div className="flex-shrink-0">
-                              {isDone ? (
-                                <CheckCircle2 className="h-4 w-4 text-primary" />
-                              ) : isActive ? (
-                                <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                              ) : (
-                                <CircleDot className="h-4 w-4 text-muted-foreground" />
+                    {/* Found Files List */}
+                    {liveLog.found_files && liveLog.found_files.length > 0 && (
+                      <div className="space-y-1 mt-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                          {language === "ar" ? "الملفات المكتشفة" : "Found Files"}
+                        </p>
+                        {(liveLog.found_files as FoundFile[]).map((file, idx) => {
+                          const isCurrent = liveLog.current_file_index === idx && isFileStep;
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
+                                isCurrent
+                                  ? "bg-primary/10 border border-primary/30"
+                                  : file.status === "completed"
+                                  ? "opacity-80"
+                                  : file.status === "pending"
+                                  ? "opacity-50"
+                                  : ""
+                              }`}
+                            >
+                              {getFileStatusIcon(file.status)}
+                              <FileSpreadsheet className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <span className={`truncate block ${isCurrent ? "font-semibold" : ""}`}>
+                                  {file.filename || file.subject}
+                                </span>
+                              </div>
+                              {file.date && (
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  <CalendarDays className="h-3 w-3 mr-1" />
+                                  {file.date}
+                                </Badge>
+                              )}
+                              {file.status === "completed" && (
+                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                  +{file.inserted} / {file.skipped} {language === "ar" ? "مكرر" : "dup"}
+                                </span>
+                              )}
+                              {file.status === "no_attachment" && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {language === "ar" ? "لا مرفق" : "No attachment"}
+                                </Badge>
                               )}
                             </div>
-                            <StepIcon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                            <span className={`text-sm ${isActive ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-                              {language === "ar" ? step.labelAr : step.label}
-                            </span>
-                            {isActive && liveLog.records_inserted != null && step.key === "inserting_records" && (
-                              <Badge variant="secondary" className="ml-auto text-xs">
-                                {liveLog.records_inserted} {language === "ar" ? "سجل" : "records"}
-                              </Badge>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Summary when done */}
-                    {liveLog.status === "completed" && (
-                      <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="text-primary font-medium">
-                            ✅ {language === "ar" ? "مكتمل" : "Completed"}
-                          </span>
-                          <span>{liveLog.records_inserted ?? 0} {language === "ar" ? "سجل جديد" : "inserted"}</span>
-                          <span>{liveLog.records_skipped ?? 0} {language === "ar" ? "مكرر" : "skipped"}</span>
-                        </div>
+                          );
+                        })}
                       </div>
                     )}
                   </CardContent>
@@ -361,7 +396,7 @@ const AutoUpload = () => {
 
       {/* History Dialog */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5" />
@@ -391,6 +426,7 @@ const AutoUpload = () => {
                 <TableRow>
                   <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
                   <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                  <TableHead>{language === "ar" ? "ملفات" : "Files"}</TableHead>
                   <TableHead>{language === "ar" ? "سجلات جديدة" : "Inserted"}</TableHead>
                   <TableHead>{language === "ar" ? "مكررة" : "Skipped"}</TableHead>
                   <TableHead>{language === "ar" ? "عنوان البريد" : "Email Subject"}</TableHead>
@@ -404,6 +440,9 @@ const AutoUpload = () => {
                       {format(new Date(log.created_at), "MMM dd, yyyy HH:mm")}
                     </TableCell>
                     <TableCell>{getStatusBadge(log.status)}</TableCell>
+                    <TableCell className="font-mono">
+                      {log.total_files ?? (log.found_files ? (log.found_files as any[]).length : "-")}
+                    </TableCell>
                     <TableCell className="font-mono">
                       {log.records_inserted ?? 0}
                     </TableCell>
