@@ -1019,68 +1019,6 @@ const ReceivingCoins = () => {
         );
       })()}
 
-      {/* Bank Transfer Document */}
-      {bankTransferImage && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {isArabic ? "مستند التحويل البنكي" : "Bank Transfer Document"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="max-w-md">
-              {bankTransferImage.match(/\.pdf($|\?)/i) || bankTransferImage.includes("/raw/upload/") ? (
-                <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
-                  title="Bank Transfer"
-                  className="w-full h-[300px] rounded-lg border"
-                />
-              ) : (
-                <a href={bankTransferImage} target="_blank" rel="noopener noreferrer">
-                  <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-64 rounded-lg border object-contain" />
-                </a>
-              )}
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
-                <Download className="h-4 w-4 mr-1" />
-                {isArabic ? "تحميل الملف" : "Download File"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Sending Phase Attachments */}
-      {sendingAttachments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {isArabic ? "مرفقات التوجيه - إرسال التحويل" : "Attachments Sending - Transfer Dispatch"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {sendingAttachments.map(att => {
-                const isPdf = att.file_type?.toLowerCase().includes("pdf") || att.file_name?.toLowerCase().endsWith(".pdf") || /\.pdf($|\?)/i.test(att.file_url);
-                return (
-                  <div key={att.id} className="flex items-center justify-between p-2 border rounded-md">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{att.file_name}</a>
-                      {att.uploaded_by_name && <span className="text-xs text-muted-foreground">• {att.uploaded_by_name}</span>}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => downloadFile(att.file_url, att.file_name || "attachment")}>
-                      <Download className="h-4 w-4 mr-1" />
-                      {isArabic ? "تحميل" : "Download"}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Attachments + Receiving Images */}
       <Card>
@@ -1099,6 +1037,60 @@ const ReceivingCoins = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Bank Transfer Document (from Sending phase) */}
+          {bankTransferImage && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                {isArabic ? "مستند التحويل البنكي" : "Bank Transfer Document"}
+              </h4>
+              <div className="max-w-md">
+                {bankTransferImage.match(/\.pdf($|\?)/i) || bankTransferImage.includes("/raw/upload/") ? (
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
+                    title="Bank Transfer"
+                    className="w-full h-[300px] rounded-lg border"
+                  />
+                ) : (
+                  <a href={bankTransferImage} target="_blank" rel="noopener noreferrer">
+                    <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-64 rounded-lg border object-contain" />
+                  </a>
+                )}
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
+                  <Download className="h-4 w-4 mr-1" />
+                  {isArabic ? "تحميل الملف" : "Download File"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Sending Phase Attachments */}
+          {sendingAttachments.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                {isArabic ? "مرفقات التوجيه - إرسال التحويل" : "Attachments Sending - Transfer Dispatch"}
+              </h4>
+              <div className="space-y-2">
+                {sendingAttachments.map(att => {
+                  return (
+                    <div key={att.id} className="flex items-center justify-between p-2 border rounded-md">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">{att.file_name}</a>
+                        {att.uploaded_by_name && <span className="text-xs text-muted-foreground">• {att.uploaded_by_name}</span>}
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => downloadFile(att.file_url, att.file_name || "attachment")}>
+                        <Download className="h-4 w-4 mr-1" />
+                        {isArabic ? "تحميل" : "Download"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Receiving Images per Brand */}
           {Object.keys(receivingImages).length > 0 && (
             <div className="space-y-3">
