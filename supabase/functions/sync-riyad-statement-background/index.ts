@@ -148,45 +148,60 @@ class IMAPClient {
   }
 }
 
-// Extract Excel attachment from MIME body
+// Extract Excel attachment from MIME body - handles nested multipart
 function extractExcelAttachment(rawMessage: string): { data: Uint8Array; filename: string } | null {
-  // Find boundary
-  const boundaryMatch = rawMessage.match(/boundary\s*=\s*"?([^";\r\n]+)"?/i);
-  if (!boundaryMatch) return null;
+  // Find ALL boundaries in the message (for nested multipart)
+  const boundaryMatches = [...rawMessage.matchAll(/boundary\s*=\s*"?([^";\r\n]+)"?/gi)];
+  if (boundaryMatches.length === 0) {
+    console.log("No MIME boundary found in message");
+    return null;
+  }
 
-  const boundary = boundaryMatch[1];
-  const parts = rawMessage.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"));
+  for (const bMatch of boundaryMatches) {
+    const boundary = bMatch[1];
+    const esc = boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = rawMessage.split(new RegExp(`--${esc}`, "g"));
 
-  for (const part of parts) {
-    // Look for Excel attachment
-    const isAttachment = /Content-Disposition:\s*attachment/i.test(part);
-    const filenameMatch = part.match(/filename\*?=\s*"?([^";\r\n]+\.xlsx?)"?/i);
+    for (const part of parts) {
+      // Look for Excel attachment - check both attachment and name patterns
+      const hasAttachment = /Content-Disposition:\s*attachment/i.test(part);
+      const filenameMatch = part.match(/(?:filename|name)\*?=\s*"?([^";\r\n]+\.xlsx?)"?/i);
 
-    if (!isAttachment || !filenameMatch) continue;
+      if (!filenameMatch) continue;
+      // Accept if it has an Excel filename, even without explicit Content-Disposition: attachment
+      if (!hasAttachment && !/\.xlsx?/i.test(filenameMatch[1])) continue;
 
-    const filename = filenameMatch[1].replace(/^.*''/, ""); // handle RFC 5987 encoding
-    const isBase64 = /Content-Transfer-Encoding:\s*base64/i.test(part);
+      const filename = filenameMatch[1].replace(/^.*''/, ""); // handle RFC 5987 encoding
+      const isBase64 = /Content-Transfer-Encoding:\s*base64/i.test(part);
 
-    if (!isBase64) continue;
+      console.log(`Found Excel part: "${filename}", base64=${isBase64}, partLen=${part.length}`);
 
-    // Extract the base64 body (after double newline in the part)
-    const bodyStart = part.search(/\r?\n\r?\n/);
-    if (bodyStart === -1) continue;
+      if (!isBase64) continue;
 
-    const base64Body = part.slice(bodyStart).replace(/\r?\n/g, "").trim();
-    // Remove any trailing boundary markers
-    const cleanBase64 = base64Body.replace(/--.*$/, "").trim();
+      // Extract the base64 body (after double newline in the part)
+      const bodyStart = part.search(/\r?\n\r?\n/);
+      if (bodyStart === -1) continue;
 
-    try {
-      const decoded = atob(cleanBase64);
-      const bytes = new Uint8Array(decoded.length);
-      for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-      return { data: bytes, filename };
-    } catch (e) {
-      console.error("Failed to decode base64 attachment:", e);
+      let base64Body = part.slice(bodyStart).replace(/\r?\n/g, "").trim();
+      // Remove any trailing boundary markers or IMAP tags
+      base64Body = base64Body.replace(/--[^\s]*--?\s*$/, "").replace(/\)\s*$/, "").replace(/A\d+\s+OK.*$/, "").trim();
+
+      // Ensure valid base64 length (multiple of 4)
+      const padded = base64Body.length % 4 === 0 ? base64Body : base64Body + "=".repeat(4 - (base64Body.length % 4));
+
+      try {
+        const decoded = atob(padded);
+        const bytes = new Uint8Array(decoded.length);
+        for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+        console.log(`Decoded attachment: ${bytes.length} bytes`);
+        return { data: bytes, filename };
+      } catch (e) {
+        console.error(`Failed to decode base64 attachment (len=${base64Body.length}):`, e);
+      }
     }
   }
 
+  console.log("No Excel attachment found in any MIME part");
   return null;
 }
 
@@ -341,14 +356,40 @@ serve(async (req) => {
 
     await updateLog({ email_subject: emailSubject });
 
-    // Parse Excel
+    // Parse Excel - handle report header rows by finding the actual data header row
     console.log("Parsing Excel file...");
     const workbook = XLSX.read(attachment.data, { type: "array" });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const rawData: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    console.log(`Parsed ${rawData.length} rows from sheet "${sheetName}"`);
+    // First, read all rows as raw arrays to find the header row containing "Txn. Number"
+    const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    console.log(`Total raw rows: ${allRows.length}, sheet: "${sheetName}"`);
+
+    let headerRowIndex = -1;
+    for (let i = 0; i < Math.min(allRows.length, 20); i++) {
+      const row = allRows[i];
+      const rowStr = row.map((v: any) => String(v ?? "").trim()).join("|");
+      if (rowStr.includes("Txn. Number") || rowStr.includes("Txn Number")) {
+        headerRowIndex = i;
+        console.log(`Found header row at index ${i}: ${rowStr.substring(0, 200)}`);
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      // Fallback: try default parsing
+      console.warn("Could not find header row with 'Txn. Number', using default row 0");
+      headerRowIndex = 0;
+    }
+
+    // Re-parse with the correct header row
+    const rawData: any[] = XLSX.utils.sheet_to_json(sheet, { 
+      range: headerRowIndex,
+      defval: "" 
+    });
+
+    console.log(`Parsed ${rawData.length} data rows (header at row ${headerRowIndex})`);
 
     if (rawData.length === 0) {
       await updateLog({ status: "empty", error_message: "Excel file has no data rows" });
