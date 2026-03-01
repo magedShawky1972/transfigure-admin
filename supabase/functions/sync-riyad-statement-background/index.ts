@@ -365,35 +365,8 @@ async function processExcelFile(
     }
   }
 
-  // Bank ledger matching
-  if (insertedCount > 0) {
-    try {
-      const apds = newRows.map((r) => r.acquirer_private_data).filter((v) => v && v.trim());
-      if (apds.length > 0) {
-        for (let i = 0; i < apds.length; i += 100) {
-          const batch = apds.slice(i, i + 100);
-          const { data: matchingPayments } = await supabase
-            .from("order_payment")
-            .select("paymentrefrence, id")
-            .in("paymentrefrence", batch);
-
-          if (matchingPayments && matchingPayments.length > 0) {
-            for (const payment of matchingPayments) {
-              if (payment.paymentrefrence) {
-                await supabase
-                  .from("bank_ledger")
-                  .update({ reference_number: payment.paymentrefrence })
-                  .eq("paymentrefrence", payment.paymentrefrence)
-                  .is("reference_number", null);
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Bank ledger matching error (non-fatal):", e);
-    }
-  }
+  // Skip bank ledger matching in auto-import to save CPU time
+  // It can be done separately via update-bank-ledger-background
 
   return { insertedCount, skippedCount, missingColumns, extraColumns };
 }
@@ -517,8 +490,13 @@ serve(async (req) => {
     // Sort by date (oldest first)
     emailInfos.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
+    // Limit to max 5 files per run to avoid CPU timeout
+    const MAX_FILES_PER_RUN = 5;
+    const filesToProcess = emailInfos.slice(0, MAX_FILES_PER_RUN);
+    const hasMore = emailInfos.length > MAX_FILES_PER_RUN;
+
     // Save found files list to log
-    const foundFiles = emailInfos.map((e, i) => ({
+    const foundFiles = filesToProcess.map((e, i) => ({
       index: i,
       subject: e.subject,
       date: e.date,
@@ -529,7 +507,7 @@ serve(async (req) => {
 
     await updateLog({
       found_files: foundFiles,
-      total_files: emailInfos.length,
+      total_files: filesToProcess.length,
       current_file_index: 0,
     });
 
@@ -538,9 +516,9 @@ serve(async (req) => {
     let totalSkipped = 0;
     let lastProcessedDate: string | null = null;
 
-    for (let i = 0; i < emailInfos.length; i++) {
-      const emailInfo = emailInfos[i];
-      console.log(`Processing file ${i + 1}/${emailInfos.length}: ${emailInfo.subject}`);
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const emailInfo = filesToProcess[i];
+      console.log(`Processing file ${i + 1}/${filesToProcess.length}: ${emailInfo.subject}`);
 
       // Update current step with file info
       await updateLog({
@@ -577,11 +555,22 @@ serve(async (req) => {
       totalInserted += result.insertedCount;
       totalSkipped += result.skippedCount;
 
-      // Track latest date
+      // Track latest date and save after each file to checkpoint progress
       if (emailInfo.date) {
         if (!lastProcessedDate || emailInfo.date > lastProcessedDate) {
           lastProcessedDate = emailInfo.date;
         }
+        // Save last date after each file so if we crash, next run picks up here
+        const nextDate = new Date(emailInfo.date);
+        nextDate.setDate(nextDate.getDate() + 1);
+        const nextDateStr = nextDate.toISOString().split("T")[0];
+        await supabase
+          .from("api_integration_settings")
+          .upsert({
+            setting_key: "riyad_bank_last_import_date",
+            setting_value: nextDateStr,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "setting_key" });
       }
 
       await updateLog({
@@ -595,38 +584,22 @@ serve(async (req) => {
 
     await imap.logout();
 
-    // Step 6: Save last import date
-    if (lastProcessedDate) {
-      await updateStep("saving_last_date");
-      // Add one day to last processed date so we don't re-process
-      const nextDate = new Date(lastProcessedDate);
-      nextDate.setDate(nextDate.getDate() + 1);
-      const nextDateStr = nextDate.toISOString().split("T")[0];
-
-      await supabase
-        .from("api_integration_settings")
-        .upsert({
-          setting_key: "riyad_bank_last_import_date",
-          setting_value: nextDateStr,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "setting_key" });
-
-      console.log(`Saved last import date: ${nextDateStr}`);
-    }
-
     // Final update
+    const finalStatus = hasMore ? "completed" : "completed";
+    const moreMsg = hasMore ? ` (${emailInfos.length - MAX_FILES_PER_RUN} more files remaining, run again)` : "";
     await updateLog({
       status: "completed",
       records_inserted: totalInserted,
       records_skipped: totalSkipped,
       current_step: "completed",
       found_files: foundFiles,
+      error_message: hasMore ? `Processed ${MAX_FILES_PER_RUN} of ${emailInfos.length} files. Run again for remaining.` : null,
     });
 
     // Upload log for history page
     try {
       await supabase.from("upload_logs").insert({
-        file_name: `Riyad Bank (${emailInfos.length} files)`,
+        file_name: `Riyad Bank (${filesToProcess.length} files${hasMore ? `, ${emailInfos.length - MAX_FILES_PER_RUN} more remaining` : ''})`,
         user_name: "EdaraBoot",
         user_id: null,
         status: "completed",
