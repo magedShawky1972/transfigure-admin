@@ -750,7 +750,10 @@ const SystemRestore = () => {
     // (e.g. pass 1 creates tables, pass 2 creates functions that need those tables, 
     //  pass 3 creates functions that need those functions)
     const MAX_RETRY_PASSES = 3;
-    let retryItems = [...failedItems];
+    
+    // Sort failed items by dependency order: Types → Tables → Functions → Triggers
+    const categoryOrder: Record<string, number> = { 'Type': 0, 'Table': 1, 'Function': 2, 'Trigger': 3 };
+    let retryItems = [...failedItems].sort((a, b) => (categoryOrder[a.category] ?? 99) - (categoryOrder[b.category] ?? 99));
     failedItems.length = 0;
 
     for (let pass = 1; pass <= MAX_RETRY_PASSES && retryItems.length > 0; pass++) {
@@ -786,12 +789,12 @@ const SystemRestore = () => {
       
       // If nothing was resolved this pass, stop retrying
       if (stillFailing.length === retryItems.length && pass > 1) {
-        // No progress made, stop
         retryItems = stillFailing;
         break;
       }
       
-      retryItems = stillFailing;
+      // Re-sort remaining items by dependency order for next pass
+      retryItems = stillFailing.sort((a, b) => (categoryOrder[a.category] ?? 99) - (categoryOrder[b.category] ?? 99));
     }
     
     // Add final remaining errors to display
