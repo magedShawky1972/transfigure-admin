@@ -270,6 +270,9 @@ const SystemRestore = () => {
     missingTypes: { name: string; type: string; values?: string[]; base?: string }[];
     matchedMigrations: string[];
     unmatchedMigrations: string[];
+    localBuckets: { id: string; name: string; public: boolean }[];
+    externalBuckets: string[];
+    missingBuckets: { id: string; name: string; public: boolean; file_size_limit?: number; allowed_mime_types?: string[] }[];
   } | null>(null);
 
   const structureInputRef = useRef<HTMLInputElement>(null);
@@ -646,7 +649,7 @@ const SystemRestore = () => {
     const errors: string[] = [];
     const failedItems: FailedItem[] = [];
     
-    const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length;
+    const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0);
     let currentStep = 0;
     
     setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
@@ -937,7 +940,21 @@ const SystemRestore = () => {
       await callExternalProxy('exec_sql', { sql: fkSql }).catch(() => {});
     }
 
-    // 5. Reload PostgREST schema cache
+    // 5. Create missing storage buckets
+    if (comparisonResults.missingBuckets && comparisonResults.missingBuckets.length > 0) {
+      for (const bucket of comparisonResults.missingBuckets) {
+        currentStep++;
+        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Bucket: ${bucket.name}` });
+        const createBucketSql = `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${bucket.id}', '${bucket.name}', ${bucket.public}, ${bucket.file_size_limit || 'NULL'}, ${bucket.allowed_mime_types ? `'${JSON.stringify(bucket.allowed_mime_types)}'::jsonb` : 'NULL'}) ON CONFLICT (id) DO NOTHING;`;
+        try {
+          await callExternalProxy('exec_sql', { sql: createBucketSql });
+        } catch (err: any) {
+          errors.push(`❌ Bucket ${bucket.name}: ${err.message}`);
+        }
+      }
+    }
+
+    // 6. Reload PostgREST schema cache
     try {
       await callExternalProxy('exec_sql', { sql: `NOTIFY pgrst, 'reload schema'` });
     } catch {}
@@ -1039,7 +1056,35 @@ const SystemRestore = () => {
       const inferredMissingTables = Array.from(inferredDependencyTables).filter((t) => !extTablesSet.has(t));
       const missingTables = [...new Set([...missingTablesBase, ...inferredMissingTables])].sort();
 
-      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0;
+      // Compare storage buckets
+      let localBuckets: { id: string; name: string; public: boolean; file_size_limit?: number; allowed_mime_types?: string[] }[] = [];
+      let externalBuckets: string[] = [];
+      let missingBuckets: typeof localBuckets = [];
+      try {
+        const { data: bucketsResult } = await supabase.functions.invoke('migrate-to-external', {
+          body: { action: 'list_storage_buckets' }
+        });
+        if (bucketsResult?.success && Array.isArray(bucketsResult.buckets)) {
+          localBuckets = bucketsResult.buckets.map((b: any) => ({
+            id: b.id, name: b.name, public: b.public,
+            file_size_limit: b.file_size_limit, allowed_mime_types: b.allowed_mime_types,
+          }));
+        }
+
+        const extBucketsRes = await callExternalProxy('exec_sql', {
+          sql: `SELECT id, name, public FROM storage.buckets ORDER BY name`
+        });
+        if (extBucketsRes.success && Array.isArray(extBucketsRes.data)) {
+          externalBuckets = extBucketsRes.data.map((b: any) => b.name);
+        }
+
+        const extBucketsSet = new Set(externalBuckets);
+        missingBuckets = localBuckets.filter(b => !extBucketsSet.has(b.name));
+      } catch (err) {
+        console.warn('Storage bucket comparison failed:', err);
+      }
+
+      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0 || missingBuckets.length > 0;
 
       const matchedMigrations = localMigrations.map(m => m.version);
       const unmatchedMigrations: string[] = [];
@@ -1051,6 +1096,7 @@ const SystemRestore = () => {
         localViews, externalViews, missingViews,
         localTypes, externalTypes, missingTypes,
         matchedMigrations, unmatchedMigrations,
+        localBuckets, externalBuckets, missingBuckets,
       });
 
       await saveMigrationLog(matchedMigrations);
@@ -3869,7 +3915,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-4 pr-4">
                 {/* Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                   <div className="border rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-foreground">{comparisonResults.localTypes?.length || 0}</div>
                     <div className="text-xs text-muted-foreground">{isRTL ? 'أنواع محلية' : 'Local Types'}</div>
@@ -3903,6 +3949,13 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                     <div className="text-xs text-muted-foreground">{isRTL ? 'عروض محلية' : 'Local Views'}</div>
                     {comparisonResults.missingViews.length > 0 && (
                       <Badge variant="destructive" className="mt-1 text-xs">{comparisonResults.missingViews.length} {isRTL ? 'مفقود' : 'missing'}</Badge>
+                    )}
+                  </div>
+                  <div className="border rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-foreground">{comparisonResults.localBuckets?.length || 0}</div>
+                    <div className="text-xs text-muted-foreground">{isRTL ? 'حاويات التخزين' : 'Storage Buckets'}</div>
+                    {(comparisonResults.missingBuckets?.length || 0) > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-xs">{comparisonResults.missingBuckets.length} {isRTL ? 'مفقود' : 'missing'}</Badge>
                     )}
                   </div>
                 </div>
@@ -4019,9 +4072,25 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                   </div>
                 )}
 
+                {/* Missing Storage Buckets */}
+                {(comparisonResults.missingBuckets?.length || 0) > 0 && (
+                  <div className="border border-destructive/30 rounded-lg p-3">
+                    <p className="text-sm font-medium mb-2 text-destructive">{isRTL ? 'حاويات تخزين مفقودة' : 'Missing Storage Buckets'}</p>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {comparisonResults.missingBuckets.map(b => (
+                        <div key={b.id} className="text-xs font-mono text-muted-foreground flex items-center gap-2">
+                          <AlertCircle className="h-3 w-3 text-destructive" />
+                          <span>{b.name}</span>
+                          {b.public && <Badge variant="outline" className="text-[10px] px-1 py-0">public</Badge>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* All matched */}
                 {comparisonResults.missingTables.length === 0 && comparisonResults.missingFunctions.length === 0 && 
-                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (comparisonResults.missingTypes?.length || 0) === 0 && (
+                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (comparisonResults.missingTypes?.length || 0) === 0 && (comparisonResults.missingBuckets?.length || 0) === 0 && (
                   <div className="border border-green-500/30 rounded-lg p-4 text-center">
                     <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
                     <p className="text-sm font-medium text-green-600">
@@ -4037,7 +4106,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
-            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0) && (
+            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0 || (comparisonResults.missingBuckets?.length || 0) > 0) && (
               <>
                 <Button variant="secondary" onClick={generateMissingObjectsScript} disabled={generatingScript}>
                   <FileText className="h-3 w-3 mr-1" />
@@ -4046,8 +4115,8 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 <Button onClick={applyMissingObjects} disabled={applyingMissingObjects}>
                   <Play className="h-3 w-3 mr-1" />
                   {isRTL 
-                    ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} كائن مفقود` 
-                    : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length} Missing Objects`}
+                    ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0)} كائن مفقود` 
+                    : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0)} Missing Objects`}
                 </Button>
               </>
             )}
