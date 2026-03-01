@@ -220,10 +220,10 @@ function buildRawEmail(from: string, to: string, subject: string, htmlBody: stri
 }
 
 async function sendRawEmail(
-  host: string, port: number, username: string, password: string,
+  host: number, port: number, username: string, password: string,
   from: string, to: string, rawMessage: string
 ): Promise<void> {
-  const conn = await Deno.connectTls({ hostname: host, port });
+  const conn = await Deno.connectTls({ hostname: host as any, port });
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
@@ -365,9 +365,6 @@ async function processExcelFile(
     }
   }
 
-  // Skip bank ledger matching in auto-import to save CPU time
-  // It can be done separately via update-bank-ledger-background
-
   return { insertedCount, skippedCount, missingColumns, extraColumns };
 }
 
@@ -380,7 +377,382 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  // Create import log entry
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch { /* empty body is fine */ }
+
+  const mode = body?.mode || "full"; // "scan", "process", or "full" (legacy)
+
+  // ==================== SCAN MODE ====================
+  // Just connect to IMAP, list all files since last date, save to log, return
+  if (mode === "scan") {
+    const { data: logEntry } = await supabase
+      .from("riyad_statement_auto_imports")
+      .insert({ status: "scanning" })
+      .select()
+      .single();
+    const logId = logEntry?.id;
+
+    const updateLog = async (updates: Record<string, any>) => {
+      if (!logId) return;
+      await supabase.from("riyad_statement_auto_imports").update(updates).eq("id", logId);
+    };
+
+    try {
+      const imapHost = "imap.hostinger.com";
+      const imapPort = 993;
+      const email = "cto@asuscards.com";
+      const emailPassword = Deno.env.get("CTO_EMAIL_PASSWORD") ?? "";
+
+      if (!emailPassword) {
+        await updateLog({ status: "error", error_message: "CTO_EMAIL_PASSWORD not configured" });
+        return new Response(JSON.stringify({ error: "CTO_EMAIL_PASSWORD not configured" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await updateLog({ current_step: "checking_last_date" });
+      const { data: lastDateSetting } = await supabase
+        .from("api_integration_settings")
+        .select("setting_value")
+        .eq("setting_key", "riyad_bank_last_import_date")
+        .single();
+
+      const defaultDate = new Date();
+      defaultDate.setDate(defaultDate.getDate() - 30); // default 30 days if no last date
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+      let sinceDate: string;
+      let lastDateStr: string | null = lastDateSetting?.setting_value || null;
+      if (lastDateStr) {
+        const d = new Date(lastDateStr);
+        sinceDate = `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear()}`;
+      } else {
+        sinceDate = `${defaultDate.getDate()}-${months[defaultDate.getMonth()]}-${defaultDate.getFullYear()}`;
+      }
+
+      await updateLog({ current_step: "connecting_to_email" });
+      const imap = new IMAPClient(imapHost, imapPort);
+      await imap.connect();
+      await imap.login(email, emailPassword);
+      await imap.select("INBOX");
+
+      await updateLog({ current_step: "searching_emails" });
+      const messageIds = await imap.searchSince(sinceDate);
+      console.log(`Scan: Found ${messageIds.length} emails since ${sinceDate}`);
+
+      if (messageIds.length === 0) {
+        await imap.logout();
+        await updateLog({ status: "no_email", error_message: "No Riyad Bank emails found", current_step: "completed" });
+        return new Response(JSON.stringify({ log_id: logId, found_files: [], message: "No emails found" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await updateLog({ current_step: "scanning_emails" });
+      interface EmailInfo { uid: number; subject: string; date: string | null; }
+      const emailInfos: EmailInfo[] = [];
+
+      for (const uid of messageIds) {
+        const headers = await imap.fetchHeaders(uid);
+        const isRiyadBank = /9910013@riyadbank\.com/i.test(headers) && /Merchant\s*Report/i.test(headers);
+        if (!isRiyadBank) continue;
+        const subjectMatch = headers.match(/Subject:\s*(.+?)(?:\r?\n(?!\s))/i);
+        const subject = subjectMatch?.[1]?.trim() || "Riyad Bank Statement";
+        const dateFromSubject = extractDateFromSubject(subject);
+        emailInfos.push({ uid, subject, date: dateFromSubject });
+      }
+
+      await imap.logout();
+
+      // Sort by date oldest first
+      emailInfos.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+      const foundFiles = emailInfos.map((e, i) => ({
+        index: i,
+        uid: e.uid,
+        subject: e.subject,
+        date: e.date,
+        status: "pending",
+        inserted: 0,
+        skipped: 0,
+      }));
+
+      await updateLog({
+        status: "scanned",
+        found_files: foundFiles,
+        total_files: foundFiles.length,
+        current_step: "scan_complete",
+      });
+
+      return new Response(JSON.stringify({ log_id: logId, found_files: foundFiles, last_date: lastDateStr }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+    } catch (error: any) {
+      console.error("Scan error:", error);
+      await updateLog({ status: "error", error_message: error.message, current_step: "error" });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  // ==================== PROCESS MODE ====================
+  // Process files from an existing scan log entry, one batch at a time
+  if (mode === "process") {
+    const logId = body?.log_id;
+    if (!logId) {
+      return new Response(JSON.stringify({ error: "log_id is required for process mode" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: logEntry } = await supabase
+      .from("riyad_statement_auto_imports")
+      .select("*")
+      .eq("id", logId)
+      .single();
+
+    if (!logEntry) {
+      return new Response(JSON.stringify({ error: "Log entry not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const foundFiles = (logEntry.found_files || []) as any[];
+    const pendingFiles = foundFiles.filter((f: any) => f.status === "pending");
+
+    if (pendingFiles.length === 0) {
+      return new Response(JSON.stringify({ message: "No pending files to process", done: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const updateLog = async (updates: Record<string, any>) => {
+      await supabase.from("riyad_statement_auto_imports").update(updates).eq("id", logId);
+    };
+
+    await updateLog({ status: "processing", current_step: "connecting_to_email" });
+
+    try {
+      const imapHost = "imap.hostinger.com";
+      const imapPort = 993;
+      const email = "cto@asuscards.com";
+      const emailPassword = Deno.env.get("CTO_EMAIL_PASSWORD") ?? "";
+
+      if (!emailPassword) {
+        await updateLog({ status: "error", error_message: "CTO_EMAIL_PASSWORD not configured" });
+        return new Response(JSON.stringify({ error: "CTO_EMAIL_PASSWORD not configured" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const imap = new IMAPClient(imapHost, imapPort);
+      await imap.connect();
+      await imap.login(email, emailPassword);
+      await imap.select("INBOX");
+
+      // Process max 3 files per call to stay within CPU limits
+      const MAX_FILES_PER_CALL = 3;
+      const filesToProcess = pendingFiles.slice(0, MAX_FILES_PER_CALL);
+
+      let totalInserted = logEntry.records_inserted || 0;
+      let totalSkipped = logEntry.records_skipped || 0;
+
+      for (const fileInfo of filesToProcess) {
+        const idx = fileInfo.index;
+        console.log(`Processing file ${idx + 1}/${foundFiles.length}: ${fileInfo.subject}`);
+
+        await updateLog({
+          current_step: `downloading_file_${idx}`,
+          current_file_index: idx,
+          email_subject: fileInfo.subject,
+        });
+
+        // Download attachment using saved UID
+        const fullMessage = await imap.fetchFull(fileInfo.uid);
+        const attachment = extractExcelAttachment(fullMessage);
+
+        if (!attachment) {
+          console.warn(`No Excel attachment in email: ${fileInfo.subject}`);
+          foundFiles[idx].status = "no_attachment";
+          await updateLog({ found_files: foundFiles });
+          continue;
+        }
+
+        foundFiles[idx].filename = attachment.filename;
+        foundFiles[idx].status = "processing";
+        await updateLog({
+          found_files: foundFiles,
+          current_step: `processing_file_${idx}`,
+        });
+
+        const result = await processExcelFile(supabase, attachment, fileInfo.subject);
+
+        foundFiles[idx].status = "completed";
+        foundFiles[idx].inserted = result.insertedCount;
+        foundFiles[idx].skipped = result.skippedCount;
+
+        totalInserted += result.insertedCount;
+        totalSkipped += result.skippedCount;
+
+        // Checkpoint: save last date after each file
+        if (fileInfo.date) {
+          const nextDate = new Date(fileInfo.date);
+          nextDate.setDate(nextDate.getDate() + 1);
+          const nextDateStr = nextDate.toISOString().split("T")[0];
+          await supabase
+            .from("api_integration_settings")
+            .upsert({
+              setting_key: "riyad_bank_last_import_date",
+              setting_value: nextDateStr,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "setting_key" });
+        }
+
+        await updateLog({
+          found_files: foundFiles,
+          records_inserted: totalInserted,
+          records_skipped: totalSkipped,
+        });
+
+        console.log(`File ${idx + 1} done: ${result.insertedCount} inserted, ${result.skippedCount} skipped`);
+      }
+
+      await imap.logout();
+
+      // Check if there are still pending files
+      const remainingPending = foundFiles.filter((f: any) => f.status === "pending");
+      const allDone = remainingPending.length === 0;
+
+      if (allDone) {
+        // All files processed - mark completed and send notification
+        await updateLog({
+          status: "completed",
+          records_inserted: totalInserted,
+          records_skipped: totalSkipped,
+          current_step: "sending_notification",
+          found_files: foundFiles,
+        });
+
+        // Upload log for history
+        try {
+          await supabase.from("upload_logs").insert({
+            file_name: `Riyad Bank (${foundFiles.length} files)`,
+            user_name: "EdaraBoot",
+            user_id: null,
+            status: "completed",
+            records_processed: totalInserted,
+            duplicate_records_count: totalSkipped,
+            error_message: null,
+          });
+        } catch (ulErr) {
+          console.error("Failed to create upload_log entry:", ulErr);
+        }
+
+        // Send notification email
+        const smtpHost = "smtp.hostinger.com";
+        const smtpPort = 465;
+        const smtpUsername = "edara@asuscards.com";
+        const smtpPassword = Deno.env.get("SMTP_PASSWORD") ?? "";
+        const fromAddress = "Edara Support <edara@asuscards.com>";
+        const toEmail = "maged.shawky@asuscards.com";
+
+        const now = new Date();
+        const ksaTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+        const formattedTime = ksaTime.toLocaleString("ar-SA", {
+          timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit",
+          day: "2-digit", hour: "2-digit", minute: "2-digit",
+        });
+
+        const filesTableRows = foundFiles.map((f: any) =>
+          `<tr><td style="padding:8px;border:1px solid #ddd;">${f.subject}</td>
+           <td style="padding:8px;border:1px solid #ddd;">${f.date || '-'}</td>
+           <td style="padding:8px;border:1px solid #ddd;">${f.inserted}</td>
+           <td style="padding:8px;border:1px solid #ddd;">${f.skipped}</td>
+           <td style="padding:8px;border:1px solid #ddd;">${f.status}</td></tr>`
+        ).join("");
+
+        const emailSubjectLine = "تم تحميل كشف بنك الرياض - Riyad Bank Statement Uploaded";
+        const emailHtml = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;direction:rtl;margin:0;padding:0;background-color:#f4f4f4;">
+  <div style="max-width:700px;margin:40px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    <div style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:30px;text-align:center;">
+      <h1 style="margin:0;font-size:24px;font-weight:600;">تم تحميل كشف بنك الرياض تلقائياً</h1>
+    </div>
+    <div style="padding:30px;">
+      <p style="font-size:16px;line-height:1.8;margin:10px 0;"><strong>عدد الملفات:</strong> ${foundFiles.length}</p>
+      <p style="font-size:16px;line-height:1.8;margin:10px 0;"><strong>إجمالي السجلات المضافة:</strong> ${totalInserted}</p>
+      <p style="font-size:16px;line-height:1.8;margin:10px 0;"><strong>إجمالي السجلات المتكررة:</strong> ${totalSkipped}</p>
+      <p style="font-size:16px;line-height:1.8;margin:10px 0;"><strong>وقت التحميل:</strong> ${formattedTime}</p>
+      <table style="width:100%;border-collapse:collapse;margin-top:15px;">
+        <thead><tr style="background:#f0f4ff;">
+          <th style="padding:8px;border:1px solid #ddd;">الموضوع</th>
+          <th style="padding:8px;border:1px solid #ddd;">التاريخ</th>
+          <th style="padding:8px;border:1px solid #ddd;">مضاف</th>
+          <th style="padding:8px;border:1px solid #ddd;">مكرر</th>
+          <th style="padding:8px;border:1px solid #ddd;">الحالة</th>
+        </tr></thead>
+        <tbody>${filesTableRows}</tbody>
+      </table>
+    </div>
+    <div style="background:#f8f9fa;padding:20px;text-align:center;color:#6c757d;font-size:14px;">
+      <p style="margin:0;">هذا إشعار تلقائي من نظام إدارة - Edara</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        if (smtpPassword) {
+          try {
+            const rawMsg = buildRawEmail(fromAddress, toEmail, emailSubjectLine, emailHtml);
+            await sendRawEmail(smtpHost as any, smtpPort, smtpUsername, smtpPassword, fromAddress, toEmail, rawMsg);
+          } catch (emailErr) {
+            console.error("Failed to send notification email:", emailErr);
+          }
+        }
+
+        await updateLog({ current_step: "completed" });
+
+        return new Response(JSON.stringify({
+          done: true,
+          records_inserted: totalInserted,
+          records_skipped: totalSkipped,
+          files: foundFiles,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } else {
+        // More files remaining
+        await updateLog({
+          status: "scanned",
+          current_step: "batch_complete",
+          found_files: foundFiles,
+          records_inserted: totalInserted,
+          records_skipped: totalSkipped,
+        });
+
+        return new Response(JSON.stringify({
+          done: false,
+          remaining: remainingPending.length,
+          records_inserted: totalInserted,
+          records_skipped: totalSkipped,
+          files: foundFiles,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } catch (error: any) {
+      console.error("Process error:", error);
+      await updateLog({ status: "error", error_message: error.message, current_step: "error" });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  // ==================== FULL MODE (legacy/cron) ====================
+  // For backward compatibility with pg_cron scheduled runs
   const { data: logEntry } = await supabase
     .from("riyad_statement_auto_imports")
     .insert({ status: "processing" })
@@ -412,7 +784,6 @@ serve(async (req) => {
       });
     }
 
-    // Step 1: Get last import date from settings
     await updateStep("checking_last_date");
     const { data: lastDateSetting } = await supabase
       .from("api_integration_settings")
@@ -420,7 +791,6 @@ serve(async (req) => {
       .eq("setting_key", "riyad_bank_last_import_date")
       .single();
 
-    // Default to 7 days ago if no last date
     const defaultDate = new Date();
     defaultDate.setDate(defaultDate.getDate() - 7);
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -429,286 +799,128 @@ serve(async (req) => {
     if (lastDateSetting?.setting_value) {
       const d = new Date(lastDateSetting.setting_value);
       sinceDate = `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear()}`;
-      console.log(`Last import date: ${lastDateSetting.setting_value}, searching since: ${sinceDate}`);
     } else {
       sinceDate = `${defaultDate.getDate()}-${months[defaultDate.getMonth()]}-${defaultDate.getFullYear()}`;
-      console.log(`No last import date, searching since: ${sinceDate}`);
     }
 
-    // Step 2: Connect to email
     await updateStep("connecting_to_email");
     const imap = new IMAPClient(imapHost, imapPort);
     await imap.connect();
     await imap.login(email, emailPassword);
     await imap.select("INBOX");
 
-    // Step 3: Search for emails since last date
     await updateStep("searching_emails");
     const messageIds = await imap.searchSince(sinceDate);
-    console.log(`Found ${messageIds.length} emails since ${sinceDate}`);
 
     if (messageIds.length === 0) {
       await imap.logout();
-      await updateLog({ status: "no_email", error_message: "No Riyad Bank emails found since last import", current_step: "completed" });
+      await updateLog({ status: "no_email", error_message: "No Riyad Bank emails found", current_step: "completed" });
       return new Response(JSON.stringify({ message: "No emails found" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Step 4: Scan all emails - collect headers/subjects/dates first
     await updateStep("scanning_emails");
-    interface EmailInfo {
-      uid: number;
-      subject: string;
-      date: string | null;
-      filename: string | null;
-    }
+    interface EmailInfo { uid: number; subject: string; date: string | null; }
     const emailInfos: EmailInfo[] = [];
 
     for (const uid of messageIds) {
       const headers = await imap.fetchHeaders(uid);
       const isRiyadBank = /9910013@riyadbank\.com/i.test(headers) && /Merchant\s*Report/i.test(headers);
       if (!isRiyadBank) continue;
-
       const subjectMatch = headers.match(/Subject:\s*(.+?)(?:\r?\n(?!\s))/i);
       const subject = subjectMatch?.[1]?.trim() || "Riyad Bank Statement";
       const dateFromSubject = extractDateFromSubject(subject);
-
-      emailInfos.push({ uid, subject, date: dateFromSubject, filename: null });
+      emailInfos.push({ uid, subject, date: dateFromSubject });
     }
-
-    console.log(`Found ${emailInfos.length} Riyad Bank emails`);
 
     if (emailInfos.length === 0) {
       await imap.logout();
-      await updateLog({ status: "no_email", error_message: "No matching Riyad Bank emails found", current_step: "completed" });
+      await updateLog({ status: "no_email", error_message: "No matching emails", current_step: "completed" });
       return new Response(JSON.stringify({ message: "No matching emails" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Sort by date (oldest first)
     emailInfos.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
-    // Limit to max 5 files per run to avoid CPU timeout
-    const MAX_FILES_PER_RUN = 5;
+    const MAX_FILES_PER_RUN = 3;
     const filesToProcess = emailInfos.slice(0, MAX_FILES_PER_RUN);
-    const hasMore = emailInfos.length > MAX_FILES_PER_RUN;
 
-    // Save found files list to log
     const foundFiles = filesToProcess.map((e, i) => ({
-      index: i,
-      subject: e.subject,
-      date: e.date,
-      status: "pending",
-      inserted: 0,
-      skipped: 0,
+      index: i, subject: e.subject, date: e.date, status: "pending", inserted: 0, skipped: 0,
     }));
 
-    await updateLog({
-      found_files: foundFiles,
-      total_files: filesToProcess.length,
-      current_file_index: 0,
-    });
+    await updateLog({ found_files: foundFiles, total_files: filesToProcess.length, current_file_index: 0 });
 
-    // Step 5: Process each email one by one
     let totalInserted = 0;
     let totalSkipped = 0;
-    let lastProcessedDate: string | null = null;
 
     for (let i = 0; i < filesToProcess.length; i++) {
       const emailInfo = filesToProcess[i];
-      console.log(`Processing file ${i + 1}/${filesToProcess.length}: ${emailInfo.subject}`);
+      await updateLog({ current_step: `downloading_file_${i}`, current_file_index: i, email_subject: emailInfo.subject });
 
-      // Update current step with file info
-      await updateLog({
-        current_step: `downloading_file_${i}`,
-        current_file_index: i,
-        email_subject: emailInfo.subject,
-      });
-
-      // Download attachment
       const fullMessage = await imap.fetchFull(emailInfo.uid);
       const attachment = extractExcelAttachment(fullMessage);
 
       if (!attachment) {
-        console.warn(`No Excel attachment in email: ${emailInfo.subject}`);
         foundFiles[i].status = "no_attachment";
         await updateLog({ found_files: foundFiles });
         continue;
       }
 
-      foundFiles[i].filename = attachment.filename;
       foundFiles[i].status = "processing";
-      await updateLog({
-        found_files: foundFiles,
-        current_step: `processing_file_${i}`,
-      });
+      await updateLog({ found_files: foundFiles, current_step: `processing_file_${i}` });
 
-      // Process this file
       const result = await processExcelFile(supabase, attachment, emailInfo.subject);
 
       foundFiles[i].status = "completed";
       foundFiles[i].inserted = result.insertedCount;
       foundFiles[i].skipped = result.skippedCount;
-
       totalInserted += result.insertedCount;
       totalSkipped += result.skippedCount;
 
-      // Track latest date and save after each file to checkpoint progress
       if (emailInfo.date) {
-        if (!lastProcessedDate || emailInfo.date > lastProcessedDate) {
-          lastProcessedDate = emailInfo.date;
-        }
-        // Save last date after each file so if we crash, next run picks up here
         const nextDate = new Date(emailInfo.date);
         nextDate.setDate(nextDate.getDate() + 1);
-        const nextDateStr = nextDate.toISOString().split("T")[0];
-        await supabase
-          .from("api_integration_settings")
-          .upsert({
-            setting_key: "riyad_bank_last_import_date",
-            setting_value: nextDateStr,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "setting_key" });
+        await supabase.from("api_integration_settings").upsert({
+          setting_key: "riyad_bank_last_import_date",
+          setting_value: nextDate.toISOString().split("T")[0],
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "setting_key" });
       }
 
-      await updateLog({
-        found_files: foundFiles,
-        records_inserted: totalInserted,
-        records_skipped: totalSkipped,
-      });
-
-      console.log(`File ${i + 1} done: ${result.insertedCount} inserted, ${result.skippedCount} skipped`);
+      await updateLog({ found_files: foundFiles, records_inserted: totalInserted, records_skipped: totalSkipped });
     }
 
     await imap.logout();
 
-    // Final update
-    const finalStatus = hasMore ? "completed" : "completed";
-    const moreMsg = hasMore ? ` (${emailInfos.length - MAX_FILES_PER_RUN} more files remaining, run again)` : "";
     await updateLog({
-      status: "completed",
-      records_inserted: totalInserted,
-      records_skipped: totalSkipped,
-      current_step: "completed",
-      found_files: foundFiles,
-      error_message: hasMore ? `Processed ${MAX_FILES_PER_RUN} of ${emailInfos.length} files. Run again for remaining.` : null,
+      status: "completed", records_inserted: totalInserted, records_skipped: totalSkipped,
+      current_step: "completed", found_files: foundFiles,
+      error_message: emailInfos.length > MAX_FILES_PER_RUN ? `Processed ${MAX_FILES_PER_RUN} of ${emailInfos.length}. Run again.` : null,
     });
 
-    // Upload log for history page
     try {
       await supabase.from("upload_logs").insert({
-        file_name: `Riyad Bank (${filesToProcess.length} files${hasMore ? `, ${emailInfos.length - MAX_FILES_PER_RUN} more remaining` : ''})`,
-        user_name: "EdaraBoot",
-        user_id: null,
-        status: "completed",
-        records_processed: totalInserted,
-        duplicate_records_count: totalSkipped,
-        error_message: null,
+        file_name: `Riyad Bank (${filesToProcess.length} files)`, user_name: "EdaraBoot",
+        user_id: null, status: "completed", records_processed: totalInserted,
+        duplicate_records_count: totalSkipped, error_message: null,
       });
-    } catch (ulErr) {
-      console.error("Failed to create upload_log entry (non-fatal):", ulErr);
-    }
-
-    // Send notification email
-    await updateStep("sending_notification");
-    const smtpHost = "smtp.hostinger.com";
-    const smtpPort = 465;
-    const smtpUsername = "edara@asuscards.com";
-    const smtpPassword = Deno.env.get("SMTP_PASSWORD") ?? "";
-    const fromAddress = "Edara Support <edara@asuscards.com>";
-    const toEmail = "maged.shawky@asuscards.com";
-
-    const now = new Date();
-    const ksaTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-    const formattedTime = ksaTime.toLocaleString("ar-SA", {
-      timeZone: "Asia/Riyadh",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    const filesTableRows = foundFiles.map((f) =>
-      `<tr><td style="padding:8px;border:1px solid #ddd;">${f.subject}</td>
-       <td style="padding:8px;border:1px solid #ddd;">${f.date || '-'}</td>
-       <td style="padding:8px;border:1px solid #ddd;">${f.inserted}</td>
-       <td style="padding:8px;border:1px solid #ddd;">${f.skipped}</td>
-       <td style="padding:8px;border:1px solid #ddd;">${f.status}</td></tr>`
-    ).join("");
-
-    const emailSubjectLine = "تم تحميل كشف بنك الرياض - Riyad Bank Statement Uploaded";
-    const emailHtml = `<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;direction:rtl;margin:0;padding:0;background-color:#f4f4f4;">
-  <div style="max-width:700px;margin:40px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-    <div style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:30px;text-align:center;">
-      <h1 style="margin:0;font-size:24px;font-weight:600;">تم تحميل كشف بنك الرياض تلقائياً</h1>
-    </div>
-    <div style="padding:30px;">
-      <p style="font-size:16px;line-height:1.8;margin:10px 0;">
-        <strong>عدد الملفات:</strong> ${emailInfos.length}
-      </p>
-      <p style="font-size:16px;line-height:1.8;margin:10px 0;">
-        <strong>إجمالي السجلات المضافة:</strong> ${totalInserted}
-      </p>
-      <p style="font-size:16px;line-height:1.8;margin:10px 0;">
-        <strong>إجمالي السجلات المتكررة:</strong> ${totalSkipped}
-      </p>
-      <p style="font-size:16px;line-height:1.8;margin:10px 0;">
-        <strong>وقت التحميل:</strong> ${formattedTime}
-      </p>
-      <table style="width:100%;border-collapse:collapse;margin-top:15px;">
-        <thead>
-          <tr style="background:#f0f4ff;">
-            <th style="padding:8px;border:1px solid #ddd;">الموضوع</th>
-            <th style="padding:8px;border:1px solid #ddd;">التاريخ</th>
-            <th style="padding:8px;border:1px solid #ddd;">مضاف</th>
-            <th style="padding:8px;border:1px solid #ddd;">مكرر</th>
-            <th style="padding:8px;border:1px solid #ddd;">الحالة</th>
-          </tr>
-        </thead>
-        <tbody>${filesTableRows}</tbody>
-      </table>
-    </div>
-    <div style="background:#f8f9fa;padding:20px;text-align:center;color:#6c757d;font-size:14px;">
-      <p style="margin:0;">هذا إشعار تلقائي من نظام إدارة - Edara</p>
-    </div>
-  </div>
-</body>
-</html>`;
-
-    if (smtpPassword) {
-      try {
-        const rawMsg = buildRawEmail(fromAddress, toEmail, emailSubjectLine, emailHtml);
-        await sendRawEmail(smtpHost, smtpPort, smtpUsername, smtpPassword, fromAddress, toEmail, rawMsg);
-        console.log("Notification email sent successfully");
-      } catch (emailErr) {
-        console.error("Failed to send notification email:", emailErr);
-      }
-    }
+    } catch { /* non-fatal */ }
 
     await updateLog({ current_step: "completed" });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        total_files: emailInfos.length,
-        records_inserted: totalInserted,
-        records_skipped: totalSkipped,
-        files: foundFiles,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      success: true, total_files: emailInfos.length,
+      records_inserted: totalInserted, records_skipped: totalSkipped, files: foundFiles,
+    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   } catch (error: any) {
-    console.error("Error in sync-riyad-statement-background:", error);
+    console.error("Error:", error);
     await updateLog({ status: "error", error_message: error.message, current_step: "error" });
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

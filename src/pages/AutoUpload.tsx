@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Play, History, Bot, CheckCircle2, AlertCircle, Clock, Ban, Loader2, Mail, Download, FileSpreadsheet, Search, Database, Link2, Bell, CircleDot, CalendarDays, FileX } from "lucide-react";
+import { Play, History, Bot, CheckCircle2, AlertCircle, Clock, Ban, Loader2, Mail, FileSpreadsheet, Search, Database, Bell, CircleDot, CalendarDays, FileX, UploadCloud } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
@@ -15,6 +15,7 @@ import edaraLogo from "@/assets/edara-logo.png";
 
 interface FoundFile {
   index: number;
+  uid?: number;
   subject: string;
   date: string | null;
   filename?: string | null;
@@ -64,16 +65,20 @@ const AUTO_JOBS: AutoJob[] = [
   },
 ];
 
-const STEP_LABELS: Record<string, { en: string; ar: string; icon: typeof Mail }> = {
-  checking_last_date: { en: "Checking last import date", ar: "فحص آخر تاريخ تحميل", icon: CalendarDays },
-  connecting_to_email: { en: "Connecting to email server", ar: "الاتصال بخادم البريد", icon: Mail },
-  searching_emails: { en: "Searching for emails", ar: "البحث عن الرسائل", icon: Search },
-  scanning_emails: { en: "Scanning email headers", ar: "مسح عناوين الرسائل", icon: Search },
-  saving_last_date: { en: "Saving last import date", ar: "حفظ آخر تاريخ تحميل", icon: Database },
-  sending_notification: { en: "Sending notification", ar: "إرسال الإشعار", icon: Bell },
-  completed: { en: "Completed", ar: "مكتمل", icon: CheckCircle2 },
-  error: { en: "Error", ar: "خطأ", icon: AlertCircle },
+const STEP_LABELS: Record<string, { en: string; ar: string }> = {
+  checking_last_date: { en: "Checking last import date", ar: "فحص آخر تاريخ تحميل" },
+  connecting_to_email: { en: "Connecting to email server", ar: "الاتصال بخادم البريد" },
+  searching_emails: { en: "Searching for emails", ar: "البحث عن الرسائل" },
+  scanning_emails: { en: "Scanning email headers", ar: "مسح عناوين الرسائل" },
+  scan_complete: { en: "Scan complete - ready to upload", ar: "اكتمل الفحص - جاهز للتحميل" },
+  batch_complete: { en: "Batch complete - processing next batch", ar: "اكتملت الدفعة - معالجة الدفعة التالية" },
+  saving_last_date: { en: "Saving last import date", ar: "حفظ آخر تاريخ تحميل" },
+  sending_notification: { en: "Sending notification", ar: "إرسال الإشعار" },
+  completed: { en: "Completed", ar: "مكتمل" },
+  error: { en: "Error", ar: "خطأ" },
 };
+
+type Phase = "idle" | "scanning" | "scanned" | "processing" | "completed" | "error";
 
 const AutoUpload = () => {
   const { language } = useLanguage();
@@ -82,12 +87,17 @@ const AutoUpload = () => {
   const [selectedJob, setSelectedJob] = useState<AutoJob | null>(null);
   const [logs, setLogs] = useState<AutoImportLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [runningJobs, setRunningJobs] = useState<Set<string>>(new Set());
+  
+  // Two-phase state
+  const [phase, setPhase] = useState<Phase>("idle");
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
+  const [foundFiles, setFoundFiles] = useState<FoundFile[]>([]);
   const [liveLog, setLiveLog] = useState<AutoImportLog | null>(null);
+  const [lastDate, setLastDate] = useState<string | null>(null);
   const channelRef = useRef<any>(null);
+  const processingRef = useRef(false);
 
-  // Subscribe to realtime updates
+  // Subscribe to realtime updates on the active log
   useEffect(() => {
     if (!activeLogId) {
       if (channelRef.current) {
@@ -111,24 +121,23 @@ const AutoUpload = () => {
           const updated = payload.new as any;
           setLiveLog(updated as AutoImportLog);
 
-          if (updated.status === 'completed' || updated.status === 'error' || updated.status === 'no_email' || updated.status === 'empty') {
-            setRunningJobs(prev => {
-              const next = new Set(prev);
-              next.delete("riyad-bank");
-              return next;
-            });
+          if (updated.found_files) {
+            setFoundFiles(updated.found_files as FoundFile[]);
+          }
 
-            if (updated.status === 'completed') {
-              toast.success(
-                language === "ar"
-                  ? `تم: ${updated.records_inserted ?? 0} سجل جديد, ${updated.records_skipped ?? 0} مكرر (${updated.total_files ?? 0} ملف)`
-                  : `Done: ${updated.records_inserted ?? 0} inserted, ${updated.records_skipped ?? 0} skipped (${updated.total_files ?? 0} files)`
-              );
-            } else if (updated.status === 'error') {
-              toast.error(updated.error_message || "Error");
-            } else if (updated.status === 'no_email') {
-              toast.info(language === "ar" ? "لا توجد رسائل جديدة" : "No new emails found");
-            }
+          if (updated.status === 'completed') {
+            setPhase("completed");
+            toast.success(
+              language === "ar"
+                ? `تم: ${updated.records_inserted ?? 0} سجل جديد, ${updated.records_skipped ?? 0} مكرر`
+                : `Done: ${updated.records_inserted ?? 0} inserted, ${updated.records_skipped ?? 0} skipped`
+            );
+          } else if (updated.status === 'error') {
+            setPhase("error");
+            toast.error(updated.error_message || "Error");
+          } else if (updated.status === 'no_email') {
+            setPhase("completed");
+            toast.info(language === "ar" ? "لا توجد رسائل جديدة" : "No new emails found");
           }
         }
       )
@@ -144,43 +153,85 @@ const AutoUpload = () => {
   if (accessLoading) return null;
   if (hasAccess === false) return <AccessDenied />;
 
-  const handleManualRun = async (job: AutoJob) => {
-    if (runningJobs.has(job.id)) return;
-
-    setRunningJobs((prev) => new Set(prev).add(job.id));
+  // Phase 1: Scan emails
+  const handleScan = async (job: AutoJob) => {
+    if (phase === "scanning" || phase === "processing") return;
+    
+    setPhase("scanning");
+    setFoundFiles([]);
     setLiveLog(null);
+    setLastDate(null);
 
     try {
-      const invokePromise = supabase.functions.invoke(job.functionName, {
-        body: { time: "manual" },
+      const { data, error } = await supabase.functions.invoke(job.functionName, {
+        body: { mode: "scan" },
       });
 
-      // Poll for log entry
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const { data: latestLog } = await supabase
-        .from("riyad_statement_auto_imports")
-        .select("*")
-        .eq("status", "processing")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (latestLog) {
-        setActiveLogId(latestLog.id);
-        setLiveLog(latestLog as unknown as AutoImportLog);
-      }
-
-      const { error } = await invokePromise;
       if (error) throw error;
 
+      const logId = data?.log_id;
+      if (logId) setActiveLogId(logId);
+
+      if (data?.found_files && data.found_files.length > 0) {
+        setFoundFiles(data.found_files);
+        setLastDate(data.last_date || null);
+        setPhase("scanned");
+        toast.success(
+          language === "ar"
+            ? `تم العثور على ${data.found_files.length} ملف`
+            : `Found ${data.found_files.length} files`
+        );
+      } else {
+        setPhase("completed");
+        toast.info(language === "ar" ? "لا توجد ملفات جديدة" : "No new files found");
+      }
     } catch (err: any) {
       toast.error(err.message);
-      setRunningJobs((prev) => {
-        const next = new Set(prev);
-        next.delete(job.id);
-        return next;
-      });
+      setPhase("error");
     }
+  };
+
+  // Phase 2: Process files in batches
+  const handleStartProcessing = async () => {
+    if (!activeLogId || phase !== "scanned" || processingRef.current) return;
+    
+    processingRef.current = true;
+    setPhase("processing");
+
+    try {
+      let done = false;
+      while (!done) {
+        const { data, error } = await supabase.functions.invoke("sync-riyad-statement-background", {
+          body: { mode: "process", log_id: activeLogId },
+        });
+
+        if (error) throw error;
+
+        if (data?.files) {
+          setFoundFiles(data.files);
+        }
+
+        done = data?.done === true;
+
+        if (!done && data?.remaining > 0) {
+          // Small delay between batches
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+      setPhase("error");
+    } finally {
+      processingRef.current = false;
+    }
+  };
+
+  const handleReset = () => {
+    setPhase("idle");
+    setFoundFiles([]);
+    setLiveLog(null);
+    setActiveLogId(null);
+    setLastDate(null);
   };
 
   const handleShowHistory = async (job: AutoJob) => {
@@ -210,6 +261,9 @@ const AutoUpload = () => {
         return <Badge className="bg-primary text-primary-foreground"><CheckCircle2 className="h-3 w-3 mr-1" />{language === "ar" ? "مكتمل" : "Completed"}</Badge>;
       case "processing":
         return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />{language === "ar" ? "قيد التنفيذ" : "Processing"}</Badge>;
+      case "scanning":
+      case "scanned":
+        return <Badge variant="secondary"><Search className="h-3 w-3 mr-1" />{language === "ar" ? "فحص" : "Scanning"}</Badge>;
       case "error":
         return <Badge variant="destructive"><AlertCircle className="h-3 w-3 mr-1" />{language === "ar" ? "خطأ" : "Error"}</Badge>;
       case "no_email":
@@ -231,23 +285,21 @@ const AutoUpload = () => {
     }
   };
 
-  const isRunning = runningJobs.has("riyad-bank");
   const currentStep = liveLog?.current_step || "";
   const isFileStep = currentStep.startsWith("downloading_file_") || currentStep.startsWith("processing_file_");
 
-  // Determine the overall step for the top-level progress
-  const getMainStepLabel = () => {
+  const getStepLabel = () => {
     if (isFileStep) {
       const fileIdx = (liveLog?.current_file_index ?? 0) + 1;
-      const total = liveLog?.total_files ?? 0;
-      const en = `Processing file ${fileIdx} of ${total}`;
-      const ar = `معالجة الملف ${fileIdx} من ${total}`;
-      return language === "ar" ? ar : en;
+      const total = liveLog?.total_files ?? foundFiles.length;
+      return language === "ar" ? `معالجة الملف ${fileIdx} من ${total}` : `Processing file ${fileIdx} of ${total}`;
     }
     const info = STEP_LABELS[currentStep];
     if (info) return language === "ar" ? info.ar : info.en;
     return currentStep;
   };
+
+  const isActive = phase === "scanning" || phase === "processing";
 
   return (
     <div className="space-y-6">
@@ -290,18 +342,55 @@ const AutoUpload = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => handleManualRun(job)}
-                  disabled={isRunning}
-                  className="gap-2"
-                >
-                  {isRunning ? (
+                {/* Phase 1: Scan Button */}
+                {(phase === "idle" || phase === "completed" || phase === "error") && (
+                  <Button
+                    onClick={() => handleScan(job)}
+                    disabled={isActive}
+                    className="gap-2"
+                  >
+                    <Search className="h-4 w-4" />
+                    {language === "ar" ? "فحص البريد" : "Scan Emails"}
+                  </Button>
+                )}
+
+                {/* Phase 2: Start Upload Button - shown after scan */}
+                {phase === "scanned" && foundFiles.length > 0 && (
+                  <Button
+                    onClick={handleStartProcessing}
+                    className="gap-2"
+                    variant="default"
+                  >
+                    <UploadCloud className="h-4 w-4" />
+                    {language === "ar"
+                      ? `تحميل ${foundFiles.length} ملف`
+                      : `Upload ${foundFiles.length} Files`}
+                  </Button>
+                )}
+
+                {/* Scanning indicator */}
+                {phase === "scanning" && (
+                  <Button disabled className="gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                  {language === "ar" ? "تشغيل يدوي" : "Manual Run"}
-                </Button>
+                    {language === "ar" ? "جاري الفحص..." : "Scanning..."}
+                  </Button>
+                )}
+
+                {/* Processing indicator */}
+                {phase === "processing" && (
+                  <Button disabled className="gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {language === "ar" ? "جاري التحميل..." : "Uploading..."}
+                  </Button>
+                )}
+
+                {/* Reset button */}
+                {(phase === "scanned" || phase === "completed" || phase === "error") && (
+                  <Button variant="outline" onClick={handleReset} className="gap-2">
+                    {language === "ar" ? "إعادة" : "Reset"}
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   onClick={() => handleShowHistory(job)}
@@ -312,80 +401,87 @@ const AutoUpload = () => {
                 </Button>
               </div>
 
-              {/* Live Progress Panel */}
-              {(isRunning || (liveLog && liveLog.status === "completed")) && liveLog && (
+              {/* Step indicator during scanning/processing */}
+              {isActive && liveLog && currentStep && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span>{getStepLabel()}</span>
+                </div>
+              )}
+
+              {/* Last date info */}
+              {phase === "scanned" && lastDate && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>
+                    {language === "ar" ? `آخر تاريخ تحميل: ${lastDate}` : `Last import date: ${lastDate}`}
+                  </span>
+                </div>
+              )}
+
+              {/* Totals bar during/after processing */}
+              {(phase === "processing" || phase === "completed") && liveLog && (liveLog.records_inserted != null || liveLog.records_skipped != null) && (
+                <div className="flex gap-4 text-xs text-muted-foreground px-1">
+                  <span>📥 {language === "ar" ? "مضاف" : "Inserted"}: <span className="font-mono font-bold text-foreground">{liveLog.records_inserted ?? 0}</span></span>
+                  <span>🔄 {language === "ar" ? "مكرر" : "Skipped"}: <span className="font-mono font-bold text-foreground">{liveLog.records_skipped ?? 0}</span></span>
+                </div>
+              )}
+
+              {/* Found Files List */}
+              {foundFiles.length > 0 && (
                 <Card className="border bg-muted/30">
-                  <CardContent className="pt-4 pb-3 space-y-3">
-                    {/* Current Step Indicator */}
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      {liveLog.status === "completed" ? (
+                  <CardContent className="pt-4 pb-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                        {language === "ar"
+                          ? `الملفات المكتشفة (${foundFiles.length})`
+                          : `Found Files (${foundFiles.length})`}
+                      </p>
+                      {phase === "completed" && (
                         <CheckCircle2 className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Loader2 className="h-4 w-4 text-primary animate-spin" />
                       )}
-                      <span>{getMainStepLabel()}</span>
                     </div>
-
-                    {/* Totals bar */}
-                    {(liveLog.records_inserted != null || liveLog.records_skipped != null) && (
-                      <div className="flex gap-4 text-xs text-muted-foreground px-1">
-                        <span>📥 {language === "ar" ? "مضاف" : "Inserted"}: <span className="font-mono font-bold text-foreground">{liveLog.records_inserted ?? 0}</span></span>
-                        <span>🔄 {language === "ar" ? "مكرر" : "Skipped"}: <span className="font-mono font-bold text-foreground">{liveLog.records_skipped ?? 0}</span></span>
-                        {liveLog.total_files && (
-                          <span>📄 {language === "ar" ? "ملفات" : "Files"}: <span className="font-mono font-bold text-foreground">{liveLog.total_files}</span></span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Found Files List */}
-                    {liveLog.found_files && liveLog.found_files.length > 0 && (
-                      <div className="space-y-1 mt-2">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                          {language === "ar" ? "الملفات المكتشفة" : "Found Files"}
-                        </p>
-                        {(liveLog.found_files as FoundFile[]).map((file, idx) => {
-                          const isCurrent = liveLog.current_file_index === idx && isFileStep;
-                          return (
-                            <div
-                              key={idx}
-                              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
-                                isCurrent
-                                  ? "bg-primary/10 border border-primary/30"
-                                  : file.status === "completed"
-                                  ? "opacity-80"
-                                  : file.status === "pending"
-                                  ? "opacity-50"
-                                  : ""
-                              }`}
-                            >
-                              {getFileStatusIcon(file.status)}
-                              <FileSpreadsheet className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <span className={`truncate block ${isCurrent ? "font-semibold" : ""}`}>
-                                  {file.filename || file.subject}
-                                </span>
-                              </div>
-                              {file.date && (
-                                <Badge variant="outline" className="text-xs flex-shrink-0">
-                                  <CalendarDays className="h-3 w-3 mr-1" />
-                                  {file.date}
-                                </Badge>
-                              )}
-                              {file.status === "completed" && (
-                                <span className="text-xs text-muted-foreground flex-shrink-0">
-                                  +{file.inserted} / {file.skipped} {language === "ar" ? "مكرر" : "dup"}
-                                </span>
-                              )}
-                              {file.status === "no_attachment" && (
-                                <Badge variant="destructive" className="text-xs">
-                                  {language === "ar" ? "لا مرفق" : "No attachment"}
-                                </Badge>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {foundFiles.map((file, idx) => {
+                      const isCurrent = liveLog?.current_file_index === idx && isFileStep;
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
+                            isCurrent
+                              ? "bg-primary/10 border border-primary/30"
+                              : file.status === "completed"
+                              ? "opacity-80"
+                              : file.status === "pending"
+                              ? ""
+                              : ""
+                          }`}
+                        >
+                          {getFileStatusIcon(file.status)}
+                          <FileSpreadsheet className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <span className={`truncate block ${isCurrent ? "font-semibold" : ""}`}>
+                              {file.filename || file.subject}
+                            </span>
+                          </div>
+                          {file.date && (
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              <CalendarDays className="h-3 w-3 mr-1" />
+                              {file.date}
+                            </Badge>
+                          )}
+                          {file.status === "completed" && (
+                            <span className="text-xs text-muted-foreground flex-shrink-0">
+                              +{file.inserted} / {file.skipped} {language === "ar" ? "مكرر" : "dup"}
+                            </span>
+                          )}
+                          {file.status === "no_attachment" && (
+                            <Badge variant="destructive" className="text-xs">
+                              {language === "ar" ? "لا مرفق" : "No attachment"}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
                   </CardContent>
                 </Card>
               )}
