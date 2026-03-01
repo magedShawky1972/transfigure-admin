@@ -128,6 +128,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/acknowledgment-documents": "acknowledgmentDocuments",
   "/missing-shift-images": "missingShiftImages",
   "/sales-order-entry": "salesOrderEntry",
+  "/auto-upload": "autoUpload",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {
