@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -79,6 +81,8 @@ const ShiftCalendar = () => {
   const isAr = language === 'ar';
   const [viewType, setViewType] = useState<ViewType>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [fromDate, setFromDate] = useState<Date>(startOfMonth(new Date()));
+  const [toDate, setToDate] = useState<Date>(endOfMonth(new Date()));
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [shiftTypes, setShiftTypes] = useState<ShiftType[]>([]);
   const [selectedShiftType, setSelectedShiftType] = useState<string>("all");
@@ -115,7 +119,7 @@ const ShiftCalendar = () => {
 
   useEffect(() => {
     fetchAssignments();
-  }, [currentDate, viewType]);
+  }, [currentDate, viewType, fromDate, toDate]);
 
   useEffect(() => {
     if (selectedQuickShift) {
@@ -292,27 +296,60 @@ const ShiftCalendar = () => {
   };
 
   const getStartDate = () => {
-    if (viewType === "month") return startOfWeek(startOfMonth(currentDate));
-    if (viewType === "week" || viewType === "schedule") return startOfWeek(currentDate);
-    return currentDate;
+    return fromDate;
   };
 
   const getEndDate = () => {
-    if (viewType === "month") return endOfWeek(endOfMonth(currentDate));
-    if (viewType === "week" || viewType === "schedule") return endOfWeek(currentDate);
-    return currentDate;
+    return toDate;
+  };
+
+  const syncDatesFromCurrentDate = (date: Date, view: ViewType) => {
+    if (view === "month") {
+      setFromDate(startOfMonth(date));
+      setToDate(endOfMonth(date));
+    } else if (view === "week" || view === "schedule") {
+      setFromDate(startOfWeek(date));
+      setToDate(endOfWeek(date));
+    } else {
+      setFromDate(date);
+      setToDate(date);
+    }
   };
 
   const handlePrevious = () => {
-    if (viewType === "month") setCurrentDate(addMonths(currentDate, -1));
-    else if (viewType === "week" || viewType === "schedule") setCurrentDate(addWeeks(currentDate, -1));
-    else setCurrentDate(addDays(currentDate, -1));
+    let newDate: Date;
+    if (viewType === "month") { newDate = addMonths(currentDate, -1); }
+    else if (viewType === "week" || viewType === "schedule") { newDate = addWeeks(currentDate, -1); }
+    else { newDate = addDays(currentDate, -1); }
+    setCurrentDate(newDate);
+    syncDatesFromCurrentDate(newDate, viewType);
   };
 
   const handleNext = () => {
-    if (viewType === "month") setCurrentDate(addMonths(currentDate, 1));
-    else if (viewType === "week" || viewType === "schedule") setCurrentDate(addWeeks(currentDate, 1));
-    else setCurrentDate(addDays(currentDate, 1));
+    let newDate: Date;
+    if (viewType === "month") { newDate = addMonths(currentDate, 1); }
+    else if (viewType === "week" || viewType === "schedule") { newDate = addWeeks(currentDate, 1); }
+    else { newDate = addDays(currentDate, 1); }
+    setCurrentDate(newDate);
+    syncDatesFromCurrentDate(newDate, viewType);
+  };
+
+  const handleFromDateChange = (date: Date | undefined) => {
+    if (date) {
+      setFromDate(date);
+      setCurrentDate(date);
+    }
+  };
+
+  const handleToDateChange = (date: Date | undefined) => {
+    if (date) {
+      setToDate(date);
+    }
+  };
+
+  const handleViewTypeChange = (newView: ViewType) => {
+    setViewType(newView);
+    syncDatesFromCurrentDate(currentDate, newView);
   };
 
   const handleAddShift = (date: Date, e: React.MouseEvent) => {
@@ -824,7 +861,7 @@ const ShiftCalendar = () => {
               <Button
                 variant={viewType === "day" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setViewType("day")}
+                onClick={() => handleViewTypeChange("day")}
               >
                 <List className="h-4 w-4 me-1" />
                 {isAr ? 'يوم' : 'Day'}
@@ -832,7 +869,7 @@ const ShiftCalendar = () => {
               <Button
                 variant={viewType === "week" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setViewType("week")}
+                onClick={() => handleViewTypeChange("week")}
               >
                 <Grid3x3 className="h-4 w-4 me-1" />
                 {isAr ? 'أسبوع' : 'Week'}
@@ -840,7 +877,7 @@ const ShiftCalendar = () => {
               <Button
                 variant={viewType === "month" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setViewType("month")}
+                onClick={() => handleViewTypeChange("month")}
               >
                 <CalendarIcon className="h-4 w-4 me-1" />
                 {isAr ? 'شهر' : 'Month'}
@@ -848,7 +885,7 @@ const ShiftCalendar = () => {
               <Button
                 variant={viewType === "schedule" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setViewType("schedule")}
+                onClick={() => handleViewTypeChange("schedule")}
               >
                 <TableProperties className="h-4 w-4 me-1" />
                 {isAr ? 'جدول الورديات' : 'Schedule'}
@@ -985,17 +1022,61 @@ const ShiftCalendar = () => {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-6">
-            <Button variant="outline" size="sm" onClick={handlePrevious}>
-              <ChevronLeft className="h-4 w-4" />
+          {/* Date Range Selection & Navigation */}
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <Button variant="outline" size="icon" onClick={handlePrevious}>
+              {isAr ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </Button>
-            <h2 className="text-xl font-semibold">
-              {viewType === "month" && formatDateLocalized(currentDate, "monthYear", language)}
-              {(viewType === "week" || viewType === "schedule") && `${formatDateLocalized(getStartDate(), "fullDate", language)} - ${formatDateLocalized(getEndDate(), "fullDate", language)}`}
-              {viewType === "day" && formatDateLocalized(currentDate, "fullDate", language)}
-            </h2>
-            <Button variant="outline" size="sm" onClick={handleNext}>
-              <ChevronRight className="h-4 w-4" />
+
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* From Date Picker */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground font-medium">{isAr ? 'من:' : 'From:'}</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !fromDate && "text-muted-foreground")}>
+                      <CalendarIcon className="me-2 h-4 w-4" />
+                      {fromDate ? format(fromDate, "yyyy-MM-dd") : (isAr ? 'اختر تاريخ' : 'Pick date')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={fromDate}
+                      onSelect={handleFromDateChange}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* To Date Picker */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground font-medium">{isAr ? 'إلى:' : 'To:'}</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !toDate && "text-muted-foreground")}>
+                      <CalendarIcon className="me-2 h-4 w-4" />
+                      {toDate ? format(toDate, "yyyy-MM-dd") : (isAr ? 'اختر تاريخ' : 'Pick date')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={toDate}
+                      onSelect={handleToDateChange}
+                      disabled={(date) => date < fromDate}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <Button variant="outline" size="icon" onClick={handleNext}>
+              {isAr ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </Button>
           </div>
 
