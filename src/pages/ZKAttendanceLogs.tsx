@@ -754,6 +754,14 @@ const ZKAttendanceLogs = () => {
     return `${employee.first_name} ${employee.last_name}`.trim();
   };
 
+  const getAttendanceTypeNameForCode = (code: string) => {
+    const employee = employees.find((e) => e.zk_employee_code === code);
+    if (!employee?.attendance_type_id) return "-";
+    const at = attendanceTypes.find((t) => t.id === employee.attendance_type_id);
+    if (!at) return "-";
+    return isArabic && at.type_name_ar ? at.type_name_ar : at.type_name;
+  };
+
   const getRecordTypeBadge = (type: string) => {
     switch (type) {
       case "entry":
@@ -1221,9 +1229,12 @@ const ZKAttendanceLogs = () => {
       return `${employee.first_name} ${employee.last_name}`.trim();
     };
 
-    const dateToNumber = (d: string) => {
-      const t = Date.parse(d);
-      return Number.isNaN(t) ? 0 : t;
+    const getAttendanceTypeName = (code: string) => {
+      const employee = employees.find((e) => e.zk_employee_code === code);
+      if (!employee?.attendance_type_id) return "";
+      const at = attendanceTypes.find((t) => t.id === employee.attendance_type_id);
+      if (!at) return "";
+      return isArabic && at.type_name_ar ? at.type_name_ar : at.type_name;
     };
 
     const timeToMinutes = (t: string | null) => {
@@ -1242,7 +1253,12 @@ const ZKAttendanceLogs = () => {
           return nameA.localeCompare(nameB) * dir;
         }
         case "attendance_date":
-          return (dateToNumber(a.attendance_date) - dateToNumber(b.attendance_date)) * dir;
+          return a.attendance_date.localeCompare(b.attendance_date) * dir;
+        case "attendance_type": {
+          const typeA = getAttendanceTypeName(a.employee_code);
+          const typeB = getAttendanceTypeName(b.employee_code);
+          return typeA.localeCompare(typeB) * dir;
+        }
         case "in_time":
           return (timeToMinutes(a.in_time) - timeToMinutes(b.in_time)) * dir;
         case "out_time":
@@ -1274,7 +1290,7 @@ const ZKAttendanceLogs = () => {
       }
       return 0;
     });
-  }, [logs, employees, vacationRequests, attendanceTypeFilter, fromDate, toDate, sortColumns, isArabic]);
+  }, [logs, employees, attendanceTypes, vacationRequests, attendanceTypeFilter, fromDate, toDate, sortColumns, isArabic]);
 
   // Print pagination (manual + reliable): render fixed-size pages in print mode
   const ROWS_PER_PRINT_PAGE = 18;
@@ -1383,10 +1399,7 @@ const ZKAttendanceLogs = () => {
 
   // Sort detailed logs based on current sort column and direction
   const sortedLogs = useMemo(() => {
-    const dateToNumber = (d: string) => {
-      const t = Date.parse(d);
-      return Number.isNaN(t) ? 0 : t;
-    };
+    // Use string comparison for YYYY-MM-DD dates (reliable and locale-independent)
 
     const timeToKey = (t: string) => {
       // keep as string if format is HH:mm:ss; otherwise fallback
@@ -1404,7 +1417,7 @@ const ZKAttendanceLogs = () => {
           return nameA.localeCompare(nameB) * dir;
         }
         case "attendance_date":
-          return (dateToNumber(a.attendance_date) - dateToNumber(b.attendance_date)) * dir;
+          return a.attendance_date.localeCompare(b.attendance_date) * dir;
         case "attendance_time":
           return timeToKey(a.attendance_time).localeCompare(timeToKey(b.attendance_time)) * dir;
         case "record_type":
@@ -2382,6 +2395,7 @@ const ZKAttendanceLogs = () => {
                   <TableHeader>
                     <TableRow>
                       <SortableHeader column="employee_name">{isArabic ? "اسم الموظف" : "Employee Name"}</SortableHeader>
+                      <SortableHeader column="attendance_type">{isArabic ? "الوردية" : "Shift"}</SortableHeader>
                       <SortableHeader column="attendance_date">{isArabic ? "التاريخ" : "Date"}</SortableHeader>
                       <SortableHeader column="in_time">{isArabic ? "الدخول" : "In"}</SortableHeader>
                       <SortableHeader column="out_time">{isArabic ? "الخروج" : "Out"}</SortableHeader>
@@ -2395,14 +2409,14 @@ const ZKAttendanceLogs = () => {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8">
+                        <TableCell colSpan={10} className="text-center py-8">
                           <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                           {isArabic ? "جاري التحميل..." : "Loading..."}
                         </TableCell>
                       </TableRow>
                     ) : sortedSummaryRecords.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           {isArabic ? "لا توجد سجلات" : "No records found"}
                         </TableCell>
                       </TableRow>
@@ -2410,6 +2424,7 @@ const ZKAttendanceLogs = () => {
                       sortedSummaryRecords.map((record) => (
                         <TableRow key={`${record.employee_code}-${record.attendance_date}`}>
                           <TableCell className="font-medium">{getEmployeeName(record.employee_code) || record.employee_code}</TableCell>
+                          <TableCell>{getAttendanceTypeNameForCode(record.employee_code)}</TableCell>
                           <TableCell>{record.attendance_date}</TableCell>
                           <TableCell className="font-mono">{record.in_time || <span className="text-muted-foreground">-</span>}</TableCell>
                           <TableCell className="font-mono">{record.out_time || <span className="text-muted-foreground">-</span>}</TableCell>
