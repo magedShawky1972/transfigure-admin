@@ -28,6 +28,16 @@ const englishDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Fr
 const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 const englishMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+// Returns 'white' or 'black' based on background color luminance
+const getContrastColor = (hexColor: string): string => {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#ffffff';
+};
+
 const formatDateLocalized = (date: Date, formatType: "month" | "monthYear" | "dateRange" | "fullDate", language: string) => {
   const months = language === 'ar' ? arabicMonths : englishMonths;
   const day = date.getDate();
@@ -854,7 +864,7 @@ const ShiftCalendar = () => {
                 <TableRow>
                   <TableHead className="text-center font-bold min-w-[100px]">{isAr ? 'اليوم' : 'Day'}</TableHead>
                   {filteredShifts.map(s => (
-                    <TableHead key={s.id} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: 'white' }}>
+                    <TableHead key={s.id} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: getContrastColor(s.color || '#888') }}>
                       <div>{s.shift_name}</div>
                       <div className="text-xs opacity-80">{formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</div>
                     </TableHead>
@@ -875,7 +885,7 @@ const ShiftCalendar = () => {
                         return (
                           <TableCell key={s.id} className="text-center p-1">
                             {cellAssignments.map((ca, ci) => (
-                              <div key={ci} className="rounded px-2 py-1.5 text-white font-medium text-sm mb-1" style={{ backgroundColor: s.color }}>
+                              <div key={ci} className="rounded px-2 py-1.5 font-medium text-sm mb-1" style={{ backgroundColor: s.color, color: getContrastColor(s.color || '#888') }}>
                                 {ca.user.user_name}
                               </div>
                             ))}
@@ -983,7 +993,7 @@ const ShiftCalendar = () => {
                       borderColor: shift.color,
                       borderWidth: '2px',
                       backgroundColor: selectedQuickShift?.id === shift.id ? shift.color : 'transparent',
-                      color: selectedQuickShift?.id === shift.id ? 'white' : 'inherit'
+                      color: selectedQuickShift?.id === shift.id ? getContrastColor(shift.color || '#888') : 'inherit'
                     }}
                   >
                     <div className="flex items-center gap-2">

@@ -22,6 +22,15 @@ const englishDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Fr
 const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 const englishMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+const getContrastColor = (hexColor: string): string => {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#ffffff';
+};
+
 const formatDateLocalized = (date: Date, formatType: "month" | "monthYear" | "fullDate", language: string) => {
   const months = language === 'ar' ? arabicMonths : englishMonths;
   const day = date.getDate();
@@ -198,7 +207,7 @@ const MyShiftsCalendar = () => {
                   <div className={cn("text-sm font-medium mb-1", !isCurrent && "text-muted-foreground", isToday && "text-primary font-bold")}>{d.getDate()}</div>
                   <div className="space-y-1">
                     {da.map(a => (
-                      <div key={a.id} className="text-xs p-1.5 rounded truncate" style={{ backgroundColor: a.shift.color, color: "white" }} title={`${a.shift.shift_name} (${a.shift.shift_start_time} - ${a.shift.shift_end_time})`}>
+                      <div key={a.id} className="text-xs p-1.5 rounded truncate" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }} title={`${a.shift.shift_name} (${a.shift.shift_start_time} - ${a.shift.shift_end_time})`}>
                         <div className="font-medium">{a.shift.shift_name}</div>
                         <div className="opacity-80">{a.shift.shift_start_time} - {a.shift.shift_end_time}</div>
                       </div>
@@ -233,7 +242,7 @@ const MyShiftsCalendar = () => {
               </CardHeader>
               <CardContent className="px-2 py-2 space-y-2">
                 {da.map(a => (
-                  <div key={a.id} className="p-2 rounded text-white text-sm" style={{ backgroundColor: a.shift.color }}>
+                  <div key={a.id} className="p-2 rounded text-sm" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }}>
                     <div className="font-medium">{a.shift.shift_name}</div>
                     <div className="text-xs opacity-80">{a.shift.shift_start_time} - {a.shift.shift_end_time}</div>
                   </div>
@@ -292,7 +301,7 @@ const MyShiftsCalendar = () => {
               <TableRow>
                 <TableHead className="text-center font-bold min-w-[100px]">{isAr ? 'اليوم' : 'Day'}</TableHead>
                 {shifts.map(([key, s]) => (
-                  <TableHead key={key} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: 'white' }}>
+                  <TableHead key={key} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: getContrastColor(s.color || '#888') }}>
                     {formatTime(s.start)} – {formatTime(s.end)}
                   </TableHead>
                 ))}
@@ -312,7 +321,7 @@ const MyShiftsCalendar = () => {
                       return (
                         <TableCell key={key} className="text-center p-1">
                           {cellAssignments.map((ca, ci) => (
-                            <div key={ci} className="rounded px-2 py-1.5 text-white font-medium text-sm mb-1" style={{ backgroundColor: s.color }}>
+                            <div key={ci} className="rounded px-2 py-1.5 font-medium text-sm mb-1" style={{ backgroundColor: s.color, color: getContrastColor(s.color || '#888') }}>
                               {ca.user_name}
                             </div>
                           ))}
