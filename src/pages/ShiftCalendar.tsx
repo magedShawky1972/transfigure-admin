@@ -839,9 +839,9 @@ const ShiftCalendar = () => {
           </Button>
         </div>
 
-        <div ref={scheduleRef} className="bg-white p-4 space-y-4">
+        <div ref={scheduleRef} className="bg-background text-foreground p-4 space-y-4">
           {/* Title */}
-          <div className="text-center font-bold text-lg">
+          <div className="text-center font-bold text-lg text-foreground">
             {isAr ? 'جدول الورديات' : 'Shift Schedule'} — {format(startDate, 'yyyy/MM/dd')} → {format(days[days.length - 1], 'yyyy/MM/dd')}
           </div>
 
@@ -851,7 +851,7 @@ const ShiftCalendar = () => {
               {filteredShifts.map(s => (
                 <div key={s.id} className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="text-sm">{s.shift_name}: {formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</span>
+                  <span className="text-sm text-foreground">{s.shift_name}: {formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</span>
                 </div>
               ))}
             </div>
