@@ -5,19 +5,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check } from "lucide-react";
+import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check, TableProperties } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const arabicDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const englishDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+const englishMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-const formatDateInArabic = (date: Date, formatType: "month" | "monthYear" | "dateRange" | "fullDate") => {
+const formatDateLocalized = (date: Date, formatType: "month" | "monthYear" | "dateRange" | "fullDate", language: string) => {
+  const months = language === 'ar' ? arabicMonths : englishMonths;
   const day = date.getDate();
-  const month = arabicMonths[date.getMonth()];
+  const month = months[date.getMonth()];
   const year = date.getFullYear();
   
   if (formatType === "month") return month;
@@ -60,9 +72,11 @@ interface Assignment {
   user: User;
 }
 
-type ViewType = "month" | "week" | "day";
+type ViewType = "month" | "week" | "day" | "schedule";
 
 const ShiftCalendar = () => {
+  const { language } = useLanguage();
+  const isAr = language === 'ar';
   const [viewType, setViewType] = useState<ViewType>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -279,25 +293,25 @@ const ShiftCalendar = () => {
 
   const getStartDate = () => {
     if (viewType === "month") return startOfWeek(startOfMonth(currentDate));
-    if (viewType === "week") return startOfWeek(currentDate);
+    if (viewType === "week" || viewType === "schedule") return startOfWeek(currentDate);
     return currentDate;
   };
 
   const getEndDate = () => {
     if (viewType === "month") return endOfWeek(endOfMonth(currentDate));
-    if (viewType === "week") return endOfWeek(currentDate);
+    if (viewType === "week" || viewType === "schedule") return endOfWeek(currentDate);
     return currentDate;
   };
 
   const handlePrevious = () => {
     if (viewType === "month") setCurrentDate(addMonths(currentDate, -1));
-    else if (viewType === "week") setCurrentDate(addWeeks(currentDate, -1));
+    else if (viewType === "week" || viewType === "schedule") setCurrentDate(addWeeks(currentDate, -1));
     else setCurrentDate(addDays(currentDate, -1));
   };
 
   const handleNext = () => {
     if (viewType === "month") setCurrentDate(addMonths(currentDate, 1));
-    else if (viewType === "week") setCurrentDate(addWeeks(currentDate, 1));
+    else if (viewType === "week" || viewType === "schedule") setCurrentDate(addWeeks(currentDate, 1));
     else setCurrentDate(addDays(currentDate, 1));
   };
 
@@ -636,7 +650,7 @@ const ShiftCalendar = () => {
 
     return (
       <div className="grid grid-cols-7 gap-2">
-        {arabicDays.map((day, idx) => (
+        {(isAr ? arabicDays : englishDays).map((day, idx) => (
           <div key={idx} className="text-center font-medium text-sm text-muted-foreground py-2">
             {day}
           </div>
@@ -697,22 +711,99 @@ const ShiftCalendar = () => {
     );
   };
 
+  const renderScheduleView = () => {
+    const startDate = startOfWeek(currentDate);
+    const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+    const dayNames = isAr ? arabicDays : englishDays;
+
+    // Get unique shifts sorted by start time
+    const filteredShifts = getFilteredShifts();
+    const formatTime = (t: string) => t?.substring(0, 5) || '';
+
+    const getScheduleAssignments = (date: Date, shiftId: string) => {
+      const dateStr = format(date, "yyyy-MM-dd");
+      return assignments.filter(a => a.assignment_date === dateStr && a.shift_id === shiftId);
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* Color Legend */}
+        <Card>
+          <CardContent className="py-3">
+            <div className="flex flex-wrap gap-4 items-center justify-center">
+              <span className="font-semibold text-sm">{isAr ? '🎨 ترميز الألوان' : '🎨 Color Coding'}</span>
+              {filteredShifts.map(s => (
+                <div key={s.id} className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span className="text-sm">{s.shift_name}: {formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Schedule Grid */}
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-center font-bold min-w-[100px]">{isAr ? 'اليوم' : 'Day'}</TableHead>
+                {filteredShifts.map(s => (
+                  <TableHead key={s.id} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: 'white' }}>
+                    <div>{s.shift_name}</div>
+                    <div className="text-xs opacity-80">{formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</div>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {days.map((d, i) => {
+                const isToday = isSameDay(d, new Date());
+                return (
+                  <TableRow key={i} className={cn(isToday && "bg-primary/5")}>
+                    <TableCell className={cn("text-center font-medium", isToday && "font-bold text-primary")}>
+                      <div>{dayNames[d.getDay()]}</div>
+                      <div className="text-xs text-muted-foreground">{format(d, "MM/dd")}</div>
+                    </TableCell>
+                    {filteredShifts.map(s => {
+                      const cellAssignments = getScheduleAssignments(d, s.id);
+                      return (
+                        <TableCell key={s.id} className="text-center p-1">
+                          {cellAssignments.map((ca, ci) => (
+                            <div key={ci} className="rounded px-2 py-1.5 text-white font-medium text-sm mb-1" style={{ backgroundColor: s.color }}>
+                              {ca.user.user_name}
+                            </div>
+                          ))}
+                          {cellAssignments.length === 0 && <span className="text-muted-foreground text-xs">-</span>}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className={`container mx-auto p-6 space-y-6 ${isAr ? 'rtl' : 'ltr'}`} dir={isAr ? 'rtl' : 'ltr'}>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
               <CardTitle className="flex items-center gap-2">
                 <CalendarIcon className="h-6 w-6" />
-                تقويم الورديات
+                {isAr ? 'تقويم الورديات' : 'Shifts Calendar'}
               </CardTitle>
               <Select value={selectedShiftType} onValueChange={setSelectedShiftType}>
                 <SelectTrigger className="w-[180px] bg-background">
-                  <SelectValue placeholder="تصفية حسب النوع" />
+                  <SelectValue placeholder={isAr ? "تصفية حسب النوع" : "Filter by type"} />
                 </SelectTrigger>
                 <SelectContent className="bg-background">
-                  <SelectItem value="all">جميع الأنواع</SelectItem>
+                  <SelectItem value="all">{isAr ? 'جميع الأنواع' : 'All Types'}</SelectItem>
                   {Array.from(new Set(shiftTypes.map(st => st.type).filter(Boolean))).map(type => (
                     <SelectItem key={type} value={type!}>
                       {type}
@@ -727,32 +818,40 @@ const ShiftCalendar = () => {
                 size="sm"
                 onClick={openSendNotificationDialog}
               >
-                <Send className="h-4 w-4 mr-1" />
-                إرسال الإشعارات
+                <Send className="h-4 w-4 me-1" />
+                {isAr ? 'إرسال الإشعارات' : 'Send Notifications'}
               </Button>
               <Button
                 variant={viewType === "day" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setViewType("day")}
               >
-                <List className="h-4 w-4 mr-1" />
-                يوم
+                <List className="h-4 w-4 me-1" />
+                {isAr ? 'يوم' : 'Day'}
               </Button>
               <Button
                 variant={viewType === "week" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setViewType("week")}
               >
-                <Grid3x3 className="h-4 w-4 mr-1" />
-                أسبوع
+                <Grid3x3 className="h-4 w-4 me-1" />
+                {isAr ? 'أسبوع' : 'Week'}
               </Button>
               <Button
                 variant={viewType === "month" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setViewType("month")}
               >
-                <CalendarIcon className="h-4 w-4 mr-1" />
-                شهر
+                <CalendarIcon className="h-4 w-4 me-1" />
+                {isAr ? 'شهر' : 'Month'}
+              </Button>
+              <Button
+                variant={viewType === "schedule" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewType("schedule")}
+              >
+                <TableProperties className="h-4 w-4 me-1" />
+                {isAr ? 'جدول الورديات' : 'Schedule'}
               </Button>
             </div>
           </div>
@@ -762,7 +861,7 @@ const ShiftCalendar = () => {
           {getFilteredShifts().length > 0 && (
             <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
               <div className="text-sm font-medium mb-3 text-muted-foreground">
-                الورديات المتاحة:
+                {isAr ? 'الورديات المتاحة:' : 'Available Shifts:'}
               </div>
               <div className="flex flex-wrap gap-2">
                 {getFilteredShifts().map(shift => (
@@ -809,7 +908,7 @@ const ShiftCalendar = () => {
             <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border/50">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-medium text-muted-foreground">
-                  المستخدمون المتاحون لـ {selectedQuickShift.shift_name}:
+                  {isAr ? `المستخدمون المتاحون لـ ${selectedQuickShift.shift_name}:` : `Available users for ${selectedQuickShift.shift_name}:`}
                 </div>
                 {selectedQuickUser && (
                   <Button
@@ -817,7 +916,7 @@ const ShiftCalendar = () => {
                     size="sm"
                     onClick={() => setSelectedQuickUser(null)}
                   >
-                    مسح المستخدم
+                    {isAr ? 'مسح المستخدم' : 'Clear User'}
                   </Button>
                 )}
               </div>
@@ -856,12 +955,12 @@ const ShiftCalendar = () => {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex flex-col gap-1">
                   <div className="text-sm font-semibold">
-                    إسناد: {selectedQuickShift.shift_name} إلى {selectedQuickUser.user_name}
+                    {isAr ? `إسناد: ${selectedQuickShift.shift_name} إلى ${selectedQuickUser.user_name}` : `Assign: ${selectedQuickShift.shift_name} to ${selectedQuickUser.user_name}`}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {selectedDates.length > 0 
-                      ? `تم تحديد ${selectedDates.length} تاريخ - انقر على تواريخ التقويم للإضافة/الإزالة` 
-                      : "انقر على تواريخ التقويم لتحديدها"}
+                      ? (isAr ? `تم تحديد ${selectedDates.length} تاريخ - انقر على تواريخ التقويم للإضافة/الإزالة` : `${selectedDates.length} dates selected - click calendar dates to add/remove`)
+                      : (isAr ? "انقر على تواريخ التقويم لتحديدها" : "Click calendar dates to select them")}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -870,7 +969,7 @@ const ShiftCalendar = () => {
                     size="sm"
                     onClick={handleClearSelection}
                   >
-                    مسح الكل
+                    {isAr ? 'مسح الكل' : 'Clear All'}
                   </Button>
                   <Button
                     variant="default"
@@ -879,7 +978,7 @@ const ShiftCalendar = () => {
                     disabled={loading || selectedDates.length === 0}
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    إسناد {selectedDates.length > 0 && `(${selectedDates.length})`}
+                    {isAr ? 'إسناد' : 'Assign'} {selectedDates.length > 0 && `(${selectedDates.length})`}
                   </Button>
                 </div>
               </div>
@@ -891,16 +990,16 @@ const ShiftCalendar = () => {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-xl font-semibold">
-              {viewType === "month" && formatDateInArabic(currentDate, "monthYear")}
-              {viewType === "week" && `${formatDateInArabic(getStartDate(), "fullDate")} - ${formatDateInArabic(getEndDate(), "fullDate")}`}
-              {viewType === "day" && formatDateInArabic(currentDate, "fullDate")}
+              {viewType === "month" && formatDateLocalized(currentDate, "monthYear", language)}
+              {(viewType === "week" || viewType === "schedule") && `${formatDateLocalized(getStartDate(), "fullDate", language)} - ${formatDateLocalized(getEndDate(), "fullDate", language)}`}
+              {viewType === "day" && formatDateLocalized(currentDate, "fullDate", language)}
             </h2>
             <Button variant="outline" size="sm" onClick={handleNext}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
 
-          {renderCalendarGrid()}
+          {viewType === "schedule" ? renderScheduleView() : renderCalendarGrid()}
         </CardContent>
       </Card>
 
@@ -908,7 +1007,7 @@ const ShiftCalendar = () => {
       <Dialog open={shiftDialogOpen} onOpenChange={setShiftDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>اختر الوردية</DialogTitle>
+            <DialogTitle>{isAr ? 'اختر الوردية' : 'Select Shift'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {getFilteredShifts().map(shift => (
@@ -938,10 +1037,10 @@ const ShiftCalendar = () => {
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedAssignment ? "إعادة إسناد الموظف" : "اختر الموظف"}</DialogTitle>
+            <DialogTitle>{selectedAssignment ? (isAr ? "إعادة إسناد الموظف" : "Reassign Employee") : (isAr ? "اختر الموظف" : "Select Employee")}</DialogTitle>
             {selectedShift && (
               <p className="text-sm text-muted-foreground">
-                {selectedAssignment ? "إعادة الإسناد" : "الإسناد"}: {selectedShift.shift_name} ({selectedShift.shift_start_time} - {selectedShift.shift_end_time})
+                {selectedAssignment ? (isAr ? "إعادة الإسناد" : "Reassign") : (isAr ? "الإسناد" : "Assign")}: {selectedShift.shift_name} ({selectedShift.shift_start_time} - {selectedShift.shift_end_time})
               </p>
             )}
           </DialogHeader>
@@ -965,9 +1064,7 @@ const ShiftCalendar = () => {
               </Button>
             ))}
             {getFilteredUsers().length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                لم يتم العثور على موظفين لمناصب هذه الوردية
-              </p>
+              <p className="text-center text-muted-foreground py-8">{isAr ? 'لم يتم العثور على موظفين لمناصب هذه الوردية' : 'No employees found for this shift positions'}</p>
             )}
           </div>
         </DialogContent>
@@ -977,7 +1074,7 @@ const ShiftCalendar = () => {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>تعديل إسناد الوردية</DialogTitle>
+            <DialogTitle>{isAr ? 'تعديل إسناد الوردية' : 'Edit Shift Assignment'}</DialogTitle>
           </DialogHeader>
           {selectedAssignment && (
             <div className="space-y-4">
@@ -993,10 +1090,10 @@ const ShiftCalendar = () => {
                   {selectedAssignment.shift.shift_start_time} - {selectedAssignment.shift.shift_end_time}
                 </div>
                 <div className="text-sm">
-                  مسند إلى: <span className="font-medium">{selectedAssignment.user.user_name}</span>
+                  {isAr ? 'مسند إلى' : 'Assigned to'}: <span className="font-medium">{selectedAssignment.user.user_name}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  التاريخ: {formatDateInArabic(new Date(selectedAssignment.assignment_date), "fullDate")}
+                  {isAr ? 'التاريخ' : 'Date'}: {formatDateLocalized(new Date(selectedAssignment.assignment_date), "fullDate", language)}
                 </div>
               </div>
               
@@ -1007,7 +1104,7 @@ const ShiftCalendar = () => {
                   onClick={handleReassign}
                   disabled={loading}
                 >
-                  إعادة الإسناد
+                  {isAr ? 'إعادة الإسناد' : 'Reassign'}
                 </Button>
                 <Button
                   variant="destructive"
@@ -1015,7 +1112,7 @@ const ShiftCalendar = () => {
                   onClick={handleDeleteAssignment}
                   disabled={loading}
                 >
-                  حذف
+                  {isAr ? 'حذف' : 'Delete'}
                 </Button>
               </div>
             </div>
@@ -1029,17 +1126,17 @@ const ShiftCalendar = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="h-5 w-5" />
-              إرسال إشعارات الورديات
+              {isAr ? 'إرسال إشعارات الورديات' : 'Send Shift Notifications'}
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6 py-4">
             {/* Date Range Selection - Simple Inputs */}
             <div className="space-y-3">
-              <Label className="text-sm font-medium">نطاق التاريخ</Label>
+              <Label className="text-sm font-medium">{isAr ? 'نطاق التاريخ' : 'Date Range'}</Label>
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">من:</span>
+                  <span className="text-sm text-muted-foreground">{isAr ? 'من:' : 'From:'}</span>
                   <input
                     type="date"
                     value={notificationStartDate ? format(notificationStartDate, "yyyy-MM-dd") : ""}
@@ -1049,7 +1146,7 @@ const ShiftCalendar = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">إلى:</span>
+                  <span className="text-sm text-muted-foreground">{isAr ? 'إلى:' : 'To:'}</span>
                   <input
                     type="date"
                     value={notificationEndDate ? format(notificationEndDate, "yyyy-MM-dd") : ""}
@@ -1065,7 +1162,7 @@ const ShiftCalendar = () => {
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  اختر المستخدمين
+                  {isAr ? 'اختر المستخدمين' : 'Select Users'}
                 </Label>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -1074,13 +1171,13 @@ const ShiftCalendar = () => {
                     onCheckedChange={(checked) => handleToggleAllUsers(checked as boolean)}
                   />
                   <label htmlFor="selectAll" className="text-sm cursor-pointer">
-                    تحديد الكل ({shiftRelatedUsers.length})
+                    {isAr ? 'تحديد الكل' : 'Select All'} ({shiftRelatedUsers.length})
                   </label>
                 </div>
               </div>
               
               <p className="text-xs text-muted-foreground">
-                المستخدمون الذين لديهم مناصب مرتبطة بالورديات
+                {isAr ? 'المستخدمون الذين لديهم مناصب مرتبطة بالورديات' : 'Users with shift-related positions'}
               </p>
               
               <ScrollArea className="h-[250px] border rounded-lg p-3">
@@ -1117,14 +1214,14 @@ const ShiftCalendar = () => {
                 
                 {shiftRelatedUsers.length === 0 && (
                   <div className="text-center text-muted-foreground py-8">
-                    لا يوجد مستخدمون مرتبطون بمناصب الورديات
+                    {isAr ? 'لا يوجد مستخدمون مرتبطون بمناصب الورديات' : 'No users with shift-related positions'}
                   </div>
                 )}
               </ScrollArea>
               
               {selectedUserIds.length > 0 && (
                 <p className="text-sm text-primary">
-                  تم تحديد {selectedUserIds.length} مستخدم
+                  {isAr ? `تم تحديد ${selectedUserIds.length} مستخدم` : `${selectedUserIds.length} users selected`}
                 </p>
               )}
             </div>
@@ -1135,18 +1232,18 @@ const ShiftCalendar = () => {
               variant="outline"
               onClick={() => setSendNotificationDialogOpen(false)}
             >
-              إلغاء
+              {isAr ? 'إلغاء' : 'Cancel'}
             </Button>
             <Button
               onClick={handleSendNotifications}
               disabled={sendingNotifications || selectedUserIds.length === 0}
             >
               {sendingNotifications ? (
-                <>جاري الإرسال...</>
+                <>{isAr ? 'جاري الإرسال...' : 'Sending...'}</>
               ) : (
                 <>
-                  <Send className="h-4 w-4 mr-2" />
-                  إرسال الإشعارات
+                  <Send className="h-4 w-4 me-2" />
+                  {isAr ? 'إرسال الإشعارات' : 'Send Notifications'}
                 </>
               )}
             </Button>
