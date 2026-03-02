@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check, TableProperties } from "lucide-react";
+import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check, TableProperties, Download, Share2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,6 +79,7 @@ type ViewType = "month" | "week" | "day" | "schedule";
 const ShiftCalendar = () => {
   const { language } = useLanguage();
   const isAr = language === 'ar';
+  const scheduleRef = useRef<HTMLDivElement>(null);
   const [viewType, setViewType] = useState<ViewType>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [fromDate, setFromDate] = useState<Date>(startOfMonth(new Date()));
@@ -767,13 +768,76 @@ const ShiftCalendar = () => {
       days.some(d => getScheduleAssignments(d, s.id).length > 0)
     );
 
+    const handleDownloadSchedule = async () => {
+      if (!scheduleRef.current) return;
+      try {
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(scheduleRef.current, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+        });
+        const link = document.createElement('a');
+        link.download = `shift-schedule-${format(startDate, 'yyyy-MM-dd')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        toast.success(isAr ? 'تم تحميل الجدول كصورة' : 'Schedule downloaded as image');
+      } catch (err) {
+        toast.error(isAr ? 'فشل تحميل الصورة' : 'Failed to download image');
+      }
+    };
+
+    const handleShareSchedule = async () => {
+      if (!scheduleRef.current) return;
+      try {
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(scheduleRef.current, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+        });
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+          const file = new File([blob], `shift-schedule-${format(startDate, 'yyyy-MM-dd')}.png`, { type: 'image/png' });
+          if (navigator.share && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: isAr ? 'جدول الورديات' : 'Shift Schedule' });
+          } else {
+            // Fallback to download
+            const link = document.createElement('a');
+            link.download = file.name;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            toast.success(isAr ? 'تم تحميل الجدول كصورة' : 'Schedule downloaded as image');
+          }
+        }, 'image/png');
+      } catch (err) {
+        toast.error(isAr ? 'فشل المشاركة' : 'Failed to share');
+      }
+    };
+
     return (
       <div className="space-y-4">
-        {/* Color Legend */}
-        <Card>
-          <CardContent className="py-3">
+        {/* Action Buttons */}
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" size="sm" onClick={handleDownloadSchedule}>
+            <Download className="h-4 w-4 mr-1" />
+            {isAr ? 'تحميل كصورة' : 'Download as Image'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleShareSchedule}>
+            <Share2 className="h-4 w-4 mr-1" />
+            {isAr ? 'مشاركة' : 'Share'}
+          </Button>
+        </div>
+
+        <div ref={scheduleRef} className="bg-white p-4 space-y-4">
+          {/* Title */}
+          <div className="text-center font-bold text-lg">
+            {isAr ? 'جدول الورديات' : 'Shift Schedule'} — {format(startDate, 'yyyy/MM/dd')} → {format(days[days.length - 1], 'yyyy/MM/dd')}
+          </div>
+
+          {/* Color Legend */}
+          <div className="py-2">
             <div className="flex flex-wrap gap-4 items-center justify-center">
-              <span className="font-semibold text-sm">{isAr ? '🎨 ترميز الألوان' : '🎨 Color Coding'}</span>
               {filteredShifts.map(s => (
                 <div key={s.id} className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full" style={{ backgroundColor: s.color }} />
@@ -781,50 +845,50 @@ const ShiftCalendar = () => {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Schedule Grid */}
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-center font-bold min-w-[100px]">{isAr ? 'اليوم' : 'Day'}</TableHead>
-                {filteredShifts.map(s => (
-                  <TableHead key={s.id} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: 'white' }}>
-                    <div>{s.shift_name}</div>
-                    <div className="text-xs opacity-80">{formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</div>
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {days.map((d, i) => {
-                const isToday = isSameDay(d, new Date());
-                return (
-                  <TableRow key={i} className={cn(isToday && "bg-primary/5")}>
-                    <TableCell className={cn("text-center font-medium", isToday && "font-bold text-primary")}>
-                      <div>{dayNames[d.getDay()]}</div>
-                      <div className="text-xs text-muted-foreground">{format(d, "MM/dd")}</div>
-                    </TableCell>
-                    {filteredShifts.map(s => {
-                      const cellAssignments = getScheduleAssignments(d, s.id);
-                      return (
-                        <TableCell key={s.id} className="text-center p-1">
-                          {cellAssignments.map((ca, ci) => (
-                            <div key={ci} className="rounded px-2 py-1.5 text-white font-medium text-sm mb-1" style={{ backgroundColor: s.color }}>
-                              {ca.user.user_name}
-                            </div>
-                          ))}
-                          {cellAssignments.length === 0 && <span className="text-muted-foreground text-xs">-</span>}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {/* Schedule Grid */}
+          <div className="rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-center font-bold min-w-[100px]">{isAr ? 'اليوم' : 'Day'}</TableHead>
+                  {filteredShifts.map(s => (
+                    <TableHead key={s.id} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: 'white' }}>
+                      <div>{s.shift_name}</div>
+                      <div className="text-xs opacity-80">{formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {days.map((d, i) => {
+                  const isToday = isSameDay(d, new Date());
+                  return (
+                    <TableRow key={i} className={cn(isToday && "bg-primary/5")}>
+                      <TableCell className={cn("text-center font-medium", isToday && "font-bold text-primary")}>
+                        <div>{dayNames[d.getDay()]}</div>
+                        <div className="text-xs text-muted-foreground">{format(d, "MM/dd")}</div>
+                      </TableCell>
+                      {filteredShifts.map(s => {
+                        const cellAssignments = getScheduleAssignments(d, s.id);
+                        return (
+                          <TableCell key={s.id} className="text-center p-1">
+                            {cellAssignments.map((ca, ci) => (
+                              <div key={ci} className="rounded px-2 py-1.5 text-white font-medium text-sm mb-1" style={{ backgroundColor: s.color }}>
+                                {ca.user.user_name}
+                              </div>
+                            ))}
+                            {cellAssignments.length === 0 && <span className="text-muted-foreground text-xs">-</span>}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
     );
