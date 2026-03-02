@@ -31,9 +31,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { format, parseISO, differenceInMinutes } from "date-fns";
+import ExcelJS from "exceljs";
+
+type SortKey = "work_date" | "employee" | "late_minutes" | "overtime_minutes" | "total_work_minutes" | "status" | "deduction";
+interface SortCriteria { key: SortKey; direction: "asc" | "desc"; }
 
 interface AttendanceType {
   id: string;
@@ -136,6 +140,132 @@ export default function TimesheetManagement() {
   const [naughtyDrilldownRecords, setNaughtyDrilldownRecords] = useState<{work_date: string; late_minutes: number; scheduled_start: string | null; actual_start: string | null; deduction_rule_name: string | null}[]>([]);
   const [naughtyDrilldownLoading, setNaughtyDrilldownLoading] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([
+    { key: "work_date", direction: "asc" },
+    { key: "employee", direction: "asc" },
+  ]);
+
+  const handleSort = (key: SortKey, ctrlKey: boolean) => {
+    setSortCriteria((prev) => {
+      const existingIndex = prev.findIndex((s) => s.key === key);
+      if (ctrlKey) {
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { key, direction: updated[existingIndex].direction === "asc" ? "desc" : "asc" };
+          return updated;
+        }
+        return [...prev, { key, direction: "asc" }];
+      }
+      if (existingIndex >= 0 && prev.length === 1) {
+        return [{ key, direction: prev[0].direction === "asc" ? "desc" : "asc" }];
+      }
+      return [{ key, direction: "asc" }];
+    });
+  };
+
+  const getSortIcon = (key: SortKey) => {
+    const criteria = sortCriteria.find((s) => s.key === key);
+    const index = sortCriteria.findIndex((s) => s.key === key);
+    if (!criteria) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    const Icon = criteria.direction === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        <Icon className="h-3 w-3" />
+        {sortCriteria.length > 1 && <span className="text-[10px] font-bold">{index + 1}</span>}
+      </span>
+    );
+  };
+
+  const getEmployeeName = (ts: Timesheet) =>
+    ts.employees ? `${ts.employees.first_name} ${ts.employees.last_name}` : "";
+
+  const sortedTimesheets = [...timesheets].sort((a, b) => {
+    for (const { key, direction } of sortCriteria) {
+      const dir = direction === "asc" ? 1 : -1;
+      let cmp = 0;
+      switch (key) {
+        case "work_date":
+          cmp = a.work_date.localeCompare(b.work_date);
+          break;
+        case "employee":
+          cmp = getEmployeeName(a).localeCompare(getEmployeeName(b));
+          break;
+        case "late_minutes":
+          cmp = a.late_minutes - b.late_minutes;
+          break;
+        case "overtime_minutes":
+          cmp = a.overtime_minutes - b.overtime_minutes;
+          break;
+        case "total_work_minutes":
+          cmp = a.total_work_minutes - b.total_work_minutes;
+          break;
+        case "status":
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case "deduction":
+          cmp = (a.deduction_rules?.rule_name || "").localeCompare(b.deduction_rules?.rule_name || "");
+          break;
+      }
+      if (cmp !== 0) return cmp * dir;
+    }
+    return 0;
+  });
+
+  const exportToExcel = async () => {
+    if (sortedTimesheets.length === 0) {
+      toast.error(language === "ar" ? "لا توجد بيانات للتصدير" : "No data to export");
+      return;
+    }
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(language === "ar" ? "كشف الحضور" : "Timesheet");
+
+    const headers = [
+      language === "ar" ? "التاريخ" : "Date",
+      language === "ar" ? "رقم الموظف" : "Emp #",
+      language === "ar" ? "الموظف" : "Employee",
+      language === "ar" ? "المجدول" : "Scheduled",
+      language === "ar" ? "الفعلي" : "Actual",
+      language === "ar" ? "ساعات العمل" : "Work Hours",
+      language === "ar" ? "التأخير (دقائق)" : "Late (min)",
+      language === "ar" ? "الإضافي (دقائق)" : "Overtime (min)",
+      language === "ar" ? "نوع الخصم" : "Deduction Type",
+      language === "ar" ? "الحالة" : "Status",
+    ];
+
+    ws.addRow(headers);
+    ws.getRow(1).font = { bold: true };
+    ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1a1a2e" } };
+    ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+
+    sortedTimesheets.forEach((ts) => {
+      ws.addRow([
+        ts.work_date,
+        ts.employees?.employee_number || "",
+        getEmployeeName(ts),
+        ts.scheduled_start && ts.scheduled_end ? `${ts.scheduled_start} - ${ts.scheduled_end}` : "-",
+        ts.actual_start || ts.actual_end ? `${ts.actual_start || "-"} - ${ts.actual_end || "-"}` : "-",
+        `${Math.floor(ts.total_work_minutes / 60)}h ${ts.total_work_minutes % 60}m`,
+        ts.late_minutes,
+        ts.overtime_minutes,
+        ts.deduction_rules && ts.deduction_rules.deduction_value > 0
+          ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
+          : "-",
+        ts.is_absent ? (language === "ar" ? "غائب" : "Absent") : ts.status,
+      ]);
+    });
+
+    ws.columns.forEach((col) => { col.width = 18; });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `timesheet-${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(language === "ar" ? "تم التصدير بنجاح" : "Exported successfully");
+  };
 
   useEffect(() => {
     fetchData();
@@ -643,6 +773,14 @@ export default function TimesheetManagement() {
           <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
+              onClick={exportToExcel}
+              disabled={timesheets.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {language === "ar" ? "تصدير Excel" : "Export Excel"}
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => setPrintDialogOpen(true)}
               disabled={timesheets.length === 0}
             >
@@ -827,17 +965,33 @@ export default function TimesheetManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {filterMode !== "date" && <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>}
-                  <TableHead>{language === "ar" ? "الموظف" : "Employee"}</TableHead>
+                  {filterMode !== "date" && (
+                    <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("work_date", e.ctrlKey || e.metaKey)}>
+                      <span className="inline-flex items-center gap-1">{language === "ar" ? "التاريخ" : "Date"} {getSortIcon("work_date")}</span>
+                    </TableHead>
+                  )}
+                  <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("employee", e.ctrlKey || e.metaKey)}>
+                    <span className="inline-flex items-center gap-1">{language === "ar" ? "الموظف" : "Employee"} {getSortIcon("employee")}</span>
+                  </TableHead>
                   <TableHead>{language === "ar" ? "المجدول" : "Scheduled"}</TableHead>
                   <TableHead>{language === "ar" ? "الفعلي" : "Actual"}</TableHead>
-                  <TableHead>{language === "ar" ? "ساعات العمل" : "Work Hours"}</TableHead>
-                  <TableHead>{language === "ar" ? "التأخير" : "Late"}</TableHead>
-                  <TableHead>{language === "ar" ? "الإضافي" : "Overtime"}</TableHead>
-                  <TableHead>{language === "ar" ? "نوع الخصم" : "Deduction Type"}</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("total_work_minutes", e.ctrlKey || e.metaKey)}>
+                    <span className="inline-flex items-center gap-1">{language === "ar" ? "ساعات العمل" : "Work Hours"} {getSortIcon("total_work_minutes")}</span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("late_minutes", e.ctrlKey || e.metaKey)}>
+                    <span className="inline-flex items-center gap-1">{language === "ar" ? "التأخير" : "Late"} {getSortIcon("late_minutes")}</span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("overtime_minutes", e.ctrlKey || e.metaKey)}>
+                    <span className="inline-flex items-center gap-1">{language === "ar" ? "الإضافي" : "Overtime"} {getSortIcon("overtime_minutes")}</span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("deduction", e.ctrlKey || e.metaKey)}>
+                    <span className="inline-flex items-center gap-1">{language === "ar" ? "نوع الخصم" : "Deduction Type"} {getSortIcon("deduction")}</span>
+                  </TableHead>
                   <TableHead>{language === "ar" ? "الخصم" : "Deduction"}</TableHead>
                   <TableHead className="text-center">{language === "ar" ? "البريد" : "Mail Sent"}</TableHead>
-                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("status", e.ctrlKey || e.metaKey)}>
+                    <span className="inline-flex items-center gap-1">{language === "ar" ? "الحالة" : "Status"} {getSortIcon("status")}</span>
+                  </TableHead>
                   <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -848,14 +1002,14 @@ export default function TimesheetManagement() {
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
-                ) : timesheets.length === 0 ? (
+                ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={filterMode !== "date" ? 12 : 11} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  timesheets.map((ts) => (
+                  sortedTimesheets.map((ts) => (
                     <TableRow key={ts.id} className={ts.status === 'vacation' ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500 [&_td]:text-yellow-600 [&_td]:dark:text-yellow-400' : ''}>
                       {filterMode !== "date" && (
                         <TableCell className="font-medium text-sm">
@@ -1172,7 +1326,7 @@ export default function TimesheetManagement() {
       <AttendancePrintDialog
         open={printDialogOpen}
         onOpenChange={setPrintDialogOpen}
-        timesheets={timesheets}
+        timesheets={sortedTimesheets}
         filterLabel={
           filterMode === "date"
             ? `${language === "ar" ? "التاريخ" : "Date"}: ${selectedDate}`
