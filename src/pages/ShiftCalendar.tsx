@@ -754,13 +754,18 @@ const ShiftCalendar = () => {
     const dayNames = isAr ? arabicDays : englishDays;
 
     // Get unique shifts sorted by start time
-    const filteredShifts = getFilteredShifts();
+    const allFilteredShifts = getFilteredShifts();
     const formatTime = (t: string) => t?.substring(0, 5) || '';
 
     const getScheduleAssignments = (date: Date, shiftId: string) => {
       const dateStr = format(date, "yyyy-MM-dd");
       return assignments.filter(a => a.assignment_date === dateStr && a.shift_id === shiftId);
     };
+
+    // Only show shifts that have at least one allocation in the selected period
+    const filteredShifts = allFilteredShifts.filter(s =>
+      days.some(d => getScheduleAssignments(d, s.id).length > 0)
+    );
 
     return (
       <div className="space-y-4">
