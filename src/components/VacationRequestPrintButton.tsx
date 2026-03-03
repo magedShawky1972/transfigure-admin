@@ -84,9 +84,19 @@ export const VacationRequestPrintButton = ({
         ? employee?.job_positions?.position_name_ar || employee?.job_positions?.position_name || "-"
         : employee?.job_positions?.position_name || "-";
 
-      const vacationType = isArabic
+      const reqType = requestData.request_type || "vacation";
+      const isDelay = reqType === "delay";
+      const vacationType = isDelay
+        ? "تأخير"
+        : isArabic
         ? requestData.vacation_codes?.name_ar || requestData.vacation_codes?.name_en || "-"
         : requestData.vacation_codes?.name_en || "-";
+
+      const printTitle = isDelay
+        ? "طلب تأخير"
+        : reqType === "sick_leave"
+        ? isArabic ? "طلب إجازة مرضية" : "Sick Leave Request"
+        : isArabic ? "طلب إجازة" : "Vacation Request";
 
       // Create print window
       const printWindow = window.open("", "_blank");
@@ -99,7 +109,7 @@ export const VacationRequestPrintButton = ({
         <!DOCTYPE html>
         <html>
           <head>
-            <title>${isArabic ? "طلب إجازة" : "Vacation Request"}</title>
+            <title>${printTitle}</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
               body { font-family: Arial, sans-serif; }
@@ -116,20 +126,23 @@ export const VacationRequestPrintButton = ({
         const root = createRoot(container);
         root.render(
           <VacationRequestPrint
-            language={language}
+            language={isDelay ? "ar" : language}
             requestNumber={requestData.request_number || undefined}
             employeeName={employeeName.trim()}
             employeeNumber={employee?.employee_number || "-"}
             departmentName={departmentName}
             positionName={positionName}
             vacationType={vacationType}
-            startDate={requestData.start_date}
-            endDate={requestData.end_date}
-            totalDays={requestData.total_days}
+            startDate={requestData.start_date || ""}
+            endDate={requestData.end_date || ""}
+            totalDays={requestData.total_days || 0}
             status={requestData.status}
             reason={requestData.reason}
             approvalComments={requestData.approval_comments}
             createdAt={requestData.created_at}
+            requestType={reqType}
+            delayDate={requestData.delay_date}
+            delayMinutes={requestData.delay_minutes}
           />
         );
 

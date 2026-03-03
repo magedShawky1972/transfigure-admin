@@ -17,6 +17,9 @@ interface VacationRequestPrintProps {
   reason: string | null;
   approvalComments?: string | null;
   createdAt?: string;
+  requestType?: string;
+  delayDate?: string | null;
+  delayMinutes?: number | null;
 }
 
 export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPrintProps>(
@@ -36,10 +39,22 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
       reason,
       approvalComments,
       createdAt,
+      requestType = "vacation",
+      delayDate,
+      delayMinutes,
     },
     ref
   ) => {
-    const isRtl = language === "ar";
+    // Delay requests are always in Arabic
+    const isDelay = requestType === "delay";
+    const isRtl = isDelay ? true : language === "ar";
+    const isSickLeave = requestType === "sick_leave";
+
+    const getTitle = () => {
+      if (isDelay) return "طلب تأخير";
+      if (isSickLeave) return isRtl ? "طلب إجازة مرضية" : "Sick Leave Request";
+      return isRtl ? "طلب إجازة" : "Vacation Request";
+    };
 
     const getStatusLabel = (s: string) => {
       const statusLabels: Record<string, { en: string; ar: string }> = {
@@ -133,7 +148,7 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
             margin: "0 0 8px 0",
             color: "#1a1a1a"
           }}>
-            {isRtl ? "طلب إجازة" : "Vacation Request"}
+            {getTitle()}
           </h1>
           <div style={{ 
             display: "flex", 
@@ -198,7 +213,7 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
           </table>
         </div>
 
-        {/* Vacation Details Section */}
+        {/* Request Details Section */}
         <div style={{ marginBottom: "20px" }}>
           <h2 style={{ 
             fontSize: "14px", 
@@ -210,38 +225,61 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
             borderRight: isRtl ? "4px solid #16a34a" : "none",
             borderLeft: isRtl ? "none" : "4px solid #16a34a"
           }}>
-            {isRtl ? "تفاصيل الإجازة" : "Vacation Details"}
+            {isDelay
+              ? "تفاصيل التأخير"
+              : isSickLeave
+              ? isRtl ? "تفاصيل الإجازة المرضية" : "Sick Leave Details"
+              : isRtl ? "تفاصيل الإجازة" : "Vacation Details"}
           </h2>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <tbody>
-              <tr>
-                <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
-                  {isRtl ? "نوع الإجازة:" : "Vacation Type:"}
-                </td>
-                <td style={{ padding: "8px 12px", width: "25%" }}>{vacationType}</td>
-                <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
-                  {isRtl ? "عدد الأيام:" : "Total Days:"}
-                </td>
-                <td style={{ padding: "8px 12px", width: "25%" }}>
-                  <span style={{ 
-                    fontWeight: "bold", 
-                    fontSize: "15px",
-                    color: "#2563eb"
-                  }}>
-                    {totalDays} {isRtl ? "يوم" : "days"}
-                  </span>
-                </td>
-              </tr>
-              <tr style={{ backgroundColor: "#fafafa" }}>
-                <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
-                  {isRtl ? "تاريخ البداية:" : "Start Date:"}
-                </td>
-                <td style={{ padding: "8px 12px" }}>{format(new Date(startDate), "yyyy-MM-dd")}</td>
-                <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
-                  {isRtl ? "تاريخ النهاية:" : "End Date:"}
-                </td>
-                <td style={{ padding: "8px 12px" }}>{format(new Date(endDate), "yyyy-MM-dd")}</td>
-              </tr>
+              {isDelay ? (
+                <>
+                  <tr>
+                    <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                      تاريخ التأخير:
+                    </td>
+                    <td style={{ padding: "8px 12px", width: "25%" }}>
+                      {delayDate ? format(new Date(delayDate), "yyyy-MM-dd") : "-"}
+                    </td>
+                    <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                      مدة التأخير:
+                    </td>
+                    <td style={{ padding: "8px 12px", width: "25%" }}>
+                      <span style={{ fontWeight: "bold", fontSize: "15px", color: "#2563eb" }}>
+                        {delayMinutes || 0} دقيقة
+                      </span>
+                    </td>
+                  </tr>
+                </>
+              ) : (
+                <>
+                  <tr>
+                    <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                      {isRtl ? "نوع الإجازة:" : "Leave Type:"}
+                    </td>
+                    <td style={{ padding: "8px 12px", width: "25%" }}>{vacationType}</td>
+                    <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
+                      {isRtl ? "عدد الأيام:" : "Total Days:"}
+                    </td>
+                    <td style={{ padding: "8px 12px", width: "25%" }}>
+                      <span style={{ fontWeight: "bold", fontSize: "15px", color: "#2563eb" }}>
+                        {totalDays} {isRtl ? "يوم" : "days"}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr style={{ backgroundColor: "#fafafa" }}>
+                    <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
+                      {isRtl ? "تاريخ البداية:" : "Start Date:"}
+                    </td>
+                    <td style={{ padding: "8px 12px" }}>{startDate ? format(new Date(startDate), "yyyy-MM-dd") : "-"}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: "600", color: "#555" }}>
+                      {isRtl ? "تاريخ النهاية:" : "End Date:"}
+                    </td>
+                    <td style={{ padding: "8px 12px" }}>{endDate ? format(new Date(endDate), "yyyy-MM-dd") : "-"}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>
