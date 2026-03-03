@@ -162,11 +162,6 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
                 <strong>{isRtl ? "رقم الطلب:" : "Request #:"}</strong> {requestNumber}
               </span>
             )}
-            {createdAt && !isSickLeave && (
-              <span>
-                <strong>{isRtl ? "تاريخ الطلب:" : "Date:"}</strong> {format(new Date(createdAt), "yyyy-MM-dd")}
-              </span>
-            )}
           </div>
         </div>
 
