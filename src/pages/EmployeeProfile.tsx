@@ -280,7 +280,7 @@ export default function EmployeeProfile() {
             reason,
             vacation_code_id,
             vacation_codes(code, name_en),
-            submitted_by:submitted_by_id(user_name)
+            submitted_by:submitted_by_id(first_name, last_name)
           `)
           .eq("employee_id", id)
           .eq("request_type", "vacation")
@@ -314,7 +314,7 @@ export default function EmployeeProfile() {
         reason: req.reason,
         vacation_codes: req.vacation_codes,
         source: 'employee_requests' as const,
-        created_by_name: req.submitted_by?.user_name || null,
+        created_by_name: req.submitted_by ? `${req.submitted_by.first_name || ''} ${req.submitted_by.last_name || ''}`.trim() || null : null,
       }));
       
       // Combine and deduplicate by date range (in case same vacation exists in both)

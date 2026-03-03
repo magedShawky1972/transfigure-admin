@@ -8950,6 +8950,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "vacation_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "vacation_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
