@@ -450,7 +450,7 @@ const EmployeeRequestApprovals = () => {
                           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewDialog(r)} title={language === 'ar' ? 'عرض التفاصيل' : 'View Details'}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {r.request_type === 'vacation' && (
+                          {(r.request_type === 'vacation' || r.request_type === 'sick_leave' || r.request_type === 'delay') && (
                             <VacationRequestPrintButton
                               requestId={r.id}
                               source="employee_requests"
