@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
       const logs = employeeLogs.get(employee.zk_employee_code) || [];
       const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
 
-      // Determine in_time (first punch) and out_time (last punch between 14:00-23:00)
+      // Determine in_time (first punch) and out_time (last punch after a threshold)
       let inTime: string | null = null;
       let outTime: string | null = null;
 
@@ -320,10 +320,18 @@ Deno.serve(async (req) => {
         // First punch is always in_time
         inTime = logs[0].attendance_time;
 
-        // Find last punch between 14:00 and 23:00 for out_time
+        // Calculate out-time threshold: use scheduled end minus 2 hours, or at least 3 hours after in_time
+        // This accommodates different schedules (Ramadan 7-13, regular 8-16, etc.)
+        const scheduledEndMinutes = attendanceType?.fixed_end_time ? timeToMinutes(attendanceType.fixed_end_time) : 16 * 60;
+        const thresholdFromSchedule = scheduledEndMinutes - 2 * 60; // 2 hours before scheduled end
+        const inMinutes = timeToMinutes(inTime);
+        const thresholdFromIn = inMinutes + 3 * 60; // At least 3 hours after check-in
+        const outThreshold = Math.min(thresholdFromSchedule, thresholdFromIn);
+
+        // Find last punch after the threshold for out_time
         const outLogs = logs.filter(log => {
           const minutes = timeToMinutes(log.attendance_time);
-          return minutes >= 14 * 60 && minutes <= 23 * 60; // 2PM to 11PM
+          return minutes >= outThreshold && minutes <= 23 * 60;
         });
 
         if (outLogs.length > 0) {
