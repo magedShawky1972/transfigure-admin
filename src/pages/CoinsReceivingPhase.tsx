@@ -226,6 +226,19 @@ const CoinsReceivingPhase = () => {
         const oneUsdToCoins = brandUsdMap[brandId] || 0;
         const expectedCoins = oneUsdToCoins > 0 ? Math.floor(lineAmountInCurrency * oneUsdToCoins) : 0;
 
+        // Check if a receiving entry already exists for this purchase order + brand
+        const { data: existingEntry } = await supabase
+          .from("receiving_coins_header")
+          .select("id")
+          .eq("purchase_order_id", selectedOrder.id)
+          .eq("brand_id", brandId)
+          .limit(1);
+        
+        if (existingEntry && existingEntry.length > 0) {
+          console.log(`Receiving entry already exists for order ${selectedOrder.id} brand ${brandId}, skipping`);
+          continue;
+        }
+
         // Create receiving_coins_header - use purchase order number
         // Control amount = line's amount in original currency (e.g. USD)
         const headerData = {
