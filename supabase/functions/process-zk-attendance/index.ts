@@ -202,6 +202,57 @@ Deno.serve(async (req) => {
     const employeesOnLeave = new Set((approvedLeaves || []).map(l => l.employee_id));
     console.log(`Found ${employeesOnLeave.size} employees on approved leave for ${targetDate}`);
 
+    // Check for official holidays on this date
+    // First check exact date match, then check recurring holidays (same month+day any year)
+    const targetMonth = new Date(targetDate + 'T12:00:00').getMonth() + 1;
+    const targetDay = new Date(targetDate + 'T12:00:00').getDate();
+    const targetYear = new Date(targetDate + 'T12:00:00').getFullYear();
+    
+    const { data: officialHolidays, error: holidayError } = await supabase
+      .from('official_holidays')
+      .select('id, holiday_name, holiday_name_ar, holiday_date, is_recurring, country')
+      .or(`holiday_date.eq.${targetDate},is_recurring.eq.true`);
+
+    if (holidayError) {
+      console.error('Error fetching official holidays:', holidayError);
+    }
+
+    // Filter recurring holidays by month/day match
+    const matchingHolidays = (officialHolidays || []).filter(h => {
+      if (h.holiday_date === targetDate) return true;
+      if (h.is_recurring) {
+        const hDate = new Date(h.holiday_date + 'T12:00:00');
+        return hDate.getMonth() + 1 === targetMonth && hDate.getDate() === targetDay;
+      }
+      return false;
+    });
+
+    // Fetch linked attendance types for matching holidays
+    let holidayAttendanceTypeIds = new Set<string>();
+    let isUniversalHoliday = false;
+
+    if (matchingHolidays.length > 0) {
+      const holidayIds = matchingHolidays.map(h => h.id);
+      const { data: holidayAttTypes } = await supabase
+        .from('holiday_attendance_types')
+        .select('holiday_id, attendance_type_id')
+        .in('holiday_id', holidayIds);
+
+      if (holidayAttTypes && holidayAttTypes.length > 0) {
+        holidayAttTypes.forEach(hat => holidayAttendanceTypeIds.add(hat.attendance_type_id));
+        console.log(`Official holiday applies to ${holidayAttendanceTypeIds.size} attendance types`);
+      } else {
+        // No specific attendance types linked = applies to ALL employees
+        isUniversalHoliday = true;
+        console.log(`Official holiday applies universally (no specific attendance types linked)`);
+      }
+    }
+
+    const holidayName = matchingHolidays.length > 0 
+      ? (matchingHolidays[0].holiday_name_ar || matchingHolidays[0].holiday_name) 
+      : null;
+    console.log(`Official holidays on ${targetDate}: ${matchingHolidays.length} found${holidayName ? ` (${holidayName})` : ''}`);
+
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
       .from('employees')
@@ -263,6 +314,53 @@ Deno.serve(async (req) => {
       const weekendDays: number[] = (empAttendanceType as any)?.weekend_days || [5, 6];
       if (weekendDays.includes(targetDayOfWeek)) {
         console.log(`${employee.first_name} ${employee.last_name} - skipping weekend day (${targetDayOfWeek})`);
+        continue;
+      }
+
+      // Check if today is an official holiday for this employee
+      const isOfficialHoliday = matchingHolidays.length > 0 && (
+        isUniversalHoliday || 
+        (employee.attendance_type_id && holidayAttendanceTypeIds.has(employee.attendance_type_id))
+      );
+      
+      if (isOfficialHoliday) {
+        console.log(`${employee.first_name} ${employee.last_name} - skipping official holiday (${holidayName})`);
+        
+        // Create holiday timesheet record
+        const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
+        const scheduledStart = attendanceType?.fixed_start_time || null;
+        const scheduledEnd = attendanceType?.fixed_end_time || null;
+        
+        const holidayTimesheetRecord = {
+          employee_id: employee.id,
+          work_date: targetDate,
+          scheduled_start: scheduledStart,
+          scheduled_end: scheduledEnd,
+          actual_start: null,
+          actual_end: null,
+          break_duration_minutes: 0,
+          status: 'holiday',
+          is_absent: false,
+          absence_reason: null,
+          late_minutes: 0,
+          early_leave_minutes: 0,
+          overtime_minutes: 0,
+          total_work_minutes: 0,
+          deduction_amount: 0,
+          overtime_amount: 0,
+          notes: `Official Holiday - ${holidayName}`,
+        };
+
+        const { error: holidayError } = await supabase
+          .from('timesheets')
+          .upsert(holidayTimesheetRecord, {
+            onConflict: 'employee_id,work_date',
+          });
+
+        if (holidayError) {
+          console.error(`Error upserting holiday timesheet for ${employee.id}:`, holidayError);
+        }
+        
         continue;
       }
 
