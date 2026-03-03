@@ -190,8 +190,8 @@ const EmployeeSelfRequests = () => {
 
         const { data: reqData } = await supabase
           .from('employee_requests')
-          .select('*')
-          .eq('employee_id', empData.id)
+          .select('*, employees:employee_id(first_name, first_name_ar, last_name, last_name_ar)')
+          .or(`employee_id.eq.${empData.id},submitted_by_id.eq.${empData.id}`)
           .order('created_at', { ascending: false });
 
         setRequests(reqData || []);
