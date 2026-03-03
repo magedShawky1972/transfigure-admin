@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download, CalendarIcon } from "lucide-react";
+import CoinsPhaseFilterBar from "@/components/CoinsPhaseFilterBar";
 import { downloadFile } from "@/lib/fileDownload";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
@@ -63,6 +64,9 @@ const ReceivingCoins = () => {
   const [searchParams] = useSearchParams();
 
   const [view, setView] = useState<"list" | "form">("list");
+  const [statusFilter, setStatusFilter] = useState<"pending" | "sent" | "all">("pending");
+  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(undefined);
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
@@ -717,17 +721,28 @@ const ReceivingCoins = () => {
     return (
       <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Coins className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-bold">{isArabic ? "إيصال الاستلام" : "Receiving Entry"}</h1>
-          </div>
-          <Button onClick={openNewEntry}>
-            <Plus className="h-4 w-4 mr-1" />
-            {isArabic ? "إدخال جديد" : "New Entry"}
-          </Button>
-        </div>
+         <div className="flex items-center gap-3">
+             <Coins className="h-7 w-7 text-primary" />
+             <h1 className="text-2xl font-bold">{isArabic ? "إيصال الاستلام" : "Receiving Entry"}</h1>
+           </div>
+           <Button onClick={openNewEntry}>
+             <Plus className="h-4 w-4 mr-1" />
+             {isArabic ? "إدخال جديد" : "New Entry"}
+           </Button>
+         </div>
 
-        <Card>
+         <CoinsPhaseFilterBar
+           viewFilter={statusFilter}
+           onViewFilterChange={setStatusFilter}
+           fromDate={fromDate}
+           toDate={toDate}
+           onFromDateChange={setFromDate}
+           onToDateChange={setToDate}
+           pendingLabel={isArabic ? "غير مغلقة" : "Not Closed"}
+           sentLabel={isArabic ? "مغلقة" : "Closed"}
+         />
+
+         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
@@ -747,19 +762,29 @@ const ReceivingCoins = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {receipts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
-                        {isArabic ? "لا توجد إيصالات" : "No receipts found"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    receipts.map(r => {
+                  {(() => {
+                    const filtered = receipts.filter(r => {
+                      // Status filter
+                      if (statusFilter === "pending" && r.status === "closed") return false;
+                      if (statusFilter === "sent" && r.status !== "closed") return false;
+                      // Date range filter
+                      if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
+                      if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+                      return true;
+                    });
+                    return filtered.length === 0 ? (
+                     <TableRow>
+                       <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                         {isArabic ? "لا توجد إيصالات" : "No receipts found"}
+                       </TableCell>
+                     </TableRow>
+                   ) : (
+                     filtered.map(r => {
                       const rate = parseFloat(r.exchange_rate) || 0;
                       const txnAmount = parseFloat(r.control_amount) || 0;
                       const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
                       return (
-                        <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadReceipt(r.id)}>
+                        <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${r.status === "closed" ? "bg-green-50 dark:bg-green-900/10" : ""}`} onClick={() => loadReceipt(r.id)}>
                           <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
                           <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
                           <TableCell>{r.receipt_date}</TableCell>
@@ -773,7 +798,7 @@ const ReceivingCoins = () => {
                             {r.status === "closed" && <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">{isArabic ? "مغلق" : "Closed"}</span>}
                             {r.status === "full_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{isArabic ? "تسليم كامل" : "Full Delivery"}</span>}
                             {r.status === "partial_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{isArabic ? "تسليم جزئي" : "Partial Delivery"}</span>}
-                            {(r.status === "draft" || !r.status) && <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">{isArabic ? "مسودة" : "Draft"}</span>}
+                            {(r.status === "draft" || !r.status) && <span className="text-xs font-medium px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{isArabic ? "تم الإنشاء" : "Created"}</span>}
                           </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
@@ -783,8 +808,8 @@ const ReceivingCoins = () => {
                         </TableRow>
                       );
                     })
-                  )}
-                </TableBody>
+                   )})()}
+                 </TableBody>
               </Table>
             </div>
           </CardContent>
