@@ -809,6 +809,15 @@ const ApiConsumptionLogs = () => {
           .single();
 
         if (apiKeyError || !apiKeyData) {
+          // Update the log with the specific error
+          await supabase
+            .from("api_consumption_logs")
+            .update({
+              response_message: language === "ar" 
+                ? `فشل في جلب مفتاح API: ${apiKeyError?.message || 'لا يوجد صلاحية أو مفتاح غير موجود'}` 
+                : `Failed to fetch API key: ${apiKeyError?.message || 'No permission or key not found'}`,
+            })
+            .eq("id", log.id);
           failCount++;
           continue;
         }
