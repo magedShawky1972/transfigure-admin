@@ -121,6 +121,7 @@ interface VacationRequest {
   total_days: number;
   status: string;
   reason: string | null;
+  request_type?: string;
   vacation_codes?: { code: string; name_en: string } | null;
   source?: 'vacation_requests' | 'employee_requests'; // Track origin
   created_by_name?: string | null;
@@ -268,11 +269,12 @@ export default function EmployeeProfile() {
           .eq("employee_id", id)
           .eq("year", new Date().getFullYear())
           .order("vacation_code_id", { ascending: true }),
-        // Also fetch approved vacations from employee_requests (Employee Self-Service workflow)
+        // Also fetch approved leave requests from employee_requests (Employee Self-Service workflow)
         supabase
           .from("employee_requests")
           .select(`
             id,
+            request_type,
             start_date,
             end_date,
             total_days,
@@ -283,16 +285,16 @@ export default function EmployeeProfile() {
             submitted_by:submitted_by_id(first_name, last_name)
           `)
           .eq("employee_id", id)
-          .eq("request_type", "vacation")
-          .order("start_date", { ascending: false })
-          .limit(10),
+          .in("request_type", ["vacation", "sick_leave"])
+          .eq("status", "approved")
+          .order("start_date", { ascending: false }),
       ]);
 
       if (employeeRes.error) throw employeeRes.error;
       setEmployee(employeeRes.data);
       setJobHistory(historyRes.data || []);
       
-      // Merge vacation_requests and employee_requests (vacation type)
+      // Merge vacation_requests and employee_requests (vacation + sick leave)
       const vacationRequestsData: VacationRequest[] = (vacationRes.data || []).map((v: any) => ({
         id: v.id,
         start_date: v.start_date,
@@ -300,6 +302,7 @@ export default function EmployeeProfile() {
         total_days: v.total_days,
         status: v.status,
         reason: v.reason,
+        request_type: 'vacation',
         vacation_codes: v.vacation_codes,
         source: 'vacation_requests' as const,
         created_by_name: v.profiles?.user_name || null,
@@ -312,16 +315,17 @@ export default function EmployeeProfile() {
         total_days: req.total_days,
         status: req.status,
         reason: req.reason,
+        request_type: req.request_type,
         vacation_codes: req.vacation_codes,
         source: 'employee_requests' as const,
         created_by_name: req.submitted_by ? `${req.submitted_by.first_name || ''} ${req.submitted_by.last_name || ''}`.trim() || null : null,
       }));
       
-      // Combine and deduplicate by date range (in case same vacation exists in both)
+      // Combine and deduplicate by request type + date range (in case same leave exists in both)
       const allVacations: VacationRequest[] = [...vacationRequestsData];
       for (const empVac of employeeVacationRequests) {
         const isDuplicate = allVacations.some(
-          v => v.start_date === empVac.start_date && v.end_date === empVac.end_date
+          v => (v.request_type || 'vacation') === (empVac.request_type || 'vacation') && v.start_date === empVac.start_date && v.end_date === empVac.end_date
         );
         if (!isDuplicate) {
           allVacations.push(empVac);
@@ -1047,7 +1051,7 @@ export default function EmployeeProfile() {
             {/* Vacation Requests */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>{language === "ar" ? "طلبات الإجازة" : "Vacation Requests"}</CardTitle>
+                <CardTitle>{language === "ar" ? "طلبات الإجازات" : "Leave Requests"}</CardTitle>
                 <Button onClick={() => openVacationDialog()} disabled={employeeVacationTypes.length === 0}>
                   <Plus className="h-4 w-4 mr-2" />
                   {language === "ar" ? "إضافة إجازة" : "Add Vacation"}
@@ -1076,7 +1080,7 @@ export default function EmployeeProfile() {
                     ) : (
                       vacationRequests.map((request) => (
                         <TableRow key={request.id}>
-                          <TableCell>{request.vacation_codes?.name_en || "-"}</TableCell>
+                          <TableCell>{request.request_type === 'sick_leave' ? (language === 'ar' ? 'إجازة مرضية' : 'Sick Leave') : (request.vacation_codes?.name_en || (language === 'ar' ? 'إجازة' : 'Vacation'))}</TableCell>
                           <TableCell>{format(new Date(request.start_date), "yyyy-MM-dd")}</TableCell>
                           <TableCell>{format(new Date(request.end_date), "yyyy-MM-dd")}</TableCell>
                           <TableCell>{request.total_days}</TableCell>
