@@ -684,6 +684,21 @@ export default function EmployeeProfile() {
 
       if (deleteError) throw deleteError;
 
+      // Clean up timesheet records that were created for this vacation
+      if (vacationToDelete.start_date && vacationToDelete.end_date) {
+        const { error: timesheetError } = await supabase
+          .from("timesheets")
+          .delete()
+          .eq("employee_id", id!)
+          .gte("work_date", vacationToDelete.start_date)
+          .lte("work_date", vacationToDelete.end_date)
+          .eq("status", "vacation");
+
+        if (timesheetError) {
+          console.error("Failed to clean up timesheet records:", timesheetError);
+        }
+      }
+
       toast.success(language === "ar" ? "تم حذف الإجازة بنجاح" : "Vacation deleted successfully");
       setDeleteVacationDialogOpen(false);
       setVacationToDelete(null);
