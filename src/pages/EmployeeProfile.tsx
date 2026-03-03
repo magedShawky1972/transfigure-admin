@@ -123,6 +123,7 @@ interface VacationRequest {
   reason: string | null;
   vacation_codes?: { code: string; name_en: string } | null;
   source?: 'vacation_requests' | 'employee_requests'; // Track origin
+  created_by_name?: string | null;
 }
 
 interface Timesheet {
@@ -242,7 +243,8 @@ export default function EmployeeProfile() {
           .from("vacation_requests")
           .select(`
             *,
-            vacation_codes(code, name_en)
+            vacation_codes(code, name_en),
+            profiles:created_by(user_name)
           `)
           .eq("employee_id", id)
           .order("start_date", { ascending: false })
@@ -277,7 +279,8 @@ export default function EmployeeProfile() {
             status,
             reason,
             vacation_code_id,
-            vacation_codes(code, name_en)
+            vacation_codes(code, name_en),
+            submitted_by:submitted_by_id(user_name)
           `)
           .eq("employee_id", id)
           .eq("request_type", "vacation")
@@ -299,6 +302,7 @@ export default function EmployeeProfile() {
         reason: v.reason,
         vacation_codes: v.vacation_codes,
         source: 'vacation_requests' as const,
+        created_by_name: v.profiles?.user_name || null,
       }));
       
       const employeeVacationRequests: VacationRequest[] = (employeeRequestsVacationRes.data || []).map((req: any) => ({
@@ -310,6 +314,7 @@ export default function EmployeeProfile() {
         reason: req.reason,
         vacation_codes: req.vacation_codes,
         source: 'employee_requests' as const,
+        created_by_name: req.submitted_by?.user_name || null,
       }));
       
       // Combine and deduplicate by date range (in case same vacation exists in both)
@@ -603,6 +608,7 @@ export default function EmployeeProfile() {
         toast.success(language === "ar" ? "تم تحديث الإجازة بنجاح" : "Vacation updated successfully");
       } else {
         // Insert new vacation request with approved status
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
         const { error: insertError } = await supabase.from("vacation_requests").insert({
           employee_id: id,
           vacation_code_id: vacationFormData.vacation_code_id,
@@ -612,6 +618,7 @@ export default function EmployeeProfile() {
           status: "approved",
           reason: vacationFormData.reason || null,
           approved_at: new Date().toISOString(),
+          created_by: currentUser?.id || null,
         });
 
         if (insertError) throw insertError;
@@ -1039,6 +1046,7 @@ export default function EmployeeProfile() {
                       <TableHead>{language === "ar" ? "من" : "From"}</TableHead>
                       <TableHead>{language === "ar" ? "إلى" : "To"}</TableHead>
                       <TableHead>{language === "ar" ? "عدد الأيام" : "Days"}</TableHead>
+                      <TableHead>{language === "ar" ? "بواسطة" : "Entered By"}</TableHead>
                       <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
                       <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                     </TableRow>
@@ -1046,7 +1054,7 @@ export default function EmployeeProfile() {
                   <TableBody>
                     {vacationRequests.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           {language === "ar" ? "لا توجد طلبات إجازة" : "No vacation requests"}
                         </TableCell>
                       </TableRow>
@@ -1057,6 +1065,7 @@ export default function EmployeeProfile() {
                           <TableCell>{format(new Date(request.start_date), "yyyy-MM-dd")}</TableCell>
                           <TableCell>{format(new Date(request.end_date), "yyyy-MM-dd")}</TableCell>
                           <TableCell>{request.total_days}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{request.created_by_name || "-"}</TableCell>
                           <TableCell>
                             <Badge className={getStatusColor(request.status)}>{request.status}</Badge>
                           </TableCell>
@@ -1269,6 +1278,12 @@ export default function EmployeeProfile() {
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {editingVacation?.created_by_name && (
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <span className="text-muted-foreground">{language === "ar" ? "تم الإدخال بواسطة:" : "Entered By:"}</span>{" "}
+                <span className="font-medium">{editingVacation.created_by_name}</span>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{language === "ar" ? "نوع الإجازة" : "Vacation Type"} *</Label>
               <Select

@@ -8904,6 +8904,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string
+          created_by: string | null
           employee_id: string
           end_date: string
           id: string
@@ -8919,6 +8920,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          created_by?: string | null
           employee_id: string
           end_date: string
           id?: string
@@ -8934,6 +8936,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          created_by?: string | null
           employee_id?: string
           end_date?: string
           id?: string
