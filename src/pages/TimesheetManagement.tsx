@@ -757,6 +757,8 @@ export default function TimesheetManagement() {
         return <Badge variant="destructive">{language === "ar" ? "مرفوض" : "Rejected"}</Badge>;
       case "vacation":
         return <Badge className="bg-yellow-400 text-red-600 font-bold">{language === "ar" ? "إجازة" : "Vacation"}</Badge>;
+      case "holiday":
+        return <Badge className="bg-purple-500 text-white font-bold">{language === "ar" ? "إجازة رسمية" : "Holiday"}</Badge>;
       default:
         return <Badge variant="secondary">{language === "ar" ? "معلق" : "Pending"}</Badge>;
     }
@@ -1019,7 +1021,7 @@ export default function TimesheetManagement() {
                   </TableRow>
                 ) : (
                   sortedTimesheets.map((ts) => (
-                    <TableRow key={ts.id} className={ts.status === 'vacation' ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500 [&_td]:text-yellow-600 [&_td]:dark:text-yellow-400' : ''}>
+                    <TableRow key={ts.id} className={ts.status === 'vacation' ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500 [&_td]:text-yellow-600 [&_td]:dark:text-yellow-400' : ts.status === 'holiday' ? 'bg-purple-50 dark:bg-purple-950/30 border-l-4 border-l-purple-500 [&_td]:text-purple-600 [&_td]:dark:text-purple-400' : ''}>
                       {filterMode !== "date" && (
                         <TableCell className="font-medium text-sm">
                           {format(parseISO(ts.work_date), "dd MMM")}
