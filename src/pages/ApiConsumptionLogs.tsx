@@ -827,8 +827,26 @@ const ApiConsumptionLogs = () => {
         );
 
         if (response.ok) {
+          // Update the original failed log to mark as successful
+          await supabase
+            .from("api_consumption_logs")
+            .update({
+              success: true,
+              response_status: response.status,
+              response_message: language === "ar" ? "تم إعادة الإرسال بنجاح" : "Retried successfully",
+            })
+            .eq("id", log.id);
           successCount++;
         } else {
+          const errorResult = await response.text();
+          // Update the original log with the new error
+          await supabase
+            .from("api_consumption_logs")
+            .update({
+              response_status: response.status,
+              response_message: errorResult?.substring(0, 500) || `HTTP ${response.status}`,
+            })
+            .eq("id", log.id);
           failCount++;
         }
 
