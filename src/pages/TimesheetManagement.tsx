@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import ExcelJS from "exceljs";
@@ -771,6 +771,15 @@ export default function TimesheetManagement() {
             {language === "ar" ? "إدارة سجل الحضور" : "Timesheet Management"}
           </CardTitle>
           <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fetchData()}
+              disabled={loading}
+              title={language === "ar" ? "تحديث" : "Refresh"}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
             <Button
               variant="outline"
               onClick={exportToExcel}
