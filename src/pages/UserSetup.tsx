@@ -306,6 +306,7 @@ const UserSetup = () => {
   const [selectedTargetUsers, setSelectedTargetUsers] = useState<string[]>([]);
   const [copyingPermissions, setCopyingPermissions] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [filterLetter, setFilterLetter] = useState("");
   const [filters, setFilters] = useState({
     searchTerm: "",
     statusFilter: "all", // all, active, inactive
@@ -1105,33 +1106,42 @@ const UserSetup = () => {
     );
   };
 
+  const englishLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const arabicLetters = 'أابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+
   // Filter profiles based on search and filters
-  const filteredProfiles = profiles.filter((profile) => {
-    // Search term filter - search across all fields
-    const searchLower = filters.searchTerm.toLowerCase();
-    const matchesSearch = !searchLower || 
-      profile.user_name.toLowerCase().includes(searchLower) ||
-      profile.email.toLowerCase().includes(searchLower) ||
-      (profile.mobile_number?.toLowerCase().includes(searchLower)) ||
-      (profile.job_position_name?.toLowerCase().includes(searchLower)) ||
-      (profile.default_department_name?.toLowerCase().includes(searchLower)) ||
-      (profile.is_admin && 'admin'.includes(searchLower)) ||
-      (profile.is_active ? 'active'.includes(searchLower) : 'inactive'.includes(searchLower));
+  const filteredProfiles = profiles
+    .filter((profile) => {
+      // Search term filter
+      const searchLower = filters.searchTerm.toLowerCase();
+      const matchesSearch = !searchLower || 
+        profile.user_name.toLowerCase().includes(searchLower) ||
+        profile.email.toLowerCase().includes(searchLower) ||
+        (profile.mobile_number?.toLowerCase().includes(searchLower)) ||
+        (profile.job_position_name?.toLowerCase().includes(searchLower)) ||
+        (profile.default_department_name?.toLowerCase().includes(searchLower)) ||
+        (profile.is_admin && 'admin'.includes(searchLower)) ||
+        (profile.is_active ? 'active'.includes(searchLower) : 'inactive'.includes(searchLower));
 
-    // Status filter
-    const matchesStatus = 
-      filters.statusFilter === "all" ||
-      (filters.statusFilter === "active" && profile.is_active) ||
-      (filters.statusFilter === "inactive" && !profile.is_active);
+      // Status filter
+      const matchesStatus = 
+        filters.statusFilter === "all" ||
+        (filters.statusFilter === "active" && profile.is_active) ||
+        (filters.statusFilter === "inactive" && !profile.is_active);
 
-    // Role filter
-    const matchesRole = 
-      filters.roleFilter === "all" ||
-      (filters.roleFilter === "admin" && profile.is_admin) ||
-      (filters.roleFilter === "user" && !profile.is_admin);
+      // Role filter
+      const matchesRole = 
+        filters.roleFilter === "all" ||
+        (filters.roleFilter === "admin" && profile.is_admin) ||
+        (filters.roleFilter === "user" && !profile.is_admin);
 
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+      // Letter filter
+      const matchesLetter = !filterLetter || 
+        profile.user_name.toUpperCase().startsWith(filterLetter);
+
+      return matchesSearch && matchesStatus && matchesRole && matchesLetter;
+    })
+    .sort((a, b) => a.user_name.localeCompare(b.user_name, language === 'ar' ? 'ar' : 'en'));
 
   // Store decrypted passwords for display
   const [decryptedEmailPasswords, setDecryptedEmailPasswords] = useState<Map<string, string>>(new Map());
@@ -1619,6 +1629,31 @@ const UserSetup = () => {
           </div>
         </div>
       )}
+
+      {/* Letter filter */}
+      <div className="flex flex-wrap gap-1">
+        {(language === 'ar' ? arabicLetters : englishLetters).map((letter) => (
+          <Button
+            key={letter}
+            variant={filterLetter === letter ? "default" : "outline"}
+            size="sm"
+            className="h-8 w-8 p-0 text-xs"
+            onClick={() => setFilterLetter(filterLetter === letter ? "" : letter)}
+          >
+            {letter}
+          </Button>
+        ))}
+        {filterLetter && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            onClick={() => setFilterLetter("")}
+          >
+            {language === 'ar' ? 'الكل' : 'All'}
+          </Button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredProfiles.map((profile) => (
