@@ -281,7 +281,36 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Successfully inserted ${insertedData.length} attendance records`);
-    responseMessage = `Successfully received ${insertedData.length} attendance records`;
+
+    // Auto-process: trigger immediate timesheet sync for each unique date
+    const uniqueDates = [...new Set(validRecords.map(r => r.attendance_date))];
+    const processResults: any[] = [];
+    
+    for (const date of uniqueDates) {
+      // Determine process type based on current time (KSA = UTC+3)
+      const now = new Date();
+      const ksaHour = (now.getUTCHours() + 3) % 24;
+      const processType = ksaHour >= 14 ? 'evening' : 'morning';
+      
+      try {
+        const { error: processError } = await supabase.functions.invoke('process-zk-attendance', {
+          body: { target_date: date, process_type: processType, send_notifications: true },
+        });
+        
+        if (processError) {
+          console.error(`Error auto-processing attendance for ${date}:`, processError);
+          processResults.push({ date, processed: false, error: processError.message });
+        } else {
+          console.log(`Auto-processed attendance for ${date} (${processType})`);
+          processResults.push({ date, processed: true, process_type: processType });
+        }
+      } catch (procErr) {
+        console.error(`Exception auto-processing ${date}:`, procErr);
+        processResults.push({ date, processed: false, error: String(procErr) });
+      }
+    }
+
+    responseMessage = `Successfully received ${insertedData.length} attendance records and auto-processed ${processResults.filter(r => r.processed).length}/${uniqueDates.length} dates`;
     await logApiCall();
 
     return new Response(
@@ -289,6 +318,7 @@ Deno.serve(async (req) => {
         success: true,
         message: responseMessage,
         inserted_count: insertedData.length,
+        auto_processed: processResults,
         validation_errors: validationErrors.length > 0 ? validationErrors : undefined,
         skipped_count: validationErrors.length,
       }),
