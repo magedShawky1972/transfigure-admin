@@ -668,9 +668,10 @@ export default function EmployeeProfile() {
         if (balanceError) throw balanceError;
       }
 
-      // Delete the vacation request
+      // Delete the vacation request from the correct table
+      const deleteTable = vacationToDelete.source === 'employee_requests' ? 'employee_requests' : 'vacation_requests';
       const { error: deleteError } = await supabase
-        .from("vacation_requests")
+        .from(deleteTable)
         .delete()
         .eq("id", vacationToDelete.id);
 
