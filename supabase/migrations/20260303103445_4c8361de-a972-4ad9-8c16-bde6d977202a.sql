@@ -1,0 +1,1 @@
+UPDATE public.api_field_configs SET is_required = false WHERE api_endpoint = '/api/payment' AND field_name IN ('Payment_reference', 'Bank_Transaction_Id');
