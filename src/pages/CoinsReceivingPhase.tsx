@@ -125,6 +125,21 @@ const CoinsReceivingPhase = () => {
     setSavingBrand(brandId);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Check for existing receiving record to prevent duplicates
+      const { data: existing } = await supabase
+        .from("coins_purchase_receiving")
+        .select("id")
+        .eq("purchase_order_id", selectedOrder.id)
+        .eq("brand_id", brandId)
+        .limit(1);
+      
+      if (existing && existing.length > 0) {
+        toast.error(isArabic ? "تم تسجيل الاستلام مسبقاً لهذا البراند" : "Receiving already recorded for this brand");
+        setSavingBrand(null);
+        return;
+      }
+      
       await supabase.from("coins_purchase_receiving").insert({
         purchase_order_id: selectedOrder.id,
         receiving_image: imageUrl,
