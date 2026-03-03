@@ -241,8 +241,9 @@ const CoinsReceivingPhase = () => {
 
         // Create receiving_coins_header - use purchase order number
         // Control amount = line's amount in original currency (e.g. USD)
+        const receiptNum = `RC-${format(new Date(), "yyyyMMdd")}-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}`;
         const headerData = {
-          receipt_number: selectedOrder.order_number,
+          receipt_number: receiptNum,
           purchase_order_id: selectedOrder.id,
           supplier_id: selectedOrder.supplier_id,
           receipt_date: format(new Date(), "yyyy-MM-dd"),
