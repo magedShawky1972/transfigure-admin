@@ -1,0 +1,1 @@
+ALTER TABLE public.coins_purchase_orders ADD COLUMN transfer_date date;

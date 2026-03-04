@@ -1262,6 +1262,7 @@ export type Database = {
           sending_confirmed_name: string | null
           status: string
           supplier_id: string | null
+          transfer_date: string | null
           updated_at: string
         }
         Insert: {
@@ -1287,6 +1288,7 @@ export type Database = {
           sending_confirmed_name?: string | null
           status?: string
           supplier_id?: string | null
+          transfer_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -1312,6 +1314,7 @@ export type Database = {
           sending_confirmed_name?: string | null
           status?: string
           supplier_id?: string | null
+          transfer_date?: string | null
           updated_at?: string
         }
         Relationships: [
