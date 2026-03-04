@@ -127,7 +127,7 @@ const CoinsCreation = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*, currencies(currency_code)")
+      .select("*, currencies(currency_code), suppliers(supplier_name), coins_purchase_order_lines(brand_id, brands(brand_name))")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -499,7 +499,9 @@ const CoinsCreation = () => {
                 <TableHeader>
                    <TableRow>
                      <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                     <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                     <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
+                     <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
+                     <TableHead>{isArabic ? "العلامات التجارية" : "Brands"}</TableHead>
                      <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                      <TableHead>{isArabic ? "سعر الصرف" : "Rate"}</TableHead>
                      <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
@@ -512,14 +514,27 @@ const CoinsCreation = () => {
                  <TableBody>
                    {orders.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                       <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                          {isArabic ? "لا توجد طلبات" : "No orders found"}
                        </TableCell>
                      </TableRow>
-                   ) : orders.map(o => (
+                   ) : orders.map(o => {
+                     const orderLines = (o as any).coins_purchase_order_lines || [];
+                     const brandNames = [...new Set(orderLines.map((l: any) => l.brands?.brand_name).filter(Boolean))] as string[];
+                     return (
                      <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                        <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
-                       <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
+                       <TableCell>{o.transfer_date || "-"}</TableCell>
+                       <TableCell>{(o as any).suppliers?.supplier_name || "-"}</TableCell>
+                       <TableCell>
+                         {brandNames.length === 0 ? "-" : (
+                           <div className="flex flex-col gap-0.5">
+                             {brandNames.map((name, i) => (
+                               <span key={i} className="text-sm">{name}</span>
+                             ))}
+                           </div>
+                         )}
+                       </TableCell>
                         <TableCell>{(o.currencies as any)?.currency_code || "-"}</TableCell>
                         <TableCell>{o.exchange_rate ?? "-"}</TableCell>
                         <TableCell>{parseFloat(o.amount_in_currency || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
@@ -542,7 +557,7 @@ const CoinsCreation = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                   );})}
                 </TableBody>
               </Table>
             </div>
