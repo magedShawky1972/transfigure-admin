@@ -57,6 +57,7 @@ const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: s
   sick_leave: { icon: Thermometer, labelAr: 'إجازة مرضية', labelEn: 'Sick Leave', color: 'bg-red-100 text-red-800' },
   vacation: { icon: Palmtree, labelAr: 'طلب إجازة', labelEn: 'Vacation', color: 'bg-green-100 text-green-800' },
   delay: { icon: Clock, labelAr: 'طلب تأخير', labelEn: 'Delay Request', color: 'bg-yellow-100 text-yellow-800' },
+  early_leave: { icon: Clock, labelAr: 'طلب انصراف مبكر', labelEn: 'Early Leave', color: 'bg-orange-100 text-orange-800' },
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
@@ -450,7 +451,7 @@ const EmployeeRequestApprovals = () => {
                           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewDialog(r)} title={language === 'ar' ? 'عرض التفاصيل' : 'View Details'}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {(r.request_type === 'vacation' || r.request_type === 'sick_leave' || r.request_type === 'delay') && (
+                          {(r.request_type === 'vacation' || r.request_type === 'sick_leave' || r.request_type === 'delay' || r.request_type === 'early_leave') && (
                             <VacationRequestPrintButton
                               requestId={r.id}
                               source="employee_requests"

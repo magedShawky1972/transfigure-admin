@@ -45,13 +45,15 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
     },
     ref
   ) => {
-    // Delay requests are always in Arabic
+    // Delay and early leave requests are always in Arabic
     const isDelay = requestType === "delay";
-    const isRtl = isDelay ? true : language === "ar";
+    const isEarlyLeave = requestType === "early_leave";
+    const isRtl = isDelay || isEarlyLeave ? true : language === "ar";
     const isSickLeave = requestType === "sick_leave";
 
     const getTitle = () => {
       if (isDelay) return "طلب تأخير";
+      if (isEarlyLeave) return "طلب انصراف مبكر";
       if (isSickLeave) return isRtl ? "طلب إجازة مرضية" : "Sick Leave Request";
       return isRtl ? "طلب إجازة" : "Vacation Request";
     };
@@ -222,23 +224,25 @@ export const VacationRequestPrint = forwardRef<HTMLDivElement, VacationRequestPr
           }}>
             {isDelay
               ? "تفاصيل التأخير"
+              : isEarlyLeave
+              ? "تفاصيل الانصراف المبكر"
               : isSickLeave
               ? isRtl ? "تفاصيل الإجازة المرضية" : "Sick Leave Details"
               : isRtl ? "تفاصيل الإجازة" : "Vacation Details"}
           </h2>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <tbody>
-              {isDelay ? (
+              {(isDelay || isEarlyLeave) ? (
                 <>
                   <tr>
                     <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
-                      تاريخ التأخير:
+                      {isEarlyLeave ? "تاريخ الانصراف:" : "تاريخ التأخير:"}
                     </td>
                     <td style={{ padding: "8px 12px", width: "25%" }}>
                       {delayDate ? format(new Date(delayDate), "yyyy-MM-dd") : "-"}
                     </td>
                     <td style={{ padding: "8px 12px", width: "25%", fontWeight: "600", color: "#555" }}>
-                      مدة التأخير:
+                      {isEarlyLeave ? "مدة الانصراف المبكر:" : "مدة التأخير:"}
                     </td>
                     <td style={{ padding: "8px 12px", width: "25%" }}>
                       <span style={{ fontWeight: "bold", fontSize: "15px", color: "#2563eb" }}>
