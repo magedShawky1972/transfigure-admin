@@ -52,12 +52,13 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'expense_refund' | 'experience_certificate' | 'other';
+type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'other';
 
 const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; labelEn: string; color: string }> = {
   sick_leave: { icon: Thermometer, labelAr: 'إجازة مرضية', labelEn: 'Sick Leave', color: 'bg-red-100 text-red-800' },
   vacation: { icon: Palmtree, labelAr: 'طلب إجازة', labelEn: 'Vacation', color: 'bg-green-100 text-green-800' },
   delay: { icon: Clock, labelAr: 'طلب تأخير', labelEn: 'Delay Request', color: 'bg-yellow-100 text-yellow-800' },
+  early_leave: { icon: Clock, labelAr: 'طلب انصراف مبكر', labelEn: 'Early Leave', color: 'bg-orange-100 text-orange-800' },
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
@@ -418,7 +419,7 @@ const EmployeeSelfRequests = () => {
         requestData.attachment_url = attachmentUrl || null;
       }
 
-      if (selectedType === 'delay') {
+      if (selectedType === 'delay' || selectedType === 'early_leave') {
         requestData.delay_date = delayDate ? format(delayDate, 'yyyy-MM-dd') : null;
         requestData.delay_minutes = parseInt(delayMinutes);
         requestData.actual_arrival_time = actualArrival || null;
@@ -464,7 +465,7 @@ const EmployeeSelfRequests = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         {(Object.keys(REQUEST_TYPE_INFO) as RequestType[]).map((type) => {
           const info = REQUEST_TYPE_INFO[type];
           const Icon = info.icon;
@@ -633,6 +634,14 @@ const EmployeeSelfRequests = () => {
             {selectedType === 'delay' && (
               <>
                 <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{delayDate ? format(delayDate, 'yyyy-MM-dd') : (language === 'ar' ? 'تاريخ التأخير' : 'Delay Date')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={delayDate} onSelect={setDelayDate} /></PopoverContent></Popover>
+                <Input type="number" placeholder={language === 'ar' ? 'الدقائق' : 'Minutes'} value={delayMinutes} onChange={(e) => setDelayMinutes(e.target.value)} />
+                <Input type="time" value={actualArrival} onChange={(e) => setActualArrival(e.target.value)} />
+              </>
+            )}
+
+            {selectedType === 'early_leave' && (
+              <>
+                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{delayDate ? format(delayDate, 'yyyy-MM-dd') : (language === 'ar' ? 'تاريخ الانصراف' : 'Early Leave Date')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={delayDate} onSelect={setDelayDate} /></PopoverContent></Popover>
                 <Input type="number" placeholder={language === 'ar' ? 'الدقائق' : 'Minutes'} value={delayMinutes} onChange={(e) => setDelayMinutes(e.target.value)} />
                 <Input type="time" value={actualArrival} onChange={(e) => setActualArrival(e.target.value)} />
               </>
