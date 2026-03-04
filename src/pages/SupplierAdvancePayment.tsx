@@ -300,7 +300,7 @@ const SupplierAdvancePayment = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                  <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
                   <TableHead>{isArabic ? "رسوم بنكية" : "Bank Fee"}</TableHead>
@@ -358,7 +358,7 @@ const SupplierAdvancePayment = () => {
 
               {/* Date */}
               <div className="space-y-2">
-                <Label>{isArabic ? "التاريخ *" : "Date *"}</Label>
+                <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
                 <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
               </div>
 
