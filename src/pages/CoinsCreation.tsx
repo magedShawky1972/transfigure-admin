@@ -12,9 +12,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText, Maximize2 } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText, Maximize2, CalendarIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 import CoinsPhaseSteps from "@/components/CoinsPhaseSteps";
@@ -55,6 +58,7 @@ const CoinsCreation = () => {
   const [notes, setNotes] = useState("");
   const [bankTransferImage, setBankTransferImage] = useState("");
   const [bankTransferFee, setBankTransferFee] = useState("");
+  const [transferDate, setTransferDate] = useState<Date | undefined>();
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
@@ -252,6 +256,7 @@ const CoinsCreation = () => {
         base_amount_sar: totalBaseSar,
         bank_transfer_image: bankTransferImage,
         bank_transfer_fee: parseFloat(bankTransferFee) || 0,
+        transfer_date: transferDate ? format(transferDate, "yyyy-MM-dd") : null,
         notes,
         created_by: user?.email || "",
         created_by_name: user?.user_metadata?.display_name || user?.email || "",
@@ -376,7 +381,7 @@ const CoinsCreation = () => {
     loadedOrderRateRef.current = null;
     setSupplierId(""); setBankId(""); setCurrencyId("");
     setExchangeRate("1"); setNotes(""); setBankTransferImage("");
-    setBankTransferFee(""); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
+    setBankTransferFee(""); setTransferDate(undefined); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
   };
 
   const handleDeleteOrder = async (orderId: string) => {
@@ -410,6 +415,7 @@ const CoinsCreation = () => {
       setNotes(data.notes || "");
       setBankTransferImage(data.bank_transfer_image || "");
       setBankTransferFee(String(data.bank_transfer_fee || ""));
+      setTransferDate(data.transfer_date ? new Date(data.transfer_date + "T00:00:00") : undefined);
 
       if (linesRes.data && linesRes.data.length > 0) {
         setLines(linesRes.data.map((l: any) => ({
@@ -651,6 +657,34 @@ const CoinsCreation = () => {
             <div className="space-y-2">
               <Label>{isArabic ? "سعر الصرف" : "Exchange Rate"}</Label>
               <Input type="number" step="0.0001" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+            </div>
+            <div className="space-y-2">
+              <Label>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !transferDate && "text-muted-foreground",
+                      isReadOnly && "bg-muted pointer-events-none"
+                    )}
+                    disabled={isReadOnly}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {transferDate ? format(transferDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={transferDate}
+                    onSelect={setTransferDate}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "رسوم التحويل البنكي" : "Bank Transfer Fee"}</Label>
