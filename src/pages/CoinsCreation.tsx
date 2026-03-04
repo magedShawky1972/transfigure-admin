@@ -541,13 +541,14 @@ const CoinsCreation = () => {
                      <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
                      <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
                      <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
+                     <TableHead>{isArabic ? "تاريخ الإدخال" : "Entry Date"}</TableHead>
                      <TableHead></TableHead>
                    </TableRow>
                  </TableHeader>
                  <TableBody>
                    {orders.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                       <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                          {isArabic ? "لا توجد طلبات" : "No orders found"}
                        </TableCell>
                      </TableRow>
@@ -573,6 +574,7 @@ const CoinsCreation = () => {
                        <TableCell>{parseFloat(o.base_amount_sar || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell><Badge className={getPhaseColor(o.current_phase)}>{getPhaseLabel(o.current_phase)}</Badge></TableCell>
                       <TableCell>{o.created_by_name || o.created_by}</TableCell>
+                      <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
