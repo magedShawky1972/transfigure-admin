@@ -127,7 +127,7 @@ const CoinsCreation = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*, currencies(currency_code), suppliers(supplier_name), coins_purchase_order_lines(brand_id, brands(brand_name))")
+      .select("*, currencies(currency_code), suppliers!coins_purchase_orders_supplier_id_fkey(supplier_name)")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -141,7 +141,38 @@ const CoinsCreation = () => {
     if (toDate) query = query.lte("created_at", format(toDate, "yyyy-MM-dd") + "T23:59:59");
 
     const { data } = await query;
-    if (data) setOrders(data);
+    if (data && data.length > 0) {
+      // Fetch order lines with brand names for all orders
+      const orderIds = data.map(o => o.id);
+      const { data: linesData } = await supabase
+        .from("coins_purchase_order_lines")
+        .select("purchase_order_id, brands(brand_name)")
+        .in("purchase_order_id", orderIds);
+      
+      // Group brand names by order id
+      const brandsByOrder: Record<string, string[]> = {};
+      if (linesData) {
+        for (const line of linesData) {
+          const orderId = line.purchase_order_id;
+          const brandName = (line as any).brands?.brand_name;
+          if (brandName) {
+            if (!brandsByOrder[orderId]) brandsByOrder[orderId] = [];
+            if (!brandsByOrder[orderId].includes(brandName)) {
+              brandsByOrder[orderId].push(brandName);
+            }
+          }
+        }
+      }
+      
+      // Attach brand names to orders
+      const enrichedOrders = data.map(o => ({
+        ...o,
+        _brandNames: brandsByOrder[o.id] || [],
+      }));
+      setOrders(enrichedOrders);
+    } else {
+      setOrders(data || []);
+    }
   };
 
   useEffect(() => { fetchOrders(); }, [viewFilter, fromDate, toDate]);
@@ -519,8 +550,7 @@ const CoinsCreation = () => {
                        </TableCell>
                      </TableRow>
                    ) : orders.map(o => {
-                     const orderLines = (o as any).coins_purchase_order_lines || [];
-                     const brandNames = [...new Set(orderLines.map((l: any) => l.brands?.brand_name).filter(Boolean))] as string[];
+                     const brandNames = (o as any)._brandNames || [];
                      return (
                      <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                        <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
@@ -529,7 +559,7 @@ const CoinsCreation = () => {
                        <TableCell>
                          {brandNames.length === 0 ? "-" : (
                            <div className="flex flex-col gap-0.5">
-                             {brandNames.map((name, i) => (
+                             {brandNames.map((name: string, i: number) => (
                                <span key={i} className="text-sm">{name}</span>
                              ))}
                            </div>
