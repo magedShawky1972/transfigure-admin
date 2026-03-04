@@ -127,7 +127,7 @@ const CoinsCreation = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*, currencies(currency_code), suppliers!coins_purchase_orders_supplier_id_fkey(supplier_name)")
+      .select("*, currencies(currency_code), suppliers!coins_purchase_orders_supplier_id_fkey(supplier_name), brands!coins_purchase_orders_brand_id_fkey(brand_name)")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -164,10 +164,12 @@ const CoinsCreation = () => {
         }
       }
       
-      // Attach brand names to orders
+      // Attach brand names to orders - fallback to header brand for legacy orders
       const enrichedOrders = data.map(o => ({
         ...o,
-        _brandNames: brandsByOrder[o.id] || [],
+        _brandNames: brandsByOrder[o.id]?.length > 0 
+          ? brandsByOrder[o.id] 
+          : ((o as any).brands?.brand_name ? [(o as any).brands.brand_name] : []),
       }));
       setOrders(enrichedOrders);
     } else {
