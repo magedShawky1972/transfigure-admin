@@ -305,6 +305,8 @@ const SupplierAdvancePayment = () => {
                   <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
                   <TableHead>{isArabic ? "رسوم بنكية" : "Bank Fee"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ الأساسي" : "Base Amount"}</TableHead>
+                  <TableHead>{isArabic ? "المستخدم" : "Entry User"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ الإدخال" : "Entry Date"}</TableHead>
                   <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
@@ -318,6 +320,8 @@ const SupplierAdvancePayment = () => {
                     <TableCell>{Number(p.transaction_amount).toLocaleString()}</TableCell>
                     <TableCell>{Number(p.bank_fee).toLocaleString()}</TableCell>
                     <TableCell className="font-bold">{Number(p.base_amount).toLocaleString()}</TableCell>
+                    <TableCell>{p.created_by_name || "-"}</TableCell>
+                    <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
                     <TableCell><Badge variant={p.status === "active" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
                     <TableCell>
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
@@ -328,7 +332,7 @@ const SupplierAdvancePayment = () => {
                 ))}
                 {payments.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد دفعات" : "No payments found"}
                     </TableCell>
                   </TableRow>
