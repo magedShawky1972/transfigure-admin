@@ -45,7 +45,7 @@ const CoinsSending = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*, currencies(currency_code), suppliers(supplier_name)")
+      .select("*, currencies(currency_code), suppliers(supplier_name), brands!coins_purchase_orders_brand_id_fkey(short_name, brand_name)")
       .order("created_at", { ascending: false });
 
     if (viewFilter === "pending") {
@@ -53,14 +53,40 @@ const CoinsSending = () => {
     } else if (viewFilter === "sent") {
       query = query.neq("current_phase", "sending").in("current_phase", ["receiving", "coins_entry", "completed"]);
     }
-    // "all" = no phase filter, but still show orders that passed through sending
-    // For simplicity, show all orders when "all"
 
     if (fromDate) query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
     if (toDate) query = query.lte("created_at", format(toDate, "yyyy-MM-dd") + "T23:59:59");
 
     const { data } = await query;
-    if (data) setOrders(data);
+    if (data) {
+      const orderIds = data.map(o => o.id);
+      const { data: linesData } = await supabase
+        .from("coins_purchase_order_lines")
+        .select("purchase_order_id, brands(short_name, brand_name)")
+        .in("purchase_order_id", orderIds);
+
+      const brandsByOrder: Record<string, string[]> = {};
+      if (linesData) {
+        for (const line of linesData) {
+          const orderId = line.purchase_order_id;
+          const brandName = (line as any).brands?.short_name || (line as any).brands?.brand_name;
+          if (brandName) {
+            if (!brandsByOrder[orderId]) brandsByOrder[orderId] = [];
+            if (!brandsByOrder[orderId].includes(brandName)) {
+              brandsByOrder[orderId].push(brandName);
+            }
+          }
+        }
+      }
+
+      const enrichedOrders = data.map(o => ({
+        ...o,
+        _brandNames: brandsByOrder[o.id]?.length > 0
+          ? brandsByOrder[o.id]
+          : ((o as any).brands?.short_name || (o as any).brands?.brand_name ? [(o as any).brands.short_name || (o as any).brands.brand_name] : []),
+      }));
+      setOrders(enrichedOrders);
+    }
   };
 
   useEffect(() => { fetchOrders(); }, [viewFilter, fromDate, toDate]);
@@ -364,6 +390,7 @@ const CoinsSending = () => {
                 <TableRow>
                   <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
                   <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
+                  <TableHead>{isArabic ? "العلامات التجارية" : "Brands"}</TableHead>
                   <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                   <TableHead>{isArabic ? "سعر الصرف" : "Rate"}</TableHead>
@@ -378,14 +405,25 @@ const CoinsSending = () => {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       {isArabic ? "لا توجد طلبات للتوجيه" : "No orders pending sending"}
                     </TableCell>
                   </TableRow>
-                ) : orders.map(o => (
-                  <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
+                 ) : orders.map(o => {
+                   const brandNames = (o as any)._brandNames || [];
+                   return (
+                   <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                     <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
                     <TableCell>{o.transfer_date ? format(new Date(o.transfer_date), "yyyy-MM-dd") : "-"}</TableCell>
+                    <TableCell>
+                      {brandNames.length === 0 ? "-" : (
+                        <div className="flex flex-col gap-0.5">
+                          {brandNames.map((name: string, i: number) => (
+                            <span key={i} className="text-sm">{name}</span>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>{(o.suppliers as any)?.supplier_name || "-"}</TableCell>
                     <TableCell>{(o.currencies as any)?.currency_code || "-"}</TableCell>
                     <TableCell>{o.exchange_rate ?? "-"}</TableCell>
@@ -395,8 +433,9 @@ const CoinsSending = () => {
                     <TableCell>{o.sending_confirmed_at ? format(new Date(o.sending_confirmed_at), "yyyy-MM-dd") : "-"}</TableCell>
                     <TableCell>{o.phase_updated_at ? format(new Date(o.phase_updated_at), "yyyy-MM-dd") : format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
                     <TableCell><Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button></TableCell>
-                  </TableRow>
-                ))}
+                   </TableRow>
+                   );
+                 })}
               </TableBody>
             </Table>
           </div>
