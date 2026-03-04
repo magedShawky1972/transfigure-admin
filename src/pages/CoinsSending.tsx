@@ -363,33 +363,37 @@ const CoinsSending = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                  <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
                   <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                   <TableHead>{isArabic ? "سعر الصرف" : "Rate"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
                   <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ الإرسال" : "Sending Date"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ الطلب" : "Request Date"}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                       {isArabic ? "لا توجد طلبات للتوجيه" : "No orders pending sending"}
                     </TableCell>
                   </TableRow>
                 ) : orders.map(o => (
                   <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                     <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
-                    <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
+                    <TableCell>{o.transfer_date ? format(new Date(o.transfer_date), "yyyy-MM-dd") : "-"}</TableCell>
                     <TableCell>{(o.suppliers as any)?.supplier_name || "-"}</TableCell>
                     <TableCell>{(o.currencies as any)?.currency_code || "-"}</TableCell>
                     <TableCell>{o.exchange_rate ?? "-"}</TableCell>
                     <TableCell>{parseFloat(o.amount_in_currency || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell>{parseFloat(o.base_amount_sar || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell>{o.created_by_name || o.created_by}</TableCell>
+                    <TableCell>{o.sending_confirmed_at ? format(new Date(o.sending_confirmed_at), "yyyy-MM-dd") : "-"}</TableCell>
+                    <TableCell>{o.phase_updated_at ? format(new Date(o.phase_updated_at), "yyyy-MM-dd") : format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
                     <TableCell><Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button></TableCell>
                   </TableRow>
                 ))}
