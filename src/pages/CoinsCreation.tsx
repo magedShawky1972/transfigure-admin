@@ -262,7 +262,7 @@ const CoinsCreation = () => {
   };
 
   const handleSave = async (sendToNext = false) => {
-    if (!bankId || !currencyId) {
+    if (!bankId || !currencyId || !transferDate) {
       toast.error(isArabic ? "يرجى تعبئة جميع الحقول المطلوبة" : "Please fill all required fields");
       return;
     }
@@ -708,7 +708,7 @@ const CoinsCreation = () => {
               <Input type="number" step="0.0001" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
             <div className="space-y-2">
-              <Label>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</Label>
+              <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
