@@ -279,15 +279,6 @@ serve(async (req) => {
       if (userEmail) await sendEmail(userEmail, subject, html);
       await sendPushNotification(supabase, userId, "مهمة جديدة في سير عمل الكوينز", `${resolvedBrandNames.join(", ") || ""} - ${arPhaseLabel}`);
 
-      // Notify supervisors
-      const supervisorSubject = `Edara - تحديث سير عمل الكوينز | Coins Workflow Update`;
-      for (const sup of supervisors) {
-        if (sup.user_id === userId) continue; // Don't double-notify if supervisor is the assignee
-        const supHtml = buildSupervisorPhaseHtml(sup.user_name || "مشرف", brandDisplayHtml, arPhaseLabel, orderNumber || "-", displayName);
-        if (sup.email) await sendEmail(sup.email, supervisorSubject, supHtml);
-        await sendPushNotification(supabase, sup.user_id, "تحديث سير عمل الكوينز", `${resolvedBrandNames.join(", ") || ""} - ${arPhaseLabel} - ${displayName}`);
-      }
-
     } else if (type === "assignment_added") {
       const subject = `Edara - تم تعيينك في سير عمل الكوينز | Coins Workflow Assignment`;
       const html = `
