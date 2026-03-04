@@ -127,7 +127,7 @@ const CoinsCreation = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*, currencies(currency_code), suppliers!coins_purchase_orders_supplier_id_fkey(supplier_name), brands!coins_purchase_orders_brand_id_fkey(brand_name)")
+      .select("*, currencies(currency_code), suppliers!coins_purchase_orders_supplier_id_fkey(supplier_name), brands!coins_purchase_orders_brand_id_fkey(short_name, brand_name)")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -146,7 +146,7 @@ const CoinsCreation = () => {
       const orderIds = data.map(o => o.id);
       const { data: linesData } = await supabase
         .from("coins_purchase_order_lines")
-        .select("purchase_order_id, brands(brand_name)")
+        .select("purchase_order_id, brands(short_name, brand_name)")
         .in("purchase_order_id", orderIds);
       
       // Group brand names by order id
@@ -154,7 +154,7 @@ const CoinsCreation = () => {
       if (linesData) {
         for (const line of linesData) {
           const orderId = line.purchase_order_id;
-          const brandName = (line as any).brands?.brand_name;
+          const brandName = (line as any).brands?.short_name || (line as any).brands?.brand_name;
           if (brandName) {
             if (!brandsByOrder[orderId]) brandsByOrder[orderId] = [];
             if (!brandsByOrder[orderId].includes(brandName)) {
@@ -169,7 +169,7 @@ const CoinsCreation = () => {
         ...o,
         _brandNames: brandsByOrder[o.id]?.length > 0 
           ? brandsByOrder[o.id] 
-          : ((o as any).brands?.brand_name ? [(o as any).brands.brand_name] : []),
+          : ((o as any).brands?.short_name || (o as any).brands?.brand_name ? [(o as any).brands.short_name || (o as any).brands.brand_name] : []),
       }));
       setOrders(enrichedOrders);
     } else {
