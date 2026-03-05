@@ -505,7 +505,10 @@ const ProjectGantt = () => {
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">
+              {language === 'ar' ? 'المشروع' : 'Project'} {project?.name}
+            </div>
+            <DialogTitle className="flex items-center gap-2 text-lg">
               {selectedTask?.is_milestone && <MilestoneIcon className="h-5 w-5 text-primary" />}
               {selectedTask?.title}
             </DialogTitle>
