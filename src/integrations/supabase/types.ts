@@ -2863,33 +2863,39 @@ export type Database = {
           created_at: string
           data_type: string
           excel_column: string
+          fixed_value: string | null
           id: string
           is_json_column: boolean
           is_pk: boolean
           json_split_keys: string[] | null
           sheet_id: string
+          source_type: string
           table_column: string
         }
         Insert: {
           created_at?: string
           data_type: string
           excel_column: string
+          fixed_value?: string | null
           id?: string
           is_json_column?: boolean
           is_pk?: boolean
           json_split_keys?: string[] | null
           sheet_id: string
+          source_type?: string
           table_column: string
         }
         Update: {
           created_at?: string
           data_type?: string
           excel_column?: string
+          fixed_value?: string | null
           id?: string
           is_json_column?: boolean
           is_pk?: boolean
           json_split_keys?: string[] | null
           sheet_id?: string
+          source_type?: string
           table_column?: string
         }
         Relationships: [
