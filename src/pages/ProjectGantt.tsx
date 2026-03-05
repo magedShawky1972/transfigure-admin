@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Loader2, ArrowLeft, Milestone as MilestoneIcon, Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, ArrowLeft, Milestone as MilestoneIcon, Calendar, User, Flag, Clock, Link as LinkIcon, FileText } from "lucide-react";
 import { format, differenceInDays, addDays, startOfWeek, endOfWeek, eachWeekOfInterval, parseISO, isValid } from "date-fns";
 import { ar } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 interface Task {
   id: string;
   title: string;
+  description: string | null;
   status: string;
   priority: string;
   start_date: string | null;
@@ -21,7 +22,13 @@ interface Task {
   dependency_task_id: string | null;
   is_milestone: boolean;
   assigned_to: string;
+  created_at: string;
+  external_links?: string[] | null;
+  file_attachments?: { url: string; name: string; type: string }[] | null;
   profiles?: { user_name: string } | null;
+  projects?: { name: string } | null;
+  dependency_task?: { title: string } | null;
+  total_time_minutes?: number;
 }
 
 interface Project {
@@ -45,6 +52,20 @@ const statusColors: Record<string, string> = {
   done: 'bg-green-500'
 };
 
+const priorityLabels: Record<string, { en: string; ar: string }> = {
+  low: { en: 'Low', ar: 'منخفضة' },
+  medium: { en: 'Medium', ar: 'متوسطة' },
+  high: { en: 'High', ar: 'عالية' },
+  urgent: { en: 'Urgent', ar: 'عاجلة' }
+};
+
+const statusLabels: Record<string, { en: string; ar: string }> = {
+  todo: { en: 'To Do', ar: 'للتنفيذ' },
+  in_progress: { en: 'In Progress', ar: 'قيد التنفيذ' },
+  review: { en: 'Review', ar: 'مراجعة' },
+  done: { en: 'Done', ar: 'مكتمل' }
+};
+
 const ProjectGantt = () => {
   const { language } = useLanguage();
   const [searchParams] = useSearchParams();
@@ -55,7 +76,9 @@ const ProjectGantt = () => {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const chartRef = useRef<HTMLDivElement>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const translations = {
     ar: {
@@ -69,7 +92,19 @@ const ProjectGantt = () => {
       startDate: 'تاريخ البدء',
       endDate: 'تاريخ الانتهاء',
       noDateSet: 'لم يتم تحديد تاريخ',
-      assignedTo: 'مسند إلى'
+      assignedTo: 'مسند إلى',
+      status: 'الحالة',
+      priority: 'الأولوية',
+      description: 'الوصف',
+      taskDetails: 'تفاصيل المهمة',
+      totalTime: 'الوقت الكلي',
+      hours: 'ساعة',
+      minutes: 'دقيقة',
+      links: 'الروابط',
+      files: 'الملفات',
+      dependsOn: 'يعتمد على',
+      task: 'المهمة',
+      createdAt: 'تاريخ الإنشاء'
     },
     en: {
       pageTitle: 'Project Gantt Chart',
@@ -82,7 +117,19 @@ const ProjectGantt = () => {
       startDate: 'Start Date',
       endDate: 'End Date',
       noDateSet: 'No date set',
-      assignedTo: 'Assigned to'
+      assignedTo: 'Assigned to',
+      status: 'Status',
+      priority: 'Priority',
+      description: 'Description',
+      taskDetails: 'Task Details',
+      totalTime: 'Total Time',
+      hours: 'hours',
+      minutes: 'minutes',
+      links: 'Links',
+      files: 'Files',
+      dependsOn: 'Depends on',
+      task: 'Task',
+      createdAt: 'Created At'
     }
   };
 
@@ -96,37 +143,50 @@ const ProjectGantt = () => {
       }
 
       try {
-        // Fetch project
         const { data: projectData } = await supabase
           .from('projects')
           .select('id, name, start_date, end_date')
           .eq('id', projectId)
           .maybeSingle();
 
-        if (projectData) {
-          setProject(projectData);
-        }
+        if (projectData) setProject(projectData);
 
-        // Fetch tasks for this project with profiles
         const { data: tasksData } = await supabase
           .from('tasks')
-          .select('id, title, status, priority, start_date, deadline, dependency_task_id, is_milestone, assigned_to')
+          .select('id, title, description, status, priority, start_date, deadline, dependency_task_id, is_milestone, assigned_to, created_at, external_links, file_attachments')
           .eq('project_id', projectId)
           .order('start_date', { ascending: true, nullsFirst: false });
 
         if (tasksData) {
-          // Fetch user profiles for assigned users
           const userIds = [...new Set(tasksData.map(t => t.assigned_to))];
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, user_name')
-            .in('user_id', userIds);
+          const depTaskIds = [...new Set(tasksData.map(t => t.dependency_task_id).filter(Boolean))] as string[];
+          
+          const [profilesRes, timeEntriesRes] = await Promise.all([
+            supabase.from('profiles').select('user_id, user_name').in('user_id', userIds),
+            supabase.from('task_time_entries').select('task_id, duration_minutes').in('task_id', tasksData.map(t => t.id))
+          ]);
 
-          const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+          const profileMap = new Map(profilesRes.data?.map(p => [p.user_id, p]) || []);
+          
+          // Calculate total time per task
+          const timeMap = new Map<string, number>();
+          (timeEntriesRes.data || []).forEach(te => {
+            if (te.duration_minutes) {
+              timeMap.set(te.task_id, (timeMap.get(te.task_id) || 0) + te.duration_minutes);
+            }
+          });
+
+          // Build dependency task title map
+          const depTasks = tasksData.filter(t => depTaskIds.includes(t.id));
+          const depMap = new Map(depTasks.map(t => [t.id, { title: t.title }]));
           
           const tasksWithProfiles = tasksData.map(task => ({
             ...task,
-            profiles: profileMap.get(task.assigned_to) || null
+            profiles: profileMap.get(task.assigned_to) || null,
+            dependency_task: task.dependency_task_id ? depMap.get(task.dependency_task_id) || null : null,
+            total_time_minutes: timeMap.get(task.id) || 0,
+            file_attachments: Array.isArray(task.file_attachments) ? task.file_attachments as any : [],
+            external_links: Array.isArray(task.external_links) ? task.external_links as string[] : []
           }));
 
           setTasks(tasksWithProfiles);
@@ -141,8 +201,7 @@ const ProjectGantt = () => {
     fetchData();
   }, [projectId]);
 
-  // Calculate timeline range
-  const { weeks, startDate, endDate, totalDays } = useMemo(() => {
+  const { weeks, startDate, totalDays } = useMemo(() => {
     const tasksWithDates = tasks.filter(t => t.start_date || t.deadline);
     
     if (tasksWithDates.length === 0) {
@@ -178,7 +237,6 @@ const ProjectGantt = () => {
       }
     });
 
-    // Add buffer
     const start = startOfWeek(addDays(minDate, -7));
     const end = endOfWeek(addDays(maxDate, 7));
     
@@ -207,23 +265,16 @@ const ProjectGantt = () => {
     return { left: leftPercent, width: widthPercent };
   };
 
-  const getDependencyLine = (task: Task) => {
-    if (!task.dependency_task_id) return null;
-    
-    const depTask = tasks.find(t => t.id === task.dependency_task_id);
-    if (!depTask) return null;
+  const formatDuration = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0) return `${h}${language === 'ar' ? 'س' : 'h'} ${m}${language === 'ar' ? 'د' : 'm'}`;
+    return `${m} ${t.minutes}`;
+  };
 
-    const depPos = getTaskPosition(depTask);
-    const taskPos = getTaskPosition(task);
-
-    if (!depPos || !taskPos) return null;
-
-    return {
-      fromLeft: depPos.left + depPos.width,
-      toLeft: taskPos.left,
-      fromIndex: tasks.indexOf(depTask),
-      toIndex: tasks.indexOf(task)
-    };
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setDetailDialogOpen(true);
   };
 
   if (loading) {
@@ -248,10 +299,14 @@ const ProjectGantt = () => {
     );
   }
 
+  const TASK_COL_WIDTH = 240;
+  const WEEK_COL_WIDTH = 120;
+  const ROW_HEIGHT = 56;
+
   return (
     <div className={`min-h-screen bg-background ${language === 'ar' ? 'rtl' : 'ltr'}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <div className="border-b bg-card/50 backdrop-blur sticky top-0 z-10">
+      <div className="border-b bg-card/50 backdrop-blur sticky top-0 z-30">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => navigate(`/projects-tasks?departmentId=${departmentId}&projectId=${projectId}`)}>
@@ -266,21 +321,56 @@ const ProjectGantt = () => {
         </div>
       </div>
 
-      {/* Gantt Chart */}
+      {/* Gantt Chart with frozen row/column */}
       <div className="container mx-auto p-4">
         <Card className="overflow-hidden">
-          <ScrollArea className="w-full">
-            <div className="min-w-[1200px]" ref={chartRef}>
-              {/* Timeline Header */}
-              <div className="flex border-b bg-muted/30">
-                <div className="w-64 flex-shrink-0 p-3 border-r font-medium">
-                  {language === 'ar' ? 'المهمة' : 'Task'}
+          {tasks.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              {t.noTasks}
+            </div>
+          ) : (
+            <div 
+              ref={scrollContainerRef}
+              className="overflow-auto max-h-[calc(100vh-200px)]"
+              style={{ position: 'relative' }}
+            >
+              <div style={{ 
+                minWidth: TASK_COL_WIDTH + (weeks.length * WEEK_COL_WIDTH),
+                minHeight: ROW_HEIGHT + (tasks.length * ROW_HEIGHT)
+              }}>
+                {/* Frozen corner cell (Task header) - z-20 to be above both frozen row and column */}
+                <div 
+                  className="bg-muted/50 border-b border-r font-medium flex items-center px-3 text-sm"
+                  style={{ 
+                    position: 'sticky', 
+                    top: 0, 
+                    left: language === 'ar' ? 'auto' : 0,
+                    right: language === 'ar' ? 0 : 'auto',
+                    width: TASK_COL_WIDTH, 
+                    height: ROW_HEIGHT, 
+                    zIndex: 20 
+                  }}
+                >
+                  {t.task}
                 </div>
-                <div className="flex-1 flex">
+
+                {/* Frozen header row (weeks) */}
+                <div 
+                  className="flex"
+                  style={{ 
+                    position: 'sticky', 
+                    top: 0, 
+                    zIndex: 15,
+                    marginTop: -ROW_HEIGHT,
+                    marginLeft: language === 'ar' ? 0 : TASK_COL_WIDTH,
+                    marginRight: language === 'ar' ? TASK_COL_WIDTH : 0,
+                  }}
+                >
                   {weeks.map((week, i) => (
                     <div 
                       key={i} 
-                      className="flex-1 min-w-[100px] p-2 text-center text-sm border-r last:border-r-0 bg-muted/20"
+                      className="border-b border-r last:border-r-0 bg-muted/30 flex flex-col items-center justify-center text-sm"
+                      style={{ width: WEEK_COL_WIDTH, height: ROW_HEIGHT, flexShrink: 0 }}
                     >
                       <div className="font-medium">
                         {t.week} {format(week, 'w', { locale: language === 'ar' ? ar : undefined })}
@@ -291,123 +381,99 @@ const ProjectGantt = () => {
                     </div>
                   ))}
                 </div>
-              </div>
 
-              {/* Tasks */}
-              {tasks.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  {t.noTasks}
-                </div>
-              ) : (
-                <div className="relative">
-                  {tasks.map((task, index) => {
-                    const position = getTaskPosition(task);
-                    const depLine = getDependencyLine(task);
+                {/* Task rows */}
+                {tasks.map((task, index) => {
+                  const position = getTaskPosition(task);
 
-                    return (
+                  return (
+                    <div key={task.id} className="flex" style={{ height: ROW_HEIGHT }}>
+                      {/* Frozen task name column */}
                       <div 
-                        key={task.id} 
-                        className="flex border-b hover:bg-muted/10 transition-colors group"
+                        className="border-b border-r bg-card hover:bg-muted/20 transition-colors cursor-pointer flex flex-col justify-center px-3"
+                        style={{ 
+                          position: 'sticky', 
+                          left: language === 'ar' ? 'auto' : 0,
+                          right: language === 'ar' ? 0 : 'auto',
+                          width: TASK_COL_WIDTH, 
+                          minWidth: TASK_COL_WIDTH,
+                          zIndex: 10,
+                        }}
+                        onClick={() => handleTaskClick(task)}
                       >
-                        {/* Task Info */}
-                        <div className="w-64 flex-shrink-0 p-3 border-r">
-                          <div className="flex items-center gap-2">
-                            {task.is_milestone && (
-                              <MilestoneIcon className="h-4 w-4 text-primary flex-shrink-0" />
-                            )}
-                            <span className="font-medium truncate text-sm" title={task.title}>
-                              {task.title}
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {task.profiles?.user_name || '-'}
-                          </div>
+                        <div className="flex items-center gap-2">
+                          {task.is_milestone && (
+                            <MilestoneIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                          )}
+                          <span className="font-medium truncate text-sm" title={task.title}>
+                            {task.title}
+                          </span>
                         </div>
-
-                        {/* Gantt Bar Area */}
-                        <div className="flex-1 relative h-14 flex items-center">
-                          {/* Week grid lines */}
-                          <div className="absolute inset-0 flex">
-                            {weeks.map((_, i) => (
-                              <div key={i} className="flex-1 border-r last:border-r-0 border-dashed border-muted-foreground/10" />
-                            ))}
-                          </div>
-
-                          {/* Dependency arrow */}
-                          {depLine && (
-                            <svg 
-                              className="absolute inset-0 pointer-events-none overflow-visible"
-                              style={{ zIndex: 1 }}
-                            >
-                              <path
-                                d={`M ${depLine.fromLeft}% 50% 
-                                    L ${depLine.fromLeft + 1}% 50% 
-                                    L ${depLine.fromLeft + 1}% ${depLine.fromIndex < depLine.toIndex ? '100%' : '0%'}
-                                    L ${depLine.toLeft - 1}% ${depLine.fromIndex < depLine.toIndex ? '100%' : '0%'}
-                                    L ${depLine.toLeft - 1}% 50%
-                                    L ${depLine.toLeft}% 50%`}
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                className="text-muted-foreground/40"
-                                strokeDasharray="4 2"
-                              />
-                              <polygon
-                                points={`${depLine.toLeft}%,50% ${depLine.toLeft - 0.5}%,40% ${depLine.toLeft - 0.5}%,60%`}
-                                fill="currentColor"
-                                className="text-muted-foreground/40"
-                              />
-                            </svg>
-                          )}
-
-                          {/* Task Bar or Milestone */}
-                          {position && (
-                            task.is_milestone ? (
-                              <div
-                                className="absolute h-5 w-5 transform rotate-45 bg-primary border-2 border-primary-foreground shadow-md z-10"
-                                style={{
-                                  left: `${position.left}%`,
-                                  top: '50%',
-                                  marginTop: '-10px'
-                                }}
-                                title={`${task.title}\n${t.milestone}`}
-                              />
-                            ) : (
-                              <div
-                                className={cn(
-                                  "absolute h-7 rounded-md shadow-sm z-10 flex items-center px-2 text-white text-xs font-medium transition-all",
-                                  statusColors[task.status] || priorityColors[task.priority] || 'bg-primary',
-                                  "hover:shadow-lg hover:scale-[1.02]"
-                                )}
-                                style={{
-                                  left: `${position.left}%`,
-                                  width: `${Math.max(position.width, 3)}%`,
-                                  minWidth: '60px'
-                                }}
-                                title={`${task.title}\n${t.startDate}: ${task.start_date || t.noDateSet}\n${t.endDate}: ${task.deadline || t.noDateSet}`}
-                              >
-                                <span className="truncate">{task.title}</span>
-                              </div>
-                            )
-                          )}
-
-                          {/* No date indicator */}
-                          {!position && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                {t.noDateSet}
-                              </Badge>
-                            </div>
-                          )}
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {task.profiles?.user_name || '-'}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+
+                      {/* Gantt bar area */}
+                      <div 
+                        className="relative flex items-center border-b"
+                        style={{ width: weeks.length * WEEK_COL_WIDTH, minWidth: weeks.length * WEEK_COL_WIDTH }}
+                      >
+                        {/* Week grid lines */}
+                        <div className="absolute inset-0 flex">
+                          {weeks.map((_, i) => (
+                            <div key={i} className="border-r last:border-r-0 border-dashed border-muted-foreground/10" style={{ width: WEEK_COL_WIDTH, flexShrink: 0 }} />
+                          ))}
+                        </div>
+
+                        {/* Task Bar or Milestone */}
+                        {position && (
+                          task.is_milestone ? (
+                            <div
+                              className="absolute h-5 w-5 transform rotate-45 bg-primary border-2 border-primary-foreground shadow-md z-[5] cursor-pointer hover:scale-110 transition-transform"
+                              style={{
+                                left: `${position.left}%`,
+                                top: '50%',
+                                marginTop: '-10px'
+                              }}
+                              title={`${task.title}\n${t.milestone}`}
+                              onClick={() => handleTaskClick(task)}
+                            />
+                          ) : (
+                            <div
+                              className={cn(
+                                "absolute h-7 rounded-md shadow-sm z-[5] flex items-center px-2 text-white text-xs font-medium transition-all cursor-pointer",
+                                statusColors[task.status] || priorityColors[task.priority] || 'bg-primary',
+                                "hover:shadow-lg hover:scale-[1.02]"
+                              )}
+                              style={{
+                                left: `${position.left}%`,
+                                width: `${Math.max(position.width, 3)}%`,
+                                minWidth: '60px'
+                              }}
+                              title={`${task.title}\n${t.startDate}: ${task.start_date || t.noDateSet}\n${t.endDate}: ${task.deadline || t.noDateSet}`}
+                              onClick={() => handleTaskClick(task)}
+                            >
+                              <span className="truncate">{task.title}</span>
+                            </div>
+                          )
+                        )}
+
+                        {/* No date indicator */}
+                        {!position && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Badge variant="outline" className="text-xs text-muted-foreground cursor-pointer" onClick={() => handleTaskClick(task)}>
+                              {t.noDateSet}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          )}
         </Card>
 
         {/* Legend */}
@@ -434,6 +500,135 @@ const ProjectGantt = () => {
           </div>
         </div>
       </div>
+
+      {/* Task Detail Drill-Down Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedTask?.is_milestone && <MilestoneIcon className="h-5 w-5 text-primary" />}
+              {selectedTask?.title}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedTask && (
+            <div className="space-y-4">
+              {/* Status & Priority */}
+              <div className="flex flex-wrap gap-2">
+                <Badge className={cn("text-white", statusColors[selectedTask.status] || 'bg-muted')}>
+                  {statusLabels[selectedTask.status]?.[language === 'ar' ? 'ar' : 'en'] || selectedTask.status}
+                </Badge>
+                <Badge className={cn("text-white", priorityColors[selectedTask.priority] || 'bg-muted')}>
+                  <Flag className="h-3 w-3 mr-1" />
+                  {priorityLabels[selectedTask.priority]?.[language === 'ar' ? 'ar' : 'en'] || selectedTask.priority}
+                </Badge>
+                {selectedTask.is_milestone && (
+                  <Badge variant="outline" className="border-primary text-primary">
+                    <MilestoneIcon className="h-3 w-3 mr-1" />
+                    {t.milestone}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Assigned To */}
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{t.assignedTo}:</span>
+                <span className="font-medium">{selectedTask.profiles?.user_name || '-'}</span>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-muted-foreground block text-xs">{t.startDate}</span>
+                    <span className="font-medium">
+                      {selectedTask.start_date 
+                        ? format(parseISO(selectedTask.start_date), 'PPP', { locale: language === 'ar' ? ar : undefined }) 
+                        : t.noDateSet}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-muted-foreground block text-xs">{t.endDate}</span>
+                    <span className="font-medium">
+                      {selectedTask.deadline 
+                        ? format(parseISO(selectedTask.deadline), 'PPP', { locale: language === 'ar' ? ar : undefined }) 
+                        : t.noDateSet}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Time */}
+              {selectedTask.total_time_minutes > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">{t.totalTime}:</span>
+                  <span className="font-medium">{formatDuration(selectedTask.total_time_minutes)}</span>
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedTask.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">{t.description}</h4>
+                  <p className="text-sm bg-muted/30 rounded-md p-3">{selectedTask.description}</p>
+                </div>
+              )}
+
+              {/* Dependency */}
+              {selectedTask.dependency_task && (
+                <div className="flex items-center gap-2 text-sm">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">{t.dependsOn}:</span>
+                  <Badge variant="outline">{selectedTask.dependency_task.title}</Badge>
+                </div>
+              )}
+
+              {/* External Links */}
+              {selectedTask.external_links && selectedTask.external_links.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">{t.links}</h4>
+                  <div className="space-y-1">
+                    {selectedTask.external_links.map((link, i) => (
+                      <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                        <LinkIcon className="h-3 w-3" />
+                        <span className="truncate">{link}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* File Attachments */}
+              {selectedTask.file_attachments && selectedTask.file_attachments.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">{t.files}</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTask.file_attachments.map((file, i) => (
+                      <a key={i} href={file.url} target="_blank" rel="noopener noreferrer">
+                        <Badge variant="outline" className="gap-1 cursor-pointer hover:bg-muted">
+                          <FileText className="h-3 w-3" />
+                          {file.name}
+                        </Badge>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Created At */}
+              <div className="text-xs text-muted-foreground pt-2 border-t">
+                {t.createdAt}: {format(parseISO(selectedTask.created_at), 'PPP', { locale: language === 'ar' ? ar : undefined })}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
