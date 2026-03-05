@@ -910,7 +910,7 @@ export default function EmployeeSetup() {
     }
 
     // Auto-generate employee number if not set (new employee)
-    const employeeNumber = formData.employee_number || `EMP-${Date.now()}`;
+    const employeeNumber = formData.employee_number || `EMP${Date.now()}`;
 
     try {
       const payload = {
