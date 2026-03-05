@@ -897,8 +897,16 @@ export default function EmployeeSetup() {
   };
 
   const handleSave = async () => {
-    if (!formData.employee_number || !formData.first_name || !formData.last_name || !formData.job_start_date) {
-      toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
+    const missingFields: string[] = [];
+    if (!formData.employee_number) missingFields.push(language === "ar" ? "رقم الموظف" : "Employee Number");
+    if (!formData.first_name) missingFields.push(language === "ar" ? "الاسم الأول" : "First Name");
+    if (!formData.last_name) missingFields.push(language === "ar" ? "اسم العائلة" : "Last Name");
+    if (!formData.job_start_date) missingFields.push(language === "ar" ? "تاريخ بداية العمل" : "Job Start Date");
+    
+    if (missingFields.length > 0) {
+      toast.error(
+        (language === "ar" ? "يرجى ملء الحقول المطلوبة: " : "Please fill required fields: ") + missingFields.join(", ")
+      );
       return;
     }
 
