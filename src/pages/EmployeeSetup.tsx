@@ -898,7 +898,6 @@ export default function EmployeeSetup() {
 
   const handleSave = async () => {
     const missingFields: string[] = [];
-    if (!formData.employee_number) missingFields.push(language === "ar" ? "رقم الموظف" : "Employee Number");
     if (!formData.first_name) missingFields.push(language === "ar" ? "الاسم الأول" : "First Name");
     if (!formData.last_name) missingFields.push(language === "ar" ? "اسم العائلة" : "Last Name");
     if (!formData.job_start_date) missingFields.push(language === "ar" ? "تاريخ بداية العمل" : "Job Start Date");
@@ -910,9 +909,12 @@ export default function EmployeeSetup() {
       return;
     }
 
+    // Auto-generate employee number if not set (new employee)
+    const employeeNumber = formData.employee_number || `EMP-${Date.now()}`;
+
     try {
       const payload = {
-        employee_number: formData.employee_number,
+        employee_number: employeeNumber,
         zk_employee_code: formData.zk_employee_code || null,
         user_id: formData.user_id || null,
         first_name: formData.first_name,
@@ -1480,10 +1482,12 @@ export default function EmployeeSetup() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{language === "ar" ? "رقم الموظف *" : "Employee Number *"}</Label>
+                  <Label>{language === "ar" ? "رقم الموظف" : "Employee Number"}</Label>
                   <Input
                     value={formData.employee_number}
                     onChange={(e) => setFormData({ ...formData, employee_number: e.target.value })}
+                    placeholder={language === "ar" ? "سيتم إنشاؤه تلقائياً" : "Auto-generated on save"}
+                    disabled={!selectedEmployee}
                   />
                 </div>
 
