@@ -431,9 +431,35 @@ const ProjectsTasks = () => {
         : [...new Set([...adminDeptIds, ...allMemberDepts])];
 
       // Fetch users with job positions to determine department from organizational chart
+      // Fetch tasks with pagination to avoid PostgREST max_rows limit (1000)
+      const fetchAllTasks = async () => {
+        const allTasks: any[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+          const { data, error } = await supabase
+            .from('tasks')
+            .select('*, projects(name), departments(department_name)')
+            .order('seq_number', { ascending: true })
+            .range(from, to);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allTasks.push(...data);
+            if (data.length < pageSize) hasMore = false;
+            else page++;
+          } else {
+            hasMore = false;
+          }
+        }
+        return { data: allTasks, error: null };
+      };
+
       const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*, projects(name), departments(department_name)').order('seq_number', { ascending: true }).limit(5000),
+        fetchAllTasks(),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
         supabase.from('task_time_entries').select('*').order('start_time', { ascending: false }),
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
