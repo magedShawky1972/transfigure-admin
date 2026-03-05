@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
     // Get the column mappings (including JSON config and PK flag)
     const { data: mappings, error: mappingsError } = await supabase
       .from('excel_column_mappings')
-      .select('excel_column, table_column, data_type, is_json_column, json_split_keys, is_pk')
+      .select('excel_column, table_column, data_type, is_json_column, json_split_keys, is_pk, source_type, fixed_value')
       .eq('sheet_id', sheetId);
 
     if (mappingsError || !mappings || mappings.length === 0) {
@@ -131,6 +131,8 @@ Deno.serve(async (req) => {
         is_json_column: m.is_json_column || false,
         json_split_keys: m.json_split_keys || [],
         is_pk: m.is_pk || false,
+        source_type: m.source_type || 'excel',
+        fixed_value: m.fixed_value || null,
       }));
 
     // Find JSON columns that need to be split and parse their key->column mappings
@@ -190,15 +192,60 @@ Deno.serve(async (req) => {
       };
 
       validMappings.forEach((mapping) => {
-        const excelValue = getExcelValue(mapping.excel_column);
         const targetColumn = (mapping.table_column || '').toLowerCase().trim();
+        if (!targetColumn) return;
 
         // Skip JSON columns that have split keys - they'll be handled separately
         if (mapping.is_json_column && mapping.json_split_keys && mapping.json_split_keys.length > 0) {
           return;
         }
 
-        if (!targetColumn) return;
+        // Handle fixed value source type
+        if (mapping.source_type === 'fixed') {
+          if (mapping.fixed_value !== null && mapping.fixed_value !== undefined) {
+            transformedRow[targetColumn] = mapping.fixed_value;
+          }
+          return;
+        }
+
+        // Handle formula source type
+        if (mapping.source_type === 'formula' && mapping.fixed_value) {
+          try {
+            // Replace {column_name} placeholders with actual values from the row
+            let formulaStr = mapping.fixed_value;
+            const placeholders = formulaStr.match(/\{([^}]+)\}/g) || [];
+            let hasAllValues = true;
+            
+            placeholders.forEach((placeholder: string) => {
+              const colName = placeholder.slice(1, -1); // Remove { and }
+              const val = getExcelValue(colName);
+              if (val === undefined || val === null || val === '') {
+                hasAllValues = false;
+              } else {
+                const numVal = typeof val === 'string' ? parseFloat(val.replace(/[,\s]/g, '')) : Number(val);
+                formulaStr = formulaStr.replace(placeholder, isNaN(numVal) ? '0' : String(numVal));
+              }
+            });
+
+            if (hasAllValues) {
+              // Safely evaluate simple math expressions (+, -, *, /)
+              // Only allow numbers, operators, parentheses, spaces, and dots
+              const sanitized = formulaStr.replace(/[^0-9+\-*/().e\s]/gi, '');
+              if (sanitized.length > 0) {
+                const result = Function('"use strict"; return (' + sanitized + ')')();
+                if (typeof result === 'number' && isFinite(result)) {
+                  transformedRow[targetColumn] = result;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`Formula evaluation failed for ${mapping.excel_column}: ${e}`);
+          }
+          return;
+        }
+
+        // Default: excel source type
+        const excelValue = getExcelValue(mapping.excel_column);
 
         if (excelValue !== undefined && excelValue !== null && excelValue !== '') {
           // If the destination column is a timestamp/date-like column, ensure Excel serial numbers are converted

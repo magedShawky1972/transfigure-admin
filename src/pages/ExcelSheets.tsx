@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings, Trash2, FileSpreadsheet, Edit, Braces, ChevronDown, ChevronUp } from "lucide-react";
+import { Settings, Trash2, FileSpreadsheet, Edit, Braces, ChevronDown, ChevronUp, Calculator, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,6 +60,11 @@ const ExcelSheets = () => {
   // PK column configuration state
   const [pkColumns, setPkColumns] = useState<Record<string, boolean>>({});
   const [sheetPkColumns, setSheetPkColumns] = useState<Record<string, boolean>>({});
+  // Source type configuration state (excel, fixed, formula)
+  const [sourceTypes, setSourceTypes] = useState<Record<string, string>>({});
+  const [sheetSourceTypes, setSheetSourceTypes] = useState<Record<string, string>>({});
+  const [fixedValues, setFixedValues] = useState<Record<string, string>>({});
+  const [sheetFixedValues, setSheetFixedValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadSheets();
@@ -588,6 +593,8 @@ const ExcelSheets = () => {
     const mappingsMap: Record<string, string> = {};
     const jsonConfigsMap: Record<string, JsonColumnConfig> = {};
     const pkColumnsMap: Record<string, boolean> = {};
+    const sourceTypesMap: Record<string, string> = {};
+    const fixedValuesMap: Record<string, string> = {};
     
     if (mappings && mappings.length > 0) {
       mappings.forEach((m: any) => {
@@ -596,13 +603,19 @@ const ExcelSheets = () => {
           pkColumnsMap[m.excel_column] = true;
         }
         
+        // Track source types and fixed values
+        if (m.source_type && m.source_type !== 'excel') {
+          sourceTypesMap[m.excel_column] = m.source_type;
+        }
+        if (m.fixed_value) {
+          fixedValuesMap[m.excel_column] = m.fixed_value;
+        }
+        
         if (m.is_json_column && m.json_split_keys && m.json_split_keys.length > 0) {
-          // JSON column with split keys
           jsonConfigsMap[m.excel_column] = {
             isJson: true,
             splitKeys: m.json_split_keys || []
           };
-          // Parse the key mappings from table_column (stored as JSON)
           try {
             const keyMappings = JSON.parse(m.table_column);
             if (typeof keyMappings === 'object' && keyMappings !== null) {
@@ -611,11 +624,9 @@ const ExcelSheets = () => {
               });
             }
           } catch {
-            // Not JSON, probably old format - treat as regular mapping
             mappingsMap[m.excel_column] = m.table_column;
           }
         } else {
-          // Regular column
           mappingsMap[m.excel_column] = m.table_column;
           if (m.is_json_column) {
             jsonConfigsMap[m.excel_column] = {
@@ -628,8 +639,9 @@ const ExcelSheets = () => {
       setSheetMappings(mappingsMap);
       setSheetJsonConfigs(jsonConfigsMap);
       setSheetPkColumns(pkColumnsMap);
+      setSheetSourceTypes(sourceTypesMap);
+      setSheetFixedValues(fixedValuesMap);
       
-      // Extract unique excel columns
       const excelCols = mappings.map((m: any) => m.excel_column);
       setSheetExcelColumns(excelCols);
     }
@@ -700,6 +712,8 @@ const ExcelSheets = () => {
             is_json_column: true,
             json_split_keys: jsonConfig.splitKeys,
             is_pk: sheetPkColumns[colName] || false,
+            source_type: sheetSourceTypes[colName] || 'excel',
+            fixed_value: sheetFixedValues[colName] || null,
           });
         } else {
           // Regular column mapping
@@ -715,6 +729,8 @@ const ExcelSheets = () => {
             is_json_column: false,
             json_split_keys: null,
             is_pk: sheetPkColumns[colName] || false,
+            source_type: sheetSourceTypes[colName] || 'excel',
+            fixed_value: sheetFixedValues[colName] || null,
           });
         }
       });
@@ -735,6 +751,8 @@ const ExcelSheets = () => {
       setSheetMappings({});
       setSheetExcelColumns([]);
       setSheetTargetTable("");
+      setSheetSourceTypes({});
+      setSheetFixedValues({});
       loadSheets();
     } catch (error: any) {
       toast({
@@ -1260,70 +1278,100 @@ const ExcelSheets = () => {
                     {sheetExcelColumns.map((excelCol, index) => {
                       const jsonConfig = sheetJsonConfigs[excelCol];
                       const isJsonWithSplit = jsonConfig?.isJson && jsonConfig.splitKeys.length > 0;
+                      const currentSourceType = sheetSourceTypes[excelCol] || 'excel';
                       
                       return (
                         <div key={index} className="space-y-2">
-                          <div className="flex items-center gap-4">
-                            <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <Input
-                                  value={excelCol}
-                                  onChange={(e) => {
-                                    const newColName = e.target.value;
-                                    const oldColName = sheetExcelColumns[index];
-                                    
-                                    const newCols = [...sheetExcelColumns];
-                                    newCols[index] = newColName;
-                                    setSheetExcelColumns(newCols);
-                                    
-                                    if (oldColName !== newColName && sheetMappings[oldColName]) {
-                                      const newMappings = { ...sheetMappings };
-                                      newMappings[newColName] = newMappings[oldColName];
-                                      delete newMappings[oldColName];
-                                      setSheetMappings(newMappings);
+                                {currentSourceType === 'excel' ? (
+                                  <Input
+                                    value={excelCol}
+                                    onChange={(e) => {
+                                      const newColName = e.target.value;
+                                      const oldColName = sheetExcelColumns[index];
+                                      const newCols = [...sheetExcelColumns];
+                                      newCols[index] = newColName;
+                                      setSheetExcelColumns(newCols);
+                                      if (oldColName !== newColName && sheetMappings[oldColName]) {
+                                        const newMappings = { ...sheetMappings };
+                                        newMappings[newColName] = newMappings[oldColName];
+                                        delete newMappings[oldColName];
+                                        setSheetMappings(newMappings);
+                                      }
+                                    }}
+                                    placeholder="Excel column name"
+                                  />
+                                ) : currentSourceType === 'fixed' ? (
+                                  <Input
+                                    value={sheetFixedValues[excelCol] || ''}
+                                    onChange={(e) => setSheetFixedValues(prev => ({ ...prev, [excelCol]: e.target.value }))}
+                                    placeholder="Enter fixed value"
+                                    className="border-amber-500/50"
+                                  />
+                                ) : (
+                                  <Input
+                                    value={sheetFixedValues[excelCol] || ''}
+                                    onChange={(e) => setSheetFixedValues(prev => ({ ...prev, [excelCol]: e.target.value }))}
+                                    placeholder="e.g. {total} / {quantity}"
+                                    className="border-blue-500/50"
+                                  />
+                                )}
+                                <Select
+                                  value={currentSourceType}
+                                  onValueChange={(value) => {
+                                    setSheetSourceTypes(prev => ({ ...prev, [excelCol]: value }));
+                                    if (value !== 'excel') {
+                                      const newJsonConfigs = { ...sheetJsonConfigs };
+                                      delete newJsonConfigs[excelCol];
+                                      setSheetJsonConfigs(newJsonConfigs);
                                     }
                                   }}
-                                  placeholder="Excel column name"
-                                />
-                                {/* JSON Column Toggle */}
-                                <Button
-                                  variant={jsonConfig?.isJson ? "default" : "outline"}
-                                  size="sm"
-                                  className="shrink-0"
-                                  title={jsonConfig?.isJson ? "JSON Column - Click to disable" : "Mark as JSON Column"}
-                                  onClick={() => {
-                                    setSheetJsonConfigs(prev => {
-                                      const current = prev[excelCol] || { isJson: false, splitKeys: [] };
-                                      if (current.isJson) {
-                                        // Disable JSON - remove config
-                                        const newConfigs = { ...prev };
-                                        delete newConfigs[excelCol];
-                                        // Clear JSON key mappings
-                                        setSheetMappings(prevMappings => {
-                                          const newMappings = { ...prevMappings };
-                                          Object.keys(newMappings).forEach(key => {
-                                            if (key.startsWith(`${excelCol}.`)) {
-                                              delete newMappings[key];
-                                            }
-                                          });
-                                          return newMappings;
-                                        });
-                                        return newConfigs;
-                                      } else {
-                                        // Enable JSON
-                                        return {
-                                          ...prev,
-                                          [excelCol]: { isJson: true, splitKeys: [] }
-                                        };
-                                      }
-                                    });
-                                  }}
                                 >
-                                  <Braces className="h-4 w-4" />
-                                </Button>
+                                  <SelectTrigger className="w-[100px] shrink-0">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="excel">Excel</SelectItem>
+                                    <SelectItem value="fixed">Fixed</SelectItem>
+                                    <SelectItem value="formula">Formula</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {currentSourceType === 'excel' && (
+                                  <Button
+                                    variant={jsonConfig?.isJson ? "default" : "outline"}
+                                    size="sm"
+                                    className="shrink-0"
+                                    title={jsonConfig?.isJson ? "JSON Column - Click to disable" : "Mark as JSON Column"}
+                                    onClick={() => {
+                                      setSheetJsonConfigs(prev => {
+                                        const current = prev[excelCol] || { isJson: false, splitKeys: [] };
+                                        if (current.isJson) {
+                                          const newConfigs = { ...prev };
+                                          delete newConfigs[excelCol];
+                                          setSheetMappings(prevMappings => {
+                                            const newMappings = { ...prevMappings };
+                                            Object.keys(newMappings).forEach(key => {
+                                              if (key.startsWith(`${excelCol}.`)) delete newMappings[key];
+                                            });
+                                            return newMappings;
+                                          });
+                                          return newConfigs;
+                                        } else {
+                                          return { ...prev, [excelCol]: { isJson: true, splitKeys: [] } };
+                                        }
+                                      });
+                                    }}
+                                  >
+                                    <Braces className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                               <p className="text-xs text-muted-foreground mt-1">
-                                Excel Column {jsonConfig?.isJson && "(JSON Column)"}
+                                {currentSourceType === 'excel' && <>Excel Column {jsonConfig?.isJson && "(JSON)"}</>}
+                                {currentSourceType === 'fixed' && <span className="text-amber-600">Fixed Value</span>}
+                                {currentSourceType === 'formula' && <span className="text-blue-600">Formula: use {'{column_name}'} for Excel columns</span>}
                               </p>
                             </div>
                             <span className="text-muted-foreground">→</span>
@@ -1340,33 +1388,23 @@ const ExcelSheets = () => {
                                   </SelectTrigger>
                                   <SelectContent>
                                     {sheetTableColumns.map((col) => (
-                                      <SelectItem key={col} value={col}>
-                                        {col}
-                                      </SelectItem>
+                                      <SelectItem key={col} value={col}>{col}</SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
                               ) : (
-                                <div className="text-sm text-muted-foreground italic">
-                                  JSON keys mapped below
-                                </div>
+                                <div className="text-sm text-muted-foreground italic">JSON keys mapped below</div>
                               )}
                             </div>
-                            {/* PK Checkbox */}
                             <div className="flex items-center gap-1" title="Mark as Primary Key for upsert">
                               <Checkbox
                                 id={`pk-${excelCol}`}
                                 checked={sheetPkColumns[excelCol] || false}
                                 onCheckedChange={(checked) => {
-                                  setSheetPkColumns(prev => ({
-                                    ...prev,
-                                    [excelCol]: checked === true
-                                  }));
+                                  setSheetPkColumns(prev => ({ ...prev, [excelCol]: checked === true }));
                                 }}
                               />
-                              <Label htmlFor={`pk-${excelCol}`} className="text-xs cursor-pointer">
-                                PK
-                              </Label>
+                              <Label htmlFor={`pk-${excelCol}`} className="text-xs cursor-pointer">PK</Label>
                             </div>
                             <Button
                               variant="ghost"
@@ -1376,21 +1414,22 @@ const ExcelSheets = () => {
                                 setSheetExcelColumns(sheetExcelColumns.filter((_, i) => i !== index));
                                 const newMappings = { ...sheetMappings };
                                 delete newMappings[colToDelete];
-                                // Also delete JSON key mappings
                                 Object.keys(newMappings).forEach(key => {
-                                  if (key.startsWith(`${colToDelete}.`)) {
-                                    delete newMappings[key];
-                                  }
+                                  if (key.startsWith(`${colToDelete}.`)) delete newMappings[key];
                                 });
                                 setSheetMappings(newMappings);
-                                // Remove JSON config
                                 const newJsonConfigs = { ...sheetJsonConfigs };
                                 delete newJsonConfigs[colToDelete];
                                 setSheetJsonConfigs(newJsonConfigs);
-                                // Remove PK config
                                 const newPkColumns = { ...sheetPkColumns };
                                 delete newPkColumns[colToDelete];
                                 setSheetPkColumns(newPkColumns);
+                                const newSourceTypes = { ...sheetSourceTypes };
+                                delete newSourceTypes[colToDelete];
+                                setSheetSourceTypes(newSourceTypes);
+                                const newFixedValues = { ...sheetFixedValues };
+                                delete newFixedValues[colToDelete];
+                                setSheetFixedValues(newFixedValues);
                               }}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />

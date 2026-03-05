@@ -375,11 +375,12 @@ const LoadData = () => {
       // Validate columns
       const { data: mappings } = await supabase
         .from("excel_column_mappings")
-        .select("excel_column")
+        .select("excel_column, source_type")
         .eq("sheet_id", fileItem.sheetId);
 
       const normalizeCol = (col: string) => col.trim().replace(/\s+/g, ' ').toLowerCase();
-      const mappedColumns = mappings?.map((m) => m.excel_column.trim()) || [];
+      // Only check excel-source columns for missing in file (fixed/formula don't come from Excel)
+      const mappedColumns = mappings?.filter((m) => !m.source_type || m.source_type === 'excel').map((m) => m.excel_column.trim()) || [];
       const fileColumns = Object.keys(jsonData[0] as object).map((col) => col.trim());
       const normalizedFileColumns = fileColumns.map(normalizeCol);
 
