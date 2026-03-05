@@ -187,6 +187,7 @@ const ProjectsTasks = () => {
   const [dateTo, setDateTo] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [specificDate, setSpecificDate] = useState<Date | undefined>(undefined);
+  const [phaseSearchTerms, setPhaseSearchTerms] = useState<Record<string, string>>({});
   
   // Dialog states
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -1770,7 +1771,14 @@ const ProjectsTasks = () => {
           <ScrollArea className="w-full">
             <div className="flex gap-4 pb-4" style={{ minWidth: activePhases.length * 320 }}>
               {activePhases.map((phase) => {
-                const phaseTasks = filteredTasks.filter(t => t.status === phase.phase_key);
+                const phaseSearch = phaseSearchTerms[phase.phase_key] || '';
+                const phaseTasks = filteredTasks.filter(t => {
+                  if (t.status !== phase.phase_key) return false;
+                  if (phaseSearch && !t.title.toLowerCase().includes(phaseSearch.toLowerCase()) && 
+                      !(t.profiles?.user_name || '').toLowerCase().includes(phaseSearch.toLowerCase()) &&
+                      !(t.projects?.name || '').toLowerCase().includes(phaseSearch.toLowerCase())) return false;
+                  return true;
+                });
                 return (
                   <DroppableColumn 
                     key={phase.phase_key} 
@@ -1778,7 +1786,7 @@ const ProjectsTasks = () => {
                     className="w-[300px] shrink-0 rounded-xl bg-muted/30 p-3 transition-colors"
                   >
                     {/* Column Header */}
-                    <div className="flex items-center gap-2 mb-3 px-1">
+                    <div className="flex items-center gap-2 mb-2 px-1">
                       <div 
                         className="w-3 h-3 rounded-full shrink-0" 
                         style={{ backgroundColor: phase.phase_color }}
@@ -1789,6 +1797,17 @@ const ProjectsTasks = () => {
                       <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                         {phaseTasks.length}
                       </Badge>
+                    </div>
+
+                    {/* Phase Search */}
+                    <div className="relative mb-3 px-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input 
+                        value={phaseSearch}
+                        onChange={(e) => setPhaseSearchTerms(prev => ({ ...prev, [phase.phase_key]: e.target.value }))}
+                        placeholder={t.search}
+                        className="h-7 text-xs pl-7 bg-background/50"
+                      />
                     </div>
 
                     {/* Tasks */}
