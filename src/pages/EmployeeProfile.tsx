@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import EmployeeAcknowledgments from "@/components/EmployeeAcknowledgments";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 interface Employee {
   id: string;
@@ -158,6 +158,8 @@ export default function EmployeeProfile() {
   const [jobHistory, setJobHistory] = useState<JobHistory[]>([]);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
+  const [timesheetMonth, setTimesheetMonth] = useState<"current" | "last">("current");
+  const [timesheetLoading, setTimesheetLoading] = useState(false);
   const [employeeVacationTypes, setEmployeeVacationTypes] = useState<EmployeeVacationType[]>([]);
   const [employeeContacts, setEmployeeContacts] = useState<{
     id: string;
@@ -215,10 +217,43 @@ export default function EmployeeProfile() {
     checkHRManager();
   }, [id]);
 
+  // Fetch timesheets based on selected month
+  const fetchTimesheets = async () => {
+    if (!id) return;
+    setTimesheetLoading(true);
+    try {
+      const now = new Date();
+      const targetMonth = timesheetMonth === "current" ? now : subMonths(now, 1);
+      const fromDate = format(startOfMonth(targetMonth), "yyyy-MM-dd");
+      const toDate = format(endOfMonth(targetMonth), "yyyy-MM-dd");
+
+      const { data, error } = await supabase
+        .from("timesheets")
+        .select("*")
+        .eq("employee_id", id)
+        .gte("work_date", fromDate)
+        .lte("work_date", toDate)
+        .order("work_date", { ascending: true });
+
+      if (error) throw error;
+      setTimesheets(data || []);
+    } catch (error) {
+      console.error("Error fetching timesheets:", error);
+    } finally {
+      setTimesheetLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchTimesheets();
+    }
+  }, [id, timesheetMonth]);
+
   const fetchEmployeeData = async () => {
     setLoading(true);
     try {
-      const [employeeRes, historyRes, vacationRes, timesheetRes, vacationTypesRes, employeeRequestsVacationRes] = await Promise.all([
+      const [employeeRes, historyRes, vacationRes, vacationTypesRes, employeeRequestsVacationRes] = await Promise.all([
         supabase
           .from("employees")
           .select(`
@@ -251,12 +286,6 @@ export default function EmployeeProfile() {
           .order("start_date", { ascending: false })
           .limit(10),
         supabase
-          .from("timesheets")
-          .select("*")
-          .eq("employee_id", id)
-          .order("work_date", { ascending: false })
-          .limit(30),
-        supabase
           .from("employee_vacation_types")
           .select(`
             id,
@@ -269,7 +298,6 @@ export default function EmployeeProfile() {
           .eq("employee_id", id)
           .eq("year", new Date().getFullYear())
           .order("vacation_code_id", { ascending: true }),
-        // Also fetch approved leave requests from employee_requests (Employee Self-Service workflow)
         supabase
           .from("employee_requests")
           .select(`
@@ -321,7 +349,7 @@ export default function EmployeeProfile() {
         created_by_name: req.submitted_by ? `${req.submitted_by.first_name || ''} ${req.submitted_by.last_name || ''}`.trim() || null : null,
       }));
       
-      // Combine and deduplicate by request type + date range (in case same leave exists in both)
+      // Combine and deduplicate by request type + date range
       const allVacations: VacationRequest[] = [...vacationRequestsData];
       for (const empVac of employeeVacationRequests) {
         const isDuplicate = allVacations.some(
@@ -331,11 +359,9 @@ export default function EmployeeProfile() {
           allVacations.push(empVac);
         }
       }
-      // Sort by start_date descending
       allVacations.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
       
       setVacationRequests(allVacations);
-      setTimesheets(timesheetRes.data || []);
       setEmployeeVacationTypes(vacationTypesRes.data as EmployeeVacationType[] || []);
       
       // Fetch contacts
@@ -1127,10 +1153,31 @@ export default function EmployeeProfile() {
         {/* Timesheet Tab */}
         <TabsContent value="timesheet">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>{language === "ar" ? "سجل الحضور" : "Attendance Record"}</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={timesheetMonth === "current" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimesheetMonth("current")}
+                >
+                  {language === "ar" ? "الشهر الحالي" : "This Month"}
+                </Button>
+                <Button
+                  variant={timesheetMonth === "last" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimesheetMonth("last")}
+                >
+                  {language === "ar" ? "الشهر الماضي" : "Last Month"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
+              {timesheetLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {language === "ar" ? "جاري التحميل..." : "Loading..."}
+                </div>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1175,6 +1222,7 @@ export default function EmployeeProfile() {
                   )}
                 </TableBody>
               </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
