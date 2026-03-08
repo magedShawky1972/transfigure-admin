@@ -140,6 +140,8 @@ const CoinsReceivingPhase = () => {
         setSavingBrand(null);
         return;
       }
+
+      const receivingDate = brandReceivingDates[brandId] || new Date().toISOString();
       
       await supabase.from("coins_purchase_receiving").insert({
         purchase_order_id: selectedOrder.id,
@@ -152,6 +154,7 @@ const CoinsReceivingPhase = () => {
         confirmed_at: new Date().toISOString(),
         confirmed_by: user?.email || "",
         confirmed_by_name: user?.user_metadata?.display_name || user?.email || "",
+        received_at: receivingDate,
       });
 
       await supabase.from("coins_purchase_phase_history").insert({
@@ -166,6 +169,7 @@ const CoinsReceivingPhase = () => {
 
       toast.success(isArabic ? "تم تسجيل الاستلام" : "Receiving recorded");
       setBrandReceivingNotes(prev => { const n = { ...prev }; delete n[brandId]; return n; });
+      setBrandReceivingDates(prev => { const n = { ...prev }; delete n[brandId]; return n; });
       loadOrder(selectedOrder.id);
     } catch (err: any) {
       toast.error(err.message || "Error");
