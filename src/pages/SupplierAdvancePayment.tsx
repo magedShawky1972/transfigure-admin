@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import { downloadFile } from "@/lib/fileDownload";
@@ -40,7 +41,17 @@ const SupplierAdvancePayment = () => {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+
+  // Step 2: Receiving
+  const [sentForReceiving, setSentForReceiving] = useState(false);
+  const [receivingImage, setReceivingImage] = useState("");
+  const [receivingNotes, setReceivingNotes] = useState("");
+  const [uploadingReceiving, setUploadingReceiving] = useState(false);
+
+  // Step 3: Accounting
+  const [accountingRecorded, setAccountingRecorded] = useState(false);
 
   // Attachments
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -143,6 +154,35 @@ const SupplierAdvancePayment = () => {
     }
   };
 
+  const handleReceivingImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedPaymentId) return;
+    setUploadingReceiving(true);
+    try {
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
+      const publicId = `supplier-advance-receiving/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
+        body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error("Upload failed");
+      setReceivingImage(data.url);
+      toast.success(isArabic ? "تم رفع صورة الرصيد بنجاح" : "Balance screenshot uploaded successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploadingReceiving(false);
+      e.target.value = "";
+    }
+  };
+
   const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedPaymentId) return;
@@ -204,6 +244,10 @@ const SupplierAdvancePayment = () => {
     setNotes("");
     setSelectedPaymentId(null);
     setAttachments([]);
+    setSentForReceiving(false);
+    setReceivingImage("");
+    setReceivingNotes("");
+    setAccountingRecorded(false);
     loadedRateRef.current = null;
   };
 
@@ -219,9 +263,12 @@ const SupplierAdvancePayment = () => {
     setBankTransferImage(payment.bank_transfer_image || "");
     setNotes(payment.notes || "");
     setSelectedPaymentId(payment.id);
+    setSentForReceiving(payment.sent_for_receiving || false);
+    setReceivingImage(payment.receiving_image || "");
+    setReceivingNotes(payment.receiving_notes || "");
+    setAccountingRecorded(payment.accounting_recorded || false);
     await fetchAttachments(payment.id);
     setView("form");
-    // Clear the loaded rate ref after a tick so currency changes re-calculate
     setTimeout(() => { loadedRateRef.current = null; }, 500);
   };
 
@@ -271,7 +318,65 @@ const SupplierAdvancePayment = () => {
     }
   };
 
+  const handleSendForReceiving = async () => {
+    if (!selectedPaymentId) return;
+    if (!receivingImage) {
+      toast.error(isArabic ? "يرجى رفع صورة رصيد المورد" : "Please upload supplier balance screenshot");
+      return;
+    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
+      const { error } = await supabase.from("supplier_advance_payments").update({
+        sent_for_receiving: true,
+        sent_for_receiving_at: new Date().toISOString(),
+        sent_for_receiving_by: profile?.user_name || user?.email,
+        receiving_image: receivingImage,
+        receiving_notes: receivingNotes,
+      } as any).eq("id", selectedPaymentId);
+      if (error) throw error;
+      setSentForReceiving(true);
+      toast.success(isArabic ? "تم الإرسال للاستلام بنجاح" : "Sent for receiving successfully");
+      fetchPayments();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleAccountingToggle = async (checked: boolean) => {
+    if (!selectedPaymentId) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
+      const { error } = await supabase.from("supplier_advance_payments").update({
+        accounting_recorded: checked,
+        accounting_recorded_at: checked ? new Date().toISOString() : null,
+        accounting_recorded_by: checked ? (profile?.user_name || user?.email) : null,
+      } as any).eq("id", selectedPaymentId);
+      if (error) throw error;
+      setAccountingRecorded(checked);
+      toast.success(checked
+        ? (isArabic ? "تم تسجيل القيد المحاسبي" : "Accounting record saved")
+        : (isArabic ? "تم إلغاء القيد المحاسبي" : "Accounting record removed"));
+      fetchPayments();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const isPdf = (url: string) => url?.includes(".pdf") || url?.includes("/raw/upload/");
+
+  const getStepStatus = (payment: any) => {
+    if (payment.accounting_recorded) return 3;
+    if (payment.sent_for_receiving) return 2;
+    return 1;
+  };
+
+  const getStepBadge = (step: number) => {
+    if (step === 1) return <Badge variant="secondary">{isArabic ? "إدخال" : "Entry"}</Badge>;
+    if (step === 2) return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">{isArabic ? "استلام" : "Receiving"}</Badge>;
+    return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white">{isArabic ? "محاسبة" : "Recorded"}</Badge>;
+  };
 
   if (accessLoading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (!hasAccess) return <AccessDenied />;
@@ -307,7 +412,7 @@ const SupplierAdvancePayment = () => {
                   <TableHead>{isArabic ? "المبلغ الأساسي" : "Base Amount"}</TableHead>
                   <TableHead>{isArabic ? "المستخدم" : "Entry User"}</TableHead>
                   <TableHead>{isArabic ? "تاريخ الإدخال" : "Entry Date"}</TableHead>
-                  <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                  <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
                   <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -322,7 +427,7 @@ const SupplierAdvancePayment = () => {
                     <TableCell className="font-bold">{Number(p.base_amount).toLocaleString()}</TableCell>
                     <TableCell>{p.created_by_name || "-"}</TableCell>
                     <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
-                    <TableCell><Badge variant={p.status === "active" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
+                    <TableCell>{getStepBadge(getStepStatus(p))}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
@@ -343,10 +448,46 @@ const SupplierAdvancePayment = () => {
         </Card>
       ) : (
         <div className="space-y-4">
-          {/* Main Form */}
+          {/* Step Indicators */}
+          {selectedPaymentId && (
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-center gap-2 md:gap-6">
+                  {/* Step 1 */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm font-medium hidden md:inline">{isArabic ? "الإدخال" : "Entry"}</span>
+                  </div>
+                  <div className={`h-0.5 w-8 md:w-16 ${sentForReceiving ? "bg-primary" : "bg-muted"}`} />
+                  {/* Step 2 */}
+                  <div className="flex items-center gap-2">
+                    <div className={`flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold ${sentForReceiving ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                      {sentForReceiving ? <Check className="h-4 w-4" /> : "2"}
+                    </div>
+                    <span className="text-sm font-medium hidden md:inline">{isArabic ? "الاستلام" : "Receiving"}</span>
+                  </div>
+                  <div className={`h-0.5 w-8 md:w-16 ${accountingRecorded ? "bg-primary" : "bg-muted"}`} />
+                  {/* Step 3 */}
+                  <div className="flex items-center gap-2">
+                    <div className={`flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold ${accountingRecorded ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                      {accountingRecorded ? <Check className="h-4 w-4" /> : "3"}
+                    </div>
+                    <span className="text-sm font-medium hidden md:inline">{isArabic ? "القيد المحاسبي" : "Accounting"}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 1: Main Form */}
           <Card>
             <CardHeader>
-              <CardTitle>{isArabic ? "بيانات الدفعة المقدمة" : "Advance Payment Details"}</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
+                {isArabic ? "بيانات الدفعة المقدمة" : "Advance Payment Details"}
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Supplier */}
@@ -443,13 +584,120 @@ const SupplierAdvancePayment = () => {
                   ) : (
                     <img src={bankTransferImage} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
                   )}
-                  <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => setShowImagePreview(true)}>
+                  <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => { setPreviewImageUrl(bankTransferImage); setShowImagePreview(true); }}>
                     <Maximize2 className="h-4 w-4" />
                   </Button>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Save Button for Step 1 */}
+          <div className="flex justify-end">
+            <Button onClick={handleSave} disabled={saving} className="min-w-[200px]">
+              <Save className="h-4 w-4 mr-1" />
+              {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ الدفعة" : "Save Payment")}
+            </Button>
+          </div>
+
+          {/* Step 2: Send For Receiving - only after save */}
+          {selectedPaymentId && (
+            <Card className={sentForReceiving ? "border-primary/30" : ""}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${sentForReceiving ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    {sentForReceiving ? <Check className="h-3 w-3" /> : "2"}
+                  </div>
+                  {isArabic ? "إرسال للاستلام - صورة رصيد المورد" : "Send For Receiving - Supplier Balance Screenshot"}
+                  {sentForReceiving && <Badge className="bg-emerald-600 text-white ms-2">{isArabic ? "تم" : "Done"}</Badge>}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <label className="cursor-pointer">
+                    <Button variant="outline" asChild disabled={uploadingReceiving || sentForReceiving}>
+                      <span>
+                        <Upload className="h-4 w-4 mr-1" />
+                        {uploadingReceiving ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع صورة الرصيد" : "Upload Balance Screenshot")}
+                      </span>
+                    </Button>
+                    <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleReceivingImageUpload} disabled={uploadingReceiving || sentForReceiving} />
+                  </label>
+                  {receivingImage && (
+                    <Button variant="outline" size="sm" onClick={() => downloadFile(receivingImage, "supplier-balance")}>
+                      <Download className="h-4 w-4 mr-1" />
+                      {isArabic ? "تحميل" : "Download"}
+                    </Button>
+                  )}
+                </div>
+
+                {receivingImage && (
+                  <div className="relative">
+                    {isPdf(receivingImage) ? (
+                      <iframe
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(receivingImage)}&embedded=true`}
+                        title="Balance"
+                        className="w-full h-[400px] rounded-lg border"
+                      />
+                    ) : (
+                      <img src={receivingImage} alt="Balance" className="max-w-md max-h-64 rounded-lg border object-contain" />
+                    )}
+                    <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => { setPreviewImageUrl(receivingImage); setShowImagePreview(true); }}>
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {!sentForReceiving && (
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "ملاحظات الاستلام" : "Receiving Notes"}</Label>
+                    <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
+                  </div>
+                )}
+                {receivingNotes && sentForReceiving && (
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium">{isArabic ? "ملاحظات:" : "Notes:"}</span> {receivingNotes}
+                  </div>
+                )}
+
+                {!sentForReceiving && (
+                  <div className="flex justify-end">
+                    <Button onClick={handleSendForReceiving} className="min-w-[200px]" variant="default">
+                      <Send className="h-4 w-4 mr-1" />
+                      {isArabic ? "إرسال للاستلام" : "Send For Receiving"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 3: Accounting Record - only after receiving */}
+          {selectedPaymentId && sentForReceiving && (
+            <Card className={accountingRecorded ? "border-emerald-500/30" : ""}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${accountingRecorded ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>
+                    {accountingRecorded ? <Check className="h-3 w-3" /> : "3"}
+                  </div>
+                  {isArabic ? "القيد المحاسبي - تسجيل في Odoo" : "Accounting Record - Enter In Odoo"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/30">
+                  <Checkbox
+                    id="accounting-recorded"
+                    checked={accountingRecorded}
+                    onCheckedChange={(checked) => handleAccountingToggle(checked as boolean)}
+                  />
+                  <label htmlFor="accounting-recorded" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                    <BookCheck className="h-4 w-4" />
+                    {isArabic ? "تم تسجيل هذه المعاملة في النظام المحاسبي (Odoo)" : "This transaction has been recorded in the accounting system (Odoo)"}
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Attachments section - only show after save */}
           {selectedPaymentId && (
@@ -494,29 +742,21 @@ const SupplierAdvancePayment = () => {
               </CardContent>
             </Card>
           )}
-
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving} className="min-w-[200px]">
-              <Save className="h-4 w-4 mr-1" />
-              {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ الدفعة" : "Save Payment")}
-            </Button>
-          </div>
         </div>
       )}
 
       {/* Image Preview Dialog */}
       <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
-          {bankTransferImage && (
-            isPdf(bankTransferImage) ? (
+          {previewImageUrl && (
+            isPdf(previewImageUrl) ? (
               <iframe
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
-                title="Transfer Preview"
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
+                title="Preview"
                 className="w-full h-[85vh] rounded"
               />
             ) : (
-              <img src={bankTransferImage} alt="Transfer Preview" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+              <img src={previewImageUrl} alt="Preview" className="max-w-full max-h-[85vh] object-contain mx-auto" />
             )
           )}
         </DialogContent>
