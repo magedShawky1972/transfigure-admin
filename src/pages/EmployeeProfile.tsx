@@ -158,6 +158,8 @@ export default function EmployeeProfile() {
   const [jobHistory, setJobHistory] = useState<JobHistory[]>([]);
   const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>([]);
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
+  const [timesheetMonth, setTimesheetMonth] = useState<"current" | "last">("current");
+  const [timesheetLoading, setTimesheetLoading] = useState(false);
   const [employeeVacationTypes, setEmployeeVacationTypes] = useState<EmployeeVacationType[]>([]);
   const [employeeContacts, setEmployeeContacts] = useState<{
     id: string;
