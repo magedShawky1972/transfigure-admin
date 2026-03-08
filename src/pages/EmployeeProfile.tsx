@@ -252,12 +252,7 @@ export default function EmployeeProfile() {
           .eq("employee_id", id)
           .order("start_date", { ascending: false })
           .limit(10),
-        supabase
-          .from("timesheets")
-          .select("*")
-          .eq("employee_id", id)
-          .order("work_date", { ascending: false })
-          .limit(30),
+        // Timesheets are now fetched separately via fetchTimesheets
         supabase
           .from("employee_vacation_types")
           .select(`
