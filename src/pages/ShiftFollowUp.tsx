@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare, ClipboardCheck, Upload, ChevronRight, ChevronLeft } from "lucide-react";
+import { Calendar, RefreshCw, Edit2, Check, X, Eye, RotateCcw, XCircle, Play, MessageSquare, ClipboardCheck, Upload, ChevronRight, ChevronLeft, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
