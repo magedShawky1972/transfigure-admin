@@ -287,6 +287,23 @@ const EmployeeRequestApprovals = () => {
               selectedRequest.start_date && selectedRequest.end_date
             ) {
               await updateTimesheetsForLeave(selectedRequest);
+
+              // Deduct from employee_vacation_types balance
+              if (selectedRequest.vacation_code_id && selectedRequest.employee_id) {
+                const totalDays = selectedRequest.total_days || 1;
+                const { data: vacType } = await supabase
+                  .from('employee_vacation_types')
+                  .select('id, used_days')
+                  .eq('employee_id', selectedRequest.employee_id)
+                  .eq('vacation_code_id', selectedRequest.vacation_code_id)
+                  .maybeSingle();
+                if (vacType) {
+                  await supabase
+                    .from('employee_vacation_types')
+                    .update({ used_days: (vacType.used_days || 0) + totalDays })
+                    .eq('id', vacType.id);
+                }
+              }
             }
           }
         }
