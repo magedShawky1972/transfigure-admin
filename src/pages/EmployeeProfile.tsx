@@ -220,7 +220,7 @@ export default function EmployeeProfile() {
   const fetchEmployeeData = async () => {
     setLoading(true);
     try {
-      const [employeeRes, historyRes, vacationRes, timesheetRes, vacationTypesRes, employeeRequestsVacationRes] = await Promise.all([
+      const [employeeRes, historyRes, vacationRes, vacationTypesRes, employeeRequestsVacationRes] = await Promise.all([
         supabase
           .from("employees")
           .select(`
@@ -252,7 +252,6 @@ export default function EmployeeProfile() {
           .eq("employee_id", id)
           .order("start_date", { ascending: false })
           .limit(10),
-        // Timesheets are now fetched separately via fetchTimesheets
         supabase
           .from("employee_vacation_types")
           .select(`
@@ -266,7 +265,6 @@ export default function EmployeeProfile() {
           .eq("employee_id", id)
           .eq("year", new Date().getFullYear())
           .order("vacation_code_id", { ascending: true }),
-        // Also fetch approved leave requests from employee_requests (Employee Self-Service workflow)
         supabase
           .from("employee_requests")
           .select(`
@@ -318,7 +316,7 @@ export default function EmployeeProfile() {
         created_by_name: req.submitted_by ? `${req.submitted_by.first_name || ''} ${req.submitted_by.last_name || ''}`.trim() || null : null,
       }));
       
-      // Combine and deduplicate by request type + date range (in case same leave exists in both)
+      // Combine and deduplicate by request type + date range
       const allVacations: VacationRequest[] = [...vacationRequestsData];
       for (const empVac of employeeVacationRequests) {
         const isDuplicate = allVacations.some(
@@ -328,11 +326,9 @@ export default function EmployeeProfile() {
           allVacations.push(empVac);
         }
       }
-      // Sort by start_date descending
       allVacations.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
       
       setVacationRequests(allVacations);
-      setTimesheets(timesheetRes.data || []);
       setEmployeeVacationTypes(vacationTypesRes.data as EmployeeVacationType[] || []);
       
       // Fetch contacts
