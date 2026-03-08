@@ -6845,6 +6845,9 @@ export type Database = {
       }
       supplier_advance_payments: {
         Row: {
+          accounting_recorded: boolean
+          accounting_recorded_at: string | null
+          accounting_recorded_by: string | null
           bank_fee: number
           bank_transfer_image: string | null
           base_amount: number
@@ -6856,12 +6859,20 @@ export type Database = {
           id: string
           notes: string | null
           payment_date: string
+          receiving_image: string | null
+          receiving_notes: string | null
+          sent_for_receiving: boolean
+          sent_for_receiving_at: string | null
+          sent_for_receiving_by: string | null
           status: string
           supplier_id: string
           transaction_amount: number
           updated_at: string
         }
         Insert: {
+          accounting_recorded?: boolean
+          accounting_recorded_at?: string | null
+          accounting_recorded_by?: string | null
           bank_fee?: number
           bank_transfer_image?: string | null
           base_amount?: number
@@ -6873,12 +6884,20 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_date?: string
+          receiving_image?: string | null
+          receiving_notes?: string | null
+          sent_for_receiving?: boolean
+          sent_for_receiving_at?: string | null
+          sent_for_receiving_by?: string | null
           status?: string
           supplier_id: string
           transaction_amount?: number
           updated_at?: string
         }
         Update: {
+          accounting_recorded?: boolean
+          accounting_recorded_at?: string | null
+          accounting_recorded_by?: string | null
           bank_fee?: number
           bank_transfer_image?: string | null
           base_amount?: number
@@ -6890,6 +6909,11 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_date?: string
+          receiving_image?: string | null
+          receiving_notes?: string | null
+          sent_for_receiving?: boolean
+          sent_for_receiving_at?: string | null
+          sent_for_receiving_by?: string | null
           status?: string
           supplier_id?: string
           transaction_amount?: number
