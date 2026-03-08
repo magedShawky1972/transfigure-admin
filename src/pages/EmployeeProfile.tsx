@@ -1153,10 +1153,31 @@ export default function EmployeeProfile() {
         {/* Timesheet Tab */}
         <TabsContent value="timesheet">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>{language === "ar" ? "سجل الحضور" : "Attendance Record"}</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={timesheetMonth === "current" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimesheetMonth("current")}
+                >
+                  {language === "ar" ? "الشهر الحالي" : "This Month"}
+                </Button>
+                <Button
+                  variant={timesheetMonth === "last" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimesheetMonth("last")}
+                >
+                  {language === "ar" ? "الشهر الماضي" : "Last Month"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
+              {timesheetLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {language === "ar" ? "جاري التحميل..." : "Loading..."}
+                </div>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
