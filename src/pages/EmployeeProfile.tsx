@@ -1222,6 +1222,7 @@ export default function EmployeeProfile() {
                   )}
                 </TableBody>
               </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
