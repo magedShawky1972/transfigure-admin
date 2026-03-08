@@ -127,6 +127,9 @@ export default function ShiftFollowUp() {
   const [uploadImagesUserName, setUploadImagesUserName] = useState("");
   const [uploadImagesShiftName, setUploadImagesShiftName] = useState("");
   const [creatingSessionForUpload, setCreatingSessionForUpload] = useState(false);
+  const [notesPopupOpen, setNotesPopupOpen] = useState(false);
+  const [notesPopupTitle, setNotesPopupTitle] = useState("");
+  const [notesPopupContent, setNotesPopupContent] = useState("");
 
   useEffect(() => {
     fetchUsers();
