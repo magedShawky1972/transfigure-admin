@@ -1291,8 +1291,22 @@ export default function ShiftFollowUp() {
           <DialogHeader>
             <DialogTitle>{notesPopupTitle}</DialogTitle>
           </DialogHeader>
-          <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[60vh] overflow-auto p-2">
-            {notesPopupContent}
+          <div className="relative">
+            <Button
+              size="sm"
+              variant="outline"
+              className="absolute top-0 end-0 h-7 gap-1 text-xs"
+              onClick={() => {
+                navigator.clipboard.writeText(notesPopupContent);
+                toast.success(language === 'ar' ? 'تم النسخ' : 'Copied');
+              }}
+            >
+              <Copy className="h-3 w-3" />
+              {language === 'ar' ? 'نسخ' : 'Copy'}
+            </Button>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[60vh] overflow-auto p-2 pt-10">
+              {notesPopupContent}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
