@@ -565,6 +565,29 @@ const CoinsReceivingPhase = () => {
                     )}
                   </div>
 
+                  {/* Receiving Date & Notes - shown before saving */}
+                  {!isSaved && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{isArabic ? "تاريخ الاستلام" : "Receiving Date"}</Label>
+                        <Input
+                          type="date"
+                          value={brandReceivingDates[brandId] || format(new Date(), "yyyy-MM-dd")}
+                          onChange={e => setBrandReceivingDates(prev => ({ ...prev, [brandId]: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                        <Textarea
+                          value={brandReceivingNotes[brandId] || ""}
+                          onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))}
+                          placeholder={isArabic ? "أضف ملاحظة..." : "Add a note..."}
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label>{isArabic ? "صورة الاستلام من تطبيق المورد" : "Receiving Image from Supplier App"}</Label>
                     {displayImage ? (
@@ -572,7 +595,6 @@ const CoinsReceivingPhase = () => {
                         <img src={displayImage} alt="Receiving" className="max-w-sm max-h-48 rounded-lg border object-contain" />
                         <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={async () => {
                           if (isSaved && existingReceiving) {
-                            // Delete from DB
                             await supabase.from("coins_purchase_receiving").delete().eq("id", existingReceiving.id);
                             toast.success(isArabic ? "تم حذف صورة الاستلام" : "Receiving image removed");
                             loadOrder(selectedOrder.id);
@@ -589,15 +611,22 @@ const CoinsReceivingPhase = () => {
                     )}
                   </div>
 
-                  {!isSaved && pendingImage && (
-                    <div className="space-y-2">
-                      <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-                      <Textarea value={brandReceivingNotes[brandId] || ""} onChange={e => setBrandReceivingNotes(prev => ({ ...prev, [brandId]: e.target.value }))} />
+                  {/* Show saved date and notes */}
+                  {isSaved && (
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      {existingReceiving?.received_at && (
+                        <div>
+                          <span className="font-medium">{isArabic ? "تاريخ الاستلام:" : "Receiving Date:"}</span>{" "}
+                          {format(new Date(existingReceiving.received_at), "yyyy-MM-dd")}
+                        </div>
+                      )}
+                      {existingReceiving?.notes && (
+                        <div>
+                          <span className="font-medium">{isArabic ? "ملاحظات:" : "Notes:"}</span>{" "}
+                          {existingReceiving.notes}
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  {isSaved && existingReceiving?.notes && (
-                    <div className="text-sm text-muted-foreground">{existingReceiving.notes}</div>
                   )}
                 </div>
               );
