@@ -932,7 +932,17 @@ export default function ShiftFollowUp() {
                       <TableCell className="max-w-[250px]">
                         {latestSession ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-sm truncate" title={latestSession.admin_notes || ""}>
+                            <span 
+                              className="text-sm truncate cursor-pointer hover:text-foreground transition-colors" 
+                              title={latestSession.admin_notes || ""}
+                              onDoubleClick={() => {
+                                if (latestSession.admin_notes) {
+                                  setNotesPopupTitle(language === 'ar' ? 'ملاحظات المشرف' : 'Admin Notes');
+                                  setNotesPopupContent(latestSession.admin_notes);
+                                  setNotesPopupOpen(true);
+                                }
+                              }}
+                            >
                               {latestSession.admin_notes 
                                 ? (latestSession.admin_notes.length > 30 
                                     ? latestSession.admin_notes.substring(0, 30) + "..." 
