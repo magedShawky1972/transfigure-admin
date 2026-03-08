@@ -217,6 +217,39 @@ export default function EmployeeProfile() {
     checkHRManager();
   }, [id]);
 
+  // Fetch timesheets based on selected month
+  const fetchTimesheets = async () => {
+    if (!id) return;
+    setTimesheetLoading(true);
+    try {
+      const now = new Date();
+      const targetMonth = timesheetMonth === "current" ? now : subMonths(now, 1);
+      const fromDate = format(startOfMonth(targetMonth), "yyyy-MM-dd");
+      const toDate = format(endOfMonth(targetMonth), "yyyy-MM-dd");
+
+      const { data, error } = await supabase
+        .from("timesheets")
+        .select("*")
+        .eq("employee_id", id)
+        .gte("work_date", fromDate)
+        .lte("work_date", toDate)
+        .order("work_date", { ascending: true });
+
+      if (error) throw error;
+      setTimesheets(data || []);
+    } catch (error) {
+      console.error("Error fetching timesheets:", error);
+    } finally {
+      setTimesheetLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchTimesheets();
+    }
+  }, [id, timesheetMonth]);
+
   const fetchEmployeeData = async () => {
     setLoading(true);
     try {
