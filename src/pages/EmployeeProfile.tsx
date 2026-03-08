@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import EmployeeAcknowledgments from "@/components/EmployeeAcknowledgments";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 interface Employee {
   id: string;
