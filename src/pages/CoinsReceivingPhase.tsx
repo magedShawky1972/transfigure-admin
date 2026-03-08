@@ -38,6 +38,7 @@ const CoinsReceivingPhase = () => {
   // New receiving form - per brand (keyed by brand_id)
   const [brandReceivingImages, setBrandReceivingImages] = useState<Record<string, string>>({});
   const [brandReceivingNotes, setBrandReceivingNotes] = useState<Record<string, string>>({});
+  const [brandReceivingDates, setBrandReceivingDates] = useState<Record<string, string>>({});
   const [uploadingBrand, setUploadingBrand] = useState<string | null>(null);
   const [savingBrand, setSavingBrand] = useState<string | null>(null);
   const [bankTransferImage, setBankTransferImage] = useState("");
