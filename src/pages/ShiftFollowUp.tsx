@@ -127,6 +127,9 @@ export default function ShiftFollowUp() {
   const [uploadImagesUserName, setUploadImagesUserName] = useState("");
   const [uploadImagesShiftName, setUploadImagesShiftName] = useState("");
   const [creatingSessionForUpload, setCreatingSessionForUpload] = useState(false);
+  const [notesPopupOpen, setNotesPopupOpen] = useState(false);
+  const [notesPopupTitle, setNotesPopupTitle] = useState("");
+  const [notesPopupContent, setNotesPopupContent] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -911,7 +914,15 @@ export default function ShiftFollowUp() {
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         {latestSession?.closing_notes ? (
-                          <div className="text-sm text-muted-foreground" title={latestSession.closing_notes}>
+                          <div 
+                            className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                            title={latestSession.closing_notes}
+                            onDoubleClick={() => {
+                              setNotesPopupTitle(language === 'ar' ? 'ملاحظات الإغلاق' : 'Closing Notes');
+                              setNotesPopupContent(latestSession.closing_notes || '');
+                              setNotesPopupOpen(true);
+                            }}
+                          >
                             {latestSession.closing_notes.length > 30 
                               ? latestSession.closing_notes.substring(0, 30) + "..." 
                               : latestSession.closing_notes}
@@ -921,7 +932,17 @@ export default function ShiftFollowUp() {
                       <TableCell className="max-w-[250px]">
                         {latestSession ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-sm truncate" title={latestSession.admin_notes || ""}>
+                            <span 
+                              className="text-sm truncate cursor-pointer hover:text-foreground transition-colors" 
+                              title={latestSession.admin_notes || ""}
+                              onDoubleClick={() => {
+                                if (latestSession.admin_notes) {
+                                  setNotesPopupTitle(language === 'ar' ? 'ملاحظات المشرف' : 'Admin Notes');
+                                  setNotesPopupContent(latestSession.admin_notes);
+                                  setNotesPopupOpen(true);
+                                }
+                              }}
+                            >
                               {latestSession.admin_notes 
                                 ? (latestSession.admin_notes.length > 30 
                                     ? latestSession.admin_notes.substring(0, 30) + "..." 
@@ -1263,6 +1284,18 @@ export default function ShiftFollowUp() {
         shiftName={uploadImagesShiftName}
         onImagesUploaded={fetchAssignments}
       />
+
+      {/* Notes Popup Dialog */}
+      <Dialog open={notesPopupOpen} onOpenChange={setNotesPopupOpen}>
+        <DialogContent className={`max-w-lg ${language === 'ar' ? 'rtl' : 'ltr'}`}>
+          <DialogHeader>
+            <DialogTitle>{notesPopupTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[60vh] overflow-auto p-2">
+            {notesPopupContent}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
