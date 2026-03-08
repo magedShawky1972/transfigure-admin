@@ -914,7 +914,15 @@ export default function ShiftFollowUp() {
                       </TableCell>
                       <TableCell className="max-w-[200px]">
                         {latestSession?.closing_notes ? (
-                          <div className="text-sm text-muted-foreground" title={latestSession.closing_notes}>
+                          <div 
+                            className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                            title={latestSession.closing_notes}
+                            onDoubleClick={() => {
+                              setNotesPopupTitle(language === 'ar' ? 'ملاحظات الإغلاق' : 'Closing Notes');
+                              setNotesPopupContent(latestSession.closing_notes || '');
+                              setNotesPopupOpen(true);
+                            }}
+                          >
                             {latestSession.closing_notes.length > 30 
                               ? latestSession.closing_notes.substring(0, 30) + "..." 
                               : latestSession.closing_notes}
