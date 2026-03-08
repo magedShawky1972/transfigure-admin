@@ -291,11 +291,13 @@ const EmployeeRequestApprovals = () => {
               // Deduct from employee_vacation_types balance
               if (selectedRequest.vacation_code_id && selectedRequest.employee_id) {
                 const totalDays = selectedRequest.total_days || 1;
+                const currentYear = new Date().getFullYear();
                 const { data: vacType } = await supabase
                   .from('employee_vacation_types')
                   .select('id, used_days')
                   .eq('employee_id', selectedRequest.employee_id)
                   .eq('vacation_code_id', selectedRequest.vacation_code_id)
+                  .eq('year', currentYear)
                   .maybeSingle();
                 if (vacType) {
                   await supabase
