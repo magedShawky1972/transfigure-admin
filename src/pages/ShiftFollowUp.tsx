@@ -1284,6 +1284,18 @@ export default function ShiftFollowUp() {
         shiftName={uploadImagesShiftName}
         onImagesUploaded={fetchAssignments}
       />
+
+      {/* Notes Popup Dialog */}
+      <Dialog open={notesPopupOpen} onOpenChange={setNotesPopupOpen}>
+        <DialogContent className={`max-w-lg ${language === 'ar' ? 'rtl' : 'ltr'}`}>
+          <DialogHeader>
+            <DialogTitle>{notesPopupTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-[60vh] overflow-auto p-2">
+            {notesPopupContent}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
