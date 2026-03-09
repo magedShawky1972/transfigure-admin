@@ -2465,6 +2465,9 @@ export type Database = {
           created_at: string | null
           current_approval_level: number | null
           current_phase: string | null
+          deduction_amount: number | null
+          deduction_date: string | null
+          deduction_rule_id: string | null
           delay_date: string | null
           delay_minutes: number | null
           department_id: string | null
@@ -2500,6 +2503,9 @@ export type Database = {
           created_at?: string | null
           current_approval_level?: number | null
           current_phase?: string | null
+          deduction_amount?: number | null
+          deduction_date?: string | null
+          deduction_rule_id?: string | null
           delay_date?: string | null
           delay_minutes?: number | null
           department_id?: string | null
@@ -2535,6 +2541,9 @@ export type Database = {
           created_at?: string | null
           current_approval_level?: number | null
           current_phase?: string | null
+          deduction_amount?: number | null
+          deduction_date?: string | null
+          deduction_rule_id?: string | null
           delay_date?: string | null
           delay_minutes?: number | null
           department_id?: string | null
@@ -2564,6 +2573,13 @@ export type Database = {
           vacation_code_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_requests_deduction_rule_id_fkey"
+            columns: ["deduction_rule_id"]
+            isOneToOne: false
+            referencedRelation: "deduction_rules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employee_requests_department_id_fkey"
             columns: ["department_id"]
