@@ -580,6 +580,24 @@ const EmployeeRequestApprovals = () => {
                 </>
               )}
 
+              {selectedRequest.request_type === 'penalty_deduction' && (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{language === 'ar' ? 'مبلغ الخصم' : 'Deduction Amount'}</Label>
+                      <p className="font-medium text-lg">{selectedRequest.deduction_amount?.toLocaleString()}</p>
+                    </div>
+                    {selectedRequest.deduction_date && (
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{language === 'ar' ? 'تاريخ المخالفة' : 'Violation Date'}</Label>
+                        <p className="font-medium">{formatDate(selectedRequest.deduction_date)}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               {selectedRequest.notes && (
                 <>
                   <Separator />
