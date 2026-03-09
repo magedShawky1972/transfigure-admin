@@ -518,6 +518,12 @@ const EmployeeSelfRequests = () => {
         requestData.expense_receipt_url = attachmentUrl;
       }
 
+      if (selectedType === 'penalty_deduction') {
+        requestData.deduction_rule_id = deductionRuleId || null;
+        requestData.deduction_amount = deductionAmount ? parseFloat(deductionAmount) : 0;
+        requestData.deduction_date = deductionDate ? format(deductionDate, 'yyyy-MM-dd') : null;
+      }
+
       const { error } = await supabase.from('employee_requests').insert(requestData);
 
       if (error) throw error;
