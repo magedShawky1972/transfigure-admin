@@ -254,6 +254,9 @@ const EmployeeSelfRequests = () => {
     setExpenseDescription('');
     setAttachmentUrl('');
     setAttachmentFileName('');
+    setDeductionRuleId('');
+    setDeductionAmount('');
+    setDeductionDate(undefined);
     setSelectedEmployeeId(''); // Reset to self
   };
 
