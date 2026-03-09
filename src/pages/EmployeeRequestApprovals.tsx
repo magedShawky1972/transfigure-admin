@@ -48,7 +48,7 @@ import {
   User,
   Building,
   MessageSquare,
-  Printer,
+  ArrowRightLeft,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
