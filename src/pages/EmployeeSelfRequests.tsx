@@ -124,6 +124,16 @@ const EmployeeSelfRequests = () => {
       if (empData) {
         setEmployee(empData);
 
+        // Check if current user is an HR Manager
+        const { data: hrData } = await supabase
+          .from('hr_managers')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        const isHR = !!hrData;
+
         // Get current user's position level
         let userPositionLevel: number | null = null;
         if (empData.job_position_id) {
@@ -136,9 +146,17 @@ const EmployeeSelfRequests = () => {
           setCurrentUserPositionLevel(userPositionLevel);
         }
 
-        // Fetch subordinates (same department OR child departments, higher position_level = lower rank)
-        if (empData.department_id) {
-          // First, get all child department IDs recursively
+        if (isHR) {
+          // HR Manager can submit requests for ANY employee
+          const { data: allEmployees } = await supabase
+            .from('employees')
+            .select('id, first_name, first_name_ar, last_name, last_name_ar, job_position_id')
+            .neq('id', empData.id)
+            .order('first_name');
+
+          setSubordinates(allEmployees || []);
+        } else if (empData.department_id) {
+          // Regular managers: fetch subordinates from department hierarchy
           const getAllChildDepartments = async (deptId: string): Promise<string[]> => {
             const { data: children } = await supabase
               .from('departments')
@@ -160,7 +178,6 @@ const EmployeeSelfRequests = () => {
           const childDeptIds = await getAllChildDepartments(empData.department_id);
           const allDeptIds = [empData.department_id, ...childDeptIds];
 
-          // Fetch employees from current department and all child departments
           const { data: deptEmployees } = await supabase
             .from('employees')
             .select(`
@@ -175,14 +192,10 @@ const EmployeeSelfRequests = () => {
             .in('department_id', allDeptIds)
             .neq('id', empData.id);
 
-          // Filter to only those with higher position_level (lower rank) or no level
           const subs = (deptEmployees || []).filter((emp: any) => {
             const empLevel = emp.job_positions?.position_level;
-            // If current user has no level, they can't select anyone
             if (userPositionLevel === null) return false;
-            // If target has no level, they're considered subordinate
             if (empLevel === null || empLevel === undefined) return true;
-            // Higher number = lower rank = subordinate
             return empLevel > userPositionLevel;
           });
 
@@ -334,11 +347,24 @@ const EmployeeSelfRequests = () => {
       
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Get the target employee's department (important when HR submits for another dept)
+      let targetDepartmentId = employee.department_id;
+      if (isOnBehalf) {
+        const { data: targetEmp } = await supabase
+          .from('employees')
+          .select('department_id')
+          .eq('id', targetEmployeeId)
+          .single();
+        if (targetEmp?.department_id) {
+          targetDepartmentId = targetEmp.department_id;
+        }
+      }
       
       const requestData: any = {
         employee_id: targetEmployeeId,
         request_type: selectedType,
-        department_id: employee.department_id,
+        department_id: targetDepartmentId,
         reason,
         // "Other" requests go directly to HR Manager
         ...(selectedType === 'other' ? { status: 'hr_pending' } : {}),
@@ -349,42 +375,57 @@ const EmployeeSelfRequests = () => {
         requestData.submitted_by_id = employee.id;
       }
 
-      // For non-other requests, check if submitter is a department manager
-      // Any department manager's request should skip directly to HR Manager
+      // For non-other requests, check routing
       if (selectedType !== 'other' && user) {
         const submitterUserId = user.id;
         
-        // Check if the submitter is a department admin (manager) in their department
-        const { data: submitterAdminRecord } = await supabase
-          .from('department_admins')
-          .select('user_id, admin_order')
-          .eq('department_id', employee.department_id)
+        // Check if the submitter is an HR Manager
+        const { data: submitterHR } = await supabase
+          .from('hr_managers')
+          .select('id, admin_order')
           .eq('user_id', submitterUserId)
-          .eq('approve_employee_request', true)
+          .eq('is_active', true)
           .maybeSingle();
 
-        if (submitterAdminRecord) {
-          // Submitter IS a department manager - skip directly to HR
-          const { data: firstHR } = await supabase
-            .from('hr_managers')
-            .select('admin_order')
-            .eq('is_active', true)
-            .order('admin_order')
-            .limit(1);
-
+        if (submitterHR) {
+          // HR Manager submitting - skip directly to HR phase
           requestData.current_phase = 'hr';
           requestData.status = 'manager_approved';
           requestData.manager_approved_at = new Date().toISOString();
           requestData.manager_approved_by = submitterUserId;
-          requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
+          requestData.current_approval_level = submitterHR.admin_order;
         } else {
-          // Submitter is NOT a department manager - find the first valid approver
-          const { data: deptAdmins } = await supabase
+          // Check if the submitter is a department admin (manager) in the target department
+          const { data: submitterAdminRecord } = await supabase
             .from('department_admins')
             .select('user_id, admin_order')
-            .eq('department_id', employee.department_id)
+            .eq('department_id', targetDepartmentId)
+            .eq('user_id', submitterUserId)
             .eq('approve_employee_request', true)
-            .order('admin_order');
+            .maybeSingle();
+
+          if (submitterAdminRecord) {
+            // Submitter IS a department manager - skip directly to HR
+            const { data: firstHR } = await supabase
+              .from('hr_managers')
+              .select('admin_order')
+              .eq('is_active', true)
+              .order('admin_order')
+              .limit(1);
+
+            requestData.current_phase = 'hr';
+            requestData.status = 'manager_approved';
+            requestData.manager_approved_at = new Date().toISOString();
+            requestData.manager_approved_by = submitterUserId;
+            requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
+          } else {
+            // Submitter is NOT a department manager - find the first valid approver
+            const { data: deptAdmins } = await supabase
+              .from('department_admins')
+              .select('user_id, admin_order')
+              .eq('department_id', targetDepartmentId)
+              .eq('approve_employee_request', true)
+              .order('admin_order');
 
           if (deptAdmins && deptAdmins.length > 0) {
             const firstValidApprover = deptAdmins[0];
@@ -404,6 +445,7 @@ const EmployeeSelfRequests = () => {
             requestData.manager_approved_at = new Date().toISOString();
             requestData.manager_approved_by = submitterUserId;
             requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
+          }
           }
         }
       }
