@@ -82,6 +82,7 @@ const EmployeeRequestApprovals = () => {
   const [userAdminDepts, setUserAdminDepts] = useState<string[]>([]);
   const [userAdminLevel, setUserAdminLevel] = useState<Map<string, number>>(new Map());
   const [pendingApprovers, setPendingApprovers] = useState<Map<string, string>>(new Map());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => { fetchUserPermissions(); }, []);
   useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, filterType, filterStatus]);
