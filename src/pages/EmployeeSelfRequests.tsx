@@ -51,6 +51,7 @@ import {
   Users,
   MessageSquare,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 
 type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'penalty_deduction' | 'other';
