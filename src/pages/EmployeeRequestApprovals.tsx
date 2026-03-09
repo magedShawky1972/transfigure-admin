@@ -350,13 +350,100 @@ const EmployeeRequestApprovals = () => {
     setSelectedRequest(null);
   };
 
+  const openReassignDialog = async (request: any) => {
+    try {
+      setReassignRequest(request);
+      setSelectedReassignUserId('');
+      setReassignOptions([]);
+
+      const approversResponse = request.current_phase === 'manager'
+        ? await supabase
+            .from('department_admins')
+            .select('user_id, admin_order')
+            .eq('department_id', request.department_id)
+            .eq('approve_employee_request', true)
+            .order('admin_order')
+        : await supabase
+            .from('hr_managers')
+            .select('user_id, admin_order')
+            .eq('is_active', true)
+            .order('admin_order');
+
+      const approvers = approversResponse.data || [];
+      if (approvers.length === 0) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'لا يوجد معتمدون متاحون' : 'No available approvers',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const userIds = approvers.map((a: any) => a.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, user_name, email')
+        .in('user_id', userIds);
+
+      const options = approvers.map((a: any) => {
+        const profile = profiles?.find((p: any) => p.user_id === a.user_id);
+        return {
+          user_id: a.user_id,
+          admin_order: a.admin_order,
+          label: profile?.user_name
+            ? `${profile.user_name} (${profile.email || 'No email'})`
+            : (profile?.email || a.user_id),
+        };
+      });
+
+      setReassignOptions(options);
+      const currentOption = options.find((o: any) => o.admin_order === request.current_approval_level);
+      setSelectedReassignUserId(currentOption?.user_id || options[0].user_id);
+      setReassignDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const closeReassignDialog = () => {
+    setReassignDialogOpen(false);
+    setReassignRequest(null);
+    setReassignOptions([]);
+    setSelectedReassignUserId('');
+  };
+
+  const handleReassignApprover = async () => {
+    if (!reassignRequest || !selectedReassignUserId) return;
+
+    const selectedOption = reassignOptions.find((o) => o.user_id === selectedReassignUserId);
+    if (!selectedOption) return;
+
+    setReassigning(true);
+    try {
+      const { error } = await supabase
+        .from('employee_requests')
+        .update({ current_approval_level: selectedOption.admin_order })
+        .eq('id', reassignRequest.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم بنجاح' : 'Success',
+        description: language === 'ar' ? 'تم تغيير المعتمد الحالي' : 'Waiting approver updated',
+      });
+
+      closeReassignDialog();
+      fetchRequests();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setReassigning(false);
+    }
+  };
+
   const canTakeAction = (request: any) => {
     if (['approved', 'rejected', 'cancelled'].includes(request.status)) return false;
-    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) {
-      // Prevent the same user who auto-approved manager phase from also approving HR phase
-      if (request.manager_approved_by === currentUserId) return false;
-      return true;
-    }
+    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) return true;
     if (request.current_phase === 'manager' && request.department_id) {
       const userLevel = userAdminLevel.get(request.department_id);
       return userLevel !== undefined && request.current_approval_level === userLevel;
