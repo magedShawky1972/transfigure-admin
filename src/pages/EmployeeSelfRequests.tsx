@@ -347,11 +347,24 @@ const EmployeeSelfRequests = () => {
       
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Get the target employee's department (important when HR submits for another dept)
+      let targetDepartmentId = employee.department_id;
+      if (isOnBehalf) {
+        const { data: targetEmp } = await supabase
+          .from('employees')
+          .select('department_id')
+          .eq('id', targetEmployeeId)
+          .single();
+        if (targetEmp?.department_id) {
+          targetDepartmentId = targetEmp.department_id;
+        }
+      }
       
       const requestData: any = {
         employee_id: targetEmployeeId,
         request_type: selectedType,
-        department_id: employee.department_id,
+        department_id: targetDepartmentId,
         reason,
         // "Other" requests go directly to HR Manager
         ...(selectedType === 'other' ? { status: 'hr_pending' } : {}),
