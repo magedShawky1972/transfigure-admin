@@ -48,7 +48,7 @@ import {
   User,
   Building,
   MessageSquare,
-  Printer,
+  ArrowRightLeft,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
@@ -82,7 +82,11 @@ const EmployeeRequestApprovals = () => {
   const [userAdminDepts, setUserAdminDepts] = useState<string[]>([]);
   const [userAdminLevel, setUserAdminLevel] = useState<Map<string, number>>(new Map());
   const [pendingApprovers, setPendingApprovers] = useState<Map<string, string>>(new Map());
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [reassignRequest, setReassignRequest] = useState<any>(null);
+  const [reassignOptions, setReassignOptions] = useState<Array<{ user_id: string; admin_order: number; label: string }>>([]);
+  const [selectedReassignUserId, setSelectedReassignUserId] = useState('');
+  const [reassigning, setReassigning] = useState(false);
 
   useEffect(() => { fetchUserPermissions(); }, []);
   useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, filterType, filterStatus]);
@@ -91,7 +95,6 @@ const EmployeeRequestApprovals = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      setCurrentUserId(user.id);
 
       const { data: hrData } = await supabase.from('hr_managers').select('id, admin_order').eq('user_id', user.id).eq('is_active', true).maybeSingle();
       if (hrData) {
@@ -347,13 +350,100 @@ const EmployeeRequestApprovals = () => {
     setSelectedRequest(null);
   };
 
+  const openReassignDialog = async (request: any) => {
+    try {
+      setReassignRequest(request);
+      setSelectedReassignUserId('');
+      setReassignOptions([]);
+
+      const approversResponse = request.current_phase === 'manager'
+        ? await supabase
+            .from('department_admins')
+            .select('user_id, admin_order')
+            .eq('department_id', request.department_id)
+            .eq('approve_employee_request', true)
+            .order('admin_order')
+        : await supabase
+            .from('hr_managers')
+            .select('user_id, admin_order')
+            .eq('is_active', true)
+            .order('admin_order');
+
+      const approvers = approversResponse.data || [];
+      if (approvers.length === 0) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'لا يوجد معتمدون متاحون' : 'No available approvers',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const userIds = approvers.map((a: any) => a.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, user_name, email')
+        .in('user_id', userIds);
+
+      const options = approvers.map((a: any) => {
+        const profile = profiles?.find((p: any) => p.user_id === a.user_id);
+        return {
+          user_id: a.user_id,
+          admin_order: a.admin_order,
+          label: profile?.user_name
+            ? `${profile.user_name} (${profile.email || 'No email'})`
+            : (profile?.email || a.user_id),
+        };
+      });
+
+      setReassignOptions(options);
+      const currentOption = options.find((o: any) => o.admin_order === request.current_approval_level);
+      setSelectedReassignUserId(currentOption?.user_id || options[0].user_id);
+      setReassignDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const closeReassignDialog = () => {
+    setReassignDialogOpen(false);
+    setReassignRequest(null);
+    setReassignOptions([]);
+    setSelectedReassignUserId('');
+  };
+
+  const handleReassignApprover = async () => {
+    if (!reassignRequest || !selectedReassignUserId) return;
+
+    const selectedOption = reassignOptions.find((o) => o.user_id === selectedReassignUserId);
+    if (!selectedOption) return;
+
+    setReassigning(true);
+    try {
+      const { error } = await supabase
+        .from('employee_requests')
+        .update({ current_approval_level: selectedOption.admin_order })
+        .eq('id', reassignRequest.id);
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تم بنجاح' : 'Success',
+        description: language === 'ar' ? 'تم تغيير المعتمد الحالي' : 'Waiting approver updated',
+      });
+
+      closeReassignDialog();
+      fetchRequests();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setReassigning(false);
+    }
+  };
+
   const canTakeAction = (request: any) => {
     if (['approved', 'rejected', 'cancelled'].includes(request.status)) return false;
-    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) {
-      // Prevent the same user who auto-approved manager phase from also approving HR phase
-      if (request.manager_approved_by === currentUserId) return false;
-      return true;
-    }
+    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) return true;
     if (request.current_phase === 'manager' && request.department_id) {
       const userLevel = userAdminLevel.get(request.department_id);
       return userLevel !== undefined && request.current_approval_level === userLevel;
@@ -485,6 +575,17 @@ const EmployeeRequestApprovals = () => {
                               size="icon"
                               variant="ghost"
                             />
+                          )}
+                          {!['approved', 'rejected', 'cancelled'].includes(r.status) && isHRManager && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => openReassignDialog(r)}
+                              title={language === 'ar' ? 'تغيير المعتمد الحالي' : 'Change Waiting For'}
+                            >
+                              <ArrowRightLeft className="h-4 w-4" />
+                            </Button>
                           )}
                           {canAct && (
                             <>
@@ -653,6 +754,42 @@ const EmployeeRequestApprovals = () => {
                 </Button>
               </div>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign Waiting Approver Dialog */}
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{language === 'ar' ? 'تغيير المعتمد الحالي' : 'Change Waiting For'}</DialogTitle>
+            <DialogDescription>
+              {reassignRequest?.request_number} - {language === 'ar' ? 'اختر المعتمد الحالي' : 'Select the current approver'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'بانتظار اعتماد' : 'Waiting For'}</Label>
+              <Select value={selectedReassignUserId} onValueChange={setSelectedReassignUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر المعتمد' : 'Select approver'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {reassignOptions.map((option) => (
+                    <SelectItem key={option.user_id} value={option.user_id}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeReassignDialog}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+            <Button onClick={handleReassignApprover} disabled={reassigning || !selectedReassignUserId}>
+              {reassigning && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {language === 'ar' ? 'حفظ' : 'Save'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
