@@ -758,6 +758,42 @@ const EmployeeRequestApprovals = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Reassign Waiting Approver Dialog */}
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{language === 'ar' ? 'تغيير المعتمد الحالي' : 'Change Waiting For'}</DialogTitle>
+            <DialogDescription>
+              {reassignRequest?.request_number} - {language === 'ar' ? 'اختر المعتمد الحالي' : 'Select the current approver'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'بانتظار اعتماد' : 'Waiting For'}</Label>
+              <Select value={selectedReassignUserId} onValueChange={setSelectedReassignUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر المعتمد' : 'Select approver'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {reassignOptions.map((option) => (
+                    <SelectItem key={option.user_id} value={option.user_id}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeReassignDialog}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</Button>
+            <Button onClick={handleReassignApprover} disabled={reassigning || !selectedReassignUserId}>
+              {reassigning && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {language === 'ar' ? 'حفظ' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Action Dialog (Approve/Reject with Comment) */}
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
         <DialogContent>
