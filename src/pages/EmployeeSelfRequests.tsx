@@ -789,6 +789,42 @@ const EmployeeSelfRequests = () => {
               </>
             )}
 
+            {selectedType === 'penalty_deduction' && (
+              <>
+                <div className="space-y-2">
+                  <Label>{language === 'ar' ? 'قاعدة الخصم' : 'Deduction Rule'}</Label>
+                  <Select value={deductionRuleId} onValueChange={setDeductionRuleId}>
+                    <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر قاعدة الخصم' : 'Select Deduction Rule'} /></SelectTrigger>
+                    <SelectContent>
+                      {deductionRules.map((rule: any) => (
+                        <SelectItem key={rule.id} value={rule.id}>
+                          {language === 'ar' ? rule.rule_name_ar || rule.rule_name : rule.rule_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{language === 'ar' ? 'مبلغ الخصم' : 'Deduction Amount'}</Label>
+                    <Input type="number" step="0.01" placeholder={language === 'ar' ? 'المبلغ' : 'Amount'} value={deductionAmount} onChange={(e) => setDeductionAmount(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{language === 'ar' ? 'تاريخ المخالفة' : 'Violation Date'}</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {deductionDate ? format(deductionDate, 'yyyy-MM-dd') : (language === 'ar' ? 'اختر التاريخ' : 'Select Date')}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={deductionDate} onSelect={setDeductionDate} /></PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </>
+            )}
+
             {selectedType === 'other' && (
               <div className="space-y-2">
                 <Label>{language === 'ar' ? 'مرفق (اختياري)' : 'Attachment (Optional)'}</Label>
