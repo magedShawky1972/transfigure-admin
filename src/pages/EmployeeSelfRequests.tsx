@@ -424,23 +424,22 @@ const EmployeeSelfRequests = () => {
       // For non-other requests, check routing
       if (selectedType !== 'other' && user) {
         const submitterUserId = user.id;
-        
-        // Check if the submitter is an HR Manager
-        const { data: submitterHR } = await supabase
-          .from('hr_managers')
-          .select('id, admin_order')
+
+        // Check if the submitter is a department admin (manager) in the TARGET department
+        const { data: submitterAdminRecord } = await supabase
+          .from('department_admins')
+          .select('user_id, admin_order')
+          .eq('department_id', targetDepartmentId)
           .eq('user_id', submitterUserId)
-          .eq('is_active', true)
+          .eq('approve_employee_request', true)
           .maybeSingle();
 
-        if (submitterHR) {
-          // HR Manager submitting - skip directly to HR phase
-          // Route to the first HR manager who is NOT the submitter
-          const { data: otherHR } = await supabase
+        if (submitterAdminRecord) {
+          // Submitter IS the target department manager - skip directly to HR
+          const { data: firstHR } = await supabase
             .from('hr_managers')
             .select('admin_order')
             .eq('is_active', true)
-            .neq('user_id', submitterUserId)
             .order('admin_order')
             .limit(1);
 
@@ -448,45 +447,21 @@ const EmployeeSelfRequests = () => {
           requestData.status = 'manager_approved';
           requestData.manager_approved_at = new Date().toISOString();
           requestData.manager_approved_by = submitterUserId;
-          // Route to another HR manager, or fallback to first available if no other exists
-          requestData.current_approval_level = otherHR?.[0]?.admin_order ?? submitterHR.admin_order;
+          requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
         } else {
-          // Check if the submitter is a department admin (manager) in the target department
-          const { data: submitterAdminRecord } = await supabase
+          // Submitter is NOT the target department manager - route to department manager first
+          const { data: deptAdmins } = await supabase
             .from('department_admins')
             .select('user_id, admin_order')
             .eq('department_id', targetDepartmentId)
-            .eq('user_id', submitterUserId)
             .eq('approve_employee_request', true)
-            .maybeSingle();
-
-          if (submitterAdminRecord) {
-            // Submitter IS a department manager - skip directly to HR
-            const { data: firstHR } = await supabase
-              .from('hr_managers')
-              .select('admin_order')
-              .eq('is_active', true)
-              .order('admin_order')
-              .limit(1);
-
-            requestData.current_phase = 'hr';
-            requestData.status = 'manager_approved';
-            requestData.manager_approved_at = new Date().toISOString();
-            requestData.manager_approved_by = submitterUserId;
-            requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
-          } else {
-            // Submitter is NOT a department manager - find the first valid approver
-            const { data: deptAdmins } = await supabase
-              .from('department_admins')
-              .select('user_id, admin_order')
-              .eq('department_id', targetDepartmentId)
-              .eq('approve_employee_request', true)
-              .order('admin_order');
+            .order('admin_order');
 
           if (deptAdmins && deptAdmins.length > 0) {
             const firstValidApprover = deptAdmins[0];
             requestData.current_approval_level = firstValidApprover.admin_order;
             requestData.current_phase = 'manager';
+            requestData.status = 'pending';
           } else {
             // No department-level approver exists - route directly to HR Manager
             const { data: firstHR } = await supabase
@@ -501,7 +476,6 @@ const EmployeeSelfRequests = () => {
             requestData.manager_approved_at = new Date().toISOString();
             requestData.manager_approved_by = submitterUserId;
             requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
-          }
           }
         }
       }
