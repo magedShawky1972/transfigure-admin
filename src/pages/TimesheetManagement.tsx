@@ -409,11 +409,65 @@ export default function TimesheetManagement() {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Mail status is now directly on timesheets table (deduction_notification_sent)
-      const timesheetsWithMailStatus = (data || []).map(ts => ({
-        ...ts,
-        mailSent: ts.deduction_notification_sent === true
-      }));
+      // Determine date range for vacation lookup
+      let vacDateFrom = selectedDate;
+      let vacDateTo = selectedDate;
+      if (filterMode === "range") {
+        vacDateFrom = dateFrom;
+        vacDateTo = dateTo;
+      } else if (filterMode === "month") {
+        const [year, month] = selectedMonth.split("-").map(Number);
+        vacDateFrom = `${selectedMonth}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        vacDateTo = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+      }
+
+      // Fetch approved vacation/sick leave requests that overlap with the date range
+      const { data: approvedLeaves } = await supabase
+        .from("employee_requests")
+        .select("employee_id, start_date, end_date, request_type")
+        .in("request_type", ["vacation", "sick_leave"])
+        .eq("status", "approved")
+        .lte("start_date", vacDateTo)
+        .gte("end_date", vacDateFrom);
+
+      // Also fetch manual vacation_requests
+      const { data: manualVacations } = await supabase
+        .from("vacation_requests")
+        .select("employee_id, start_date, end_date")
+        .eq("status", "approved")
+        .lte("start_date", vacDateTo)
+        .gte("end_date", vacDateFrom);
+
+      // Build a set of employee_id + date combos that are vacation days
+      const vacationDays = new Set<string>();
+      (approvedLeaves || []).forEach((leave: any) => {
+        const start = new Date(leave.start_date);
+        const end = new Date(leave.end_date);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          vacationDays.add(`${leave.employee_id}_${d.toISOString().split("T")[0]}`);
+        }
+      });
+      (manualVacations || []).forEach((vac: any) => {
+        const start = new Date(vac.start_date);
+        const end = new Date(vac.end_date);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          vacationDays.add(`${vac.employee_id}_${d.toISOString().split("T")[0]}`);
+        }
+      });
+
+      // Mail status + auto-detect vacation days
+      const timesheetsWithMailStatus = (data || []).map(ts => {
+        const key = `${ts.employee_id}_${ts.work_date}`;
+        const isVacationDay = vacationDays.has(key);
+        return {
+          ...ts,
+          mailSent: ts.deduction_notification_sent === true,
+          // If this date is covered by an approved leave, show as vacation
+          status: isVacationDay ? "vacation" : ts.status,
+          is_absent: isVacationDay ? false : ts.is_absent,
+        };
+      });
 
       setTimesheets(timesheetsWithMailStatus);
     } catch (error: any) {
