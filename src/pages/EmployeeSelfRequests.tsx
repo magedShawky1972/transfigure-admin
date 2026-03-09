@@ -210,12 +210,7 @@ const EmployeeSelfRequests = () => {
 
         setRequests(reqData || []);
 
-        const { data: balanceData } = await supabase
-          .from('employee_vacation_types')
-          .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
-          .eq('employee_id', empData.id);
-
-        setVacationBalances(balanceData || []);
+        // Initial balance load will be handled by fetchVacationBalances via useEffect
       }
 
       const { data: currData } = await supabase
