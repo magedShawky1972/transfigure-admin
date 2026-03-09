@@ -225,6 +225,15 @@ const EmployeeSelfRequests = () => {
         .eq('is_active', true);
 
       setCurrencies(currData || []);
+
+      // Fetch active deduction rules
+      const { data: rulesData } = await supabase
+        .from('deduction_rules')
+        .select('*')
+        .eq('is_active', true)
+        .order('rule_name');
+
+      setDeductionRules(rulesData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
