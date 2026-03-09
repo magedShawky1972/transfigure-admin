@@ -247,13 +247,44 @@ const EmployeeSelfRequests = () => {
     setSelectedEmployeeId(''); // Reset to self
   };
 
-  // Fetch vacation balances for selected employee
+  // Fetch vacation balances for selected employee - auto-create missing types
   const fetchVacationBalances = async (employeeId: string) => {
-    const { data: balanceData } = await supabase
-      .from('employee_vacation_types')
-      .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
-      .eq('employee_id', employeeId);
-    setVacationBalances(balanceData || []);
+    const currentYear = new Date().getFullYear();
+
+    // Fetch all active vacation codes and existing employee types in parallel
+    const [{ data: allCodes }, { data: existingTypes }] = await Promise.all([
+      supabase.from('vacation_codes').select('id, name_en, name_ar, default_days').eq('is_active', true),
+      supabase.from('employee_vacation_types')
+        .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
+        .eq('employee_id', employeeId)
+        .eq('year', currentYear),
+    ]);
+
+    const existingCodeIds = new Set((existingTypes || []).map((t: any) => t.vacation_code_id));
+    const missingCodes = (allCodes || []).filter((c: any) => !existingCodeIds.has(c.id));
+
+    // Auto-create missing vacation type records with default balance
+    if (missingCodes.length > 0) {
+      const newRecords = missingCodes.map((code: any) => ({
+        employee_id: employeeId,
+        vacation_code_id: code.id,
+        balance: code.default_days || 0,
+        used_days: 0,
+        year: currentYear,
+      }));
+      await supabase.from('employee_vacation_types').insert(newRecords);
+
+      // Re-fetch after insert
+      const { data: refreshed } = await supabase
+        .from('employee_vacation_types')
+        .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
+        .eq('employee_id', employeeId)
+        .eq('year', currentYear);
+      setVacationBalances(refreshed || []);
+    } else {
+      setVacationBalances(existingTypes || []);
+    }
+
     setVacationCodeId(''); // Reset vacation code when employee changes
   };
 
