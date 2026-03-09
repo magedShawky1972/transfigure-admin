@@ -598,25 +598,39 @@ const EmployeeSelfRequests = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Request #'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'اسم الموظف' : 'Employee'}</TableHead>
                   <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
                   <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                   <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'تفاصيل' : 'Details'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {requests.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">{language === 'ar' ? 'لا توجد طلبات' : 'No requests found'}</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{language === 'ar' ? 'لا توجد طلبات' : 'No requests found'}</TableCell></TableRow>
                 ) : requests.map((request: any) => {
                   const typeInfo = REQUEST_TYPE_INFO[request.request_type as RequestType];
                   const statusInfo = STATUS_INFO[request.status] || STATUS_INFO.pending;
                   const TypeIcon = typeInfo?.icon || FileText;
                   const StatusIcon = statusInfo.icon;
+                  const emp = request.employees;
+                  const empName = emp
+                    ? (language === 'ar'
+                      ? `${emp.first_name_ar || emp.first_name} ${emp.last_name_ar || emp.last_name}`
+                      : `${emp.first_name} ${emp.last_name}`)
+                    : '-';
                   return (
                     <TableRow key={request.id}>
                       <TableCell className="font-mono text-sm">{request.request_number}</TableCell>
+                      <TableCell className="text-sm font-medium">{empName}</TableCell>
                       <TableCell><Badge className={typeInfo?.color || ''}><TypeIcon className="h-3 w-3 mr-1" />{language === 'ar' ? typeInfo?.labelAr : typeInfo?.labelEn}</Badge></TableCell>
                       <TableCell><Badge className={statusInfo.color}><StatusIcon className="h-3 w-3 mr-1" />{language === 'ar' ? statusInfo.labelAr : statusInfo.labelEn}</Badge></TableCell>
                       <TableCell className="text-sm">{format(new Date(request.created_at), 'yyyy-MM-dd')}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => setDetailRequest(request)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
