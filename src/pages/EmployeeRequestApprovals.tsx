@@ -82,6 +82,7 @@ const EmployeeRequestApprovals = () => {
   const [userAdminDepts, setUserAdminDepts] = useState<string[]>([]);
   const [userAdminLevel, setUserAdminLevel] = useState<Map<string, number>>(new Map());
   const [pendingApprovers, setPendingApprovers] = useState<Map<string, string>>(new Map());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => { fetchUserPermissions(); }, []);
   useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, filterType, filterStatus]);
@@ -90,6 +91,7 @@ const EmployeeRequestApprovals = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setCurrentUserId(user.id);
 
       const { data: hrData } = await supabase.from('hr_managers').select('id, admin_order').eq('user_id', user.id).eq('is_active', true).maybeSingle();
       if (hrData) {
@@ -347,7 +349,11 @@ const EmployeeRequestApprovals = () => {
 
   const canTakeAction = (request: any) => {
     if (['approved', 'rejected', 'cancelled'].includes(request.status)) return false;
-    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) return true;
+    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) {
+      // Prevent the same user who auto-approved manager phase from also approving HR phase
+      if (request.manager_approved_by === currentUserId) return false;
+      return true;
+    }
     if (request.current_phase === 'manager' && request.department_id) {
       const userLevel = userAdminLevel.get(request.department_id);
       return userLevel !== undefined && request.current_approval_level === userLevel;

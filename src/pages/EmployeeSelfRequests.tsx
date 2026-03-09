@@ -435,11 +435,21 @@ const EmployeeSelfRequests = () => {
 
         if (submitterHR) {
           // HR Manager submitting - skip directly to HR phase
+          // Route to the first HR manager who is NOT the submitter
+          const { data: otherHR } = await supabase
+            .from('hr_managers')
+            .select('admin_order')
+            .eq('is_active', true)
+            .neq('user_id', submitterUserId)
+            .order('admin_order')
+            .limit(1);
+
           requestData.current_phase = 'hr';
           requestData.status = 'manager_approved';
           requestData.manager_approved_at = new Date().toISOString();
           requestData.manager_approved_by = submitterUserId;
-          requestData.current_approval_level = submitterHR.admin_order;
+          // Route to another HR manager, or fallback to first available if no other exists
+          requestData.current_approval_level = otherHR?.[0]?.admin_order ?? submitterHR.admin_order;
         } else {
           // Check if the submitter is a department admin (manager) in the target department
           const { data: submitterAdminRecord } = await supabase
