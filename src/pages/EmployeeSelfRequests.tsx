@@ -50,9 +50,10 @@ import {
   Paperclip,
   Users,
   MessageSquare,
+  AlertTriangle,
 } from "lucide-react";
 
-type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'other';
+type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'penalty_deduction' | 'other';
 
 const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; labelEn: string; color: string }> = {
   sick_leave: { icon: Thermometer, labelAr: 'إجازة مرضية', labelEn: 'Sick Leave', color: 'bg-red-100 text-red-800' },
@@ -61,6 +62,7 @@ const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; label
   early_leave: { icon: Clock, labelAr: 'طلب انصراف مبكر', labelEn: 'Early Leave', color: 'bg-orange-100 text-orange-800' },
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
+  penalty_deduction: { icon: AlertTriangle, labelAr: 'خصم جزائي', labelEn: 'Penalty Deduction', color: 'bg-rose-100 text-rose-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
 };
 
@@ -103,6 +105,10 @@ const EmployeeSelfRequests = () => {
   const [expenseDescription, setExpenseDescription] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [attachmentFileName, setAttachmentFileName] = useState('');
+  const [deductionRules, setDeductionRules] = useState<any[]>([]);
+  const [deductionRuleId, setDeductionRuleId] = useState('');
+  const [deductionAmount, setDeductionAmount] = useState('');
+  const [deductionDate, setDeductionDate] = useState<Date | undefined>();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -219,6 +225,15 @@ const EmployeeSelfRequests = () => {
         .eq('is_active', true);
 
       setCurrencies(currData || []);
+
+      // Fetch active deduction rules
+      const { data: rulesData } = await supabase
+        .from('deduction_rules')
+        .select('*')
+        .eq('is_active', true)
+        .order('rule_name');
+
+      setDeductionRules(rulesData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -239,6 +254,9 @@ const EmployeeSelfRequests = () => {
     setExpenseDescription('');
     setAttachmentUrl('');
     setAttachmentFileName('');
+    setDeductionRuleId('');
+    setDeductionAmount('');
+    setDeductionDate(undefined);
     setSelectedEmployeeId(''); // Reset to self
   };
 
@@ -500,6 +518,12 @@ const EmployeeSelfRequests = () => {
         requestData.expense_receipt_url = attachmentUrl;
       }
 
+      if (selectedType === 'penalty_deduction') {
+        requestData.deduction_rule_id = deductionRuleId || null;
+        requestData.deduction_amount = deductionAmount ? parseFloat(deductionAmount) : 0;
+        requestData.deduction_date = deductionDate ? format(deductionDate, 'yyyy-MM-dd') : null;
+      }
+
       const { error } = await supabase.from('employee_requests').insert(requestData);
 
       if (error) throw error;
@@ -533,7 +557,7 @@ const EmployeeSelfRequests = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         {(Object.keys(REQUEST_TYPE_INFO) as RequestType[]).map((type) => {
           const info = REQUEST_TYPE_INFO[type];
           const Icon = info.icon;
@@ -760,6 +784,42 @@ const EmployeeSelfRequests = () => {
                         <span className="truncate max-w-[150px]">{attachmentFileName}</span>
                       </div>
                     )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {selectedType === 'penalty_deduction' && (
+              <>
+                <div className="space-y-2">
+                  <Label>{language === 'ar' ? 'قاعدة الخصم' : 'Deduction Rule'}</Label>
+                  <Select value={deductionRuleId} onValueChange={setDeductionRuleId}>
+                    <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر قاعدة الخصم' : 'Select Deduction Rule'} /></SelectTrigger>
+                    <SelectContent>
+                      {deductionRules.map((rule: any) => (
+                        <SelectItem key={rule.id} value={rule.id}>
+                          {language === 'ar' ? rule.rule_name_ar || rule.rule_name : rule.rule_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{language === 'ar' ? 'مبلغ الخصم' : 'Deduction Amount'}</Label>
+                    <Input type="number" step="0.01" placeholder={language === 'ar' ? 'المبلغ' : 'Amount'} value={deductionAmount} onChange={(e) => setDeductionAmount(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{language === 'ar' ? 'تاريخ المخالفة' : 'Violation Date'}</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {deductionDate ? format(deductionDate, 'yyyy-MM-dd') : (language === 'ar' ? 'اختر التاريخ' : 'Select Date')}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={deductionDate} onSelect={setDeductionDate} /></PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </>

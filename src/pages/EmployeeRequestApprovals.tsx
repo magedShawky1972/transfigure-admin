@@ -60,6 +60,7 @@ const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: s
   early_leave: { icon: Clock, labelAr: 'طلب انصراف مبكر', labelEn: 'Early Leave', color: 'bg-orange-100 text-orange-800' },
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
+  penalty_deduction: { icon: AlertTriangle, labelAr: 'خصم جزائي', labelEn: 'Penalty Deduction', color: 'bg-rose-100 text-rose-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
 };
 
@@ -575,6 +576,24 @@ const EmployeeRequestApprovals = () => {
                   <div className="space-y-1">
                     <Label className="text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" />{language === 'ar' ? 'المبلغ' : 'Amount'}</Label>
                     <p className="font-medium text-lg">{selectedRequest.amount?.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}</p>
+                  </div>
+                </>
+              )}
+
+              {selectedRequest.request_type === 'penalty_deduction' && (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{language === 'ar' ? 'مبلغ الخصم' : 'Deduction Amount'}</Label>
+                      <p className="font-medium text-lg">{selectedRequest.deduction_amount?.toLocaleString()}</p>
+                    </div>
+                    {selectedRequest.deduction_date && (
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{language === 'ar' ? 'تاريخ المخالفة' : 'Violation Date'}</Label>
+                        <p className="font-medium">{formatDate(selectedRequest.deduction_date)}</p>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
