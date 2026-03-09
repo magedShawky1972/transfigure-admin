@@ -557,7 +557,7 @@ const EmployeeSelfRequests = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         {(Object.keys(REQUEST_TYPE_INFO) as RequestType[]).map((type) => {
           const info = REQUEST_TYPE_INFO[type];
           const Icon = info.icon;
