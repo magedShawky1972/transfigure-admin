@@ -50,6 +50,7 @@ import {
   Paperclip,
   Users,
   MessageSquare,
+  AlertTriangle,
 } from "lucide-react";
 
 type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'other';
