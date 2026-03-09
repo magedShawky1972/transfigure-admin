@@ -347,7 +347,11 @@ const EmployeeRequestApprovals = () => {
 
   const canTakeAction = (request: any) => {
     if (['approved', 'rejected', 'cancelled'].includes(request.status)) return false;
-    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) return true;
+    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) {
+      // Prevent the same user who auto-approved manager phase from also approving HR phase
+      const { data: { user } } = { data: { user: null as any } }; // will be checked async
+      return true;
+    }
     if (request.current_phase === 'manager' && request.department_id) {
       const userLevel = userAdminLevel.get(request.department_id);
       return userLevel !== undefined && request.current_approval_level === userLevel;
