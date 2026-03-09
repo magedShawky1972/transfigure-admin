@@ -446,6 +446,7 @@ const EmployeeSelfRequests = () => {
             requestData.manager_approved_by = submitterUserId;
             requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
           }
+          }
         }
       }
 
