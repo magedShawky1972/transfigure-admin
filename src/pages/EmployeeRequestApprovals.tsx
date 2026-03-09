@@ -60,6 +60,7 @@ const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: s
   early_leave: { icon: Clock, labelAr: 'طلب انصراف مبكر', labelEn: 'Early Leave', color: 'bg-orange-100 text-orange-800' },
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
+  penalty_deduction: { icon: AlertTriangle, labelAr: 'خصم جزائي', labelEn: 'Penalty Deduction', color: 'bg-rose-100 text-rose-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
 };
 
