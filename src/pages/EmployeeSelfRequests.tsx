@@ -124,6 +124,16 @@ const EmployeeSelfRequests = () => {
       if (empData) {
         setEmployee(empData);
 
+        // Check if current user is an HR Manager
+        const { data: hrData } = await supabase
+          .from('hr_managers')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        const isHR = !!hrData;
+
         // Get current user's position level
         let userPositionLevel: number | null = null;
         if (empData.job_position_id) {
@@ -136,9 +146,17 @@ const EmployeeSelfRequests = () => {
           setCurrentUserPositionLevel(userPositionLevel);
         }
 
-        // Fetch subordinates (same department OR child departments, higher position_level = lower rank)
-        if (empData.department_id) {
-          // First, get all child department IDs recursively
+        if (isHR) {
+          // HR Manager can submit requests for ANY employee
+          const { data: allEmployees } = await supabase
+            .from('employees')
+            .select('id, first_name, first_name_ar, last_name, last_name_ar, job_position_id')
+            .neq('id', empData.id)
+            .order('first_name');
+
+          setSubordinates(allEmployees || []);
+        } else if (empData.department_id) {
+          // Regular managers: fetch subordinates from department hierarchy
           const getAllChildDepartments = async (deptId: string): Promise<string[]> => {
             const { data: children } = await supabase
               .from('departments')
@@ -160,7 +178,6 @@ const EmployeeSelfRequests = () => {
           const childDeptIds = await getAllChildDepartments(empData.department_id);
           const allDeptIds = [empData.department_id, ...childDeptIds];
 
-          // Fetch employees from current department and all child departments
           const { data: deptEmployees } = await supabase
             .from('employees')
             .select(`
@@ -175,14 +192,10 @@ const EmployeeSelfRequests = () => {
             .in('department_id', allDeptIds)
             .neq('id', empData.id);
 
-          // Filter to only those with higher position_level (lower rank) or no level
           const subs = (deptEmployees || []).filter((emp: any) => {
             const empLevel = emp.job_positions?.position_level;
-            // If current user has no level, they can't select anyone
             if (userPositionLevel === null) return false;
-            // If target has no level, they're considered subordinate
             if (empLevel === null || empLevel === undefined) return true;
-            // Higher number = lower rank = subordinate
             return empLevel > userPositionLevel;
           });
 
