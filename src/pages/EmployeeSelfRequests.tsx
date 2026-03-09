@@ -105,6 +105,10 @@ const EmployeeSelfRequests = () => {
   const [expenseDescription, setExpenseDescription] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [attachmentFileName, setAttachmentFileName] = useState('');
+  const [deductionRules, setDeductionRules] = useState<any[]>([]);
+  const [deductionRuleId, setDeductionRuleId] = useState('');
+  const [deductionAmount, setDeductionAmount] = useState('');
+  const [deductionDate, setDeductionDate] = useState<Date | undefined>();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
