@@ -576,6 +576,17 @@ const EmployeeRequestApprovals = () => {
                               variant="ghost"
                             />
                           )}
+                          {!['approved', 'rejected', 'cancelled'].includes(r.status) && isHRManager && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => openReassignDialog(r)}
+                              title={language === 'ar' ? 'تغيير المعتمد الحالي' : 'Change Waiting For'}
+                            >
+                              <ArrowRightLeft className="h-4 w-4" />
+                            </Button>
+                          )}
                           {canAct && (
                             <>
                               <Button size="icon" className="h-8 w-8 bg-green-600 hover:bg-green-700" onClick={() => openActionDialog(r, 'approve')} title={language === 'ar' ? 'اعتماد' : 'Approve'}>
