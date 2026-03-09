@@ -884,6 +884,101 @@ const EmployeeSelfRequests = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Request Details Dialog */}
+      <Dialog open={!!detailRequest} onOpenChange={(open) => !open && setDetailRequest(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === 'ar' ? 'تفاصيل الطلب' : 'Request Details'}</DialogTitle>
+          </DialogHeader>
+          {detailRequest && (() => {
+            const typeInfo = REQUEST_TYPE_INFO[detailRequest.request_type as RequestType];
+            const statusInfo = STATUS_INFO[detailRequest.status] || STATUS_INFO.pending;
+            const emp = detailRequest.employees;
+            const empName = emp
+              ? (language === 'ar'
+                ? `${emp.first_name_ar || emp.first_name} ${emp.last_name_ar || emp.last_name}`
+                : `${emp.first_name} ${emp.last_name}`)
+              : '-';
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-muted-foreground">{language === 'ar' ? 'رقم الطلب' : 'Request #'}</div>
+                  <div className="font-mono">{detailRequest.request_number}</div>
+                  
+                  <div className="text-muted-foreground">{language === 'ar' ? 'الموظف' : 'Employee'}</div>
+                  <div className="font-medium">{empName}</div>
+                  
+                  <div className="text-muted-foreground">{language === 'ar' ? 'النوع' : 'Type'}</div>
+                  <div><Badge className={typeInfo?.color || ''}>{language === 'ar' ? typeInfo?.labelAr : typeInfo?.labelEn}</Badge></div>
+                  
+                  <div className="text-muted-foreground">{language === 'ar' ? 'الحالة' : 'Status'}</div>
+                  <div><Badge className={statusInfo.color}>{language === 'ar' ? statusInfo.labelAr : statusInfo.labelEn}</Badge></div>
+                  
+                  <div className="text-muted-foreground">{language === 'ar' ? 'تاريخ الإنشاء' : 'Created'}</div>
+                  <div>{format(new Date(detailRequest.created_at), 'yyyy-MM-dd HH:mm')}</div>
+
+                  {(detailRequest.request_type === 'vacation' || detailRequest.request_type === 'sick_leave') && detailRequest.start_date && (
+                    <>
+                      <div className="text-muted-foreground">{language === 'ar' ? 'من' : 'From'}</div>
+                      <div>{detailRequest.start_date}</div>
+                      <div className="text-muted-foreground">{language === 'ar' ? 'إلى' : 'To'}</div>
+                      <div>{detailRequest.end_date}</div>
+                    </>
+                  )}
+
+                  {(detailRequest.request_type === 'delay' || detailRequest.request_type === 'early_leave') && (
+                    <>
+                      <div className="text-muted-foreground">{language === 'ar' ? 'التاريخ' : 'Date'}</div>
+                      <div>{detailRequest.delay_date}</div>
+                      <div className="text-muted-foreground">{language === 'ar' ? 'الدقائق' : 'Minutes'}</div>
+                      <div>{detailRequest.delay_minutes}</div>
+                    </>
+                  )}
+
+                  {detailRequest.request_type === 'expense_refund' && (
+                    <>
+                      <div className="text-muted-foreground">{language === 'ar' ? 'المبلغ' : 'Amount'}</div>
+                      <div>{detailRequest.expense_amount}</div>
+                    </>
+                  )}
+
+                  {detailRequest.request_type === 'penalty_deduction' && (
+                    <>
+                      <div className="text-muted-foreground">{language === 'ar' ? 'مبلغ الخصم' : 'Deduction Amount'}</div>
+                      <div>{detailRequest.deduction_amount}</div>
+                      <div className="text-muted-foreground">{language === 'ar' ? 'تاريخ المخالفة' : 'Violation Date'}</div>
+                      <div>{detailRequest.deduction_date || '-'}</div>
+                    </>
+                  )}
+                </div>
+
+                {detailRequest.reason && (
+                  <div>
+                    <div className="text-muted-foreground mb-1">{language === 'ar' ? 'السبب' : 'Reason'}</div>
+                    <div className="p-2 bg-muted rounded text-sm">{detailRequest.reason}</div>
+                  </div>
+                )}
+
+                {detailRequest.rejection_reason && (
+                  <div>
+                    <div className="text-muted-foreground mb-1">{language === 'ar' ? 'سبب الرفض' : 'Rejection Reason'}</div>
+                    <div className="p-2 bg-destructive/10 text-destructive rounded text-sm">{detailRequest.rejection_reason}</div>
+                  </div>
+                )}
+
+                {detailRequest.attachment_url && (
+                  <div>
+                    <a href={detailRequest.attachment_url} target="_blank" rel="noopener noreferrer" className="text-primary underline flex items-center gap-1">
+                      <Paperclip className="h-3 w-3" />
+                      {language === 'ar' ? 'عرض المرفق' : 'View Attachment'}
+                    </a>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
