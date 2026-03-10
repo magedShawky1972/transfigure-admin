@@ -1198,7 +1198,8 @@ const TicketDetails = () => {
     } finally {
       setSendingBack(false);
     }
-  
+  };
+
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
