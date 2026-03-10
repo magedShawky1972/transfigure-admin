@@ -133,7 +133,11 @@ const AdminTickets = () => {
   const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>("");
   const [selectedPurchaseType, setSelectedPurchaseType] = useState<string>("");
 
-  useEffect(() => {
+  // Send back for clarification state
+  const [sendBackDialog, setSendBackDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const [sendBackComment, setSendBackComment] = useState("");
+  const [sendingBack, setSendingBack] = useState(false);
+
     checkAdminStatus();
     fetchTickets();
     fetchDepartmentMembers();
