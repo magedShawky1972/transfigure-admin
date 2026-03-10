@@ -125,6 +125,11 @@ const TicketDetails = () => {
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const [sendingExtraApproval, setSendingExtraApproval] = useState(false);
 
+  // Clarification reply states
+  const [clarificationReplyOpen, setClarificationReplyOpen] = useState(false);
+  const [clarificationReplyText, setClarificationReplyText] = useState("");
+  const [sendingClarificationReply, setSendingClarificationReply] = useState(false);
+
   // Cost center and purchase type selection states
   const [costCenterDialogOpen, setCostCenterDialogOpen] = useState(false);
   const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string }[]>([]);
