@@ -274,7 +274,7 @@ const CoinsCreation = () => {
       toast.error(isArabic ? "يرجى إضافة سطر واحد على الأقل" : "Please add at least one line");
       return;
     }
-    if (!bankTransferImage) {
+    if (bankTransferImages.length === 0) {
       toast.error(isArabic ? "يرجى رفع صورة التحويل البنكي" : "Please upload the bank transfer image");
       return;
     }
