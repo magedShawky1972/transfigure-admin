@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText, Maximize2, CalendarIcon } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText, Maximize2, CalendarIcon, Download, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
