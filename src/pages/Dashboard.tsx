@@ -3230,8 +3230,15 @@ const Dashboard = () => {
                           <span className="text-muted-foreground text-sm">N/A</span>
                         )}
                       </td>
-                      <td className="text-center py-3 px-4 font-semibold">
-                        {new Intl.NumberFormat('en-US').format(item.points_count || 0)}
+                      <td className="text-right py-3 px-4 font-semibold">
+                        {new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(item.points_coins || 0)}
+                      </td>
+                      <td className="text-right py-3 px-4 font-semibold text-primary">
+                        {item.usd_value > 0 ? (
+                          `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(item.points_usd || 0)}`
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
                       </td>
                     </tr>
                   ))
