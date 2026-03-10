@@ -1848,6 +1848,58 @@ const AdminTickets = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Send Back for Clarification Dialog */}
+      <Dialog open={sendBackDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setSendBackDialog({ open: false, ticket: null });
+          setSendBackComment("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'إرجاع التذكرة للتوضيح' : 'Return Ticket for Clarification'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? `تذكرة: ${sendBackDialog.ticket?.ticket_number || ''}`
+                : `Ticket: ${sendBackDialog.ticket?.ticket_number || ''}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">
+              {language === 'ar' ? 'ملاحظات التوضيح المطلوبة' : 'Clarification Notes'}
+            </label>
+            <Textarea
+              value={sendBackComment}
+              onChange={(e) => setSendBackComment(e.target.value)}
+              placeholder={language === 'ar' ? 'اكتب ما تحتاج توضيحه...' : 'Describe what needs clarification...'}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSendBackDialog({ open: false, ticket: null });
+                setSendBackComment("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleSendBackForClarification}
+              disabled={!sendBackComment.trim() || sendingBack}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Undo2 className="mr-2 h-4 w-4" />
+              {sendingBack 
+                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...')
+                : (language === 'ar' ? 'إرجاع للتوضيح' : 'Send Back')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
