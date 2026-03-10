@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle, Building2 } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle, Building2, Undo2 } from "lucide-react";
 import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -51,6 +51,7 @@ type Ticket = {
   status: string;
   created_at: string;
   department_id: string;
+  user_id: string;
   assigned_to: string | null;
   approved_at: string | null;
   approved_by: string | null;
@@ -132,6 +133,10 @@ const AdminTickets = () => {
   const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>("");
   const [selectedPurchaseType, setSelectedPurchaseType] = useState<string>("");
 
+  // Send back for clarification state
+  const [sendBackDialog, setSendBackDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const [sendBackComment, setSendBackComment] = useState("");
+  const [sendingBack, setSendingBack] = useState(false);
   useEffect(() => {
     checkAdminStatus();
     fetchTickets();
@@ -1019,6 +1024,81 @@ const AdminTickets = () => {
     }
   };
 
+  const handleSendBackForClarification = async () => {
+    const ticket = sendBackDialog.ticket;
+    if (!ticket || !sendBackComment.trim()) return;
+
+    try {
+      setSendingBack(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Update ticket
+      await supabase.from("tickets").update({
+        returned_for_clarification: true,
+        returned_by: userProfile?.user_name || user.id,
+        returned_at: new Date().toISOString(),
+        returned_comment: sendBackComment,
+        status: "Open",
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم إرجاع التذكرة للتوضيح: ${sendBackComment}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "returned_for_clarification",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "returned_for_clarification",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        recipient_id: ticket.user_id,
+        recipient_name: ticket.profiles.user_name,
+        description: `تم إرجاع التذكرة للتوضيح بواسطة ${userProfile?.user_name}: ${sendBackComment}`,
+      });
+
+      // Send notification + email
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_returned",
+          ticketId: ticket.id,
+          recipientUserId: ticket.user_id,
+          returnComment: sendBackComment,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الإرجاع' : 'Sent Back',
+        description: language === 'ar' ? 'تم إرجاع التذكرة للتوضيح بنجاح' : 'Ticket returned for clarification',
+      });
+
+      setSendBackDialog({ open: false, ticket: null });
+      setSendBackComment("");
+      fetchTickets();
+    } catch (error: any) {
+      console.error("Error sending back ticket:", error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingBack(false);
+    }
+  };
+
   const handleResendNotification = async (ticket: Ticket) => {
     try {
       // Get the current approval level from ticket or default to 0 (admin_order starts at 0)
@@ -1426,6 +1506,16 @@ const AdminTickets = () => {
           <Button
             variant="outline"
             size="sm"
+            className="h-8 text-xs sm:text-sm text-orange-600 border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+            onClick={() => setSendBackDialog({ open: true, ticket })}
+          >
+            <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إرجاع' : 'Return'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             className="h-8 text-xs sm:text-sm"
             onClick={() => navigate(`/tickets/${ticket.id}`, { state: { from: '/admin-tickets' } })}
           >
@@ -1754,6 +1844,58 @@ const AdminTickets = () => {
               disabled={!selectedCostCenterId || !selectedPurchaseType}
             >
               {language === 'ar' ? 'موافقة' : 'Approve'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Send Back for Clarification Dialog */}
+      <Dialog open={sendBackDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setSendBackDialog({ open: false, ticket: null });
+          setSendBackComment("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'إرجاع التذكرة للتوضيح' : 'Return Ticket for Clarification'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? `تذكرة: ${sendBackDialog.ticket?.ticket_number || ''}`
+                : `Ticket: ${sendBackDialog.ticket?.ticket_number || ''}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">
+              {language === 'ar' ? 'ملاحظات التوضيح المطلوبة' : 'Clarification Notes'}
+            </label>
+            <Textarea
+              value={sendBackComment}
+              onChange={(e) => setSendBackComment(e.target.value)}
+              placeholder={language === 'ar' ? 'اكتب ما تحتاج توضيحه...' : 'Describe what needs clarification...'}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSendBackDialog({ open: false, ticket: null });
+                setSendBackComment("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleSendBackForClarification}
+              disabled={!sendBackComment.trim() || sendingBack}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Undo2 className="mr-2 h-4 w-4" />
+              {sendingBack 
+                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...')
+                : (language === 'ar' ? 'إرجاع للتوضيح' : 'Send Back')}
             </Button>
           </DialogFooter>
         </DialogContent>
