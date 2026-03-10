@@ -82,7 +82,8 @@ const Dashboard = () => {
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [paymentBrands, setPaymentBrands] = useState<any[]>([]);
   const [unusedPaymentBrands, setUnusedPaymentBrands] = useState<any[]>([]);
-  const [monthComparison, setMonthComparison] = useState<any[]>([]);
+   const [monthComparison, setMonthComparison] = useState<any[]>([]);
+   const [monthComparisonDirection, setMonthComparisonDirection] = useState<"backward" | "forward">("backward");
   const [productSummary, setProductSummary] = useState<any[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [customerPurchases, setCustomerPurchases] = useState<any[]>([]);
