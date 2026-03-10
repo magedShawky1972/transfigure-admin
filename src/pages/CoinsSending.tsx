@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle, Maximize2 } from "lucide-react";
+import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle, Maximize2, FileText } from "lucide-react";
 import { downloadFile } from "@/lib/fileDownload";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
