@@ -195,26 +195,29 @@ const CoinsCreation = () => {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setUploading(true);
     try {
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
-      const publicId = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
-        body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
-      });
-      if (error) throw error;
-      if (!data?.url) throw new Error("Upload failed");
-      setBankTransferImage(data.url);
-      toast.success(isArabic ? "تم رفع الملف بنجاح" : "File uploaded successfully");
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        const isImage = file.type.startsWith("image/");
+        const isVideo = file.type.startsWith("video/");
+        const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
+        const publicId = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
+          body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
+        });
+        if (error) throw error;
+        if (!data?.url) throw new Error("Upload failed");
+        setBankTransferImages(prev => [...prev, data.url]);
+      }
+      toast.success(isArabic ? "تم رفع الملفات بنجاح" : "Files uploaded successfully");
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
