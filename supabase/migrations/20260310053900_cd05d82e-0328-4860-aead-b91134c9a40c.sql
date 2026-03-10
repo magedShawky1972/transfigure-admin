@@ -1,0 +1,2 @@
+ALTER TABLE public.employee_requests ADD COLUMN IF NOT EXISTS escalation_sent_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE public.employee_requests ADD COLUMN IF NOT EXISTS escalation_count INTEGER DEFAULT 0;
