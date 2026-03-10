@@ -159,6 +159,11 @@ const TicketDetails = () => {
   const [newWorkflowNote, setNewWorkflowNote] = useState("");
   const [submittingNote, setSubmittingNote] = useState(false);
 
+  // Send back for clarification states
+  const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
+  const [sendBackComment, setSendBackComment] = useState("");
+  const [sendingBack, setSendingBack] = useState(false);
+
   // Get the source page from navigation state
   const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
 
