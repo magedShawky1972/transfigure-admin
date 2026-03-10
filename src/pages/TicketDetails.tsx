@@ -1200,11 +1200,6 @@ const TicketDetails = () => {
     }
   };
 
-  // Clarification reply states
-  const [clarificationReplyOpen, setClarificationReplyOpen] = useState(false);
-  const [clarificationReplyText, setClarificationReplyText] = useState("");
-  const [sendingClarificationReply, setSendingClarificationReply] = useState(false);
-
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
