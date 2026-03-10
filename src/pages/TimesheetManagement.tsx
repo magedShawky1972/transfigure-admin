@@ -671,15 +671,16 @@ export default function TimesheetManagement() {
 
   // Calculate total attendance hours
   const calculateTotalHours = (): { hours: number; minutes: number } => {
-    if (!formData.actual_start || !formData.actual_end || formData.is_absent) {
-      return { hours: 0, minutes: 0 };
-    }
+    if (formData.is_absent) return { hours: 0, minutes: 0 };
+    const effectiveStart = formData.changed_start || formData.actual_start;
+    const effectiveEnd = formData.changed_end || formData.actual_end;
+    if (!effectiveStart || !effectiveEnd) return { hours: 0, minutes: 0 };
     
-    const actualStart = parseISO(`${formData.work_date}T${formData.actual_start}`);
-    const actualEnd = parseISO(`${formData.work_date}T${formData.actual_end}`);
+    const actualStart = parseISO(`${formData.work_date}T${effectiveStart}`);
+    const actualEnd = parseISO(`${formData.work_date}T${effectiveEnd}`);
     
     let totalMinutes = differenceInMinutes(actualEnd, actualStart);
-    totalMinutes -= formData.break_duration_minutes || 0; // Subtract break time
+    totalMinutes -= formData.break_duration_minutes || 0;
     
     if (totalMinutes < 0) totalMinutes = 0;
     
