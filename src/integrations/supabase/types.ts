@@ -2473,6 +2473,8 @@ export type Database = {
           department_id: string | null
           employee_id: string
           end_date: string | null
+          escalation_count: number | null
+          escalation_sent_at: string | null
           expense_amount: number | null
           expense_currency_id: string | null
           expense_description: string | null
@@ -2511,6 +2513,8 @@ export type Database = {
           department_id?: string | null
           employee_id: string
           end_date?: string | null
+          escalation_count?: number | null
+          escalation_sent_at?: string | null
           expense_amount?: number | null
           expense_currency_id?: string | null
           expense_description?: string | null
@@ -2549,6 +2553,8 @@ export type Database = {
           department_id?: string | null
           employee_id?: string
           end_date?: string | null
+          escalation_count?: number | null
+          escalation_sent_at?: string | null
           expense_amount?: number | null
           expense_currency_id?: string | null
           expense_description?: string | null
