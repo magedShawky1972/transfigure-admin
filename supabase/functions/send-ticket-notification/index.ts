@@ -739,6 +739,7 @@ interface TicketDetails {
   budgetValue?: number | null;
   currencyName?: string | null;
   returnComment?: string | null;
+  rejectReason?: string | null;
 }
 
 function getNotificationContent(
