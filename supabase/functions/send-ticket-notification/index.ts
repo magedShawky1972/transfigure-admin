@@ -737,6 +737,7 @@ interface TicketDetails {
   uom?: string | null;
   budgetValue?: number | null;
   currencyName?: string | null;
+  returnComment?: string | null;
 }
 
 function getNotificationContent(
