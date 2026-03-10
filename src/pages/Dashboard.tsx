@@ -1138,7 +1138,7 @@ const Dashboard = () => {
           }
           acc[brand].total_coins += coins;
           if (isPoint) {
-            acc[brand].points_coins += total;
+            acc[brand].points_coins += coins;
           }
           return acc;
         }, {});
