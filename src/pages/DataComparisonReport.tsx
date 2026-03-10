@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, RefreshCw, Download, Calendar, AlertTriangle, CheckCircle2, XCircle, Printer, Search } from "lucide-react";
+import { ArrowLeft, RefreshCw, Download, Calendar, AlertTriangle, CheckCircle2, XCircle, Printer, Search, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -48,21 +48,37 @@ const DataComparisonReport = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [drilldownOrder, setDrilldownOrder] = useState<string | null>(null);
   const [drilldownData, setDrilldownData] = useState<any[]>([]);
+  const [drilldownPayments, setDrilldownPayments] = useState<any[]>([]);
+  const [drilldownApiLines, setDrilldownApiLines] = useState<any[]>([]);
   const [drilldownLoading, setDrilldownLoading] = useState(false);
 
   const openDrilldown = async (orderNumber: string) => {
     setDrilldownOrder(orderNumber);
     setDrilldownLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("purpletransaction")
-        .select("order_number, brand_name, product_name, customer_name, customer_phone, total, cost_sold, profit, payment_method, payment_brand, created_at_date, user_name")
-        .eq("order_number", orderNumber);
-      if (error) throw error;
-      setDrilldownData(data || []);
+      const [purpleRes, paymentRes, apiLineRes] = await Promise.all([
+        supabase
+          .from("purpletransaction")
+          .select("order_number, brand_name, product_name, customer_name, customer_phone, total, cost_sold, profit, payment_method, payment_brand, created_at_date, user_name")
+          .eq("order_number", orderNumber),
+        supabase
+          .from("payment_transactions")
+          .select("order_number, payment_method, payment_brand, total, result, transactionid, create_at")
+          .eq("order_number", orderNumber),
+        supabase
+          .from("sales_order_line")
+          .select("order_number, product_name, brand_name, total, qty, cost")
+          .eq("order_number", orderNumber),
+      ]);
+      if (purpleRes.error) throw purpleRes.error;
+      setDrilldownData(purpleRes.data || []);
+      setDrilldownPayments(paymentRes.data || []);
+      setDrilldownApiLines(apiLineRes.data || []);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setDrilldownData([]);
+      setDrilldownPayments([]);
+      setDrilldownApiLines([]);
     } finally {
       setDrilldownLoading(false);
     }
@@ -521,6 +537,7 @@ const DataComparisonReport = () => {
                         <TableHead className="text-right">{language === "ar" ? "إجمالي API" : "API Total"}</TableHead>
                         <TableHead className="text-right">{language === "ar" ? "الفرق" : "Difference"}</TableHead>
                         <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                        <TableHead className="text-center">{language === "ar" ? "عرض" : "View"}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -528,16 +545,12 @@ const DataComparisonReport = () => {
                         <TableRow key={row.order_number} className={row.status === "missing_api" ? "bg-red-50 dark:bg-red-950/20" : row.status === "mismatch" ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}>
                           <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell className="font-mono font-medium">
-                            {row.status === "missing_api" ? (
-                              <button
-                                onClick={() => openDrilldown(row.order_number)}
-                                className="text-primary underline hover:text-primary/80 font-mono font-medium cursor-pointer"
-                              >
-                                {row.order_number}
-                              </button>
-                            ) : (
-                              row.order_number
-                            )}
+                            <button
+                              onClick={() => openDrilldown(row.order_number)}
+                              className="text-primary underline hover:text-primary/80 font-mono font-medium cursor-pointer"
+                            >
+                              {row.order_number}
+                            </button>
                           </TableCell>
                           <TableCell className="text-center">{row.purple_lines || "-"}</TableCell>
                           <TableCell className="text-right font-medium">{row.purple_total ? formatNumber(row.purple_total) : "-"}</TableCell>
@@ -547,6 +560,11 @@ const DataComparisonReport = () => {
                             {formatNumber(row.total_diff)}
                           </TableCell>
                           <TableCell>{getStatusBadge(row.status)}</TableCell>
+                          <TableCell className="text-center">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrilldown(row.order_number)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -575,64 +593,174 @@ const DataComparisonReport = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
-              {language === "ar" ? "تفاصيل الطلب من بوربل" : "Purple Transaction Details"} - #{drilldownOrder}
+              {language === "ar" ? "تفاصيل الطلب" : "Order Details"} - #{drilldownOrder}
             </DialogTitle>
           </DialogHeader>
           {drilldownLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
-          ) : drilldownData.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">{language === "ar" ? "لا توجد بيانات" : "No data found"}</div>
           ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground">{language === "ar" ? "عدد الأسطر" : "Lines"}</p>
-                  <p className="text-xl font-bold">{drilldownData.length}</p>
-                </div>
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground">{language === "ar" ? "الإجمالي" : "Total"}</p>
-                  <p className="text-xl font-bold text-primary">{formatNumber(drilldownData.reduce((s, r) => s + (r.total || 0), 0))}</p>
-                </div>
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground">{language === "ar" ? "العميل" : "Customer"}</p>
-                  <p className="text-sm font-medium truncate">{drilldownData[0]?.customer_name || "-"}</p>
-                  <p className="text-xs text-muted-foreground">{drilldownData[0]?.customer_phone || "-"}</p>
-                </div>
-                <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground">{language === "ar" ? "طريقة الدفع" : "Payment"}</p>
-                  <p className="text-sm font-medium">{drilldownData[0]?.payment_method || "-"}</p>
-                  <p className="text-xs text-muted-foreground">{drilldownData[0]?.payment_brand || "-"}</p>
-                </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>{language === "ar" ? "المنتج" : "Product"}</TableHead>
-                    <TableHead>{language === "ar" ? "البراند" : "Brand"}</TableHead>
-                    <TableHead className="text-right">{language === "ar" ? "الإجمالي" : "Total"}</TableHead>
-                    <TableHead className="text-right">{language === "ar" ? "التكلفة" : "Cost"}</TableHead>
-                    <TableHead className="text-right">{language === "ar" ? "الربح" : "Profit"}</TableHead>
-                    <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
-                    <TableHead>{language === "ar" ? "المستخدم" : "User"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {drilldownData.map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                      <TableCell className="text-sm">{row.product_name || "-"}</TableCell>
-                      <TableCell className="text-sm">{row.brand_name || "-"}</TableCell>
-                      <TableCell className="text-right font-medium">{formatNumber(row.total || 0)}</TableCell>
-                      <TableCell className="text-right">{formatNumber(row.cost_sold || 0)}</TableCell>
-                      <TableCell className="text-right">{formatNumber(row.profit || 0)}</TableCell>
-                      <TableCell className="text-xs">{row.created_at_date ? new Date(row.created_at_date).toLocaleDateString() : "-"}</TableCell>
-                      <TableCell className="text-xs">{row.user_name || "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <Tabs defaultValue="purple" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="purple">
+                  {language === "ar" ? "بيانات بوربل (Excel)" : "Purple (Excel)"} ({drilldownData.length})
+                </TabsTrigger>
+                <TabsTrigger value="api">
+                  {language === "ar" ? "بيانات API" : "API Lines"} ({drilldownApiLines.length})
+                </TabsTrigger>
+                <TabsTrigger value="payments">
+                  {language === "ar" ? "المدفوعات" : "Payments"} ({drilldownPayments.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="purple">
+                {drilldownData.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">{language === "ar" ? "لا توجد بيانات" : "No data found"}</div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "عدد الأسطر" : "Lines"}</p>
+                        <p className="text-xl font-bold">{drilldownData.length}</p>
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "الإجمالي" : "Total"}</p>
+                        <p className="text-xl font-bold text-primary">{formatNumber(drilldownData.reduce((s, r) => s + (r.total || 0), 0))}</p>
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "العميل" : "Customer"}</p>
+                        <p className="text-sm font-medium truncate">{drilldownData[0]?.customer_name || "-"}</p>
+                        <p className="text-xs text-muted-foreground">{drilldownData[0]?.customer_phone || "-"}</p>
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "طريقة الدفع" : "Payment"}</p>
+                        <p className="text-sm font-medium">{drilldownData[0]?.payment_method || "-"}</p>
+                        <p className="text-xs text-muted-foreground">{drilldownData[0]?.payment_brand || "-"}</p>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>#</TableHead>
+                          <TableHead>{language === "ar" ? "المنتج" : "Product"}</TableHead>
+                          <TableHead>{language === "ar" ? "البراند" : "Brand"}</TableHead>
+                          <TableHead className="text-right">{language === "ar" ? "الإجمالي" : "Total"}</TableHead>
+                          <TableHead className="text-right">{language === "ar" ? "التكلفة" : "Cost"}</TableHead>
+                          <TableHead className="text-right">{language === "ar" ? "الربح" : "Profit"}</TableHead>
+                          <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
+                          <TableHead>{language === "ar" ? "المستخدم" : "User"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {drilldownData.map((row, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
+                            <TableCell className="text-sm">{row.product_name || "-"}</TableCell>
+                            <TableCell className="text-sm">{row.brand_name || "-"}</TableCell>
+                            <TableCell className="text-right font-medium">{formatNumber(row.total || 0)}</TableCell>
+                            <TableCell className="text-right">{formatNumber(row.cost_sold || 0)}</TableCell>
+                            <TableCell className="text-right">{formatNumber(row.profit || 0)}</TableCell>
+                            <TableCell className="text-xs">{row.created_at_date ? new Date(row.created_at_date).toLocaleDateString() : "-"}</TableCell>
+                            <TableCell className="text-xs">{row.user_name || "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="api">
+                {drilldownApiLines.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">{language === "ar" ? "لا توجد بيانات API" : "No API data found"}</div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "عدد الأسطر" : "Lines"}</p>
+                        <p className="text-xl font-bold">{drilldownApiLines.length}</p>
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "الإجمالي" : "Total"}</p>
+                        <p className="text-xl font-bold text-primary">{formatNumber(drilldownApiLines.reduce((s, r) => s + (r.total || 0), 0))}</p>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>#</TableHead>
+                          <TableHead>{language === "ar" ? "المنتج" : "Product"}</TableHead>
+                          <TableHead>{language === "ar" ? "البراند" : "Brand"}</TableHead>
+                          <TableHead className="text-right">{language === "ar" ? "الكمية" : "Qty"}</TableHead>
+                          <TableHead className="text-right">{language === "ar" ? "الإجمالي" : "Total"}</TableHead>
+                          <TableHead className="text-right">{language === "ar" ? "التكلفة" : "Cost"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {drilldownApiLines.map((row, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
+                            <TableCell className="text-sm">{row.product_name || "-"}</TableCell>
+                            <TableCell className="text-sm">{row.brand_name || "-"}</TableCell>
+                            <TableCell className="text-right">{row.qty || "-"}</TableCell>
+                            <TableCell className="text-right font-medium">{formatNumber(row.total || 0)}</TableCell>
+                            <TableCell className="text-right">{formatNumber(row.cost || 0)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="payments">
+                {drilldownPayments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">{language === "ar" ? "لا توجد مدفوعات" : "No payment data found"}</div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "عدد المدفوعات" : "Payments"}</p>
+                        <p className="text-xl font-bold">{drilldownPayments.length}</p>
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{language === "ar" ? "إجمالي المدفوعات" : "Payment Total"}</p>
+                        <p className="text-xl font-bold text-primary">{formatNumber(drilldownPayments.reduce((s, r) => s + (r.total || 0), 0))}</p>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>#</TableHead>
+                          <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment Method"}</TableHead>
+                          <TableHead>{language === "ar" ? "العلامة التجارية" : "Payment Brand"}</TableHead>
+                          <TableHead className="text-right">{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
+                          <TableHead>{language === "ar" ? "النتيجة" : "Result"}</TableHead>
+                          <TableHead>{language === "ar" ? "رقم العملية" : "Transaction ID"}</TableHead>
+                          <TableHead>{language === "ar" ? "التاريخ" : "Date"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {drilldownPayments.map((row, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
+                            <TableCell className="text-sm">{row.payment_method || "-"}</TableCell>
+                            <TableCell className="text-sm">{row.payment_brand || "-"}</TableCell>
+                            <TableCell className="text-right font-medium">{formatNumber(row.total || 0)}</TableCell>
+                            <TableCell>
+                              <Badge variant={row.result === "ACK" ? "default" : "destructive"} className="text-xs">
+                                {row.result || "-"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs font-mono">{row.transactionid || "-"}</TableCell>
+                            <TableCell className="text-xs">{row.create_at ? new Date(row.create_at).toLocaleString() : "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
