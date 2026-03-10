@@ -67,19 +67,32 @@ serve(async (req) => {
 
           const blob = await response.blob();
           const contentType = blob.type || response.headers.get('content-type') || 'application/octet-stream';
+          const baseMime = contentType.split(';')[0].trim().toLowerCase();
           
-          // Determine extension from URL or content type
+          // Determine extension from content-type first, then URL
           let ext = 'bin';
-          const urlPath = new URL(url).pathname;
-          const urlExt = urlPath.split('.').pop()?.toLowerCase();
-          if (urlExt && ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(urlExt)) {
-            ext = urlExt;
-          } else if (contentType.includes('pdf')) {
-            ext = 'pdf';
-          } else if (contentType.includes('png')) {
-            ext = 'png';
-          } else if (contentType.includes('jpeg') || contentType.includes('jpg')) {
-            ext = 'jpg';
+          const mimeToExt: Record<string, string> = {
+            'application/pdf': 'pdf',
+            'image/png': 'png',
+            'image/jpeg': 'jpg',
+            'image/gif': 'gif',
+            'image/webp': 'webp',
+            'image/svg+xml': 'svg',
+          };
+          if (mimeToExt[baseMime]) {
+            ext = mimeToExt[baseMime];
+          } else {
+            const urlPath = new URL(url).pathname;
+            const urlExt = urlPath.split('.').pop()?.toLowerCase();
+            if (urlExt && ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(urlExt)) {
+              ext = urlExt;
+            } else if (baseMime === 'application/octet-stream') {
+              // Read magic bytes to detect type
+              const arr = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+              if (arr[0] === 0x25 && arr[1] === 0x50 && arr[2] === 0x44 && arr[3] === 0x46) ext = 'pdf';
+              else if (arr[0] === 0x89 && arr[1] === 0x50 && arr[2] === 0x4E && arr[3] === 0x47) ext = 'png';
+              else if (arr[0] === 0xFF && arr[1] === 0xD8 && arr[2] === 0xFF) ext = 'jpg';
+            }
           }
 
           const filePath = `coins-creation/${order.order_number}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
