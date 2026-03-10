@@ -1669,7 +1669,15 @@ const TicketDetails = () => {
                   )}
                   
                   {/* Send for Extra Approval button */}
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                      onClick={() => setSendBackDialogOpen(true)}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'إرجاع للتوضيح' : 'Send Back'}
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={handleOpenExtraApprovalDialog}
