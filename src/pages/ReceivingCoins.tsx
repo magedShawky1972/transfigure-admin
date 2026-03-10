@@ -621,6 +621,35 @@ const ReceivingCoins = () => {
         linesByHeader[line.header_id].push(line);
       }
 
+      // Fetch per-brand control amounts from purchase order lines for accurate unit_price calculation
+      const purchaseOrderIds = [...new Set(filtered.map((r: any) => r.purchase_order_id).filter(Boolean))];
+      const brandControlMap: Record<string, Record<string, number>> = {}; // purchaseOrderId -> { brandId: amount }
+      if (purchaseOrderIds.length > 0) {
+        const { data: orderLines } = await supabase
+          .from("coins_purchase_order_lines")
+          .select("purchase_order_id, brand_id, amount_in_currency")
+          .in("purchase_order_id", purchaseOrderIds);
+        for (const ol of orderLines || []) {
+          if (!brandControlMap[ol.purchase_order_id]) brandControlMap[ol.purchase_order_id] = {};
+          if (ol.brand_id) {
+            brandControlMap[ol.purchase_order_id][ol.brand_id] = (brandControlMap[ol.purchase_order_id][ol.brand_id] || 0) + (ol.amount_in_currency || 0);
+          }
+        }
+      }
+
+      // Fetch brand one_usd_to_coins rates for recalculation
+      const allBrandIds = [...new Set((allLines || []).map((l: any) => l.brand_id).filter(Boolean))];
+      const brandRateMap: Record<string, number> = {};
+      if (allBrandIds.length > 0) {
+        const { data: brandRates } = await supabase
+          .from("brands")
+          .select("id, one_usd_to_coins")
+          .in("id", allBrandIds);
+        for (const b of brandRates || []) {
+          brandRateMap[b.id] = b.one_usd_to_coins || 0;
+        }
+      }
+
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet(isArabic ? "إيصالات الاستلام" : "Receiving Entries");
 
@@ -664,6 +693,8 @@ const ReceivingCoins = () => {
         const txnAmount = parseFloat(r.control_amount) || 0;
         const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
         const rLines = linesByHeader[r.id] || [];
+        const poId = r.purchase_order_id;
+        const poBrandAmounts = poId ? (brandControlMap[poId] || {}) : {};
 
         if (rLines.length === 0) {
           sheet.addRow([
@@ -683,8 +714,16 @@ const ReceivingCoins = () => {
           for (let i = 0; i < rLines.length; i++) {
             const line = rLines[i];
             const coins = line.coins || 0;
-            const unitPrice = line.unit_price || 0;
+            
+            // Recalculate unit_price the same way the UI does:
+            // unit_price = brandControlAmount / expectedCoins
+            const brandId = line.brand_id;
+            const brandControlAmt = brandId ? (poBrandAmounts[brandId] || 0) : 0;
+            const oneUsdToCoins = brandId ? (brandRateMap[brandId] || 0) : 0;
+            const expectedCoins = oneUsdToCoins > 0 && brandControlAmt > 0 ? Math.floor(brandControlAmt * oneUsdToCoins) : 0;
+            const unitPrice = expectedCoins > 0 && brandControlAmt > 0 ? (brandControlAmt / expectedCoins) : (line.unit_price || 0);
             const lineTotal = coins * unitPrice;
+
             sheet.addRow([
               i === 0 ? (r.coins_purchase_orders?.order_number || "-") : "",
               i === 0 ? (r.receipt_number || "") : "",
