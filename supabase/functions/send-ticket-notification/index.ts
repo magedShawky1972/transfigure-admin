@@ -11,11 +11,12 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc" | "ticket_returned";
+  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc" | "ticket_returned" | "ticket_rejected";
   ticketId: string;
   recipientUserId: string;
   senderName?: string;
   returnComment?: string;
+  rejectReason?: string;
 }
 
 interface BatchNotificationRequest {
@@ -562,7 +563,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } else {
       // Handle single notification (backward compatibility)
-      const { type, ticketId, recipientUserId, returnComment: reqReturnComment }: NotificationRequest = requestBody;
+      const { type, ticketId, recipientUserId, returnComment: reqReturnComment, rejectReason: reqRejectReason }: NotificationRequest = requestBody;
 
       console.log("Processing single notification:", { type, ticketId, recipientUserId });
 
@@ -623,6 +624,7 @@ const handler = async (req: Request): Promise<Response> => {
         budgetValue: ticket.budget_value,
         currencyName: purchaseDetails.currencyName,
         returnComment: reqReturnComment || null,
+        rejectReason: reqRejectReason || null,
       };
 
       // Get notification content
@@ -661,6 +663,9 @@ const handler = async (req: Request): Promise<Response> => {
       } else if (type === "ticket_assigned") {
         activityType = "ticket_assigned";
         activityDescription = `تم تعيين التذكرة إلى ${profile.user_name}`;
+      } else if (type === "ticket_rejected") {
+        activityType = "ticket_rejected";
+        activityDescription = `تم رفض التذكرة وتم إرسال إشعار إلى ${profile.user_name}`;
       } else {
         activityDescription = `تم إرسال إشعار إلى ${profile.user_name}`;
       }
@@ -738,6 +743,7 @@ interface TicketDetails {
   budgetValue?: number | null;
   currencyName?: string | null;
   returnComment?: string | null;
+  rejectReason?: string | null;
 }
 
 function getNotificationContent(
@@ -974,6 +980,37 @@ switch (type) {
       `;
       notificationTitle = `طلب توضيح - ${ticketTypeSubject}`;
       notificationMessage = `تم إرجاع ${ticketDetails.ticketNumber} لمزيد من التوضيح - ${ticketDetails.subject}`;
+      break;
+
+    case "ticket_rejected":
+      emailSubject = `تم رفض ${ticketTypeSubject}`;
+      const rejectReason = ticketDetails.rejectReason || '';
+      emailHtml = `
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+          <h2 style="color: #DC2626;">تم رفض ${ticketTypeSubject}</h2>
+          <p>مرحباً ${userName},</p>
+          <p>نأسف لإبلاغك بأنه تم رفض ${ticketTypeSubject} الخاصة بك:</p>
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>رقم التذكرة:</strong> ${ticketDetails.ticketNumber}</li>
+            <li style="margin: 10px 0;"><strong>الموضوع:</strong> ${ticketDetails.subject}</li>
+            <li style="margin: 10px 0;"><strong>الوصف:</strong> ${ticketDetails.description}</li>
+            <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
+            ${externalLinkHtml}
+            ${purchaseDetailsHtml}
+          </ul>
+          ${rejectReason ? `
+          <div style="margin: 20px 0; padding: 15px; background-color: #FEE2E2; border: 1px solid #EF4444; border-radius: 8px;">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #991B1B;">سبب الرفض:</p>
+            <p style="margin: 0; color: #7F1D1D;">${rejectReason}</p>
+          </div>
+          ` : ''}
+          <div style="margin: 20px 0;">
+            <a href="${ticketLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">عرض التذكرة</a>
+          </div>
+        </div>
+      `;
+      notificationTitle = `تم رفض ${ticketTypeSubject}`;
+      notificationMessage = `تم رفض ${ticketDetails.ticketNumber} - ${ticketDetails.subject}`;
       break;
   }
 

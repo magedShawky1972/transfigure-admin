@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle, Building2, Undo2 } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle, Building2, Undo2, XCircle } from "lucide-react";
 import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -137,6 +137,11 @@ const AdminTickets = () => {
   const [sendBackDialog, setSendBackDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
   const [sendBackComment, setSendBackComment] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
+
+  // Reject ticket state
+  const [rejectDialog, setRejectDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
   useEffect(() => {
     checkAdminStatus();
     fetchTickets();
@@ -1099,6 +1104,77 @@ const AdminTickets = () => {
     }
   };
 
+  const handleRejectTicket = async () => {
+    const ticket = rejectDialog.ticket;
+    if (!ticket || !rejectReason.trim()) return;
+
+    try {
+      setRejecting(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Update ticket status to Rejected
+      await supabase.from("tickets").update({
+        status: "Rejected",
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم رفض التذكرة: ${rejectReason}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "rejected",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "rejected",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        recipient_id: ticket.user_id,
+        recipient_name: ticket.profiles.user_name,
+        description: `تم رفض التذكرة بواسطة ${userProfile?.user_name}: ${rejectReason}`,
+      });
+
+      // Send notification + email to creator
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_rejected",
+          ticketId: ticket.id,
+          recipientUserId: ticket.user_id,
+          rejectReason: rejectReason,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الرفض' : 'Rejected',
+        description: language === 'ar' ? 'تم رفض التذكرة وإشعار مقدم الطلب' : 'Ticket rejected and creator notified',
+      });
+
+      setRejectDialog({ open: false, ticket: null });
+      setRejectReason("");
+      fetchTickets();
+    } catch (error: any) {
+      console.error("Error rejecting ticket:", error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const handleResendNotification = async (ticket: Ticket) => {
     try {
       // Get the current approval level from ticket or default to 0 (admin_order starts at 0)
@@ -1357,6 +1433,7 @@ const AdminTickets = () => {
             <SelectContent>
               <SelectItem value="Open">{language === 'ar' ? 'مفتوح' : 'Open'}</SelectItem>
               <SelectItem value="In Progress">{language === 'ar' ? 'قيد المعالجة' : 'In Progress'}</SelectItem>
+              <SelectItem value="Rejected">{language === 'ar' ? 'مرفوض' : 'Rejected'}</SelectItem>
               <SelectItem value="Closed">{language === 'ar' ? 'مغلق' : 'Closed'}</SelectItem>
               <SelectItem value="Cancelled">{language === 'ar' ? 'ملغي' : 'Cancelled'}</SelectItem>
             </SelectContent>
@@ -1373,7 +1450,7 @@ const AdminTickets = () => {
             />
           </div>
           
-          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && (
+          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && ticket.status !== 'Rejected' && (
             <Button
               size="sm"
               variant="default"
@@ -1382,6 +1459,18 @@ const AdminTickets = () => {
             >
               <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               {language === 'ar' ? 'موافقة' : 'Approve'}
+            </Button>
+          )}
+
+          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && ticket.status !== 'Rejected' && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 text-xs sm:text-sm"
+              onClick={() => setRejectDialog({ open: true, ticket })}
+            >
+              <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              {language === 'ar' ? 'رفض' : 'Reject'}
             </Button>
           )}
           
@@ -1917,6 +2006,59 @@ const AdminTickets = () => {
               {sendingBack 
                 ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...')
                 : (language === 'ar' ? 'إرجاع للتوضيح' : 'Send Back')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Ticket Dialog */}
+      <Dialog open={rejectDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setRejectDialog({ open: false, ticket: null });
+          setRejectReason("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'رفض التذكرة' : 'Reject Ticket'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? `تذكرة: ${rejectDialog.ticket?.ticket_number || ''}`
+                : `Ticket: ${rejectDialog.ticket?.ticket_number || ''}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">
+              {language === 'ar' ? 'سبب الرفض' : 'Rejection Reason'}
+            </label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder={language === 'ar' ? 'اكتب سبب رفض التذكرة...' : 'Describe the reason for rejection...'}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectDialog({ open: false, ticket: null });
+                setRejectReason("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleRejectTicket}
+              disabled={!rejectReason.trim() || rejecting}
+              variant="destructive"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              {rejecting 
+                ? (language === 'ar' ? 'جاري الرفض...' : 'Rejecting...')
+                : (language === 'ar' ? 'رفض التذكرة' : 'Reject Ticket')}
             </Button>
           </DialogFooter>
         </DialogContent>
