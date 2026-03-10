@@ -294,22 +294,29 @@ const CoinsSending = () => {
               if (images.length === 0) return <span className="text-muted-foreground">{isArabic ? "لا توجد ملفات" : "No files"}</span>;
               return (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {images.map((imgUrl, idx) => (
-                    <div key={idx} className="relative group border rounded-lg overflow-hidden">
-                      {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
-                        <div className="flex flex-col items-center justify-center h-40 bg-muted/30 cursor-pointer" onClick={() => setShowImagePreview(imgUrl)}>
-                          <FileText className="h-10 w-10 text-destructive mb-1" />
-                          <span className="text-xs text-muted-foreground">PDF</span>
-                        </div>
-                      ) : (
-                        <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setShowImagePreview(imgUrl)} />
-                      )}
-                      <Button variant="outline" size="sm" className="absolute bottom-1 right-1 z-10 h-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDownload(imgUrl)}>
-                        <Download className="h-3 w-3 mr-1" />
-                        {isArabic ? "تحميل" : "Download"}
-                      </Button>
-                    </div>
-                  ))}
+                  {images.map((imgUrl, idx) => {
+                    const isPdf = imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/");
+                    return (
+                      <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                        {isPdf ? (
+                          <div className="w-full h-40 cursor-pointer" onClick={() => setShowImagePreview(imgUrl)}>
+                            <object data={imgUrl} type="application/pdf" className="w-full h-full pointer-events-none">
+                              <div className="flex flex-col items-center justify-center h-full bg-muted/30">
+                                <FileText className="h-10 w-10 text-destructive mb-1" />
+                                <span className="text-xs text-muted-foreground">PDF</span>
+                              </div>
+                            </object>
+                          </div>
+                        ) : (
+                          <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setShowImagePreview(imgUrl)} />
+                        )}
+                        <Button variant="outline" size="sm" className="absolute bottom-1 right-1 z-10 h-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDownload(imgUrl)}>
+                          <Download className="h-3 w-3 mr-1" />
+                          {isArabic ? "تحميل" : "Download"}
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
