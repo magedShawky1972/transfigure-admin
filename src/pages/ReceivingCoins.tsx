@@ -488,7 +488,7 @@ const ReceivingCoins = () => {
     setOrderNumber("");
     setLinkedPurchaseOrderId(null);
     setReceivingImages({});
-    setBankTransferImage("");
+    setBankTransferImages([]);
     setSendingAttachments([]);
     setConfirmedBrands({});
     setBrandControlAmounts({});
