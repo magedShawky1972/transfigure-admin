@@ -266,14 +266,11 @@ const EmployeeSelfRequests = () => {
   const fetchVacationBalances = async (employeeId: string) => {
     const currentYear = new Date().getFullYear();
 
-    // Fetch all active vacation codes and existing employee types in parallel
-    const [{ data: allCodes }, { data: existingTypes }] = await Promise.all([
-      supabase.from('vacation_codes').select('id, name_en, name_ar, default_days').eq('is_active', true),
-      supabase.from('employee_vacation_types')
-        .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
-        .eq('employee_id', employeeId)
-        .eq('year', currentYear),
-    ]);
+    const { data: existingTypes } = await supabase
+      .from('employee_vacation_types')
+      .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
+      .eq('employee_id', employeeId)
+      .eq('year', currentYear);
 
     // Only show vacation types that are already assigned to this employee
     setVacationBalances(existingTypes || []);
