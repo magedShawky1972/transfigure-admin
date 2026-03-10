@@ -285,30 +285,34 @@ const CoinsSending = () => {
           </CardContent>
         </Card>
 
-        {/* Download Image */}
+        {/* Download Images */}
         <Card>
-          <CardHeader><CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{isArabic ? "صور التحويل البنكي" : "Bank Transfer Files"}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {selectedOrder.bank_transfer_image && (
-              <div className="relative">
-                {selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
-                    title="Transfer"
-                    className="w-full h-[400px] rounded-lg border"
-                  />
-                ) : (
-                  <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
-                )}
-                <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => setShowImagePreview(true)}>
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            <Button onClick={handleDownload} variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              {isArabic ? "تحميل الملف" : "Download File"}
-            </Button>
+            {(() => {
+              const images = parseBankTransferImages(selectedOrder.bank_transfer_image);
+              if (images.length === 0) return <span className="text-muted-foreground">{isArabic ? "لا توجد ملفات" : "No files"}</span>;
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {images.map((imgUrl, idx) => (
+                    <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                      {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
+                        <div className="flex flex-col items-center justify-center h-40 bg-muted/30 cursor-pointer" onClick={() => setShowImagePreview(imgUrl)}>
+                          <FileText className="h-10 w-10 text-destructive mb-1" />
+                          <span className="text-xs text-muted-foreground">PDF</span>
+                        </div>
+                      ) : (
+                        <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setShowImagePreview(imgUrl)} />
+                      )}
+                      <Button variant="outline" size="sm" className="absolute bottom-1 right-1 z-10 h-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDownload(imgUrl)}>
+                        <Download className="h-3 w-3 mr-1" />
+                        {isArabic ? "تحميل" : "Download"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 
@@ -344,17 +348,17 @@ const CoinsSending = () => {
           </CardContent>
         </Card>
         {/* Maximize preview dialog */}
-        <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+        <Dialog open={!!showImagePreview} onOpenChange={(open) => { if (!open) setShowImagePreview(null); }}>
           <DialogContent className="max-w-6xl max-h-[95vh] p-2">
-            {selectedOrder?.bank_transfer_image && (
-              selectedOrder.bank_transfer_image.match(/\.pdf$/i) || selectedOrder.bank_transfer_image.includes("/raw/upload/") ? (
+            {showImagePreview && (
+              typeof showImagePreview === 'string' && (showImagePreview.match(/\.pdf$/i) || showImagePreview.includes("/raw/upload/")) ? (
                 <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(selectedOrder.bank_transfer_image)}&embedded=true`}
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(showImagePreview)}&embedded=true`}
                   title="Transfer Preview"
                   className="w-full h-[85vh] rounded"
                 />
               ) : (
-                <img src={selectedOrder.bank_transfer_image} alt="Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+                <img src={showImagePreview as string} alt="Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
               )
             )}
           </DialogContent>
