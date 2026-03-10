@@ -299,8 +299,9 @@ const CoinsSending = () => {
                     return (
                       <div key={idx} className="relative group border rounded-lg overflow-hidden">
                         {isPdf ? (
-                          <div className="w-full h-40 cursor-pointer" onClick={() => setShowImagePreview(imgUrl)}>
-                            <iframe src={imgUrl} title={`PDF ${idx + 1}`} className="w-full h-full pointer-events-none border-0" />
+                          <div className="w-full h-40 cursor-pointer flex flex-col items-center justify-center bg-muted/30 gap-2" onClick={() => setShowImagePreview(imgUrl)}>
+                            <FileText className="h-12 w-12 text-destructive/70" />
+                            <span className="text-xs text-muted-foreground">PDF {idx + 1}</span>
                           </div>
                         ) : (
                           <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setShowImagePreview(imgUrl)} />
