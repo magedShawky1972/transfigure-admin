@@ -3184,15 +3184,27 @@ const Dashboard = () => {
                     </div>
                   </th>
                   <th 
-                    className="text-center py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => handleCoinsSort('points_count')}
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('points_coins')}
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      {language === 'ar' ? 'عدد النقاط' : 'Points Count'}
-                      {coinsSortColumn === 'points_count' && (
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'كوينز النقاط' : 'Points Coins'}
+                      {coinsSortColumn === 'points_coins' && (
                         coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
                       )}
-                      {coinsSortColumn !== 'points_count' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                      {coinsSortColumn !== 'points_coins' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('points_usd')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'قيمة النقاط $' : 'Points USD$'}
+                      {coinsSortColumn === 'points_usd' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'points_usd' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </th>
                 </tr>
