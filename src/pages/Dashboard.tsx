@@ -3246,6 +3246,9 @@ const Dashboard = () => {
                         maximumFractionDigits: 2,
                       }).format(coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0))}
                     </td>
+                    <td className="text-center py-3 px-4 text-lg">
+                      {new Intl.NumberFormat('en-US').format(coinsByBrand.reduce((sum, item) => sum + (item.points_count || 0), 0))}
+                    </td>
                   </tr>
                 </tfoot>
               )}
