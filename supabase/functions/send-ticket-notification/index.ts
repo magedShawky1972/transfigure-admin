@@ -663,6 +663,9 @@ const handler = async (req: Request): Promise<Response> => {
       } else if (type === "ticket_assigned") {
         activityType = "ticket_assigned";
         activityDescription = `تم تعيين التذكرة إلى ${profile.user_name}`;
+      } else if (type === "ticket_rejected") {
+        activityType = "ticket_rejected";
+        activityDescription = `تم رفض التذكرة وتم إرسال إشعار إلى ${profile.user_name}`;
       } else {
         activityDescription = `تم إرسال إشعار إلى ${profile.user_name}`;
       }
