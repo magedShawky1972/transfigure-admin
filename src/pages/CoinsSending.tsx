@@ -299,8 +299,9 @@ const CoinsSending = () => {
                     return (
                       <div key={idx} className="relative group border rounded-lg overflow-hidden">
                         {isPdf ? (
-                          <div className="w-full h-40 cursor-pointer" onClick={() => setShowImagePreview(imgUrl)}>
-                            <iframe src={imgUrl} title={`PDF ${idx + 1}`} className="w-full h-full pointer-events-none border-0" />
+                          <div className="w-full h-40 cursor-pointer flex flex-col items-center justify-center bg-muted/30 gap-2" onClick={() => setShowImagePreview(imgUrl)}>
+                            <FileText className="h-12 w-12 text-destructive/70" />
+                            <span className="text-xs text-muted-foreground">PDF {idx + 1}</span>
                           </div>
                         ) : (
                           <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setShowImagePreview(imgUrl)} />
@@ -356,11 +357,15 @@ const CoinsSending = () => {
               typeof showImagePreview === 'string' && (showImagePreview.match(/\.pdf($|\?)/i) || showImagePreview.includes("/raw/upload/")) ? (
                 <div className="w-full">
                   <iframe
-                    src={showImagePreview}
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(showImagePreview)}&embedded=true`}
                     title="Transfer Preview"
-                    className="w-full h-[80vh] rounded"
+                    className="w-full h-[80vh] rounded border-0"
                   />
-                  <div className="mt-2 flex justify-end">
+                  <div className="mt-2 flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => downloadFile(showImagePreview, 'bank-transfer')}>
+                      <Download className="h-4 w-4 mr-1" />
+                      {isArabic ? "تحميل" : "Download"}
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => window.open(showImagePreview, "_blank")}>
                       {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
                     </Button>
