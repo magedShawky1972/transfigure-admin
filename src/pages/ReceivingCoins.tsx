@@ -108,7 +108,7 @@ const ReceivingCoins = () => {
   // Track the linked purchase order to fetch receiving images
   const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState<string | null>(null);
   // Bank transfer image & sending phase attachments from purchase order
-  const [bankTransferImage, setBankTransferImage] = useState("");
+  const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [sendingAttachments, setSendingAttachments] = useState<{ id: string; file_name: string; file_url: string; file_type: string | null; uploaded_by_name: string | null }[]>([]);
 
   useEffect(() => {
