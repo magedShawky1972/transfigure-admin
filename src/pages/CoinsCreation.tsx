@@ -290,7 +290,7 @@ const CoinsCreation = () => {
         exchange_rate: parseFloat(exchangeRate) || 1,
         amount_in_currency: totalInCurrency,
         base_amount_sar: totalBaseSar,
-        bank_transfer_image: bankTransferImage,
+        bank_transfer_image: JSON.stringify(bankTransferImages),
         bank_transfer_fee: parseFloat(bankTransferFee) || 0,
         transfer_date: transferDate ? format(transferDate, "yyyy-MM-dd") : null,
         notes,
