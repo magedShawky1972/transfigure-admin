@@ -1783,6 +1783,19 @@ const TicketDetails = () => {
                     {language === 'ar' ? 'بواسطة:' : 'By:'} {(ticket as any).returned_by}
                   </p>
                 )}
+                {isTicketOwner && (
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => {
+                      setClarificationReplyOpen(true);
+                      setClarificationReplyText("");
+                    }}
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {language === 'ar' ? 'الرد على التوضيح' : 'Reply to Clarification'}
+                  </Button>
+                )}
               </div>
             )}
 
