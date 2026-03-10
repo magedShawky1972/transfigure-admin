@@ -1131,13 +1131,13 @@ const Dashboard = () => {
             acc[brand] = {
               brand_name: brand,
               total_coins: 0,
-              points_count: 0,
+              points_coins: 0,
               usd_value: brandsMap.get(brand) || 0
             };
           }
           acc[brand].total_coins += coins;
           if (isPoint) {
-            acc[brand].points_count += 1;
+            acc[brand].points_coins += coins;
           }
           return acc;
         }, {});
