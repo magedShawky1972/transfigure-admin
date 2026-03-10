@@ -1205,8 +1205,67 @@ const TicketDetails = () => {
     }
   };
 
+  const handleClarificationReply = async () => {
+    if (!ticket || !clarificationReplyText.trim()) return;
+    try {
+      setSendingClarificationReply(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-  const getPriorityColor = (priority: string) => {
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Clear returned flag
+      await supabase.from("tickets").update({
+        returned_for_clarification: false,
+        returned_comment: null,
+        returned_by: null,
+        returned_at: null,
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `رد على طلب التوضيح: ${clarificationReplyText}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "clarification_reply",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "clarification_reply",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        description: `رد على طلب التوضيح: ${clarificationReplyText}`,
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الإرسال' : 'Sent',
+        description: language === 'ar' ? 'تم إرسال الرد وإعادة التذكرة للموافقة' : 'Reply sent, ticket returned for approval',
+      });
+
+      setClarificationReplyOpen(false);
+      setClarificationReplyText("");
+      fetchTicket();
+      fetchWorkflowNotes();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingClarificationReply(false);
+    }
+  };
+
+
     switch (priority) {
       case "Urgent": return "destructive";
       case "High": return "destructive";
