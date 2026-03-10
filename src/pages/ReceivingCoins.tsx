@@ -799,7 +799,7 @@ const ReceivingCoins = () => {
           supabase.from("coins_purchase_attachments").select("id, file_name, file_url, file_type, uploaded_by_name").eq("purchase_order_id", h.purchase_order_id).eq("phase", "sending"),
         ]);
         setOrderNumber(orderDataRes.data?.order_number || "");
-        setBankTransferImage(orderDataRes.data?.bank_transfer_image || "");
+        setBankTransferImages(parseBankTransferImages(orderDataRes.data?.bank_transfer_image));
         setSendingAttachments(sendingAttsRes.data || []);
         
         // Load per-brand control amounts
