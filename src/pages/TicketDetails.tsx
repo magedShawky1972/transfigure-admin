@@ -1126,6 +1126,80 @@ const TicketDetails = () => {
     }
   };
 
+  const handleSendBack = async () => {
+    if (!ticket || !sendBackComment.trim()) return;
+
+    try {
+      setSendingBack(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Update ticket status
+      await supabase.from("tickets").update({
+        returned_for_clarification: true,
+        returned_by: userProfile?.user_name || user.id,
+        returned_at: new Date().toISOString(),
+        returned_comment: sendBackComment,
+        status: "Open",
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم إرجاع التذكرة للتوضيح: ${sendBackComment}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "returned_for_clarification",
+      });
+
+      // Log activity
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "ticket_returned",
+        user_id: user.id,
+        user_name: userProfile?.user_name,
+        recipient_id: ticket.user_id,
+        recipient_name: ticket.profiles.user_name,
+        description: `تم إرجاع التذكرة للتوضيح بواسطة ${userProfile?.user_name}: ${sendBackComment}`,
+      });
+
+      // Send notification + email to ticket creator
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_returned",
+          ticketId: ticket.id,
+          recipientUserId: ticket.user_id,
+          returnComment: sendBackComment,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إرجاع التذكرة لصاحبها للتوضيح' : 'Ticket sent back for clarification',
+      });
+
+      setSendBackDialogOpen(false);
+      setSendBackComment("");
+      fetchTicket();
+      fetchWorkflowNotes();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingBack(false);
+    }
+  
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
