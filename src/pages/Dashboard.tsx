@@ -2262,6 +2262,8 @@ const Dashboard = () => {
                   <th>${t("dashboard.brandName")}</th>
                   <th class="text-right">${t("dashboard.totalCoins")}</th>
                   <th class="text-right">USD$</th>
+                  <th class="text-right">${language === 'ar' ? 'كوينز النقاط' : 'Points Coins'}</th>
+                  <th class="text-right">${language === 'ar' ? 'قيمة النقاط $' : 'Points USD$'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2270,12 +2272,16 @@ const Dashboard = () => {
                     <td>${item.brand_name}</td>
                     <td class="text-right">${item.total_coins.toLocaleString()}</td>
                     <td class="text-right">${item.usd_value > 0 ? '$' + item.usd_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
+                    <td class="text-right">${(item.points_coins || 0).toLocaleString()}</td>
+                    <td class="text-right">${item.usd_value > 0 ? '$' + (item.points_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
                   </tr>
                 `).join('')}
                 <tr class="total-row">
                   <td>${language === 'ar' ? 'الإجمالي' : 'Total'}</td>
                   <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + item.total_coins, 0).toLocaleString()}</td>
                   <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + (item.points_coins || 0), 0).toLocaleString()}</td>
+                  <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.points_usd || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
               </tbody>
             </table>
