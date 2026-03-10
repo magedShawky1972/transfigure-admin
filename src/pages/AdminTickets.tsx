@@ -1241,8 +1241,6 @@ const AdminTickets = () => {
   };
 
   const filteredTickets = tickets.filter(ticket => {
-    // Hide tickets returned for clarification until sender replies
-    if ((ticket as any).returned_for_clarification) return false;
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
     if (filterDepartment !== "all" && ticket.department_id !== filterDepartment) return false;
