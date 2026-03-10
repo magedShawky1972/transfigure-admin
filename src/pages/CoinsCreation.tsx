@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 import CoinsPhaseSteps from "@/components/CoinsPhaseSteps";
@@ -56,12 +57,12 @@ const CoinsCreation = () => {
   const [currencyId, setCurrencyId] = useState("");
   const [exchangeRate, setExchangeRate] = useState("1");
   const [notes, setNotes] = useState("");
-  const [bankTransferImage, setBankTransferImage] = useState("");
+  const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [bankTransferFee, setBankTransferFee] = useState("");
   const [transferDate, setTransferDate] = useState<Date | undefined>();
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrderPhase, setSelectedOrderPhase] = useState<string>("creation");
 
@@ -195,26 +196,29 @@ const CoinsCreation = () => {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setUploading(true);
     try {
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
-      const publicId = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
-        body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
-      });
-      if (error) throw error;
-      if (!data?.url) throw new Error("Upload failed");
-      setBankTransferImage(data.url);
-      toast.success(isArabic ? "تم رفع الملف بنجاح" : "File uploaded successfully");
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        const isImage = file.type.startsWith("image/");
+        const isVideo = file.type.startsWith("video/");
+        const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
+        const publicId = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
+          body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
+        });
+        if (error) throw error;
+        if (!data?.url) throw new Error("Upload failed");
+        setBankTransferImages(prev => [...prev, data.url]);
+      }
+      toast.success(isArabic ? "تم رفع الملفات بنجاح" : "Files uploaded successfully");
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
@@ -271,7 +275,7 @@ const CoinsCreation = () => {
       toast.error(isArabic ? "يرجى إضافة سطر واحد على الأقل" : "Please add at least one line");
       return;
     }
-    if (!bankTransferImage) {
+    if (bankTransferImages.length === 0) {
       toast.error(isArabic ? "يرجى رفع صورة التحويل البنكي" : "Please upload the bank transfer image");
       return;
     }
@@ -287,7 +291,7 @@ const CoinsCreation = () => {
         exchange_rate: parseFloat(exchangeRate) || 1,
         amount_in_currency: totalInCurrency,
         base_amount_sar: totalBaseSar,
-        bank_transfer_image: bankTransferImage,
+        bank_transfer_image: JSON.stringify(bankTransferImages),
         bank_transfer_fee: parseFloat(bankTransferFee) || 0,
         transfer_date: transferDate ? format(transferDate, "yyyy-MM-dd") : null,
         notes,
@@ -413,7 +417,7 @@ const CoinsCreation = () => {
   const resetForm = () => {
     loadedOrderRateRef.current = null;
     setSupplierId(""); setBankId(""); setCurrencyId("");
-    setExchangeRate("1"); setNotes(""); setBankTransferImage("");
+    setExchangeRate("1"); setNotes(""); setBankTransferImages([]);
     setBankTransferFee(""); setTransferDate(undefined); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
   };
 
@@ -446,7 +450,7 @@ const CoinsCreation = () => {
       setCurrencyId(data.currency_id || "");
       setExchangeRate(String(data.exchange_rate || 1));
       setNotes(data.notes || "");
-      setBankTransferImage(data.bank_transfer_image || "");
+      setBankTransferImages(parseBankTransferImages(data.bank_transfer_image));
       setBankTransferFee(String(data.bank_transfer_fee || ""));
       setTransferDate(data.transfer_date ? new Date(data.transfer_date + "T00:00:00") : undefined);
 
@@ -641,37 +645,46 @@ const CoinsCreation = () => {
         </Card>
       )}
 
-      {/* Bank Transfer Image Upload */}
+      {/* Bank Transfer Images Upload */}
       <Card>
-        <CardHeader><CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{isArabic ? "صور / ملفات التحويل البنكي" : "Bank Transfer Files"}</CardTitle></CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center gap-4">
-            {bankTransferImage ? (
-              <div className="relative">
-                {bankTransferImage.match(/\.pdf$/i) || bankTransferImage.includes("/raw/upload/") ? (
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
-                    title="Bank Transfer"
-                    className="w-full h-[400px] rounded-lg border"
-                  />
-                ) : (
-                  <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
-                )}
-                <div className="absolute top-2 left-2 z-10 flex gap-1">
-                  <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => setShowImagePreview(true)}>
-                    <Maximize2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2 z-10" onClick={() => setBankTransferImage("")}>✕</Button>}
+          <div className="space-y-4">
+            {bankTransferImages.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {bankTransferImages.map((imgUrl, idx) => (
+                  <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                    {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
+                      <div className="flex flex-col items-center justify-center h-40 bg-muted/30">
+                        <FileText className="h-10 w-10 text-red-500 mb-1" />
+                        <span className="text-xs text-muted-foreground">PDF</span>
+                      </div>
+                    ) : (
+                      <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
+                    )}
+                    <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
+                        <Maximize2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {!isReadOnly && (
+                      <Button variant="destructive" size="icon" className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBankTransferImages(prev => prev.filter((_, i) => i !== idx))}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ) : !isReadOnly ? (
-              <label className="flex flex-col items-center justify-center text-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
-                <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                <span className="text-muted-foreground">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع ملف التحويل" : "Click to upload transfer file")}</span>
-                <input type="file" accept="*/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+            )}
+            {!isReadOnly && (
+              <label className="flex flex-col items-center justify-center text-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
+                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                <span className="text-muted-foreground text-sm">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع ملفات التحويل (يمكن اختيار عدة ملفات)" : "Click to upload transfer files (multiple allowed)")}</span>
+                <input type="file" accept="*/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploading} />
               </label>
-            ) : (
-              <span className="text-muted-foreground">{isArabic ? "لا توجد صورة" : "No image"}</span>
+            )}
+            {bankTransferImages.length === 0 && isReadOnly && (
+              <span className="text-muted-foreground">{isArabic ? "لا توجد ملفات" : "No files"}</span>
             )}
           </div>
         </CardContent>
@@ -855,17 +868,17 @@ const CoinsCreation = () => {
       )}
 
       {/* Maximize preview dialog */}
-      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+      <Dialog open={!!previewImageUrl} onOpenChange={(open) => { if (!open) setPreviewImageUrl(null); }}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
-          {bankTransferImage && (
-            bankTransferImage.match(/\.pdf$/i) || bankTransferImage.includes("/raw/upload/") ? (
+          {previewImageUrl && (
+            previewImageUrl.match(/\.pdf$/i) || previewImageUrl.includes("/raw/upload/") ? (
               <iframe
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
                 title="Bank Transfer Preview"
                 className="w-full h-[85vh] rounded"
               />
             ) : (
-              <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+              <img src={previewImageUrl} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
             )
           )}
         </DialogContent>

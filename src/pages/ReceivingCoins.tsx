@@ -14,6 +14,7 @@ import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, 
 import ExcelJS from "exceljs";
 import CoinsPhaseFilterBar from "@/components/CoinsPhaseFilterBar";
 import { downloadFile } from "@/lib/fileDownload";
+import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
@@ -107,7 +108,7 @@ const ReceivingCoins = () => {
   // Track the linked purchase order to fetch receiving images
   const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState<string | null>(null);
   // Bank transfer image & sending phase attachments from purchase order
-  const [bankTransferImage, setBankTransferImage] = useState("");
+  const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [sendingAttachments, setSendingAttachments] = useState<{ id: string; file_name: string; file_url: string; file_type: string | null; uploaded_by_name: string | null }[]>([]);
 
   useEffect(() => {
@@ -176,7 +177,7 @@ const ReceivingCoins = () => {
       if (order.currency_id) setCurrencyId(order.currency_id);
       if (order.exchange_rate) setExchangeRate(String(order.exchange_rate));
       setControlAmount(String(parseFloat(String(order.amount_in_currency || "0"))));
-      setBankTransferImage(order.bank_transfer_image || "");
+      setBankTransferImages(parseBankTransferImages(order.bank_transfer_image));
       setLinkedPurchaseOrderId(orderId);
       // Load sending phase attachments
       const { data: sendingAtts } = await supabase
@@ -487,7 +488,7 @@ const ReceivingCoins = () => {
     setOrderNumber("");
     setLinkedPurchaseOrderId(null);
     setReceivingImages({});
-    setBankTransferImage("");
+    setBankTransferImages([]);
     setSendingAttachments([]);
     setConfirmedBrands({});
     setBrandControlAmounts({});
@@ -798,7 +799,7 @@ const ReceivingCoins = () => {
           supabase.from("coins_purchase_attachments").select("id, file_name, file_url, file_type, uploaded_by_name").eq("purchase_order_id", h.purchase_order_id).eq("phase", "sending"),
         ]);
         setOrderNumber(orderDataRes.data?.order_number || "");
-        setBankTransferImage(orderDataRes.data?.bank_transfer_image || "");
+        setBankTransferImages(parseBankTransferImages(orderDataRes.data?.bank_transfer_image));
         setSendingAttachments(sendingAttsRes.data || []);
         
         // Load per-brand control amounts
@@ -1259,29 +1260,34 @@ const ReceivingCoins = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Bank Transfer Document (from Sending phase) */}
-          {bankTransferImage && (
+          {/* Bank Transfer Documents (from Sending phase) */}
+          {bankTransferImages.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                {isArabic ? "مستند التحويل البنكي" : "Bank Transfer Document"}
+                {isArabic ? "مستندات التحويل البنكي" : "Bank Transfer Documents"}
               </h4>
-              <div className="max-w-md">
-                {bankTransferImage.match(/\.pdf($|\?)/i) || bankTransferImage.includes("/raw/upload/") ? (
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
-                    title="Bank Transfer"
-                    className="w-full h-[300px] rounded-lg border"
-                  />
-                ) : (
-                  <a href={bankTransferImage} target="_blank" rel="noopener noreferrer">
-                    <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-64 rounded-lg border object-contain" />
-                  </a>
-                )}
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
-                  <Download className="h-4 w-4 mr-1" />
-                  {isArabic ? "تحميل الملف" : "Download File"}
-                </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {bankTransferImages.map((imgUrl, idx) => (
+                  <div key={idx} className="border rounded-lg overflow-hidden">
+                    {imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/") ? (
+                      <div className="flex flex-col items-center justify-center h-40 bg-muted/30">
+                        <FileText className="h-10 w-10 text-destructive mb-1" />
+                        <span className="text-xs text-muted-foreground">PDF</span>
+                      </div>
+                    ) : (
+                      <a href={imgUrl} target="_blank" rel="noopener noreferrer">
+                        <img src={imgUrl} alt={`Bank Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
+                      </a>
+                    )}
+                    <div className="p-2">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
+                        <Download className="h-4 w-4 mr-1" />
+                        {isArabic ? "تحميل" : "Download"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
