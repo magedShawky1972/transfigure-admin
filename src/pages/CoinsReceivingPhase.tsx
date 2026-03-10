@@ -499,19 +499,29 @@ const CoinsReceivingPhase = () => {
                 {bankTransferImages.map((imgUrl, idx) => {
                   const isPdf = imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/");
                   return (
-                    <div key={idx} className="border rounded-lg overflow-hidden">
+                     <div key={idx} className="border rounded-lg overflow-hidden">
                       {isPdf ? (
-                        <div className="w-full h-40 flex flex-col items-center justify-center bg-muted/30 gap-2">
+                        <div 
+                          className="w-full h-40 flex flex-col items-center justify-center bg-muted/30 gap-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setPreviewImageUrl(imgUrl)}
+                        >
                           <FileText className="h-12 w-12 text-destructive/70" />
                           <span className="text-xs text-muted-foreground">PDF {idx + 1}</span>
                         </div>
                       ) : (
-                        <a href={imgUrl} target="_blank" rel="noopener noreferrer">
-                          <img src={imgUrl} alt={`Bank Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
-                        </a>
+                        <img 
+                          src={imgUrl} 
+                          alt={`Bank Transfer ${idx + 1}`} 
+                          className="w-full h-40 object-cover cursor-pointer hover:opacity-80 transition-opacity" 
+                          onClick={() => setPreviewImageUrl(imgUrl)}
+                        />
                       )}
-                      <div className="p-2">
-                        <Button variant="outline" size="sm" className="w-full" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
+                      <div className="p-2 flex gap-1">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => setPreviewImageUrl(imgUrl)}>
+                          <Maximize2 className="h-4 w-4 mr-1" />
+                          {isArabic ? "تكبير" : "Maximize"}
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
                           <Download className="h-4 w-4 mr-1" />
                           {isArabic ? "تحميل" : "Download"}
                         </Button>
