@@ -718,6 +718,8 @@ const CoinsReceivingPhase = () => {
                   <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
                   <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
+                  <TableHead>{isArabic ? "مستلم بواسطة" : "Received By"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ الاستلام" : "Received Date"}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
