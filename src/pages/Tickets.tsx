@@ -716,8 +716,65 @@ const Tickets = () => {
       });
     }
   };
+  const handleReplyClarification = async () => {
+    const ticket = clarificationReplyDialog.ticket;
+    if (!ticket || !clarificationReply.trim()) return;
 
-  const getApprovalBadge = (ticket: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Clear the returned flag so it goes back to admin
+      await supabase.from("tickets").update({
+        returned_for_clarification: false,
+        returned_comment: null,
+        returned_by: null,
+        returned_at: null,
+      }).eq("id", ticket.id);
+
+      // Add workflow note with the reply
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `رد على طلب التوضيح: ${clarificationReply}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "clarification_reply",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "clarification_reply",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        description: `رد على طلب التوضيح: ${clarificationReply}`,
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الإرسال' : 'Sent',
+        description: language === 'ar' ? 'تم إرسال الرد بنجاح وإعادة التذكرة للموافقة' : 'Reply sent and ticket returned for approval',
+      });
+
+      setClarificationReplyDialog({ open: false, ticket: null });
+      setClarificationReply("");
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+
     if (ticket.status === "Rejected") {
       return (
         <Badge variant="destructive">
