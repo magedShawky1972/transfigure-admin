@@ -275,30 +275,8 @@ const EmployeeSelfRequests = () => {
         .eq('year', currentYear),
     ]);
 
-    const existingCodeIds = new Set((existingTypes || []).map((t: any) => t.vacation_code_id));
-    const missingCodes = (allCodes || []).filter((c: any) => !existingCodeIds.has(c.id));
-
-    // Auto-create missing vacation type records with default balance
-    if (missingCodes.length > 0) {
-      const newRecords = missingCodes.map((code: any) => ({
-        employee_id: employeeId,
-        vacation_code_id: code.id,
-        balance: code.default_days || 0,
-        used_days: 0,
-        year: currentYear,
-      }));
-      await supabase.from('employee_vacation_types').insert(newRecords);
-
-      // Re-fetch after insert
-      const { data: refreshed } = await supabase
-        .from('employee_vacation_types')
-        .select('id, vacation_code_id, balance, used_days, vacation_codes(name_en, name_ar)')
-        .eq('employee_id', employeeId)
-        .eq('year', currentYear);
-      setVacationBalances(refreshed || []);
-    } else {
-      setVacationBalances(existingTypes || []);
-    }
+    // Only show vacation types that are already assigned to this employee
+    setVacationBalances(existingTypes || []);
 
     setVacationCodeId(''); // Reset vacation code when employee changes
   };
