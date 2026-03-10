@@ -660,10 +660,10 @@ const CoinsCreation = () => {
                 {bankTransferImages.map((imgUrl, idx) => (
                   <div key={idx} className="relative group border rounded-lg overflow-hidden">
                     {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
-                      <div className="flex flex-col items-center justify-center h-40 bg-muted/30">
-                        <FileText className="h-10 w-10 text-red-500 mb-1" />
+                      <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center h-40 bg-muted/30 cursor-pointer hover:bg-muted/50">
+                        <FileText className="h-10 w-10 text-destructive mb-1" />
                         <span className="text-xs text-muted-foreground">PDF</span>
-                      </div>
+                      </a>
                     ) : (
                       <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
                     )}
