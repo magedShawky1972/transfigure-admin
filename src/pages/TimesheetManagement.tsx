@@ -129,6 +129,8 @@ export default function TimesheetManagement() {
     scheduled_end: "",
     actual_start: "",
     actual_end: "",
+    changed_start: "",
+    changed_end: "",
     break_duration_minutes: 0,
     is_absent: false,
     absence_reason: "",
@@ -581,6 +583,8 @@ export default function TimesheetManagement() {
       scheduled_end: "",
       actual_start: "",
       actual_end: "",
+      changed_start: "",
+      changed_end: "",
       break_duration_minutes: 0,
       is_absent: false,
       absence_reason: "",
@@ -598,6 +602,8 @@ export default function TimesheetManagement() {
       scheduled_end: timesheet.scheduled_end || "",
       actual_start: timesheet.actual_start || "",
       actual_end: timesheet.actual_end || "",
+      changed_start: (timesheet as any).changed_start || "",
+      changed_end: (timesheet as any).changed_end || "",
       break_duration_minutes: timesheet.break_duration_minutes || 0,
       is_absent: timesheet.is_absent,
       absence_reason: timesheet.absence_reason || "",
@@ -630,14 +636,15 @@ export default function TimesheetManagement() {
   // Calculate delay (late minutes) automatically based on actual vs scheduled start
   // Only count as delay if it exceeds the allowed late minutes
   const calculateDelay = (): number => {
-    if (!formData.scheduled_start || !formData.actual_start || formData.is_absent) return 0;
+    if (!formData.scheduled_start || formData.is_absent) return 0;
+    const effectiveStart = formData.changed_start || formData.actual_start;
+    if (!effectiveStart) return 0;
     
     const scheduledStart = parseISO(`${formData.work_date}T${formData.scheduled_start}`);
-    const actualStart = parseISO(`${formData.work_date}T${formData.actual_start}`);
+    const actualStart = parseISO(`${formData.work_date}T${effectiveStart}`);
     
     if (actualStart > scheduledStart) {
       const lateMinutes = differenceInMinutes(actualStart, scheduledStart);
-      // Subtract allowed late minutes - only count excess as delay
       const actualDelay = lateMinutes - allowLateMinutes;
       return actualDelay > 0 ? actualDelay : 0;
     }
@@ -647,14 +654,15 @@ export default function TimesheetManagement() {
   // Calculate early leave (left before scheduled end)
   // Only count as early leave if it exceeds the allowed early exit minutes
   const calculateEarlyLeave = (): number => {
-    if (!formData.scheduled_end || !formData.actual_end || formData.is_absent) return 0;
+    if (!formData.scheduled_end || formData.is_absent) return 0;
+    const effectiveEnd = formData.changed_end || formData.actual_end;
+    if (!effectiveEnd) return 0;
     
     const scheduledEnd = parseISO(`${formData.work_date}T${formData.scheduled_end}`);
-    const actualEnd = parseISO(`${formData.work_date}T${formData.actual_end}`);
+    const actualEnd = parseISO(`${formData.work_date}T${effectiveEnd}`);
     
     if (actualEnd < scheduledEnd) {
       const earlyMinutes = differenceInMinutes(scheduledEnd, actualEnd);
-      // Subtract allowed early exit minutes - only count excess as early leave
       const actualEarlyLeave = earlyMinutes - allowEarlyExitMinutes;
       return actualEarlyLeave > 0 ? actualEarlyLeave : 0;
     }
@@ -663,15 +671,16 @@ export default function TimesheetManagement() {
 
   // Calculate total attendance hours
   const calculateTotalHours = (): { hours: number; minutes: number } => {
-    if (!formData.actual_start || !formData.actual_end || formData.is_absent) {
-      return { hours: 0, minutes: 0 };
-    }
+    if (formData.is_absent) return { hours: 0, minutes: 0 };
+    const effectiveStart = formData.changed_start || formData.actual_start;
+    const effectiveEnd = formData.changed_end || formData.actual_end;
+    if (!effectiveStart || !effectiveEnd) return { hours: 0, minutes: 0 };
     
-    const actualStart = parseISO(`${formData.work_date}T${formData.actual_start}`);
-    const actualEnd = parseISO(`${formData.work_date}T${formData.actual_end}`);
+    const actualStart = parseISO(`${formData.work_date}T${effectiveStart}`);
+    const actualEnd = parseISO(`${formData.work_date}T${effectiveEnd}`);
     
     let totalMinutes = differenceInMinutes(actualEnd, actualStart);
-    totalMinutes -= formData.break_duration_minutes || 0; // Subtract break time
+    totalMinutes -= formData.break_duration_minutes || 0;
     
     if (totalMinutes < 0) totalMinutes = 0;
     
@@ -693,15 +702,26 @@ export default function TimesheetManagement() {
 
     try {
       const employee = employees.find((e) => e.id === formData.employee_id);
-      const calculations = calculateTimesheet(formData, employee);
+      
+      // Use changed times for calculations if provided, otherwise use actual
+      const calcData = {
+        ...formData,
+        actual_start: formData.changed_start || formData.actual_start,
+        actual_end: formData.changed_end || formData.actual_end,
+      };
+      const calculations = calculateTimesheet(calcData, employee);
 
-      const payload = {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const payload: any = {
         employee_id: formData.employee_id,
         work_date: formData.work_date,
         scheduled_start: formData.scheduled_start || null,
         scheduled_end: formData.scheduled_end || null,
         actual_start: formData.actual_start || null,
         actual_end: formData.actual_end || null,
+        changed_start: formData.changed_start || null,
+        changed_end: formData.changed_end || null,
         break_duration_minutes: formData.break_duration_minutes,
         is_absent: formData.is_absent,
         absence_reason: formData.absence_reason || null,
@@ -711,6 +731,12 @@ export default function TimesheetManagement() {
         deduction_notification_sent_at: null,
         ...calculations,
       };
+
+      // Track who made the change
+      if (formData.changed_start || formData.changed_end) {
+        payload.changed_by = user?.id || null;
+        payload.changed_at = new Date().toISOString();
+      }
 
       const { error } = await supabase.from("timesheets").upsert(payload, {
         onConflict: "employee_id,work_date",
@@ -1052,7 +1078,7 @@ export default function TimesheetManagement() {
                   <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("deduction", e.ctrlKey || e.metaKey)}>
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "نوع الخصم" : "Deduction Type"} {getSortIcon("deduction")}</span>
                   </TableHead>
-                  <TableHead>{language === "ar" ? "الخصم" : "Deduction"}</TableHead>
+                  <TableHead>{language === "ar" ? "الوقت المعدّل" : "Changed Time"}</TableHead>
                   <TableHead className="text-center">{language === "ar" ? "البريد" : "Mail Sent"}</TableHead>
                   <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("status", e.ctrlKey || e.metaKey)}>
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "الحالة" : "Status"} {getSortIcon("status")}</span>
@@ -1063,13 +1089,13 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 12 : 11} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 13 : 12} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 12 : 11} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 13 : 12} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
@@ -1111,6 +1137,11 @@ export default function TimesheetManagement() {
                       <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : ""}>
                         {ts.deduction_rules && ts.deduction_rules.deduction_value > 0
                           ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {(ts as any).changed_start || (ts as any).changed_end
+                          ? <span className="text-blue-600 font-medium">{`${(ts as any).changed_start || '-'} - ${(ts as any).changed_end || '-'}`}</span>
                           : "-"}
                       </TableCell>
                       <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : ""}>
@@ -1249,6 +1280,7 @@ export default function TimesheetManagement() {
                       type="time"
                       value={formData.actual_start}
                       onChange={(e) => setFormData({ ...formData, actual_start: e.target.value })}
+                      disabled={!!editingTimesheet}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1257,9 +1289,36 @@ export default function TimesheetManagement() {
                       type="time"
                       value={formData.actual_end}
                       onChange={(e) => setFormData({ ...formData, actual_end: e.target.value })}
+                      disabled={!!editingTimesheet}
                     />
                   </div>
                 </div>
+
+                {editingTimesheet && (
+                  <div className="grid grid-cols-2 gap-4 p-3 border border-blue-200 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+                    <div className="col-span-2">
+                      <Label className="text-blue-700 dark:text-blue-400 font-semibold text-xs">
+                        {language === "ar" ? "الوقت المعدّل (يُستخدم للحساب بدلاً من الفعلي)" : "Changed Time (used for calculation instead of actual)"}
+                      </Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "حضور معدّل" : "Changed In"}</Label>
+                      <Input
+                        type="time"
+                        value={formData.changed_start}
+                        onChange={(e) => setFormData({ ...formData, changed_start: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "انصراف معدّل" : "Changed Out"}</Label>
+                      <Input
+                        type="time"
+                        value={formData.changed_end}
+                        onChange={(e) => setFormData({ ...formData, changed_end: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Attendance Summary - Auto calculated */}
                 {(delayMinutes > 0 || earlyLeaveMinutes > 0 || (totalAttendance.hours > 0 || totalAttendance.minutes > 0)) && (
