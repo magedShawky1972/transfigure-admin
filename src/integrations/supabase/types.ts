@@ -8039,6 +8039,10 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           break_duration_minutes: number | null
+          changed_at: string | null
+          changed_by: string | null
+          changed_end: string | null
+          changed_start: string | null
           created_at: string
           deduction_amount: number | null
           deduction_notification_sent: boolean | null
@@ -8066,6 +8070,10 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           break_duration_minutes?: number | null
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_end?: string | null
+          changed_start?: string | null
           created_at?: string
           deduction_amount?: number | null
           deduction_notification_sent?: boolean | null
@@ -8093,6 +8101,10 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           break_duration_minutes?: number | null
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_end?: string | null
+          changed_start?: string | null
           created_at?: string
           deduction_amount?: number | null
           deduction_notification_sent?: boolean | null
