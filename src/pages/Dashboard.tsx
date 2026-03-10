@@ -1465,7 +1465,7 @@ const Dashboard = () => {
     setBrandProducts(sorted);
   };
   
-  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost') => {
+  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_count') => {
     const newDirection = coinsSortColumn === column && coinsSortDirection === 'asc' ? 'desc' : 'asc';
     setCoinsSortColumn(column);
     setCoinsSortDirection(newDirection);
