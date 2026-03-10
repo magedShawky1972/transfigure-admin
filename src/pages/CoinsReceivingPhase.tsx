@@ -712,6 +712,7 @@ const CoinsReceivingPhase = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
                   <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
                   <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
@@ -726,7 +727,7 @@ const CoinsReceivingPhase = () => {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                     <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                     <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                       {isArabic ? "لا توجد طلبات للاستلام" : "No orders pending receiving"}
                     </TableCell>
                   </TableRow>
@@ -736,6 +737,7 @@ const CoinsReceivingPhase = () => {
                   return (
                   <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                     <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
+                    <TableCell>{o.transfer_date ? format(new Date(o.transfer_date), "yyyy-MM-dd") : "-"}</TableCell>
                     <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
                     <TableCell>{(o as any).suppliers?.supplier_name || "-"}</TableCell>
                     <TableCell>{o.currencies?.currency_code || "-"}</TableCell>
