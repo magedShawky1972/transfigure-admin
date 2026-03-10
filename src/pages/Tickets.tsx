@@ -1535,6 +1535,35 @@ const Tickets = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                {/* Returned for Clarification Banner */}
+                {ticket.returned_for_clarification && (
+                  <div className="mb-3 p-3 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg space-y-2">
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      {language === 'ar' ? '↩️ مطلوب توضيح إضافي' : '↩️ Clarification Requested'}
+                    </p>
+                    {ticket.returned_comment && (
+                      <p className="text-xs text-amber-600 dark:text-amber-300">
+                        <strong>{language === 'ar' ? 'الملاحظة:' : 'Note:'}</strong> {ticket.returned_comment}
+                      </p>
+                    )}
+                    {ticket.returned_by && (
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? 'بواسطة:' : 'By:'} {ticket.returned_by}
+                      </p>
+                    )}
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setClarificationReplyDialog({ open: true, ticket });
+                        setClarificationReply("");
+                      }}
+                    >
+                      <Send className="mr-1 h-3 w-3" />
+                      {language === 'ar' ? 'الرد على التوضيح' : 'Reply to Clarification'}
+                    </Button>
+                  </div>
+                )}
                 <div className="flex items-start gap-2 mb-3 sm:mb-4">
                   <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 flex-1">
                     {ticket.description}
