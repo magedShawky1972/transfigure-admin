@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus, Download, FileText } from "lucide-react";
 import { downloadFile } from "@/lib/fileDownload";
+import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { format } from "date-fns";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
