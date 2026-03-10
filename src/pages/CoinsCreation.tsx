@@ -662,8 +662,14 @@ const CoinsCreation = () => {
                         <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)} />
                       )}
                       <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)} title={isArabic ? "تكبير" : "Maximize"}>
                           <Maximize2 className="h-3 w-3" />
+                        </Button>
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => downloadFile(imgUrl, `transfer-${idx + 1}`)} title={isArabic ? "تحميل" : "Download"}>
+                          <Download className="h-3 w-3" />
+                        </Button>
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => window.open(imgUrl, "_blank")} title={isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}>
+                          <ExternalLink className="h-3 w-3" />
                         </Button>
                       </div>
                       {!isReadOnly && (
