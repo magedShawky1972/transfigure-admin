@@ -416,7 +416,7 @@ const CoinsCreation = () => {
   const resetForm = () => {
     loadedOrderRateRef.current = null;
     setSupplierId(""); setBankId(""); setCurrencyId("");
-    setExchangeRate("1"); setNotes(""); setBankTransferImage("");
+    setExchangeRate("1"); setNotes(""); setBankTransferImages([]);
     setBankTransferFee(""); setTransferDate(undefined); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
   };
 
