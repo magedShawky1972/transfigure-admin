@@ -946,7 +946,7 @@ switch (type) {
 
     case "ticket_returned":
       emailSubject = `طلب توضيح - ${ticketTypeSubject}`;
-      const returnComment = (ticketDetails as any).returnComment || '';
+      const returnComment = ticketDetails.returnComment || '';
       emailHtml = `
         <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
           <h2 style="color: #D97706;">طلب توضيح إضافي</h2>
