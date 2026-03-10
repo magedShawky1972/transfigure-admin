@@ -727,40 +727,40 @@ const CoinsCreation = () => {
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
-              {isReadOnly ? (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal bg-muted cursor-not-allowed"
-                  disabled
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {transferDate ? format(transferDate, "yyyy-MM-dd") : "-"}
-                </Button>
-              ) : (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !transferDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {transferDate ? format(transferDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={transferDate}
-                      onSelect={setTransferDate}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              )}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !transferDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {transferDate ? format(transferDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={transferDate}
+                    onSelect={(date) => {
+                      setTransferDate(date);
+                      if (isReadOnly && selectedOrderId && date) {
+                        supabase.from("coins_purchase_orders")
+                          .update({ transfer_date: format(date, "yyyy-MM-dd") })
+                          .eq("id", selectedOrderId)
+                          .then(({ error }) => {
+                            if (error) toast.error(isArabic ? "فشل حفظ التاريخ" : "Failed to save date");
+                            else toast.success(isArabic ? "تم تحديث تاريخ التحويل" : "Transfer date updated");
+                          });
+                      }
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "رسوم التحويل البنكي" : "Bank Transfer Fee"}</Label>
