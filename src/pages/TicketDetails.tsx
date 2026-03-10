@@ -1703,6 +1703,25 @@ const TicketDetails = () => {
               </>
             )}
 
+            {/* Returned for Clarification Status */}
+            {(ticket as any).returned_for_clarification && (
+              <div className="p-4 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg space-y-2">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  {language === 'ar' ? '↩️ تم إرجاع التذكرة للتوضيح' : '↩️ Returned for Clarification'}
+                </p>
+                {(ticket as any).returned_comment && (
+                  <p className="text-sm text-amber-600 dark:text-amber-300">
+                    <strong>{language === 'ar' ? 'الملاحظة:' : 'Note:'}</strong> {(ticket as any).returned_comment}
+                  </p>
+                )}
+                {(ticket as any).returned_by && (
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'ar' ? 'بواسطة:' : 'By:'} {(ticket as any).returned_by}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Extra Approval Pending Status */}
             {(ticket as any).extra_approval_status === 'pending' && (
               <div className="p-4 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg">
