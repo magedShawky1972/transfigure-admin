@@ -651,37 +651,46 @@ const CoinsCreation = () => {
         </Card>
       )}
 
-      {/* Bank Transfer Image Upload */}
+      {/* Bank Transfer Images Upload */}
       <Card>
-        <CardHeader><CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{isArabic ? "صور / ملفات التحويل البنكي" : "Bank Transfer Files"}</CardTitle></CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center gap-4">
-            {bankTransferImage ? (
-              <div className="relative">
-                {bankTransferImage.match(/\.pdf$/i) || bankTransferImage.includes("/raw/upload/") ? (
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
-                    title="Bank Transfer"
-                    className="w-full h-[400px] rounded-lg border"
-                  />
-                ) : (
-                  <img src={bankTransferImage} alt="Bank Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
-                )}
-                <div className="absolute top-2 left-2 z-10 flex gap-1">
-                  <Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => setShowImagePreview(true)}>
-                    <Maximize2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                {!isReadOnly && <Button variant="destructive" size="sm" className="absolute top-2 right-2 z-10" onClick={() => setBankTransferImage("")}>✕</Button>}
+          <div className="space-y-4">
+            {bankTransferImages.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {bankTransferImages.map((imgUrl, idx) => (
+                  <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                    {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
+                      <div className="flex flex-col items-center justify-center h-40 bg-muted/30">
+                        <FileText className="h-10 w-10 text-red-500 mb-1" />
+                        <span className="text-xs text-muted-foreground">PDF</span>
+                      </div>
+                    ) : (
+                      <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
+                    )}
+                    <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
+                        <Maximize2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    {!isReadOnly && (
+                      <Button variant="destructive" size="icon" className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBankTransferImages(prev => prev.filter((_, i) => i !== idx))}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ) : !isReadOnly ? (
-              <label className="flex flex-col items-center justify-center text-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
-                <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                <span className="text-muted-foreground">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع ملف التحويل" : "Click to upload transfer file")}</span>
-                <input type="file" accept="*/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+            )}
+            {!isReadOnly && (
+              <label className="flex flex-col items-center justify-center text-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
+                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                <span className="text-muted-foreground text-sm">{uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "اضغط لرفع ملفات التحويل (يمكن اختيار عدة ملفات)" : "Click to upload transfer files (multiple allowed)")}</span>
+                <input type="file" accept="*/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploading} />
               </label>
-            ) : (
-              <span className="text-muted-foreground">{isArabic ? "لا توجد صورة" : "No image"}</span>
+            )}
+            {bankTransferImages.length === 0 && isReadOnly && (
+              <span className="text-muted-foreground">{isArabic ? "لا توجد ملفات" : "No files"}</span>
             )}
           </div>
         </CardContent>
