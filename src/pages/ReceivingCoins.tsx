@@ -177,7 +177,7 @@ const ReceivingCoins = () => {
       if (order.currency_id) setCurrencyId(order.currency_id);
       if (order.exchange_rate) setExchangeRate(String(order.exchange_rate));
       setControlAmount(String(parseFloat(String(order.amount_in_currency || "0"))));
-      setBankTransferImage(order.bank_transfer_image || "");
+      setBankTransferImages(parseBankTransferImages(order.bank_transfer_image));
       setLinkedPurchaseOrderId(orderId);
       // Load sending phase attachments
       const { data: sendingAtts } = await supabase
