@@ -1433,6 +1433,7 @@ const AdminTickets = () => {
             <SelectContent>
               <SelectItem value="Open">{language === 'ar' ? 'مفتوح' : 'Open'}</SelectItem>
               <SelectItem value="In Progress">{language === 'ar' ? 'قيد المعالجة' : 'In Progress'}</SelectItem>
+              <SelectItem value="Rejected">{language === 'ar' ? 'مرفوض' : 'Rejected'}</SelectItem>
               <SelectItem value="Closed">{language === 'ar' ? 'مغلق' : 'Closed'}</SelectItem>
               <SelectItem value="Cancelled">{language === 'ar' ? 'ملغي' : 'Cancelled'}</SelectItem>
             </SelectContent>
