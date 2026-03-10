@@ -1506,6 +1506,15 @@ const AdminTickets = () => {
           <Button
             variant="outline"
             size="sm"
+            className="h-8 text-xs sm:text-sm text-orange-600 border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+            onClick={() => setSendBackDialog({ open: true, ticket })}
+          >
+            <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إرجاع' : 'Return'}</span>
+          </Button>
+
+            variant="outline"
+            size="sm"
             className="h-8 text-xs sm:text-sm"
             onClick={() => navigate(`/tickets/${ticket.id}`, { state: { from: '/admin-tickets' } })}
           >
