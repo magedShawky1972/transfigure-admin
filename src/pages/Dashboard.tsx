@@ -1125,15 +1125,20 @@ const Dashboard = () => {
         const coinsByBrandData = transactions.reduce((acc: any, t: any) => {
           const brand = t.brand_name || 'Unknown';
           const coins = parseNumber(t.coins_number);
+          const isPoint = (t.payment_method || '').toLowerCase() === 'point';
           
           if (!acc[brand]) {
             acc[brand] = {
               brand_name: brand,
               total_coins: 0,
+              points_count: 0,
               usd_value: brandsMap.get(brand) || 0
             };
           }
           acc[brand].total_coins += coins;
+          if (isPoint) {
+            acc[brand].points_count += 1;
+          }
           return acc;
         }, {});
         
