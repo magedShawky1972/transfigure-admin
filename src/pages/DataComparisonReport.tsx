@@ -156,7 +156,6 @@ const DataComparisonReport = () => {
               .from("purpletransaction")
               .select("order_number, total")
               .in("order_number", chunk)
-              .neq("payment_method", "point")
               .range(offset, offset + fetchLimit - 1);
             if (error) throw error;
             allPurpleData = allPurpleData.concat(extra || []);
