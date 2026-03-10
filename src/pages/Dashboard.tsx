@@ -2271,6 +2271,8 @@ const Dashboard = () => {
                   <th class="text-right">USD$</th>
                   <th class="text-right">${language === 'ar' ? 'كوينز النقاط' : 'Points Coins'}</th>
                   <th class="text-right">${language === 'ar' ? 'قيمة النقاط $' : 'Points USD$'}</th>
+                  <th class="text-right">${language === 'ar' ? 'إجمالي + نقاط' : 'Total + Points'}</th>
+                  <th class="text-right">${language === 'ar' ? 'إجمالي USD + نقاط' : 'Total USD + Points'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2281,6 +2283,8 @@ const Dashboard = () => {
                     <td class="text-right">${item.usd_value > 0 ? '$' + item.usd_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
                     <td class="text-right">${(item.points_coins || 0).toLocaleString()}</td>
                     <td class="text-right">${item.usd_value > 0 ? '$' + (item.points_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
+                    <td class="text-right">${(item.grand_coins || 0).toLocaleString()}</td>
+                    <td class="text-right">${item.usd_value > 0 ? '$' + (item.grand_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
                   </tr>
                 `).join('')}
                 <tr class="total-row">
@@ -2289,6 +2293,8 @@ const Dashboard = () => {
                   <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + (item.points_coins || 0), 0).toLocaleString()}</td>
                   <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.points_usd || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + (item.grand_coins || 0), 0).toLocaleString()}</td>
+                  <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.grand_usd || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
               </tbody>
             </table>
