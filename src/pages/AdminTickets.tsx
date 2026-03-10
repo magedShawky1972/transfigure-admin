@@ -1450,7 +1450,7 @@ const AdminTickets = () => {
             />
           </div>
           
-          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && (
+          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && ticket.status !== 'Rejected' && (
             <Button
               size="sm"
               variant="default"
@@ -1459,6 +1459,18 @@ const AdminTickets = () => {
             >
               <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               {language === 'ar' ? 'موافقة' : 'Approve'}
+            </Button>
+          )}
+
+          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && ticket.status !== 'Rejected' && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 text-xs sm:text-sm"
+              onClick={() => setRejectDialog({ open: true, ticket })}
+            >
+              <XCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              {language === 'ar' ? 'رفض' : 'Reject'}
             </Button>
           )}
           
