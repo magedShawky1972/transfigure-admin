@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search, XCircle, Users } from "lucide-react";
+import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search, XCircle, Users, Send } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
