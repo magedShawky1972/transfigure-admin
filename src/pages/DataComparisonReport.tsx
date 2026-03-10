@@ -108,7 +108,7 @@ const DataComparisonReport = () => {
       const toInt = convertDateToInt(toDate);
       const fetchLimit = 1000;
 
-      // Step 1: Fetch purple transactions by created_at_date_int (excluding 'point')
+      // Step 1: Fetch purple transactions by created_at_date_int (including point transactions)
       let allPurpleData: { order_number: string; total: number }[] = [];
       let purpleOffset = 0;
       while (true) {
@@ -117,7 +117,6 @@ const DataComparisonReport = () => {
           .select("order_number, total")
           .gte("created_at_date_int", fromInt)
           .lte("created_at_date_int", toInt)
-          .neq("payment_method", "point")
           .range(purpleOffset, purpleOffset + fetchLimit - 1);
         if (purpleError) throw purpleError;
         allPurpleData = allPurpleData.concat(batch || []);
