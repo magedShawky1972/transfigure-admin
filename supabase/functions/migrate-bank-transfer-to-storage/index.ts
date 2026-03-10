@@ -50,8 +50,8 @@ serve(async (req) => {
       let migrated = 0;
 
       for (const url of urls) {
-        if (!url.includes('res.cloudinary.com')) {
-          // Already migrated or non-Cloudinary, keep as-is
+        if (!url.includes('res.cloudinary.com') && !url.endsWith('.bin')) {
+          // Already properly migrated, keep as-is
           newUrls.push(url);
           continue;
         }
