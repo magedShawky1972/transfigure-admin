@@ -1265,7 +1265,7 @@ const TicketDetails = () => {
     }
   };
 
-
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
       case "High": return "destructive";
