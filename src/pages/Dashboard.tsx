@@ -182,6 +182,7 @@ const Dashboard = () => {
   // Global Brand Filter
   const [globalBrandFilter, setGlobalBrandFilter] = useState<string>("all");
   const [availableBrands, setAvailableBrands] = useState<{ brand_code: string; brand_name: string }[]>([]);
+  const [brandSearchQuery, setBrandSearchQuery] = useState("");
   
   // Print Dialog
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
