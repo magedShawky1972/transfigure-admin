@@ -142,7 +142,7 @@ serve(async (req) => {
       results.push({
         order: order.order_number,
         migrated,
-        skipped: urls.length - cloudinaryUrls.length,
+        skipped: urls.length - needsMigration.length,
         errors,
       });
     }
