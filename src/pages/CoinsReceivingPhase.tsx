@@ -494,26 +494,33 @@ const CoinsReceivingPhase = () => {
             <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />{isArabic ? "مستندات التحويل البنكي" : "Bank Transfer Documents"}</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {bankTransferImages.map((imgUrl, idx) => (
-                  <div key={idx} className="border rounded-lg overflow-hidden">
-                    {imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/") ? (
-                      <div className="flex flex-col items-center justify-center h-40 bg-muted/30">
-                        <FileText className="h-10 w-10 text-destructive mb-1" />
-                        <span className="text-xs text-muted-foreground">PDF</span>
+                {bankTransferImages.map((imgUrl, idx) => {
+                  const isPdf = imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/");
+                  return (
+                    <div key={idx} className="border rounded-lg overflow-hidden">
+                      {isPdf ? (
+                        <div className="w-full h-40">
+                          <object data={imgUrl} type="application/pdf" className="w-full h-full pointer-events-none">
+                            <div className="flex flex-col items-center justify-center h-full bg-muted/30">
+                              <FileText className="h-10 w-10 text-destructive mb-1" />
+                              <span className="text-xs text-muted-foreground">PDF</span>
+                            </div>
+                          </object>
+                        </div>
+                      ) : (
+                        <a href={imgUrl} target="_blank" rel="noopener noreferrer">
+                          <img src={imgUrl} alt={`Bank Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
+                        </a>
+                      )}
+                      <div className="p-2">
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
+                          <Download className="h-4 w-4 mr-1" />
+                          {isArabic ? "تحميل" : "Download"}
+                        </Button>
                       </div>
-                    ) : (
-                      <a href={imgUrl} target="_blank" rel="noopener noreferrer">
-                        <img src={imgUrl} alt={`Bank Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
-                      </a>
-                    )}
-                    <div className="p-2">
-                      <Button variant="outline" size="sm" className="w-full" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
-                        <Download className="h-4 w-4 mr-1" />
-                        {isArabic ? "تحميل" : "Download"}
-                      </Button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

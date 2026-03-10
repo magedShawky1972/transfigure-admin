@@ -203,21 +203,17 @@ const CoinsCreation = () => {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-        const isImage = file.type.startsWith("image/");
-        const isVideo = file.type.startsWith("video/");
-        const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
-        const publicId = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}`;
-        const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
-          body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
-        });
-        if (error) throw error;
-        if (!data?.url) throw new Error("Upload failed");
-        setBankTransferImages(prev => [...prev, data.url]);
+        const ext = file.name.split('.').pop() || 'bin';
+        const filePath = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("bank-transfer-files")
+          .upload(filePath, file, { contentType: file.type, upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage
+          .from("bank-transfer-files")
+          .getPublicUrl(filePath);
+        if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
+        setBankTransferImages(prev => [...prev, urlData.publicUrl]);
       }
       toast.success(isArabic ? "تم رفع الملفات بنجاح" : "Files uploaded successfully");
     } catch (err: any) {
@@ -654,28 +650,35 @@ const CoinsCreation = () => {
           <div className="space-y-4">
             {bankTransferImages.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {bankTransferImages.map((imgUrl, idx) => (
-                  <div key={idx} className="relative group border rounded-lg overflow-hidden">
-                    {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
-                      <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center h-40 bg-muted/30 cursor-pointer hover:bg-muted/50">
-                        <FileText className="h-10 w-10 text-destructive mb-1" />
-                        <span className="text-xs text-muted-foreground">PDF</span>
-                      </a>
-                    ) : (
-                      <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
-                    )}
-                    <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
-                        <Maximize2 className="h-3 w-3" />
-                      </Button>
+                {bankTransferImages.map((imgUrl, idx) => {
+                  const isPdf = imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/");
+                  return (
+                    <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                      {isPdf ? (
+                        <div className="w-full h-40 cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
+                          <object data={imgUrl} type="application/pdf" className="w-full h-full pointer-events-none">
+                            <div className="flex flex-col items-center justify-center h-full bg-muted/30">
+                              <FileText className="h-10 w-10 text-destructive mb-1" />
+                              <span className="text-xs text-muted-foreground">PDF</span>
+                            </div>
+                          </object>
+                        </div>
+                      ) : (
+                        <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)} />
+                      )}
+                      <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
+                          <Maximize2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {!isReadOnly && (
+                        <Button variant="destructive" size="icon" className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBankTransferImages(prev => prev.filter((_, i) => i !== idx))}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
-                    {!isReadOnly && (
-                      <Button variant="destructive" size="icon" className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBankTransferImages(prev => prev.filter((_, i) => i !== idx))}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {!isReadOnly && (
@@ -878,13 +881,20 @@ const CoinsCreation = () => {
       <Dialog open={!!previewImageUrl} onOpenChange={(open) => { if (!open) setPreviewImageUrl(null); }}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
           {previewImageUrl && (
-            previewImageUrl.match(/\.pdf$/i) || previewImageUrl.includes("/raw/upload/") ? (
-              <div className="flex flex-col items-center justify-center h-[85vh] gap-4">
-                <FileText className="h-16 w-16 text-destructive" />
-                <p className="text-muted-foreground">{isArabic ? "ملف PDF - اضغط للفتح" : "PDF File - Click to open"}</p>
-                <Button variant="outline" onClick={() => window.open(previewImageUrl, "_blank")}>
-                  {isArabic ? "فتح الملف" : "Open File"}
-                </Button>
+            previewImageUrl.match(/\.pdf($|\?)/i) || previewImageUrl.includes("/raw/upload/") ? (
+              <div className="w-full">
+                <object data={previewImageUrl} type="application/pdf" className="w-full h-[80vh] rounded">
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
+                    title="PDF Preview"
+                    className="w-full h-[80vh] rounded"
+                  />
+                </object>
+                <div className="mt-2 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewImageUrl, "_blank")}>
+                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                  </Button>
+                </div>
               </div>
             ) : (
               <img src={previewImageUrl} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
