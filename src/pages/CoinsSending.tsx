@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Download, Send, ArrowLeft, Eye, Coins, CheckCircle, Maximize2 } from "lucide-react";
 import { downloadFile } from "@/lib/fileDownload";
+import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
