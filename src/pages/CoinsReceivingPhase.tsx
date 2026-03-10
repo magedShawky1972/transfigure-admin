@@ -712,6 +712,7 @@ const CoinsReceivingPhase = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
+                  <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
                   <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
                   <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
