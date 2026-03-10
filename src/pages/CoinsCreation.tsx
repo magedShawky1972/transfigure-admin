@@ -883,13 +883,11 @@ const CoinsCreation = () => {
           {previewImageUrl && (
             previewImageUrl.match(/\.pdf($|\?)/i) || previewImageUrl.includes("/raw/upload/") ? (
               <div className="w-full">
-                <object data={previewImageUrl} type="application/pdf" className="w-full h-[80vh] rounded">
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
-                    title="PDF Preview"
-                    className="w-full h-[80vh] rounded"
-                  />
-                </object>
+                <iframe
+                  src={previewImageUrl}
+                  title="PDF Preview"
+                  className="w-full h-[80vh] rounded"
+                />
                 <div className="mt-2 flex justify-end">
                   <Button variant="outline" size="sm" onClick={() => window.open(previewImageUrl, "_blank")}>
                     {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
