@@ -1241,8 +1241,6 @@ const AdminTickets = () => {
   };
 
   const filteredTickets = tickets.filter(ticket => {
-    // Hide tickets returned for clarification until sender replies
-    if ((ticket as any).returned_for_clarification) return false;
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
     if (filterDepartment !== "all" && ticket.department_id !== filterDepartment) return false;
@@ -1318,6 +1316,25 @@ const AdminTickets = () => {
         </div>
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+        {/* Under Clarification Banner */}
+        {(ticket as any).returned_for_clarification && (
+          <div className="mb-3 p-3 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg space-y-1">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              {language === 'ar' ? '↩️ تحت التوضيح' : '↩️ Under Clarification'}
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-300">
+              {language === 'ar' 
+                ? `تم إرجاعها من ${(ticket as any).returned_by || ''} إلى ${ticket.profiles.user_name}`
+                : `Returned by ${(ticket as any).returned_by || ''} to ${ticket.profiles.user_name}`}
+            </p>
+            {(ticket as any).returned_comment && (
+              <p className="text-xs text-muted-foreground">
+                <strong>{language === 'ar' ? 'السبب:' : 'Reason:'}</strong> {(ticket as any).returned_comment}
+              </p>
+            )}
+          </div>
+        )}
+
         <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
           {ticket.description}
         </p>
@@ -1356,7 +1373,7 @@ const AdminTickets = () => {
             />
           </div>
           
-          {canUserApprove(ticket) && (
+          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && (
             <Button
               size="sm"
               variant="default"
@@ -1505,15 +1522,17 @@ const AdminTickets = () => {
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs sm:text-sm text-orange-600 border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
-            onClick={() => setSendBackDialog({ open: true, ticket })}
-          >
-            <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إرجاع' : 'Return'}</span>
-          </Button>
+          {!(ticket as any).returned_for_clarification && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs sm:text-sm text-orange-600 border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+              onClick={() => setSendBackDialog({ open: true, ticket })}
+            >
+              <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إرجاع' : 'Return'}</span>
+            </Button>
+          )}
 
           <Button
             variant="outline"
