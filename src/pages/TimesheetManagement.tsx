@@ -636,14 +636,15 @@ export default function TimesheetManagement() {
   // Calculate delay (late minutes) automatically based on actual vs scheduled start
   // Only count as delay if it exceeds the allowed late minutes
   const calculateDelay = (): number => {
-    if (!formData.scheduled_start || !formData.actual_start || formData.is_absent) return 0;
+    if (!formData.scheduled_start || formData.is_absent) return 0;
+    const effectiveStart = formData.changed_start || formData.actual_start;
+    if (!effectiveStart) return 0;
     
     const scheduledStart = parseISO(`${formData.work_date}T${formData.scheduled_start}`);
-    const actualStart = parseISO(`${formData.work_date}T${formData.actual_start}`);
+    const actualStart = parseISO(`${formData.work_date}T${effectiveStart}`);
     
     if (actualStart > scheduledStart) {
       const lateMinutes = differenceInMinutes(actualStart, scheduledStart);
-      // Subtract allowed late minutes - only count excess as delay
       const actualDelay = lateMinutes - allowLateMinutes;
       return actualDelay > 0 ? actualDelay : 0;
     }
