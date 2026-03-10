@@ -159,7 +159,7 @@ const Dashboard = () => {
   
   // Coins by Brand
   const [coinsByBrand, setCoinsByBrand] = useState<any[]>([]);
-  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost'>('total_coins');
+  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost' | 'points_count'>('total_coins');
   const [coinsSortDirection, setCoinsSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Product Summary Filters
