@@ -7915,6 +7915,8 @@ export type Database = {
           returned_for_clarification: boolean | null
           status: string
           subject: string
+          ticket_escalation_count: number | null
+          ticket_escalation_sent_at: string | null
           ticket_number: string
           uom: string | null
           updated_at: string
@@ -7952,6 +7954,8 @@ export type Database = {
           returned_for_clarification?: boolean | null
           status?: string
           subject: string
+          ticket_escalation_count?: number | null
+          ticket_escalation_sent_at?: string | null
           ticket_number: string
           uom?: string | null
           updated_at?: string
@@ -7989,6 +7993,8 @@ export type Database = {
           returned_for_clarification?: boolean | null
           status?: string
           subject?: string
+          ticket_escalation_count?: number | null
+          ticket_escalation_sent_at?: string | null
           ticket_number?: string
           uom?: string | null
           updated_at?: string
