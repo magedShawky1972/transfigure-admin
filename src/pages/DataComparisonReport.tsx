@@ -48,21 +48,37 @@ const DataComparisonReport = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [drilldownOrder, setDrilldownOrder] = useState<string | null>(null);
   const [drilldownData, setDrilldownData] = useState<any[]>([]);
+  const [drilldownPayments, setDrilldownPayments] = useState<any[]>([]);
+  const [drilldownApiLines, setDrilldownApiLines] = useState<any[]>([]);
   const [drilldownLoading, setDrilldownLoading] = useState(false);
 
   const openDrilldown = async (orderNumber: string) => {
     setDrilldownOrder(orderNumber);
     setDrilldownLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("purpletransaction")
-        .select("order_number, brand_name, product_name, customer_name, customer_phone, total, cost_sold, profit, payment_method, payment_brand, created_at_date, user_name")
-        .eq("order_number", orderNumber);
-      if (error) throw error;
-      setDrilldownData(data || []);
+      const [purpleRes, paymentRes, apiLineRes] = await Promise.all([
+        supabase
+          .from("purpletransaction")
+          .select("order_number, brand_name, product_name, customer_name, customer_phone, total, cost_sold, profit, payment_method, payment_brand, created_at_date, user_name")
+          .eq("order_number", orderNumber),
+        supabase
+          .from("payment_transactions")
+          .select("order_number, payment_method, payment_brand, total, result, transactionid, create_at")
+          .eq("order_number", orderNumber),
+        supabase
+          .from("sales_order_line")
+          .select("order_number, product_name, brand_name, total, qty, cost")
+          .eq("order_number", orderNumber),
+      ]);
+      if (purpleRes.error) throw purpleRes.error;
+      setDrilldownData(purpleRes.data || []);
+      setDrilldownPayments(paymentRes.data || []);
+      setDrilldownApiLines(apiLineRes.data || []);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setDrilldownData([]);
+      setDrilldownPayments([]);
+      setDrilldownApiLines([]);
     } finally {
       setDrilldownLoading(false);
     }
