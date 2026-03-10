@@ -360,13 +360,11 @@ const CoinsSending = () => {
             {showImagePreview && (
               typeof showImagePreview === 'string' && (showImagePreview.match(/\.pdf($|\?)/i) || showImagePreview.includes("/raw/upload/")) ? (
                 <div className="w-full">
-                  <object data={showImagePreview} type="application/pdf" className="w-full h-[80vh] rounded">
-                    <iframe
-                      src={`https://docs.google.com/gview?url=${encodeURIComponent(showImagePreview)}&embedded=true`}
-                      title="Transfer Preview"
-                      className="w-full h-[80vh] rounded"
-                    />
-                  </object>
+                  <iframe
+                    src={showImagePreview}
+                    title="Transfer Preview"
+                    className="w-full h-[80vh] rounded"
+                  />
                   <div className="mt-2 flex justify-end">
                     <Button variant="outline" size="sm" onClick={() => window.open(showImagePreview, "_blank")}>
                       {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
