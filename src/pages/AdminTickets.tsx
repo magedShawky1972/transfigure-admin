@@ -1104,6 +1104,77 @@ const AdminTickets = () => {
     }
   };
 
+  const handleRejectTicket = async () => {
+    const ticket = rejectDialog.ticket;
+    if (!ticket || !rejectReason.trim()) return;
+
+    try {
+      setRejecting(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Update ticket status to Rejected
+      await supabase.from("tickets").update({
+        status: "Rejected",
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم رفض التذكرة: ${rejectReason}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "rejected",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "rejected",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        recipient_id: ticket.user_id,
+        recipient_name: ticket.profiles.user_name,
+        description: `تم رفض التذكرة بواسطة ${userProfile?.user_name}: ${rejectReason}`,
+      });
+
+      // Send notification + email to creator
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_rejected",
+          ticketId: ticket.id,
+          recipientUserId: ticket.user_id,
+          rejectReason: rejectReason,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الرفض' : 'Rejected',
+        description: language === 'ar' ? 'تم رفض التذكرة وإشعار مقدم الطلب' : 'Ticket rejected and creator notified',
+      });
+
+      setRejectDialog({ open: false, ticket: null });
+      setRejectReason("");
+      fetchTickets();
+    } catch (error: any) {
+      console.error("Error rejecting ticket:", error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const handleResendNotification = async (ticket: Ticket) => {
     try {
       // Get the current approval level from ticket or default to 0 (admin_order starts at 0)
