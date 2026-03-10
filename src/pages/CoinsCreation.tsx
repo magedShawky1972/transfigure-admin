@@ -65,6 +65,7 @@ const CoinsCreation = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrderPhase, setSelectedOrderPhase] = useState<string>("creation");
+  const [selectedOrderNumber, setSelectedOrderNumber] = useState<string>("");
 
   // Filters
   const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
