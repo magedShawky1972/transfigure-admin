@@ -1316,6 +1316,25 @@ const AdminTickets = () => {
         </div>
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+        {/* Under Clarification Banner */}
+        {(ticket as any).returned_for_clarification && (
+          <div className="mb-3 p-3 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg space-y-1">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              {language === 'ar' ? '↩️ تحت التوضيح' : '↩️ Under Clarification'}
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-300">
+              {language === 'ar' 
+                ? `تم إرجاعها من ${(ticket as any).returned_by || ''} إلى ${ticket.profiles.user_name}`
+                : `Returned by ${(ticket as any).returned_by || ''} to ${ticket.profiles.user_name}`}
+            </p>
+            {(ticket as any).returned_comment && (
+              <p className="text-xs text-muted-foreground">
+                <strong>{language === 'ar' ? 'السبب:' : 'Reason:'}</strong> {(ticket as any).returned_comment}
+              </p>
+            )}
+          </div>
+        )}
+
         <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
           {ticket.description}
         </p>
