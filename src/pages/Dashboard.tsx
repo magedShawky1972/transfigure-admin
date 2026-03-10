@@ -1487,6 +1487,13 @@ const Dashboard = () => {
     }
   }, [trendDays, trendBrandFilter]);
 
+  // Re-fetch charts when month comparison direction changes
+  useEffect(() => {
+    if (monthComparison.length > 0) {
+      fetchCharts();
+    }
+  }, [monthComparisonDirection]);
+
   const handleNewCustomersClick = async () => {
     const dateRange = getDateRange();
     if (!dateRange) return;
