@@ -621,7 +621,8 @@ const handler = async (req: Request): Promise<Response> => {
         qty: ticket.qty,
         uom: ticket.uom,
         budgetValue: ticket.budget_value,
-        currencyName: purchaseDetails.currencyName
+        currencyName: purchaseDetails.currencyName,
+        returnComment: reqReturnComment || null,
       };
 
       // Get notification content
