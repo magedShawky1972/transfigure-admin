@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText, Maximize2, CalendarIcon } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Send, Coins, Trash2, Lock, FileText, Maximize2, CalendarIcon, Download, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
+import { downloadFile } from "@/lib/fileDownload";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 import CoinsPhaseSteps from "@/components/CoinsPhaseSteps";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
@@ -662,8 +663,14 @@ const CoinsCreation = () => {
                         <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)} />
                       )}
                       <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)} title={isArabic ? "تكبير" : "Maximize"}>
                           <Maximize2 className="h-3 w-3" />
+                        </Button>
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => downloadFile(imgUrl, `transfer-${idx + 1}`)} title={isArabic ? "تحميل" : "Download"}>
+                          <Download className="h-3 w-3" />
+                        </Button>
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => window.open(imgUrl, "_blank")} title={isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}>
+                          <ExternalLink className="h-3 w-3" />
                         </Button>
                       </div>
                       {!isReadOnly && (
