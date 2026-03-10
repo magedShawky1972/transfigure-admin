@@ -3217,6 +3217,9 @@ const Dashboard = () => {
                           <span className="text-muted-foreground text-sm">N/A</span>
                         )}
                       </td>
+                      <td className="text-center py-3 px-4 font-semibold">
+                        {new Intl.NumberFormat('en-US').format(item.points_count || 0)}
+                      </td>
                     </tr>
                   ))
                 ) : (
