@@ -445,6 +445,7 @@ const CoinsCreation = () => {
     if (data) {
       setSelectedOrderId(data.id);
       setSelectedOrderPhase(data.current_phase || "creation");
+      setSelectedOrderNumber(data.order_number || "");
       setSupplierId(data.supplier_id || "");
       setBankId(data.bank_id || "");
       loadedOrderRateRef.current = String(data.exchange_rate || 1);
