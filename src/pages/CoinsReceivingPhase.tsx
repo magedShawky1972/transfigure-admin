@@ -57,7 +57,7 @@ const CoinsReceivingPhase = () => {
   const fetchOrders = async () => {
     let query = supabase
       .from("coins_purchase_orders")
-      .select("*, currencies(currency_code, currency_name), suppliers(supplier_name)")
+      .select("*, currencies(currency_code, currency_name), suppliers(supplier_name), coins_purchase_receiving(received_by_name, received_at)")
       .order("created_at", { ascending: false });
 
     if (viewFilter === "pending") {
