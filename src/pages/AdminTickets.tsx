@@ -2010,6 +2010,59 @@ const AdminTickets = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reject Ticket Dialog */}
+      <Dialog open={rejectDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setRejectDialog({ open: false, ticket: null });
+          setRejectReason("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'رفض التذكرة' : 'Reject Ticket'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'ar' 
+                ? `تذكرة: ${rejectDialog.ticket?.ticket_number || ''}`
+                : `Ticket: ${rejectDialog.ticket?.ticket_number || ''}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">
+              {language === 'ar' ? 'سبب الرفض' : 'Rejection Reason'}
+            </label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder={language === 'ar' ? 'اكتب سبب رفض التذكرة...' : 'Describe the reason for rejection...'}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectDialog({ open: false, ticket: null });
+                setRejectReason("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleRejectTicket}
+              disabled={!rejectReason.trim() || rejecting}
+              variant="destructive"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              {rejecting 
+                ? (language === 'ar' ? 'جاري الرفض...' : 'Rejecting...')
+                : (language === 'ar' ? 'رفض التذكرة' : 'Reject Ticket')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
