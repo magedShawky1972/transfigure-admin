@@ -112,6 +112,10 @@ type Ticket = {
   qty: number | null;
   uom: string | null;
   currency_id: string | null;
+  returned_for_clarification: boolean | null;
+  returned_comment: string | null;
+  returned_by: string | null;
+  user_id: string;
   departments: {
     department_name: string;
   };
