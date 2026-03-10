@@ -56,12 +56,12 @@ const CoinsCreation = () => {
   const [currencyId, setCurrencyId] = useState("");
   const [exchangeRate, setExchangeRate] = useState("1");
   const [notes, setNotes] = useState("");
-  const [bankTransferImage, setBankTransferImage] = useState("");
+  const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [bankTransferFee, setBankTransferFee] = useState("");
   const [transferDate, setTransferDate] = useState<Date | undefined>();
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrderPhase, setSelectedOrderPhase] = useState<string>("creation");
 
