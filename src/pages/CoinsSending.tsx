@@ -105,10 +105,8 @@ const CoinsSending = () => {
     }
   };
 
-  const handleDownload = () => {
-    if (selectedOrder?.bank_transfer_image) {
-      downloadFile(selectedOrder.bank_transfer_image, selectedOrder.order_number || "bank-transfer");
-    }
+  const handleDownload = (url: string) => {
+    downloadFile(url, selectedOrder?.order_number || "bank-transfer");
   };
 
   const handleConfirmSending = async () => {
