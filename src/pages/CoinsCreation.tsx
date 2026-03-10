@@ -622,9 +622,6 @@ const CoinsCreation = () => {
               ? (isArabic ? "عرض طلب شراء عملات" : "View Coins Purchase Order")
               : (isArabic ? "إنشاء طلب شراء عملات" : "Create Coins Purchase Order")}
           </h1>
-          {selectedOrderNumber && (
-            <Badge variant="outline" className="font-mono text-sm">{selectedOrderNumber}</Badge>
-          )}
           {isReadOnly && <Lock className="h-5 w-5 text-muted-foreground" />}
         </div>
         {!isReadOnly && (
@@ -660,10 +657,10 @@ const CoinsCreation = () => {
                 {bankTransferImages.map((imgUrl, idx) => (
                   <div key={idx} className="relative group border rounded-lg overflow-hidden">
                     {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
-                      <div className="flex flex-col items-center justify-center h-40 bg-muted/30">
-                        <FileText className="h-10 w-10 text-red-500 mb-1" />
+                      <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center h-40 bg-muted/30 cursor-pointer hover:bg-muted/50">
+                        <FileText className="h-10 w-10 text-destructive mb-1" />
                         <span className="text-xs text-muted-foreground">PDF</span>
-                      </div>
+                      </a>
                     ) : (
                       <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
                     )}
@@ -697,7 +694,12 @@ const CoinsCreation = () => {
 
       {/* Header Details */}
       <Card>
-        <CardHeader><CardTitle>{isArabic ? "بيانات الطلب الرئيسية" : "Order Header"}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            {isArabic ? "بيانات الطلب الرئيسية" : "Order Header"}
+            {selectedOrderNumber && <Badge variant="outline" className="font-mono text-sm">{selectedOrderNumber}</Badge>}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -877,11 +879,13 @@ const CoinsCreation = () => {
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
           {previewImageUrl && (
             previewImageUrl.match(/\.pdf$/i) || previewImageUrl.includes("/raw/upload/") ? (
-              <iframe
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
-                title="Bank Transfer Preview"
-                className="w-full h-[85vh] rounded"
-              />
+              <div className="flex flex-col items-center justify-center h-[85vh] gap-4">
+                <FileText className="h-16 w-16 text-destructive" />
+                <p className="text-muted-foreground">{isArabic ? "ملف PDF - اضغط للفتح" : "PDF File - Click to open"}</p>
+                <Button variant="outline" onClick={() => window.open(previewImageUrl, "_blank")}>
+                  {isArabic ? "فتح الملف" : "Open File"}
+                </Button>
+              </div>
             ) : (
               <img src={previewImageUrl} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
             )
