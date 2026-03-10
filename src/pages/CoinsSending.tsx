@@ -30,7 +30,7 @@ const CoinsSending = () => {
   const [orderLines, setOrderLines] = useState<any[]>([]);
   const [sendingConfirmed, setSendingConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState<string | null>(null);
 
   // Filters
   const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
