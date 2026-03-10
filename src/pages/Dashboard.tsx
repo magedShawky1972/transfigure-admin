@@ -159,7 +159,7 @@ const Dashboard = () => {
   
   // Coins by Brand
   const [coinsByBrand, setCoinsByBrand] = useState<any[]>([]);
-  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost'>('total_coins');
+  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost' | 'points_count'>('total_coins');
   const [coinsSortDirection, setCoinsSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Product Summary Filters
@@ -1125,15 +1125,20 @@ const Dashboard = () => {
         const coinsByBrandData = transactions.reduce((acc: any, t: any) => {
           const brand = t.brand_name || 'Unknown';
           const coins = parseNumber(t.coins_number);
+          const isPoint = (t.payment_method || '').toLowerCase() === 'point';
           
           if (!acc[brand]) {
             acc[brand] = {
               brand_name: brand,
               total_coins: 0,
+              points_count: 0,
               usd_value: brandsMap.get(brand) || 0
             };
           }
           acc[brand].total_coins += coins;
+          if (isPoint) {
+            acc[brand].points_count += 1;
+          }
           return acc;
         }, {});
         
@@ -1460,7 +1465,7 @@ const Dashboard = () => {
     setBrandProducts(sorted);
   };
   
-  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost') => {
+  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_count') => {
     const newDirection = coinsSortColumn === column && coinsSortDirection === 'asc' ? 'desc' : 'asc';
     setCoinsSortColumn(column);
     setCoinsSortDirection(newDirection);
@@ -3177,6 +3182,18 @@ const Dashboard = () => {
                       {coinsSortColumn !== 'usd_cost' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </th>
+                  <th 
+                    className="text-center py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('points_count')}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      {language === 'ar' ? 'عدد النقاط' : 'Points Count'}
+                      {coinsSortColumn === 'points_count' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'points_count' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -3200,11 +3217,14 @@ const Dashboard = () => {
                           <span className="text-muted-foreground text-sm">N/A</span>
                         )}
                       </td>
+                      <td className="text-center py-3 px-4 font-semibold">
+                        {new Intl.NumberFormat('en-US').format(item.points_count || 0)}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={3} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={4} className="text-center py-8 text-muted-foreground">
                       {t("dashboard.noCoinsData")}
                     </td>
                   </tr>
@@ -3225,6 +3245,9 @@ const Dashboard = () => {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       }).format(coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0))}
+                    </td>
+                    <td className="text-center py-3 px-4 text-lg">
+                      {new Intl.NumberFormat('en-US').format(coinsByBrand.reduce((sum, item) => sum + (item.points_count || 0), 0))}
                     </td>
                   </tr>
                 </tfoot>
