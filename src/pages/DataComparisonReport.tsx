@@ -545,16 +545,12 @@ const DataComparisonReport = () => {
                         <TableRow key={row.order_number} className={row.status === "missing_api" ? "bg-red-50 dark:bg-red-950/20" : row.status === "mismatch" ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}>
                           <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
                           <TableCell className="font-mono font-medium">
-                            {row.status === "missing_api" ? (
-                              <button
-                                onClick={() => openDrilldown(row.order_number)}
-                                className="text-primary underline hover:text-primary/80 font-mono font-medium cursor-pointer"
-                              >
-                                {row.order_number}
-                              </button>
-                            ) : (
-                              row.order_number
-                            )}
+                            <button
+                              onClick={() => openDrilldown(row.order_number)}
+                              className="text-primary underline hover:text-primary/80 font-mono font-medium cursor-pointer"
+                            >
+                              {row.order_number}
+                            </button>
                           </TableCell>
                           <TableCell className="text-center">{row.purple_lines || "-"}</TableCell>
                           <TableCell className="text-right font-medium">{row.purple_total ? formatNumber(row.purple_total) : "-"}</TableCell>
