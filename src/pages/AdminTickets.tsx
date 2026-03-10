@@ -1373,7 +1373,7 @@ const AdminTickets = () => {
             />
           </div>
           
-          {canUserApprove(ticket) && (
+          {canUserApprove(ticket) && !(ticket as any).returned_for_clarification && (
             <Button
               size="sm"
               variant="default"
