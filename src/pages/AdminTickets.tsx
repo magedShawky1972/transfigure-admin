@@ -1513,6 +1513,7 @@ const AdminTickets = () => {
             <span className="sr-only sm:not-sr-only sm:ml-2">{language === 'ar' ? 'إرجاع' : 'Return'}</span>
           </Button>
 
+          <Button
             variant="outline"
             size="sm"
             className="h-8 text-xs sm:text-sm"
