@@ -685,9 +685,19 @@ const Dashboard = () => {
         baseMonth = now;
       }
       
-      // Build last 3 months (previous 2 + base)
-      for (let i = 2; i >= 0; i--) {
-        const monthDate = subMonths(baseMonth, i);
+      // Build 3 months based on direction
+      const monthDates: Date[] = [];
+      if (monthComparisonDirection === "backward") {
+        for (let i = 2; i >= 0; i--) {
+          monthDates.push(subMonths(baseMonth, i));
+        }
+      } else {
+        for (let i = 0; i < 3; i++) {
+          monthDates.push(subMonths(baseMonth, -i));
+        }
+      }
+      
+      for (const monthDate of monthDates) {
         const start = startOfMonth(monthDate);
         const end = endOfMonth(monthDate);
         
