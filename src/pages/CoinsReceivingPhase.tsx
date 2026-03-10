@@ -723,6 +723,35 @@ const CoinsReceivingPhase = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Maximize preview dialog */}
+      <Dialog open={!!previewImageUrl} onOpenChange={(open) => { if (!open) setPreviewImageUrl(null); }}>
+        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
+          {previewImageUrl && (
+            previewImageUrl.match(/\.pdf($|\?)/i) || previewImageUrl.includes("/raw/upload/") ? (
+              <div className="w-full">
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
+                  title="PDF Preview"
+                  className="w-full h-[80vh] rounded border-0"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => downloadFile(previewImageUrl, 'bank-transfer')}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تحميل" : "Download"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewImageUrl, "_blank")}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <img src={previewImageUrl} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
