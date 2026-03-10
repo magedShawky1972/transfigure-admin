@@ -11,10 +11,11 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc";
+  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc" | "ticket_returned";
   ticketId: string;
   recipientUserId: string;
   senderName?: string;
+  returnComment?: string;
 }
 
 interface BatchNotificationRequest {
@@ -561,7 +562,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } else {
       // Handle single notification (backward compatibility)
-      const { type, ticketId, recipientUserId }: NotificationRequest = requestBody;
+      const { type, ticketId, recipientUserId, returnComment: reqReturnComment }: NotificationRequest = requestBody;
 
       console.log("Processing single notification:", { type, ticketId, recipientUserId });
 
@@ -620,7 +621,8 @@ const handler = async (req: Request): Promise<Response> => {
         qty: ticket.qty,
         uom: ticket.uom,
         budgetValue: ticket.budget_value,
-        currencyName: purchaseDetails.currencyName
+        currencyName: purchaseDetails.currencyName,
+        returnComment: reqReturnComment || null,
       };
 
       // Get notification content
@@ -735,6 +737,7 @@ interface TicketDetails {
   uom?: string | null;
   budgetValue?: number | null;
   currencyName?: string | null;
+  returnComment?: string | null;
 }
 
 function getNotificationContent(
@@ -939,6 +942,38 @@ switch (type) {
       `;
       notificationTitle = `نسخة: ${ticketTypeSubject}`;
       notificationMessage = `تم إضافتك كنسخة في ${ticketDetails.ticketNumber} - ${ticketDetails.subject}`;
+      break;
+
+    case "ticket_returned":
+      emailSubject = `طلب توضيح - ${ticketTypeSubject}`;
+      const returnComment = ticketDetails.returnComment || '';
+      emailHtml = `
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+          <h2 style="color: #D97706;">طلب توضيح إضافي</h2>
+          <p>مرحباً ${userName},</p>
+          <p>تم إرجاع ${ticketTypeSubject} الخاصة بك وتحتاج إلى توضيح إضافي:</p>
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>رقم التذكرة:</strong> ${ticketDetails.ticketNumber}</li>
+            <li style="margin: 10px 0;"><strong>الموضوع:</strong> ${ticketDetails.subject}</li>
+            <li style="margin: 10px 0;"><strong>الوصف:</strong> ${ticketDetails.description}</li>
+            <li style="margin: 10px 0;"><strong>القسم:</strong> ${ticketDetails.departmentName}</li>
+            ${externalLinkHtml}
+            ${purchaseDetailsHtml}
+          </ul>
+          ${returnComment ? `
+          <div style="margin: 20px 0; padding: 15px; background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px;">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #92400E;">ملاحظات المراجع:</p>
+            <p style="margin: 0; color: #78350F;">${returnComment}</p>
+          </div>
+          ` : ''}
+          <p>يرجى مراجعة التذكرة وتقديم التوضيحات المطلوبة.</p>
+          <div style="margin: 20px 0;">
+            <a href="${ticketLink}" style="background-color: #D97706; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">فتح التذكرة وتقديم التوضيح</a>
+          </div>
+        </div>
+      `;
+      notificationTitle = `طلب توضيح - ${ticketTypeSubject}`;
+      notificationMessage = `تم إرجاع ${ticketDetails.ticketNumber} لمزيد من التوضيح - ${ticketDetails.subject}`;
       break;
   }
 

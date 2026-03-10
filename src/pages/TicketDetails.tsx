@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus, Edit, X, Save, Copy } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus, Edit, X, Save, Copy, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -158,6 +158,11 @@ const TicketDetails = () => {
   const [workflowNotes, setWorkflowNotes] = useState<WorkflowNote[]>([]);
   const [newWorkflowNote, setNewWorkflowNote] = useState("");
   const [submittingNote, setSubmittingNote] = useState(false);
+
+  // Send back for clarification states
+  const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
+  const [sendBackComment, setSendBackComment] = useState("");
+  const [sendingBack, setSendingBack] = useState(false);
 
   // Get the source page from navigation state
   const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
@@ -1121,6 +1126,81 @@ const TicketDetails = () => {
     }
   };
 
+  const handleSendBack = async () => {
+    if (!ticket || !sendBackComment.trim()) return;
+
+    try {
+      setSendingBack(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Update ticket status
+      await supabase.from("tickets").update({
+        returned_for_clarification: true,
+        returned_by: userProfile?.user_name || user.id,
+        returned_at: new Date().toISOString(),
+        returned_comment: sendBackComment,
+        status: "Open",
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم إرجاع التذكرة للتوضيح: ${sendBackComment}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "returned_for_clarification",
+      });
+
+      // Log activity
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "ticket_returned",
+        user_id: user.id,
+        user_name: userProfile?.user_name,
+        recipient_id: ticket.user_id,
+        recipient_name: ticket.profiles.user_name,
+        description: `تم إرجاع التذكرة للتوضيح بواسطة ${userProfile?.user_name}: ${sendBackComment}`,
+      });
+
+      // Send notification + email to ticket creator
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_returned",
+          ticketId: ticket.id,
+          recipientUserId: ticket.user_id,
+          returnComment: sendBackComment,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' ? 'تم إرجاع التذكرة لصاحبها للتوضيح' : 'Ticket sent back for clarification',
+      });
+
+      setSendBackDialogOpen(false);
+      setSendBackComment("");
+      fetchTicket();
+      fetchWorkflowNotes();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingBack(false);
+    }
+  };
+
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "Urgent": return "destructive";
@@ -1589,7 +1669,15 @@ const TicketDetails = () => {
                   )}
                   
                   {/* Send for Extra Approval button */}
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                      onClick={() => setSendBackDialogOpen(true)}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      {language === 'ar' ? 'إرجاع للتوضيح' : 'Send Back'}
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={handleOpenExtraApprovalDialog}
@@ -1613,6 +1701,25 @@ const TicketDetails = () => {
                   </div>
                 </div>
               </>
+            )}
+
+            {/* Returned for Clarification Status */}
+            {(ticket as any).returned_for_clarification && (
+              <div className="p-4 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg space-y-2">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  {language === 'ar' ? '↩️ تم إرجاع التذكرة للتوضيح' : '↩️ Returned for Clarification'}
+                </p>
+                {(ticket as any).returned_comment && (
+                  <p className="text-sm text-amber-600 dark:text-amber-300">
+                    <strong>{language === 'ar' ? 'الملاحظة:' : 'Note:'}</strong> {(ticket as any).returned_comment}
+                  </p>
+                )}
+                {(ticket as any).returned_by && (
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'ar' ? 'بواسطة:' : 'By:'} {(ticket as any).returned_by}
+                  </p>
+                )}
+              </div>
             )}
 
             {/* Extra Approval Pending Status */}
@@ -1898,6 +2005,56 @@ const TicketDetails = () => {
               disabled={!selectedCostCenterId || !selectedPurchaseType}
             >
               {language === 'ar' ? 'موافقة' : 'Approve'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Back for Clarification Dialog */}
+      <Dialog open={sendBackDialogOpen} onOpenChange={setSendBackDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'إرجاع التذكرة للتوضيح' : 'Send Back for Clarification'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {language === 'ar' 
+                ? 'سيتم إرجاع التذكرة لصاحبها مع إرسال إشعار وبريد إلكتروني يطلب توضيحاً إضافياً.'
+                : 'The ticket will be returned to the sender with a notification requesting additional clarification.'}
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'ملاحظات التوضيح المطلوب' : 'Clarification Notes'}
+              </label>
+              <Textarea
+                value={sendBackComment}
+                onChange={(e) => setSendBackComment(e.target.value)}
+                placeholder={language === 'ar' ? 'اكتب ما تحتاج توضيحه...' : 'Describe what needs clarification...'}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSendBackDialogOpen(false);
+                setSendBackComment("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleSendBack}
+              disabled={!sendBackComment.trim() || sendingBack}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {sendingBack 
+                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') 
+                : (language === 'ar' ? 'إرجاع التذكرة' : 'Send Back')}
             </Button>
           </DialogFooter>
         </DialogContent>

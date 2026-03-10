@@ -7909,6 +7909,10 @@ export type Database = {
           priority: string
           purchase_type: string | null
           qty: number | null
+          returned_at: string | null
+          returned_by: string | null
+          returned_comment: string | null
+          returned_for_clarification: boolean | null
           status: string
           subject: string
           ticket_number: string
@@ -7942,6 +7946,10 @@ export type Database = {
           priority: string
           purchase_type?: string | null
           qty?: number | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_comment?: string | null
+          returned_for_clarification?: boolean | null
           status?: string
           subject: string
           ticket_number: string
@@ -7975,6 +7983,10 @@ export type Database = {
           priority?: string
           purchase_type?: string | null
           qty?: number | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_comment?: string | null
+          returned_for_clarification?: boolean | null
           status?: string
           subject?: string
           ticket_number?: string
