@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
+import { downloadFile } from "@/lib/fileDownload";
 import CoinsPhaseFilterBar, { type PhaseViewFilter } from "@/components/CoinsPhaseFilterBar";
 import CoinsPhaseSteps from "@/components/CoinsPhaseSteps";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
