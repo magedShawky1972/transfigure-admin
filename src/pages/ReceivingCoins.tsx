@@ -580,6 +580,157 @@ const ReceivingCoins = () => {
     setView("form");
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      // Fetch all receipts with filters applied
+      let query = supabase
+        .from("receiving_coins_header")
+        .select("*, currencies(currency_code), coins_purchase_orders(order_number, suppliers(supplier_name))")
+        .order("created_at", { ascending: false });
+
+      const { data: allReceipts } = await query;
+      if (!allReceipts || allReceipts.length === 0) {
+        toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
+        return;
+      }
+
+      // Apply same filters as the list view
+      const filtered = allReceipts.filter((r: any) => {
+        if (statusFilter === "pending" && r.status === "closed") return false;
+        if (statusFilter === "sent" && r.status !== "closed") return false;
+        if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
+        if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        toast.error(isArabic ? "لا توجد بيانات للتصدير" : "No data to export");
+        return;
+      }
+
+      // Fetch lines for all filtered receipts
+      const headerIds = filtered.map((r: any) => r.id);
+      const { data: allLines } = await supabase
+        .from("receiving_coins_line")
+        .select("*")
+        .in("header_id", headerIds);
+
+      const linesByHeader: Record<string, any[]> = {};
+      for (const line of allLines || []) {
+        if (!linesByHeader[line.header_id]) linesByHeader[line.header_id] = [];
+        linesByHeader[line.header_id].push(line);
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet(isArabic ? "إيصالات الاستلام" : "Receiving Entries");
+
+      // Headers
+      const columns = [
+        isArabic ? "رقم الطلب" : "Order #",
+        isArabic ? "رقم الإيصال" : "Receipt #",
+        isArabic ? "التاريخ" : "Date",
+        isArabic ? "المورد الرئيسي" : "Main Supplier",
+        isArabic ? "العملة" : "Currency",
+        isArabic ? "سعر الصرف" : "Exchange Rate",
+        isArabic ? "مبلغ المعاملة" : "Transaction Amt",
+        isArabic ? "المبلغ (SAR)" : "Amount (SAR)",
+        isArabic ? "المستلم" : "Receiver",
+        isArabic ? "الحالة" : "Status",
+        isArabic ? "العلامة التجارية" : "Brand",
+        isArabic ? "الكوينز" : "Coins",
+        isArabic ? "سعر الوحدة" : "Unit Price",
+        isArabic ? "الإجمالي" : "Total",
+        isArabic ? "مؤكد" : "Confirmed",
+        isArabic ? "مؤكد بواسطة" : "Confirmed By",
+      ];
+
+      const headerRow = sheet.addRow(columns);
+      headerRow.font = { bold: true };
+      headerRow.eachCell(cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } };
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        cell.alignment = { horizontal: "center" };
+      });
+
+      const statusLabel = (s: string) => {
+        if (s === "closed") return isArabic ? "مغلق" : "Closed";
+        if (s === "full_delivery") return isArabic ? "تسليم كامل" : "Full Delivery";
+        if (s === "partial_delivery") return isArabic ? "تسليم جزئي" : "Partial Delivery";
+        return isArabic ? "تم الإنشاء" : "Created";
+      };
+
+      for (const r of filtered as any[]) {
+        const rate = parseFloat(r.exchange_rate) || 0;
+        const txnAmount = parseFloat(r.control_amount) || 0;
+        const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
+        const rLines = linesByHeader[r.id] || [];
+
+        if (rLines.length === 0) {
+          sheet.addRow([
+            r.coins_purchase_orders?.order_number || "-",
+            r.receipt_number || "",
+            r.receipt_date || "",
+            r.coins_purchase_orders?.suppliers?.supplier_name || "-",
+            r.currencies?.currency_code || "-",
+            rate > 0 ? rate : "-",
+            txnAmount,
+            sarAmount,
+            r.receiver_name || "-",
+            statusLabel(r.status || "draft"),
+            "-", 0, 0, 0, "-", "-",
+          ]);
+        } else {
+          for (let i = 0; i < rLines.length; i++) {
+            const line = rLines[i];
+            const coins = line.coins || 0;
+            const unitPrice = line.unit_price || 0;
+            const lineTotal = coins * unitPrice;
+            sheet.addRow([
+              i === 0 ? (r.coins_purchase_orders?.order_number || "-") : "",
+              i === 0 ? (r.receipt_number || "") : "",
+              i === 0 ? (r.receipt_date || "") : "",
+              i === 0 ? (r.coins_purchase_orders?.suppliers?.supplier_name || "-") : "",
+              i === 0 ? (r.currencies?.currency_code || "-") : "",
+              i === 0 ? (rate > 0 ? rate : "-") : "",
+              i === 0 ? txnAmount : "",
+              i === 0 ? sarAmount : "",
+              i === 0 ? (r.receiver_name || "-") : "",
+              i === 0 ? statusLabel(r.status || "draft") : "",
+              line.brand_name || line.product_name || "-",
+              coins,
+              unitPrice,
+              lineTotal,
+              line.is_confirmed ? (isArabic ? "نعم" : "Yes") : (isArabic ? "لا" : "No"),
+              line.confirmed_by_name || "-",
+            ]);
+          }
+        }
+      }
+
+      // Auto-width
+      sheet.columns.forEach(col => {
+        let maxLen = 12;
+        col.eachCell?.({ includeEmpty: false }, cell => {
+          const len = cell.value ? String(cell.value).length : 0;
+          if (len > maxLen) maxLen = Math.min(len, 40);
+        });
+        col.width = maxLen + 2;
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Receiving_Entries_${format(new Date(), "yyyyMMdd")}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(isArabic ? "تم التصدير بنجاح" : "Exported successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Export failed");
+    }
+  };
+
   const loadReceipt = async (receiptId: string) => {
     const [headerRes, linesRes, attRes] = await Promise.all([
       supabase.from("receiving_coins_header").select("*").eq("id", receiptId).maybeSingle(),
