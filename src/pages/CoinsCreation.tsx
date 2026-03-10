@@ -874,17 +874,17 @@ const CoinsCreation = () => {
       )}
 
       {/* Maximize preview dialog */}
-      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+      <Dialog open={!!previewImageUrl} onOpenChange={(open) => { if (!open) setPreviewImageUrl(null); }}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
-          {bankTransferImage && (
-            bankTransferImage.match(/\.pdf$/i) || bankTransferImage.includes("/raw/upload/") ? (
+          {previewImageUrl && (
+            previewImageUrl.match(/\.pdf$/i) || previewImageUrl.includes("/raw/upload/") ? (
               <iframe
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
                 title="Bank Transfer Preview"
                 className="w-full h-[85vh] rounded"
               />
             ) : (
-              <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+              <img src={previewImageUrl} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
             )
           )}
         </DialogContent>
