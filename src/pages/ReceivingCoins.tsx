@@ -14,6 +14,7 @@ import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, 
 import ExcelJS from "exceljs";
 import CoinsPhaseFilterBar from "@/components/CoinsPhaseFilterBar";
 import { downloadFile } from "@/lib/fileDownload";
+import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
