@@ -583,6 +583,8 @@ export default function TimesheetManagement() {
       scheduled_end: "",
       actual_start: "",
       actual_end: "",
+      changed_start: "",
+      changed_end: "",
       break_duration_minutes: 0,
       is_absent: false,
       absence_reason: "",
