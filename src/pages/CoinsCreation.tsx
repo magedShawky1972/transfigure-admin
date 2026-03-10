@@ -419,7 +419,7 @@ const CoinsCreation = () => {
     loadedOrderRateRef.current = null;
     setSupplierId(""); setBankId(""); setCurrencyId("");
     setExchangeRate("1"); setNotes(""); setBankTransferImages([]);
-    setBankTransferFee(""); setTransferDate(undefined); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
+    setBankTransferFee(""); setTransferDate(undefined); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setSelectedOrderNumber(""); setLines([emptyLine(1)]);
   };
 
   const handleDeleteOrder = async (orderId: string) => {
