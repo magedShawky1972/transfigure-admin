@@ -450,14 +450,7 @@ const CoinsCreation = () => {
       setCurrencyId(data.currency_id || "");
       setExchangeRate(String(data.exchange_rate || 1));
       setNotes(data.notes || "");
-      // Parse bank_transfer_image - support both JSON array and legacy single URL
-      const rawImg = data.bank_transfer_image || "";
-      try {
-        const parsed = JSON.parse(rawImg);
-        setBankTransferImages(Array.isArray(parsed) ? parsed : [rawImg]);
-      } catch {
-        setBankTransferImages(rawImg ? [rawImg] : []);
-      }
+      setBankTransferImages(parseBankTransferImages(data.bank_transfer_image));
       setBankTransferFee(String(data.bank_transfer_fee || ""));
       setTransferDate(data.transfer_date ? new Date(data.transfer_date + "T00:00:00") : undefined);
 
