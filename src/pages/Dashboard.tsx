@@ -1473,7 +1473,7 @@ const Dashboard = () => {
     setBrandProducts(sorted);
   };
   
-  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd') => {
+  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd' | 'grand_coins' | 'grand_usd') => {
     const newDirection = coinsSortColumn === column && coinsSortDirection === 'asc' ? 'desc' : 'asc';
     setCoinsSortColumn(column);
     setCoinsSortDirection(newDirection);
