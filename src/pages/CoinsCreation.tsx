@@ -622,9 +622,6 @@ const CoinsCreation = () => {
               ? (isArabic ? "عرض طلب شراء عملات" : "View Coins Purchase Order")
               : (isArabic ? "إنشاء طلب شراء عملات" : "Create Coins Purchase Order")}
           </h1>
-          {selectedOrderNumber && (
-            <Badge variant="outline" className="font-mono text-sm">{selectedOrderNumber}</Badge>
-          )}
           {isReadOnly && <Lock className="h-5 w-5 text-muted-foreground" />}
         </div>
         {!isReadOnly && (
