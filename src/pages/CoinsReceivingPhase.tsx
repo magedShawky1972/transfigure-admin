@@ -499,8 +499,9 @@ const CoinsReceivingPhase = () => {
                   return (
                     <div key={idx} className="border rounded-lg overflow-hidden">
                       {isPdf ? (
-                        <div className="w-full h-40">
-                          <iframe src={imgUrl} title={`PDF ${idx + 1}`} className="w-full h-full pointer-events-none border-0" />
+                        <div className="w-full h-40 flex flex-col items-center justify-center bg-muted/30 gap-2">
+                          <FileText className="h-12 w-12 text-destructive/70" />
+                          <span className="text-xs text-muted-foreground">PDF {idx + 1}</span>
                         </div>
                       ) : (
                         <a href={imgUrl} target="_blank" rel="noopener noreferrer">
