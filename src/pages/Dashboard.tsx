@@ -82,7 +82,8 @@ const Dashboard = () => {
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [paymentBrands, setPaymentBrands] = useState<any[]>([]);
   const [unusedPaymentBrands, setUnusedPaymentBrands] = useState<any[]>([]);
-  const [monthComparison, setMonthComparison] = useState<any[]>([]);
+   const [monthComparison, setMonthComparison] = useState<any[]>([]);
+   const [monthComparisonDirection, setMonthComparisonDirection] = useState<"backward" | "forward">("backward");
   const [productSummary, setProductSummary] = useState<any[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [customerPurchases, setCustomerPurchases] = useState<any[]>([]);
@@ -684,9 +685,19 @@ const Dashboard = () => {
         baseMonth = now;
       }
       
-      // Build last 3 months (previous 2 + base)
-      for (let i = 2; i >= 0; i--) {
-        const monthDate = subMonths(baseMonth, i);
+      // Build 3 months based on direction
+      const monthDates: Date[] = [];
+      if (monthComparisonDirection === "backward") {
+        for (let i = 2; i >= 0; i--) {
+          monthDates.push(subMonths(baseMonth, i));
+        }
+      } else {
+        for (let i = 0; i < 3; i++) {
+          monthDates.push(subMonths(baseMonth, -i));
+        }
+      }
+      
+      for (const monthDate of monthDates) {
         const start = startOfMonth(monthDate);
         const end = endOfMonth(monthDate);
         
@@ -1475,6 +1486,13 @@ const Dashboard = () => {
       fetchSalesTrend();
     }
   }, [trendDays, trendBrandFilter]);
+
+  // Re-fetch charts when month comparison direction changes
+  useEffect(() => {
+    if (monthComparison.length > 0) {
+      fetchCharts();
+    }
+  }, [monthComparisonDirection]);
 
   const handleNewCustomersClick = async () => {
     const dateRange = getDateRange();
@@ -3382,8 +3400,26 @@ const Dashboard = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             )}
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle>{t("dashboard.monthComparison")}</CardTitle>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant={monthComparisonDirection === "backward" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMonthComparisonDirection("backward")}
+                >
+                  <ArrowDown className="h-3 w-3 mr-1" />
+                  {language === "ar" ? "للخلف" : "Backward"}
+                </Button>
+                <Button
+                  variant={monthComparisonDirection === "forward" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMonthComparisonDirection("forward")}
+                >
+                  <ArrowUp className="h-3 w-3 mr-1" />
+                  {language === "ar" ? "للأمام" : "Forward"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
