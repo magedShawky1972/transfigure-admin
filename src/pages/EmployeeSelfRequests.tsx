@@ -568,7 +568,7 @@ const EmployeeSelfRequests = () => {
               </TableHeader>
               <TableBody>
                 {requests.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{language === 'ar' ? 'لا توجد طلبات' : 'No requests found'}</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{language === 'ar' ? 'لا توجد طلبات' : 'No requests found'}</TableCell></TableRow>
                 ) : requests.map((request: any) => {
                   const typeInfo = REQUEST_TYPE_INFO[request.request_type as RequestType];
                   const statusInfo = STATUS_INFO[request.status] || STATUS_INFO.pending;
