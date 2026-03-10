@@ -3244,7 +3244,7 @@ const Dashboard = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
                       {t("dashboard.noCoinsData")}
                     </td>
                   </tr>
