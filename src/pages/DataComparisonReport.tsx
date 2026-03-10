@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, RefreshCw, Download, Calendar, AlertTriangle, CheckCircle2, XCircle, Printer, Search } from "lucide-react";
+import { ArrowLeft, RefreshCw, Download, Calendar, AlertTriangle, CheckCircle2, XCircle, Printer, Search, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
