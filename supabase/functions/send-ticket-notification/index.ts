@@ -563,7 +563,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     } else {
       // Handle single notification (backward compatibility)
-      const { type, ticketId, recipientUserId, returnComment: reqReturnComment }: NotificationRequest = requestBody;
+      const { type, ticketId, recipientUserId, returnComment: reqReturnComment, rejectReason: reqRejectReason }: NotificationRequest = requestBody;
 
       console.log("Processing single notification:", { type, ticketId, recipientUserId });
 
