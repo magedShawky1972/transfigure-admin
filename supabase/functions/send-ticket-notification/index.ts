@@ -11,10 +11,11 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc";
+  type: "ticket_created" | "ticket_approved" | "ticket_assigned" | "extra_approval_request" | "ticket_cc" | "ticket_returned";
   ticketId: string;
   recipientUserId: string;
   senderName?: string;
+  returnComment?: string;
 }
 
 interface BatchNotificationRequest {
