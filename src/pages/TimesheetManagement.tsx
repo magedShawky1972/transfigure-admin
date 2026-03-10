@@ -699,15 +699,26 @@ export default function TimesheetManagement() {
 
     try {
       const employee = employees.find((e) => e.id === formData.employee_id);
-      const calculations = calculateTimesheet(formData, employee);
+      
+      // Use changed times for calculations if provided, otherwise use actual
+      const calcData = {
+        ...formData,
+        actual_start: formData.changed_start || formData.actual_start,
+        actual_end: formData.changed_end || formData.actual_end,
+      };
+      const calculations = calculateTimesheet(calcData, employee);
 
-      const payload = {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const payload: any = {
         employee_id: formData.employee_id,
         work_date: formData.work_date,
         scheduled_start: formData.scheduled_start || null,
         scheduled_end: formData.scheduled_end || null,
         actual_start: formData.actual_start || null,
         actual_end: formData.actual_end || null,
+        changed_start: formData.changed_start || null,
+        changed_end: formData.changed_end || null,
         break_duration_minutes: formData.break_duration_minutes,
         is_absent: formData.is_absent,
         absence_reason: formData.absence_reason || null,
@@ -717,6 +728,12 @@ export default function TimesheetManagement() {
         deduction_notification_sent_at: null,
         ...calculations,
       };
+
+      // Track who made the change
+      if (formData.changed_start || formData.changed_end) {
+        payload.changed_by = user?.id || null;
+        payload.changed_at = new Date().toISOString();
+      }
 
       const { error } = await supabase.from("timesheets").upsert(payload, {
         onConflict: "employee_id,work_date",
