@@ -1277,6 +1277,7 @@ export default function TimesheetManagement() {
                       type="time"
                       value={formData.actual_start}
                       onChange={(e) => setFormData({ ...formData, actual_start: e.target.value })}
+                      disabled={!!editingTimesheet}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1285,9 +1286,36 @@ export default function TimesheetManagement() {
                       type="time"
                       value={formData.actual_end}
                       onChange={(e) => setFormData({ ...formData, actual_end: e.target.value })}
+                      disabled={!!editingTimesheet}
                     />
                   </div>
                 </div>
+
+                {editingTimesheet && (
+                  <div className="grid grid-cols-2 gap-4 p-3 border border-blue-200 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+                    <div className="col-span-2">
+                      <Label className="text-blue-700 dark:text-blue-400 font-semibold text-xs">
+                        {language === "ar" ? "الوقت المعدّل (يُستخدم للحساب بدلاً من الفعلي)" : "Changed Time (used for calculation instead of actual)"}
+                      </Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "حضور معدّل" : "Changed In"}</Label>
+                      <Input
+                        type="time"
+                        value={formData.changed_start}
+                        onChange={(e) => setFormData({ ...formData, changed_start: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "انصراف معدّل" : "Changed Out"}</Label>
+                      <Input
+                        type="time"
+                        value={formData.changed_end}
+                        onChange={(e) => setFormData({ ...formData, changed_end: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Attendance Summary - Auto calculated */}
                 {(delayMinutes > 0 || earlyLeaveMinutes > 0 || (totalAttendance.hours > 0 || totalAttendance.minutes > 0)) && (
