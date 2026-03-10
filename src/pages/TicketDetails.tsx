@@ -125,6 +125,11 @@ const TicketDetails = () => {
   const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const [sendingExtraApproval, setSendingExtraApproval] = useState(false);
 
+  // Clarification reply states
+  const [clarificationReplyOpen, setClarificationReplyOpen] = useState(false);
+  const [clarificationReplyText, setClarificationReplyText] = useState("");
+  const [sendingClarificationReply, setSendingClarificationReply] = useState(false);
+
   // Cost center and purchase type selection states
   const [costCenterDialogOpen, setCostCenterDialogOpen] = useState(false);
   const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string }[]>([]);
@@ -1200,6 +1205,65 @@ const TicketDetails = () => {
     }
   };
 
+  const handleClarificationReply = async () => {
+    if (!ticket || !clarificationReplyText.trim()) return;
+    try {
+      setSendingClarificationReply(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Clear returned flag
+      await supabase.from("tickets").update({
+        returned_for_clarification: false,
+        returned_comment: null,
+        returned_by: null,
+        returned_at: null,
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `رد على طلب التوضيح: ${clarificationReplyText}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "clarification_reply",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "clarification_reply",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        description: `رد على طلب التوضيح: ${clarificationReplyText}`,
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الإرسال' : 'Sent',
+        description: language === 'ar' ? 'تم إرسال الرد وإعادة التذكرة للموافقة' : 'Reply sent, ticket returned for approval',
+      });
+
+      setClarificationReplyOpen(false);
+      setClarificationReplyText("");
+      fetchTicket();
+      fetchWorkflowNotes();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingClarificationReply(false);
+    }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -1719,6 +1783,19 @@ const TicketDetails = () => {
                     {language === 'ar' ? 'بواسطة:' : 'By:'} {(ticket as any).returned_by}
                   </p>
                 )}
+                {isTicketOwner && (
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => {
+                      setClarificationReplyOpen(true);
+                      setClarificationReplyText("");
+                    }}
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {language === 'ar' ? 'الرد على التوضيح' : 'Reply to Clarification'}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -2055,6 +2132,45 @@ const TicketDetails = () => {
               {sendingBack 
                 ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...') 
                 : (language === 'ar' ? 'إرجاع التذكرة' : 'Send Back')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clarification Reply Dialog */}
+      <Dialog open={clarificationReplyOpen} onOpenChange={setClarificationReplyOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'الرد على طلب التوضيح' : 'Reply to Clarification Request'}
+            </DialogTitle>
+          </DialogHeader>
+          {(ticket as any)?.returned_comment && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">
+                {language === 'ar' ? 'الملاحظة المطلوبة:' : 'Requested clarification:'}
+              </p>
+              <p className="text-sm">{(ticket as any).returned_comment}</p>
+            </div>
+          )}
+          <Textarea
+            placeholder={language === 'ar' ? 'اكتب ردك هنا...' : 'Write your reply here...'}
+            value={clarificationReplyText}
+            onChange={(e) => setClarificationReplyText(e.target.value)}
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClarificationReplyOpen(false)}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button 
+              onClick={handleClarificationReply} 
+              disabled={!clarificationReplyText.trim() || sendingClarificationReply}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              {sendingClarificationReply
+                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...')
+                : (language === 'ar' ? 'إرسال الرد' : 'Send Reply')}
             </Button>
           </DialogFooter>
         </DialogContent>

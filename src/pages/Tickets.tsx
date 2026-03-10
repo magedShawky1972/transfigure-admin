@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search, XCircle, Users } from "lucide-react";
+import { Plus, Eye, FileText, Trash2, Mail, X, Image, Video, Link as LinkIcon, Copy, Filter, Search, XCircle, Users, Send } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -112,6 +112,10 @@ type Ticket = {
   qty: number | null;
   uom: string | null;
   currency_id: string | null;
+  returned_for_clarification: boolean | null;
+  returned_comment: string | null;
+  returned_by: string | null;
+  user_id: string;
   departments: {
     department_name: string;
   };
@@ -165,6 +169,10 @@ const Tickets = () => {
   // CC Users states
   const [ccUserIds, setCcUserIds] = useState<string[]>([]);
   const [allProfiles, setAllProfiles] = useState<{ id: string; user_name: string; email: string }[]>([]);
+
+  // Reply to clarification states
+  const [clarificationReplyDialog, setClarificationReplyDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const [clarificationReply, setClarificationReply] = useState("");
 
   // Copy to clipboard function
   const copyToClipboard = (text: string, label: string) => {
@@ -703,6 +711,63 @@ const Tickets = () => {
     } catch (error: any) {
       toast({
         title: language === 'ar' ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+  const handleReplyClarification = async () => {
+    const ticket = clarificationReplyDialog.ticket;
+    if (!ticket || !clarificationReply.trim()) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Clear the returned flag so it goes back to admin
+      await supabase.from("tickets").update({
+        returned_for_clarification: false,
+        returned_comment: null,
+        returned_by: null,
+        returned_at: null,
+      }).eq("id", ticket.id);
+
+      // Add workflow note with the reply
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `رد على طلب التوضيح: ${clarificationReply}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "clarification_reply",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "clarification_reply",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        description: `رد على طلب التوضيح: ${clarificationReply}`,
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الإرسال' : 'Sent',
+        description: language === 'ar' ? 'تم إرسال الرد بنجاح وإعادة التذكرة للموافقة' : 'Reply sent and ticket returned for approval',
+      });
+
+      setClarificationReplyDialog({ open: false, ticket: null });
+      setClarificationReply("");
+      fetchTickets();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
         description: error.message,
         variant: "destructive",
       });
@@ -1470,6 +1535,35 @@ const Tickets = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+                {/* Returned for Clarification Banner */}
+                {ticket.returned_for_clarification && (
+                  <div className="mb-3 p-3 border-2 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg space-y-2">
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      {language === 'ar' ? '↩️ مطلوب توضيح إضافي' : '↩️ Clarification Requested'}
+                    </p>
+                    {ticket.returned_comment && (
+                      <p className="text-xs text-amber-600 dark:text-amber-300">
+                        <strong>{language === 'ar' ? 'الملاحظة:' : 'Note:'}</strong> {ticket.returned_comment}
+                      </p>
+                    )}
+                    {ticket.returned_by && (
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? 'بواسطة:' : 'By:'} {ticket.returned_by}
+                      </p>
+                    )}
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setClarificationReplyDialog({ open: true, ticket });
+                        setClarificationReply("");
+                      }}
+                    >
+                      <Send className="mr-1 h-3 w-3" />
+                      {language === 'ar' ? 'الرد على التوضيح' : 'Reply to Clarification'}
+                    </Button>
+                  </div>
+                )}
                 <div className="flex items-start gap-2 mb-3 sm:mb-4">
                   <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 flex-1">
                     {ticket.description}
@@ -1565,6 +1659,45 @@ const Tickets = () => {
           ))}
         </div>
       )}
+
+      {/* Reply to Clarification Dialog */}
+      <Dialog 
+        open={clarificationReplyDialog.open} 
+        onOpenChange={(open) => {
+          if (!open) setClarificationReplyDialog({ open: false, ticket: null });
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'الرد على طلب التوضيح' : 'Reply to Clarification Request'}
+            </DialogTitle>
+          </DialogHeader>
+          {clarificationReplyDialog.ticket?.returned_comment && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">
+                {language === 'ar' ? 'الملاحظة المطلوبة:' : 'Requested clarification:'}
+              </p>
+              <p className="text-sm">{clarificationReplyDialog.ticket.returned_comment}</p>
+            </div>
+          )}
+          <Textarea
+            placeholder={language === 'ar' ? 'اكتب ردك هنا...' : 'Write your reply here...'}
+            value={clarificationReply}
+            onChange={(e) => setClarificationReply(e.target.value)}
+            rows={4}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setClarificationReplyDialog({ open: false, ticket: null })}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button onClick={handleReplyClarification} disabled={!clarificationReply.trim()}>
+              <Send className="mr-2 h-4 w-4" />
+              {language === 'ar' ? 'إرسال الرد' : 'Send Reply'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
