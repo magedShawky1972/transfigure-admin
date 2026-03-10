@@ -358,12 +358,21 @@ const CoinsSending = () => {
         <Dialog open={!!showImagePreview} onOpenChange={(open) => { if (!open) setShowImagePreview(null); }}>
           <DialogContent className="max-w-6xl max-h-[95vh] p-2">
             {showImagePreview && (
-              typeof showImagePreview === 'string' && (showImagePreview.match(/\.pdf$/i) || showImagePreview.includes("/raw/upload/")) ? (
-                <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(showImagePreview)}&embedded=true`}
-                  title="Transfer Preview"
-                  className="w-full h-[85vh] rounded"
-                />
+              typeof showImagePreview === 'string' && (showImagePreview.match(/\.pdf($|\?)/i) || showImagePreview.includes("/raw/upload/")) ? (
+                <div className="w-full">
+                  <object data={showImagePreview} type="application/pdf" className="w-full h-[80vh] rounded">
+                    <iframe
+                      src={`https://docs.google.com/gview?url=${encodeURIComponent(showImagePreview)}&embedded=true`}
+                      title="Transfer Preview"
+                      className="w-full h-[80vh] rounded"
+                    />
+                  </object>
+                  <div className="mt-2 flex justify-end">
+                    <Button variant="outline" size="sm" onClick={() => window.open(showImagePreview, "_blank")}>
+                      {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <img src={showImagePreview as string} alt="Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
               )

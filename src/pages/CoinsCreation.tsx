@@ -881,13 +881,20 @@ const CoinsCreation = () => {
       <Dialog open={!!previewImageUrl} onOpenChange={(open) => { if (!open) setPreviewImageUrl(null); }}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
           {previewImageUrl && (
-            previewImageUrl.match(/\.pdf$/i) || previewImageUrl.includes("/raw/upload/") ? (
-              <div className="flex flex-col items-center justify-center h-[85vh] gap-4">
-                <FileText className="h-16 w-16 text-destructive" />
-                <p className="text-muted-foreground">{isArabic ? "ملف PDF - اضغط للفتح" : "PDF File - Click to open"}</p>
-                <Button variant="outline" onClick={() => window.open(previewImageUrl, "_blank")}>
-                  {isArabic ? "فتح الملف" : "Open File"}
-                </Button>
+            previewImageUrl.match(/\.pdf($|\?)/i) || previewImageUrl.includes("/raw/upload/") ? (
+              <div className="w-full">
+                <object data={previewImageUrl} type="application/pdf" className="w-full h-[80vh] rounded">
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
+                    title="PDF Preview"
+                    className="w-full h-[80vh] rounded"
+                  />
+                </object>
+                <div className="mt-2 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewImageUrl, "_blank")}>
+                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                  </Button>
+                </div>
               </div>
             ) : (
               <img src={previewImageUrl} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
