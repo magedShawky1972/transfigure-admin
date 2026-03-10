@@ -159,7 +159,7 @@ const Dashboard = () => {
   
   // Coins by Brand
   const [coinsByBrand, setCoinsByBrand] = useState<any[]>([]);
-  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost' | 'points_count'>('total_coins');
+  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd'>('total_coins');
   const [coinsSortDirection, setCoinsSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Product Summary Filters
@@ -1131,13 +1131,13 @@ const Dashboard = () => {
             acc[brand] = {
               brand_name: brand,
               total_coins: 0,
-              points_count: 0,
+              points_coins: 0,
               usd_value: brandsMap.get(brand) || 0
             };
           }
           acc[brand].total_coins += coins;
           if (isPoint) {
-            acc[brand].points_count += 1;
+            acc[brand].points_coins += coins;
           }
           return acc;
         }, {});
@@ -1146,7 +1146,8 @@ const Dashboard = () => {
           .filter((item: any) => item.total_coins > 0)
           .map((item: any) => ({
             ...item,
-            usd_cost: item.usd_value > 0 ? item.total_coins * item.usd_value : 0
+            usd_cost: item.usd_value > 0 ? item.total_coins * item.usd_value : 0,
+            points_usd: item.usd_value > 0 ? item.points_coins * item.usd_value : 0
           }))
           .sort((a: any, b: any) => b.total_coins - a.total_coins);
         setCoinsByBrand(sortedCoins);
@@ -1465,7 +1466,7 @@ const Dashboard = () => {
     setBrandProducts(sorted);
   };
   
-  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_count') => {
+  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd') => {
     const newDirection = coinsSortColumn === column && coinsSortDirection === 'asc' ? 'desc' : 'asc';
     setCoinsSortColumn(column);
     setCoinsSortDirection(newDirection);
@@ -2261,6 +2262,8 @@ const Dashboard = () => {
                   <th>${t("dashboard.brandName")}</th>
                   <th class="text-right">${t("dashboard.totalCoins")}</th>
                   <th class="text-right">USD$</th>
+                  <th class="text-right">${language === 'ar' ? 'كوينز النقاط' : 'Points Coins'}</th>
+                  <th class="text-right">${language === 'ar' ? 'قيمة النقاط $' : 'Points USD$'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2269,12 +2272,16 @@ const Dashboard = () => {
                     <td>${item.brand_name}</td>
                     <td class="text-right">${item.total_coins.toLocaleString()}</td>
                     <td class="text-right">${item.usd_value > 0 ? '$' + item.usd_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
+                    <td class="text-right">${(item.points_coins || 0).toLocaleString()}</td>
+                    <td class="text-right">${item.usd_value > 0 ? '$' + (item.points_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
                   </tr>
                 `).join('')}
                 <tr class="total-row">
                   <td>${language === 'ar' ? 'الإجمالي' : 'Total'}</td>
                   <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + item.total_coins, 0).toLocaleString()}</td>
                   <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + (item.points_coins || 0), 0).toLocaleString()}</td>
+                  <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.points_usd || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
               </tbody>
             </table>
@@ -3183,15 +3190,27 @@ const Dashboard = () => {
                     </div>
                   </th>
                   <th 
-                    className="text-center py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => handleCoinsSort('points_count')}
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('points_coins')}
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      {language === 'ar' ? 'عدد النقاط' : 'Points Count'}
-                      {coinsSortColumn === 'points_count' && (
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'كوينز النقاط' : 'Points Coins'}
+                      {coinsSortColumn === 'points_coins' && (
                         coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
                       )}
-                      {coinsSortColumn !== 'points_count' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                      {coinsSortColumn !== 'points_coins' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('points_usd')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'قيمة النقاط $' : 'Points USD$'}
+                      {coinsSortColumn === 'points_usd' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'points_usd' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </th>
                 </tr>
@@ -3217,14 +3236,21 @@ const Dashboard = () => {
                           <span className="text-muted-foreground text-sm">N/A</span>
                         )}
                       </td>
-                      <td className="text-center py-3 px-4 font-semibold">
-                        {new Intl.NumberFormat('en-US').format(item.points_count || 0)}
+                      <td className="text-right py-3 px-4 font-semibold">
+                        {new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(item.points_coins || 0)}
+                      </td>
+                      <td className="text-right py-3 px-4 font-semibold text-primary">
+                        {item.usd_value > 0 ? (
+                          `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(item.points_usd || 0)}`
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
                       {t("dashboard.noCoinsData")}
                     </td>
                   </tr>
@@ -3246,8 +3272,11 @@ const Dashboard = () => {
                         maximumFractionDigits: 2,
                       }).format(coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0))}
                     </td>
-                    <td className="text-center py-3 px-4 text-lg">
-                      {new Intl.NumberFormat('en-US').format(coinsByBrand.reduce((sum, item) => sum + (item.points_count || 0), 0))}
+                    <td className="text-right py-3 px-4 text-lg">
+                      {new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(coinsByBrand.reduce((sum, item) => sum + (item.points_coins || 0), 0))}
+                    </td>
+                    <td className="text-right py-3 px-4 text-lg text-primary">
+                      ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(coinsByBrand.reduce((sum, item) => sum + (item.points_usd || 0), 0))}
                     </td>
                   </tr>
                 </tfoot>
