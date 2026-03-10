@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus, Edit, X, Save, Copy } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, ShoppingCart, Download, CheckCircle, UserPlus, Edit, X, Save, Copy, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
