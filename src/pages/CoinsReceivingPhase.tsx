@@ -730,7 +730,10 @@ const CoinsReceivingPhase = () => {
                       {isArabic ? "لا توجد طلبات للاستلام" : "No orders pending receiving"}
                     </TableCell>
                   </TableRow>
-                ) : orders.map(o => (
+                ) : orders.map(o => {
+                  const receivingRecords = (o as any).coins_purchase_receiving || [];
+                  const lastReceiving = receivingRecords.length > 0 ? receivingRecords[receivingRecords.length - 1] : null;
+                  return (
                   <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                     <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
                     <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
@@ -739,9 +742,12 @@ const CoinsReceivingPhase = () => {
                     <TableCell>{o.amount_in_currency ? parseFloat(o.amount_in_currency).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
                     <TableCell>{parseFloat(o.base_amount_sar || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell>{o.created_by_name || o.created_by}</TableCell>
+                    <TableCell>{lastReceiving?.received_by_name || "-"}</TableCell>
+                    <TableCell>{lastReceiving?.received_at ? format(new Date(lastReceiving.received_at), "yyyy-MM-dd") : "-"}</TableCell>
                     <TableCell><Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button></TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
