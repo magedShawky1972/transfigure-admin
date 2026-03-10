@@ -537,6 +537,7 @@ const DataComparisonReport = () => {
                         <TableHead className="text-right">{language === "ar" ? "إجمالي API" : "API Total"}</TableHead>
                         <TableHead className="text-right">{language === "ar" ? "الفرق" : "Difference"}</TableHead>
                         <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                        <TableHead className="text-center">{language === "ar" ? "عرض" : "View"}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
