@@ -887,12 +887,17 @@ const CoinsCreation = () => {
             previewImageUrl.match(/\.pdf($|\?)/i) || previewImageUrl.includes("/raw/upload/") ? (
               <div className="w-full">
                 <iframe
-                  src={previewImageUrl}
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
                   title="PDF Preview"
-                  className="w-full h-[80vh] rounded"
+                  className="w-full h-[80vh] rounded border-0"
                 />
-                <div className="mt-2 flex justify-end">
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => downloadFile(previewImageUrl, 'bank-transfer')}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تحميل" : "Download"}
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => window.open(previewImageUrl, "_blank")}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
                     {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
                   </Button>
                 </div>
