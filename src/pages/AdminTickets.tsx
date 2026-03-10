@@ -51,6 +51,7 @@ type Ticket = {
   status: string;
   created_at: string;
   department_id: string;
+  user_id: string;
   assigned_to: string | null;
   approved_at: string | null;
   approved_by: string | null;
