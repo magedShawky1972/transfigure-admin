@@ -737,6 +737,7 @@ const CoinsReceivingPhase = () => {
                   return (
                   <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadOrder(o.id)}>
                     <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
+                    <TableCell>{o.transfer_date ? format(new Date(o.transfer_date), "yyyy-MM-dd") : "-"}</TableCell>
                     <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
                     <TableCell>{(o as any).suppliers?.supplier_name || "-"}</TableCell>
                     <TableCell>{o.currencies?.currency_code || "-"}</TableCell>
