@@ -17,6 +17,7 @@ const PHASES = [
   { key: "sending", ar: "توجيه", en: "Sending" },
   { key: "receiving", ar: "استلام", en: "Receiving" },
   { key: "coins_entry", ar: "إدخال الكوينز", en: "Coins Entry" },
+  { key: "department_manager", ar: "مدير القسم", en: "Department Manager" },
 ];
 
 const CoinsWorkflowSetup = () => {
