@@ -85,7 +85,7 @@ const CoinsReceivingPhase = () => {
       setReceivings(recRes.data || []);
       setBrandReceivingImages({});
       setBrandReceivingNotes({});
-      setBankTransferImage(orderRes.data.bank_transfer_image || "");
+      setBankTransferImages(parseBankTransferImages(orderRes.data.bank_transfer_image));
       // Fetch sending phase attachments
       const { data: sendingAtts } = await supabase
         .from("coins_purchase_attachments")
