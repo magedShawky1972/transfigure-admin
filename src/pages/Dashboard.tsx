@@ -1125,6 +1125,7 @@ const Dashboard = () => {
         const coinsByBrandData = transactions.reduce((acc: any, t: any) => {
           const brand = t.brand_name || 'Unknown';
           const coins = parseNumber(t.coins_number);
+          const total = parseNumber(t.total);
           const isPoint = (t.payment_method || '').toLowerCase() === 'point';
           
           if (!acc[brand]) {
@@ -1137,7 +1138,7 @@ const Dashboard = () => {
           }
           acc[brand].total_coins += coins;
           if (isPoint) {
-            acc[brand].points_coins += coins;
+            acc[brand].points_coins += total;
           }
           return acc;
         }, {});
