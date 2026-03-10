@@ -3220,6 +3220,30 @@ const Dashboard = () => {
                       {coinsSortColumn !== 'points_usd' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </th>
+                  <th 
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('grand_coins')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'إجمالي + نقاط' : 'Total + Points'}
+                      {coinsSortColumn === 'grand_coins' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'grand_coins' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('grand_usd')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'إجمالي USD + نقاط' : 'Total USD + Points'}
+                      {coinsSortColumn === 'grand_usd' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'grand_usd' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
