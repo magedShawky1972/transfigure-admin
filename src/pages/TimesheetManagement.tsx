@@ -598,6 +598,8 @@ export default function TimesheetManagement() {
       scheduled_end: timesheet.scheduled_end || "",
       actual_start: timesheet.actual_start || "",
       actual_end: timesheet.actual_end || "",
+      changed_start: (timesheet as any).changed_start || "",
+      changed_end: (timesheet as any).changed_end || "",
       break_duration_minutes: timesheet.break_duration_minutes || 0,
       is_absent: timesheet.is_absent,
       absence_reason: timesheet.absence_reason || "",
