@@ -65,6 +65,7 @@ const CoinsCreation = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrderPhase, setSelectedOrderPhase] = useState<string>("creation");
+  const [selectedOrderNumber, setSelectedOrderNumber] = useState<string>("");
 
   // Filters
   const [viewFilter, setViewFilter] = useState<PhaseViewFilter>("pending");
@@ -418,7 +419,7 @@ const CoinsCreation = () => {
     loadedOrderRateRef.current = null;
     setSupplierId(""); setBankId(""); setCurrencyId("");
     setExchangeRate("1"); setNotes(""); setBankTransferImages([]);
-    setBankTransferFee(""); setTransferDate(undefined); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setLines([emptyLine(1)]);
+    setBankTransferFee(""); setTransferDate(undefined); setSelectedOrderId(null); setSelectedOrderPhase("creation"); setSelectedOrderNumber(""); setLines([emptyLine(1)]);
   };
 
   const handleDeleteOrder = async (orderId: string) => {
@@ -444,6 +445,7 @@ const CoinsCreation = () => {
     if (data) {
       setSelectedOrderId(data.id);
       setSelectedOrderPhase(data.current_phase || "creation");
+      setSelectedOrderNumber(data.order_number || "");
       setSupplierId(data.supplier_id || "");
       setBankId(data.bank_id || "");
       loadedOrderRateRef.current = String(data.exchange_rate || 1);
@@ -620,6 +622,9 @@ const CoinsCreation = () => {
               ? (isArabic ? "عرض طلب شراء عملات" : "View Coins Purchase Order")
               : (isArabic ? "إنشاء طلب شراء عملات" : "Create Coins Purchase Order")}
           </h1>
+          {selectedOrderNumber && (
+            <Badge variant="outline" className="font-mono text-sm">{selectedOrderNumber}</Badge>
+          )}
           {isReadOnly && <Lock className="h-5 w-5 text-muted-foreground" />}
         </div>
         {!isReadOnly && (
@@ -722,40 +727,40 @@ const CoinsCreation = () => {
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
-              {isReadOnly ? (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal bg-muted cursor-not-allowed"
-                  disabled
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {transferDate ? format(transferDate, "yyyy-MM-dd") : "-"}
-                </Button>
-              ) : (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !transferDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {transferDate ? format(transferDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={transferDate}
-                      onSelect={setTransferDate}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              )}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !transferDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {transferDate ? format(transferDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={transferDate}
+                    onSelect={(date) => {
+                      setTransferDate(date);
+                      if (isReadOnly && selectedOrderId && date) {
+                        supabase.from("coins_purchase_orders")
+                          .update({ transfer_date: format(date, "yyyy-MM-dd") })
+                          .eq("id", selectedOrderId)
+                          .then(({ error }) => {
+                            if (error) toast.error(isArabic ? "فشل حفظ التاريخ" : "Failed to save date");
+                            else toast.success(isArabic ? "تم تحديث تاريخ التحويل" : "Transfer date updated");
+                          });
+                      }
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>{isArabic ? "رسوم التحويل البنكي" : "Bank Transfer Fee"}</Label>
