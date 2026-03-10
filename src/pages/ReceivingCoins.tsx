@@ -877,10 +877,16 @@ const ReceivingCoins = () => {
              <Coins className="h-7 w-7 text-primary" />
              <h1 className="text-2xl font-bold">{isArabic ? "إيصال الاستلام" : "Receiving Entry"}</h1>
            </div>
-           <Button onClick={openNewEntry}>
-             <Plus className="h-4 w-4 mr-1" />
-             {isArabic ? "إدخال جديد" : "New Entry"}
-           </Button>
+           <div className="flex items-center gap-2">
+             <Button variant="outline" onClick={handleExportToExcel}>
+               <FileDown className="h-4 w-4 mr-1" />
+               {isArabic ? "تصدير Excel" : "Export Excel"}
+             </Button>
+             <Button onClick={openNewEntry}>
+               <Plus className="h-4 w-4 mr-1" />
+               {isArabic ? "إدخال جديد" : "New Entry"}
+             </Button>
+           </div>
          </div>
 
          <CoinsPhaseFilterBar
