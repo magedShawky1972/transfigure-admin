@@ -697,7 +697,12 @@ const CoinsCreation = () => {
 
       {/* Header Details */}
       <Card>
-        <CardHeader><CardTitle>{isArabic ? "بيانات الطلب الرئيسية" : "Order Header"}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            {isArabic ? "بيانات الطلب الرئيسية" : "Order Header"}
+            {selectedOrderNumber && <Badge variant="outline" className="font-mono text-sm">{selectedOrderNumber}</Badge>}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
