@@ -650,28 +650,35 @@ const CoinsCreation = () => {
           <div className="space-y-4">
             {bankTransferImages.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {bankTransferImages.map((imgUrl, idx) => (
-                  <div key={idx} className="relative group border rounded-lg overflow-hidden">
-                    {imgUrl.match(/\.pdf$/i) || imgUrl.includes("/raw/upload/") ? (
-                      <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center h-40 bg-muted/30 cursor-pointer hover:bg-muted/50">
-                        <FileText className="h-10 w-10 text-destructive mb-1" />
-                        <span className="text-xs text-muted-foreground">PDF</span>
-                      </a>
-                    ) : (
-                      <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
-                    )}
-                    <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
-                        <Maximize2 className="h-3 w-3" />
-                      </Button>
+                {bankTransferImages.map((imgUrl, idx) => {
+                  const isPdf = imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/");
+                  return (
+                    <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                      {isPdf ? (
+                        <div className="w-full h-40 cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
+                          <object data={imgUrl} type="application/pdf" className="w-full h-full pointer-events-none">
+                            <div className="flex flex-col items-center justify-center h-full bg-muted/30">
+                              <FileText className="h-10 w-10 text-destructive mb-1" />
+                              <span className="text-xs text-muted-foreground">PDF</span>
+                            </div>
+                          </object>
+                        </div>
+                      ) : (
+                        <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)} />
+                      )}
+                      <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)}>
+                          <Maximize2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {!isReadOnly && (
+                        <Button variant="destructive" size="icon" className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBankTransferImages(prev => prev.filter((_, i) => i !== idx))}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
-                    {!isReadOnly && (
-                      <Button variant="destructive" size="icon" className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBankTransferImages(prev => prev.filter((_, i) => i !== idx))}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {!isReadOnly && (
