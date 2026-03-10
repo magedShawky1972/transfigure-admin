@@ -203,21 +203,17 @@ const CoinsCreation = () => {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-        const isImage = file.type.startsWith("image/");
-        const isVideo = file.type.startsWith("video/");
-        const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
-        const publicId = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}`;
-        const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
-          body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
-        });
-        if (error) throw error;
-        if (!data?.url) throw new Error("Upload failed");
-        setBankTransferImages(prev => [...prev, data.url]);
+        const ext = file.name.split('.').pop() || 'bin';
+        const filePath = `coins-creation/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("bank-transfer-files")
+          .upload(filePath, file, { contentType: file.type, upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage
+          .from("bank-transfer-files")
+          .getPublicUrl(filePath);
+        if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
+        setBankTransferImages(prev => [...prev, urlData.publicUrl]);
       }
       toast.success(isArabic ? "تم رفع الملفات بنجاح" : "Files uploaded successfully");
     } catch (err: any) {
