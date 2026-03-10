@@ -300,12 +300,7 @@ const CoinsSending = () => {
                       <div key={idx} className="relative group border rounded-lg overflow-hidden">
                         {isPdf ? (
                           <div className="w-full h-40 cursor-pointer" onClick={() => setShowImagePreview(imgUrl)}>
-                            <object data={imgUrl} type="application/pdf" className="w-full h-full pointer-events-none">
-                              <div className="flex flex-col items-center justify-center h-full bg-muted/30">
-                                <FileText className="h-10 w-10 text-destructive mb-1" />
-                                <span className="text-xs text-muted-foreground">PDF</span>
-                              </div>
-                            </object>
+                            <iframe src={imgUrl} title={`PDF ${idx + 1}`} className="w-full h-full pointer-events-none border-0" />
                           </div>
                         ) : (
                           <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setShowImagePreview(imgUrl)} />
@@ -360,13 +355,11 @@ const CoinsSending = () => {
             {showImagePreview && (
               typeof showImagePreview === 'string' && (showImagePreview.match(/\.pdf($|\?)/i) || showImagePreview.includes("/raw/upload/")) ? (
                 <div className="w-full">
-                  <object data={showImagePreview} type="application/pdf" className="w-full h-[80vh] rounded">
-                    <iframe
-                      src={`https://docs.google.com/gview?url=${encodeURIComponent(showImagePreview)}&embedded=true`}
-                      title="Transfer Preview"
-                      className="w-full h-[80vh] rounded"
-                    />
-                  </object>
+                  <iframe
+                    src={showImagePreview}
+                    title="Transfer Preview"
+                    className="w-full h-[80vh] rounded"
+                  />
                   <div className="mt-2 flex justify-end">
                     <Button variant="outline" size="sm" onClick={() => window.open(showImagePreview, "_blank")}>
                       {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
