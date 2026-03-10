@@ -2136,6 +2136,45 @@ const TicketDetails = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Clarification Reply Dialog */}
+      <Dialog open={clarificationReplyOpen} onOpenChange={setClarificationReplyOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'الرد على طلب التوضيح' : 'Reply to Clarification Request'}
+            </DialogTitle>
+          </DialogHeader>
+          {(ticket as any)?.returned_comment && (
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">
+                {language === 'ar' ? 'الملاحظة المطلوبة:' : 'Requested clarification:'}
+              </p>
+              <p className="text-sm">{(ticket as any).returned_comment}</p>
+            </div>
+          )}
+          <Textarea
+            placeholder={language === 'ar' ? 'اكتب ردك هنا...' : 'Write your reply here...'}
+            value={clarificationReplyText}
+            onChange={(e) => setClarificationReplyText(e.target.value)}
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClarificationReplyOpen(false)}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button 
+              onClick={handleClarificationReply} 
+              disabled={!clarificationReplyText.trim() || sendingClarificationReply}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              {sendingClarificationReply
+                ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...')
+                : (language === 'ar' ? 'إرسال الرد' : 'Send Reply')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
