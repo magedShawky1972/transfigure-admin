@@ -774,7 +774,7 @@ const Tickets = () => {
     }
   };
 
-
+  const getApprovalBadge = (ticket: any) => {
     if (ticket.status === "Rejected") {
       return (
         <Badge variant="destructive">
