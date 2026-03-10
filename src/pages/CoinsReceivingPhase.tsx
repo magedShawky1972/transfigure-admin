@@ -495,35 +495,28 @@ const CoinsReceivingPhase = () => {
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />{isArabic ? "مستندات التحويل البنكي" : "Bank Transfer Documents"}</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {bankTransferImages.map((imgUrl, idx) => {
                   const isPdf = imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/");
                   return (
-                     <div key={idx} className="border rounded-lg overflow-hidden">
+                    <div key={idx} className="relative group border rounded-lg overflow-hidden">
                       {isPdf ? (
-                        <div 
-                          className="w-full h-40 flex flex-col items-center justify-center bg-muted/30 gap-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => setPreviewImageUrl(imgUrl)}
-                        >
+                        <div className="w-full h-40 cursor-pointer flex flex-col items-center justify-center bg-muted/30 gap-2" onClick={() => setPreviewImageUrl(imgUrl)}>
                           <FileText className="h-12 w-12 text-destructive/70" />
                           <span className="text-xs text-muted-foreground">PDF {idx + 1}</span>
                         </div>
                       ) : (
-                        <img 
-                          src={imgUrl} 
-                          alt={`Bank Transfer ${idx + 1}`} 
-                          className="w-full h-40 object-cover cursor-pointer hover:opacity-80 transition-opacity" 
-                          onClick={() => setPreviewImageUrl(imgUrl)}
-                        />
+                        <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)} />
                       )}
-                      <div className="p-2 flex gap-1">
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => setPreviewImageUrl(imgUrl)}>
-                          <Maximize2 className="h-4 w-4 mr-1" />
-                          {isArabic ? "تكبير" : "Maximize"}
+                      <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)} title={isArabic ? "تكبير" : "Maximize"}>
+                          <Maximize2 className="h-3 w-3" />
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
-                          <Download className="h-4 w-4 mr-1" />
-                          {isArabic ? "تحميل" : "Download"}
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => downloadFile(imgUrl, `transfer-${idx + 1}`)} title={isArabic ? "تحميل" : "Download"}>
+                          <Download className="h-3 w-3" />
+                        </Button>
+                        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => window.open(imgUrl, "_blank")} title={isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}>
+                          <ExternalLink className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
