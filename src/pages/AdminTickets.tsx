@@ -1024,7 +1024,82 @@ const AdminTickets = () => {
     }
   };
 
-  const handleResendNotification = async (ticket: Ticket) => {
+  const handleSendBackForClarification = async () => {
+    const ticket = sendBackDialog.ticket;
+    if (!ticket || !sendBackComment.trim()) return;
+
+    try {
+      setSendingBack(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      // Update ticket
+      await supabase.from("tickets").update({
+        returned_for_clarification: true,
+        returned_by: userProfile?.user_name || user.id,
+        returned_at: new Date().toISOString(),
+        returned_comment: sendBackComment,
+        status: "Open",
+      }).eq("id", ticket.id);
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم إرجاع التذكرة للتوضيح: ${sendBackComment}`,
+        approval_level: ticket.next_admin_order ?? 0,
+        activity_type: "returned_for_clarification",
+      });
+
+      // Activity log
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "returned_for_clarification",
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        recipient_id: ticket.user_id,
+        recipient_name: ticket.profiles.user_name,
+        description: `تم إرجاع التذكرة للتوضيح بواسطة ${userProfile?.user_name}: ${sendBackComment}`,
+      });
+
+      // Send notification + email
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_returned",
+          ticketId: ticket.id,
+          recipientUserId: ticket.user_id,
+          returnComment: sendBackComment,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'تم الإرجاع' : 'Sent Back',
+        description: language === 'ar' ? 'تم إرجاع التذكرة للتوضيح بنجاح' : 'Ticket returned for clarification',
+      });
+
+      setSendBackDialog({ open: false, ticket: null });
+      setSendBackComment("");
+      fetchTickets();
+    } catch (error: any) {
+      console.error("Error sending back ticket:", error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingBack(false);
+    }
+  };
+
+
     try {
       // Get the current approval level from ticket or default to 0 (admin_order starts at 0)
       const currentOrder = ticket.next_admin_order ?? 0;
