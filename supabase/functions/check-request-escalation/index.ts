@@ -189,7 +189,65 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check if this is a test request
+    let body: any = {};
+    try { body = await req.json(); } catch (_) {}
+    const isTest = body?.test === true;
+    const testEmail = body?.test_email || MD_EMAIL;
+
     console.log('Checking for stale employee requests in manager phase...');
+
+    if (isTest) {
+      console.log(`TEST MODE: Sending sample escalation email to ${testEmail}`);
+      
+      const sampleRequests = [
+        {
+          request_number: 'ER-20260307-0001',
+          employee_name: 'أحمد محمد',
+          request_type: 'vacation',
+          department_name: 'قسم المبيعات',
+          manager_name: 'خالد العتيبي',
+          request_date: '2026-03-05T00:00:00',
+          days_pending: 5,
+        },
+        {
+          request_number: 'ER-20260306-0003',
+          employee_name: 'سارة أحمد',
+          request_type: 'early_leave',
+          department_name: 'قسم التقنية',
+          manager_name: 'فهد السعيد',
+          request_date: '2026-03-04T00:00:00',
+          days_pending: 6,
+        },
+        {
+          request_number: 'ER-20260307-0005',
+          employee_name: 'عبدالله الشهري',
+          request_type: 'expense_refund',
+          department_name: 'قسم المالية',
+          manager_name: 'محمد القحطاني',
+          request_date: '2026-03-06T00:00:00',
+          days_pending: 4,
+        },
+      ];
+
+      const emailHtml = buildEscalationEmail(sampleRequests);
+      const subject = `[تجربة] تصعيد - ${sampleRequests.length} طلب موظفين معلق لأكثر من ${ESCALATION_DAYS} أيام`;
+
+      const smtpHost = 'smtp.hostinger.com';
+      const smtpPort = 465;
+      const smtpUsername = 'edara@asuscards.com';
+      const smtpPassword = Deno.env.get('SMTP_PASSWORD') ?? '';
+      const fromAddress = 'Edara Support <edara@asuscards.com>';
+
+      const rawMessage = buildRawEmail(fromAddress, testEmail, [], subject, emailHtml);
+      await sendRawEmail(smtpHost, smtpPort, smtpUsername, smtpPassword, fromAddress, testEmail, [], rawMessage);
+
+      console.log(`Test escalation email sent to ${testEmail}`);
+      return new Response(
+        JSON.stringify({ message: `Test escalation email sent to ${testEmail}`, test: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Find requests stuck in manager phase for more than 3 days
     const threeDaysAgo = new Date();
