@@ -1099,7 +1099,7 @@ const AdminTickets = () => {
     }
   };
 
-
+  const handleResendNotification = async (ticket: Ticket) => {
     try {
       // Get the current approval level from ticket or default to 0 (admin_order starts at 0)
       const currentOrder = ticket.next_admin_order ?? 0;
