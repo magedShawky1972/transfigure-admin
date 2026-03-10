@@ -244,6 +244,26 @@ const EmployeeSelfRequests = () => {
     }
   };
 
+  const handleDeleteRequest = async (requestId: string) => {
+    const confirmMsg = language === 'ar' ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const { error } = await supabase
+        .from('employee_requests')
+        .delete()
+        .eq('id', requestId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      setRequests(prev => prev.filter(r => r.id !== requestId));
+      toast({ title: language === 'ar' ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully' });
+    } catch (error: any) {
+      toast({ title: language === 'ar' ? 'خطأ في حذف الطلب' : 'Error deleting request', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const resetForm = () => {
     setVacationCodeId('');
     setStartDate(undefined);
