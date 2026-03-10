@@ -654,14 +654,15 @@ export default function TimesheetManagement() {
   // Calculate early leave (left before scheduled end)
   // Only count as early leave if it exceeds the allowed early exit minutes
   const calculateEarlyLeave = (): number => {
-    if (!formData.scheduled_end || !formData.actual_end || formData.is_absent) return 0;
+    if (!formData.scheduled_end || formData.is_absent) return 0;
+    const effectiveEnd = formData.changed_end || formData.actual_end;
+    if (!effectiveEnd) return 0;
     
     const scheduledEnd = parseISO(`${formData.work_date}T${formData.scheduled_end}`);
-    const actualEnd = parseISO(`${formData.work_date}T${formData.actual_end}`);
+    const actualEnd = parseISO(`${formData.work_date}T${effectiveEnd}`);
     
     if (actualEnd < scheduledEnd) {
       const earlyMinutes = differenceInMinutes(scheduledEnd, actualEnd);
-      // Subtract allowed early exit minutes - only count excess as early leave
       const actualEarlyLeave = earlyMinutes - allowEarlyExitMinutes;
       return actualEarlyLeave > 0 ? actualEarlyLeave : 0;
     }
