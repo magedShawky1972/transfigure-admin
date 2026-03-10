@@ -38,9 +38,9 @@ serve(async (req) => {
         urls = raw ? [raw] : [];
       }
 
-      // Filter only Cloudinary URLs
-      const cloudinaryUrls = urls.filter((u: string) => u.includes('res.cloudinary.com'));
-      if (cloudinaryUrls.length === 0) {
+      // Filter URLs that need migration: Cloudinary URLs or previously migrated .bin files
+      const needsMigration = urls.filter((u: string) => u.includes('res.cloudinary.com') || u.endsWith('.bin'));
+      if (needsMigration.length === 0) {
         results.push({ order: order.order_number, migrated: 0, skipped: urls.length, errors: [] });
         continue;
       }
