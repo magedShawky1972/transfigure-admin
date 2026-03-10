@@ -159,7 +159,7 @@ const Dashboard = () => {
   
   // Coins by Brand
   const [coinsByBrand, setCoinsByBrand] = useState<any[]>([]);
-  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd'>('total_coins');
+  const [coinsSortColumn, setCoinsSortColumn] = useState<'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd' | 'grand_coins' | 'grand_usd'>('total_coins');
   const [coinsSortDirection, setCoinsSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Product Summary Filters
@@ -1145,11 +1145,17 @@ const Dashboard = () => {
         
         const sortedCoins = Object.values(coinsByBrandData)
           .filter((item: any) => item.total_coins > 0)
-          .map((item: any) => ({
-            ...item,
-            usd_cost: item.usd_value > 0 ? item.total_coins * item.usd_value : 0,
-            points_usd: item.usd_value > 0 ? item.points_coins * item.usd_value : 0
-          }))
+          .map((item: any) => {
+            const usd_cost = item.usd_value > 0 ? item.total_coins * item.usd_value : 0;
+            const points_usd = item.usd_value > 0 ? item.points_coins * item.usd_value : 0;
+            return {
+              ...item,
+              usd_cost,
+              points_usd,
+              grand_coins: item.total_coins + item.points_coins,
+              grand_usd: usd_cost + points_usd
+            };
+          })
           .sort((a: any, b: any) => b.total_coins - a.total_coins);
         setCoinsByBrand(sortedCoins);
         
@@ -1467,7 +1473,7 @@ const Dashboard = () => {
     setBrandProducts(sorted);
   };
   
-  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd') => {
+  const handleCoinsSort = (column: 'brand_name' | 'total_coins' | 'usd_cost' | 'points_coins' | 'points_usd' | 'grand_coins' | 'grand_usd') => {
     const newDirection = coinsSortColumn === column && coinsSortDirection === 'asc' ? 'desc' : 'asc';
     setCoinsSortColumn(column);
     setCoinsSortDirection(newDirection);
@@ -2265,6 +2271,8 @@ const Dashboard = () => {
                   <th class="text-right">USD$</th>
                   <th class="text-right">${language === 'ar' ? 'كوينز النقاط' : 'Points Coins'}</th>
                   <th class="text-right">${language === 'ar' ? 'قيمة النقاط $' : 'Points USD$'}</th>
+                  <th class="text-right">${language === 'ar' ? 'إجمالي + نقاط' : 'Total + Points'}</th>
+                  <th class="text-right">${language === 'ar' ? 'إجمالي USD + نقاط' : 'Total USD + Points'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2275,6 +2283,8 @@ const Dashboard = () => {
                     <td class="text-right">${item.usd_value > 0 ? '$' + item.usd_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
                     <td class="text-right">${(item.points_coins || 0).toLocaleString()}</td>
                     <td class="text-right">${item.usd_value > 0 ? '$' + (item.points_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
+                    <td class="text-right">${(item.grand_coins || 0).toLocaleString()}</td>
+                    <td class="text-right">${item.usd_value > 0 ? '$' + (item.grand_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</td>
                   </tr>
                 `).join('')}
                 <tr class="total-row">
@@ -2283,6 +2293,8 @@ const Dashboard = () => {
                   <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.usd_cost || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + (item.points_coins || 0), 0).toLocaleString()}</td>
                   <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.points_usd || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td class="text-right">${coinsByBrand.reduce((sum, item) => sum + (item.grand_coins || 0), 0).toLocaleString()}</td>
+                  <td class="text-right">$${coinsByBrand.reduce((sum, item) => sum + (item.grand_usd || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
               </tbody>
             </table>
@@ -3214,6 +3226,30 @@ const Dashboard = () => {
                       {coinsSortColumn !== 'points_usd' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </th>
+                  <th 
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('grand_coins')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'إجمالي + نقاط' : 'Total + Points'}
+                      {coinsSortColumn === 'grand_coins' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'grand_coins' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-right py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('grand_usd')}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      {language === 'ar' ? 'إجمالي USD + نقاط' : 'Total USD + Points'}
+                      {coinsSortColumn === 'grand_usd' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'grand_usd' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -3247,11 +3283,21 @@ const Dashboard = () => {
                           <span className="text-muted-foreground text-sm">N/A</span>
                         )}
                       </td>
+                      <td className="text-right py-3 px-4 font-semibold">
+                        {new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(item.grand_coins || 0)}
+                      </td>
+                      <td className="text-right py-3 px-4 font-semibold text-primary">
+                        {item.usd_value > 0 ? (
+                          `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(item.grand_usd || 0)}`
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
                       {t("dashboard.noCoinsData")}
                     </td>
                   </tr>
@@ -3278,6 +3324,12 @@ const Dashboard = () => {
                     </td>
                     <td className="text-right py-3 px-4 text-lg text-primary">
                       ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(coinsByBrand.reduce((sum, item) => sum + (item.points_usd || 0), 0))}
+                    </td>
+                    <td className="text-right py-3 px-4 text-lg">
+                      {new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(coinsByBrand.reduce((sum, item) => sum + (item.grand_coins || 0), 0))}
+                    </td>
+                    <td className="text-right py-3 px-4 text-lg text-primary">
+                      ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(coinsByBrand.reduce((sum, item) => sum + (item.grand_usd || 0), 0))}
                     </td>
                   </tr>
                 </tfoot>
