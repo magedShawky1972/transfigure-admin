@@ -592,6 +592,18 @@ const EmployeeSelfRequests = () => {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
+                      <TableCell>
+                        {request.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteRequest(request.id)}
+                            title={language === 'ar' ? 'حذف الطلب' : 'Delete Request'}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
