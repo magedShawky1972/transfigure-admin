@@ -489,26 +489,31 @@ const CoinsReceivingPhase = () => {
         )}
 
         {/* Bank Transfer Document (from Sending phase) */}
-        {bankTransferImage && (
+        {bankTransferImages.length > 0 && (
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />{isArabic ? "مستند التحويل البنكي" : "Bank Transfer Document"}</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />{isArabic ? "مستندات التحويل البنكي" : "Bank Transfer Documents"}</CardTitle></CardHeader>
             <CardContent>
-              <div className="max-w-md">
-                {bankTransferImage.match(/\.pdf($|\?)/i) || bankTransferImage.includes("/raw/upload/") ? (
-                  <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
-                    title="Bank Transfer"
-                    className="w-full h-[300px] rounded-lg border"
-                  />
-                ) : (
-                  <a href={bankTransferImage} target="_blank" rel="noopener noreferrer">
-                    <img src={bankTransferImage} alt="Bank Transfer" className="max-w-full max-h-64 rounded-lg border object-contain" />
-                  </a>
-                )}
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
-                  <Download className="h-4 w-4 mr-1" />
-                  {isArabic ? "تحميل الملف" : "Download File"}
-                </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {bankTransferImages.map((imgUrl, idx) => (
+                  <div key={idx} className="border rounded-lg overflow-hidden">
+                    {imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/") ? (
+                      <div className="flex flex-col items-center justify-center h-40 bg-muted/30">
+                        <FileText className="h-10 w-10 text-destructive mb-1" />
+                        <span className="text-xs text-muted-foreground">PDF</span>
+                      </div>
+                    ) : (
+                      <a href={imgUrl} target="_blank" rel="noopener noreferrer">
+                        <img src={imgUrl} alt={`Bank Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
+                      </a>
+                    )}
+                    <div className="p-2">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
+                        <Download className="h-4 w-4 mr-1" />
+                        {isArabic ? "تحميل" : "Download"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
