@@ -1136,6 +1136,11 @@ export default function TimesheetManagement() {
                           ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
                           : "-"}
                       </TableCell>
+                      <TableCell>
+                        {(ts as any).changed_start || (ts as any).changed_end
+                          ? <span className="text-blue-600 font-medium">{`${(ts as any).changed_start || '-'} - ${(ts as any).changed_end || '-'}`}</span>
+                          : "-"}
+                      </TableCell>
                       <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : ""}>
                         {ts.deduction_rules && ts.deduction_rules.deduction_value > 0
                           ? ts.deduction_rules.deduction_type === 'percentage' 
