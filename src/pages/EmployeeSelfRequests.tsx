@@ -563,6 +563,7 @@ const EmployeeSelfRequests = () => {
                   <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                   <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                   <TableHead>{language === 'ar' ? 'تفاصيل' : 'Details'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'إجراء' : 'Action'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
