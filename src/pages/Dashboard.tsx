@@ -3182,6 +3182,18 @@ const Dashboard = () => {
                       {coinsSortColumn !== 'usd_cost' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </th>
+                  <th 
+                    className="text-center py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleCoinsSort('points_count')}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      {language === 'ar' ? 'عدد النقاط' : 'Points Count'}
+                      {coinsSortColumn === 'points_count' && (
+                        coinsSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      )}
+                      {coinsSortColumn !== 'points_count' && <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
