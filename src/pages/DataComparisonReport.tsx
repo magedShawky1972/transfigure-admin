@@ -106,13 +106,11 @@ const DataComparisonReport = () => {
     try {
       const fromInt = convertDateToInt(fromDate);
       const toInt = convertDateToInt(toDate);
-      const fromBounds = getKSADayBoundaries(fromDate);
-      const toBounds = getKSADayBoundaries(toDate);
+      const fetchLimit = 1000;
 
-      // Fetch purple transaction data in batches (excluding 'point' payment method)
+      // Step 1: Fetch purple transactions by created_at_date_int (excluding 'point')
       let allPurpleData: { order_number: string; total: number }[] = [];
       let purpleOffset = 0;
-      const fetchLimit = 1000;
       while (true) {
         const { data: batch, error: purpleError } = await supabase
           .from("purpletransaction")
@@ -127,7 +125,7 @@ const DataComparisonReport = () => {
         purpleOffset += fetchLimit;
       }
 
-      // Fetch API sales headers in batches using order_date_int
+      // Step 2: Fetch API sales headers by order_date_int
       let allApiHeaders: { order_number: string }[] = [];
       let headerOffset = 0;
       while (true) {
@@ -143,13 +141,55 @@ const DataComparisonReport = () => {
         headerOffset += fetchLimit;
       }
 
-      const apiOrderNumbers = allApiHeaders.map((h) => h.order_number);
+      const purpleOrderNumbers = [...new Set(allPurpleData.map(r => r.order_number).filter(Boolean))] as string[];
+      const apiOrderNumbers = [...new Set(allApiHeaders.map(h => h.order_number).filter(Boolean))];
+      const allOrderNumbers = [...new Set([...purpleOrderNumbers, ...apiOrderNumbers])];
 
-      // Fetch API sales lines in batches by order number chunks
-      let allApiLines: { order_number: string; total: number }[] = [];
+      // Step 3: For orders found ONLY in API (missing from purple by date), check if they exist in purple at all
+      const missingFromPurpleByDate = apiOrderNumbers.filter(o => !purpleOrderNumbers.includes(o));
       const batchSize = 500;
-      for (let i = 0; i < apiOrderNumbers.length; i += batchSize) {
-        const chunk = apiOrderNumbers.slice(i, i + batchSize);
+      if (missingFromPurpleByDate.length > 0) {
+        for (let i = 0; i < missingFromPurpleByDate.length; i += batchSize) {
+          const chunk = missingFromPurpleByDate.slice(i, i + batchSize);
+          let offset = 0;
+          while (true) {
+            const { data: extra, error } = await supabase
+              .from("purpletransaction")
+              .select("order_number, total")
+              .in("order_number", chunk)
+              .neq("payment_method", "point")
+              .range(offset, offset + fetchLimit - 1);
+            if (error) throw error;
+            allPurpleData = allPurpleData.concat(extra || []);
+            if (!extra || extra.length < fetchLimit) break;
+            offset += fetchLimit;
+          }
+        }
+      }
+
+      // Step 4: For orders found ONLY in purple (missing from API by date), check if they exist in API at all
+      const missingFromApiByDate = purpleOrderNumbers.filter(o => !apiOrderNumbers.includes(o));
+      if (missingFromApiByDate.length > 0) {
+        for (let i = 0; i < missingFromApiByDate.length; i += batchSize) {
+          const chunk = missingFromApiByDate.slice(i, i + batchSize);
+          const { data: extraHeaders } = await supabase
+            .from("sales_order_header")
+            .select("order_number")
+            .in("order_number", chunk);
+          if (extraHeaders) {
+            const extraApiOrders = extraHeaders.map(h => h.order_number);
+            allApiHeaders = allApiHeaders.concat(extraHeaders);
+            // Update allOrderNumbers
+            extraApiOrders.forEach(o => allOrderNumbers.includes(o) || allOrderNumbers.push(o));
+          }
+        }
+      }
+
+      // Step 5: Fetch API sales lines for all relevant orders
+      const allRelevantApiOrders = [...new Set(allApiHeaders.map(h => h.order_number))];
+      let allApiLines: { order_number: string; total: number }[] = [];
+      for (let i = 0; i < allRelevantApiOrders.length; i += batchSize) {
+        const chunk = allRelevantApiOrders.slice(i, i + batchSize);
         let lineOffset = 0;
         while (true) {
           const { data: lines, error: lineError } = await supabase
@@ -167,6 +207,7 @@ const DataComparisonReport = () => {
       // Aggregate purple by order
       const purpleByOrder = new Map<string, { lines: number; total: number }>();
       allPurpleData.forEach((row) => {
+        if (!row.order_number) return;
         const existing = purpleByOrder.get(row.order_number) || { lines: 0, total: 0 };
         existing.lines += 1;
         existing.total += row.total || 0;
