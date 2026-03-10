@@ -170,6 +170,10 @@ const Tickets = () => {
   const [ccUserIds, setCcUserIds] = useState<string[]>([]);
   const [allProfiles, setAllProfiles] = useState<{ id: string; user_name: string; email: string }[]>([]);
 
+  // Reply to clarification states
+  const [clarificationReplyDialog, setClarificationReplyDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
+  const [clarificationReply, setClarificationReply] = useState("");
+
   // Copy to clipboard function
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
