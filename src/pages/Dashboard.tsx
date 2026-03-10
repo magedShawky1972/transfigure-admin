@@ -1145,11 +1145,17 @@ const Dashboard = () => {
         
         const sortedCoins = Object.values(coinsByBrandData)
           .filter((item: any) => item.total_coins > 0)
-          .map((item: any) => ({
-            ...item,
-            usd_cost: item.usd_value > 0 ? item.total_coins * item.usd_value : 0,
-            points_usd: item.usd_value > 0 ? item.points_coins * item.usd_value : 0
-          }))
+          .map((item: any) => {
+            const usd_cost = item.usd_value > 0 ? item.total_coins * item.usd_value : 0;
+            const points_usd = item.usd_value > 0 ? item.points_coins * item.usd_value : 0;
+            return {
+              ...item,
+              usd_cost,
+              points_usd,
+              grand_coins: item.total_coins + item.points_coins,
+              grand_usd: usd_cost + points_usd
+            };
+          })
           .sort((a: any, b: any) => b.total_coins - a.total_coins);
         setCoinsByBrand(sortedCoins);
         
