@@ -137,7 +137,7 @@ const AdminTickets = () => {
   const [sendBackDialog, setSendBackDialog] = useState<{ open: boolean; ticket: Ticket | null }>({ open: false, ticket: null });
   const [sendBackComment, setSendBackComment] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
-
+  useEffect(() => {
     checkAdminStatus();
     fetchTickets();
     fetchDepartmentMembers();
