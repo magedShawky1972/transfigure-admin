@@ -726,7 +726,7 @@ const CoinsReceivingPhase = () => {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                     <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                       {isArabic ? "لا توجد طلبات للاستلام" : "No orders pending receiving"}
                     </TableCell>
                   </TableRow>
