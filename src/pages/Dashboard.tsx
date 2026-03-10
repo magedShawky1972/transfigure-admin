@@ -2665,19 +2665,48 @@ const Dashboard = () => {
               <label className="text-sm font-medium mb-2 block">
                 {language === 'ar' ? 'تصفية حسب العلامة التجارية' : 'Filter by Brand'}
               </label>
-              <Select value={globalBrandFilter} onValueChange={setGlobalBrandFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder={language === 'ar' ? 'جميع العلامات' : 'All Brands'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{language === 'ar' ? 'جميع العلامات التجارية' : 'All Brands'}</SelectItem>
-                  {availableBrands.map(brand => (
-                    <SelectItem key={brand.brand_code} value={brand.brand_name}>
-                      {brand.brand_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {globalBrandFilter === 'all'
+                      ? (language === 'ar' ? 'جميع العلامات التجارية' : 'All Brands')
+                      : globalBrandFilter}
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[250px] p-0" align="start">
+                  <div className="flex flex-col">
+                    <div className="flex items-center border-b px-3">
+                      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                      <input
+                        className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                        placeholder={language === 'ar' ? 'بحث...' : 'Search...'}
+                        value={brandSearchQuery}
+                        onChange={(e) => setBrandSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                      <div
+                        className={cn("relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground", globalBrandFilter === 'all' && "bg-accent")}
+                        onClick={() => { setGlobalBrandFilter('all'); setBrandSearchQuery(''); }}
+                      >
+                        {language === 'ar' ? 'جميع العلامات التجارية' : 'All Brands'}
+                      </div>
+                      {availableBrands
+                        .filter(b => b.brand_name.toLowerCase().includes(brandSearchQuery.toLowerCase()))
+                        .map(brand => (
+                          <div
+                            key={brand.brand_code}
+                            className={cn("relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground", globalBrandFilter === brand.brand_name && "bg-accent")}
+                            onClick={() => { setGlobalBrandFilter(brand.brand_name); setBrandSearchQuery(''); }}
+                          >
+                            {brand.brand_name}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="flex gap-2 items-end">
