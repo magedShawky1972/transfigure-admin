@@ -5,13 +5,14 @@ import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus, Download, FileText } from "lucide-react";
+import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus, Download, FileText, ExternalLink, Maximize2 } from "lucide-react";
 import { downloadFile } from "@/lib/fileDownload";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { format } from "date-fns";
@@ -45,6 +46,7 @@ const CoinsReceivingPhase = () => {
   const [savingBrand, setSavingBrand] = useState<string | null>(null);
   const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [sendingAttachments, setSendingAttachments] = useState<{ id: string; file_name: string; file_url: string; file_type: string | null; uploaded_by_name: string | null }[]>([]);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -497,19 +499,29 @@ const CoinsReceivingPhase = () => {
                 {bankTransferImages.map((imgUrl, idx) => {
                   const isPdf = imgUrl.match(/\.pdf($|\?)/i) || imgUrl.includes("/raw/upload/");
                   return (
-                    <div key={idx} className="border rounded-lg overflow-hidden">
+                     <div key={idx} className="border rounded-lg overflow-hidden">
                       {isPdf ? (
-                        <div className="w-full h-40 flex flex-col items-center justify-center bg-muted/30 gap-2">
+                        <div 
+                          className="w-full h-40 flex flex-col items-center justify-center bg-muted/30 gap-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setPreviewImageUrl(imgUrl)}
+                        >
                           <FileText className="h-12 w-12 text-destructive/70" />
                           <span className="text-xs text-muted-foreground">PDF {idx + 1}</span>
                         </div>
                       ) : (
-                        <a href={imgUrl} target="_blank" rel="noopener noreferrer">
-                          <img src={imgUrl} alt={`Bank Transfer ${idx + 1}`} className="w-full h-40 object-cover" />
-                        </a>
+                        <img 
+                          src={imgUrl} 
+                          alt={`Bank Transfer ${idx + 1}`} 
+                          className="w-full h-40 object-cover cursor-pointer hover:opacity-80 transition-opacity" 
+                          onClick={() => setPreviewImageUrl(imgUrl)}
+                        />
                       )}
-                      <div className="p-2">
-                        <Button variant="outline" size="sm" className="w-full" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
+                      <div className="p-2 flex gap-1">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => setPreviewImageUrl(imgUrl)}>
+                          <Maximize2 className="h-4 w-4 mr-1" />
+                          {isArabic ? "تكبير" : "Maximize"}
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => downloadFile(imgUrl, `bank-transfer-${idx + 1}`)}>
                           <Download className="h-4 w-4 mr-1" />
                           {isArabic ? "تحميل" : "Download"}
                         </Button>
@@ -711,6 +723,35 @@ const CoinsReceivingPhase = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Maximize preview dialog */}
+      <Dialog open={!!previewImageUrl} onOpenChange={(open) => { if (!open) setPreviewImageUrl(null); }}>
+        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
+          {previewImageUrl && (
+            previewImageUrl.match(/\.pdf($|\?)/i) || previewImageUrl.includes("/raw/upload/") ? (
+              <div className="w-full">
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
+                  title="PDF Preview"
+                  className="w-full h-[80vh] rounded border-0"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => downloadFile(previewImageUrl, 'bank-transfer')}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تحميل" : "Download"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.open(previewImageUrl, "_blank")}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <img src={previewImageUrl} alt="Bank Transfer" className="max-w-full max-h-[85vh] object-contain mx-auto" />
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
