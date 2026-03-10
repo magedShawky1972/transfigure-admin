@@ -3393,8 +3393,26 @@ const Dashboard = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             )}
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle>{t("dashboard.monthComparison")}</CardTitle>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant={monthComparisonDirection === "backward" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMonthComparisonDirection("backward")}
+                >
+                  <ArrowDown className="h-3 w-3 mr-1" />
+                  {language === "ar" ? "للخلف" : "Backward"}
+                </Button>
+                <Button
+                  variant={monthComparisonDirection === "forward" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMonthComparisonDirection("forward")}
+                >
+                  <ArrowUp className="h-3 w-3 mr-1" />
+                  {language === "ar" ? "للأمام" : "Forward"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
