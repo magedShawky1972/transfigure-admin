@@ -52,6 +52,7 @@ import {
   MessageSquare,
   AlertTriangle,
   Eye,
+  Trash2,
 } from "lucide-react";
 
 type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'penalty_deduction' | 'other';
@@ -240,6 +241,26 @@ const EmployeeSelfRequests = () => {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteRequest = async (requestId: string) => {
+    const confirmMsg = language === 'ar' ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const { error } = await supabase
+        .from('employee_requests')
+        .delete()
+        .eq('id', requestId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      setRequests(prev => prev.filter(r => r.id !== requestId));
+      toast({ title: language === 'ar' ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully' });
+    } catch (error: any) {
+      toast({ title: language === 'ar' ? 'خطأ في حذف الطلب' : 'Error deleting request', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -562,11 +583,12 @@ const EmployeeSelfRequests = () => {
                   <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                   <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                   <TableHead>{language === 'ar' ? 'تفاصيل' : 'Details'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'إجراء' : 'Action'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {requests.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{language === 'ar' ? 'لا توجد طلبات' : 'No requests found'}</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{language === 'ar' ? 'لا توجد طلبات' : 'No requests found'}</TableCell></TableRow>
                 ) : requests.map((request: any) => {
                   const typeInfo = REQUEST_TYPE_INFO[request.request_type as RequestType];
                   const statusInfo = STATUS_INFO[request.status] || STATUS_INFO.pending;
@@ -589,6 +611,18 @@ const EmployeeSelfRequests = () => {
                         <Button variant="ghost" size="icon" onClick={() => setDetailRequest(request)}>
                           <Eye className="h-4 w-4" />
                         </Button>
+                      </TableCell>
+                      <TableCell>
+                        {request.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteRequest(request.id)}
+                            title={language === 'ar' ? 'حذف الطلب' : 'Delete Request'}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
