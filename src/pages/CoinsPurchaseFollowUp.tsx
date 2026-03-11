@@ -36,6 +36,12 @@ const salesSheetPhaseConfig = {
   completed: { label: "Completed", labelAr: "مكتمل", color: "bg-green-100 text-green-800" },
 };
 
+const advancePaymentPhaseConfig = {
+  entry: { label: "Entry", labelAr: "إدخال", color: "bg-blue-100 text-blue-800" },
+  receiving: { label: "Receiving", labelAr: "استلام", color: "bg-amber-100 text-amber-800" },
+  accounting: { label: "Accounting", labelAr: "محاسبة", color: "bg-green-100 text-green-800" },
+};
+
 const statusConfig = {
   draft: { label: "Draft", labelAr: "مسودة", variant: "secondary" as const },
   in_progress: { label: "In Progress", labelAr: "قيد التنفيذ", variant: "default" as const },
