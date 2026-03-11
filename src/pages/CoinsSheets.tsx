@@ -43,6 +43,7 @@ interface SheetLine {
   notes: string;
   line_number: number;
   attachments: LineAttachment[];
+  receiving_date?: Date;
 }
 
 const emptyLine = (lineNumber: number): SheetLine => ({
@@ -56,6 +57,7 @@ const emptyLine = (lineNumber: number): SheetLine => ({
   notes: "",
   line_number: lineNumber,
   attachments: [],
+  receiving_date: undefined,
 });
 
 const PHASES = [
