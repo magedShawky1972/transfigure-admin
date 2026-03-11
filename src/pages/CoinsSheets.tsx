@@ -680,6 +680,35 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              disabled={!isEditable}
+                              className={cn("min-w-[130px] justify-start text-left font-normal h-9 text-xs", !line.receiving_date && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-1 h-3 w-3" />
+                              {line.receiving_date ? format(line.receiving_date, "yyyy-MM-dd") : (isArabic ? "التاريخ" : "Date")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={line.receiving_date}
+                              onSelect={(date) => {
+                                setLines(prev => {
+                                  const updated = [...prev];
+                                  updated[index] = { ...updated[index], receiving_date: date || undefined };
+                                  return updated;
+                                });
+                              }}
+                              disabled={!isEditable}
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
+                      <TableCell>
                         <Input
                           type="number"
                           value={line.coins}
