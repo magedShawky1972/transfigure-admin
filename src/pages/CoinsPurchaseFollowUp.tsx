@@ -243,7 +243,7 @@ const CoinsPurchaseFollowUp = () => {
           </TabsTrigger>
           <TabsTrigger value="sheets" className="gap-2">
             <FileSpreadsheet className="h-4 w-4" />
-            {isArabic ? "الشيتات" : "Sheets"}
+            {isArabic ? "شيتات الكوينز" : "Coins Sheets"}
             <Badge variant="secondary" className="ml-1">{sheetOrders.length}</Badge>
           </TabsTrigger>
         </TabsList>

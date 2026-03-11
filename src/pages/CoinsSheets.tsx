@@ -1060,7 +1060,7 @@ const CoinsSheets = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <FileText className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">{isArabic ? "شيتات" : "Sheets"}</h1>
+          <h1 className="text-2xl font-bold">{isArabic ? "شيتات الكوينز" : "Coins Sheets"}</h1>
         </div>
         <Button onClick={() => { resetForm(); setView("form"); }}>
           <Plus className="h-4 w-4 mr-1" />

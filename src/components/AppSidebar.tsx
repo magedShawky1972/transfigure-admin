@@ -401,7 +401,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
         { title: language === 'ar' ? 'دليل المستخدم' : 'User Guide', url: "/coins-transaction-guide", icon: FileText },
         { title: language === 'ar' ? 'دفعات مقدمة للموردين' : 'Supplier Advance Payment', url: "/supplier-advance-payment", icon: DollarSign },
-        { title: language === 'ar' ? 'شيتات' : 'Sheets', url: "/coins-sheets", icon: ScrollText },
+        { title: language === 'ar' ? 'شيتات الكوينز' : 'Coins Sheets', url: "/coins-sheets", icon: ScrollText },
       ]
     },
     {

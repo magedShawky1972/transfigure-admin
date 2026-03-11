@@ -560,7 +560,7 @@ const CoinsWorkflowSetup = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                {isArabic ? "إعداد سير عمل الشيتات" : "Sheets Workflow Setup"}
+                {isArabic ? "إعداد سير عمل شيتات الكوينز" : "Coins Sheets Workflow Setup"}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 {isArabic
