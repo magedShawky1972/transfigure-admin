@@ -316,6 +316,48 @@ const CoinsPurchaseFollowUp = () => {
     }
   };
 
+  const returnAdvancePaymentToPreviousPhase = async (payment: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const advancePhaseOrder = ["entry", "receiving", "accounting"];
+    const currentPhase = (payment as any).current_phase || (payment.accounting_recorded ? "accounting" : payment.sent_for_receiving ? "receiving" : "entry");
+    const currentIdx = advancePhaseOrder.indexOf(currentPhase);
+    if (currentIdx <= 0) {
+      toast.error(isArabic ? "لا يمكن الرجوع من هذه المرحلة" : "Cannot go back from this phase");
+      return;
+    }
+    const previousPhase = advancePhaseOrder[currentIdx - 1];
+    const confirmed = confirm(isArabic
+      ? `هل تريد إرجاع الدفعة إلى المرحلة السابقة؟`
+      : `Return payment to previous phase?`);
+    if (!confirmed) return;
+
+    try {
+      const updateData: any = {
+        current_phase: previousPhase,
+      };
+      if (currentPhase === "accounting") {
+        updateData.accounting_recorded = false;
+        updateData.accounting_recorded_at = null;
+        updateData.accounting_recorded_by = null;
+      }
+      if (currentPhase === "receiving") {
+        updateData.sent_for_receiving = false;
+        updateData.sent_for_receiving_at = null;
+        updateData.sent_for_receiving_by = null;
+        updateData.receiving_image = null;
+        updateData.receiving_notes = null;
+      }
+
+      const { error } = await supabase.from("supplier_advance_payments").update(updateData as any).eq("id", payment.id);
+      if (error) throw error;
+      const prevLabel = advancePaymentPhaseConfig[previousPhase as keyof typeof advancePaymentPhaseConfig];
+      toast.success(isArabic ? `تم إرجاع الدفعة إلى مرحلة ${prevLabel?.labelAr}` : `Payment returned to ${prevLabel?.label} phase`);
+      fetchAdvancePayments();
+    } catch (err: any) {
+      toast.error(err.message || "Error");
+    }
+  };
+
   const phaseCounts = orders.reduce((acc, o) => {
     acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
     return acc;
@@ -328,6 +370,12 @@ const CoinsPurchaseFollowUp = () => {
 
   const salesSheetPhaseCounts = salesSheetOrders.reduce((acc, o) => {
     acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const advancePaymentPhaseCounts = advancePayments.reduce((acc, o) => {
+    const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
+    acc[phase] = (acc[phase] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
