@@ -146,6 +146,17 @@ const CoinsSheets = () => {
     if (brandRes.data) setBrands(brandRes.data);
     if (currRes.data) setCurrencies(currRes.data);
     if (rateRes.data) setCurrencyRates(rateRes.data);
+
+    // Auto-detect USD SAR rate
+    if (currRes.data && rateRes.data) {
+      const usdCurrency = currRes.data.find((c: any) => c.currency_code === "USD");
+      if (usdCurrency) {
+        const usdRate = rateRes.data.find((r: any) => r.currency_id === usdCurrency.id);
+        if (usdRate) {
+          setDefaultSarRate(usdRate.rate_to_base);
+        }
+      }
+    }
   };
 
   const handleLineChange = (index: number, field: keyof SheetLine, value: string) => {
