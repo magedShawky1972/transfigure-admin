@@ -300,18 +300,76 @@ const CoinsSheets = () => {
           if (l.id) oldLineIdByIndex[i] = l.id;
         });
 
-        // Step 1: Detach payment terms from lines to avoid CASCADE delete
-        const oldLineIds = Object.values(oldLineIdByIndex);
-        if (oldLineIds.length > 0) {
-          await supabase.from("coins_sheet_payment_terms")
-            .update({ line_id: null })
-            .eq("sheet_order_id", selectedOrderId);
-        }
+        // Step 1: Fetch existing payment terms keyed by old line_id
+        const { data: existingTerms } = await supabase
+          .from("coins_sheet_payment_terms")
+          .select("*")
+          .eq("sheet_order_id", selectedOrderId);
+        
+        // Group terms by old line_id
+        const termsByOldLineId: Record<string, any[]> = {};
+        (existingTerms || []).forEach((t: any) => {
+          if (t.line_id) {
+            if (!termsByOldLineId[t.line_id]) termsByOldLineId[t.line_id] = [];
+            termsByOldLineId[t.line_id].push(t);
+          }
+        });
 
-        // Step 2: Delete old lines and attachments
+        // Step 2: Delete payment terms, then lines and attachments
+        await supabase.from("coins_sheet_payment_terms").delete().eq("sheet_order_id", selectedOrderId);
         await supabase.from("coins_sheet_orders").update(headerData).eq("id", selectedOrderId);
         await supabase.from("coins_sheet_line_attachments").delete().eq("sheet_order_id", selectedOrderId);
         await supabase.from("coins_sheet_order_lines").delete().eq("sheet_order_id", selectedOrderId);
+
+        // Step 3: Insert new lines and re-insert payment terms with new line IDs
+        for (let i = 0; i < validLines.length; i++) {
+          const l = validLines[i];
+          const originalIndex = lines.indexOf(l);
+          const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
+            sheet_order_id: orderId,
+            line_number: i + 1,
+            seller_name: l.seller_name,
+            brand_id: headerBrandId,
+            usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
+            coins: parseFloat(l.coins) || 0,
+            extra_coins: parseFloat(l.extra_coins) || 0,
+            sar_rate: defaultSarRate,
+            total_sar: parseFloat(l.total_sar) || 0,
+            notes: l.notes,
+            receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
+          } as any).select().single();
+          if (lineErr) throw lineErr;
+
+          // Re-insert payment terms for this line with new line_id
+          const oldLineId = originalIndex >= 0 ? oldLineIdByIndex[originalIndex] : null;
+          if (oldLineId && lineData && termsByOldLineId[oldLineId]) {
+            const termsToReinsert = termsByOldLineId[oldLineId].map((t: any) => ({
+              sheet_order_id: orderId,
+              line_id: lineData.id,
+              payment_date: t.payment_date,
+              amount: t.amount,
+              is_remaining: t.is_remaining,
+              notes: t.notes,
+              created_by: t.created_by,
+            }));
+            await supabase.from("coins_sheet_payment_terms").insert(termsToReinsert as any);
+          }
+
+          // Insert line attachments
+          if (l.attachments.length > 0 && lineData) {
+            const attInserts = l.attachments.map(a => ({
+              line_id: lineData.id,
+              sheet_order_id: orderId,
+              file_name: a.file_name,
+              file_url: a.file_url,
+              file_type: a.file_type,
+              file_size: a.file_size,
+              uploaded_by: currentUserId,
+              uploaded_by_name: currentUserName,
+            }));
+            await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
+          }
+        }
       } else {
         const { data: order, error } = await supabase.from("coins_sheet_orders").insert({
           order_number: "",
@@ -321,85 +379,39 @@ const CoinsSheets = () => {
         } as any).select().single();
         if (error) throw error;
         orderId = order.id;
-      }
 
-      // Step 3: Insert new lines and build old->new ID mapping
-      const oldToNewLineId: Record<string, string> = {};
-      for (let i = 0; i < validLines.length; i++) {
-        const l = validLines[i];
-        const originalIndex = lines.indexOf(l);
-        const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
-          sheet_order_id: orderId,
-          line_number: i + 1,
-          seller_name: l.seller_name,
-          brand_id: headerBrandId,
-          usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
-          coins: parseFloat(l.coins) || 0,
-          extra_coins: parseFloat(l.extra_coins) || 0,
-          sar_rate: defaultSarRate,
-          total_sar: parseFloat(l.total_sar) || 0,
-          notes: l.notes,
-          receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
-        } as any).select().single();
-        if (lineErr) throw lineErr;
-
-        // Map old line ID to new line ID for payment terms remapping
-        const oldLineId = originalIndex >= 0 ? oldLineIdByIndex[originalIndex] : null;
-        if (oldLineId && lineData) {
-          oldToNewLineId[oldLineId] = lineData.id;
-        }
-
-        // Insert line attachments
-        if (l.attachments.length > 0 && lineData) {
-          const attInserts = l.attachments.map(a => ({
-            line_id: lineData.id,
+        // Insert lines for new order
+        for (let i = 0; i < validLines.length; i++) {
+          const l = validLines[i];
+          const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
             sheet_order_id: orderId,
-            file_name: a.file_name,
-            file_url: a.file_url,
-            file_type: a.file_type,
-            file_size: a.file_size,
-            uploaded_by: currentUserId,
-            uploaded_by_name: currentUserName,
-          }));
-          await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
-        }
-      }
+            line_number: i + 1,
+            seller_name: l.seller_name,
+            brand_id: headerBrandId,
+            usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
+            coins: parseFloat(l.coins) || 0,
+            extra_coins: parseFloat(l.extra_coins) || 0,
+            sar_rate: defaultSarRate,
+            total_sar: parseFloat(l.total_sar) || 0,
+            notes: l.notes,
+            receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
+          } as any).select().single();
+          if (lineErr) throw lineErr;
 
-      // Step 4: Remap detached payment terms to new line IDs
-      if (selectedOrderId) {
-        const { data: orphanedTerms } = await supabase
-          .from("coins_sheet_payment_terms")
-          .select("id, notes")
-          .eq("sheet_order_id", orderId)
-          .is("line_id", null);
-
-        // We need to figure out which old line each term belonged to
-        // Since we set all line_ids to null, we stored the old mapping info
-        // Re-fetch and remap by iterating old->new
-        for (const [oldId, newId] of Object.entries(oldToNewLineId)) {
-          // We already nullified all; now we need to match back
-          // Unfortunately after nullifying we lost the association
-          // Better approach: update each old line_id to new one individually
-        }
-        // Since we nullified all at once, we need a different strategy:
-        // Let's just update all null line_id terms for this order
-        // by matching the order of payment terms to the first valid line
-        // Actually, the best approach: do individual updates per old line
-      }
-
-        // Insert line attachments
-        if (l.attachments.length > 0 && lineData) {
-          const attInserts = l.attachments.map(a => ({
-            line_id: lineData.id,
-            sheet_order_id: orderId,
-            file_name: a.file_name,
-            file_url: a.file_url,
-            file_type: a.file_type,
-            file_size: a.file_size,
-            uploaded_by: currentUserId,
-            uploaded_by_name: currentUserName,
-          }));
-          await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
+          // Insert line attachments
+          if (l.attachments.length > 0 && lineData) {
+            const attInserts = l.attachments.map(a => ({
+              line_id: lineData.id,
+              sheet_order_id: orderId,
+              file_name: a.file_name,
+              file_url: a.file_url,
+              file_type: a.file_type,
+              file_size: a.file_size,
+              uploaded_by: currentUserId,
+              uploaded_by_name: currentUserName,
+            }));
+            await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
+          }
         }
       }
 
