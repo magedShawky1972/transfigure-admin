@@ -428,6 +428,10 @@ const CoinsWorkflowSetup = () => {
             <FileText className="h-4 w-4" />
             {isArabic ? "شيت المبيعات" : "Sales Sheets"}
           </TabsTrigger>
+          <TabsTrigger value="advance_payment" className="flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            {isArabic ? "دفعات مقدمة" : "Advance Payment"}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="purchase" className="space-y-6">
