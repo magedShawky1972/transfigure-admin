@@ -127,6 +127,18 @@ const CoinsPurchaseFollowUp = () => {
     return true;
   });
 
+  const filteredSalesSheetOrders = salesSheetOrders.filter(o => {
+    if (salesSheetFilterPhase !== "all" && o.current_phase !== salesSheetFilterPhase) return false;
+    if (salesSheetSearchText) {
+      const s = salesSheetSearchText.toLowerCase();
+      if (
+        !o.order_number?.toLowerCase().includes(s) &&
+        !o.created_by_name?.toLowerCase().includes(s)
+      ) return false;
+    }
+    return true;
+  });
+
   const navigateToPhase = (order: any) => {
     const phaseRoutes: Record<string, string> = {
       creation: `/coins-creation`,
