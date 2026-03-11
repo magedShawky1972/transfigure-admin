@@ -442,6 +442,7 @@ const CoinsSheets = () => {
         total_sar: String(l.total_sar || 0),
         notes: l.notes || "",
         line_number: l.line_number,
+        receiving_date: l.receiving_date ? new Date(l.receiving_date) : undefined,
         attachments: (lineAttachments || [])
           .filter((a: any) => a.line_id === l.id)
           .map((a: any) => ({
