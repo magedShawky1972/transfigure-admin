@@ -375,15 +375,13 @@ const SupplierAdvancePayment = () => {
 
   const isPdf = (url: string) => url?.includes(".pdf") || url?.includes("/raw/upload/");
 
-  const getStepStatus = (payment: any) => {
-    if (payment.accounting_recorded) return 3;
-    if (payment.sent_for_receiving) return 2;
-    return 1;
+  const getPhaseFromPayment = (payment: any) => {
+    return payment.current_phase || (payment.accounting_recorded ? "accounting" : payment.sent_for_receiving ? "receiving" : "entry");
   };
 
-  const getStepBadge = (step: number) => {
-    if (step === 1) return <Badge variant="secondary">{isArabic ? "إدخال" : "Entry"}</Badge>;
-    if (step === 2) return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">{isArabic ? "استلام" : "Receiving"}</Badge>;
+  const getPhaseBadge = (phase: string) => {
+    if (phase === "entry") return <Badge variant="secondary">{isArabic ? "إدخال" : "Entry"}</Badge>;
+    if (phase === "receiving") return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">{isArabic ? "استلام" : "Receiving"}</Badge>;
     return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white">{isArabic ? "محاسبة" : "Recorded"}</Badge>;
   };
 
