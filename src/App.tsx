@@ -143,6 +143,7 @@ import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
 import AutoUpload from "./pages/AutoUpload";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
 import CoinsSheets from "./pages/CoinsSheets";
+import SalesSheets from "./pages/SalesSheets";
 const queryClient = new QueryClient();
 
 const App = () => (
