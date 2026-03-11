@@ -93,6 +93,7 @@ const CoinsSheets = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [currencyRates, setCurrencyRates] = useState<any[]>([]);
+  const [defaultSarRate, setDefaultSarRate] = useState<number>(3.75); // Default USD to SAR
 
   // Filter
   const [phaseFilter, setPhaseFilter] = useState("all");
@@ -146,6 +147,17 @@ const CoinsSheets = () => {
     if (brandRes.data) setBrands(brandRes.data);
     if (currRes.data) setCurrencies(currRes.data);
     if (rateRes.data) setCurrencyRates(rateRes.data);
+
+    // Auto-detect USD SAR rate
+    if (currRes.data && rateRes.data) {
+      const usdCurrency = currRes.data.find((c: any) => c.currency_code === "USD");
+      if (usdCurrency) {
+        const usdRate = rateRes.data.find((r: any) => r.currency_id === usdCurrency.id);
+        if (usdRate) {
+          setDefaultSarRate(usdRate.rate_to_base);
+        }
+      }
+    }
   };
 
   const handleLineChange = (index: number, field: keyof SheetLine, value: string) => {
@@ -168,21 +180,10 @@ const CoinsSheets = () => {
         }
       }
 
-      if (["coins", "extra_coins", "sar_rate", "usd_payment_amount"].includes(field)) {
+      if (["coins", "extra_coins", "usd_payment_amount"].includes(field)) {
         const coins = parseFloat(updated[index].coins) || 0;
         const extraCoins = parseFloat(updated[index].extra_coins) || 0;
-        const sarRate = parseFloat(updated[index].sar_rate) || 1;
-        updated[index].total_sar = ((coins + extraCoins) * sarRate).toFixed(2);
-      }
-
-      if (field === "currency_id") {
-        const rateEntry = currencyRates.find(r => r.currency_id === value);
-        if (rateEntry) {
-          updated[index].sar_rate = String(rateEntry.rate_to_base);
-          const coins = parseFloat(updated[index].coins) || 0;
-          const extraCoins = parseFloat(updated[index].extra_coins) || 0;
-          updated[index].total_sar = ((coins + extraCoins) * rateEntry.rate_to_base).toFixed(2);
-        }
+        updated[index].total_sar = ((coins + extraCoins) * defaultSarRate).toFixed(2);
       }
 
       return updated;
@@ -301,9 +302,7 @@ const CoinsSheets = () => {
           usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
           coins: parseFloat(l.coins) || 0,
           extra_coins: parseFloat(l.extra_coins) || 0,
-          rate: parseFloat(l.rate) || 0,
-          currency_id: l.currency_id || null,
-          sar_rate: parseFloat(l.sar_rate) || 1,
+          sar_rate: defaultSarRate,
           total_sar: parseFloat(l.total_sar) || 0,
           notes: l.notes,
           receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
@@ -705,9 +704,6 @@ const CoinsSheets = () => {
                     <TableHead>{isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
-                    
-                    <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
-                    <TableHead>{isArabic ? "سعر الريال" : "SAR Rate"}</TableHead>
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
                     <TableHead>{isArabic ? "مرفقات" : "Attachments"}</TableHead>
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
@@ -789,23 +785,6 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Select value={line.currency_id} onValueChange={v => handleLineChange(index, "currency_id", v)} disabled={!isEditable}>
-                          <SelectTrigger className="min-w-[110px]"><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
-                          <SelectContent>
-                            {currencies.map(c => <SelectItem key={c.id} value={c.id}>{c.currency_code || c.currency_name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={line.sar_rate}
-                          onChange={e => handleLineChange(index, "sar_rate", e.target.value)}
-                          disabled={!isEditable}
-                          className="min-w-[80px]"
-                        />
-                      </TableCell>
-                      <TableCell>
                         <Input
                           value={line.total_sar ? Number(line.total_sar).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                           readOnly
@@ -871,7 +850,7 @@ const CoinsSheets = () => {
                   ))}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={8} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)}</TableCell>
                     <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>
