@@ -286,6 +286,7 @@ const CoinsSheets = () => {
           sar_rate: parseFloat(l.sar_rate) || 1,
           total_sar: parseFloat(l.total_sar) || 0,
           notes: l.notes,
+          receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
         } as any).select().single();
         if (lineErr) throw lineErr;
 
