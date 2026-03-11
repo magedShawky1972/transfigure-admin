@@ -10,9 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Plus, Trash2, Settings, ChevronDown, ChevronRight, Eye, Shield, FileText } from "lucide-react";
+import { Plus, Trash2, Settings, ChevronDown, ChevronRight, Eye, Shield, FileText, Check, ChevronsUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const SHEET_PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
@@ -580,14 +583,41 @@ const CoinsWorkflowSetup = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>{isArabic ? "المستخدم" : "User"}</Label>
-                  <Select value={sheetSelectedUserId} onValueChange={setSheetSelectedUserId}>
-                    <SelectTrigger><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
-                    <SelectContent>
-                      {users.map(u => (
-                        <SelectItem key={u.user_id || u.id} value={u.user_id || u.id}>{u.user_name || u.email}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                        {sheetSelectedUserId
+                          ? (users.find(u => (u.user_id || u.id) === sheetSelectedUserId)?.user_name ||
+                             users.find(u => (u.user_id || u.id) === sheetSelectedUserId)?.email || sheetSelectedUserId)
+                          : (isArabic ? "اختر المستخدم..." : "Select user...")}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder={isArabic ? "بحث..." : "Search..."} />
+                        <CommandList>
+                          <CommandEmpty>{isArabic ? "لا توجد نتائج" : "No results"}</CommandEmpty>
+                          <CommandGroup>
+                            {users.map(u => {
+                              const uid = u.user_id || u.id;
+                              const display = u.user_name || u.email;
+                              return (
+                                <CommandItem
+                                  key={uid}
+                                  value={display}
+                                  onSelect={() => setSheetSelectedUserId(uid)}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", sheetSelectedUserId === uid ? "opacity-100" : "opacity-0")} />
+                                  {display}
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <Button onClick={handleAddSheetAssignment} disabled={sheetSaving}>
                   <Plus className="h-4 w-4 mr-1" />
