@@ -142,6 +142,7 @@ import SalesOrderEntry from "./pages/SalesOrderEntry";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
 import AutoUpload from "./pages/AutoUpload";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
+import CoinsSheets from "./pages/CoinsSheets";
 const queryClient = new QueryClient();
 
 const App = () => (
