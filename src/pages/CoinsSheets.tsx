@@ -616,7 +616,7 @@ const CoinsSheets = () => {
                                 </div>
                               )}
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setTransferPreviewUrl(url)} title={isArabic ? "تكبير" : "Maximize"}>
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); console.log("Maximize clicked:", url); setTransferPreviewUrl(url); toast.info(isArabic ? "جاري فتح المعاينة..." : "Opening preview..."); }} title={isArabic ? "تكبير" : "Maximize"}>
                                   <Maximize2 className="h-3 w-3" />
                                 </Button>
                                 <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => downloadFile(url, `attachment-${i + 1}`)} title={isArabic ? "تحميل" : "Download"}>
