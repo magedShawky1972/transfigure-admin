@@ -582,40 +582,47 @@ const CoinsSheets = () => {
           </Card>
         )}
 
-        {/* Header: Brand + Receiving Date + Notes */}
+        {/* Header: Brand + Notes */}
         <Card>
           <CardContent className="pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>{isArabic ? "العلامة التجارية" : "Brand"} *</Label>
-                <Select value={headerBrandId} onValueChange={setHeaderBrandId} disabled={!isEditable}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder={isArabic ? "اختر العلامة التجارية" : "Select Brand"} /></SelectTrigger>
-                  <SelectContent>
-                    {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>{isArabic ? "تاريخ الاستلام" : "Receiving Date"}</Label>
-                <Popover>
+                <Popover open={brandPopoverOpen} onOpenChange={setBrandPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
+                      role="combobox"
+                      aria-expanded={brandPopoverOpen}
                       disabled={!isEditable}
-                      className={cn("w-full mt-1 justify-start text-left font-normal", !receivingDate && "text-muted-foreground")}
+                      className="w-full mt-1 justify-between"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {receivingDate ? format(receivingDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
+                      {headerBrandId ? brands.find(b => b.id === headerBrandId)?.brand_name || "" : (isArabic ? "اختر العلامة التجارية" : "Select Brand")}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={receivingDate}
-                      onSelect={setReceivingDate}
-                      disabled={!isEditable}
-                      className={cn("p-3 pointer-events-auto")}
-                    />
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder={isArabic ? "بحث..." : "Search..."} />
+                      <CommandList>
+                        <CommandEmpty>{isArabic ? "لا توجد نتائج" : "No results"}</CommandEmpty>
+                        <CommandGroup>
+                          {brands.map(b => (
+                            <CommandItem
+                              key={b.id}
+                              value={b.brand_name}
+                              onSelect={() => {
+                                setHeaderBrandId(b.id);
+                                setBrandPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", headerBrandId === b.id ? "opacity-100" : "opacity-0")} />
+                              {b.brand_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
                   </PopoverContent>
                 </Popover>
               </div>
