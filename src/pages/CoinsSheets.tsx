@@ -417,8 +417,8 @@ const CoinsSheets = () => {
     }
 
     toast.success(isArabic ? "تم الإرسال للدفع" : "Sent for payment");
-    setSelectedOrderId(null);
-    setSelectedOrderPhase(null);
+    resetForm();
+    setView("list");
     fetchOrders();
   };
 
@@ -452,6 +452,8 @@ const CoinsSheets = () => {
       setAccountingNotes("");
       setBankTransferImages([]);
       setProcessingOrder(null);
+      resetForm();
+      setView("list");
       fetchOrders();
     } catch (err: any) {
       toast.error(err.message);
@@ -470,6 +472,8 @@ const CoinsSheets = () => {
     }).eq("id", orderId);
     if (error) { toast.error(error.message); return; }
     toast.success(isArabic ? "تم التأكيد" : "Confirmed");
+    resetForm();
+    setView("list");
     fetchOrders();
   };
 
