@@ -378,6 +378,8 @@ const CoinsSheets = () => {
     }
 
     toast.success(isArabic ? "تم الإرسال للدفع" : "Sent for payment");
+    setSelectedOrderId(null);
+    setSelectedOrderPhase(null);
     fetchOrders();
   };
 
