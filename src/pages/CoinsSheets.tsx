@@ -926,7 +926,7 @@ const CoinsSheets = () => {
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell colSpan={isEditable ? 4 : 3}></TableCell>
+                    <TableCell colSpan={isEditable ? 5 : 4}></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
