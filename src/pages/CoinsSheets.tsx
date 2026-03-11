@@ -160,16 +160,26 @@ const CoinsSheets = () => {
     }
   };
 
-  const handleLineChange = (index: number, field: keyof SheetLine, value: string) => {
+  const parseNum = (v: string | number | null | undefined): number => {
+    if (v === null || v === undefined || v === "") return 0;
+    const cleaned = v.toString().replace(/,/g, "");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
+
+   const handleLineChange = (index: number, field: keyof SheetLine, value: string) => {
     setLines(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      // Strip commas from numeric fields before storing
+      const numericFields = ["coins", "extra_coins", "usd_payment_amount"];
+      const cleanValue = numericFields.includes(field) ? value.replace(/,/g, "") : value;
+      updated[index] = { ...updated[index], [field]: cleanValue };
 
       // Auto-calculate coins and extra_coins from USD Payment Amount
       if (field === "usd_payment_amount") {
-        const usdAmount = parseFloat(value) || 0;
-        const coinsRate = parseFloat(headerCoinsRate) || 0;
-        const extraCoinsRate = parseFloat(headerExtraCoinsRate) || 0;
+        const usdAmount = parseNum(cleanValue);
+        const coinsRate = parseNum(headerCoinsRate);
+        const extraCoinsRate = parseNum(headerExtraCoinsRate);
         if (coinsRate > 0) {
           updated[index].coins = (usdAmount * coinsRate).toFixed(2);
         }
@@ -181,8 +191,8 @@ const CoinsSheets = () => {
       }
 
       if (["coins", "extra_coins", "usd_payment_amount"].includes(field)) {
-        const coins = parseFloat(updated[index].coins) || 0;
-        const extraCoins = parseFloat(updated[index].extra_coins) || 0;
+        const coins = parseNum(updated[index].coins);
+        const extraCoins = parseNum(updated[index].extra_coins);
         updated[index].total_sar = ((coins + extraCoins) * defaultSarRate).toFixed(2);
       }
 
@@ -509,7 +519,7 @@ const CoinsSheets = () => {
 
   const filteredOrders = phaseFilter === "all" ? orders : orders.filter(o => o.current_phase === phaseFilter);
 
-  const grandTotal = lines.reduce((sum, l) => sum + (parseFloat(l.total_sar) || 0), 0);
+  const grandTotal = lines.reduce((sum, l) => sum + parseNum(l.total_sar), 0);
 
   const isEditable = !selectedOrderId || selectedOrderPhase === "creation";
 
