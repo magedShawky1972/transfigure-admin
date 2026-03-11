@@ -72,6 +72,12 @@ const CoinsWorkflowSetup = () => {
   const [salesSheetSelectedUserId, setSalesSheetSelectedUserId] = useState("");
   const [salesSheetSaving, setSalesSheetSaving] = useState(false);
 
+  // Advance Payment workflow state
+  const [advancePaymentAssignments, setAdvancePaymentAssignments] = useState<any[]>([]);
+  const [advancePaymentSelectedPhase, setAdvancePaymentSelectedPhase] = useState("");
+  const [advancePaymentSelectedUserId, setAdvancePaymentSelectedUserId] = useState("");
+  const [advancePaymentSaving, setAdvancePaymentSaving] = useState(false);
+
   useEffect(() => {
     fetchData();
     fetchSheetAssignments();
