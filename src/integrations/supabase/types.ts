@@ -1520,6 +1520,7 @@ export type Database = {
           line_number: number
           notes: string | null
           rate: number
+          receiving_date: string | null
           sar_rate: number
           seller_name: string
           sheet_order_id: string
@@ -1536,6 +1537,7 @@ export type Database = {
           line_number?: number
           notes?: string | null
           rate?: number
+          receiving_date?: string | null
           sar_rate?: number
           seller_name: string
           sheet_order_id: string
@@ -1552,6 +1554,7 @@ export type Database = {
           line_number?: number
           notes?: string | null
           rate?: number
+          receiving_date?: string | null
           sar_rate?: number
           seller_name?: string
           sheet_order_id?: string

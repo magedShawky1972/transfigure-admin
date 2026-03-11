@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File } from "lucide-react";
+import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File, ChevronsUpDown, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { downloadFile } from "@/lib/fileDownload";
@@ -21,6 +21,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface LineAttachment {
   id?: string;
@@ -42,6 +43,7 @@ interface SheetLine {
   notes: string;
   line_number: number;
   attachments: LineAttachment[];
+  receiving_date?: Date;
 }
 
 const emptyLine = (lineNumber: number): SheetLine => ({
@@ -55,6 +57,7 @@ const emptyLine = (lineNumber: number): SheetLine => ({
   notes: "",
   line_number: lineNumber,
   attachments: [],
+  receiving_date: undefined,
 });
 
 const PHASES = [
@@ -80,7 +83,7 @@ const CoinsSheets = () => {
 
   // Header fields
   const [headerBrandId, setHeaderBrandId] = useState("");
-  const [receivingDate, setReceivingDate] = useState<Date | undefined>(undefined);
+  const [brandPopoverOpen, setBrandPopoverOpen] = useState(false);
 
   // Dropdowns
   const [brands, setBrands] = useState<any[]>([]);
@@ -132,7 +135,7 @@ const CoinsSheets = () => {
 
   const fetchDropdowns = async () => {
     const [brandRes, currRes, rateRes] = await Promise.all([
-      supabase.from("brands").select("id, brand_name").eq("status", "active").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("currencies").select("*").eq("is_active", true).order("currency_name"),
       supabase.from("currency_rates").select("*").order("effective_date", { ascending: false }),
     ]);
@@ -248,7 +251,6 @@ const CoinsSheets = () => {
       const headerData = {
         notes,
         brand_id: headerBrandId,
-        receiving_date: receivingDate ? format(receivingDate, "yyyy-MM-dd") : null,
       };
 
       let orderId = selectedOrderId;
@@ -284,6 +286,7 @@ const CoinsSheets = () => {
           sar_rate: parseFloat(l.sar_rate) || 1,
           total_sar: parseFloat(l.total_sar) || 0,
           notes: l.notes,
+          receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
         } as any).select().single();
         if (lineErr) throw lineErr;
 
@@ -419,7 +422,6 @@ const CoinsSheets = () => {
     setSelectedOrderNumber(order.order_number);
     setNotes(order.notes || "");
     setHeaderBrandId(order.brand_id || "");
-    setReceivingDate(order.receiving_date ? new Date(order.receiving_date) : undefined);
 
     // Fetch line attachments
     const { data: lineAttachments } = await supabase
@@ -440,6 +442,7 @@ const CoinsSheets = () => {
         total_sar: String(l.total_sar || 0),
         notes: l.notes || "",
         line_number: l.line_number,
+        receiving_date: l.receiving_date ? new Date(l.receiving_date) : undefined,
         attachments: (lineAttachments || [])
           .filter((a: any) => a.line_id === l.id)
           .map((a: any) => ({
@@ -462,7 +465,6 @@ const CoinsSheets = () => {
     setSelectedOrderNumber("");
     setNotes("");
     setHeaderBrandId("");
-    setReceivingDate(undefined);
     setLines([emptyLine(1)]);
   };
 
@@ -580,40 +582,47 @@ const CoinsSheets = () => {
           </Card>
         )}
 
-        {/* Header: Brand + Receiving Date + Notes */}
+        {/* Header: Brand + Notes */}
         <Card>
           <CardContent className="pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>{isArabic ? "العلامة التجارية" : "Brand"} *</Label>
-                <Select value={headerBrandId} onValueChange={setHeaderBrandId} disabled={!isEditable}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder={isArabic ? "اختر العلامة التجارية" : "Select Brand"} /></SelectTrigger>
-                  <SelectContent>
-                    {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>{isArabic ? "تاريخ الاستلام" : "Receiving Date"}</Label>
-                <Popover>
+                <Popover open={brandPopoverOpen} onOpenChange={setBrandPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
+                      role="combobox"
+                      aria-expanded={brandPopoverOpen}
                       disabled={!isEditable}
-                      className={cn("w-full mt-1 justify-start text-left font-normal", !receivingDate && "text-muted-foreground")}
+                      className="w-full mt-1 justify-between"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {receivingDate ? format(receivingDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
+                      {headerBrandId ? brands.find(b => b.id === headerBrandId)?.brand_name || "" : (isArabic ? "اختر العلامة التجارية" : "Select Brand")}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={receivingDate}
-                      onSelect={setReceivingDate}
-                      disabled={!isEditable}
-                      className={cn("p-3 pointer-events-auto")}
-                    />
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder={isArabic ? "بحث..." : "Search..."} />
+                      <CommandList>
+                        <CommandEmpty>{isArabic ? "لا توجد نتائج" : "No results"}</CommandEmpty>
+                        <CommandGroup>
+                          {brands.map(b => (
+                            <CommandItem
+                              key={b.id}
+                              value={b.brand_name}
+                              onSelect={() => {
+                                setHeaderBrandId(b.id);
+                                setBrandPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", headerBrandId === b.id ? "opacity-100" : "opacity-0")} />
+                              {b.brand_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
                   </PopoverContent>
                 </Popover>
               </div>
@@ -645,6 +654,7 @@ const CoinsSheets = () => {
                   <TableRow>
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>{isArabic ? "اسم البائع" : "Seller Name"}</TableHead>
+                    <TableHead>{isArabic ? "تاريخ الاستلام" : "Receiving Date"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
                     <TableHead>{isArabic ? "السعر" : "Rate"}</TableHead>
@@ -668,6 +678,35 @@ const CoinsSheets = () => {
                           placeholder={isArabic ? "اسم البائع" : "Seller name"}
                           className="min-w-[140px]"
                         />
+                      </TableCell>
+                      <TableCell>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              disabled={!isEditable}
+                              className={cn("min-w-[130px] justify-start text-left font-normal h-9 text-xs", !line.receiving_date && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-1 h-3 w-3" />
+                              {line.receiving_date ? format(line.receiving_date, "yyyy-MM-dd") : (isArabic ? "التاريخ" : "Date")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={line.receiving_date}
+                              onSelect={(date) => {
+                                setLines(prev => {
+                                  const updated = [...prev];
+                                  updated[index] = { ...updated[index], receiving_date: date || undefined };
+                                  return updated;
+                                });
+                              }}
+                              disabled={!isEditable}
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </TableCell>
                       <TableCell>
                         <Input
@@ -779,7 +818,7 @@ const CoinsSheets = () => {
                   ))}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={7} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={8} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)}</TableCell>
                     <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>

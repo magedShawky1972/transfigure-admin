@@ -1,0 +1,1 @@
+ALTER TABLE public.coins_sheet_order_lines ADD COLUMN receiving_date date;
