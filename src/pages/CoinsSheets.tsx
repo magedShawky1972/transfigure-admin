@@ -876,6 +876,18 @@ const CoinsSheets = () => {
                           className="min-w-[100px]"
                         />
                       </TableCell>
+                      <TableCell>
+                        {selectedOrderId && line.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => { setPaymentTermsLineIndex(index); setPaymentTermsOpen(true); }}
+                            title={isArabic ? "شروط الدفع" : "Payment Terms"}
+                          >
+                            <DollarSign className="h-4 w-4" />
+                          </Button>
+                        )}
                       {isEditable && (
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
