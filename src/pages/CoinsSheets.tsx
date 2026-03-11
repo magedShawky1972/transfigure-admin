@@ -153,7 +153,22 @@ const CoinsSheets = () => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
 
-      if (["coins", "extra_coins", "rate", "sar_rate"].includes(field)) {
+      // Auto-calculate coins and extra_coins from USD Payment Amount
+      if (field === "usd_payment_amount") {
+        const usdAmount = parseFloat(value) || 0;
+        const coinsRate = parseFloat(headerCoinsRate) || 0;
+        const extraCoinsRate = parseFloat(headerExtraCoinsRate) || 0;
+        if (coinsRate > 0) {
+          updated[index].coins = (usdAmount * coinsRate).toFixed(2);
+        }
+        if (extraCoinsRate > 0) {
+          updated[index].extra_coins = (usdAmount * extraCoinsRate).toFixed(2);
+        } else {
+          updated[index].extra_coins = "0";
+        }
+      }
+
+      if (["coins", "extra_coins", "rate", "sar_rate", "usd_payment_amount"].includes(field)) {
         const coins = parseFloat(updated[index].coins) || 0;
         const extraCoins = parseFloat(updated[index].extra_coins) || 0;
         const rate = parseFloat(updated[index].rate) || 0;
