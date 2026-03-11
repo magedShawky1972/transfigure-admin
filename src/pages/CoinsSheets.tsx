@@ -135,7 +135,7 @@ const CoinsSheets = () => {
 
   const fetchDropdowns = async () => {
     const [brandRes, currRes, rateRes] = await Promise.all([
-      supabase.from("brands").select("id, brand_name").eq("status", "active").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, abc_analysis").eq("status", "active").eq("abc_analysis", "A").order("brand_name"),
       supabase.from("currencies").select("*").eq("is_active", true).order("currency_name"),
       supabase.from("currency_rates").select("*").order("effective_date", { ascending: false }),
     ]);
