@@ -550,6 +550,93 @@ const CoinsWorkflowSetup = () => {
           );
         })}
       </div>
+        </TabsContent>
+
+        {/* Sheets Workflow Tab */}
+        <TabsContent value="sheets" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                {isArabic ? "إعداد سير عمل الشيتات" : "Sheets Workflow Setup"}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {isArabic
+                  ? "تعيين المستخدمين المسؤولين عن كل مرحلة في سير عمل الشيتات"
+                  : "Assign users responsible for each phase in the sheets workflow"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "المرحلة" : "Phase"}</Label>
+                  <Select value={sheetSelectedPhase} onValueChange={setSheetSelectedPhase}>
+                    <SelectTrigger><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
+                    <SelectContent>
+                      {SHEET_PHASES.map(p => (
+                        <SelectItem key={p.key} value={p.key}>{isArabic ? p.ar : p.en}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "المستخدم" : "User"}</Label>
+                  <Select value={sheetSelectedUserId} onValueChange={setSheetSelectedUserId}>
+                    <SelectTrigger><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
+                    <SelectContent>
+                      {users.map(u => (
+                        <SelectItem key={u.user_id || u.id} value={u.user_id || u.id}>{u.user_name || u.email}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleAddSheetAssignment} disabled={sheetSaving}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  {isArabic ? "إضافة" : "Add"}
+                </Button>
+              </div>
+
+              {SHEET_PHASES.map(phase => {
+                const phaseAssignments = sheetAssignments.filter(a => a.phase === phase.key);
+                return (
+                  <div key={phase.key} className="mb-4">
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <Badge variant="outline">{isArabic ? phase.ar : phase.en}</Badge>
+                      <span className="text-sm text-muted-foreground">({phaseAssignments.length})</span>
+                    </h3>
+                    {phaseAssignments.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{isArabic ? "المستخدم" : "User"}</TableHead>
+                            <TableHead className="w-12"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {phaseAssignments.map(a => (
+                            <TableRow key={a.id}>
+                              <TableCell>{a.user_name || a.user_id}</TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteSheetAssignment(a.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">
+                        {isArabic ? "لم يتم تعيين مستخدمين" : "No users assigned"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
