@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File, ChevronsUpDown, Check } from "lucide-react";
+import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File, ChevronsUpDown, Check, Maximize2, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { downloadFile } from "@/lib/fileDownload";
@@ -104,6 +104,7 @@ const CoinsSheets = () => {
   const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [processingOrder, setProcessingOrder] = useState<any>(null);
+  const [transferPreviewUrl, setTransferPreviewUrl] = useState<string | null>(null);
 
   // Line attachment upload
   const [uploadingLineIndex, setUploadingLineIndex] = useState<number | null>(null);
@@ -600,12 +601,34 @@ const CoinsSheets = () => {
                     {order.accounting_approved_name && <p>{isArabic ? "معتمد بواسطة:" : "Approved by:"} {order.accounting_approved_name}</p>}
                     {order.accounting_notes && <p>{isArabic ? "ملاحظات:" : "Notes:"} {order.accounting_notes}</p>}
                     {order.bank_transfer_image && (
-                      <div className="flex gap-2 flex-wrap">
-                        {parseBankTransferImages(order.bank_transfer_image).map((url: string, i: number) => (
-                          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                            {isArabic ? `مرفق ${i + 1}` : `Attachment ${i + 1}`}
-                          </a>
-                        ))}
+                      <div className="flex gap-2 flex-wrap mt-2">
+                        {parseBankTransferImages(order.bank_transfer_image).map((url: string, i: number) => {
+                          const isPdf = /\.pdf($|\?)/i.test(url);
+                          const isImg = /\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(url);
+                          return (
+                            <div key={i} className="relative group border rounded-lg overflow-hidden bg-muted/30" style={{ width: 120, height: 90 }}>
+                              {isImg ? (
+                                <img src={url} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                                  <FileText className={`h-8 w-8 ${isPdf ? "text-red-500" : "text-muted-foreground"}`} />
+                                  <span className="text-xs text-muted-foreground">{isPdf ? "PDF" : isArabic ? `مرفق ${i + 1}` : `File ${i + 1}`}</span>
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setTransferPreviewUrl(url)} title={isArabic ? "تكبير" : "Maximize"}>
+                                  <Maximize2 className="h-3 w-3" />
+                                </Button>
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => downloadFile(url, `attachment-${i + 1}`)} title={isArabic ? "تحميل" : "Download"}>
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => window.open(url, "_blank")} title={isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}>
+                                  <ExternalLink className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1003,6 +1026,47 @@ const CoinsSheets = () => {
               {isArabic ? "اعتماد وإرسال" : "Approve & Send"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Maximize transfer preview dialog */}
+      <Dialog open={!!transferPreviewUrl} onOpenChange={(open) => { if (!open) setTransferPreviewUrl(null); }}>
+        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
+          {transferPreviewUrl && (
+            /\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(transferPreviewUrl) ? (
+              <div className="flex flex-col items-center gap-2">
+                <img src={transferPreviewUrl} alt="Preview" className="max-w-full max-h-[80vh] object-contain rounded" />
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => downloadFile(transferPreviewUrl, "transfer-receipt")}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تحميل" : "Download"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.open(transferPreviewUrl, "_blank")}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full">
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(transferPreviewUrl)}&embedded=true`}
+                  title="Transfer Preview"
+                  className="w-full h-[80vh] rounded border-0"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => downloadFile(transferPreviewUrl, "transfer-receipt")}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تحميل" : "Download"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => window.open(transferPreviewUrl, "_blank")}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                  </Button>
+                </div>
+              </div>
+            )
+          )}
         </DialogContent>
       </Dialog>
     </div>
