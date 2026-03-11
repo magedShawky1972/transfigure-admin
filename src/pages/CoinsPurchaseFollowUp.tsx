@@ -389,7 +389,7 @@ const CoinsPurchaseFollowUp = () => {
           <ClipboardList className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-bold">{isArabic ? "متابعة شراء الكوينز" : "Coins Purchase Follow-Up"}</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); }} disabled={loading || sheetLoading || salesSheetLoading}>
+        <Button variant="outline" size="sm" onClick={() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); fetchAdvancePayments(); }} disabled={loading || sheetLoading || salesSheetLoading || advancePaymentLoading}>
           <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${loading || sheetLoading || salesSheetLoading ? "animate-spin" : ""}`} />
           {isArabic ? "تحديث" : "Refresh"}
         </Button>
