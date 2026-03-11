@@ -93,6 +93,7 @@ const CoinsSheets = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [currencyRates, setCurrencyRates] = useState<any[]>([]);
+  const [defaultSarRate, setDefaultSarRate] = useState<number>(3.75); // Default USD to SAR
 
   // Filter
   const [phaseFilter, setPhaseFilter] = useState("all");
