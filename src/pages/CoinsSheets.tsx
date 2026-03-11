@@ -759,8 +759,13 @@ const CoinsSheets = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lines.map((line, index) => (
-                    <TableRow key={index}>
+                  {lines.map((line, index) => {
+                    const lineUsd = parseNum(line.usd_payment_amount);
+                    const hasPayment = line.total_payment > 0;
+                    const isPaymentComplete = hasPayment && Math.abs(line.total_payment - lineUsd) < 0.01;
+                    const needsPayment = selectedOrderId && line.id && lineUsd > 0 && !hasPayment;
+                    return (
+                    <TableRow key={index} className={cn(needsPayment && "ring-2 ring-destructive ring-inset rounded")}>
                       <TableCell className="font-medium">{line.line_number}</TableCell>
                       <TableCell>
                         <Input
