@@ -472,6 +472,8 @@ const CoinsSheets = () => {
     }).eq("id", orderId);
     if (error) { toast.error(error.message); return; }
     toast.success(isArabic ? "تم التأكيد" : "Confirmed");
+    resetForm();
+    setView("list");
     fetchOrders();
   };
 
