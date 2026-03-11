@@ -986,7 +986,20 @@ const CoinsSheets = () => {
         {/* Payment Terms Dialog */}
         <SheetPaymentTermsDialog
           open={paymentTermsOpen}
-          onOpenChange={(open) => { setPaymentTermsOpen(open); if (!open) setPaymentTermsLineIndex(null); }}
+          onOpenChange={(open) => {
+            setPaymentTermsOpen(open);
+            if (!open) {
+              // Refresh payment totals for this line
+              if (paymentTermsLineIndex !== null && lines[paymentTermsLineIndex]?.id) {
+                const lineId = lines[paymentTermsLineIndex].id!;
+                supabase.from("coins_sheet_payment_terms").select("amount").eq("line_id", lineId).then(({ data }) => {
+                  const total = (data || []).reduce((s: number, r: any) => s + (r.amount || 0), 0);
+                  setLines(prev => prev.map((l, i) => i === paymentTermsLineIndex ? { ...l, total_payment: total } : l));
+                });
+              }
+              setPaymentTermsLineIndex(null);
+            }
+          }}
           sheetOrderId={selectedOrderId}
           lineId={paymentTermsLineIndex !== null ? (lines[paymentTermsLineIndex]?.id || null) : null}
           lineAmount={paymentTermsLineIndex !== null ? parseNum(lines[paymentTermsLineIndex]?.usd_payment_amount) : 0}
