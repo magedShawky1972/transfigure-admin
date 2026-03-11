@@ -65,7 +65,7 @@ const emptyLine = (lineNumber: number): SheetLine => ({
 const PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
   { key: "sent_for_payment", ar: "مرسل للدفع", en: "Sent for Payment" },
-  { key: "accounting_approved", ar: "اعتماد المحاسبة", en: "Accounting Approved" },
+  { key: "accounting_approved", ar: "مراجعة وتأكيد المحاسبة", en: "Accounting Review and Confirm" },
   { key: "completed", ar: "مكتمل", en: "Completed" },
 ];
 
