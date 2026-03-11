@@ -46,6 +46,12 @@ const CoinsWorkflowSetup = () => {
   const [filterBrandId, setFilterBrandId] = useState("");
   const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({});
 
+  // Sheets workflow state
+  const [sheetAssignments, setSheetAssignments] = useState<any[]>([]);
+  const [sheetSelectedPhase, setSheetSelectedPhase] = useState("");
+  const [sheetSelectedUserId, setSheetSelectedUserId] = useState("");
+  const [sheetSaving, setSheetSaving] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
