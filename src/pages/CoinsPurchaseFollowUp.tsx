@@ -72,6 +72,12 @@ const CoinsPurchaseFollowUp = () => {
   const [salesSheetFilterPhase, setSalesSheetFilterPhase] = useState("all");
   const [salesSheetSearchText, setSalesSheetSearchText] = useState("");
 
+  // Advance Payment state
+  const [advancePayments, setAdvancePayments] = useState<any[]>([]);
+  const [advancePaymentLoading, setAdvancePaymentLoading] = useState(true);
+  const [advancePaymentFilterPhase, setAdvancePaymentFilterPhase] = useState("all");
+  const [advancePaymentSearchText, setAdvancePaymentSearchText] = useState("");
+
   useEffect(() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); }, []);
 
   const fetchOrders = async () => {
