@@ -475,6 +475,8 @@ const CoinsSheets = () => {
     setSelectedOrderNumber("");
     setNotes("");
     setHeaderBrandId("");
+    setHeaderCoinsRate("");
+    setHeaderExtraCoinsRate("");
     setLines([emptyLine(1)]);
   };
 
