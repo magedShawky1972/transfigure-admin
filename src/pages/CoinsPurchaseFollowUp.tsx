@@ -90,6 +90,17 @@ const CoinsPurchaseFollowUp = () => {
     setSheetLoading(false);
   };
 
+  const fetchSalesSheetOrders = async () => {
+    setSalesSheetLoading(true);
+    const { data } = await supabase
+      .from("sales_sheet_orders" as any)
+      .select("*, sales_sheet_order_lines(*)")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (data) setSalesSheetOrders(data as any[]);
+    setSalesSheetLoading(false);
+  };
+
   const filteredOrders = orders.filter(o => {
     if (filterPhase !== "all" && o.current_phase !== filterPhase) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
