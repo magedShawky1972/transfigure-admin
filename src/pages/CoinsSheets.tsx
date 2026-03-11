@@ -109,6 +109,7 @@ const CoinsSheets = () => {
 
   // Payment terms dialog
   const [paymentTermsOpen, setPaymentTermsOpen] = useState(false);
+  const [paymentTermsLineIndex, setPaymentTermsLineIndex] = useState<number | null>(null);
 
   // Line attachment upload
   const [uploadingLineIndex, setUploadingLineIndex] = useState<number | null>(null);
