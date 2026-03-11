@@ -109,6 +109,7 @@ const CoinsSheets = () => {
 
   // Payment terms dialog
   const [paymentTermsOpen, setPaymentTermsOpen] = useState(false);
+  const [paymentTermsLineIndex, setPaymentTermsLineIndex] = useState<number | null>(null);
 
   // Line attachment upload
   const [uploadingLineIndex, setUploadingLineIndex] = useState<number | null>(null);
@@ -720,20 +721,7 @@ const CoinsSheets = () => {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle>{isArabic ? "تفاصيل الشيت" : "Sheet Details"}</CardTitle>
-                {selectedOrderId && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setPaymentTermsOpen(true)}
-                    title={isArabic ? "شروط الدفع" : "Payment Terms"}
-                  >
-                    <DollarSign className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+              <CardTitle>{isArabic ? "تفاصيل الشيت" : "Sheet Details"}</CardTitle>
               {isEditable && (
                 <Button variant="outline" size="sm" onClick={addLine}>
                   <Plus className="h-4 w-4 mr-1" />
@@ -756,6 +744,7 @@ const CoinsSheets = () => {
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
                     <TableHead>{isArabic ? "مرفقات" : "Attachments"}</TableHead>
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
+                    <TableHead className="w-10">{isArabic ? "دفع" : "Pay"}</TableHead>
                     {isEditable && <TableHead className="w-10"></TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -888,6 +877,19 @@ const CoinsSheets = () => {
                           className="min-w-[100px]"
                         />
                       </TableCell>
+                      <TableCell>
+                        {selectedOrderId && line.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => { setPaymentTermsLineIndex(index); setPaymentTermsOpen(true); }}
+                            title={isArabic ? "شروط الدفع" : "Payment Terms"}
+                          >
+                            <DollarSign className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
                       {isEditable && (
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
@@ -901,7 +903,7 @@ const CoinsSheets = () => {
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
+                    <TableCell colSpan={isEditable ? 4 : 3}></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -961,9 +963,11 @@ const CoinsSheets = () => {
         {/* Payment Terms Dialog */}
         <SheetPaymentTermsDialog
           open={paymentTermsOpen}
-          onOpenChange={setPaymentTermsOpen}
+          onOpenChange={(open) => { setPaymentTermsOpen(open); if (!open) setPaymentTermsLineIndex(null); }}
           sheetOrderId={selectedOrderId}
-          totalAmount={lines.reduce((sum, l) => sum + parseNum(l.usd_payment_amount), 0)}
+          lineId={paymentTermsLineIndex !== null ? (lines[paymentTermsLineIndex]?.id || null) : null}
+          lineAmount={paymentTermsLineIndex !== null ? parseNum(lines[paymentTermsLineIndex]?.usd_payment_amount) : 0}
+          sellerName={paymentTermsLineIndex !== null ? (lines[paymentTermsLineIndex]?.seller_name || "") : ""}
           createdByName={currentUserName}
         />
       </div>

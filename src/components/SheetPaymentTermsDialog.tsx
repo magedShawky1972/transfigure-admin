@@ -4,7 +4,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,11 +25,13 @@ interface SheetPaymentTermsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sheetOrderId: string | null;
-  totalAmount: number;
+  lineId: string | null;
+  lineAmount: number;
+  sellerName: string;
   createdByName: string;
 }
 
-const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount, createdByName }: SheetPaymentTermsDialogProps) => {
+const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, lineId, lineAmount, sellerName, createdByName }: SheetPaymentTermsDialogProps) => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
   const [terms, setTerms] = useState<PaymentTerm[]>([]);
@@ -38,18 +39,18 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open && sheetOrderId) {
+    if (open && lineId) {
       fetchTerms();
     }
-  }, [open, sheetOrderId]);
+  }, [open, lineId]);
 
   const fetchTerms = async () => {
-    if (!sheetOrderId) return;
+    if (!lineId) return;
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("coins_sheet_payment_terms")
       .select("*")
-      .eq("sheet_order_id", sheetOrderId)
+      .eq("line_id", lineId)
       .order("payment_date", { ascending: true });
 
     if (data && data.length > 0) {
@@ -61,7 +62,6 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
         notes: t.notes || "",
       })));
     } else {
-      // Default: one row with today's date
       setTerms([{
         payment_date: new Date(),
         amount: 0,
@@ -91,7 +91,6 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
     setTerms(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
-      // If marking as remaining, clear amount
       if (field === "is_remaining" && value === true) {
         updated[index].amount = 0;
       }
@@ -99,20 +98,18 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
     });
   };
 
-  // Calculate remaining
   const fixedTotal = terms.filter(t => !t.is_remaining).reduce((s, t) => s + t.amount, 0);
-  const remainingAmount = totalAmount - fixedTotal;
+  const remainingAmount = lineAmount - fixedTotal;
 
   const handleSave = async () => {
-    if (!sheetOrderId) return;
+    if (!lineId || !sheetOrderId) return;
     setSaving(true);
     try {
-      // Delete existing terms
-      await supabase.from("coins_sheet_payment_terms").delete().eq("sheet_order_id", sheetOrderId);
+      await supabase.from("coins_sheet_payment_terms").delete().eq("line_id", lineId);
 
-      // Insert new terms
       const rows = terms.map(t => ({
         sheet_order_id: sheetOrderId,
+        line_id: lineId,
         payment_date: format(t.payment_date, "yyyy-MM-dd"),
         amount: t.is_remaining ? remainingAmount : t.amount,
         is_remaining: t.is_remaining,
@@ -136,7 +133,10 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isArabic ? "شروط الدفع" : "Payment Terms"}</DialogTitle>
+          <DialogTitle>
+            {isArabic ? "شروط الدفع" : "Payment Terms"}
+            {sellerName && <span className="text-muted-foreground text-sm font-normal ml-2">— {sellerName}</span>}
+          </DialogTitle>
         </DialogHeader>
 
         {loading ? (
@@ -145,10 +145,9 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Total display */}
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-2">
-              <span className="text-sm font-medium text-muted-foreground">{isArabic ? "إجمالي المبلغ (USD)" : "Total Amount (USD)"}</span>
-              <span className="text-lg font-bold">${totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+              <span className="text-sm font-medium text-muted-foreground">{isArabic ? "مبلغ السطر (USD)" : "Line Amount (USD)"}</span>
+              <span className="text-lg font-bold">${lineAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
             </div>
 
             <Table>
@@ -189,7 +188,7 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
                     </TableCell>
                     <TableCell>
                       {term.is_remaining ? (
-                        <div className="min-w-[100px] h-9 flex items-center px-3 rounded-md bg-muted text-sm font-semibold text-green-600">
+                        <div className="min-w-[100px] h-9 flex items-center px-3 rounded-md bg-muted text-sm font-semibold text-primary">
                           ${remainingAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </div>
                       ) : (
@@ -223,14 +222,13 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, totalAmount
                     </TableCell>
                   </TableRow>
                 ))}
-                {/* Summary row */}
                 <TableRow className="bg-muted/50 font-bold">
                   <TableCell colSpan={2} className="text-end">{isArabic ? "الإجمالي" : "Total"}</TableCell>
                   <TableCell>
                     <span className={cn(
                       "text-sm font-bold",
-                      Math.abs((fixedTotal + (terms.some(t => t.is_remaining) ? remainingAmount : 0)) - totalAmount) < 0.01
-                        ? "text-green-600" : "text-destructive"
+                      Math.abs((fixedTotal + (terms.some(t => t.is_remaining) ? remainingAmount : 0)) - lineAmount) < 0.01
+                        ? "text-primary" : "text-destructive"
                     )}>
                       ${(fixedTotal + (terms.some(t => t.is_remaining) ? remainingAmount : 0)).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
