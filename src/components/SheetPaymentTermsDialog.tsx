@@ -1,14 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Plus, Trash2, Save } from "lucide-react";
+import { CalendarIcon, Trash2, Save } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -37,6 +36,7 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, lineId, lin
   const [terms, setTerms] = useState<PaymentTerm[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const amountRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     if (open && lineId) {
@@ -72,14 +72,31 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, lineId, lin
     setLoading(false);
   };
 
-  const addTerm = () => {
+  const getRunningRemaining = (upToIndex: number): number => {
+    let used = 0;
+    for (let i = 0; i <= upToIndex; i++) {
+      if (!terms[i].is_remaining) used += terms[i].amount;
+    }
+    return lineAmount - used;
+  };
+
+  const totalEntered = terms.reduce((s, t) => s + (t.is_remaining ? 0 : t.amount), 0);
+  const globalRemaining = lineAmount - totalEntered;
+  const isFullyAllocated = Math.abs(globalRemaining) < 0.01;
+
+  const addTermWithRemaining = () => {
     const lastDate = terms.length > 0 ? terms[terms.length - 1].payment_date : new Date();
+    const rem = globalRemaining;
     setTerms(prev => [...prev, {
       payment_date: addDays(lastDate, 10),
-      amount: 0,
+      amount: rem > 0 ? parseFloat(rem.toFixed(2)) : 0,
       is_remaining: false,
       notes: "",
     }]);
+    // Focus new row's amount after render
+    setTimeout(() => {
+      amountRefs.current[terms.length]?.focus();
+    }, 100);
   };
 
   const removeTerm = (index: number) => {
@@ -91,15 +108,29 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, lineId, lin
     setTerms(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
-      if (field === "is_remaining" && value === true) {
-        updated[index].amount = 0;
-      }
       return updated;
     });
   };
 
-  const fixedTotal = terms.filter(t => !t.is_remaining).reduce((s, t) => s + t.amount, 0);
-  const remainingAmount = lineAmount - fixedTotal;
+  const handleAmountKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // Recalculate remaining after current state
+      const currentTotal = terms.reduce((s, t, i) => {
+        if (i === index) return s + (parseFloat((e.target as HTMLInputElement).value) || 0);
+        return s + (t.is_remaining ? 0 : t.amount);
+      }, 0);
+      const rem = lineAmount - currentTotal;
+
+      if (Math.abs(rem) < 0.01) {
+        // Fully allocated → save
+        handleSave();
+      } else if (rem > 0) {
+        // Add new line with remaining
+        addTermWithRemaining();
+      }
+    }
+  };
 
   const handleSave = async () => {
     if (!lineId || !sheetOrderId) return;
@@ -111,7 +142,7 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, lineId, lin
         sheet_order_id: sheetOrderId,
         line_id: lineId,
         payment_date: format(t.payment_date, "yyyy-MM-dd"),
-        amount: t.is_remaining ? remainingAmount : t.amount,
+        amount: t.amount,
         is_remaining: t.is_remaining,
         notes: t.notes || null,
         created_by: createdByName,
@@ -145,9 +176,21 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, lineId, lin
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-2">
-              <span className="text-sm font-medium text-muted-foreground">{isArabic ? "مبلغ السطر (USD)" : "Line Amount (USD)"}</span>
-              <span className="text-lg font-bold">${lineAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            {/* Header: Line amount + Remaining */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 bg-muted/50 rounded-lg px-4 py-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">{isArabic ? "مبلغ السطر (USD)" : "Line Amount (USD)"}</span>
+                <span className="text-lg font-bold">${lineAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className={cn(
+                "flex-1 rounded-lg px-4 py-2 flex items-center justify-between",
+                isFullyAllocated ? "bg-primary/10" : "bg-destructive/10"
+              )}>
+                <span className="text-sm font-medium text-muted-foreground">{isArabic ? "المتبقي" : "Remaining"}</span>
+                <span className={cn("text-lg font-bold", isFullyAllocated ? "text-primary" : "text-destructive")}>
+                  ${globalRemaining.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
 
             <Table>
@@ -156,92 +199,97 @@ const SheetPaymentTermsDialog = ({ open, onOpenChange, sheetOrderId, lineId, lin
                   <TableHead className="w-8">#</TableHead>
                   <TableHead>{isArabic ? "تاريخ الدفع" : "Payment Date"}</TableHead>
                   <TableHead>{isArabic ? "المبلغ (USD)" : "Amount (USD)"}</TableHead>
-                  <TableHead className="text-center">{isArabic ? "المتبقي" : "Remaining"}</TableHead>
+                  <TableHead>{isArabic ? "المتبقي بعد" : "Remaining After"}</TableHead>
                   <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {terms.map((term, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
-                    <TableCell>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn("min-w-[140px] justify-start text-left font-normal h-9 text-xs", !term.payment_date && "text-muted-foreground")}
-                          >
-                            <CalendarIcon className="mr-1 h-3 w-3" />
-                            {term.payment_date ? format(term.payment_date, "yyyy-MM-dd") : (isArabic ? "التاريخ" : "Date")}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={term.payment_date}
-                            onSelect={(date) => date && updateTerm(index, "payment_date", date)}
-                            className={cn("p-3 pointer-events-auto")}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </TableCell>
-                    <TableCell>
-                      {term.is_remaining ? (
-                        <div className="min-w-[100px] h-9 flex items-center px-3 rounded-md bg-muted text-sm font-semibold text-primary">
-                          ${remainingAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </div>
-                      ) : (
+                {terms.map((term, index) => {
+                  const remainingAfter = getRunningRemaining(index);
+                  const rowHasIssue = !isFullyAllocated && index === terms.length - 1 && remainingAfter > 0.01;
+                  return (
+                    <TableRow key={index} className={cn(rowHasIssue && "bg-destructive/10")}>
+                      <TableCell className="font-medium">{index + 1}</TableCell>
+                      <TableCell>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn("min-w-[140px] justify-start text-left font-normal h-9 text-xs", !term.payment_date && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-1 h-3 w-3" />
+                              {term.payment_date ? format(term.payment_date, "yyyy-MM-dd") : (isArabic ? "التاريخ" : "Date")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={term.payment_date}
+                              onSelect={(date) => date && updateTerm(index, "payment_date", date)}
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
+                      <TableCell>
                         <Input
+                          ref={el => { amountRefs.current[index] = el; }}
                           type="number"
                           value={term.amount || ""}
                           onChange={e => updateTerm(index, "amount", parseFloat(e.target.value) || 0)}
+                          onKeyDown={e => handleAmountKeyDown(e, index)}
                           className="min-w-[100px]"
                           placeholder="0.00"
                         />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox
-                        checked={term.is_remaining}
-                        onCheckedChange={(checked) => updateTerm(index, "is_remaining", !!checked)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={term.notes}
-                        onChange={e => updateTerm(index, "notes", e.target.value)}
-                        placeholder={isArabic ? "ملاحظات" : "Notes"}
-                        className="min-w-[100px]"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => removeTerm(index)} disabled={terms.length <= 1}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="bg-muted/50 font-bold">
+                      </TableCell>
+                      <TableCell>
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          remainingAfter < -0.01 ? "text-destructive" : remainingAfter < 0.01 ? "text-primary" : "text-muted-foreground"
+                        )}>
+                          ${remainingAfter.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={term.notes}
+                          onChange={e => updateTerm(index, "notes", e.target.value)}
+                          placeholder={isArabic ? "ملاحظات" : "Notes"}
+                          className="min-w-[100px]"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => removeTerm(index)} disabled={terms.length <= 1}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {/* Total row */}
+                <TableRow className={cn("font-bold", isFullyAllocated ? "bg-muted/50" : "bg-destructive/10")}>
                   <TableCell colSpan={2} className="text-end">{isArabic ? "الإجمالي" : "Total"}</TableCell>
                   <TableCell>
-                    <span className={cn(
-                      "text-sm font-bold",
-                      Math.abs((fixedTotal + (terms.some(t => t.is_remaining) ? remainingAmount : 0)) - lineAmount) < 0.01
-                        ? "text-primary" : "text-destructive"
-                    )}>
-                      ${(fixedTotal + (terms.some(t => t.is_remaining) ? remainingAmount : 0)).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    <span className={cn("text-sm font-bold", isFullyAllocated ? "text-primary" : "text-destructive")}>
+                      ${totalEntered.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </TableCell>
-                  <TableCell colSpan={3}></TableCell>
+                  <TableCell>
+                    <span className={cn("text-sm font-bold", isFullyAllocated ? "text-primary" : "text-destructive")}>
+                      ${globalRemaining.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </span>
+                  </TableCell>
+                  <TableCell colSpan={2}></TableCell>
                 </TableRow>
               </TableBody>
             </Table>
 
-            <Button variant="outline" size="sm" onClick={addTerm}>
-              <Plus className="h-4 w-4 mr-1" />
-              {isArabic ? "إضافة دفعة" : "Add Payment"}
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              {isArabic 
+                ? "💡 اضغط Enter في حقل المبلغ لإضافة سطر جديد بالمتبقي تلقائياً، أو للحفظ إذا تم توزيع المبلغ بالكامل"
+                : "💡 Press Enter in amount field to auto-add a new row with remaining, or to save if fully allocated"}
+            </p>
           </div>
         )}
 
