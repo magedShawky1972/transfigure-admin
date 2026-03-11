@@ -363,6 +363,46 @@ const CoinsWorkflowSetup = () => {
     fetchSalesSheetAssignments();
   };
 
+  const fetchAdvancePaymentAssignments = async () => {
+    const { data } = await supabase.from("advance_payment_workflow_assignments" as any).select("*").order("created_at");
+    if (data) setAdvancePaymentAssignments(data as any[]);
+  };
+
+  const handleAddAdvancePaymentAssignment = async () => {
+    if (!advancePaymentSelectedPhase || !advancePaymentSelectedUserId) {
+      toast.error(isArabic ? "يرجى تعبئة جميع الحقول" : "Please fill all fields");
+      return;
+    }
+    setAdvancePaymentSaving(true);
+    try {
+      const user = users.find(u => u.user_id === advancePaymentSelectedUserId || u.id === advancePaymentSelectedUserId);
+      const { error } = await supabase.from("advance_payment_workflow_assignments" as any).insert({
+        phase: advancePaymentSelectedPhase,
+        user_id: advancePaymentSelectedUserId,
+        user_name: user?.user_name || user?.email || "",
+      });
+      if (error) throw error;
+      toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
+      setAdvancePaymentSelectedPhase("");
+      setAdvancePaymentSelectedUserId("");
+      fetchAdvancePaymentAssignments();
+    } catch (err: any) {
+      if (err.message?.includes("duplicate")) {
+        toast.error(isArabic ? "التعيين موجود بالفعل" : "Assignment already exists");
+      } else {
+        toast.error(err.message || "Error");
+      }
+    } finally {
+      setAdvancePaymentSaving(false);
+    }
+  };
+
+  const handleDeleteAdvancePaymentAssignment = async (id: string) => {
+    await supabase.from("advance_payment_workflow_assignments" as any).delete().eq("id", id);
+    toast.success(isArabic ? "تم الحذف" : "Deleted");
+    fetchSalesSheetAssignments();
+  };
+
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
   const getSheetPhaseLabel = (key: string) => {

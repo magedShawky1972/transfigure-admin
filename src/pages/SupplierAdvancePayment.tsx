@@ -434,7 +434,7 @@ const SupplierAdvancePayment = () => {
                     <TableCell className="font-bold">{Number(p.base_amount).toLocaleString()}</TableCell>
                     <TableCell>{p.created_by_name || "-"}</TableCell>
                     <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
-                    <TableCell>{getStepBadge(getStepStatus(p))}</TableCell>
+                    <TableCell>{getPhaseBadge(getPhaseFromPayment(p))}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
