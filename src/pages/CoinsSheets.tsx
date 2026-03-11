@@ -429,6 +429,8 @@ const CoinsSheets = () => {
     setSelectedOrderNumber(order.order_number);
     setNotes(order.notes || "");
     setHeaderBrandId(order.brand_id || "");
+    setHeaderCoinsRate(String(order.coins_rate || ""));
+    setHeaderExtraCoinsRate(String(order.extra_coins_rate || ""));
 
     // Fetch line attachments
     const { data: lineAttachments } = await supabase
