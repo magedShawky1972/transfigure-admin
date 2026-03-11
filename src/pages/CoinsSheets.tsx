@@ -285,6 +285,7 @@ const CoinsSheets = () => {
           line_number: i + 1,
           seller_name: l.seller_name,
           brand_id: headerBrandId,
+          usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
           coins: parseFloat(l.coins) || 0,
           extra_coins: parseFloat(l.extra_coins) || 0,
           rate: parseFloat(l.rate) || 0,
