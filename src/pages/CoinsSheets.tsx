@@ -255,6 +255,8 @@ const CoinsSheets = () => {
       const headerData = {
         notes,
         brand_id: headerBrandId,
+        coins_rate: parseFloat(headerCoinsRate) || 0,
+        extra_coins_rate: parseFloat(headerExtraCoinsRate) || 0,
       };
 
       let orderId = selectedOrderId;
