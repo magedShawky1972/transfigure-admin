@@ -1034,24 +1034,15 @@ const CoinsSheets = () => {
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
           {transferPreviewUrl && (() => {
             const isImgUrl = /\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(transferPreviewUrl);
-            const isPdfUrl = /\.pdf($|\?)/i.test(transferPreviewUrl);
             return (
-              <div className="flex flex-col items-center gap-2 w-full">
+              <div className="flex flex-col items-center gap-2 w-full pt-4">
                 {isImgUrl ? (
                   <img src={transferPreviewUrl} alt="Preview" className="max-w-full max-h-[78vh] object-contain rounded" />
-                ) : isPdfUrl ? (
-                  <object data={transferPreviewUrl} type="application/pdf" className="w-full h-[78vh] rounded">
-                    <iframe
-                      src={`https://docs.google.com/gview?url=${encodeURIComponent(transferPreviewUrl)}&embedded=true`}
-                      title="PDF Preview"
-                      className="w-full h-[78vh] rounded border-0"
-                    />
-                  </object>
                 ) : (
                   <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(transferPreviewUrl)}&embedded=true`}
-                    title="File Preview"
-                    className="w-full h-[78vh] rounded border-0"
+                    src={transferPreviewUrl}
+                    title="Document Preview"
+                    className="w-full h-[78vh] rounded border"
                   />
                 )}
                 <div className="flex gap-2">
