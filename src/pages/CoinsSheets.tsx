@@ -957,6 +957,15 @@ const CoinsSheets = () => {
             </div>
           </div>
         )}
+
+        {/* Payment Terms Dialog */}
+        <SheetPaymentTermsDialog
+          open={paymentTermsOpen}
+          onOpenChange={setPaymentTermsOpen}
+          sheetOrderId={selectedOrderId}
+          totalAmount={lines.reduce((sum, l) => sum + parseNum(l.usd_payment_amount), 0)}
+          createdByName={currentUserName}
+        />
       </div>
     );
   }
