@@ -720,7 +720,20 @@ const CoinsSheets = () => {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle>{isArabic ? "تفاصيل الشيت" : "Sheet Details"}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>{isArabic ? "تفاصيل الشيت" : "Sheet Details"}</CardTitle>
+                {selectedOrderId && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setPaymentTermsOpen(true)}
+                    title={isArabic ? "شروط الدفع" : "Payment Terms"}
+                  >
+                    <DollarSign className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               {isEditable && (
                 <Button variant="outline" size="sm" onClick={addLine}>
                   <Plus className="h-4 w-4 mr-1" />
