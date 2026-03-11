@@ -174,6 +174,33 @@ export type Database = {
           },
         ]
       }
+      advance_payment_workflow_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          phase: string
+          updated_at: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          phase: string
+          updated_at?: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phase?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       aggregated_order_mapping: {
         Row: {
           aggregated_order_number: string
@@ -7392,6 +7419,7 @@ export type Database = {
           created_by: string
           created_by_name: string | null
           currency_id: string | null
+          current_phase: string
           exchange_rate: number
           id: string
           notes: string | null
@@ -7417,6 +7445,7 @@ export type Database = {
           created_by: string
           created_by_name?: string | null
           currency_id?: string | null
+          current_phase?: string
           exchange_rate?: number
           id?: string
           notes?: string | null
@@ -7442,6 +7471,7 @@ export type Database = {
           created_by?: string
           created_by_name?: string | null
           currency_id?: string | null
+          current_phase?: string
           exchange_rate?: number
           id?: string
           notes?: string | null
