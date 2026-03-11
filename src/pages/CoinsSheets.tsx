@@ -46,6 +46,7 @@ interface SheetLine {
   line_number: number;
   attachments: LineAttachment[];
   receiving_date?: Date;
+  total_payment: number;
 }
 
 const emptyLine = (lineNumber: number): SheetLine => ({
@@ -61,6 +62,7 @@ const emptyLine = (lineNumber: number): SheetLine => ({
   line_number: lineNumber,
   attachments: [],
   receiving_date: undefined,
+  total_payment: 0,
 });
 
 const PHASES = [
@@ -459,11 +461,17 @@ const CoinsSheets = () => {
     setHeaderCoinsRate(String(order.coins_rate || ""));
     setHeaderExtraCoinsRate(String(order.extra_coins_rate || ""));
 
-    // Fetch line attachments
-    const { data: lineAttachments } = await supabase
-      .from("coins_sheet_line_attachments")
-      .select("*")
-      .eq("sheet_order_id", order.id);
+    // Fetch line attachments and payment terms
+    const [{ data: lineAttachments }, { data: paymentTerms }] = await Promise.all([
+      supabase.from("coins_sheet_line_attachments").select("*").eq("sheet_order_id", order.id),
+      supabase.from("coins_sheet_payment_terms").select("line_id, amount").eq("sheet_order_id", order.id),
+    ]);
+
+    // Build payment totals map
+    const paymentTotalsMap: Record<string, number> = {};
+    (paymentTerms || []).forEach((pt: any) => {
+      paymentTotalsMap[pt.line_id] = (paymentTotalsMap[pt.line_id] || 0) + (pt.amount || 0);
+    });
 
     const orderLines = order.coins_sheet_order_lines || [];
     if (orderLines.length > 0) {
@@ -480,6 +488,7 @@ const CoinsSheets = () => {
         notes: l.notes || "",
         line_number: l.line_number,
         receiving_date: l.receiving_date ? new Date(l.receiving_date) : undefined,
+        total_payment: paymentTotalsMap[l.id] || 0,
         attachments: (lineAttachments || [])
           .filter((a: any) => a.line_id === l.id)
           .map((a: any) => ({
@@ -744,13 +753,19 @@ const CoinsSheets = () => {
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
                     <TableHead>{isArabic ? "مرفقات" : "Attachments"}</TableHead>
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
+                    <TableHead>{isArabic ? "إجمالي المدفوع" : "Total Payment"}</TableHead>
                     <TableHead className="w-10">{isArabic ? "دفع" : "Pay"}</TableHead>
                     {isEditable && <TableHead className="w-10"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lines.map((line, index) => (
-                    <TableRow key={index}>
+                  {lines.map((line, index) => {
+                    const lineUsd = parseNum(line.usd_payment_amount);
+                    const hasPayment = line.total_payment > 0;
+                    const isPaymentComplete = hasPayment && Math.abs(line.total_payment - lineUsd) < 0.01;
+                    const needsPayment = selectedOrderId && line.id && lineUsd > 0 && !hasPayment;
+                    return (
+                    <TableRow key={index} className={cn(needsPayment && "ring-2 ring-destructive ring-inset rounded")}>
                       <TableCell className="font-medium">{line.line_number}</TableCell>
                       <TableCell>
                         <Input
@@ -878,6 +893,14 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          !hasPayment && lineUsd > 0 ? "text-destructive" : isPaymentComplete ? "text-primary" : "text-amber-600"
+                        )}>
+                          {line.total_payment > 0 ? `$${line.total_payment.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : (lineUsd > 0 ? (isArabic ? "لم يُدخل" : "Not set") : "—")}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         {selectedOrderId && line.id && (
                           <Button
                             variant="ghost"
@@ -898,12 +921,12 @@ const CoinsSheets = () => {
                         </TableCell>
                       )}
                     </TableRow>
-                  ))}
+                  );})}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell colSpan={isEditable ? 4 : 3}></TableCell>
+                    <TableCell colSpan={isEditable ? 5 : 4}></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -963,7 +986,20 @@ const CoinsSheets = () => {
         {/* Payment Terms Dialog */}
         <SheetPaymentTermsDialog
           open={paymentTermsOpen}
-          onOpenChange={(open) => { setPaymentTermsOpen(open); if (!open) setPaymentTermsLineIndex(null); }}
+          onOpenChange={(open) => {
+            setPaymentTermsOpen(open);
+            if (!open) {
+              // Refresh payment totals for this line
+              if (paymentTermsLineIndex !== null && lines[paymentTermsLineIndex]?.id) {
+                const lineId = lines[paymentTermsLineIndex].id!;
+                supabase.from("coins_sheet_payment_terms").select("amount").eq("line_id", lineId).then(({ data }) => {
+                  const total = (data || []).reduce((s: number, r: any) => s + (r.amount || 0), 0);
+                  setLines(prev => prev.map((l, i) => i === paymentTermsLineIndex ? { ...l, total_payment: total } : l));
+                });
+              }
+              setPaymentTermsLineIndex(null);
+            }
+          }}
           sheetOrderId={selectedOrderId}
           lineId={paymentTermsLineIndex !== null ? (lines[paymentTermsLineIndex]?.id || null) : null}
           lineAmount={paymentTermsLineIndex !== null ? parseNum(lines[paymentTermsLineIndex]?.usd_payment_amount) : 0}
