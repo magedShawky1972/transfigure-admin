@@ -293,17 +293,33 @@ const CoinsSheets = () => {
 
       let orderId = selectedOrderId;
 
-      // Map old line IDs by index for payment terms remapping
+      // Backup payment terms before deleting lines
+      const savedTermsByOldLineId: Record<string, any[]> = {};
       const oldLineIdByIndex: Record<number, string> = {};
+
       if (selectedOrderId) {
         lines.forEach((l, i) => {
           if (l.id) oldLineIdByIndex[i] = l.id;
         });
 
-        await supabase.from("coins_sheet_orders").update(headerData).eq("id", selectedOrderId);
+        // Fetch existing payment terms before any deletions
+        const { data: existingTerms } = await supabase
+          .from("coins_sheet_payment_terms")
+          .select("*")
+          .eq("sheet_order_id", selectedOrderId);
+
+        (existingTerms || []).forEach((t: any) => {
+          if (t.line_id) {
+            if (!savedTermsByOldLineId[t.line_id]) savedTermsByOldLineId[t.line_id] = [];
+            savedTermsByOldLineId[t.line_id].push(t);
+          }
+        });
+
+        // Delete payment terms, attachments, and lines
+        await supabase.from("coins_sheet_payment_terms").delete().eq("sheet_order_id", selectedOrderId);
         await supabase.from("coins_sheet_line_attachments").delete().eq("sheet_order_id", selectedOrderId);
-        // Deleting lines sets payment_terms.line_id to NULL (ON DELETE SET NULL)
         await supabase.from("coins_sheet_order_lines").delete().eq("sheet_order_id", selectedOrderId);
+        await supabase.from("coins_sheet_orders").update(headerData).eq("id", selectedOrderId);
       } else {
         const { data: order, error } = await supabase.from("coins_sheet_orders").insert({
           order_number: "",
@@ -315,7 +331,7 @@ const CoinsSheets = () => {
         orderId = order.id;
       }
 
-      // Insert lines
+      // Insert lines and re-insert payment terms with new line IDs
       for (let i = 0; i < validLines.length; i++) {
         const l = validLines[i];
         const originalIndex = lines.indexOf(l);
@@ -334,14 +350,19 @@ const CoinsSheets = () => {
         } as any).select().single();
         if (lineErr) throw lineErr;
 
-        // Remap orphaned payment terms (line_id was set to NULL by cascade) back to new line ID
+        // Re-insert backed-up payment terms with new line ID
         const oldLineId = originalIndex >= 0 ? oldLineIdByIndex[originalIndex] : null;
-        if (oldLineId && lineData) {
-          // Payment terms that had this old line_id now have line_id = NULL
-          // We identify them by sheet_order_id + null line_id, but we need to be specific
-          // So we use a two-step: first find terms that were for this old line
-          // Since ON DELETE SET NULL already nullified them, we update all null ones
-          // matching this order. To be precise, we batch-update by seller correlation.
+        if (oldLineId && lineData && savedTermsByOldLineId[oldLineId]) {
+          const termsToReinsert = savedTermsByOldLineId[oldLineId].map((t: any) => ({
+            sheet_order_id: orderId,
+            line_id: lineData.id,
+            payment_date: t.payment_date,
+            amount: t.amount,
+            is_remaining: t.is_remaining,
+            notes: t.notes,
+            created_by: t.created_by,
+          }));
+          await supabase.from("coins_sheet_payment_terms").insert(termsToReinsert as any);
         }
 
         // Insert line attachments
@@ -358,17 +379,6 @@ const CoinsSheets = () => {
           }));
           await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
         }
-      }
-
-      // Remap all orphaned payment terms (line_id = null) to new lines by order
-      if (selectedOrderId) {
-        // Fetch orphaned terms and new lines
-        const [{ data: orphanedTerms }, { data: newLines }] = await Promise.all([
-          supabase.from("coins_sheet_payment_terms").select("*").eq("sheet_order_id", orderId).is("line_id", null),
-          supabase.from("coins_sheet_order_lines").select("id, line_number").eq("sheet_order_id", orderId).order("line_number"),
-        ]);
-        // We can't perfectly match orphaned terms to lines after SET NULL
-        // Better approach: use the fetch-delete-reinsert pattern instead
       }
 
       toast.success(isArabic ? (selectedOrderId ? "تم الحفظ" : "تم إنشاء الطلب") : (selectedOrderId ? "Saved" : "Order created"));
