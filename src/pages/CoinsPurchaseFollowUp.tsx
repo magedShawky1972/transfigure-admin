@@ -323,6 +323,11 @@ const CoinsPurchaseFollowUp = () => {
             {isArabic ? "شيتات الكوينز" : "Coins Sheets"}
             <Badge variant="secondary" className="ml-1">{sheetOrders.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="sales_sheets" className="gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            {isArabic ? "شيت المبيعات" : "Sales Sheets"}
+            <Badge variant="secondary" className="ml-1">{salesSheetOrders.length}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         {/* ===== COINS PURCHASE TAB ===== */}
