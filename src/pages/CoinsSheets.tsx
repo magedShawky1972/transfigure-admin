@@ -519,7 +519,7 @@ const CoinsSheets = () => {
 
   const filteredOrders = phaseFilter === "all" ? orders : orders.filter(o => o.current_phase === phaseFilter);
 
-  const grandTotal = lines.reduce((sum, l) => sum + (parseFloat(l.total_sar) || 0), 0);
+  const grandTotal = lines.reduce((sum, l) => sum + parseNum(l.total_sar), 0);
 
   const isEditable = !selectedOrderId || selectedOrderPhase === "creation";
 
