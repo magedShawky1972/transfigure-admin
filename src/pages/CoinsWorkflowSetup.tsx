@@ -250,12 +250,76 @@ const CoinsWorkflowSetup = () => {
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
 
+  // Sheets workflow state
+  const [sheetAssignments, setSheetAssignments] = useState<any[]>([]);
+  const [sheetSelectedPhase, setSheetSelectedPhase] = useState("");
+  const [sheetSelectedUserId, setSheetSelectedUserId] = useState("");
+  const [sheetSaving, setSheetSaving] = useState(false);
+
+  useEffect(() => { fetchSheetAssignments(); }, []);
+
+  const fetchSheetAssignments = async () => {
+    const { data } = await supabase.from("coins_sheet_workflow_assignments").select("*").order("created_at");
+    if (data) setSheetAssignments(data);
+  };
+
+  const handleAddSheetAssignment = async () => {
+    if (!sheetSelectedPhase || !sheetSelectedUserId) {
+      toast.error(isArabic ? "يرجى تعبئة جميع الحقول" : "Please fill all fields");
+      return;
+    }
+    setSheetSaving(true);
+    try {
+      const user = users.find(u => u.user_id === sheetSelectedUserId || u.id === sheetSelectedUserId);
+      const { error } = await supabase.from("coins_sheet_workflow_assignments").insert({
+        phase: sheetSelectedPhase,
+        user_id: sheetSelectedUserId,
+        user_name: user?.user_name || user?.email || "",
+      });
+      if (error) throw error;
+      toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
+      setSheetSelectedPhase("");
+      setSheetSelectedUserId("");
+      fetchSheetAssignments();
+    } catch (err: any) {
+      if (err.message?.includes("duplicate")) {
+        toast.error(isArabic ? "التعيين موجود بالفعل" : "Assignment already exists");
+      } else {
+        toast.error(err.message || "Error");
+      }
+    } finally {
+      setSheetSaving(false);
+    }
+  };
+
+  const handleDeleteSheetAssignment = async (id: string) => {
+    await supabase.from("coins_sheet_workflow_assignments").delete().eq("id", id);
+    toast.success(isArabic ? "تم الحذف" : "Deleted");
+    fetchSheetAssignments();
+  };
+
+  const getSheetPhaseLabel = (key: string) => {
+    const p = SHEET_PHASES.find(ph => ph.key === key);
+    return isArabic ? p?.ar || key : p?.en || key;
+  };
+
   return (
     <div className={`p-4 md:p-6 space-y-6 ${isArabic ? "rtl" : "ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex items-center gap-3">
         <Settings className="h-7 w-7 text-primary" />
         <h1 className="text-2xl font-bold">{isArabic ? "إعداد سير عمل الكوينز" : "Coins Workflow Setup"}</h1>
       </div>
+
+      <Tabs defaultValue="purchase" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="purchase">{isArabic ? "شراء الكوينز" : "Coins Purchase"}</TabsTrigger>
+          <TabsTrigger value="sheets" className="flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            {isArabic ? "شيتات" : "Sheets"}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="purchase" className="space-y-6">
 
       {/* Supervisors Section */}
       <Card className="border-amber-200 dark:border-amber-800">
