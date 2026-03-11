@@ -746,6 +746,16 @@ const CoinsSheets = () => {
                       <TableCell>
                         <Input
                           type="number"
+                          value={line.usd_payment_amount}
+                          onChange={e => handleLineChange(index, "usd_payment_amount", e.target.value)}
+                          disabled={!isEditable}
+                          className="min-w-[100px]"
+                          placeholder="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
                           value={line.coins}
                           onChange={e => handleLineChange(index, "coins", e.target.value)}
                           disabled={!isEditable}
