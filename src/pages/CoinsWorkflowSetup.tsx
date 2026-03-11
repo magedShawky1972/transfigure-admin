@@ -27,6 +27,12 @@ const SALES_SHEET_PHASES = [
   { key: "accounting", ar: "المحاسبة", en: "Accounting" },
 ];
 
+const ADVANCE_PAYMENT_PHASES = [
+  { key: "entry", ar: "إدخال", en: "Entry" },
+  { key: "receiving", ar: "استلام", en: "Receiving" },
+  { key: "accounting", ar: "المحاسبة", en: "Accounting" },
+];
+
 const PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
   { key: "sending", ar: "توجيه", en: "Sending" },
