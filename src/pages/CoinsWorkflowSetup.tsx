@@ -564,8 +564,8 @@ const CoinsWorkflowSetup = () => {
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 {isArabic
-                  ? "تعيين المستخدمين المسؤولين عن كل مرحلة في سير عمل الشيتات"
-                  : "Assign users responsible for each phase in the sheets workflow"}
+                   ? "تعيين المستخدمين المسؤولين عن كل مرحلة في سير عمل شيتات الكوينز"
+                   : "Assign users responsible for each phase in the coins sheets workflow"}
               </p>
             </CardHeader>
             <CardContent>
