@@ -247,6 +247,7 @@ const SupplierAdvancePayment = () => {
     setNotes("");
     setSelectedPaymentId(null);
     setAttachments([]);
+    setCurrentPhase("entry");
     setSentForReceiving(false);
     setReceivingImage("");
     setReceivingNotes("");
