@@ -1029,37 +1029,57 @@ const CoinsSheets = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Maximize transfer preview dialog */}
-      <Dialog open={!!transferPreviewUrl} onOpenChange={(open) => { if (!open) setTransferPreviewUrl(null); }}>
-        <DialogContent className="max-w-6xl max-h-[95vh] p-2">
-          {transferPreviewUrl && (() => {
-            const isImgUrl = /\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(transferPreviewUrl);
-            return (
-              <div className="flex flex-col items-center gap-2 w-full pt-4">
-                {isImgUrl ? (
-                  <img src={transferPreviewUrl} alt="Preview" className="max-w-full max-h-[78vh] object-contain rounded" />
-                ) : (
-                  <iframe
-                    src={transferPreviewUrl}
-                    title="Document Preview"
-                    className="w-full h-[78vh] rounded border"
-                  />
-                )}
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => downloadFile(transferPreviewUrl, "transfer-receipt")}>
-                    <Download className="h-4 w-4 mr-1" />
-                    {isArabic ? "تحميل" : "Download"}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => window.open(transferPreviewUrl, "_blank")}>
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
-                  </Button>
+      {/* Maximize transfer preview - fixed overlay */}
+      {transferPreviewUrl && (
+        <div className="fixed inset-0 z-[100] bg-black/70 flex flex-col items-center justify-center p-4" onClick={() => setTransferPreviewUrl(null)}>
+          <div className="bg-background rounded-lg w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 border-b">
+              <h3 className="font-semibold text-sm">{isArabic ? "معاينة المرفق" : "Attachment Preview"}</h3>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => downloadFile(transferPreviewUrl, "transfer-receipt")}>
+                  <Download className="h-4 w-4 mr-1" />
+                  {isArabic ? "تحميل" : "Download"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => window.open(transferPreviewUrl, "_blank")}>
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setTransferPreviewUrl(null)}>
+                  <XCircle className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+            {/* Content */}
+            <div className="flex-1 relative min-h-0">
+              {/* Loading indicator */}
+              <div className="absolute inset-0 flex items-center justify-center bg-muted/50 pointer-events-none z-10" id="transfer-preview-loading">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-muted-foreground">{isArabic ? "جاري تحميل الملف..." : "Loading file..."}</span>
                 </div>
               </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+              {/\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(transferPreviewUrl) ? (
+                <img
+                  src={transferPreviewUrl}
+                  alt="Preview"
+                  className="w-full h-full object-contain p-2"
+                  style={{ maxHeight: "calc(95vh - 60px)" }}
+                  onLoad={() => { const el = document.getElementById("transfer-preview-loading"); if (el) el.style.display = "none"; }}
+                />
+              ) : (
+                <iframe
+                  src={transferPreviewUrl}
+                  title="Document Preview"
+                  className="w-full border-0"
+                  style={{ height: "calc(95vh - 60px)" }}
+                  onLoad={() => { const el = document.getElementById("transfer-preview-loading"); if (el) el.style.display = "none"; }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
