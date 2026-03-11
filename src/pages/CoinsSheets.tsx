@@ -49,6 +49,7 @@ interface SheetLine {
 
 const emptyLine = (lineNumber: number): SheetLine => ({
   seller_name: "",
+  usd_payment_amount: "",
   coins: "",
   extra_coins: "0",
   rate: "",
