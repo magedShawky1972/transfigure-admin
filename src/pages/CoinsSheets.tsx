@@ -34,6 +34,7 @@ interface LineAttachment {
 interface SheetLine {
   id?: string;
   seller_name: string;
+  usd_payment_amount: string;
   coins: string;
   extra_coins: string;
   rate: string;
@@ -48,6 +49,7 @@ interface SheetLine {
 
 const emptyLine = (lineNumber: number): SheetLine => ({
   seller_name: "",
+  usd_payment_amount: "",
   coins: "",
   extra_coins: "0",
   rate: "",
@@ -83,6 +85,8 @@ const CoinsSheets = () => {
 
   // Header fields
   const [headerBrandId, setHeaderBrandId] = useState("");
+  const [headerCoinsRate, setHeaderCoinsRate] = useState("");
+  const [headerExtraCoinsRate, setHeaderExtraCoinsRate] = useState("");
   const [brandPopoverOpen, setBrandPopoverOpen] = useState(false);
 
   // Dropdowns
@@ -251,6 +255,8 @@ const CoinsSheets = () => {
       const headerData = {
         notes,
         brand_id: headerBrandId,
+        coins_rate: parseFloat(headerCoinsRate) || 0,
+        extra_coins_rate: parseFloat(headerExtraCoinsRate) || 0,
       };
 
       let orderId = selectedOrderId;
@@ -279,6 +285,7 @@ const CoinsSheets = () => {
           line_number: i + 1,
           seller_name: l.seller_name,
           brand_id: headerBrandId,
+          usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
           coins: parseFloat(l.coins) || 0,
           extra_coins: parseFloat(l.extra_coins) || 0,
           rate: parseFloat(l.rate) || 0,
@@ -422,6 +429,8 @@ const CoinsSheets = () => {
     setSelectedOrderNumber(order.order_number);
     setNotes(order.notes || "");
     setHeaderBrandId(order.brand_id || "");
+    setHeaderCoinsRate(String(order.coins_rate || ""));
+    setHeaderExtraCoinsRate(String(order.extra_coins_rate || ""));
 
     // Fetch line attachments
     const { data: lineAttachments } = await supabase
@@ -434,6 +443,7 @@ const CoinsSheets = () => {
       setLines(orderLines.sort((a: any, b: any) => a.line_number - b.line_number).map((l: any) => ({
         id: l.id,
         seller_name: l.seller_name || "",
+        usd_payment_amount: String(l.usd_payment_amount || ""),
         coins: String(l.coins || 0),
         extra_coins: String(l.extra_coins || 0),
         rate: String(l.rate || 0),
@@ -465,6 +475,8 @@ const CoinsSheets = () => {
     setSelectedOrderNumber("");
     setNotes("");
     setHeaderBrandId("");
+    setHeaderCoinsRate("");
+    setHeaderExtraCoinsRate("");
     setLines([emptyLine(1)]);
   };
 
@@ -585,7 +597,7 @@ const CoinsSheets = () => {
         {/* Header: Brand + Notes */}
         <Card>
           <CardContent className="pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label>{isArabic ? "العلامة التجارية" : "Brand"} *</Label>
                 <Popover open={brandPopoverOpen} onOpenChange={setBrandPopoverOpen}>
@@ -627,6 +639,28 @@ const CoinsSheets = () => {
                 </Popover>
               </div>
               <div>
+                <Label>{isArabic ? "سعر الكوينز" : "Coins Rate"}</Label>
+                <Input
+                  type="number"
+                  value={headerCoinsRate}
+                  onChange={e => setHeaderCoinsRate(e.target.value)}
+                  disabled={!isEditable}
+                  className="mt-1"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <Label>{isArabic ? "سعر الكوينز الإضافية" : "Extra Coins Rate"}</Label>
+                <Input
+                  type="number"
+                  value={headerExtraCoinsRate}
+                  onChange={e => setHeaderExtraCoinsRate(e.target.value)}
+                  disabled={!isEditable}
+                  className="mt-1"
+                  placeholder="0"
+                />
+              </div>
+              <div>
                 <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} disabled={!isEditable} className="mt-1" />
               </div>
@@ -655,6 +689,7 @@ const CoinsSheets = () => {
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>{isArabic ? "اسم البائع" : "Seller Name"}</TableHead>
                     <TableHead>{isArabic ? "تاريخ الاستلام" : "Receiving Date"}</TableHead>
+                    <TableHead>{isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
                     <TableHead>{isArabic ? "السعر" : "Rate"}</TableHead>
@@ -707,6 +742,16 @@ const CoinsSheets = () => {
                             />
                           </PopoverContent>
                         </Popover>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={line.usd_payment_amount}
+                          onChange={e => handleLineChange(index, "usd_payment_amount", e.target.value)}
+                          disabled={!isEditable}
+                          className="min-w-[100px]"
+                          placeholder="0"
+                        />
                       </TableCell>
                       <TableCell>
                         <Input
@@ -818,7 +863,7 @@ const CoinsSheets = () => {
                   ))}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={8} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={9} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)}</TableCell>
                     <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>

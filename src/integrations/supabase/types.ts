@@ -1526,6 +1526,7 @@ export type Database = {
           sheet_order_id: string
           total_sar: number
           updated_at: string
+          usd_payment_amount: number | null
         }
         Insert: {
           brand_id: string
@@ -1543,6 +1544,7 @@ export type Database = {
           sheet_order_id: string
           total_sar?: number
           updated_at?: string
+          usd_payment_amount?: number | null
         }
         Update: {
           brand_id?: string
@@ -1560,6 +1562,7 @@ export type Database = {
           sheet_order_id?: string
           total_sar?: number
           updated_at?: string
+          usd_payment_amount?: number | null
         }
         Relationships: [
           {
@@ -1593,12 +1596,14 @@ export type Database = {
           accounting_notes: string | null
           bank_transfer_image: string | null
           brand_id: string | null
+          coins_rate: number | null
           created_at: string
           created_by: string
           created_by_name: string | null
           creator_confirmed: boolean | null
           creator_confirmed_at: string | null
           current_phase: string
+          extra_coins_rate: number | null
           id: string
           notes: string | null
           order_number: string
@@ -1614,12 +1619,14 @@ export type Database = {
           accounting_notes?: string | null
           bank_transfer_image?: string | null
           brand_id?: string | null
+          coins_rate?: number | null
           created_at?: string
           created_by: string
           created_by_name?: string | null
           creator_confirmed?: boolean | null
           creator_confirmed_at?: string | null
           current_phase?: string
+          extra_coins_rate?: number | null
           id?: string
           notes?: string | null
           order_number: string
@@ -1635,12 +1642,14 @@ export type Database = {
           accounting_notes?: string | null
           bank_transfer_image?: string | null
           brand_id?: string | null
+          coins_rate?: number | null
           created_at?: string
           created_by?: string
           created_by_name?: string | null
           creator_confirmed?: boolean | null
           creator_confirmed_at?: string | null
           current_phase?: string
+          extra_coins_rate?: number | null
           id?: string
           notes?: string | null
           order_number?: string
