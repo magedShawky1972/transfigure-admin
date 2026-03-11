@@ -168,12 +168,11 @@ const CoinsSheets = () => {
         }
       }
 
-      if (["coins", "extra_coins", "rate", "sar_rate", "usd_payment_amount"].includes(field)) {
+      if (["coins", "extra_coins", "sar_rate", "usd_payment_amount"].includes(field)) {
         const coins = parseFloat(updated[index].coins) || 0;
         const extraCoins = parseFloat(updated[index].extra_coins) || 0;
-        const rate = parseFloat(updated[index].rate) || 0;
         const sarRate = parseFloat(updated[index].sar_rate) || 1;
-        updated[index].total_sar = ((coins + extraCoins) * rate * sarRate).toFixed(2);
+        updated[index].total_sar = ((coins + extraCoins) * sarRate).toFixed(2);
       }
 
       if (field === "currency_id") {
@@ -182,8 +181,7 @@ const CoinsSheets = () => {
           updated[index].sar_rate = String(rateEntry.rate_to_base);
           const coins = parseFloat(updated[index].coins) || 0;
           const extraCoins = parseFloat(updated[index].extra_coins) || 0;
-          const rate = parseFloat(updated[index].rate) || 0;
-          updated[index].total_sar = ((coins + extraCoins) * rate * rateEntry.rate_to_base).toFixed(2);
+          updated[index].total_sar = ((coins + extraCoins) * rateEntry.rate_to_base).toFixed(2);
         }
       }
 
@@ -707,7 +705,7 @@ const CoinsSheets = () => {
                     <TableHead>{isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
-                    <TableHead>{isArabic ? "السعر" : "Rate"}</TableHead>
+                    
                     <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                     <TableHead>{isArabic ? "سعر الريال" : "SAR Rate"}</TableHead>
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
@@ -782,15 +780,6 @@ const CoinsSheets = () => {
                           type="number"
                           value={line.extra_coins}
                           onChange={e => handleLineChange(index, "extra_coins", e.target.value)}
-                          disabled={!isEditable}
-                          className="min-w-[90px]"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={line.rate}
-                          onChange={e => handleLineChange(index, "rate", e.target.value)}
                           disabled={!isEditable}
                           className="min-w-[90px]"
                         />
@@ -878,7 +867,7 @@ const CoinsSheets = () => {
                   ))}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={9} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={8} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)}</TableCell>
                     <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>
