@@ -338,9 +338,11 @@ const SupplierAdvancePayment = () => {
         sent_for_receiving_by: profile?.user_name || user?.email,
         receiving_image: receivingImage,
         receiving_notes: receivingNotes,
+        current_phase: "receiving",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
       setSentForReceiving(true);
+      setCurrentPhase("receiving");
       toast.success(isArabic ? "تم الإرسال للاستلام بنجاح" : "Sent for receiving successfully");
       fetchPayments();
     } catch (err: any) {
