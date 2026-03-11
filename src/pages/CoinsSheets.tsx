@@ -807,9 +807,9 @@ const CoinsSheets = () => {
                       </TableCell>
                       <TableCell>
                         <Input
-                          value={line.total_sar}
+                          value={line.total_sar ? Number(line.total_sar).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                           readOnly
-                          className="min-w-[100px] bg-muted font-semibold"
+                          className="min-w-[120px] bg-muted font-semibold"
                         />
                       </TableCell>
                       <TableCell>
