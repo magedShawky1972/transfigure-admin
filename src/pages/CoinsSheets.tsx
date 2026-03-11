@@ -558,7 +558,7 @@ const CoinsSheets = () => {
             <Button variant="ghost" size="icon" onClick={() => { resetForm(); setView("list"); }}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold">{isArabic ? "شيتات - طلب دفع" : "Sheets - Payment Request"}</h1>
+            <h1 className="text-2xl font-bold">{isArabic ? "شيتات الكوينز - طلب دفع" : "Coins Sheets - Payment Request"}</h1>
             {selectedOrderNumber && <Badge variant="outline" className="text-lg px-3">{selectedOrderNumber}</Badge>}
           </div>
           <div className="flex gap-2">
