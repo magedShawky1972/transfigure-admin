@@ -654,6 +654,7 @@ const CoinsSheets = () => {
                   <TableRow>
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>{isArabic ? "اسم البائع" : "Seller Name"}</TableHead>
+                    <TableHead>{isArabic ? "تاريخ الاستلام" : "Receiving Date"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
                     <TableHead>{isArabic ? "السعر" : "Rate"}</TableHead>
