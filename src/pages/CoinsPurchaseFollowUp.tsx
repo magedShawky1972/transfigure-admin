@@ -512,6 +512,92 @@ const CoinsPurchaseFollowUp = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ===== SALES SHEETS TAB ===== */}
+        <TabsContent value="sales_sheets" className="space-y-4 mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Object.entries(salesSheetPhaseConfig).map(([key, cfg]) => (
+              <Card key={key} className={`cursor-pointer hover:shadow-md transition-shadow ${salesSheetFilterPhase === key ? "ring-2 ring-primary" : ""}`}
+                onClick={() => setSalesSheetFilterPhase(salesSheetFilterPhase === key ? "all" : key)}>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold">{salesSheetPhaseCounts[key] || 0}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{isArabic ? cfg.labelAr : cfg.label}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Input placeholder={isArabic ? "بحث بالرقم أو الاسم..." : "Search by number or name..."} value={salesSheetSearchText} onChange={e => setSalesSheetSearchText(e.target.value)} className="w-64" />
+            <Select value={salesSheetFilterPhase} onValueChange={setSalesSheetFilterPhase}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "جميع المراحل" : "All Phases"}</SelectItem>
+                {Object.entries(salesSheetPhaseConfig).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{isArabic ? v.labelAr : v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
+                      <TableHead>{isArabic ? "المنشئ" : "Created By"}</TableHead>
+                      <TableHead>{isArabic ? "عدد الأسطر" : "Lines"}</TableHead>
+                      <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
+                      <TableHead>{isArabic ? "المرحلة الحالية" : "Current Phase"}</TableHead>
+                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSalesSheetOrders.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          {salesSheetLoading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد طلبات" : "No orders found")}
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredSalesSheetOrders.map(o => {
+                      const phase = salesSheetPhaseConfig[o.current_phase as keyof typeof salesSheetPhaseConfig] || salesSheetPhaseConfig.entry;
+                      const totalSar = (o.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
+                      return (
+                        <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate("/sales-sheets")}>
+                          <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
+                          <TableCell>{o.created_by_name || "-"}</TableCell>
+                          <TableCell>{(o.sales_sheet_order_lines || []).length}</TableCell>
+                          <TableCell>{totalSar.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${phase.color}`}>
+                              {isArabic ? phase.labelAr : phase.label}
+                            </span>
+                          </TableCell>
+                          <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" title={isArabic ? "فتح" : "Open"} onClick={(e) => { e.stopPropagation(); navigate("/sales-sheets"); }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {o.current_phase !== "entry" && o.current_phase !== "completed" && (
+                                <Button variant="ghost" size="icon" title={isArabic ? "إرجاع للمرحلة السابقة" : "Return to previous phase"} onClick={(e) => returnSalesSheetToPreviousPhase(o, e)}>
+                                  <Undo2 className="h-4 w-4 text-orange-500" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
