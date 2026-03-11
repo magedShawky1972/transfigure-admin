@@ -44,6 +44,9 @@ const SupplierAdvancePayment = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
 
+  // Phase-based workflow
+  const [currentPhase, setCurrentPhase] = useState("entry");
+
   // Step 2: Receiving
   const [sentForReceiving, setSentForReceiving] = useState(false);
   const [receivingImage, setReceivingImage] = useState("");
