@@ -22,6 +22,11 @@ const SHEET_PHASES = [
   { key: "accounting", ar: "المحاسبة", en: "Accounting" },
 ];
 
+const SALES_SHEET_PHASES = [
+  { key: "entry", ar: "إدخال", en: "Entry" },
+  { key: "accounting", ar: "المحاسبة", en: "Accounting" },
+];
+
 const PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
   { key: "sending", ar: "توجيه", en: "Sending" },
