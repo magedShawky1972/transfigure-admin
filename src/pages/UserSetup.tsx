@@ -201,6 +201,7 @@ interface UserPermission {
         { key: "supplierSetup", label: "إعداد الموردين", labelEn: "Supplier Setup" },
         { key: "coinsTransactionGuide", label: "دليل المستخدم", labelEn: "User Guide" },
         { key: "supplierAdvancePayment", label: "دفعات مقدمة للموردين", labelEn: "Supplier Advance Payment" },
+        { key: "coinsSheets", label: "شيتات", labelEn: "Sheets" },
       ]
     },
     {
