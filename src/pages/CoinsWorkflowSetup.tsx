@@ -60,9 +60,16 @@ const CoinsWorkflowSetup = () => {
   const [sheetSelectedUserId, setSheetSelectedUserId] = useState("");
   const [sheetSaving, setSheetSaving] = useState(false);
 
+  // Sales Sheet workflow state
+  const [salesSheetAssignments, setSalesSheetAssignments] = useState<any[]>([]);
+  const [salesSheetSelectedPhase, setSalesSheetSelectedPhase] = useState("");
+  const [salesSheetSelectedUserId, setSalesSheetSelectedUserId] = useState("");
+  const [salesSheetSaving, setSalesSheetSaving] = useState(false);
+
   useEffect(() => {
     fetchData();
     fetchSheetAssignments();
+    fetchSalesSheetAssignments();
   }, []);
 
   useEffect(() => {
