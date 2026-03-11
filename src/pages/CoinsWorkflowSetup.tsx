@@ -317,7 +317,7 @@ const CoinsWorkflowSetup = () => {
           <TabsTrigger value="purchase">{isArabic ? "شراء الكوينز" : "Coins Purchase"}</TabsTrigger>
           <TabsTrigger value="sheets" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
-            {isArabic ? "شيتات" : "Sheets"}
+            {isArabic ? "شيتات الكوينز" : "Coins Sheets"}
           </TabsTrigger>
         </TabsList>
 
