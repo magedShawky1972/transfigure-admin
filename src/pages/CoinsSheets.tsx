@@ -597,7 +597,7 @@ const CoinsSheets = () => {
         {/* Header: Brand + Notes */}
         <Card>
           <CardContent className="pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label>{isArabic ? "العلامة التجارية" : "Brand"} *</Label>
                 <Popover open={brandPopoverOpen} onOpenChange={setBrandPopoverOpen}>
@@ -637,6 +637,28 @@ const CoinsSheets = () => {
                     </Command>
                   </PopoverContent>
                 </Popover>
+              </div>
+              <div>
+                <Label>{isArabic ? "سعر الكوينز" : "Coins Rate"}</Label>
+                <Input
+                  type="number"
+                  value={headerCoinsRate}
+                  onChange={e => setHeaderCoinsRate(e.target.value)}
+                  disabled={!isEditable}
+                  className="mt-1"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <Label>{isArabic ? "سعر الكوينز الإضافية" : "Extra Coins Rate"}</Label>
+                <Input
+                  type="number"
+                  value={headerExtraCoinsRate}
+                  onChange={e => setHeaderExtraCoinsRate(e.target.value)}
+                  disabled={!isEditable}
+                  className="mt-1"
+                  placeholder="0"
+                />
               </div>
               <div>
                 <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
