@@ -243,12 +243,54 @@ const CoinsPurchaseFollowUp = () => {
     }
   };
 
+  const returnSalesSheetToPreviousPhase = async (order: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const salesSheetPhaseOrder = ["entry", "accounting_approved", "completed"];
+    const currentIdx = salesSheetPhaseOrder.indexOf(order.current_phase);
+    if (currentIdx <= 0) {
+      toast.error(isArabic ? "لا يمكن الرجوع من هذه المرحلة" : "Cannot go back from this phase");
+      return;
+    }
+    const previousPhase = salesSheetPhaseOrder[currentIdx - 1];
+    const confirmed = confirm(isArabic
+      ? `هل تريد إرجاع الطلب ${order.order_number} إلى المرحلة السابقة؟`
+      : `Return order ${order.order_number} to previous phase?`);
+    if (!confirmed) return;
+
+    try {
+      const updateData: any = {
+        current_phase: previousPhase,
+        phase_updated_at: new Date().toISOString(),
+      };
+      if (order.current_phase === "completed") {
+        updateData.accounting_approved_by = null;
+        updateData.accounting_approved_name = null;
+        updateData.accounting_approved_at = null;
+        updateData.accounting_notes = null;
+        updateData.bank_transfer_image = null;
+        updateData.status = "active";
+      }
+      const { error } = await supabase.from("sales_sheet_orders" as any).update(updateData).eq("id", order.id);
+      if (error) throw error;
+      const prevLabel = salesSheetPhaseConfig[previousPhase as keyof typeof salesSheetPhaseConfig];
+      toast.success(isArabic ? `تم إرجاع الطلب إلى مرحلة ${prevLabel?.labelAr}` : `Order returned to ${prevLabel?.label} phase`);
+      fetchSalesSheetOrders();
+    } catch (err: any) {
+      toast.error(err.message || "Error");
+    }
+  };
+
   const phaseCounts = orders.reduce((acc, o) => {
     acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   const sheetPhaseCounts = sheetOrders.reduce((acc, o) => {
+    acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const salesSheetPhaseCounts = salesSheetOrders.reduce((acc, o) => {
     acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -263,8 +305,8 @@ const CoinsPurchaseFollowUp = () => {
           <ClipboardList className="h-7 w-7 text-primary" />
           <h1 className="text-2xl font-bold">{isArabic ? "متابعة شراء الكوينز" : "Coins Purchase Follow-Up"}</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { fetchOrders(); fetchSheetOrders(); }} disabled={loading || sheetLoading}>
-          <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${loading || sheetLoading ? "animate-spin" : ""}`} />
+        <Button variant="outline" size="sm" onClick={() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); }} disabled={loading || sheetLoading || salesSheetLoading}>
+          <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${loading || sheetLoading || salesSheetLoading ? "animate-spin" : ""}`} />
           {isArabic ? "تحديث" : "Refresh"}
         </Button>
       </div>
