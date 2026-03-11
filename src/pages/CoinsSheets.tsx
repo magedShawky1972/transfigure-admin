@@ -34,6 +34,7 @@ interface LineAttachment {
 interface SheetLine {
   id?: string;
   seller_name: string;
+  usd_payment_amount: string;
   coins: string;
   extra_coins: string;
   rate: string;
