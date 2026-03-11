@@ -963,9 +963,11 @@ const CoinsSheets = () => {
         {/* Payment Terms Dialog */}
         <SheetPaymentTermsDialog
           open={paymentTermsOpen}
-          onOpenChange={setPaymentTermsOpen}
+          onOpenChange={(open) => { setPaymentTermsOpen(open); if (!open) setPaymentTermsLineIndex(null); }}
           sheetOrderId={selectedOrderId}
-          totalAmount={lines.reduce((sum, l) => sum + parseNum(l.usd_payment_amount), 0)}
+          lineId={paymentTermsLineIndex !== null ? (lines[paymentTermsLineIndex]?.id || null) : null}
+          lineAmount={paymentTermsLineIndex !== null ? parseNum(lines[paymentTermsLineIndex]?.usd_payment_amount) : 0}
+          sellerName={paymentTermsLineIndex !== null ? (lines[paymentTermsLineIndex]?.seller_name || "") : ""}
           createdByName={currentUserName}
         />
       </div>
