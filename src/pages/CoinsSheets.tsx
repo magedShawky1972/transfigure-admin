@@ -107,6 +107,9 @@ const CoinsSheets = () => {
   const [processingOrder, setProcessingOrder] = useState<any>(null);
   const [transferPreviewUrl, setTransferPreviewUrl] = useState<string | null>(null);
 
+  // Payment terms dialog
+  const [paymentTermsOpen, setPaymentTermsOpen] = useState(false);
+
   // Line attachment upload
   const [uploadingLineIndex, setUploadingLineIndex] = useState<number | null>(null);
 
