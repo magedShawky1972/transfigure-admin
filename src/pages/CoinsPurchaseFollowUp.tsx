@@ -687,6 +687,94 @@ const CoinsPurchaseFollowUp = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ===== ADVANCE PAYMENT TAB ===== */}
+        <TabsContent value="advance_payment" className="space-y-4 mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Object.entries(advancePaymentPhaseConfig).map(([key, cfg]) => (
+              <Card key={key} className={`cursor-pointer hover:shadow-md transition-shadow ${advancePaymentFilterPhase === key ? "ring-2 ring-primary" : ""}`}
+                onClick={() => setAdvancePaymentFilterPhase(advancePaymentFilterPhase === key ? "all" : key)}>
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold">{advancePaymentPhaseCounts[key] || 0}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{isArabic ? cfg.labelAr : cfg.label}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Input placeholder={isArabic ? "بحث بالمورد أو المستخدم..." : "Search by supplier or user..."} value={advancePaymentSearchText} onChange={e => setAdvancePaymentSearchText(e.target.value)} className="w-64" />
+            <Select value={advancePaymentFilterPhase} onValueChange={setAdvancePaymentFilterPhase}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "جميع المراحل" : "All Phases"}</SelectItem>
+                {Object.entries(advancePaymentPhaseConfig).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{isArabic ? v.labelAr : v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
+                      <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
+                      <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
+                      <TableHead>{isArabic ? "المبلغ الأساسي" : "Base Amount"}</TableHead>
+                      <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
+                      <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
+                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAdvancePayments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          {advancePaymentLoading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد دفعات" : "No payments found")}
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredAdvancePayments.map(o => {
+                      const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
+                      const phaseInfo = advancePaymentPhaseConfig[phase as keyof typeof advancePaymentPhaseConfig] || advancePaymentPhaseConfig.entry;
+                      return (
+                        <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate("/supplier-advance-payment")}>
+                          <TableCell>{(o.suppliers as any)?.supplier_name || "-"}</TableCell>
+                          <TableCell>{o.payment_date}</TableCell>
+                          <TableCell>{Number(o.transaction_amount).toLocaleString()}</TableCell>
+                          <TableCell className="font-bold">{Number(o.base_amount).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${phaseInfo.color}`}>
+                              {isArabic ? phaseInfo.labelAr : phaseInfo.label}
+                            </span>
+                          </TableCell>
+                          <TableCell>{o.created_by_name || "-"}</TableCell>
+                          <TableCell>{format(new Date(o.created_at), "yyyy-MM-dd")}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" title={isArabic ? "فتح" : "Open"} onClick={(e) => { e.stopPropagation(); navigate("/supplier-advance-payment"); }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {phase !== "entry" && (
+                                <Button variant="ghost" size="icon" title={isArabic ? "إرجاع للمرحلة السابقة" : "Return to previous phase"} onClick={(e) => returnAdvancePaymentToPreviousPhase(o, e)}>
+                                  <Undo2 className="h-4 w-4 text-orange-500" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
