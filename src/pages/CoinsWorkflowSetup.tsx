@@ -258,14 +258,6 @@ const CoinsWorkflowSetup = () => {
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
 
-  // Sheets workflow state
-  const [sheetAssignments, setSheetAssignments] = useState<any[]>([]);
-  const [sheetSelectedPhase, setSheetSelectedPhase] = useState("");
-  const [sheetSelectedUserId, setSheetSelectedUserId] = useState("");
-  const [sheetSaving, setSheetSaving] = useState(false);
-
-  useEffect(() => { fetchSheetAssignments(); }, []);
-
   const fetchSheetAssignments = async () => {
     const { data } = await supabase.from("coins_sheet_workflow_assignments").select("*").order("created_at");
     if (data) setSheetAssignments(data);
