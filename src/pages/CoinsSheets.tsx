@@ -1032,10 +1032,28 @@ const CoinsSheets = () => {
       {/* Maximize transfer preview dialog */}
       <Dialog open={!!transferPreviewUrl} onOpenChange={(open) => { if (!open) setTransferPreviewUrl(null); }}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-2">
-          {transferPreviewUrl && (
-            /\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(transferPreviewUrl) ? (
-              <div className="flex flex-col items-center gap-2">
-                <img src={transferPreviewUrl} alt="Preview" className="max-w-full max-h-[80vh] object-contain rounded" />
+          {transferPreviewUrl && (() => {
+            const isImgUrl = /\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(transferPreviewUrl);
+            const isPdfUrl = /\.pdf($|\?)/i.test(transferPreviewUrl);
+            return (
+              <div className="flex flex-col items-center gap-2 w-full">
+                {isImgUrl ? (
+                  <img src={transferPreviewUrl} alt="Preview" className="max-w-full max-h-[78vh] object-contain rounded" />
+                ) : isPdfUrl ? (
+                  <object data={transferPreviewUrl} type="application/pdf" className="w-full h-[78vh] rounded">
+                    <iframe
+                      src={`https://docs.google.com/gview?url=${encodeURIComponent(transferPreviewUrl)}&embedded=true`}
+                      title="PDF Preview"
+                      className="w-full h-[78vh] rounded border-0"
+                    />
+                  </object>
+                ) : (
+                  <iframe
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(transferPreviewUrl)}&embedded=true`}
+                    title="File Preview"
+                    className="w-full h-[78vh] rounded border-0"
+                  />
+                )}
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => downloadFile(transferPreviewUrl, "transfer-receipt")}>
                     <Download className="h-4 w-4 mr-1" />
@@ -1047,26 +1065,8 @@ const CoinsSheets = () => {
                   </Button>
                 </div>
               </div>
-            ) : (
-              <div className="w-full">
-                <iframe
-                  src={`https://docs.google.com/gview?url=${encodeURIComponent(transferPreviewUrl)}&embedded=true`}
-                  title="Transfer Preview"
-                  className="w-full h-[80vh] rounded border-0"
-                />
-                <div className="mt-2 flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => downloadFile(transferPreviewUrl, "transfer-receipt")}>
-                    <Download className="h-4 w-4 mr-1" />
-                    {isArabic ? "تحميل" : "Download"}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => window.open(transferPreviewUrl, "_blank")}>
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    {isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}
-                  </Button>
-                </div>
-              </div>
-            )
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
