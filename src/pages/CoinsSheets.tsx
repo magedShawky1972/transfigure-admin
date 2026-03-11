@@ -83,7 +83,7 @@ const CoinsSheets = () => {
 
   // Header fields
   const [headerBrandId, setHeaderBrandId] = useState("");
-  const [receivingDate, setReceivingDate] = useState<Date | undefined>(undefined);
+  const [brandPopoverOpen, setBrandPopoverOpen] = useState(false);
 
   // Dropdowns
   const [brands, setBrands] = useState<any[]>([]);
