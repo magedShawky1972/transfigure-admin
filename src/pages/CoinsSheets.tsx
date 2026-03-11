@@ -600,12 +600,34 @@ const CoinsSheets = () => {
                     {order.accounting_approved_name && <p>{isArabic ? "معتمد بواسطة:" : "Approved by:"} {order.accounting_approved_name}</p>}
                     {order.accounting_notes && <p>{isArabic ? "ملاحظات:" : "Notes:"} {order.accounting_notes}</p>}
                     {order.bank_transfer_image && (
-                      <div className="flex gap-2 flex-wrap">
-                        {parseBankTransferImages(order.bank_transfer_image).map((url: string, i: number) => (
-                          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                            {isArabic ? `مرفق ${i + 1}` : `Attachment ${i + 1}`}
-                          </a>
-                        ))}
+                      <div className="flex gap-2 flex-wrap mt-2">
+                        {parseBankTransferImages(order.bank_transfer_image).map((url: string, i: number) => {
+                          const isPdf = /\.pdf($|\?)/i.test(url);
+                          const isImg = /\.(png|jpg|jpeg|gif|webp)($|\?)/i.test(url);
+                          return (
+                            <div key={i} className="relative group border rounded-lg overflow-hidden bg-muted/30" style={{ width: 120, height: 90 }}>
+                              {isImg ? (
+                                <img src={url} alt={`Attachment ${i + 1}`} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                                  <FileText className={`h-8 w-8 ${isPdf ? "text-red-500" : "text-muted-foreground"}`} />
+                                  <span className="text-xs text-muted-foreground">{isPdf ? "PDF" : isArabic ? `مرفق ${i + 1}` : `File ${i + 1}`}</span>
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setTransferPreviewUrl(url)} title={isArabic ? "تكبير" : "Maximize"}>
+                                  <Maximize2 className="h-3 w-3" />
+                                </Button>
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => downloadFile(url, `attachment-${i + 1}`)} title={isArabic ? "تحميل" : "Download"}>
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                                <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => window.open(url, "_blank")} title={isArabic ? "فتح في نافذة جديدة" : "Open in new tab"}>
+                                  <ExternalLink className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
