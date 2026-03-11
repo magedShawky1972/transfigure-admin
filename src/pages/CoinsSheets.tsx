@@ -867,7 +867,7 @@ const CoinsSheets = () => {
                   ))}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={9} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={8} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)}</TableCell>
                     <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>
