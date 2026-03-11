@@ -465,7 +465,6 @@ const CoinsSheets = () => {
     setSelectedOrderNumber("");
     setNotes("");
     setHeaderBrandId("");
-    setReceivingDate(undefined);
     setLines([emptyLine(1)]);
   };
 
