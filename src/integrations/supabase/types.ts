@@ -1455,12 +1455,67 @@ export type Database = {
           },
         ]
       }
+      coins_sheet_line_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          line_id: string
+          sheet_order_id: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          line_id: string
+          sheet_order_id: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          line_id?: string
+          sheet_order_id?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_sheet_line_attachments_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "coins_sheet_order_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_sheet_line_attachments_sheet_order_id_fkey"
+            columns: ["sheet_order_id"]
+            isOneToOne: false
+            referencedRelation: "coins_sheet_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coins_sheet_order_lines: {
         Row: {
           brand_id: string
           coins: number
           created_at: string
           currency_id: string | null
+          extra_coins: number | null
           id: string
           line_number: number
           notes: string | null
@@ -1476,6 +1531,7 @@ export type Database = {
           coins?: number
           created_at?: string
           currency_id?: string | null
+          extra_coins?: number | null
           id?: string
           line_number?: number
           notes?: string | null
@@ -1491,6 +1547,7 @@ export type Database = {
           coins?: number
           created_at?: string
           currency_id?: string | null
+          extra_coins?: number | null
           id?: string
           line_number?: number
           notes?: string | null
@@ -1532,6 +1589,7 @@ export type Database = {
           accounting_approved_name: string | null
           accounting_notes: string | null
           bank_transfer_image: string | null
+          brand_id: string | null
           created_at: string
           created_by: string
           created_by_name: string | null
@@ -1542,6 +1600,7 @@ export type Database = {
           notes: string | null
           order_number: string
           phase_updated_at: string | null
+          receiving_date: string | null
           status: string
           updated_at: string
         }
@@ -1551,6 +1610,7 @@ export type Database = {
           accounting_approved_name?: string | null
           accounting_notes?: string | null
           bank_transfer_image?: string | null
+          brand_id?: string | null
           created_at?: string
           created_by: string
           created_by_name?: string | null
@@ -1561,6 +1621,7 @@ export type Database = {
           notes?: string | null
           order_number: string
           phase_updated_at?: string | null
+          receiving_date?: string | null
           status?: string
           updated_at?: string
         }
@@ -1570,6 +1631,7 @@ export type Database = {
           accounting_approved_name?: string | null
           accounting_notes?: string | null
           bank_transfer_image?: string | null
+          brand_id?: string | null
           created_at?: string
           created_by?: string
           created_by_name?: string | null
@@ -1580,10 +1642,19 @@ export type Database = {
           notes?: string | null
           order_number?: string
           phase_updated_at?: string | null
+          receiving_date?: string | null
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "coins_sheet_orders_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coins_sheet_workflow_assignments: {
         Row: {
