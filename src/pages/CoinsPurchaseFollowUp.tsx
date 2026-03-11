@@ -113,6 +113,17 @@ const CoinsPurchaseFollowUp = () => {
     setSalesSheetLoading(false);
   };
 
+  const fetchAdvancePayments = async () => {
+    setAdvancePaymentLoading(true);
+    const { data } = await supabase
+      .from("supplier_advance_payments")
+      .select("*, suppliers(supplier_name), currencies(currency_code)")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (data) setAdvancePayments(data as any[]);
+    setAdvancePaymentLoading(false);
+  };
+
   const filteredOrders = orders.filter(o => {
     if (filterPhase !== "all" && o.current_phase !== filterPhase) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
