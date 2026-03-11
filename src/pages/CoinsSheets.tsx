@@ -422,7 +422,6 @@ const CoinsSheets = () => {
     setSelectedOrderNumber(order.order_number);
     setNotes(order.notes || "");
     setHeaderBrandId(order.brand_id || "");
-    setReceivingDate(order.receiving_date ? new Date(order.receiving_date) : undefined);
 
     // Fetch line attachments
     const { data: lineAttachments } = await supabase
