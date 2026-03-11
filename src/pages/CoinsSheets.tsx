@@ -888,6 +888,7 @@ const CoinsSheets = () => {
                             <DollarSign className="h-4 w-4" />
                           </Button>
                         )}
+                      </TableCell>
                       {isEditable && (
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
