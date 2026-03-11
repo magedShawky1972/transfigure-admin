@@ -12,33 +12,49 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
+import { downloadFile } from "@/lib/fileDownload";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface LineAttachment {
+  id?: string;
+  file_name: string;
+  file_url: string;
+  file_type: string | null;
+  file_size: number | null;
+}
 
 interface SheetLine {
   id?: string;
   seller_name: string;
-  brand_id: string;
   coins: string;
+  extra_coins: string;
   rate: string;
   currency_id: string;
   sar_rate: string;
   total_sar: string;
   notes: string;
   line_number: number;
+  attachments: LineAttachment[];
 }
 
 const emptyLine = (lineNumber: number): SheetLine => ({
   seller_name: "",
-  brand_id: "",
   coins: "",
+  extra_coins: "0",
   rate: "",
   currency_id: "",
   sar_rate: "1",
   total_sar: "0",
   notes: "",
   line_number: lineNumber,
+  attachments: [],
 });
 
 const PHASES = [
@@ -62,6 +78,10 @@ const CoinsSheets = () => {
   const [selectedOrderPhase, setSelectedOrderPhase] = useState("creation");
   const [selectedOrderNumber, setSelectedOrderNumber] = useState("");
 
+  // Header fields
+  const [headerBrandId, setHeaderBrandId] = useState("");
+  const [receivingDate, setReceivingDate] = useState<Date | undefined>(undefined);
+
   // Dropdowns
   const [brands, setBrands] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
@@ -76,6 +96,9 @@ const CoinsSheets = () => {
   const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [processingOrder, setProcessingOrder] = useState<any>(null);
+
+  // Line attachment upload
+  const [uploadingLineIndex, setUploadingLineIndex] = useState<number | null>(null);
 
   // Current user
   const [currentUserId, setCurrentUserId] = useState("");
@@ -123,22 +146,22 @@ const CoinsSheets = () => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
 
-      // Auto-calculate total_sar
-      if (["coins", "rate", "sar_rate"].includes(field)) {
+      if (["coins", "extra_coins", "rate", "sar_rate"].includes(field)) {
         const coins = parseFloat(updated[index].coins) || 0;
+        const extraCoins = parseFloat(updated[index].extra_coins) || 0;
         const rate = parseFloat(updated[index].rate) || 0;
         const sarRate = parseFloat(updated[index].sar_rate) || 1;
-        updated[index].total_sar = (coins * rate * sarRate).toFixed(2);
+        updated[index].total_sar = ((coins + extraCoins) * rate * sarRate).toFixed(2);
       }
 
-      // Auto-fill SAR rate when currency changes
       if (field === "currency_id") {
         const rateEntry = currencyRates.find(r => r.currency_id === value);
         if (rateEntry) {
           updated[index].sar_rate = String(rateEntry.rate_to_base);
           const coins = parseFloat(updated[index].coins) || 0;
+          const extraCoins = parseFloat(updated[index].extra_coins) || 0;
           const rate = parseFloat(updated[index].rate) || 0;
-          updated[index].total_sar = (coins * rate * rateEntry.rate_to_base).toFixed(2);
+          updated[index].total_sar = ((coins + extraCoins) * rate * rateEntry.rate_to_base).toFixed(2);
         }
       }
 
@@ -152,8 +175,69 @@ const CoinsSheets = () => {
     setLines(prev => prev.filter((_, i) => i !== index).map((l, i) => ({ ...l, line_number: i + 1 })));
   };
 
+  const handleLineAttachmentUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingLineIndex(index);
+    try {
+      const newAttachments: LineAttachment[] = [];
+      for (const file of Array.from(files)) {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+
+        const isImage = file.type.startsWith("image/");
+        const isVideo = file.type.startsWith("video/");
+        const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
+        const publicId = `sheet-line-attachments/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.functions.invoke("upload-to-cloudinary", {
+          body: { imageBase64: base64, folder: "Edara_Sheet_Attachments", publicId, resourceType },
+        });
+        if (uploadError) throw uploadError;
+        if (!uploadData?.url) throw new Error("Upload failed");
+
+        newAttachments.push({
+          file_name: file.name,
+          file_url: uploadData.url,
+          file_type: file.type,
+          file_size: file.size,
+        });
+      }
+
+      setLines(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], attachments: [...updated[index].attachments, ...newAttachments] };
+        return updated;
+      });
+      toast.success(isArabic ? "تم رفع الملف" : "File uploaded");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploadingLineIndex(null);
+      e.target.value = "";
+    }
+  };
+
+  const removeLineAttachment = (lineIndex: number, attIndex: number) => {
+    setLines(prev => {
+      const updated = [...prev];
+      updated[lineIndex] = {
+        ...updated[lineIndex],
+        attachments: updated[lineIndex].attachments.filter((_, i) => i !== attIndex),
+      };
+      return updated;
+    });
+  };
+
   const handleSave = async () => {
-    const validLines = lines.filter(l => l.seller_name && l.brand_id && parseFloat(l.coins) > 0);
+    if (!headerBrandId) {
+      toast.error(isArabic ? "يرجى اختيار العلامة التجارية" : "Please select a brand");
+      return;
+    }
+    const validLines = lines.filter(l => l.seller_name && parseFloat(l.coins) > 0);
     if (validLines.length === 0) {
       toast.error(isArabic ? "يرجى إضافة سطر واحد على الأقل" : "Please add at least one line");
       return;
@@ -161,50 +245,65 @@ const CoinsSheets = () => {
 
     setSaving(true);
     try {
+      const headerData = {
+        notes,
+        brand_id: headerBrandId,
+        receiving_date: receivingDate ? format(receivingDate, "yyyy-MM-dd") : null,
+      };
+
+      let orderId = selectedOrderId;
+
       if (selectedOrderId) {
-        // Update
-        await supabase.from("coins_sheet_orders").update({ notes }).eq("id", selectedOrderId);
+        await supabase.from("coins_sheet_orders").update(headerData).eq("id", selectedOrderId);
+        // Delete old lines and their attachments
+        await supabase.from("coins_sheet_line_attachments").delete().eq("sheet_order_id", selectedOrderId);
         await supabase.from("coins_sheet_order_lines").delete().eq("sheet_order_id", selectedOrderId);
-        const lineInserts = validLines.map((l, i) => ({
-          sheet_order_id: selectedOrderId,
-          line_number: i + 1,
-          seller_name: l.seller_name,
-          brand_id: l.brand_id,
-          coins: parseFloat(l.coins) || 0,
-          rate: parseFloat(l.rate) || 0,
-          currency_id: l.currency_id || null,
-          sar_rate: parseFloat(l.sar_rate) || 1,
-          total_sar: parseFloat(l.total_sar) || 0,
-          notes: l.notes,
-        }));
-        await supabase.from("coins_sheet_order_lines").insert(lineInserts);
-        toast.success(isArabic ? "تم الحفظ" : "Saved");
       } else {
-        // Create new
         const { data: order, error } = await supabase.from("coins_sheet_orders").insert({
           order_number: "",
           created_by: currentUserId,
           created_by_name: currentUserName,
-          notes,
-        }).select().single();
+          ...headerData,
+        } as any).select().single();
         if (error) throw error;
+        orderId = order.id;
+      }
 
-        const lineInserts = validLines.map((l, i) => ({
-          sheet_order_id: order.id,
+      // Insert lines
+      for (let i = 0; i < validLines.length; i++) {
+        const l = validLines[i];
+        const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
+          sheet_order_id: orderId,
           line_number: i + 1,
           seller_name: l.seller_name,
-          brand_id: l.brand_id,
+          brand_id: headerBrandId,
           coins: parseFloat(l.coins) || 0,
+          extra_coins: parseFloat(l.extra_coins) || 0,
           rate: parseFloat(l.rate) || 0,
           currency_id: l.currency_id || null,
           sar_rate: parseFloat(l.sar_rate) || 1,
           total_sar: parseFloat(l.total_sar) || 0,
           notes: l.notes,
-        }));
-        await supabase.from("coins_sheet_order_lines").insert(lineInserts);
-        toast.success(isArabic ? "تم إنشاء الطلب" : "Order created");
+        } as any).select().single();
+        if (lineErr) throw lineErr;
+
+        // Insert line attachments
+        if (l.attachments.length > 0 && lineData) {
+          const attInserts = l.attachments.map(a => ({
+            line_id: lineData.id,
+            sheet_order_id: orderId,
+            file_name: a.file_name,
+            file_url: a.file_url,
+            file_type: a.file_type,
+            file_size: a.file_size,
+            uploaded_by: currentUserId,
+            uploaded_by_name: currentUserName,
+          }));
+          await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
+        }
       }
 
+      toast.success(isArabic ? (selectedOrderId ? "تم الحفظ" : "تم إنشاء الطلب") : (selectedOrderId ? "Saved" : "Order created"));
       resetForm();
       setView("list");
       fetchOrders();
@@ -222,7 +321,6 @@ const CoinsSheets = () => {
     }).eq("id", orderId);
     if (error) { toast.error(error.message); return; }
 
-    // Send notification to accounting users
     const { data: assignments } = await supabase
       .from("coins_sheet_workflow_assignments")
       .select("user_id, user_name")
@@ -260,7 +358,6 @@ const CoinsSheets = () => {
       }).eq("id", processingOrder.id);
       if (error) throw error;
 
-      // Notify creator
       await supabase.functions.invoke("send-coins-workflow-notification", {
         body: {
           type: "sheet_accounting_approved",
@@ -316,24 +413,42 @@ const CoinsSheets = () => {
     }
   };
 
-  const loadOrder = (order: any) => {
+  const loadOrder = async (order: any) => {
     setSelectedOrderId(order.id);
     setSelectedOrderPhase(order.current_phase);
     setSelectedOrderNumber(order.order_number);
     setNotes(order.notes || "");
+    setHeaderBrandId(order.brand_id || "");
+    setReceivingDate(order.receiving_date ? new Date(order.receiving_date) : undefined);
+
+    // Fetch line attachments
+    const { data: lineAttachments } = await supabase
+      .from("coins_sheet_line_attachments")
+      .select("*")
+      .eq("sheet_order_id", order.id);
+
     const orderLines = order.coins_sheet_order_lines || [];
     if (orderLines.length > 0) {
       setLines(orderLines.sort((a: any, b: any) => a.line_number - b.line_number).map((l: any) => ({
         id: l.id,
         seller_name: l.seller_name || "",
-        brand_id: l.brand_id || "",
         coins: String(l.coins || 0),
+        extra_coins: String(l.extra_coins || 0),
         rate: String(l.rate || 0),
         currency_id: l.currency_id || "",
         sar_rate: String(l.sar_rate || 1),
         total_sar: String(l.total_sar || 0),
         notes: l.notes || "",
         line_number: l.line_number,
+        attachments: (lineAttachments || [])
+          .filter((a: any) => a.line_id === l.id)
+          .map((a: any) => ({
+            id: a.id,
+            file_name: a.file_name,
+            file_url: a.file_url,
+            file_type: a.file_type,
+            file_size: a.file_size,
+          })),
       })));
     } else {
       setLines([emptyLine(1)]);
@@ -346,6 +461,8 @@ const CoinsSheets = () => {
     setSelectedOrderPhase("creation");
     setSelectedOrderNumber("");
     setNotes("");
+    setHeaderBrandId("");
+    setReceivingDate(undefined);
     setLines([emptyLine(1)]);
   };
 
@@ -369,6 +486,13 @@ const CoinsSheets = () => {
   const grandTotal = lines.reduce((sum, l) => sum + (parseFloat(l.total_sar) || 0), 0);
 
   const isEditable = !selectedOrderId || selectedOrderPhase === "creation";
+
+  const getFileIcon = (fileType: string | null) => {
+    if (!fileType) return <File className="h-3 w-3" />;
+    if (fileType.startsWith("image/")) return <Image className="h-3 w-3 text-blue-600" />;
+    if (fileType.includes("pdf")) return <FileText className="h-3 w-3 text-red-600" />;
+    return <File className="h-3 w-3" />;
+  };
 
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   if (hasAccess === false) return <AccessDenied />;
@@ -456,11 +580,48 @@ const CoinsSheets = () => {
           </Card>
         )}
 
-        {/* Notes */}
+        {/* Header: Brand + Receiving Date + Notes */}
         <Card>
           <CardContent className="pt-4">
-            <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-            <Textarea value={notes} onChange={e => setNotes(e.target.value)} disabled={!isEditable} className="mt-1" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>{isArabic ? "العلامة التجارية" : "Brand"} *</Label>
+                <Select value={headerBrandId} onValueChange={setHeaderBrandId} disabled={!isEditable}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder={isArabic ? "اختر العلامة التجارية" : "Select Brand"} /></SelectTrigger>
+                  <SelectContent>
+                    {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{isArabic ? "تاريخ الاستلام" : "Receiving Date"}</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={!isEditable}
+                      className={cn("w-full mt-1 justify-start text-left font-normal", !receivingDate && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {receivingDate ? format(receivingDate, "yyyy-MM-dd") : (isArabic ? "اختر التاريخ" : "Pick a date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={receivingDate}
+                      onSelect={setReceivingDate}
+                      disabled={!isEditable}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                <Textarea value={notes} onChange={e => setNotes(e.target.value)} disabled={!isEditable} className="mt-1" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -484,12 +645,13 @@ const CoinsSheets = () => {
                   <TableRow>
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>{isArabic ? "اسم البائع" : "Seller Name"}</TableHead>
-                    <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
+                    <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
                     <TableHead>{isArabic ? "السعر" : "Rate"}</TableHead>
                     <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
                     <TableHead>{isArabic ? "سعر الريال" : "SAR Rate"}</TableHead>
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
+                    <TableHead>{isArabic ? "مرفقات" : "Attachments"}</TableHead>
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
                     {isEditable && <TableHead className="w-10"></TableHead>}
                   </TableRow>
@@ -508,18 +670,19 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Select value={line.brand_id} onValueChange={v => handleLineChange(index, "brand_id", v)} disabled={!isEditable}>
-                          <SelectTrigger className="min-w-[130px]"><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
-                          <SelectContent>
-                            {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
                         <Input
                           type="number"
                           value={line.coins}
                           onChange={e => handleLineChange(index, "coins", e.target.value)}
+                          disabled={!isEditable}
+                          className="min-w-[90px]"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={line.extra_coins}
+                          onChange={e => handleLineChange(index, "extra_coins", e.target.value)}
                           disabled={!isEditable}
                           className="min-w-[90px]"
                         />
@@ -558,6 +721,46 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
+                        <div className="flex flex-col gap-1 min-w-[120px]">
+                          {line.attachments.map((att, attIdx) => (
+                            <div key={attIdx} className="flex items-center gap-1 text-xs bg-muted rounded px-1.5 py-0.5">
+                              {getFileIcon(att.file_type)}
+                              <span className="truncate max-w-[80px]" title={att.file_name}>{att.file_name}</span>
+                              <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => downloadFile(att.file_url, att.file_name)}>
+                                <Download className="h-2.5 w-2.5" />
+                              </Button>
+                              {isEditable && (
+                                <Button variant="ghost" size="icon" className="h-4 w-4 p-0 text-destructive" onClick={() => removeLineAttachment(index, attIdx)}>
+                                  <XCircle className="h-2.5 w-2.5" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {isEditable && (
+                            <div>
+                              <input
+                                type="file"
+                                id={`line-attach-${index}`}
+                                className="hidden"
+                                multiple
+                                accept="*/*"
+                                onChange={e => handleLineAttachmentUpload(index, e)}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-xs px-1.5"
+                                disabled={uploadingLineIndex === index}
+                                onClick={() => document.getElementById(`line-attach-${index}`)?.click()}
+                              >
+                                <Paperclip className="h-3 w-3 mr-0.5" />
+                                {uploadingLineIndex === index ? "..." : (isArabic ? "إرفاق" : "Attach")}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <Input
                           value={line.notes}
                           onChange={e => handleLineChange(index, "notes", e.target.value)}
@@ -578,7 +781,7 @@ const CoinsSheets = () => {
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={7} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)}</TableCell>
-                    <TableCell colSpan={isEditable ? 2 : 1}></TableCell>
+                    <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
