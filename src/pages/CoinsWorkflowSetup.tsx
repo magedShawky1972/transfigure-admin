@@ -255,9 +255,6 @@ const CoinsWorkflowSetup = () => {
     return user?.user_name || user?.email || s.user_id;
   };
 
-  if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
-  if (hasAccess === false) return <AccessDenied />;
-
   const fetchSheetAssignments = async () => {
     const { data } = await supabase.from("coins_sheet_workflow_assignments").select("*").order("created_at");
     if (data) setSheetAssignments(data);
@@ -298,6 +295,8 @@ const CoinsWorkflowSetup = () => {
     fetchSheetAssignments();
   };
 
+  if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (hasAccess === false) return <AccessDenied />;
   const getSheetPhaseLabel = (key: string) => {
     const p = SHEET_PHASES.find(ph => ph.key === key);
     return isArabic ? p?.ar || key : p?.en || key;
