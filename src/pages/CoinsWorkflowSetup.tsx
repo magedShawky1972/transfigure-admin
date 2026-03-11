@@ -54,6 +54,7 @@ const CoinsWorkflowSetup = () => {
 
   useEffect(() => {
     fetchData();
+    fetchSheetAssignments();
   }, []);
 
   useEffect(() => {
