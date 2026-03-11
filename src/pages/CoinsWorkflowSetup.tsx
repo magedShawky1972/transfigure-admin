@@ -310,6 +310,46 @@ const CoinsWorkflowSetup = () => {
     fetchSheetAssignments();
   };
 
+  const fetchSalesSheetAssignments = async () => {
+    const { data } = await supabase.from("sales_sheet_workflow_assignments" as any).select("*").order("created_at");
+    if (data) setSalesSheetAssignments(data as any[]);
+  };
+
+  const handleAddSalesSheetAssignment = async () => {
+    if (!salesSheetSelectedPhase || !salesSheetSelectedUserId) {
+      toast.error(isArabic ? "يرجى تعبئة جميع الحقول" : "Please fill all fields");
+      return;
+    }
+    setSalesSheetSaving(true);
+    try {
+      const user = users.find(u => u.user_id === salesSheetSelectedUserId || u.id === salesSheetSelectedUserId);
+      const { error } = await supabase.from("sales_sheet_workflow_assignments" as any).insert({
+        phase: salesSheetSelectedPhase,
+        user_id: salesSheetSelectedUserId,
+        user_name: user?.user_name || user?.email || "",
+      });
+      if (error) throw error;
+      toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
+      setSalesSheetSelectedPhase("");
+      setSalesSheetSelectedUserId("");
+      fetchSalesSheetAssignments();
+    } catch (err: any) {
+      if (err.message?.includes("duplicate")) {
+        toast.error(isArabic ? "التعيين موجود بالفعل" : "Assignment already exists");
+      } else {
+        toast.error(err.message || "Error");
+      }
+    } finally {
+      setSalesSheetSaving(false);
+    }
+  };
+
+  const handleDeleteSalesSheetAssignment = async (id: string) => {
+    await supabase.from("sales_sheet_workflow_assignments" as any).delete().eq("id", id);
+    toast.success(isArabic ? "تم الحذف" : "Deleted");
+    fetchSalesSheetAssignments();
+  };
+
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
   const getSheetPhaseLabel = (key: string) => {
@@ -330,6 +370,10 @@ const CoinsWorkflowSetup = () => {
           <TabsTrigger value="sheets" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
             {isArabic ? "شيتات الكوينز" : "Coins Sheets"}
+          </TabsTrigger>
+          <TabsTrigger value="sales_sheets" className="flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            {isArabic ? "شيت المبيعات" : "Sales Sheets"}
           </TabsTrigger>
         </TabsList>
 
