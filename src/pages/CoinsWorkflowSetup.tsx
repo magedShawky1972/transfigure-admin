@@ -82,6 +82,7 @@ const CoinsWorkflowSetup = () => {
     fetchData();
     fetchSheetAssignments();
     fetchSalesSheetAssignments();
+    fetchAdvancePaymentAssignments();
   }, []);
 
   useEffect(() => {
