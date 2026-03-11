@@ -267,6 +267,7 @@ const SupplierAdvancePayment = () => {
     setBankTransferImage(payment.bank_transfer_image || "");
     setNotes(payment.notes || "");
     setSelectedPaymentId(payment.id);
+    setCurrentPhase(payment.current_phase || "entry");
     setSentForReceiving(payment.sent_for_receiving || false);
     setReceivingImage(payment.receiving_image || "");
     setReceivingNotes(payment.receiving_notes || "");
