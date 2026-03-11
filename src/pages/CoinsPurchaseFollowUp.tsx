@@ -60,7 +60,13 @@ const CoinsPurchaseFollowUp = () => {
   const [sheetFilterPhase, setSheetFilterPhase] = useState("all");
   const [sheetSearchText, setSheetSearchText] = useState("");
 
-  useEffect(() => { fetchOrders(); fetchSheetOrders(); }, []);
+  // Sales Sheet state
+  const [salesSheetOrders, setSalesSheetOrders] = useState<any[]>([]);
+  const [salesSheetLoading, setSalesSheetLoading] = useState(true);
+  const [salesSheetFilterPhase, setSalesSheetFilterPhase] = useState("all");
+  const [salesSheetSearchText, setSalesSheetSearchText] = useState("");
+
+  useEffect(() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); }, []);
 
   const fetchOrders = async () => {
     setLoading(true);
