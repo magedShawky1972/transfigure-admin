@@ -44,6 +44,9 @@ const SupplierAdvancePayment = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
 
+  // Phase-based workflow
+  const [currentPhase, setCurrentPhase] = useState("entry");
+
   // Step 2: Receiving
   const [sentForReceiving, setSentForReceiving] = useState(false);
   const [receivingImage, setReceivingImage] = useState("");
@@ -244,6 +247,7 @@ const SupplierAdvancePayment = () => {
     setNotes("");
     setSelectedPaymentId(null);
     setAttachments([]);
+    setCurrentPhase("entry");
     setSentForReceiving(false);
     setReceivingImage("");
     setReceivingNotes("");
@@ -263,6 +267,7 @@ const SupplierAdvancePayment = () => {
     setBankTransferImage(payment.bank_transfer_image || "");
     setNotes(payment.notes || "");
     setSelectedPaymentId(payment.id);
+    setCurrentPhase(payment.current_phase || "entry");
     setSentForReceiving(payment.sent_for_receiving || false);
     setReceivingImage(payment.receiving_image || "");
     setReceivingNotes(payment.receiving_notes || "");
@@ -333,9 +338,11 @@ const SupplierAdvancePayment = () => {
         sent_for_receiving_by: profile?.user_name || user?.email,
         receiving_image: receivingImage,
         receiving_notes: receivingNotes,
+        current_phase: "receiving",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
       setSentForReceiving(true);
+      setCurrentPhase("receiving");
       toast.success(isArabic ? "تم الإرسال للاستلام بنجاح" : "Sent for receiving successfully");
       fetchPayments();
     } catch (err: any) {
@@ -352,9 +359,11 @@ const SupplierAdvancePayment = () => {
         accounting_recorded: checked,
         accounting_recorded_at: checked ? new Date().toISOString() : null,
         accounting_recorded_by: checked ? (profile?.user_name || user?.email) : null,
+        current_phase: checked ? "accounting" : "receiving",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
       setAccountingRecorded(checked);
+      setCurrentPhase(checked ? "accounting" : "receiving");
       toast.success(checked
         ? (isArabic ? "تم تسجيل القيد المحاسبي" : "Accounting record saved")
         : (isArabic ? "تم إلغاء القيد المحاسبي" : "Accounting record removed"));
@@ -366,15 +375,13 @@ const SupplierAdvancePayment = () => {
 
   const isPdf = (url: string) => url?.includes(".pdf") || url?.includes("/raw/upload/");
 
-  const getStepStatus = (payment: any) => {
-    if (payment.accounting_recorded) return 3;
-    if (payment.sent_for_receiving) return 2;
-    return 1;
+  const getPhaseFromPayment = (payment: any) => {
+    return payment.current_phase || (payment.accounting_recorded ? "accounting" : payment.sent_for_receiving ? "receiving" : "entry");
   };
 
-  const getStepBadge = (step: number) => {
-    if (step === 1) return <Badge variant="secondary">{isArabic ? "إدخال" : "Entry"}</Badge>;
-    if (step === 2) return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">{isArabic ? "استلام" : "Receiving"}</Badge>;
+  const getPhaseBadge = (phase: string) => {
+    if (phase === "entry") return <Badge variant="secondary">{isArabic ? "إدخال" : "Entry"}</Badge>;
+    if (phase === "receiving") return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">{isArabic ? "استلام" : "Receiving"}</Badge>;
     return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white">{isArabic ? "محاسبة" : "Recorded"}</Badge>;
   };
 
@@ -427,7 +434,7 @@ const SupplierAdvancePayment = () => {
                     <TableCell className="font-bold">{Number(p.base_amount).toLocaleString()}</TableCell>
                     <TableCell>{p.created_by_name || "-"}</TableCell>
                     <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
-                    <TableCell>{getStepBadge(getStepStatus(p))}</TableCell>
+                    <TableCell>{getPhaseBadge(getPhaseFromPayment(p))}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />

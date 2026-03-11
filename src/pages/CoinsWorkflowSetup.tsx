@@ -27,6 +27,12 @@ const SALES_SHEET_PHASES = [
   { key: "accounting", ar: "المحاسبة", en: "Accounting" },
 ];
 
+const ADVANCE_PAYMENT_PHASES = [
+  { key: "entry", ar: "إدخال", en: "Entry" },
+  { key: "receiving", ar: "استلام", en: "Receiving" },
+  { key: "accounting", ar: "المحاسبة", en: "Accounting" },
+];
+
 const PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
   { key: "sending", ar: "توجيه", en: "Sending" },
@@ -66,10 +72,17 @@ const CoinsWorkflowSetup = () => {
   const [salesSheetSelectedUserId, setSalesSheetSelectedUserId] = useState("");
   const [salesSheetSaving, setSalesSheetSaving] = useState(false);
 
+  // Advance Payment workflow state
+  const [advancePaymentAssignments, setAdvancePaymentAssignments] = useState<any[]>([]);
+  const [advancePaymentSelectedPhase, setAdvancePaymentSelectedPhase] = useState("");
+  const [advancePaymentSelectedUserId, setAdvancePaymentSelectedUserId] = useState("");
+  const [advancePaymentSaving, setAdvancePaymentSaving] = useState(false);
+
   useEffect(() => {
     fetchData();
     fetchSheetAssignments();
     fetchSalesSheetAssignments();
+    fetchAdvancePaymentAssignments();
   }, []);
 
   useEffect(() => {
@@ -350,6 +363,46 @@ const CoinsWorkflowSetup = () => {
     fetchSalesSheetAssignments();
   };
 
+  const fetchAdvancePaymentAssignments = async () => {
+    const { data } = await supabase.from("advance_payment_workflow_assignments" as any).select("*").order("created_at");
+    if (data) setAdvancePaymentAssignments(data as any[]);
+  };
+
+  const handleAddAdvancePaymentAssignment = async () => {
+    if (!advancePaymentSelectedPhase || !advancePaymentSelectedUserId) {
+      toast.error(isArabic ? "يرجى تعبئة جميع الحقول" : "Please fill all fields");
+      return;
+    }
+    setAdvancePaymentSaving(true);
+    try {
+      const user = users.find(u => u.user_id === advancePaymentSelectedUserId || u.id === advancePaymentSelectedUserId);
+      const { error } = await supabase.from("advance_payment_workflow_assignments" as any).insert({
+        phase: advancePaymentSelectedPhase,
+        user_id: advancePaymentSelectedUserId,
+        user_name: user?.user_name || user?.email || "",
+      });
+      if (error) throw error;
+      toast.success(isArabic ? "تمت الإضافة بنجاح" : "Added successfully");
+      setAdvancePaymentSelectedPhase("");
+      setAdvancePaymentSelectedUserId("");
+      fetchAdvancePaymentAssignments();
+    } catch (err: any) {
+      if (err.message?.includes("duplicate")) {
+        toast.error(isArabic ? "التعيين موجود بالفعل" : "Assignment already exists");
+      } else {
+        toast.error(err.message || "Error");
+      }
+    } finally {
+      setAdvancePaymentSaving(false);
+    }
+  };
+
+  const handleDeleteAdvancePaymentAssignment = async (id: string) => {
+    await supabase.from("advance_payment_workflow_assignments" as any).delete().eq("id", id);
+    toast.success(isArabic ? "تم الحذف" : "Deleted");
+    fetchAdvancePaymentAssignments();
+  };
+
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (hasAccess === false) return <AccessDenied />;
   const getSheetPhaseLabel = (key: string) => {
@@ -374,6 +427,10 @@ const CoinsWorkflowSetup = () => {
           <TabsTrigger value="sales_sheets" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
             {isArabic ? "شيت المبيعات" : "Sales Sheets"}
+          </TabsTrigger>
+          <TabsTrigger value="advance_payment" className="flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            {isArabic ? "دفعات مقدمة" : "Advance Payment"}
           </TabsTrigger>
         </TabsList>
 
@@ -811,6 +868,114 @@ const CoinsWorkflowSetup = () => {
                               <TableCell>{a.user_name || a.user_id}</TableCell>
                               <TableCell>
                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteSalesSheetAssignment(a.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">
+                        {isArabic ? "لم يتم تعيين مستخدمين" : "No users assigned"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Advance Payment Workflow Tab */}
+        <TabsContent value="advance_payment" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                {isArabic ? "إعداد سير عمل الدفعات المقدمة" : "Advance Payment Workflow Setup"}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {isArabic
+                   ? "تعيين المستخدمين المسؤولين عن كل مرحلة في سير عمل الدفعات المقدمة"
+                   : "Assign users responsible for each phase in the advance payment workflow"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "المرحلة" : "Phase"}</Label>
+                  <Select value={advancePaymentSelectedPhase} onValueChange={setAdvancePaymentSelectedPhase}>
+                    <SelectTrigger><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
+                    <SelectContent>
+                      {ADVANCE_PAYMENT_PHASES.map(p => (
+                        <SelectItem key={p.key} value={p.key}>{isArabic ? p.ar : p.en}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "المستخدم" : "User"}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                        {advancePaymentSelectedUserId
+                          ? (users.find(u => (u.user_id || u.id) === advancePaymentSelectedUserId)?.user_name ||
+                             users.find(u => (u.user_id || u.id) === advancePaymentSelectedUserId)?.email || advancePaymentSelectedUserId)
+                          : (isArabic ? "اختر المستخدم..." : "Select user...")}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder={isArabic ? "بحث..." : "Search..."} />
+                        <CommandList>
+                          <CommandEmpty>{isArabic ? "لا توجد نتائج" : "No results"}</CommandEmpty>
+                          <CommandGroup>
+                            {users.map(u => {
+                              const uid = u.user_id || u.id;
+                              const display = u.user_name || u.email;
+                              return (
+                                <CommandItem key={uid} value={display} onSelect={() => setAdvancePaymentSelectedUserId(uid)}>
+                                  <Check className={cn("mr-2 h-4 w-4", advancePaymentSelectedUserId === uid ? "opacity-100" : "opacity-0")} />
+                                  {display}
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button onClick={handleAddAdvancePaymentAssignment} disabled={advancePaymentSaving}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  {isArabic ? "إضافة" : "Add"}
+                </Button>
+              </div>
+
+              {ADVANCE_PAYMENT_PHASES.map(phase => {
+                const phaseAssignments = advancePaymentAssignments.filter(a => a.phase === phase.key);
+                return (
+                  <div key={phase.key} className="mb-4">
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <Badge variant="outline">{isArabic ? phase.ar : phase.en}</Badge>
+                      <span className="text-sm text-muted-foreground">({phaseAssignments.length})</span>
+                    </h3>
+                    {phaseAssignments.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{isArabic ? "المستخدم" : "User"}</TableHead>
+                            <TableHead className="w-12"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {phaseAssignments.map(a => (
+                            <TableRow key={a.id}>
+                              <TableCell>{a.user_name || a.user_id}</TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteAdvancePaymentAssignment(a.id)}>
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                               </TableCell>
