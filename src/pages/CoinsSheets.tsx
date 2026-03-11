@@ -787,23 +787,6 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Select value={line.currency_id} onValueChange={v => handleLineChange(index, "currency_id", v)} disabled={!isEditable}>
-                          <SelectTrigger className="min-w-[110px]"><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
-                          <SelectContent>
-                            {currencies.map(c => <SelectItem key={c.id} value={c.id}>{c.currency_code || c.currency_name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={line.sar_rate}
-                          onChange={e => handleLineChange(index, "sar_rate", e.target.value)}
-                          disabled={!isEditable}
-                          className="min-w-[80px]"
-                        />
-                      </TableCell>
-                      <TableCell>
                         <Input
                           value={line.total_sar ? Number(line.total_sar).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                           readOnly
