@@ -168,12 +168,11 @@ const CoinsSheets = () => {
         }
       }
 
-      if (["coins", "extra_coins", "rate", "sar_rate", "usd_payment_amount"].includes(field)) {
+      if (["coins", "extra_coins", "sar_rate", "usd_payment_amount"].includes(field)) {
         const coins = parseFloat(updated[index].coins) || 0;
         const extraCoins = parseFloat(updated[index].extra_coins) || 0;
-        const rate = parseFloat(updated[index].rate) || 0;
         const sarRate = parseFloat(updated[index].sar_rate) || 1;
-        updated[index].total_sar = ((coins + extraCoins) * rate * sarRate).toFixed(2);
+        updated[index].total_sar = ((coins + extraCoins) * sarRate).toFixed(2);
       }
 
       if (field === "currency_id") {
@@ -182,8 +181,7 @@ const CoinsSheets = () => {
           updated[index].sar_rate = String(rateEntry.rate_to_base);
           const coins = parseFloat(updated[index].coins) || 0;
           const extraCoins = parseFloat(updated[index].extra_coins) || 0;
-          const rate = parseFloat(updated[index].rate) || 0;
-          updated[index].total_sar = ((coins + extraCoins) * rate * rateEntry.rate_to_base).toFixed(2);
+          updated[index].total_sar = ((coins + extraCoins) * rateEntry.rate_to_base).toFixed(2);
         }
       }
 
