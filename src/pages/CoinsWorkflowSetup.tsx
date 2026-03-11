@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Plus, Trash2, Settings, ChevronDown, ChevronRight, Eye, Shield, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const SHEET_PHASES = [
   { key: "creation", ar: "إنشاء", en: "Creation" },
