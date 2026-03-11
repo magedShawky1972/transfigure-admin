@@ -164,6 +164,7 @@ export function AppSidebar() {
     "/coins-purchase-followup": "coinsPurchaseFollowUp",
     "/coins-transaction-guide": "coinsTransactionGuide",
     "/supplier-advance-payment": "supplierAdvancePayment",
+    "/coins-sheets": "coinsSheets",
     "/missing-shift-images": "missingShiftImages",
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
@@ -400,6 +401,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'إعداد الموردين' : 'Supplier Setup', url: "/supplier-setup", icon: Truck },
         { title: language === 'ar' ? 'دليل المستخدم' : 'User Guide', url: "/coins-transaction-guide", icon: FileText },
         { title: language === 'ar' ? 'دفعات مقدمة للموردين' : 'Supplier Advance Payment', url: "/supplier-advance-payment", icon: DollarSign },
+        { title: language === 'ar' ? 'شيتات' : 'Sheets', url: "/coins-sheets", icon: ScrollText },
       ]
     },
     {

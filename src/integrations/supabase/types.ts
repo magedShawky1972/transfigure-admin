@@ -1455,6 +1455,163 @@ export type Database = {
           },
         ]
       }
+      coins_sheet_order_lines: {
+        Row: {
+          brand_id: string
+          coins: number
+          created_at: string
+          currency_id: string | null
+          id: string
+          line_number: number
+          notes: string | null
+          rate: number
+          sar_rate: number
+          seller_name: string
+          sheet_order_id: string
+          total_sar: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          coins?: number
+          created_at?: string
+          currency_id?: string | null
+          id?: string
+          line_number?: number
+          notes?: string | null
+          rate?: number
+          sar_rate?: number
+          seller_name: string
+          sheet_order_id: string
+          total_sar?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          coins?: number
+          created_at?: string
+          currency_id?: string | null
+          id?: string
+          line_number?: number
+          notes?: string | null
+          rate?: number
+          sar_rate?: number
+          seller_name?: string
+          sheet_order_id?: string
+          total_sar?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_sheet_order_lines_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_sheet_order_lines_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coins_sheet_order_lines_sheet_order_id_fkey"
+            columns: ["sheet_order_id"]
+            isOneToOne: false
+            referencedRelation: "coins_sheet_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coins_sheet_orders: {
+        Row: {
+          accounting_approved_at: string | null
+          accounting_approved_by: string | null
+          accounting_approved_name: string | null
+          accounting_notes: string | null
+          bank_transfer_image: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          creator_confirmed: boolean | null
+          creator_confirmed_at: string | null
+          current_phase: string
+          id: string
+          notes: string | null
+          order_number: string
+          phase_updated_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accounting_approved_at?: string | null
+          accounting_approved_by?: string | null
+          accounting_approved_name?: string | null
+          accounting_notes?: string | null
+          bank_transfer_image?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          creator_confirmed?: boolean | null
+          creator_confirmed_at?: string | null
+          current_phase?: string
+          id?: string
+          notes?: string | null
+          order_number: string
+          phase_updated_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accounting_approved_at?: string | null
+          accounting_approved_by?: string | null
+          accounting_approved_name?: string | null
+          accounting_notes?: string | null
+          bank_transfer_image?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          creator_confirmed?: boolean | null
+          creator_confirmed_at?: string | null
+          current_phase?: string
+          id?: string
+          notes?: string | null
+          order_number?: string
+          phase_updated_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      coins_sheet_workflow_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          phase: string
+          updated_at: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          phase: string
+          updated_at?: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phase?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       coins_workflow_assignments: {
         Row: {
           brand_id: string
@@ -9481,6 +9638,7 @@ export type Database = {
       generate_bank_entry_number: { Args: never; Returns: string }
       generate_expense_request_number: { Args: never; Returns: string }
       generate_ludo_order_number: { Args: never; Returns: string }
+      generate_sheet_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
       generate_treasury_entry_number: { Args: never; Returns: string }
       generate_void_number: { Args: never; Returns: string }
