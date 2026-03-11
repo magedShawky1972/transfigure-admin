@@ -787,15 +787,6 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          value={line.rate}
-                          onChange={e => handleLineChange(index, "rate", e.target.value)}
-                          disabled={!isEditable}
-                          className="min-w-[90px]"
-                        />
-                      </TableCell>
-                      <TableCell>
                         <Select value={line.currency_id} onValueChange={v => handleLineChange(index, "currency_id", v)} disabled={!isEditable}>
                           <SelectTrigger className="min-w-[110px]"><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
                           <SelectContent>
