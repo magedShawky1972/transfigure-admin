@@ -565,12 +565,26 @@ const CoinsSheets = () => {
                   <Save className="h-4 w-4 mr-1" />
                   {isArabic ? "حفظ" : "Save"}
                 </Button>
-                {selectedOrderId && selectedOrderPhase === "creation" && (
-                  <Button variant="default" onClick={() => handleSendForPayment(selectedOrderId)} className="bg-blue-600 hover:bg-blue-700">
-                    <Send className="h-4 w-4 mr-1" />
-                    {isArabic ? "إرسال للدفع" : "Send for Payment"}
-                  </Button>
-                )}
+                {selectedOrderId && selectedOrderPhase === "creation" && (() => {
+                  const allPaymentsEntered = lines.every(l => {
+                    const usd = parseFloat(String(l.usd_payment_amount || 0));
+                    return usd <= 0 || (l.total_payment || 0) > 0;
+                  });
+                  const hasLines = lines.some(l => parseFloat(String(l.usd_payment_amount || 0)) > 0);
+                  const canSend = hasLines && allPaymentsEntered;
+                  return (
+                    <Button
+                      variant="default"
+                      onClick={() => handleSendForPayment(selectedOrderId)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={!canSend}
+                      title={!canSend ? (isArabic ? "يجب إدخال شروط الدفع لجميع الأسطر أولاً" : "Payment terms must be entered for all lines first") : ""}
+                    >
+                      <Send className="h-4 w-4 mr-1" />
+                      {isArabic ? "إرسال للدفع" : "Send for Payment"}
+                    </Button>
+                  );
+                })()}
               </>
             )}
             {selectedOrderPhase === "accounting_approved" && selectedOrderId && (
