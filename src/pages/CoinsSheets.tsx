@@ -452,6 +452,8 @@ const CoinsSheets = () => {
       setAccountingNotes("");
       setBankTransferImages([]);
       setProcessingOrder(null);
+      resetForm();
+      setView("list");
       fetchOrders();
     } catch (err: any) {
       toast.error(err.message);
