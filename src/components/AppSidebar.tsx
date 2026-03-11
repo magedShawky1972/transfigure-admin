@@ -165,6 +165,7 @@ export function AppSidebar() {
     "/coins-transaction-guide": "coinsTransactionGuide",
     "/supplier-advance-payment": "supplierAdvancePayment",
     "/coins-sheets": "coinsSheets",
+    "/sales-sheets": "salesSheets",
     "/missing-shift-images": "missingShiftImages",
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
