@@ -461,11 +461,17 @@ const CoinsSheets = () => {
     setHeaderCoinsRate(String(order.coins_rate || ""));
     setHeaderExtraCoinsRate(String(order.extra_coins_rate || ""));
 
-    // Fetch line attachments
-    const { data: lineAttachments } = await supabase
-      .from("coins_sheet_line_attachments")
-      .select("*")
-      .eq("sheet_order_id", order.id);
+    // Fetch line attachments and payment terms
+    const [{ data: lineAttachments }, { data: paymentTerms }] = await Promise.all([
+      supabase.from("coins_sheet_line_attachments").select("*").eq("sheet_order_id", order.id),
+      supabase.from("coins_sheet_payment_terms").select("line_id, amount").eq("sheet_order_id", order.id),
+    ]);
+
+    // Build payment totals map
+    const paymentTotalsMap: Record<string, number> = {};
+    (paymentTerms || []).forEach((pt: any) => {
+      paymentTotalsMap[pt.line_id] = (paymentTotalsMap[pt.line_id] || 0) + (pt.amount || 0);
+    });
 
     const orderLines = order.coins_sheet_order_lines || [];
     if (orderLines.length > 0) {
@@ -482,6 +488,7 @@ const CoinsSheets = () => {
         notes: l.notes || "",
         line_number: l.line_number,
         receiving_date: l.receiving_date ? new Date(l.receiving_date) : undefined,
+        total_payment: paymentTotalsMap[l.id] || 0,
         attachments: (lineAttachments || [])
           .filter((a: any) => a.line_id === l.id)
           .map((a: any) => ({
