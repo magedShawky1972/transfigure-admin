@@ -748,12 +748,39 @@ const CoinsSheets = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle>{isArabic ? "تفاصيل الشيت" : "Sheet Details"}</CardTitle>
-              {isEditable && (
-                <Button variant="outline" size="sm" onClick={addLine}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  {isArabic ? "إضافة سطر" : "Add Line"}
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {lines.some(l => l.seller_name) && (
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const brandName = brands.find(b => b.id === headerBrandId)?.brand_name || "";
+                    const exportData = lines.filter(l => l.seller_name).map(l => ({
+                      [isArabic ? "البراند" : "Brand"]: brandName,
+                      [isArabic ? "#" : "#"]: l.line_number,
+                      [isArabic ? "اسم البائع" : "Seller Name"]: l.seller_name,
+                      [isArabic ? "تاريخ الاستلام" : "Receiving Date"]: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : "",
+                      [isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"]: parseNum(l.usd_payment_amount),
+                      [isArabic ? "الكوينز" : "Coins"]: parseNum(l.coins),
+                      [isArabic ? "كوينز إضافية" : "Extra Coins"]: parseNum(l.extra_coins),
+                      [isArabic ? "الإجمالي ر.س" : "Total SAR"]: parseNum(l.total_sar),
+                      [isArabic ? "إجمالي المدفوع" : "Total Payment"]: l.total_payment || 0,
+                      [isArabic ? "ملاحظات" : "Notes"]: l.notes,
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(exportData);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Sheet Details");
+                    XLSX.writeFile(wb, `sheet_${selectedOrderNumber || "details"}_${brandName || "export"}.xlsx`);
+                    toast.success(isArabic ? "تم التصدير بنجاح" : "Exported successfully");
+                  }}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {isArabic ? "تصدير Excel" : "Export Excel"}
+                  </Button>
+                )}
+                {isEditable && (
+                  <Button variant="outline" size="sm" onClick={addLine}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    {isArabic ? "إضافة سطر" : "Add Line"}
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
