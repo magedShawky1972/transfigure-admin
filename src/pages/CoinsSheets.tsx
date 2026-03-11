@@ -893,6 +893,14 @@ const CoinsSheets = () => {
                         />
                       </TableCell>
                       <TableCell>
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          !hasPayment && lineUsd > 0 ? "text-destructive" : isPaymentComplete ? "text-primary" : "text-amber-600"
+                        )}>
+                          {line.total_payment > 0 ? `$${line.total_payment.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : (lineUsd > 0 ? (isArabic ? "لم يُدخل" : "Not set") : "—")}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         {selectedOrderId && line.id && (
                           <Button
                             variant="ghost"
@@ -913,7 +921,7 @@ const CoinsSheets = () => {
                         </TableCell>
                       )}
                     </TableRow>
-                  ))}
+                  );})}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
