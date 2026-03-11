@@ -62,6 +62,7 @@ const emptyLine = (lineNumber: number): SheetLine => ({
   line_number: lineNumber,
   attachments: [],
   receiving_date: undefined,
+  total_payment: 0,
 });
 
 const PHASES = [
