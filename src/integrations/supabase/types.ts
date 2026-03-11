@@ -6193,6 +6193,227 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_sheet_line_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          line_id: string
+          sheet_order_id: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          line_id: string
+          sheet_order_id: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          line_id?: string
+          sheet_order_id?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_sheet_line_attachments_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "sales_sheet_order_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_sheet_line_attachments_sheet_order_id_fkey"
+            columns: ["sheet_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_sheet_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_sheet_order_lines: {
+        Row: {
+          brand_id: string | null
+          coins: number | null
+          created_at: string
+          currency_id: string | null
+          extra_coins: number | null
+          id: string
+          line_number: number
+          notes: string | null
+          rate: number | null
+          receiving_date: string | null
+          sar_rate: number | null
+          seller_name: string
+          sheet_order_id: string
+          total_sar: number | null
+          updated_at: string
+          usd_payment_amount: number | null
+        }
+        Insert: {
+          brand_id?: string | null
+          coins?: number | null
+          created_at?: string
+          currency_id?: string | null
+          extra_coins?: number | null
+          id?: string
+          line_number?: number
+          notes?: string | null
+          rate?: number | null
+          receiving_date?: string | null
+          sar_rate?: number | null
+          seller_name?: string
+          sheet_order_id: string
+          total_sar?: number | null
+          updated_at?: string
+          usd_payment_amount?: number | null
+        }
+        Update: {
+          brand_id?: string | null
+          coins?: number | null
+          created_at?: string
+          currency_id?: string | null
+          extra_coins?: number | null
+          id?: string
+          line_number?: number
+          notes?: string | null
+          rate?: number | null
+          receiving_date?: string | null
+          sar_rate?: number | null
+          seller_name?: string
+          sheet_order_id?: string
+          total_sar?: number | null
+          updated_at?: string
+          usd_payment_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_sheet_order_lines_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_sheet_order_lines_sheet_order_id_fkey"
+            columns: ["sheet_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_sheet_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_sheet_orders: {
+        Row: {
+          accounting_approved_at: string | null
+          accounting_approved_by: string | null
+          accounting_approved_name: string | null
+          accounting_notes: string | null
+          bank_transfer_image: string | null
+          brand_id: string | null
+          coins_rate: number | null
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          current_phase: string
+          extra_coins_rate: number | null
+          id: string
+          notes: string | null
+          order_number: string
+          phase_updated_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accounting_approved_at?: string | null
+          accounting_approved_by?: string | null
+          accounting_approved_name?: string | null
+          accounting_notes?: string | null
+          bank_transfer_image?: string | null
+          brand_id?: string | null
+          coins_rate?: number | null
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          current_phase?: string
+          extra_coins_rate?: number | null
+          id?: string
+          notes?: string | null
+          order_number?: string
+          phase_updated_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accounting_approved_at?: string | null
+          accounting_approved_by?: string | null
+          accounting_approved_name?: string | null
+          accounting_notes?: string | null
+          bank_transfer_image?: string | null
+          brand_id?: string | null
+          coins_rate?: number | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          current_phase?: string
+          extra_coins_rate?: number | null
+          id?: string
+          notes?: string | null
+          order_number?: string
+          phase_updated_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_sheet_orders_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_sheet_workflow_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          phase: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          phase: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phase?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       saved_attendance: {
         Row: {
           attendance_date: string
@@ -9775,6 +9996,7 @@ export type Database = {
       generate_bank_entry_number: { Args: never; Returns: string }
       generate_expense_request_number: { Args: never; Returns: string }
       generate_ludo_order_number: { Args: never; Returns: string }
+      generate_sales_sheet_order_number: { Args: never; Returns: string }
       generate_sheet_order_number: { Args: never; Returns: string }
       generate_ticket_number: { Args: never; Returns: string }
       generate_treasury_entry_number: { Args: never; Returns: string }
