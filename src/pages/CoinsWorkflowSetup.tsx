@@ -400,7 +400,7 @@ const CoinsWorkflowSetup = () => {
   const handleDeleteAdvancePaymentAssignment = async (id: string) => {
     await supabase.from("advance_payment_workflow_assignments" as any).delete().eq("id", id);
     toast.success(isArabic ? "تم الحذف" : "Deleted");
-    fetchSalesSheetAssignments();
+    fetchAdvancePaymentAssignments();
   };
 
   if (accessLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
