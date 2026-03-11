@@ -162,6 +162,19 @@ const CoinsPurchaseFollowUp = () => {
     return true;
   });
 
+  const filteredAdvancePayments = advancePayments.filter(o => {
+    const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
+    if (advancePaymentFilterPhase !== "all" && phase !== advancePaymentFilterPhase) return false;
+    if (advancePaymentSearchText) {
+      const s = advancePaymentSearchText.toLowerCase();
+      if (
+        !(o.suppliers as any)?.supplier_name?.toLowerCase().includes(s) &&
+        !o.created_by_name?.toLowerCase().includes(s)
+      ) return false;
+    }
+    return true;
+  });
+
   const navigateToPhase = (order: any) => {
     const phaseRoutes: Record<string, string> = {
       creation: `/coins-creation`,
