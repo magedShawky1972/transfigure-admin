@@ -293,9 +293,17 @@ const CoinsSheets = () => {
 
       let orderId = selectedOrderId;
 
+      // Build a map of old line IDs by line index (for payment terms remapping)
+      const oldLineIdMap: Record<number, string> = {};
+      if (selectedOrderId) {
+        lines.forEach((l, i) => {
+          if (l.id) oldLineIdMap[i] = l.id;
+        });
+      }
+
       if (selectedOrderId) {
         await supabase.from("coins_sheet_orders").update(headerData).eq("id", selectedOrderId);
-        // Delete old lines and their attachments
+        // Delete old lines and their attachments (payment terms are kept)
         await supabase.from("coins_sheet_line_attachments").delete().eq("sheet_order_id", selectedOrderId);
         await supabase.from("coins_sheet_order_lines").delete().eq("sheet_order_id", selectedOrderId);
       } else {
@@ -309,9 +317,11 @@ const CoinsSheets = () => {
         orderId = order.id;
       }
 
-      // Insert lines
+      // Insert lines and remap payment terms
       for (let i = 0; i < validLines.length; i++) {
         const l = validLines[i];
+        // Find the original index in the full lines array
+        const originalIndex = lines.indexOf(l);
         const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
           sheet_order_id: orderId,
           line_number: i + 1,
@@ -326,6 +336,14 @@ const CoinsSheets = () => {
           receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
         } as any).select().single();
         if (lineErr) throw lineErr;
+
+        // Remap payment terms from old line ID to new line ID
+        const oldLineId = originalIndex >= 0 ? oldLineIdMap[originalIndex] : null;
+        if (oldLineId && lineData && oldLineId !== lineData.id) {
+          await supabase.from("coins_sheet_payment_terms")
+            .update({ line_id: lineData.id })
+            .eq("line_id", oldLineId);
+        }
 
         // Insert line attachments
         if (l.attachments.length > 0 && lineData) {
