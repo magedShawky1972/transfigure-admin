@@ -294,18 +294,82 @@ const CoinsSheets = () => {
       let orderId = selectedOrderId;
 
       // Build a map of old line IDs by line index (for payment terms remapping)
-      const oldLineIdMap: Record<number, string> = {};
+      const oldLineIdByIndex: Record<number, string> = {};
       if (selectedOrderId) {
         lines.forEach((l, i) => {
-          if (l.id) oldLineIdMap[i] = l.id;
+          if (l.id) oldLineIdByIndex[i] = l.id;
         });
-      }
 
-      if (selectedOrderId) {
+        // Step 1: Fetch existing payment terms keyed by old line_id
+        const { data: existingTerms } = await supabase
+          .from("coins_sheet_payment_terms")
+          .select("*")
+          .eq("sheet_order_id", selectedOrderId);
+        
+        // Group terms by old line_id
+        const termsByOldLineId: Record<string, any[]> = {};
+        (existingTerms || []).forEach((t: any) => {
+          if (t.line_id) {
+            if (!termsByOldLineId[t.line_id]) termsByOldLineId[t.line_id] = [];
+            termsByOldLineId[t.line_id].push(t);
+          }
+        });
+
+        // Step 2: Delete payment terms, then lines and attachments
+        await supabase.from("coins_sheet_payment_terms").delete().eq("sheet_order_id", selectedOrderId);
         await supabase.from("coins_sheet_orders").update(headerData).eq("id", selectedOrderId);
-        // Delete old lines and their attachments (payment terms are kept)
         await supabase.from("coins_sheet_line_attachments").delete().eq("sheet_order_id", selectedOrderId);
         await supabase.from("coins_sheet_order_lines").delete().eq("sheet_order_id", selectedOrderId);
+
+        // Step 3: Insert new lines and re-insert payment terms with new line IDs
+        for (let i = 0; i < validLines.length; i++) {
+          const l = validLines[i];
+          const originalIndex = lines.indexOf(l);
+          const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
+            sheet_order_id: orderId,
+            line_number: i + 1,
+            seller_name: l.seller_name,
+            brand_id: headerBrandId,
+            usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
+            coins: parseFloat(l.coins) || 0,
+            extra_coins: parseFloat(l.extra_coins) || 0,
+            sar_rate: defaultSarRate,
+            total_sar: parseFloat(l.total_sar) || 0,
+            notes: l.notes,
+            receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
+          } as any).select().single();
+          if (lineErr) throw lineErr;
+
+          // Re-insert payment terms for this line with new line_id
+          const oldLineId = originalIndex >= 0 ? oldLineIdByIndex[originalIndex] : null;
+          if (oldLineId && lineData && termsByOldLineId[oldLineId]) {
+            const termsToReinsert = termsByOldLineId[oldLineId].map((t: any) => ({
+              sheet_order_id: orderId,
+              line_id: lineData.id,
+              payment_date: t.payment_date,
+              amount: t.amount,
+              is_remaining: t.is_remaining,
+              notes: t.notes,
+              created_by: t.created_by,
+            }));
+            await supabase.from("coins_sheet_payment_terms").insert(termsToReinsert as any);
+          }
+
+          // Insert line attachments
+          if (l.attachments.length > 0 && lineData) {
+            const attInserts = l.attachments.map(a => ({
+              line_id: lineData.id,
+              sheet_order_id: orderId,
+              file_name: a.file_name,
+              file_url: a.file_url,
+              file_type: a.file_type,
+              file_size: a.file_size,
+              uploaded_by: currentUserId,
+              uploaded_by_name: currentUserName,
+            }));
+            await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
+          }
+        }
       } else {
         const { data: order, error } = await supabase.from("coins_sheet_orders").insert({
           order_number: "",
@@ -315,49 +379,39 @@ const CoinsSheets = () => {
         } as any).select().single();
         if (error) throw error;
         orderId = order.id;
-      }
 
-      // Insert lines and remap payment terms
-      for (let i = 0; i < validLines.length; i++) {
-        const l = validLines[i];
-        // Find the original index in the full lines array
-        const originalIndex = lines.indexOf(l);
-        const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
-          sheet_order_id: orderId,
-          line_number: i + 1,
-          seller_name: l.seller_name,
-          brand_id: headerBrandId,
-          usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
-          coins: parseFloat(l.coins) || 0,
-          extra_coins: parseFloat(l.extra_coins) || 0,
-          sar_rate: defaultSarRate,
-          total_sar: parseFloat(l.total_sar) || 0,
-          notes: l.notes,
-          receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
-        } as any).select().single();
-        if (lineErr) throw lineErr;
-
-        // Remap payment terms from old line ID to new line ID
-        const oldLineId = originalIndex >= 0 ? oldLineIdMap[originalIndex] : null;
-        if (oldLineId && lineData && oldLineId !== lineData.id) {
-          await supabase.from("coins_sheet_payment_terms")
-            .update({ line_id: lineData.id })
-            .eq("line_id", oldLineId);
-        }
-
-        // Insert line attachments
-        if (l.attachments.length > 0 && lineData) {
-          const attInserts = l.attachments.map(a => ({
-            line_id: lineData.id,
+        // Insert lines for new order
+        for (let i = 0; i < validLines.length; i++) {
+          const l = validLines[i];
+          const { data: lineData, error: lineErr } = await supabase.from("coins_sheet_order_lines").insert({
             sheet_order_id: orderId,
-            file_name: a.file_name,
-            file_url: a.file_url,
-            file_type: a.file_type,
-            file_size: a.file_size,
-            uploaded_by: currentUserId,
-            uploaded_by_name: currentUserName,
-          }));
-          await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
+            line_number: i + 1,
+            seller_name: l.seller_name,
+            brand_id: headerBrandId,
+            usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
+            coins: parseFloat(l.coins) || 0,
+            extra_coins: parseFloat(l.extra_coins) || 0,
+            sar_rate: defaultSarRate,
+            total_sar: parseFloat(l.total_sar) || 0,
+            notes: l.notes,
+            receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
+          } as any).select().single();
+          if (lineErr) throw lineErr;
+
+          // Insert line attachments
+          if (l.attachments.length > 0 && lineData) {
+            const attInserts = l.attachments.map(a => ({
+              line_id: lineData.id,
+              sheet_order_id: orderId,
+              file_name: a.file_name,
+              file_url: a.file_url,
+              file_type: a.file_type,
+              file_size: a.file_size,
+              uploaded_by: currentUserId,
+              uploaded_by_name: currentUserName,
+            }));
+            await supabase.from("coins_sheet_line_attachments").insert(attInserts as any);
+          }
         }
       }
 
