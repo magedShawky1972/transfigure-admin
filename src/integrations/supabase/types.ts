@@ -1675,6 +1675,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_remaining: boolean
+          line_id: string | null
           notes: string | null
           payment_date: string
           sheet_order_id: string
@@ -1686,6 +1687,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_remaining?: boolean
+          line_id?: string | null
           notes?: string | null
           payment_date: string
           sheet_order_id: string
@@ -1697,12 +1699,20 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_remaining?: boolean
+          line_id?: string | null
           notes?: string | null
           payment_date?: string
           sheet_order_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "coins_sheet_payment_terms_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "coins_sheet_order_lines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "coins_sheet_payment_terms_sheet_order_id_fkey"
             columns: ["sheet_order_id"]
