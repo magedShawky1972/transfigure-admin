@@ -251,7 +251,6 @@ const CoinsSheets = () => {
       const headerData = {
         notes,
         brand_id: headerBrandId,
-        receiving_date: receivingDate ? format(receivingDate, "yyyy-MM-dd") : null,
       };
 
       let orderId = selectedOrderId;
