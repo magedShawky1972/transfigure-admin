@@ -929,7 +929,7 @@ const CoinsSheets = () => {
                   />
                 ) : (
                   <iframe
-                    src={transferPreviewUrl}
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(transferPreviewUrl)}&embedded=true`}
                     title="Document Preview"
                     className="w-full border-0"
                     style={{ height: "calc(95vh - 60px)" }}
