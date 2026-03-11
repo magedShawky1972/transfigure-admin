@@ -721,6 +721,114 @@ const CoinsWorkflowSetup = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Sales Sheets Workflow Tab */}
+        <TabsContent value="sales_sheets" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                {isArabic ? "إعداد سير عمل شيت المبيعات" : "Sales Sheets Workflow Setup"}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {isArabic
+                   ? "تعيين المستخدمين المسؤولين عن كل مرحلة في سير عمل شيت المبيعات"
+                   : "Assign users responsible for each phase in the sales sheets workflow"}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6">
+                <div className="space-y-2">
+                  <Label>{isArabic ? "المرحلة" : "Phase"}</Label>
+                  <Select value={salesSheetSelectedPhase} onValueChange={setSalesSheetSelectedPhase}>
+                    <SelectTrigger><SelectValue placeholder={isArabic ? "اختر" : "Select"} /></SelectTrigger>
+                    <SelectContent>
+                      {SALES_SHEET_PHASES.map(p => (
+                        <SelectItem key={p.key} value={p.key}>{isArabic ? p.ar : p.en}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isArabic ? "المستخدم" : "User"}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                        {salesSheetSelectedUserId
+                          ? (users.find(u => (u.user_id || u.id) === salesSheetSelectedUserId)?.user_name ||
+                             users.find(u => (u.user_id || u.id) === salesSheetSelectedUserId)?.email || salesSheetSelectedUserId)
+                          : (isArabic ? "اختر المستخدم..." : "Select user...")}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder={isArabic ? "بحث..." : "Search..."} />
+                        <CommandList>
+                          <CommandEmpty>{isArabic ? "لا توجد نتائج" : "No results"}</CommandEmpty>
+                          <CommandGroup>
+                            {users.map(u => {
+                              const uid = u.user_id || u.id;
+                              const display = u.user_name || u.email;
+                              return (
+                                <CommandItem key={uid} value={display} onSelect={() => setSalesSheetSelectedUserId(uid)}>
+                                  <Check className={cn("mr-2 h-4 w-4", salesSheetSelectedUserId === uid ? "opacity-100" : "opacity-0")} />
+                                  {display}
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button onClick={handleAddSalesSheetAssignment} disabled={salesSheetSaving}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  {isArabic ? "إضافة" : "Add"}
+                </Button>
+              </div>
+
+              {SALES_SHEET_PHASES.map(phase => {
+                const phaseAssignments = salesSheetAssignments.filter(a => a.phase === phase.key);
+                return (
+                  <div key={phase.key} className="mb-4">
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <Badge variant="outline">{isArabic ? phase.ar : phase.en}</Badge>
+                      <span className="text-sm text-muted-foreground">({phaseAssignments.length})</span>
+                    </h3>
+                    {phaseAssignments.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{isArabic ? "المستخدم" : "User"}</TableHead>
+                            <TableHead className="w-12"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {phaseAssignments.map(a => (
+                            <TableRow key={a.id}>
+                              <TableCell>{a.user_name || a.user_id}</TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteSalesSheetAssignment(a.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">
+                        {isArabic ? "لم يتم تعيين مستخدمين" : "No users assigned"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
