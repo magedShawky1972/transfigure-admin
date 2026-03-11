@@ -359,9 +359,11 @@ const SupplierAdvancePayment = () => {
         accounting_recorded: checked,
         accounting_recorded_at: checked ? new Date().toISOString() : null,
         accounting_recorded_by: checked ? (profile?.user_name || user?.email) : null,
+        current_phase: checked ? "accounting" : "receiving",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
       setAccountingRecorded(checked);
+      setCurrentPhase(checked ? "accounting" : "receiving");
       toast.success(checked
         ? (isArabic ? "تم تسجيل القيد المحاسبي" : "Accounting record saved")
         : (isArabic ? "تم إلغاء القيد المحاسبي" : "Accounting record removed"));
