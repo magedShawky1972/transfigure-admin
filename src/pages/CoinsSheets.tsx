@@ -558,7 +558,7 @@ const CoinsSheets = () => {
             <Button variant="ghost" size="icon" onClick={() => { resetForm(); setView("list"); }}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold">{isArabic ? "شيتات - طلب دفع" : "Sheets - Payment Request"}</h1>
+            <h1 className="text-2xl font-bold">{isArabic ? "شيتات الكوينز - طلب دفع" : "Coins Sheets - Payment Request"}</h1>
             {selectedOrderNumber && <Badge variant="outline" className="text-lg px-3">{selectedOrderNumber}</Badge>}
           </div>
           <div className="flex gap-2">
@@ -1060,7 +1060,7 @@ const CoinsSheets = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <FileText className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">{isArabic ? "شيتات" : "Sheets"}</h1>
+          <h1 className="text-2xl font-bold">{isArabic ? "شيتات الكوينز" : "Coins Sheets"}</h1>
         </div>
         <Button onClick={() => { resetForm(); setView("form"); }}>
           <Plus className="h-4 w-4 mr-1" />

@@ -317,7 +317,7 @@ const CoinsWorkflowSetup = () => {
           <TabsTrigger value="purchase">{isArabic ? "شراء الكوينز" : "Coins Purchase"}</TabsTrigger>
           <TabsTrigger value="sheets" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
-            {isArabic ? "شيتات" : "Sheets"}
+            {isArabic ? "شيتات الكوينز" : "Coins Sheets"}
           </TabsTrigger>
         </TabsList>
 
@@ -560,12 +560,12 @@ const CoinsWorkflowSetup = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                {isArabic ? "إعداد سير عمل الشيتات" : "Sheets Workflow Setup"}
+                {isArabic ? "إعداد سير عمل شيتات الكوينز" : "Coins Sheets Workflow Setup"}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 {isArabic
-                  ? "تعيين المستخدمين المسؤولين عن كل مرحلة في سير عمل الشيتات"
-                  : "Assign users responsible for each phase in the sheets workflow"}
+                   ? "تعيين المستخدمين المسؤولين عن كل مرحلة في سير عمل شيتات الكوينز"
+                   : "Assign users responsible for each phase in the coins sheets workflow"}
               </p>
             </CardHeader>
             <CardContent>
