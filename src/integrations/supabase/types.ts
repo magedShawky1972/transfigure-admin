@@ -1668,6 +1668,50 @@ export type Database = {
           },
         ]
       }
+      coins_sheet_payment_terms: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          is_remaining: boolean
+          notes: string | null
+          payment_date: string
+          sheet_order_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_remaining?: boolean
+          notes?: string | null
+          payment_date: string
+          sheet_order_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_remaining?: boolean
+          notes?: string | null
+          payment_date?: string
+          sheet_order_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coins_sheet_payment_terms_sheet_order_id_fkey"
+            columns: ["sheet_order_id"]
+            isOneToOne: false
+            referencedRelation: "coins_sheet_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coins_sheet_workflow_assignments: {
         Row: {
           created_at: string

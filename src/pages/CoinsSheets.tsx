@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File, ChevronsUpDown, Check, Maximize2, ExternalLink } from "lucide-react";
+import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File, ChevronsUpDown, Check, Maximize2, ExternalLink, DollarSign } from "lucide-react";
+import SheetPaymentTermsDialog from "@/components/SheetPaymentTermsDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { downloadFile } from "@/lib/fileDownload";
@@ -105,6 +106,9 @@ const CoinsSheets = () => {
   const [uploading, setUploading] = useState(false);
   const [processingOrder, setProcessingOrder] = useState<any>(null);
   const [transferPreviewUrl, setTransferPreviewUrl] = useState<string | null>(null);
+
+  // Payment terms dialog
+  const [paymentTermsOpen, setPaymentTermsOpen] = useState(false);
 
   // Line attachment upload
   const [uploadingLineIndex, setUploadingLineIndex] = useState<number | null>(null);
@@ -716,7 +720,20 @@ const CoinsSheets = () => {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle>{isArabic ? "تفاصيل الشيت" : "Sheet Details"}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>{isArabic ? "تفاصيل الشيت" : "Sheet Details"}</CardTitle>
+                {selectedOrderId && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setPaymentTermsOpen(true)}
+                    title={isArabic ? "شروط الدفع" : "Payment Terms"}
+                  >
+                    <DollarSign className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               {isEditable && (
                 <Button variant="outline" size="sm" onClick={addLine}>
                   <Plus className="h-4 w-4 mr-1" />
@@ -940,6 +957,15 @@ const CoinsSheets = () => {
             </div>
           </div>
         )}
+
+        {/* Payment Terms Dialog */}
+        <SheetPaymentTermsDialog
+          open={paymentTermsOpen}
+          onOpenChange={setPaymentTermsOpen}
+          sheetOrderId={selectedOrderId}
+          totalAmount={lines.reduce((sum, l) => sum + parseNum(l.usd_payment_amount), 0)}
+          createdByName={currentUserName}
+        />
       </div>
     );
   }
