@@ -443,6 +443,7 @@ const CoinsSheets = () => {
       setLines(orderLines.sort((a: any, b: any) => a.line_number - b.line_number).map((l: any) => ({
         id: l.id,
         seller_name: l.seller_name || "",
+        usd_payment_amount: String(l.usd_payment_amount || ""),
         coins: String(l.coins || 0),
         extra_coins: String(l.extra_coins || 0),
         rate: String(l.rate || 0),
