@@ -85,6 +85,8 @@ const CoinsSheets = () => {
 
   // Header fields
   const [headerBrandId, setHeaderBrandId] = useState("");
+  const [headerCoinsRate, setHeaderCoinsRate] = useState("");
+  const [headerExtraCoinsRate, setHeaderExtraCoinsRate] = useState("");
   const [brandPopoverOpen, setBrandPopoverOpen] = useState(false);
 
   // Dropdowns
