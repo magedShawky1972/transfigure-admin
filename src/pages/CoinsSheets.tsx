@@ -46,6 +46,7 @@ interface SheetLine {
   line_number: number;
   attachments: LineAttachment[];
   receiving_date?: Date;
+  total_payment: number;
 }
 
 const emptyLine = (lineNumber: number): SheetLine => ({
