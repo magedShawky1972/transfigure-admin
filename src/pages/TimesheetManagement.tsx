@@ -1014,6 +1014,14 @@ export default function TimesheetManagement() {
               <Printer className="h-4 w-4 mr-2" />
               {language === "ar" ? "طباعة" : "Print"}
             </Button>
+            <Button
+              variant="outline"
+              onClick={handlePrintDeductionSummary}
+              disabled={timesheets.length === 0}
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              {language === "ar" ? "ملخص الخصومات" : "Deduction Summary"}
+            </Button>
             <Button 
               variant="outline" 
               onClick={handleResendDeductionMails}
