@@ -1,0 +1,1 @@
+ALTER TABLE public.supplier_advance_payments ADD COLUMN vendor_invoice_url TEXT DEFAULT NULL;
