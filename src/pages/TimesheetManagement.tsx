@@ -282,7 +282,136 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
+    checkCurrentUser();
   }, []);
+
+  // Fetch month lock status whenever the selected month changes
+  const getActiveMonthKey = (): string => {
+    if (filterMode === "month") return selectedMonth;
+    if (filterMode === "date") return selectedDate.substring(0, 7);
+    if (filterMode === "range") return dateFrom.substring(0, 7);
+    return format(new Date(), "yyyy-MM");
+  };
+
+  useEffect(() => {
+    fetchMonthLockStatus();
+  }, [selectedMonth, selectedDate, dateFrom, filterMode]);
+
+  const checkCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        setIsNawaf(user.id === NAWAF_USER_ID);
+      }
+    } catch (error) {
+      console.error("Error checking user:", error);
+    }
+  };
+
+  const fetchMonthLockStatus = async () => {
+    try {
+      const monthKey = getActiveMonthKey();
+      if (!monthKey) return;
+
+      const [lockRes, permRes] = await Promise.all([
+        supabase.from("timesheet_month_locks").select("*").eq("month_key", monthKey).maybeSingle(),
+        supabase.from("timesheet_edit_permissions").select("employee_id").eq("month_key", monthKey).eq("is_active", true),
+      ]);
+
+      setMonthLocked(lockRes.data?.is_confirmed === true);
+      setEditPermissions(new Set((permRes.data || []).map((p: any) => p.employee_id)));
+    } catch (error) {
+      console.error("Error fetching lock status:", error);
+    }
+  };
+
+  const handleConfirmMonth = async () => {
+    const monthKey = getActiveMonthKey();
+    if (!monthKey) return;
+    setLockLoading(true);
+    try {
+      const { error } = await supabase.from("timesheet_month_locks").upsert({
+        month_key: monthKey,
+        is_confirmed: true,
+        confirmed_by: currentUserId,
+        confirmed_at: new Date().toISOString(),
+      }, { onConflict: "month_key" });
+      if (error) throw error;
+
+      // Revoke all edit permissions for this month
+      await supabase.from("timesheet_edit_permissions")
+        .update({ is_active: false })
+        .eq("month_key", monthKey);
+
+      setMonthLocked(true);
+      setEditPermissions(new Set());
+      toast.success(language === "ar" ? "تم تأكيد الشهر وإغلاق التعديل" : "Month confirmed and editing locked");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
+  const handleUnlockMonth = async () => {
+    const monthKey = getActiveMonthKey();
+    if (!monthKey) return;
+    setLockLoading(true);
+    try {
+      const { error } = await supabase.from("timesheet_month_locks").upsert({
+        month_key: monthKey,
+        is_confirmed: false,
+        confirmed_by: null,
+        confirmed_at: null,
+      }, { onConflict: "month_key" });
+      if (error) throw error;
+      setMonthLocked(false);
+      toast.success(language === "ar" ? "تم فتح التعديل للشهر" : "Month editing unlocked");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
+  const handleToggleEmployeeEdit = async (employeeId: string) => {
+    const monthKey = getActiveMonthKey();
+    if (!monthKey) return;
+    
+    const hasPermission = editPermissions.has(employeeId);
+    try {
+      if (hasPermission) {
+        // Revoke permission
+        await supabase.from("timesheet_edit_permissions")
+          .update({ is_active: false })
+          .eq("month_key", monthKey)
+          .eq("employee_id", employeeId);
+        setEditPermissions(prev => { const n = new Set(prev); n.delete(employeeId); return n; });
+        toast.success(language === "ar" ? "تم إغلاق التعديل للموظف" : "Edit closed for employee");
+      } else {
+        // Grant permission
+        await supabase.from("timesheet_edit_permissions").upsert({
+          month_key: monthKey,
+          employee_id: employeeId,
+          granted_by: currentUserId,
+          is_active: true,
+        }, { onConflict: "month_key,employee_id" });
+        setEditPermissions(prev => new Set(prev).add(employeeId));
+        toast.success(language === "ar" ? "تم فتح التعديل للموظف" : "Edit opened for employee");
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const canEditTimesheet = (ts: Timesheet): boolean => {
+    // If month is not locked, everyone can edit
+    if (!monthLocked) return true;
+    // If locked, only employees with explicit permission can be edited (and only by Nawaf or the system)
+    if (isNawaf) return true;
+    return editPermissions.has(ts.employee_id);
+  };
 
   const fetchFrequentlyLateEmployees = async () => {
     try {
