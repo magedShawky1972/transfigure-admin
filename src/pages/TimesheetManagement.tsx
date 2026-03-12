@@ -428,7 +428,7 @@ export default function TimesheetManagement() {
           employees(first_name, last_name, photo_url)
         `)
         .gt("late_minutes", 0)
-        .gte("work_date", thirtyDaysAgo);
+        .gte("work_date", monthStart);
       
       if (error) throw error;
       
