@@ -416,8 +416,9 @@ export default function TimesheetManagement() {
 
   const fetchFrequentlyLateEmployees = async () => {
     try {
-      // Fetch timesheets with late minutes > 0 from the last 30 days
-      const thirtyDaysAgo = format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+      // Fetch timesheets with late minutes > 0 from the current month only
+      const now = new Date();
+      const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
       
       const { data, error } = await supabase
         .from("timesheets")
@@ -427,7 +428,7 @@ export default function TimesheetManagement() {
           employees(first_name, last_name, photo_url)
         `)
         .gt("late_minutes", 0)
-        .gte("work_date", thirtyDaysAgo);
+        .gte("work_date", monthStart);
       
       if (error) throw error;
       
@@ -463,13 +464,14 @@ export default function TimesheetManagement() {
     setNaughtyDrilldownOpen(true);
     setNaughtyDrilldownLoading(true);
     try {
-      const thirtyDaysAgo = format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+      const now = new Date();
+      const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("timesheets")
         .select("work_date, late_minutes, scheduled_start, actual_start, deduction_rules(rule_name, rule_name_ar)")
         .eq("employee_id", employeeId)
         .gt("late_minutes", 0)
-        .gte("work_date", thirtyDaysAgo)
+        .gte("work_date", monthStart)
         .order("work_date", { ascending: false });
       if (error) throw error;
       setNaughtyDrilldownRecords((data || []).map((r: any) => ({
@@ -1365,7 +1367,7 @@ export default function TimesheetManagement() {
                   </div>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  {language === "ar" ? "آخر 30 يوم (3+ تأخيرات)" : "Last 30 days (3+ delays)"}
+                  {language === "ar" ? "الشهر الحالي (3+ تأخيرات)" : "Current month (3+ delays)"}
                 </p>
               </CardContent>
             </Card>
@@ -1734,7 +1736,7 @@ export default function TimesheetManagement() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            {language === 'ar' ? 'آخر 30 يوم' : 'Last 30 days'}
+            {language === 'ar' ? 'الشهر الحالي' : 'Current month'}
           </p>
           <div className="rounded-md border">
             <Table>
