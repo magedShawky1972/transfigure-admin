@@ -652,17 +652,15 @@ export default function TimesheetManagement() {
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
-          // If this date is covered by an approved leave, show as vacation
           status: isVacationDay ? "vacation" : ts.status,
           is_absent: isVacationDay ? false : ts.is_absent,
-          // Clear late minutes if employee has approved delay request for this date
           late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
-          // Clear early leave minutes if employee has approved early leave request for this date
           early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
-          // Clear deduction if delay/early leave is approved
           deduction_amount: (hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
           deduction_rule_id: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
           deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
+          has_approved_delay: hasApprovedDelay,
+          has_approved_early_leave: hasApprovedEarlyLeave,
         };
       });
 
@@ -1479,7 +1477,15 @@ export default function TimesheetManagement() {
                   </TableRow>
                 ) : (
                   sortedTimesheets.map((ts) => (
-                    <TableRow key={ts.id} className={ts.status === 'vacation' ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500 [&_td]:text-yellow-600 [&_td]:dark:text-yellow-400' : ts.status === 'holiday' ? 'bg-purple-50 dark:bg-purple-950/30 border-l-4 border-l-purple-500 [&_td]:text-purple-600 [&_td]:dark:text-purple-400' : ''}>
+                    <TableRow key={ts.id} className={
+                      (ts as any).has_approved_delay || (ts as any).has_approved_early_leave
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-l-emerald-500'
+                        : ts.status === 'vacation'
+                        ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500 [&_td]:text-yellow-600 [&_td]:dark:text-yellow-400'
+                        : ts.status === 'holiday'
+                        ? 'bg-purple-50 dark:bg-purple-950/30 border-l-4 border-l-purple-500 [&_td]:text-purple-600 [&_td]:dark:text-purple-400'
+                        : ''
+                    }>
                       {filterMode !== "date" && (
                         <TableCell className="font-medium text-sm">
                           {format(parseISO(ts.work_date), "dd MMM")}
@@ -1506,8 +1512,10 @@ export default function TimesheetManagement() {
                       <TableCell>
                         {Math.floor(ts.total_work_minutes / 60)}h {ts.total_work_minutes % 60}m
                       </TableCell>
-                      <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : ""}>
-                        {ts.late_minutes > 0 ? `${ts.late_minutes}m` : "-"}
+                      <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : (ts as any).has_approved_delay ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}>
+                        {(ts as any).has_approved_delay
+                          ? (language === "ar" ? "✓ طلب معتمد" : "✓ Approved")
+                          : ts.late_minutes > 0 ? `${ts.late_minutes}m` : "-"}
                       </TableCell>
                       <TableCell className={ts.overtime_minutes > 0 ? "text-green-600 font-medium" : ""}>
                         {ts.overtime_minutes > 0 ? `${ts.overtime_minutes}m` : "-"}
