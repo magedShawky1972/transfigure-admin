@@ -266,6 +266,43 @@ const ApiIntegrationStatus = () => {
     }
   };
 
+  const handleProcessApiOrders = async () => {
+    setProcessingApi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-api-to-transactions', {
+        body: {},
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تمت المعالجة' : 'Processing Complete',
+        description: language === 'ar'
+          ? `تمت معالجة ${data?.processed || 0} طلب، تم تخطي ${data?.skipped || 0}`
+          : `Processed ${data?.processed || 0} orders, skipped ${data?.skipped || 0}`,
+      });
+
+      if (data?.errors && data.errors.length > 0) {
+        toast({
+          title: language === 'ar' ? 'تحذير' : 'Warning',
+          description: language === 'ar'
+            ? `${data.errors.length} أخطاء أثناء المعالجة`
+            : `${data.errors.length} errors during processing`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error processing API orders:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في معالجة الطلبات' : 'Failed to process orders',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingApi(false);
+    }
+  };
+
   const getTableColumns = (data: any[]) => {
     if (data.length === 0) return [];
     return Object.keys(data[0]).filter(key => key !== 'id' && key !== 'created_at' && key !== 'updated_at');
