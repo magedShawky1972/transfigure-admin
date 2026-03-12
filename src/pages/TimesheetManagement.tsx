@@ -1477,7 +1477,15 @@ export default function TimesheetManagement() {
                   </TableRow>
                 ) : (
                   sortedTimesheets.map((ts) => (
-                    <TableRow key={ts.id} className={ts.status === 'vacation' ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500 [&_td]:text-yellow-600 [&_td]:dark:text-yellow-400' : ts.status === 'holiday' ? 'bg-purple-50 dark:bg-purple-950/30 border-l-4 border-l-purple-500 [&_td]:text-purple-600 [&_td]:dark:text-purple-400' : ''}>
+                    <TableRow key={ts.id} className={
+                      (ts as any).has_approved_delay || (ts as any).has_approved_early_leave
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-l-emerald-500'
+                        : ts.status === 'vacation'
+                        ? 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-l-blue-500 [&_td]:text-yellow-600 [&_td]:dark:text-yellow-400'
+                        : ts.status === 'holiday'
+                        ? 'bg-purple-50 dark:bg-purple-950/30 border-l-4 border-l-purple-500 [&_td]:text-purple-600 [&_td]:dark:text-purple-400'
+                        : ''
+                    }>
                       {filterMode !== "date" && (
                         <TableCell className="font-medium text-sm">
                           {format(parseISO(ts.work_date), "dd MMM")}
