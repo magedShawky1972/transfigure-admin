@@ -359,6 +359,27 @@ const SupplierAdvancePayment = () => {
 
   const handleConfirmToReceiving = async () => {
     if (!selectedPaymentId) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
+      const { error } = await supabase.from("supplier_advance_payments").update({
+        sent_for_receiving: true,
+        sent_for_receiving_at: new Date().toISOString(),
+        sent_for_receiving_by: profile?.user_name || user?.email,
+        current_phase: "receiving",
+      } as any).eq("id", selectedPaymentId);
+      if (error) throw error;
+      toast.success(isArabic ? "تم التأكيد والإرسال للاستلام بنجاح" : "Confirmed and sent to Receiving successfully");
+      resetForm();
+      setView("list");
+      fetchPayments();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleConfirmReceivingToAccounting = async () => {
+    if (!selectedPaymentId) return;
     if (!receivingImage) {
       toast.error(isArabic ? "يرجى رفع صورة رصيد المورد" : "Please upload supplier balance screenshot");
       return;
@@ -367,15 +388,12 @@ const SupplierAdvancePayment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
       const { error } = await supabase.from("supplier_advance_payments").update({
-        sent_for_receiving: true,
-        sent_for_receiving_at: new Date().toISOString(),
-        sent_for_receiving_by: profile?.user_name || user?.email,
         receiving_image: receivingImage,
         receiving_notes: receivingNotes,
-        current_phase: "receiving",
+        current_phase: "accounting",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      toast.success(isArabic ? "تم التأكيد والإرسال للاستلام بنجاح" : "Confirmed and sent to Receiving successfully");
+      toast.success(isArabic ? "تم التأكيد والإرسال للمحاسبة بنجاح" : "Confirmed and sent to Accounting successfully");
       resetForm();
       setView("list");
       fetchPayments();
