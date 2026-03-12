@@ -464,13 +464,14 @@ export default function TimesheetManagement() {
     setNaughtyDrilldownOpen(true);
     setNaughtyDrilldownLoading(true);
     try {
-      const thirtyDaysAgo = format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+      const now = new Date();
+      const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("timesheets")
         .select("work_date, late_minutes, scheduled_start, actual_start, deduction_rules(rule_name, rule_name_ar)")
         .eq("employee_id", employeeId)
         .gt("late_minutes", 0)
-        .gte("work_date", thirtyDaysAgo)
+        .gte("work_date", monthStart)
         .order("work_date", { ascending: false });
       if (error) throw error;
       setNaughtyDrilldownRecords((data || []).map((r: any) => ({
