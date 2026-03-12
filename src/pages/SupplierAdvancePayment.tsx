@@ -357,7 +357,7 @@ const SupplierAdvancePayment = () => {
     }
   };
 
-  const handleSendForReceiving = async () => {
+  const handleConfirmToReceiving = async () => {
     if (!selectedPaymentId) return;
     if (!receivingImage) {
       toast.error(isArabic ? "يرجى رفع صورة رصيد المورد" : "Please upload supplier balance screenshot");
@@ -375,32 +375,30 @@ const SupplierAdvancePayment = () => {
         current_phase: "receiving",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      setSentForReceiving(true);
-      setCurrentPhase("receiving");
-      toast.success(isArabic ? "تم الإرسال للاستلام بنجاح" : "Sent for receiving successfully");
+      toast.success(isArabic ? "تم التأكيد والإرسال للاستلام بنجاح" : "Confirmed and sent to Receiving successfully");
+      resetForm();
+      setView("list");
       fetchPayments();
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  const handleAccountingToggle = async (checked: boolean) => {
+  const handleConfirmToAccounting = async () => {
     if (!selectedPaymentId) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
       const { error } = await supabase.from("supplier_advance_payments").update({
-        accounting_recorded: checked,
-        accounting_recorded_at: checked ? new Date().toISOString() : null,
-        accounting_recorded_by: checked ? (profile?.user_name || user?.email) : null,
-        current_phase: checked ? "accounting" : "receiving",
+        accounting_recorded: true,
+        accounting_recorded_at: new Date().toISOString(),
+        accounting_recorded_by: profile?.user_name || user?.email,
+        current_phase: "accounting",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      setAccountingRecorded(checked);
-      setCurrentPhase(checked ? "accounting" : "receiving");
-      toast.success(checked
-        ? (isArabic ? "تم تسجيل القيد المحاسبي" : "Accounting record saved")
-        : (isArabic ? "تم إلغاء القيد المحاسبي" : "Accounting record removed"));
+      toast.success(isArabic ? "تم التأكيد والإرسال للمحاسبة بنجاح" : "Confirmed and sent to Accounting successfully");
+      resetForm();
+      setView("list");
       fetchPayments();
     } catch (err: any) {
       toast.error(err.message);
