@@ -329,11 +329,20 @@ const ApiIntegrationStatus = () => {
               : 'Monitor and manage API integration tables'}
           </p>
         </div>
-        <Button onClick={fetchTableCounts} disabled={refreshing} variant="outline">
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {language === 'ar' ? 'تحديث' : 'Refresh'}
-        </Button>
-      </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleProcessApiOrders} disabled={processingApi} variant="default">
+            {processingApi ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            {language === 'ar' ? 'معالجة الطلبات المعلقة' : 'Process Pending Orders'}
+          </Button>
+          <Button onClick={fetchTableCounts} disabled={refreshing} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {language === 'ar' ? 'تحديث' : 'Refresh'}
+          </Button>
+        </div>
 
       {/* Mode Toggle */}
       <Card>
