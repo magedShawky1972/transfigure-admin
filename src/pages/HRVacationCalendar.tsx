@@ -731,13 +731,24 @@ const HRVacationCalendar = () => {
                 dir="rtl"
               />
             </div>
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "التاريخ" : "Date"} *</Label>
-              <Input
-                type="date"
-                value={formData.holiday_date}
-                onChange={(e) => setFormData({ ...formData, holiday_date: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "من تاريخ" : "From Date"} *</Label>
+                <Input
+                  type="date"
+                  value={formData.holiday_date_from}
+                  onChange={(e) => setFormData({ ...formData, holiday_date_from: e.target.value, holiday_date_to: formData.holiday_date_to || e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "إلى تاريخ" : "To Date"}</Label>
+                <Input
+                  type="date"
+                  value={formData.holiday_date_to}
+                  onChange={(e) => setFormData({ ...formData, holiday_date_to: e.target.value })}
+                  min={formData.holiday_date_from}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>{language === "ar" ? "أنواع الحضور المؤهلة" : "Eligible Attendance Types"} *</Label>
