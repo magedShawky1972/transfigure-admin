@@ -406,6 +406,20 @@ const SupplierAdvancePayment = () => {
     }
   };
 
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!confirm(isArabic ? "هل أنت متأكد من حذف هذه الدفعة؟" : "Are you sure you want to delete this payment?")) return;
+    try {
+      // Delete attachments first
+      await supabase.from("supplier_advance_payment_attachments").delete().eq("payment_id", paymentId);
+      const { error } = await supabase.from("supplier_advance_payments").delete().eq("id", paymentId);
+      if (error) throw error;
+      toast.success(isArabic ? "تم حذف الدفعة بنجاح" : "Payment deleted successfully");
+      fetchPayments();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const isPdf = (url: string) => url?.includes(".pdf") || url?.includes("/raw/upload/");
 
   const getPhaseFromPayment = (payment: any) => {
@@ -500,10 +514,15 @@ const SupplierAdvancePayment = () => {
                     <TableCell>{p.created_by_name || "-"}</TableCell>
                     <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
                     <TableCell>{getPhaseBadge(getPhaseFromPayment(p))}</TableCell>
-                    <TableCell>
+                    <TableCell className="flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {getPhaseFromPayment(p) === "entry" && (
+                        <Button size="sm" variant="ghost" onClick={() => handleDeletePayment(p.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
