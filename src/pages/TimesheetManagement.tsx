@@ -407,10 +407,9 @@ export default function TimesheetManagement() {
   };
 
   const canEditTimesheet = (ts: Timesheet): boolean => {
-    // If month is not locked, everyone can edit
-    if (!monthLocked) return true;
-    // If locked, only employees with explicit permission can be edited (and only by Nawaf or the system)
+    // Nawaf can always edit
     if (isNawaf) return true;
+    // Other users can only edit if Nawaf explicitly granted them permission
     return editPermissions.has(ts.employee_id);
   };
 
