@@ -419,23 +419,34 @@ export default function TimesheetManagement() {
       const now = new Date();
       const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
       
-      const { data, error } = await supabase
-        .from("timesheets")
-        .select(`
-          employee_id,
-          late_minutes,
-          employees(first_name, last_name, photo_url)
-        `)
-        .gt("late_minutes", 0)
-        .gte("work_date", monthStart);
+      const [timesheetsRes, delaysRes] = await Promise.all([
+        supabase
+          .from("timesheets")
+          .select(`employee_id, work_date, late_minutes, employees(first_name, last_name, photo_url)`)
+          .gt("late_minutes", 0)
+          .gte("work_date", monthStart),
+        supabase
+          .from("employee_requests")
+          .select("employee_id, delay_date")
+          .eq("request_type", "delay")
+          .eq("status", "approved")
+          .not("delay_date", "is", null),
+      ]);
       
-      if (error) throw error;
+      if (timesheetsRes.error) throw timesheetsRes.error;
       
-      // Group by employee and count late occurrences
+      // Build set of approved delay days
+      const approvedDelaySet = new Set<string>();
+      (delaysRes.data || []).forEach((r: any) => approvedDelaySet.add(`${r.employee_id}_${r.delay_date}`));
+      
+      // Group by employee and count late occurrences, excluding approved delays
       const lateCount = new Map<string, {employeeId: string; name: string; count: number; photoUrl: string | null}>();
       
-      (data || []).forEach((record: any) => {
+      (timesheetsRes.data || []).forEach((record: any) => {
         const empId = record.employee_id;
+        const key = `${empId}_${record.work_date}`;
+        if (approvedDelaySet.has(key)) return; // Skip approved delay days
+        
         const empName = record.employees ? `${record.employees.first_name} ${record.employees.last_name}` : "Unknown";
         const photoUrl = record.employees?.photo_url || null;
         
@@ -465,21 +476,37 @@ export default function TimesheetManagement() {
     try {
       const now = new Date();
       const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
-      const { data, error } = await supabase
-        .from("timesheets")
-        .select("work_date, late_minutes, scheduled_start, actual_start, deduction_rules(rule_name, rule_name_ar)")
-        .eq("employee_id", employeeId)
-        .gt("late_minutes", 0)
-        .gte("work_date", monthStart)
-        .order("work_date", { ascending: false });
-      if (error) throw error;
-      setNaughtyDrilldownRecords((data || []).map((r: any) => ({
-        work_date: r.work_date,
-        late_minutes: r.late_minutes,
-        scheduled_start: r.scheduled_start,
-        actual_start: r.actual_start,
-        deduction_rule_name: r.deduction_rules ? (language === 'ar' ? r.deduction_rules.rule_name_ar || r.deduction_rules.rule_name : r.deduction_rules.rule_name) : null,
-      })));
+
+      const [tsRes, delaysRes] = await Promise.all([
+        supabase
+          .from("timesheets")
+          .select("work_date, late_minutes, scheduled_start, actual_start, deduction_rules(rule_name, rule_name_ar)")
+          .eq("employee_id", employeeId)
+          .gt("late_minutes", 0)
+          .gte("work_date", monthStart)
+          .order("work_date", { ascending: false }),
+        supabase
+          .from("employee_requests")
+          .select("delay_date")
+          .eq("employee_id", employeeId)
+          .eq("request_type", "delay")
+          .eq("status", "approved")
+          .not("delay_date", "is", null),
+      ]);
+
+      if (tsRes.error) throw tsRes.error;
+
+      const approvedDates = new Set((delaysRes.data || []).map((r: any) => r.delay_date));
+
+      setNaughtyDrilldownRecords((tsRes.data || [])
+        .filter((r: any) => !approvedDates.has(r.work_date))
+        .map((r: any) => ({
+          work_date: r.work_date,
+          late_minutes: r.late_minutes,
+          scheduled_start: r.scheduled_start,
+          actual_start: r.actual_start,
+          deduction_rule_name: r.deduction_rules ? (language === 'ar' ? r.deduction_rules.rule_name_ar || r.deduction_rules.rule_name : r.deduction_rules.rule_name) : null,
+        })));
     } catch (error) {
       console.error("Error fetching drilldown:", error);
     } finally {
