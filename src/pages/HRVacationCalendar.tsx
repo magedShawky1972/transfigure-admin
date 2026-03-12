@@ -247,7 +247,8 @@ const HRVacationCalendar = () => {
     setFormData({
       holiday_name: holiday.holiday_name,
       holiday_name_ar: holiday.holiday_name_ar || "",
-      holiday_date: holiday.holiday_date,
+      holiday_date_from: holiday.holiday_date,
+      holiday_date_to: holiday.holiday_date,
       is_recurring: holiday.is_recurring,
       description: holiday.description || "",
       religion: holiday.religion || "all",
