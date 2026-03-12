@@ -123,6 +123,7 @@ const ApiIntegrationStatus = () => {
   const [isClearing, setIsClearing] = useState(false);
   const [apiMode, setApiMode] = useState<'test' | 'production'>('test');
   const [savingMode, setSavingMode] = useState(false);
+  const [processingApi, setProcessingApi] = useState(false);
 
   useEffect(() => {
     fetchApiMode();
