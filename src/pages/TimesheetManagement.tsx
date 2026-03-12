@@ -565,7 +565,7 @@ export default function TimesheetManagement() {
       // Fetch approved vacation/sick leave requests that overlap with the date range
       const { data: approvedLeaves } = await supabase
         .from("employee_requests")
-        .select("employee_id, start_date, end_date, request_type")
+        .select("employee_id, start_date, end_date, request_type, delay_date")
         .in("request_type", ["vacation", "sick_leave"])
         .eq("status", "approved")
         .lte("start_date", vacDateTo)
@@ -578,6 +578,14 @@ export default function TimesheetManagement() {
         .eq("status", "approved")
         .lte("start_date", vacDateTo)
         .gte("end_date", vacDateFrom);
+
+      // Fetch approved delay and early_leave requests that overlap with the date range
+      const { data: approvedDelays } = await supabase
+        .from("employee_requests")
+        .select("employee_id, delay_date, request_type")
+        .in("request_type", ["delay", "early_leave"])
+        .eq("status", "approved")
+        .not("delay_date", "is", null);
 
       // Build a set of employee_id + date combos that are vacation days
       const vacationDays = new Set<string>();
@@ -596,16 +604,38 @@ export default function TimesheetManagement() {
         }
       });
 
-      // Mail status + auto-detect vacation days
+      // Build sets for approved delay/early_leave dates
+      const approvedDelayDays = new Set<string>();
+      const approvedEarlyLeaveDays = new Set<string>();
+      (approvedDelays || []).forEach((req: any) => {
+        const key = `${req.employee_id}_${req.delay_date}`;
+        if (req.request_type === "delay") {
+          approvedDelayDays.add(key);
+        } else if (req.request_type === "early_leave") {
+          approvedEarlyLeaveDays.add(key);
+        }
+      });
+
+      // Mail status + auto-detect vacation days + clear delay/early leave for approved requests
       const timesheetsWithMailStatus = (data || []).map(ts => {
         const key = `${ts.employee_id}_${ts.work_date}`;
         const isVacationDay = vacationDays.has(key);
+        const hasApprovedDelay = approvedDelayDays.has(key);
+        const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
           // If this date is covered by an approved leave, show as vacation
           status: isVacationDay ? "vacation" : ts.status,
           is_absent: isVacationDay ? false : ts.is_absent,
+          // Clear late minutes if employee has approved delay request for this date
+          late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
+          // Clear early leave minutes if employee has approved early leave request for this date
+          early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
+          // Clear deduction if delay/early leave is approved
+          deduction_amount: (hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
+          deduction_rule_id: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
+          deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
         };
       });
 
