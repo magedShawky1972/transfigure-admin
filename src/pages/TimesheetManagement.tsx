@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import ExcelJS from "exceljs";
@@ -107,6 +107,8 @@ interface DeductionRule {
   overtime_multiplier: number;
 }
 
+const NAWAF_USER_ID = "6ac2d3f0-775e-401f-87ce-da2e09c14f07";
+
 export default function TimesheetManagement() {
   const { language } = useLanguage();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
@@ -146,6 +148,11 @@ export default function TimesheetManagement() {
     { key: "work_date", direction: "asc" },
     { key: "employee", direction: "asc" },
   ]);
+  const [isNawaf, setIsNawaf] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [monthLocked, setMonthLocked] = useState(false);
+  const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set()); // employee_ids with edit permission
+  const [lockLoading, setLockLoading] = useState(false);
 
   const handleSort = (key: SortKey, ctrlKey: boolean) => {
     setSortCriteria((prev) => {
@@ -275,7 +282,136 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
+    checkCurrentUser();
   }, []);
+
+  // Fetch month lock status whenever the selected month changes
+  const getActiveMonthKey = (): string => {
+    if (filterMode === "month") return selectedMonth;
+    if (filterMode === "date") return selectedDate.substring(0, 7);
+    if (filterMode === "range") return dateFrom.substring(0, 7);
+    return format(new Date(), "yyyy-MM");
+  };
+
+  useEffect(() => {
+    fetchMonthLockStatus();
+  }, [selectedMonth, selectedDate, dateFrom, filterMode]);
+
+  const checkCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        setIsNawaf(user.id === NAWAF_USER_ID);
+      }
+    } catch (error) {
+      console.error("Error checking user:", error);
+    }
+  };
+
+  const fetchMonthLockStatus = async () => {
+    try {
+      const monthKey = getActiveMonthKey();
+      if (!monthKey) return;
+
+      const [lockRes, permRes] = await Promise.all([
+        supabase.from("timesheet_month_locks").select("*").eq("month_key", monthKey).maybeSingle(),
+        supabase.from("timesheet_edit_permissions").select("employee_id").eq("month_key", monthKey).eq("is_active", true),
+      ]);
+
+      setMonthLocked(lockRes.data?.is_confirmed === true);
+      setEditPermissions(new Set((permRes.data || []).map((p: any) => p.employee_id)));
+    } catch (error) {
+      console.error("Error fetching lock status:", error);
+    }
+  };
+
+  const handleConfirmMonth = async () => {
+    const monthKey = getActiveMonthKey();
+    if (!monthKey) return;
+    setLockLoading(true);
+    try {
+      const { error } = await supabase.from("timesheet_month_locks").upsert({
+        month_key: monthKey,
+        is_confirmed: true,
+        confirmed_by: currentUserId,
+        confirmed_at: new Date().toISOString(),
+      }, { onConflict: "month_key" });
+      if (error) throw error;
+
+      // Revoke all edit permissions for this month
+      await supabase.from("timesheet_edit_permissions")
+        .update({ is_active: false })
+        .eq("month_key", monthKey);
+
+      setMonthLocked(true);
+      setEditPermissions(new Set());
+      toast.success(language === "ar" ? "تم تأكيد الشهر وإغلاق التعديل" : "Month confirmed and editing locked");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
+  const handleUnlockMonth = async () => {
+    const monthKey = getActiveMonthKey();
+    if (!monthKey) return;
+    setLockLoading(true);
+    try {
+      const { error } = await supabase.from("timesheet_month_locks").upsert({
+        month_key: monthKey,
+        is_confirmed: false,
+        confirmed_by: null,
+        confirmed_at: null,
+      }, { onConflict: "month_key" });
+      if (error) throw error;
+      setMonthLocked(false);
+      toast.success(language === "ar" ? "تم فتح التعديل للشهر" : "Month editing unlocked");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
+  const handleToggleEmployeeEdit = async (employeeId: string) => {
+    const monthKey = getActiveMonthKey();
+    if (!monthKey) return;
+    
+    const hasPermission = editPermissions.has(employeeId);
+    try {
+      if (hasPermission) {
+        // Revoke permission
+        await supabase.from("timesheet_edit_permissions")
+          .update({ is_active: false })
+          .eq("month_key", monthKey)
+          .eq("employee_id", employeeId);
+        setEditPermissions(prev => { const n = new Set(prev); n.delete(employeeId); return n; });
+        toast.success(language === "ar" ? "تم إغلاق التعديل للموظف" : "Edit closed for employee");
+      } else {
+        // Grant permission
+        await supabase.from("timesheet_edit_permissions").upsert({
+          month_key: monthKey,
+          employee_id: employeeId,
+          granted_by: currentUserId,
+          is_active: true,
+        }, { onConflict: "month_key,employee_id" });
+        setEditPermissions(prev => new Set(prev).add(employeeId));
+        toast.success(language === "ar" ? "تم فتح التعديل للموظف" : "Edit opened for employee");
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const canEditTimesheet = (ts: Timesheet): boolean => {
+    // If month is not locked, everyone can edit
+    if (!monthLocked) return true;
+    // If locked, only employees with explicit permission can be edited (and only by Nawaf or the system)
+    if (isNawaf) return true;
+    return editPermissions.has(ts.employee_id);
+  };
 
   const fetchFrequentlyLateEmployees = async () => {
     try {
@@ -890,11 +1026,37 @@ export default function TimesheetManagement() {
               )}
               {language === "ar" ? "إرسال رسائل الخصم" : "Send Deduction Mails"}
             </Button>
-            <Button onClick={openAddDialog}>
+            {isNawaf && (
+              <>
+                {monthLocked ? (
+                  <Button variant="outline" onClick={handleUnlockMonth} disabled={lockLoading} className="border-amber-500 text-amber-600 hover:bg-amber-50">
+                    {lockLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Unlock className="h-4 w-4 mr-2" />}
+                    {language === "ar" ? "فتح التعديل" : "Unlock Edit"}
+                  </Button>
+                ) : (
+                  <Button variant="default" onClick={handleConfirmMonth} disabled={lockLoading} className="bg-green-600 hover:bg-green-700">
+                    {lockLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                    {language === "ar" ? "تأكيد الشهر" : "Confirm Month"}
+                  </Button>
+                )}
+              </>
+            )}
+            <Button onClick={openAddDialog} disabled={monthLocked && !isNawaf}>
               <Plus className="h-4 w-4 mr-2" />
               {language === "ar" ? "إضافة سجل" : "Add Entry"}
             </Button>
           </div>
+          {/* Month Lock Status Banner */}
+          {monthLocked && (
+            <div className="mb-4 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-600" />
+              <span className="font-medium text-amber-700 dark:text-amber-400">
+                {language === "ar" 
+                  ? "هذا الشهر مؤكد - التعديل مغلق. فقط نواف يستطيع فتح التعديل لموظف معين."
+                  : "This month is confirmed - editing is locked. Only Nawaf can open editing for specific employees."}
+              </span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {/* Filters */}
@@ -1167,10 +1329,24 @@ export default function TimesheetManagement() {
                       <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)}>
-                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)} disabled={!canEditTimesheet(ts)}>
+                            <Pencil className={`h-4 w-4 ${canEditTimesheet(ts) ? "text-muted-foreground" : "text-muted-foreground/30"}`} />
                           </Button>
-                          {ts.status === "pending" && (
+                          {isNawaf && monthLocked && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleToggleEmployeeEdit(ts.employee_id)}
+                              title={editPermissions.has(ts.employee_id) 
+                                ? (language === "ar" ? "إغلاق التعديل" : "Close edit") 
+                                : (language === "ar" ? "فتح التعديل" : "Open edit")}
+                            >
+                              {editPermissions.has(ts.employee_id) 
+                                ? <Unlock className="h-4 w-4 text-green-600" /> 
+                                : <Lock className="h-4 w-4 text-amber-500" />}
+                            </Button>
+                          )}
+                          {ts.status === "pending" && canEditTimesheet(ts) && (
                             <>
                               <Button variant="ghost" size="icon" onClick={() => handleApprove(ts.id)}>
                                 <CheckCircle className="h-4 w-4 text-green-600" />
