@@ -416,8 +416,9 @@ export default function TimesheetManagement() {
 
   const fetchFrequentlyLateEmployees = async () => {
     try {
-      // Fetch timesheets with late minutes > 0 from the last 30 days
-      const thirtyDaysAgo = format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+      // Fetch timesheets with late minutes > 0 from the current month only
+      const now = new Date();
+      const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
       
       const { data, error } = await supabase
         .from("timesheets")
