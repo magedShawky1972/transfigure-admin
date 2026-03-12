@@ -357,6 +357,42 @@ const SupplierAdvancePayment = () => {
     }
   };
 
+  const sendPhaseNotification = async (targetPhase: string) => {
+    try {
+      const supplierName = suppliers.find(s => s.id === supplierId)?.supplier_name || "";
+      const currencyCode = currencies.find(c => c.id === currencyId)?.currency_code || "";
+      const amount = parseFloat(transactionAmount) || 0;
+
+      // Get assigned users for the target phase
+      const { data: assignments } = await supabase
+        .from("advance_payment_workflow_assignments" as any)
+        .select("user_id, user_name")
+        .eq("phase", targetPhase);
+
+      const usersToNotify = assignments || [];
+      const sentUserIds = new Set<string>();
+
+      for (const assigned of usersToNotify) {
+        if (sentUserIds.has(assigned.user_id)) continue;
+        sentUserIds.add(assigned.user_id);
+        supabase.functions.invoke("send-advance-payment-notification", {
+          body: {
+            type: "phase_transition",
+            userId: assigned.user_id,
+            userName: assigned.user_name || "",
+            supplierName,
+            phase: targetPhase,
+            paymentId: selectedPaymentId,
+            transactionAmount: amount,
+            currencyCode,
+          },
+        }).catch(err => console.error("Notification error:", err));
+      }
+    } catch (err) {
+      console.error("Failed to send phase notifications:", err);
+    }
+  };
+
   const handleConfirmToReceiving = async () => {
     if (!selectedPaymentId) return;
     try {
@@ -369,6 +405,7 @@ const SupplierAdvancePayment = () => {
         current_phase: "receiving",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
+      await sendPhaseNotification("receiving");
       toast.success(isArabic ? "تم التأكيد والإرسال للاستلام بنجاح" : "Confirmed and sent to Receiving successfully");
       resetForm();
       setView("list");
@@ -393,6 +430,7 @@ const SupplierAdvancePayment = () => {
         current_phase: "accounting",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
+      await sendPhaseNotification("accounting");
       toast.success(isArabic ? "تم التأكيد والإرسال للمحاسبة بنجاح" : "Confirmed and sent to Accounting successfully");
       resetForm();
       setView("list");
