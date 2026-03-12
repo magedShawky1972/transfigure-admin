@@ -357,7 +357,7 @@ const SupplierAdvancePayment = () => {
     }
   };
 
-  const handleSendForReceiving = async () => {
+  const handleConfirmToReceiving = async () => {
     if (!selectedPaymentId) return;
     if (!receivingImage) {
       toast.error(isArabic ? "يرجى رفع صورة رصيد المورد" : "Please upload supplier balance screenshot");
@@ -375,32 +375,30 @@ const SupplierAdvancePayment = () => {
         current_phase: "receiving",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      setSentForReceiving(true);
-      setCurrentPhase("receiving");
-      toast.success(isArabic ? "تم الإرسال للاستلام بنجاح" : "Sent for receiving successfully");
+      toast.success(isArabic ? "تم التأكيد والإرسال للاستلام بنجاح" : "Confirmed and sent to Receiving successfully");
+      resetForm();
+      setView("list");
       fetchPayments();
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  const handleAccountingToggle = async (checked: boolean) => {
+  const handleConfirmToAccounting = async () => {
     if (!selectedPaymentId) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
       const { error } = await supabase.from("supplier_advance_payments").update({
-        accounting_recorded: checked,
-        accounting_recorded_at: checked ? new Date().toISOString() : null,
-        accounting_recorded_by: checked ? (profile?.user_name || user?.email) : null,
-        current_phase: checked ? "accounting" : "receiving",
+        accounting_recorded: true,
+        accounting_recorded_at: new Date().toISOString(),
+        accounting_recorded_by: profile?.user_name || user?.email,
+        current_phase: "accounting",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      setAccountingRecorded(checked);
-      setCurrentPhase(checked ? "accounting" : "receiving");
-      toast.success(checked
-        ? (isArabic ? "تم تسجيل القيد المحاسبي" : "Accounting record saved")
-        : (isArabic ? "تم إلغاء القيد المحاسبي" : "Accounting record removed"));
+      toast.success(isArabic ? "تم التأكيد والإرسال للمحاسبة بنجاح" : "Confirmed and sent to Accounting successfully");
+      resetForm();
+      setView("list");
       fetchPayments();
     } catch (err: any) {
       toast.error(err.message);
@@ -741,9 +739,9 @@ const SupplierAdvancePayment = () => {
 
                 {!sentForReceiving && (
                   <div className="flex justify-end">
-                    <Button onClick={handleSendForReceiving} className="min-w-[200px]" variant="default">
+                    <Button onClick={handleConfirmToReceiving} className="min-w-[200px]" variant="default">
                       <Send className="h-4 w-4 mr-1" />
-                      {isArabic ? "إرسال للاستلام" : "Send For Receiving"}
+                      {isArabic ? "تأكيد وإرسال للاستلام" : "Confirm and Send to Receiving"}
                     </Button>
                   </div>
                 )}
@@ -752,27 +750,20 @@ const SupplierAdvancePayment = () => {
           )}
 
           {/* Step 3: Accounting Record - only after receiving */}
-          {selectedPaymentId && sentForReceiving && (
-            <Card className={accountingRecorded ? "border-emerald-500/30" : ""}>
+          {selectedPaymentId && sentForReceiving && !accountingRecorded && (
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${accountingRecorded ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>
-                    {accountingRecorded ? <Check className="h-3 w-3" /> : "3"}
-                  </div>
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">3</div>
                   {isArabic ? "القيد المحاسبي - تسجيل في Odoo" : "Accounting Record - Enter In Odoo"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/30">
-                  <Checkbox
-                    id="accounting-recorded"
-                    checked={accountingRecorded}
-                    onCheckedChange={(checked) => handleAccountingToggle(checked as boolean)}
-                  />
-                  <label htmlFor="accounting-recorded" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                    <BookCheck className="h-4 w-4" />
-                    {isArabic ? "تم تسجيل هذه المعاملة في النظام المحاسبي (Odoo)" : "This transaction has been recorded in the accounting system (Odoo)"}
-                  </label>
+                <div className="flex justify-end">
+                  <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
+                    <BookCheck className="h-4 w-4 mr-1" />
+                    {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm and Send to Accounting"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
