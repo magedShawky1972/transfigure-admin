@@ -1736,7 +1736,7 @@ export default function TimesheetManagement() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            {language === 'ar' ? 'آخر 30 يوم' : 'Last 30 days'}
+            {language === 'ar' ? 'الشهر الحالي' : 'Current month'}
           </p>
           <div className="rounded-md border">
             <Table>
