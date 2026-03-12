@@ -417,8 +417,26 @@ const SupplierAdvancePayment = () => {
     return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white">{isArabic ? "محاسبة" : "Recorded"}</Badge>;
   };
 
+  const [phaseFilter, setPhaseFilter] = useState<"all" | "entry" | "receiving" | "accounting">("all");
+
+  const phaseCounts = {
+    all: payments.length,
+    entry: payments.filter(p => getPhaseFromPayment(p) === "entry").length,
+    receiving: payments.filter(p => getPhaseFromPayment(p) === "receiving").length,
+    accounting: payments.filter(p => getPhaseFromPayment(p) === "accounting").length,
+  };
+
+  const filteredPayments = phaseFilter === "all" ? payments : payments.filter(p => getPhaseFromPayment(p) === phaseFilter);
+
   if (accessLoading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (!hasAccess) return <AccessDenied />;
+
+  const phaseTabButtons: { key: "all" | "entry" | "receiving" | "accounting"; labelEn: string; labelAr: string }[] = [
+    { key: "all", labelEn: "All", labelAr: "الكل" },
+    { key: "entry", labelEn: "Entry", labelAr: "إدخال" },
+    { key: "receiving", labelEn: "Receiving", labelAr: "استلام" },
+    { key: "accounting", labelEn: "Recorded", labelAr: "محاسبة" },
+  ];
 
   return (
     <div className="p-4 space-y-4" dir={isArabic ? "rtl" : "ltr"}>
@@ -438,7 +456,21 @@ const SupplierAdvancePayment = () => {
       </div>
 
       {view === "list" ? (
-        <Card>
+        <>
+          <div className="flex flex-wrap gap-2">
+            {phaseTabButtons.map(tab => (
+              <Button
+                key={tab.key}
+                variant={phaseFilter === tab.key ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPhaseFilter(tab.key)}
+                className="min-w-[100px]"
+              >
+                {isArabic ? tab.labelAr : tab.labelEn} ({phaseCounts[tab.key]})
+              </Button>
+            ))}
+          </div>
+          <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
@@ -456,7 +488,7 @@ const SupplierAdvancePayment = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((p) => (
+                {filteredPayments.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{(p.suppliers as any)?.supplier_name || "-"}</TableCell>
                     <TableCell>{p.payment_date}</TableCell>
@@ -474,7 +506,7 @@ const SupplierAdvancePayment = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {payments.length === 0 && (
+                {filteredPayments.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد دفعات" : "No payments found"}
@@ -485,6 +517,8 @@ const SupplierAdvancePayment = () => {
             </Table>
           </CardContent>
         </Card>
+        </>
+
       ) : (
         <div className="space-y-4">
           {/* Step Indicators */}
