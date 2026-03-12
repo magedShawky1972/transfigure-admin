@@ -738,27 +738,20 @@ const SupplierAdvancePayment = () => {
           )}
 
           {/* Step 3: Accounting Record - only after receiving */}
-          {selectedPaymentId && sentForReceiving && (
-            <Card className={accountingRecorded ? "border-emerald-500/30" : ""}>
+          {selectedPaymentId && sentForReceiving && !accountingRecorded && (
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${accountingRecorded ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>
-                    {accountingRecorded ? <Check className="h-3 w-3" /> : "3"}
-                  </div>
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">3</div>
                   {isArabic ? "القيد المحاسبي - تسجيل في Odoo" : "Accounting Record - Enter In Odoo"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-3 p-4 rounded-lg border bg-muted/30">
-                  <Checkbox
-                    id="accounting-recorded"
-                    checked={accountingRecorded}
-                    onCheckedChange={(checked) => handleAccountingToggle(checked as boolean)}
-                  />
-                  <label htmlFor="accounting-recorded" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                    <BookCheck className="h-4 w-4" />
-                    {isArabic ? "تم تسجيل هذه المعاملة في النظام المحاسبي (Odoo)" : "This transaction has been recorded in the accounting system (Odoo)"}
-                  </label>
+                <div className="flex justify-end">
+                  <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
+                    <BookCheck className="h-4 w-4 mr-1" />
+                    {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm and Send to Accounting"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
