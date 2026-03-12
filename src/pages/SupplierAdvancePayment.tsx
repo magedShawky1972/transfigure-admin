@@ -52,6 +52,8 @@ const SupplierAdvancePayment = () => {
   const [receivingImage, setReceivingImage] = useState("");
   const [receivingNotes, setReceivingNotes] = useState("");
   const [uploadingReceiving, setUploadingReceiving] = useState(false);
+  const [vendorInvoiceUrl, setVendorInvoiceUrl] = useState("");
+  const [uploadingVendorInvoice, setUploadingVendorInvoice] = useState(false);
 
   // Step 3: Accounting
   const [accountingRecorded, setAccountingRecorded] = useState(false);
