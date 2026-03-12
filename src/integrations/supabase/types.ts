@@ -7433,6 +7433,7 @@ export type Database = {
           supplier_id: string
           transaction_amount: number
           updated_at: string
+          vendor_invoice_url: string | null
         }
         Insert: {
           accounting_recorded?: boolean
@@ -7459,6 +7460,7 @@ export type Database = {
           supplier_id: string
           transaction_amount?: number
           updated_at?: string
+          vendor_invoice_url?: string | null
         }
         Update: {
           accounting_recorded?: boolean
@@ -7485,6 +7487,7 @@ export type Database = {
           supplier_id?: string
           transaction_amount?: number
           updated_at?: string
+          vendor_invoice_url?: string | null
         }
         Relationships: [
           {
