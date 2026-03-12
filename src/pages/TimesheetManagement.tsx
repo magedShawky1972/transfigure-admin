@@ -1026,11 +1026,37 @@ export default function TimesheetManagement() {
               )}
               {language === "ar" ? "إرسال رسائل الخصم" : "Send Deduction Mails"}
             </Button>
-            <Button onClick={openAddDialog}>
+            {isNawaf && (
+              <>
+                {monthLocked ? (
+                  <Button variant="outline" onClick={handleUnlockMonth} disabled={lockLoading} className="border-amber-500 text-amber-600 hover:bg-amber-50">
+                    {lockLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Unlock className="h-4 w-4 mr-2" />}
+                    {language === "ar" ? "فتح التعديل" : "Unlock Edit"}
+                  </Button>
+                ) : (
+                  <Button variant="default" onClick={handleConfirmMonth} disabled={lockLoading} className="bg-green-600 hover:bg-green-700">
+                    {lockLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                    {language === "ar" ? "تأكيد الشهر" : "Confirm Month"}
+                  </Button>
+                )}
+              </>
+            )}
+            <Button onClick={openAddDialog} disabled={monthLocked && !isNawaf}>
               <Plus className="h-4 w-4 mr-2" />
               {language === "ar" ? "إضافة سجل" : "Add Entry"}
             </Button>
           </div>
+          {/* Month Lock Status Banner */}
+          {monthLocked && (
+            <div className="mb-4 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-600" />
+              <span className="font-medium text-amber-700 dark:text-amber-400">
+                {language === "ar" 
+                  ? "هذا الشهر مؤكد - التعديل مغلق. فقط نواف يستطيع فتح التعديل لموظف معين."
+                  : "This month is confirmed - editing is locked. Only Nawaf can open editing for specific employees."}
+              </span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {/* Filters */}
