@@ -652,17 +652,15 @@ export default function TimesheetManagement() {
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
-          // If this date is covered by an approved leave, show as vacation
           status: isVacationDay ? "vacation" : ts.status,
           is_absent: isVacationDay ? false : ts.is_absent,
-          // Clear late minutes if employee has approved delay request for this date
           late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
-          // Clear early leave minutes if employee has approved early leave request for this date
           early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
-          // Clear deduction if delay/early leave is approved
           deduction_amount: (hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
           deduction_rule_id: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
           deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
+          has_approved_delay: hasApprovedDelay,
+          has_approved_early_leave: hasApprovedEarlyLeave,
         };
       });
 
