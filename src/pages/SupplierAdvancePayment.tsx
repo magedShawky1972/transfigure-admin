@@ -253,6 +253,7 @@ const SupplierAdvancePayment = () => {
     setSentForReceiving(false);
     setReceivingImage("");
     setReceivingNotes("");
+    setVendorInvoiceUrl("");
     setAccountingRecorded(false);
     loadedRateRef.current = null;
   };
