@@ -419,23 +419,34 @@ export default function TimesheetManagement() {
       const now = new Date();
       const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd");
       
-      const { data, error } = await supabase
-        .from("timesheets")
-        .select(`
-          employee_id,
-          late_minutes,
-          employees(first_name, last_name, photo_url)
-        `)
-        .gt("late_minutes", 0)
-        .gte("work_date", monthStart);
+      const [timesheetsRes, delaysRes] = await Promise.all([
+        supabase
+          .from("timesheets")
+          .select(`employee_id, work_date, late_minutes, employees(first_name, last_name, photo_url)`)
+          .gt("late_minutes", 0)
+          .gte("work_date", monthStart),
+        supabase
+          .from("employee_requests")
+          .select("employee_id, delay_date")
+          .eq("request_type", "delay")
+          .eq("status", "approved")
+          .not("delay_date", "is", null),
+      ]);
       
-      if (error) throw error;
+      if (timesheetsRes.error) throw timesheetsRes.error;
       
-      // Group by employee and count late occurrences
+      // Build set of approved delay days
+      const approvedDelaySet = new Set<string>();
+      (delaysRes.data || []).forEach((r: any) => approvedDelaySet.add(`${r.employee_id}_${r.delay_date}`));
+      
+      // Group by employee and count late occurrences, excluding approved delays
       const lateCount = new Map<string, {employeeId: string; name: string; count: number; photoUrl: string | null}>();
       
-      (data || []).forEach((record: any) => {
+      (timesheetsRes.data || []).forEach((record: any) => {
         const empId = record.employee_id;
+        const key = `${empId}_${record.work_date}`;
+        if (approvedDelaySet.has(key)) return; // Skip approved delay days
+        
         const empName = record.employees ? `${record.employees.first_name} ${record.employees.last_name}` : "Unknown";
         const photoUrl = record.employees?.photo_url || null;
         
