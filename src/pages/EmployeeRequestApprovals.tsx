@@ -677,6 +677,24 @@ const EmployeeRequestApprovals = () => {
                 </>
               )}
 
+              {(selectedRequest.request_type === 'delay' || selectedRequest.request_type === 'early_leave') && (selectedRequest as any).delay_date && (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{language === 'ar' ? (selectedRequest.request_type === 'early_leave' ? 'تاريخ الانصراف' : 'تاريخ التأخير') : (selectedRequest.request_type === 'early_leave' ? 'Early Leave Date' : 'Delay Date')}</Label>
+                      <p className="font-medium">{(selectedRequest as any).delay_date}</p>
+                    </div>
+                    {(selectedRequest as any).delay_minutes && (
+                      <div className="space-y-1">
+                        <Label className="text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{language === 'ar' ? (selectedRequest.request_type === 'early_leave' ? 'مدة الانصراف المبكر' : 'مدة التأخير') : (selectedRequest.request_type === 'early_leave' ? 'Early Leave Duration' : 'Delay Duration')}</Label>
+                        <p className="font-medium">{(selectedRequest as any).delay_minutes} {language === 'ar' ? 'دقيقة' : 'minutes'}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               {selectedRequest.request_type === 'expense_refund' && selectedRequest.amount && (
                 <>
                   <Separator />
