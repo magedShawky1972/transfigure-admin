@@ -199,47 +199,8 @@ Deno.serve(async (req) => {
     console.log(`Successfully inserted to ${tables.payment}:`, resultData);
     responseMessage = `Payment saved to ${tables.payment} table (${apiMode} mode)`;
 
-    // Auto-trigger: If in production mode, check if order is complete and process it
-    let autoProcessResult = null;
-    if (apiMode === 'production') {
-      const orderNumber = insertData.order_number;
-      if (orderNumber) {
-        try {
-          // Check if header exists and is not yet processed
-          const { data: headerCheck } = await supabase
-            .from('sales_order_header')
-            .select('id, is_processed')
-            .eq('order_number', orderNumber)
-            .single();
-
-          if (headerCheck && !headerCheck.is_processed) {
-            // Check if lines exist
-            const { count: lineCount } = await supabase
-              .from('sales_order_line')
-              .select('*', { count: 'exact', head: true })
-              .eq('order_number', orderNumber);
-
-            if (lineCount && lineCount > 0) {
-              // All 3 components exist — trigger processing
-              console.log(`Auto-triggering processing for order ${orderNumber}`);
-              const { data: processResult, error: processError } = await supabase.functions.invoke(
-                'process-api-to-transactions',
-                { body: { order_number: orderNumber } }
-              );
-              
-              if (processError) {
-                console.error('Auto-process error:', processError);
-              } else {
-                autoProcessResult = processResult;
-                console.log('Auto-process result:', processResult);
-              }
-            }
-          }
-        } catch (autoErr) {
-          console.error('Auto-trigger check error:', autoErr);
-        }
-      }
-    }
+    // Auto-trigger: DISABLED — do not move data from API to purpletransaction until manually enabled
+    const autoProcessResult = null;
 
     await logApiCall();
 
