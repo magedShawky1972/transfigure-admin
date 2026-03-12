@@ -488,7 +488,7 @@ const SupplierAdvancePayment = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((p) => (
+                {filteredPayments.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{(p.suppliers as any)?.supplier_name || "-"}</TableCell>
                     <TableCell>{p.payment_date}</TableCell>
@@ -506,7 +506,7 @@ const SupplierAdvancePayment = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {payments.length === 0 && (
+                {filteredPayments.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد دفعات" : "No payments found"}
@@ -517,6 +517,8 @@ const SupplierAdvancePayment = () => {
             </Table>
           </CardContent>
         </Card>
+        </>
+
       ) : (
         <div className="space-y-4">
           {/* Step Indicators */}
