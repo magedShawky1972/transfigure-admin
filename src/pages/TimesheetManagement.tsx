@@ -1367,7 +1367,7 @@ export default function TimesheetManagement() {
                   </div>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  {language === "ar" ? "آخر 30 يوم (3+ تأخيرات)" : "Last 30 days (3+ delays)"}
+                  {language === "ar" ? "الشهر الحالي (3+ تأخيرات)" : "Current month (3+ delays)"}
                 </p>
               </CardContent>
             </Card>
