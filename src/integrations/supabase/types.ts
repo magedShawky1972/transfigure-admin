@@ -8579,6 +8579,71 @@ export type Database = {
           },
         ]
       }
+      timesheet_edit_permissions: {
+        Row: {
+          employee_id: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          month_key: string
+        }
+        Insert: {
+          employee_id: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          month_key: string
+        }
+        Update: {
+          employee_id?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          month_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_edit_permissions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheet_month_locks: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          is_confirmed: boolean
+          month_key: string
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_confirmed?: boolean
+          month_key: string
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_confirmed?: boolean
+          month_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       timesheets: {
         Row: {
           absence_reason: string | null
