@@ -546,175 +546,179 @@ const SupplierAdvancePayment = () => {
             <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-center gap-2 md:gap-6">
-                  {/* Step 1 */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="text-sm font-medium hidden md:inline">{isArabic ? "الإدخال" : "Entry"}</span>
-                  </div>
-                  <div className={`h-0.5 w-8 md:w-16 ${sentForReceiving ? "bg-primary" : "bg-muted"}`} />
-                  {/* Step 2 */}
-                  <div className="flex items-center gap-2">
-                    <div className={`flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold ${sentForReceiving ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                      {sentForReceiving ? <Check className="h-4 w-4" /> : "2"}
-                    </div>
-                    <span className="text-sm font-medium hidden md:inline">{isArabic ? "الاستلام" : "Receiving"}</span>
-                  </div>
-                  <div className={`h-0.5 w-8 md:w-16 ${accountingRecorded ? "bg-primary" : "bg-muted"}`} />
-                  {/* Step 3 */}
-                  <div className="flex items-center gap-2">
-                    <div className={`flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold ${accountingRecorded ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                      {accountingRecorded ? <Check className="h-4 w-4" /> : "3"}
-                    </div>
-                    <span className="text-sm font-medium hidden md:inline">{isArabic ? "القيد المحاسبي" : "Accounting"}</span>
-                  </div>
+                  {[
+                    { key: "entry", label: isArabic ? "الإدخال" : "Entry", step: 1 },
+                    { key: "receiving", label: isArabic ? "الاستلام" : "Receiving", step: 2 },
+                    { key: "accounting", label: isArabic ? "القيد المحاسبي" : "Accounting", step: 3 },
+                  ].map((s, i, arr) => {
+                    const phases = ["entry", "receiving", "accounting"];
+                    const currentIdx = phases.indexOf(currentPhase);
+                    const stepIdx = phases.indexOf(s.key);
+                    const isCompleted = stepIdx < currentIdx;
+                    const isCurrent = stepIdx === currentIdx;
+                    return (
+                      <div key={s.key} className="flex items-center gap-2">
+                        {i > 0 && <div className={`h-0.5 w-8 md:w-16 ${isCompleted || isCurrent ? "bg-primary" : "bg-muted"}`} />}
+                        <div className={`flex items-center justify-center h-8 w-8 rounded-full text-sm font-bold ${isCompleted ? "bg-primary text-primary-foreground" : isCurrent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                          {isCompleted ? <Check className="h-4 w-4" /> : s.step}
+                        </div>
+                        <span className={`text-sm font-medium hidden md:inline ${isCurrent ? "text-primary" : ""}`}>{s.label}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Step 1: Main Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
-                {isArabic ? "بيانات الدفعة المقدمة" : "Advance Payment Details"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Supplier */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "المورد *" : "Supplier *"}</Label>
-                <Select value={supplierId} onValueChange={setSupplierId}>
-                  <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select Supplier"} /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Date */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
-                <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
-              </div>
-
-              {/* Currency */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "العملة *" : "Currency *"}</Label>
-                <Select value={currencyId} onValueChange={v => { setCurrencyId(v); loadedRateRef.current = null; }}>
-                  <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العملة" : "Select Currency"} /></SelectTrigger>
-                  <SelectContent>
-                    {currencies.map(c => <SelectItem key={c.id} value={c.id}>{c.currency_code} - {c.currency_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Exchange Rate */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "سعر الصرف" : "Exchange Rate"}</Label>
-                <Input type="number" step="any" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} />
-              </div>
-
-              {/* Transaction Amount */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "مبلغ المعاملة *" : "Transaction Amount *"}</Label>
-                <Input type="number" step="any" value={transactionAmount} onChange={e => setTransactionAmount(e.target.value)} className="text-lg font-bold" />
-              </div>
-
-              {/* Bank Fee */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "رسوم التحويل البنكي" : "Bank Transfer Fee"}</Label>
-                <Input type="number" step="any" value={bankFee} onChange={e => setBankFee(e.target.value)} />
-              </div>
-
-              {/* Base Amount (calculated) */}
-              <div className="space-y-2">
-                <Label>{isArabic ? "المبلغ الأساسي (ريال)" : "Base Amount (SAR)"}</Label>
-                <Input type="number" value={baseAmount} readOnly className="bg-muted font-bold text-lg" />
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
-                <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Bank Transfer Image */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <label className="cursor-pointer">
-                  <Button variant="outline" asChild disabled={uploading}>
-                    <span>
-                      <Upload className="h-4 w-4 mr-1" />
-                      {uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع صورة" : "Upload Image")}
-                    </span>
-                  </Button>
-                  <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleImageUpload} disabled={uploading} />
-                </label>
-                {bankTransferImage && (
-                  <Button variant="outline" size="sm" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
-                    <Download className="h-4 w-4 mr-1" />
-                    {isArabic ? "تحميل" : "Download"}
-                  </Button>
-                )}
-              </div>
-              {bankTransferImage && (
-                <div className="relative">
-                  {isPdf(bankTransferImage) ? (
-                    <iframe
-                      src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`}
-                      title="Transfer"
-                      className="w-full h-[400px] rounded-lg border"
-                    />
-                  ) : (
-                    <img src={bankTransferImage} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
-                  )}
-                  <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => { setPreviewImageUrl(bankTransferImage); setShowImagePreview(true); }}>
-                    <Maximize2 className="h-4 w-4" />
-                  </Button>
+          {/* Payment Summary Header - shown in receiving/accounting phases */}
+          {selectedPaymentId && currentPhase !== "entry" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{isArabic ? "بيانات الدفعة" : "Payment Summary"}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div><span className="text-muted-foreground">{isArabic ? "المورد:" : "Supplier:"}</span> <span className="font-medium">{suppliers.find(s => s.id === supplierId)?.supplier_name || "-"}</span></div>
+                  <div><span className="text-muted-foreground">{isArabic ? "التاريخ:" : "Date:"}</span> <span className="font-medium">{paymentDate}</span></div>
+                  <div><span className="text-muted-foreground">{isArabic ? "المبلغ:" : "Amount:"}</span> <span className="font-medium">{Number(transactionAmount).toLocaleString()} {currencies.find(c => c.id === currencyId)?.currency_code || ""}</span></div>
+                  <div><span className="text-muted-foreground">{isArabic ? "المبلغ الأساسي:" : "Base Amount:"}</span> <span className="font-bold">{Number(baseAmount).toLocaleString()} SAR</span></div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {bankTransferImage && (
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm" onClick={() => { setPreviewImageUrl(bankTransferImage); setShowImagePreview(true); }}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      {isArabic ? "عرض صورة التحويل" : "View Transfer Image"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Save Button for Step 1 */}
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving} className="min-w-[200px]">
-              <Save className="h-4 w-4 mr-1" />
-              {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ الدفعة" : "Save Payment")}
-            </Button>
-          </div>
+          {/* ============ STEP 1: ENTRY ============ */}
+          {currentPhase === "entry" && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
+                    {isArabic ? "بيانات الدفعة المقدمة" : "Advance Payment Details"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "المورد *" : "Supplier *"}</Label>
+                    <Select value={supplierId} onValueChange={setSupplierId}>
+                      <SelectTrigger><SelectValue placeholder={isArabic ? "اختر المورد" : "Select Supplier"} /></SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
+                    <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "العملة *" : "Currency *"}</Label>
+                    <Select value={currencyId} onValueChange={v => { setCurrencyId(v); loadedRateRef.current = null; }}>
+                      <SelectTrigger><SelectValue placeholder={isArabic ? "اختر العملة" : "Select Currency"} /></SelectTrigger>
+                      <SelectContent>
+                        {currencies.map(c => <SelectItem key={c.id} value={c.id}>{c.currency_code} - {c.currency_name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "سعر الصرف" : "Exchange Rate"}</Label>
+                    <Input type="number" step="any" value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "مبلغ المعاملة *" : "Transaction Amount *"}</Label>
+                    <Input type="number" step="any" value={transactionAmount} onChange={e => setTransactionAmount(e.target.value)} className="text-lg font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "رسوم التحويل البنكي" : "Bank Transfer Fee"}</Label>
+                    <Input type="number" step="any" value={bankFee} onChange={e => setBankFee(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "المبلغ الأساسي (ريال)" : "Base Amount (SAR)"}</Label>
+                    <Input type="number" value={baseAmount} readOnly className="bg-muted font-bold text-lg" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>{isArabic ? "ملاحظات" : "Notes"}</Label>
+                    <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Step 2: Send For Receiving - only after save */}
-          {selectedPaymentId && (
-            <Card className={sentForReceiving ? "border-primary/30" : ""}>
+              {/* Bank Transfer Image */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>{isArabic ? "صورة التحويل البنكي" : "Bank Transfer Image"}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <label className="cursor-pointer">
+                      <Button variant="outline" asChild disabled={uploading}>
+                        <span>
+                          <Upload className="h-4 w-4 mr-1" />
+                          {uploading ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع صورة" : "Upload Image")}
+                        </span>
+                      </Button>
+                      <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleImageUpload} disabled={uploading} />
+                    </label>
+                    {bankTransferImage && (
+                      <Button variant="outline" size="sm" onClick={() => downloadFile(bankTransferImage, "bank-transfer")}>
+                        <Download className="h-4 w-4 mr-1" />
+                        {isArabic ? "تحميل" : "Download"}
+                      </Button>
+                    )}
+                  </div>
+                  {bankTransferImage && (
+                    <div className="relative">
+                      {isPdf(bankTransferImage) ? (
+                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`} title="Transfer" className="w-full h-[400px] rounded-lg border" />
+                      ) : (
+                        <img src={bankTransferImage} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
+                      )}
+                      <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => { setPreviewImageUrl(bankTransferImage); setShowImagePreview(true); }}>
+                        <Maximize2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <Button onClick={handleSave} disabled={saving} className="min-w-[200px]">
+                  <Save className="h-4 w-4 mr-1" />
+                  {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ الدفعة" : "Save Payment")}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ============ STEP 2: RECEIVING ============ */}
+          {currentPhase === "receiving" && selectedPaymentId && (
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <div className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${sentForReceiving ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                    {sentForReceiving ? <Check className="h-3 w-3" /> : "2"}
-                  </div>
-                  {isArabic ? "إرسال للاستلام - صورة رصيد المورد" : "Send For Receiving - Supplier Balance Screenshot"}
-                  {sentForReceiving && <Badge className="bg-emerald-600 text-white ms-2">{isArabic ? "تم" : "Done"}</Badge>}
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">2</div>
+                  {isArabic ? "الاستلام - صورة رصيد المورد" : "Receiving - Supplier Balance Screenshot"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
                   <label className="cursor-pointer">
-                    <Button variant="outline" asChild disabled={uploadingReceiving || sentForReceiving}>
+                    <Button variant="outline" asChild disabled={uploadingReceiving}>
                       <span>
                         <Upload className="h-4 w-4 mr-1" />
                         {uploadingReceiving ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع صورة الرصيد" : "Upload Balance Screenshot")}
                       </span>
                     </Button>
-                    <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleReceivingImageUpload} disabled={uploadingReceiving || sentForReceiving} />
+                    <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleReceivingImageUpload} disabled={uploadingReceiving} />
                   </label>
                   {receivingImage && (
                     <Button variant="outline" size="sm" onClick={() => downloadFile(receivingImage, "supplier-balance")}>
@@ -727,11 +731,7 @@ const SupplierAdvancePayment = () => {
                 {receivingImage && (
                   <div className="relative">
                     {isPdf(receivingImage) ? (
-                      <iframe
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(receivingImage)}&embedded=true`}
-                        title="Balance"
-                        className="w-full h-[400px] rounded-lg border"
-                      />
+                      <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(receivingImage)}&embedded=true`} title="Balance" className="w-full h-[400px] rounded-lg border" />
                     ) : (
                       <img src={receivingImage} alt="Balance" className="max-w-md max-h-64 rounded-lg border object-contain" />
                     )}
@@ -746,13 +746,13 @@ const SupplierAdvancePayment = () => {
                   <Label className="text-sm font-semibold mb-2 block">{isArabic ? "فاتورة المورد (PDF)" : "Vendor Invoice (PDF)"}</Label>
                   <div className="flex items-center gap-4">
                     <label className="cursor-pointer">
-                      <Button variant="outline" asChild disabled={uploadingVendorInvoice || sentForReceiving}>
+                      <Button variant="outline" asChild disabled={uploadingVendorInvoice}>
                         <span>
                           <FileText className="h-4 w-4 mr-1" />
                           {uploadingVendorInvoice ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع فاتورة المورد" : "Upload Vendor Invoice")}
                         </span>
                       </Button>
-                      <input type="file" className="hidden" accept=".pdf,image/*" onChange={handleVendorInvoiceUpload} disabled={uploadingVendorInvoice || sentForReceiving} />
+                      <input type="file" className="hidden" accept=".pdf,image/*" onChange={handleVendorInvoiceUpload} disabled={uploadingVendorInvoice} />
                     </label>
                     {vendorInvoiceUrl && (
                       <Button variant="outline" size="sm" onClick={() => downloadFile(vendorInvoiceUrl, "vendor-invoice")}>
@@ -764,11 +764,7 @@ const SupplierAdvancePayment = () => {
                   {vendorInvoiceUrl && (
                     <div className="relative mt-3">
                       {isPdf(vendorInvoiceUrl) ? (
-                        <iframe
-                          src={`https://docs.google.com/gview?url=${encodeURIComponent(vendorInvoiceUrl)}&embedded=true`}
-                          title="Vendor Invoice"
-                          className="w-full h-[400px] rounded-lg border"
-                        />
+                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(vendorInvoiceUrl)}&embedded=true`} title="Vendor Invoice" className="w-full h-[400px] rounded-lg border" />
                       ) : (
                         <img src={vendorInvoiceUrl} alt="Vendor Invoice" className="max-w-md max-h-64 rounded-lg border object-contain" />
                       )}
@@ -779,43 +775,14 @@ const SupplierAdvancePayment = () => {
                   )}
                 </div>
 
-                {!sentForReceiving && (
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "ملاحظات الاستلام" : "Receiving Notes"}</Label>
-                    <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
-                  </div>
-                )}
-                {receivingNotes && sentForReceiving && (
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-medium">{isArabic ? "ملاحظات:" : "Notes:"}</span> {receivingNotes}
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label>{isArabic ? "ملاحظات الاستلام" : "Receiving Notes"}</Label>
+                  <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
+                </div>
 
-                {!sentForReceiving && (
-                  <div className="flex justify-end">
-                    <Button onClick={handleConfirmToReceiving} className="min-w-[200px]" variant="default">
-                      <Send className="h-4 w-4 mr-1" />
-                      {isArabic ? "تأكيد وإرسال للاستلام" : "Confirm and Send to Receiving"}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 3: Accounting Record - only after receiving */}
-          {selectedPaymentId && sentForReceiving && !accountingRecorded && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">3</div>
-                  {isArabic ? "القيد المحاسبي - تسجيل في Odoo" : "Accounting Record - Enter In Odoo"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
                 <div className="flex justify-end">
-                  <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
-                    <BookCheck className="h-4 w-4 mr-1" />
+                  <Button onClick={handleConfirmToReceiving} className="min-w-[200px]" variant="default">
+                    <Send className="h-4 w-4 mr-1" />
                     {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm and Send to Accounting"}
                   </Button>
                 </div>
@@ -823,7 +790,27 @@ const SupplierAdvancePayment = () => {
             </Card>
           )}
 
-          {/* Attachments section - only show after save */}
+          {/* ============ STEP 3: ACCOUNTING ============ */}
+          {currentPhase === "accounting" && selectedPaymentId && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
+                  {isArabic ? "القيد المحاسبي - تسجيل في Odoo" : "Accounting Record - Enter In Odoo"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-end">
+                  <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
+                    <BookCheck className="h-4 w-4 mr-1" />
+                    {isArabic ? "تأكيد التسجيل" : "Confirm Record"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Attachments section */}
           {selectedPaymentId && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
