@@ -343,6 +343,7 @@ const ApiIntegrationStatus = () => {
             {language === 'ar' ? 'تحديث' : 'Refresh'}
           </Button>
         </div>
+      </div>
 
       {/* Mode Toggle */}
       <Card>
