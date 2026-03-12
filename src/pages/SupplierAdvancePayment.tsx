@@ -274,6 +274,7 @@ const SupplierAdvancePayment = () => {
     setSentForReceiving(payment.sent_for_receiving || false);
     setReceivingImage(payment.receiving_image || "");
     setReceivingNotes(payment.receiving_notes || "");
+    setVendorInvoiceUrl(payment.vendor_invoice_url || "");
     setAccountingRecorded(payment.accounting_recorded || false);
     await fetchAttachments(payment.id);
     setView("form");
