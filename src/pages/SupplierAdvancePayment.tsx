@@ -804,7 +804,7 @@ const SupplierAdvancePayment = () => {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={handleConfirmToReceiving} className="min-w-[200px]" variant="default">
+                  <Button onClick={handleConfirmReceivingToAccounting} className="min-w-[200px]" variant="default">
                     <Send className="h-4 w-4 mr-1" />
                     {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm and Send to Accounting"}
                   </Button>
