@@ -1329,10 +1329,24 @@ export default function TimesheetManagement() {
                       <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)}>
-                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)} disabled={!canEditTimesheet(ts)}>
+                            <Pencil className={`h-4 w-4 ${canEditTimesheet(ts) ? "text-muted-foreground" : "text-muted-foreground/30"}`} />
                           </Button>
-                          {ts.status === "pending" && (
+                          {isNawaf && monthLocked && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleToggleEmployeeEdit(ts.employee_id)}
+                              title={editPermissions.has(ts.employee_id) 
+                                ? (language === "ar" ? "إغلاق التعديل" : "Close edit") 
+                                : (language === "ar" ? "فتح التعديل" : "Open edit")}
+                            >
+                              {editPermissions.has(ts.employee_id) 
+                                ? <Unlock className="h-4 w-4 text-green-600" /> 
+                                : <Lock className="h-4 w-4 text-amber-500" />}
+                            </Button>
+                          )}
+                          {ts.status === "pending" && canEditTimesheet(ts) && (
                             <>
                               <Button variant="ghost" size="icon" onClick={() => handleApprove(ts.id)}>
                                 <CheckCircle className="h-4 w-4 text-green-600" />
