@@ -188,6 +188,36 @@ const SupplierAdvancePayment = () => {
     }
   };
 
+  const handleVendorInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedPaymentId) return;
+    setUploadingVendorInvoice(true);
+    try {
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      const resourceType = isImage ? "image" : isVideo ? "video" : "raw";
+      const publicId = `supplier-advance-vendor-invoice/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const { data, error } = await supabase.functions.invoke("upload-to-cloudinary", {
+        body: { imageBase64: base64, folder: "Edara_Images", publicId, resourceType },
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error("Upload failed");
+      setVendorInvoiceUrl(data.url);
+      await supabase.from("supplier_advance_payments").update({ vendor_invoice_url: data.url } as any).eq("id", selectedPaymentId);
+      toast.success(isArabic ? "تم رفع فاتورة المورد بنجاح" : "Vendor invoice uploaded successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploadingVendorInvoice(false);
+      e.target.value = "";
+    }
+  };
+
   const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedPaymentId) return;
