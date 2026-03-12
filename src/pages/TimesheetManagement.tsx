@@ -962,6 +962,155 @@ export default function TimesheetManagement() {
     }
   };
 
+  const handlePrintDeductionSummary = () => {
+    const isAr = language === "ar";
+    
+    // Group by employee and sum deductions
+    const employeeDeductions = new Map<string, {
+      empNumber: string;
+      name: string;
+      totalDeduction: number;
+      totalOvertime: number;
+      lateCount: number;
+      absentCount: number;
+      totalLateMinutes: number;
+      rules: Map<string, { name: string; count: number; amount: number }>;
+    }>();
+
+    sortedTimesheets.forEach(ts => {
+      const empId = ts.employee_id;
+      const empName = ts.employees ? `${ts.employees.first_name} ${ts.employees.last_name}` : "-";
+      const empNumber = ts.employees?.employee_number || "-";
+
+      if (!employeeDeductions.has(empId)) {
+        employeeDeductions.set(empId, {
+          empNumber,
+          name: empName,
+          totalDeduction: 0,
+          totalOvertime: 0,
+          lateCount: 0,
+          absentCount: 0,
+          totalLateMinutes: 0,
+          rules: new Map(),
+        });
+      }
+
+      const emp = employeeDeductions.get(empId)!;
+      emp.totalDeduction += ts.deduction_amount || 0;
+      emp.totalOvertime += ts.overtime_amount || 0;
+      if (ts.late_minutes > 0) {
+        emp.lateCount++;
+        emp.totalLateMinutes += ts.late_minutes;
+      }
+      if (ts.is_absent) emp.absentCount++;
+
+      if (ts.deduction_rules && ts.deduction_rules.deduction_value > 0) {
+        const ruleName = isAr ? (ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name) : ts.deduction_rules.rule_name;
+        const existing = emp.rules.get(ruleName) || { name: ruleName, count: 0, amount: 0 };
+        existing.count++;
+        existing.amount += ts.deduction_amount || 0;
+        emp.rules.set(ruleName, existing);
+      }
+    });
+
+    // Filter only employees with deductions
+    const withDeductions = Array.from(employeeDeductions.entries())
+      .filter(([_, e]) => e.totalDeduction > 0 || e.absentCount > 0)
+      .sort((a, b) => b[1].totalDeduction - a[1].totalDeduction);
+
+    if (withDeductions.length === 0) {
+      toast.info(isAr ? "لا توجد خصومات للطباعة" : "No deductions to print");
+      return;
+    }
+
+    const filterLabel = filterMode === "date"
+      ? `${isAr ? "التاريخ" : "Date"}: ${selectedDate}`
+      : filterMode === "month"
+        ? `${isAr ? "الشهر" : "Month"}: ${selectedMonth}`
+        : `${isAr ? "من" : "From"}: ${dateFrom} - ${isAr ? "إلى" : "To"}: ${dateTo}`;
+
+    const logoUrl = getPrintLogoUrl();
+
+    const grandTotalDeduction = withDeductions.reduce((s, [_, e]) => s + e.totalDeduction, 0);
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html dir="${isAr ? 'rtl' : 'ltr'}">
+      <head>
+        <title>${isAr ? "ملخص الخصومات" : "Deduction Summary"}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; color: #1a1a2e; font-size: 12px; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1a1a2e; padding-bottom: 15px; }
+          .header img { height: 50px; margin-bottom: 8px; }
+          .header h1 { font-size: 18px; margin-bottom: 4px; }
+          .header p { font-size: 12px; color: #666; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #1a1a2e; color: white; padding: 8px 6px; text-align: ${isAr ? 'right' : 'left'}; font-size: 11px; }
+          td { padding: 7px 6px; border-bottom: 1px solid #ddd; font-size: 11px; }
+          tr:nth-child(even) { background: #f8f8fa; }
+          .total-row { font-weight: bold; background: #f0f0f5 !important; border-top: 2px solid #1a1a2e; }
+          .rules-detail { font-size: 10px; color: #666; margin-top: 2px; }
+          .text-red { color: #dc2626; font-weight: 600; }
+          .text-green { color: #16a34a; }
+          .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 10px; }
+          @media print { body { padding: 10px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="${logoUrl}" alt="Logo" />
+          <h1>${isAr ? "ملخص الخصومات" : "Deduction Summary Report"}</h1>
+          <p>${filterLabel}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>${isAr ? "رقم الموظف" : "Emp #"}</th>
+              <th>${isAr ? "الموظف" : "Employee"}</th>
+              <th>${isAr ? "عدد التأخيرات" : "Late Count"}</th>
+              <th>${isAr ? "إجمالي دقائق التأخير" : "Total Late (min)"}</th>
+              <th>${isAr ? "أيام الغياب" : "Absent Days"}</th>
+              <th>${isAr ? "تفاصيل الخصم" : "Deduction Details"}</th>
+              <th>${isAr ? "إجمالي الخصم" : "Total Deduction"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${withDeductions.map(([_, emp], i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${emp.empNumber}</td>
+                <td>${emp.name}</td>
+                <td>${emp.lateCount}</td>
+                <td>${emp.totalLateMinutes}</td>
+                <td>${emp.absentCount || "-"}</td>
+                <td>
+                  ${Array.from(emp.rules.values()).map(r => 
+                    `<div class="rules-detail">${r.name}: ${r.count}x</div>`
+                  ).join("")}
+                </td>
+                <td class="text-red">${emp.totalDeduction.toFixed(2)}</td>
+              </tr>
+            `).join("")}
+            <tr class="total-row">
+              <td colspan="${isAr ? 7 : 7}" style="text-align: ${isAr ? 'left' : 'right'};">${isAr ? "الإجمالي" : "Grand Total"}</td>
+              <td class="text-red">${grandTotalDeduction.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="footer">
+          ${isAr ? "تم الطباعة بتاريخ" : "Printed on"}: ${format(new Date(), "yyyy-MM-dd HH:mm")}
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 500);
+  };
+
   const getStatusBadge = (status: string, isAbsent: boolean) => {
     if (isAbsent) {
       return <Badge variant="destructive">{language === "ar" ? "غائب" : "Absent"}</Badge>;
