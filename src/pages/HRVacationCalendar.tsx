@@ -74,7 +74,8 @@ const HRVacationCalendar = () => {
   const [formData, setFormData] = useState({
     holiday_name: "",
     holiday_name_ar: "",
-    holiday_date: "",
+    holiday_date_from: "",
+    holiday_date_to: "",
     is_recurring: false,
     description: "",
     religion: "all",
@@ -231,7 +232,8 @@ const HRVacationCalendar = () => {
     setFormData({
       holiday_name: "",
       holiday_name_ar: "",
-      holiday_date: "",
+      holiday_date_from: "",
+      holiday_date_to: "",
       is_recurring: false,
       description: "",
       religion: "all",
@@ -245,7 +247,8 @@ const HRVacationCalendar = () => {
     setFormData({
       holiday_name: holiday.holiday_name,
       holiday_name_ar: holiday.holiday_name_ar || "",
-      holiday_date: holiday.holiday_date,
+      holiday_date_from: holiday.holiday_date,
+      holiday_date_to: holiday.holiday_date,
       is_recurring: holiday.is_recurring,
       description: holiday.description || "",
       religion: holiday.religion || "all",
@@ -255,7 +258,7 @@ const HRVacationCalendar = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.holiday_name || !formData.holiday_date) {
+    if (!formData.holiday_name || !formData.holiday_date_from) {
       toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
       return;
     }
@@ -265,63 +268,96 @@ const HRVacationCalendar = () => {
       return;
     }
 
+    const dateTo = formData.holiday_date_to || formData.holiday_date_from;
+    if (dateTo < formData.holiday_date_from) {
+      toast.error(language === "ar" ? "تاريخ النهاية يجب أن يكون بعد تاريخ البداية" : "End date must be after start date");
+      return;
+    }
+
     try {
-      const holidayData = {
-        holiday_name: formData.holiday_name,
-        holiday_name_ar: formData.holiday_name_ar || null,
-        holiday_date: formData.holiday_date,
-        is_recurring: formData.is_recurring,
-        year: formData.is_recurring ? null : getYear(new Date(formData.holiday_date)),
-        description: formData.description || null,
-        religion: formData.religion || "all"
-      };
-
-      let holidayId: string;
-
       if (editingHoliday) {
+        // Edit mode: update single record
+        const holidayData = {
+          holiday_name: formData.holiday_name,
+          holiday_name_ar: formData.holiday_name_ar || null,
+          holiday_date: formData.holiday_date_from,
+          is_recurring: formData.is_recurring,
+          year: formData.is_recurring ? null : getYear(new Date(formData.holiday_date_from)),
+          description: formData.description || null,
+          religion: formData.religion || "all"
+        };
+
         const { error } = await supabase
           .from("official_holidays" as any)
           .update(holidayData)
           .eq("id", editingHoliday.id);
         
         if (error) throw error;
-        holidayId = editingHoliday.id;
 
         // Delete existing attendance type associations
         await supabase
           .from("holiday_attendance_types" as any)
           .delete()
-          .eq("holiday_id", holidayId);
+          .eq("holiday_id", editingHoliday.id);
+
+        // Insert new attendance type associations
+        if (formData.selected_attendance_types.length > 0) {
+          const associations = formData.selected_attendance_types.map(typeId => ({
+            holiday_id: editingHoliday.id,
+            attendance_type_id: typeId
+          }));
+          const { error: assocError } = await supabase
+            .from("holiday_attendance_types" as any)
+            .insert(associations);
+          if (assocError) throw assocError;
+        }
+
+        toast.success(language === "ar" ? "تم تحديث الإجازة بنجاح" : "Holiday updated successfully");
       } else {
-        const { data: newHoliday, error } = await supabase
-          .from("official_holidays" as any)
-          .insert(holidayData)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        holidayId = (newHoliday as any).id;
+        // Add mode: create one record per day in range
+        const days = eachDayOfInterval({
+          start: new Date(formData.holiday_date_from),
+          end: new Date(dateTo)
+        });
+
+        for (const day of days) {
+          const dateStr = format(day, "yyyy-MM-dd");
+          const holidayData = {
+            holiday_name: formData.holiday_name,
+            holiday_name_ar: formData.holiday_name_ar || null,
+            holiday_date: dateStr,
+            is_recurring: formData.is_recurring,
+            year: formData.is_recurring ? null : getYear(day),
+            description: formData.description || null,
+            religion: formData.religion || "all"
+          };
+
+          const { data: newHoliday, error } = await supabase
+            .from("official_holidays" as any)
+            .insert(holidayData)
+            .select()
+            .single();
+          
+          if (error) throw error;
+
+          if (formData.selected_attendance_types.length > 0) {
+            const associations = formData.selected_attendance_types.map(typeId => ({
+              holiday_id: (newHoliday as any).id,
+              attendance_type_id: typeId
+            }));
+            const { error: assocError } = await supabase
+              .from("holiday_attendance_types" as any)
+              .insert(associations);
+            if (assocError) throw assocError;
+          }
+        }
+
+        toast.success(
+          language === "ar" 
+            ? `تمت إضافة ${days.length} يوم إجازة بنجاح` 
+            : `${days.length} holiday day(s) added successfully`
+        );
       }
-
-      // Insert new attendance type associations
-      if (formData.selected_attendance_types.length > 0) {
-        const associations = formData.selected_attendance_types.map(typeId => ({
-          holiday_id: holidayId,
-          attendance_type_id: typeId
-        }));
-
-        const { error: assocError } = await supabase
-          .from("holiday_attendance_types" as any)
-          .insert(associations);
-
-        if (assocError) throw assocError;
-      }
-
-      toast.success(
-        editingHoliday 
-          ? (language === "ar" ? "تم تحديث الإجازة بنجاح" : "Holiday updated successfully")
-          : (language === "ar" ? "تمت إضافة الإجازة بنجاح" : "Holiday added successfully")
-      );
 
       setDialogOpen(false);
       fetchData();
@@ -695,13 +731,24 @@ const HRVacationCalendar = () => {
                 dir="rtl"
               />
             </div>
-            <div className="space-y-2">
-              <Label>{language === "ar" ? "التاريخ" : "Date"} *</Label>
-              <Input
-                type="date"
-                value={formData.holiday_date}
-                onChange={(e) => setFormData({ ...formData, holiday_date: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "من تاريخ" : "From Date"} *</Label>
+                <Input
+                  type="date"
+                  value={formData.holiday_date_from}
+                  onChange={(e) => setFormData({ ...formData, holiday_date_from: e.target.value, holiday_date_to: formData.holiday_date_to || e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "إلى تاريخ" : "To Date"}</Label>
+                <Input
+                  type="date"
+                  value={formData.holiday_date_to}
+                  onChange={(e) => setFormData({ ...formData, holiday_date_to: e.target.value })}
+                  min={formData.holiday_date_from}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>{language === "ar" ? "أنواع الحضور المؤهلة" : "Eligible Attendance Types"} *</Label>
