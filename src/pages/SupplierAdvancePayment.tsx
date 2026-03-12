@@ -726,22 +726,10 @@ const SupplierAdvancePayment = () => {
                 </div>
 
                 {!sentForReceiving && (
-                  <div className="space-y-2">
-                    <Label>{isArabic ? "ملاحظات الاستلام" : "Receiving Notes"}</Label>
-                    <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
-                  </div>
-                )}
-                {receivingNotes && sentForReceiving && (
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-medium">{isArabic ? "ملاحظات:" : "Notes:"}</span> {receivingNotes}
-                  </div>
-                )}
-
-                {!sentForReceiving && (
                   <div className="flex justify-end">
-                    <Button onClick={handleSendForReceiving} className="min-w-[200px]" variant="default">
+                    <Button onClick={handleConfirmToReceiving} className="min-w-[200px]" variant="default">
                       <Send className="h-4 w-4 mr-1" />
-                      {isArabic ? "إرسال للاستلام" : "Send For Receiving"}
+                      {isArabic ? "تأكيد وإرسال للاستلام" : "Confirm and Send to Receiving"}
                     </Button>
                   </div>
                 )}
