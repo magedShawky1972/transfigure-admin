@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import ExcelJS from "exceljs";
