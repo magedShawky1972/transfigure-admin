@@ -107,6 +107,8 @@ interface DeductionRule {
   overtime_multiplier: number;
 }
 
+const NAWAF_USER_ID = "6ac2d3f0-775e-401f-87ce-da2e09c14f07";
+
 export default function TimesheetManagement() {
   const { language } = useLanguage();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
