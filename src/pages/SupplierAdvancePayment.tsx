@@ -690,11 +690,17 @@ const SupplierAdvancePayment = () => {
               </Card>
 
               {/* Save Button */}
-              <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={saving} className="min-w-[200px]">
+              <div className="flex justify-end gap-3">
+                <Button onClick={handleSave} disabled={saving} variant="outline" className="min-w-[200px]">
                   <Save className="h-4 w-4 mr-1" />
                   {saving ? (isArabic ? "جاري الحفظ..." : "Saving...") : (isArabic ? "حفظ الدفعة" : "Save Payment")}
                 </Button>
+                {selectedPaymentId && (
+                  <Button onClick={handleConfirmToReceiving} className="min-w-[200px]">
+                    <Send className="h-4 w-4 mr-1" />
+                    {isArabic ? "تأكيد وإرسال للاستلام" : "Confirm & Send to Receiving"}
+                  </Button>
+                )}
               </div>
             </>
           )}
