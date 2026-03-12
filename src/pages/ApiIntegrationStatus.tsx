@@ -330,13 +330,9 @@ const ApiIntegrationStatus = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={handleProcessApiOrders} disabled={processingApi} variant="default">
-            {processingApi ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4 mr-2" />
-            )}
-            {language === 'ar' ? 'معالجة الطلبات المعلقة' : 'Process Pending Orders'}
+          <Button onClick={handleProcessApiOrders} disabled={true} variant="default" title={language === 'ar' ? 'معطّل مؤقتاً' : 'Temporarily disabled'}>
+            <Play className="h-4 w-4 mr-2" />
+            {language === 'ar' ? 'معالجة الطلبات المعلقة (معطّل)' : 'Process Pending Orders (Disabled)'}
           </Button>
           <Button onClick={fetchTableCounts} disabled={refreshing} variant="outline">
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
