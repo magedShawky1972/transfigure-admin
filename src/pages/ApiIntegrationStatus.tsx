@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw, Database, TestTube, Factory, Loader2, Trash2, Eye } from "lucide-react";
+import { RefreshCw, Database, TestTube, Factory, Loader2, Trash2, Eye, Play } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -123,6 +123,7 @@ const ApiIntegrationStatus = () => {
   const [isClearing, setIsClearing] = useState(false);
   const [apiMode, setApiMode] = useState<'test' | 'production'>('test');
   const [savingMode, setSavingMode] = useState(false);
+  const [processingApi, setProcessingApi] = useState(false);
 
   useEffect(() => {
     fetchApiMode();
@@ -265,6 +266,43 @@ const ApiIntegrationStatus = () => {
     }
   };
 
+  const handleProcessApiOrders = async () => {
+    setProcessingApi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-api-to-transactions', {
+        body: {},
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: language === 'ar' ? 'تمت المعالجة' : 'Processing Complete',
+        description: language === 'ar'
+          ? `تمت معالجة ${data?.processed || 0} طلب، تم تخطي ${data?.skipped || 0}`
+          : `Processed ${data?.processed || 0} orders, skipped ${data?.skipped || 0}`,
+      });
+
+      if (data?.errors && data.errors.length > 0) {
+        toast({
+          title: language === 'ar' ? 'تحذير' : 'Warning',
+          description: language === 'ar'
+            ? `${data.errors.length} أخطاء أثناء المعالجة`
+            : `${data.errors.length} errors during processing`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error processing API orders:', error);
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: language === 'ar' ? 'فشل في معالجة الطلبات' : 'Failed to process orders',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingApi(false);
+    }
+  };
+
   const getTableColumns = (data: any[]) => {
     if (data.length === 0) return [];
     return Object.keys(data[0]).filter(key => key !== 'id' && key !== 'created_at' && key !== 'updated_at');
@@ -291,10 +329,20 @@ const ApiIntegrationStatus = () => {
               : 'Monitor and manage API integration tables'}
           </p>
         </div>
-        <Button onClick={fetchTableCounts} disabled={refreshing} variant="outline">
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {language === 'ar' ? 'تحديث' : 'Refresh'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleProcessApiOrders} disabled={processingApi} variant="default">
+            {processingApi ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            {language === 'ar' ? 'معالجة الطلبات المعلقة' : 'Process Pending Orders'}
+          </Button>
+          <Button onClick={fetchTableCounts} disabled={refreshing} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {language === 'ar' ? 'تحديث' : 'Refresh'}
+          </Button>
+        </div>
       </div>
 
       {/* Mode Toggle */}

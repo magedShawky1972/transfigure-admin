@@ -5401,7 +5401,9 @@ export type Database = {
           order_status: string | null
           ordernumber: string | null
           payment_brand: string | null
+          payment_card_number: string | null
           payment_method: string | null
+          payment_reference: string | null
           payment_term: string | null
           payment_type: string | null
           player_id: string | null
@@ -5448,7 +5450,9 @@ export type Database = {
           order_status?: string | null
           ordernumber?: string | null
           payment_brand?: string | null
+          payment_card_number?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_term?: string | null
           payment_type?: string | null
           player_id?: string | null
@@ -5495,7 +5499,9 @@ export type Database = {
           order_status?: string | null
           ordernumber?: string | null
           payment_brand?: string | null
+          payment_card_number?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_term?: string | null
           payment_type?: string | null
           player_id?: string | null
@@ -6094,6 +6100,7 @@ export type Database = {
           device_fingerprint: string | null
           id: string
           is_point: boolean | null
+          is_processed: boolean | null
           media: string | null
           order_date: string
           order_date_int: number | null
@@ -6118,6 +6125,7 @@ export type Database = {
           device_fingerprint?: string | null
           id?: string
           is_point?: boolean | null
+          is_processed?: boolean | null
           media?: string | null
           order_date: string
           order_date_int?: number | null
@@ -6142,6 +6150,7 @@ export type Database = {
           device_fingerprint?: string | null
           id?: string
           is_point?: boolean | null
+          is_processed?: boolean | null
           media?: string | null
           order_date?: string
           order_date_int?: number | null
