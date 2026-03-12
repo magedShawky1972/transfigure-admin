@@ -1200,7 +1200,7 @@ export default function TimesheetManagement() {
                 )}
               </>
             )}
-            <Button onClick={openAddDialog} disabled={monthLocked && !isNawaf}>
+            <Button onClick={openAddDialog} disabled={!isNawaf}>
               <Plus className="h-4 w-4 mr-2" />
               {language === "ar" ? "إضافة سجل" : "Add Entry"}
             </Button>
