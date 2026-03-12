@@ -689,7 +689,44 @@ const SupplierAdvancePayment = () => {
                   </div>
                 )}
 
-                {!sentForReceiving && (
+                {/* Vendor Invoice Upload */}
+                <div className="border-t pt-4 mt-4">
+                  <Label className="text-sm font-semibold mb-2 block">{isArabic ? "فاتورة المورد (PDF)" : "Vendor Invoice (PDF)"}</Label>
+                  <div className="flex items-center gap-4">
+                    <label className="cursor-pointer">
+                      <Button variant="outline" asChild disabled={uploadingVendorInvoice || sentForReceiving}>
+                        <span>
+                          <FileText className="h-4 w-4 mr-1" />
+                          {uploadingVendorInvoice ? (isArabic ? "جاري الرفع..." : "Uploading...") : (isArabic ? "رفع فاتورة المورد" : "Upload Vendor Invoice")}
+                        </span>
+                      </Button>
+                      <input type="file" className="hidden" accept=".pdf,image/*" onChange={handleVendorInvoiceUpload} disabled={uploadingVendorInvoice || sentForReceiving} />
+                    </label>
+                    {vendorInvoiceUrl && (
+                      <Button variant="outline" size="sm" onClick={() => downloadFile(vendorInvoiceUrl, "vendor-invoice")}>
+                        <Download className="h-4 w-4 mr-1" />
+                        {isArabic ? "تحميل" : "Download"}
+                      </Button>
+                    )}
+                  </div>
+                  {vendorInvoiceUrl && (
+                    <div className="relative mt-3">
+                      {isPdf(vendorInvoiceUrl) ? (
+                        <iframe
+                          src={`https://docs.google.com/gview?url=${encodeURIComponent(vendorInvoiceUrl)}&embedded=true`}
+                          title="Vendor Invoice"
+                          className="w-full h-[400px] rounded-lg border"
+                        />
+                      ) : (
+                        <img src={vendorInvoiceUrl} alt="Vendor Invoice" className="max-w-md max-h-64 rounded-lg border object-contain" />
+                      )}
+                      <Button variant="secondary" size="icon" className="absolute top-2 left-2 z-10 h-8 w-8" onClick={() => { setPreviewImageUrl(vendorInvoiceUrl); setShowImagePreview(true); }}>
+                        <Maximize2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                   <div className="space-y-2">
                     <Label>{isArabic ? "ملاحظات الاستلام" : "Receiving Notes"}</Label>
                     <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
