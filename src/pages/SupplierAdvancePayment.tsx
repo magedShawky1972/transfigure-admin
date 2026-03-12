@@ -727,6 +727,7 @@ const SupplierAdvancePayment = () => {
                   )}
                 </div>
 
+                {!sentForReceiving && (
                   <div className="space-y-2">
                     <Label>{isArabic ? "ملاحظات الاستلام" : "Receiving Notes"}</Label>
                     <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
