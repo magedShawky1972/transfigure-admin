@@ -367,9 +367,9 @@ const SupplierAdvancePayment = () => {
       const { data: assignments } = await supabase
         .from("advance_payment_workflow_assignments" as any)
         .select("user_id, user_name")
-        .eq("phase", targetPhase);
+        .eq("phase", targetPhase) as any;
 
-      const usersToNotify = assignments || [];
+      const usersToNotify = (assignments || []) as any[];
       const sentUserIds = new Set<string>();
 
       for (const assigned of usersToNotify) {
