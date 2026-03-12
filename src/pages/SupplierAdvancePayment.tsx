@@ -346,10 +346,9 @@ const SupplierAdvancePayment = () => {
       } else {
         const { data, error } = await supabase.from("supplier_advance_payments").insert(paymentData).select("id").single();
         if (error) throw error;
+        setSelectedPaymentId(data.id);
         toast.success(isArabic ? "تم حفظ الدفعة بنجاح" : "Payment saved successfully");
       }
-      resetForm();
-      setView("list");
       fetchPayments();
     } catch (err: any) {
       toast.error(err.message);
