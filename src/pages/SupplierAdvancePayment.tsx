@@ -500,10 +500,15 @@ const SupplierAdvancePayment = () => {
                     <TableCell>{p.created_by_name || "-"}</TableCell>
                     <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
                     <TableCell>{getPhaseBadge(getPhaseFromPayment(p))}</TableCell>
-                    <TableCell>
+                    <TableCell className="flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {getPhaseFromPayment(p) === "entry" && (
+                        <Button size="sm" variant="ghost" onClick={() => handleDeletePayment(p.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
