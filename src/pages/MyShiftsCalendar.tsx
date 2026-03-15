@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Calendar, ChevronLeft, ChevronRight, List, Grid3x3, TableProperties } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, List, Grid3x3, TableProperties, Headset, ShoppingCart } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -49,6 +49,7 @@ interface Shift {
   shift_start_time: string;
   shift_end_time: string;
   color: string;
+  shift_type?: string;
 }
 
 interface Assignment {
@@ -114,12 +115,12 @@ const MyShiftsCalendar = () => {
       const endDate = getEndDate();
       const { data, error } = await supabase
         .from("shift_assignments")
-        .select(`id, shift_id, assignment_date, shifts (id, shift_name, shift_start_time, shift_end_time, color)`)
+        .select(`id, shift_id, assignment_date, shifts (id, shift_name, shift_start_time, shift_end_time, color, shift_types (type))`)
         .eq("user_id", user.id)
         .gte("assignment_date", format(startDate, "yyyy-MM-dd"))
         .lte("assignment_date", format(endDate, "yyyy-MM-dd"));
       if (error) throw error;
-      setAssignments(data?.map(a => ({ ...a, shift: a.shifts as Shift })) || []);
+      setAssignments(data?.map(a => ({ ...a, shift: { ...(a.shifts as any), shift_type: (a.shifts as any)?.shift_types?.type } as Shift })) || []);
     } catch (error) {
       console.error("Error fetching assignments:", error);
       toast.error(isAr ? "فشل في تحميل الورديات" : "Failed to load shifts");
@@ -206,12 +207,18 @@ const MyShiftsCalendar = () => {
                 <div key={di} className={cn("min-h-28 p-2 border-b border-r last:border-r-0", !isCurrent && "bg-muted/30", isToday && "bg-primary/5")}>
                   <div className={cn("text-sm font-medium mb-1", !isCurrent && "text-muted-foreground", isToday && "text-primary font-bold")}>{d.getDate()}</div>
                   <div className="space-y-1">
-                    {da.map(a => (
-                      <div key={a.id} className="text-xs p-1.5 rounded truncate" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }} title={`${a.shift.shift_name} (${a.shift.shift_start_time} - ${a.shift.shift_end_time})`}>
-                        <div className="font-medium">{a.shift.shift_name}</div>
+                    {da.map(a => {
+                      const isSupport = a.shift.shift_type?.toLowerCase() === 'support';
+                      return (
+                      <div key={a.id} className="text-xs p-1.5 rounded truncate" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }} title={`${a.shift.shift_name} (${a.shift.shift_start_time} - ${a.shift.shift_end_time})${isSupport ? ' [Support]' : ''}`}>
+                        <div className="font-medium flex items-center gap-1">
+                          {isSupport ? <Headset className="h-3 w-3 shrink-0" /> : <ShoppingCart className="h-3 w-3 shrink-0" />}
+                          {a.shift.shift_name}
+                        </div>
                         <div className="opacity-80">{a.shift.shift_start_time} - {a.shift.shift_end_time}</div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -241,12 +248,18 @@ const MyShiftsCalendar = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-2 py-2 space-y-2">
-                {da.map(a => (
+                {da.map(a => {
+                  const isSupport = a.shift.shift_type?.toLowerCase() === 'support';
+                  return (
                   <div key={a.id} className="p-2 rounded text-sm" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }}>
-                    <div className="font-medium">{a.shift.shift_name}</div>
+                    <div className="font-medium flex items-center gap-1">
+                      {isSupport ? <Headset className="h-4 w-4 shrink-0" /> : <ShoppingCart className="h-4 w-4 shrink-0" />}
+                      {a.shift.shift_name}
+                    </div>
                     <div className="text-xs opacity-80">{a.shift.shift_start_time} - {a.shift.shift_end_time}</div>
                   </div>
-                ))}
+                  );
+                })}
                 {da.length === 0 && <div className="text-center text-muted-foreground text-sm py-4">{isAr ? 'لا توجد ورديات' : 'No shifts'}</div>}
               </CardContent>
             </Card>

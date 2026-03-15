@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check, TableProperties, Download, Share2 } from "lucide-react";
+import { Calendar as CalendarIcon, List, Grid3x3, ChevronLeft, ChevronRight, Plus, Send, Users, Check, TableProperties, Download, Share2, Headset, ShoppingCart } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -743,7 +743,8 @@ const ShiftCalendar = () => {
                     onClick={(e) => handleEditAssignment(assignment, e)}
                     title="Click to edit or reassign"
                   >
-                    <div className="font-medium truncate" style={{ color: assignment.shift.color }}>
+                    <div className="font-medium truncate flex items-center gap-1" style={{ color: assignment.shift.color }}>
+                      {assignment.shift.shift_type?.toLowerCase() === 'support' ? <Headset className="h-3 w-3 shrink-0" /> : <ShoppingCart className="h-3 w-3 shrink-0" />}
                       {assignment.shift.shift_name}
                     </div>
                     <div className="text-foreground/70 truncate">
@@ -850,8 +851,13 @@ const ShiftCalendar = () => {
             <div className="flex flex-wrap gap-4 items-center justify-center">
               {filteredShifts.map(s => (
                 <div key={s.id} className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="text-sm text-foreground">{s.shift_name}: {formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</span>
+                  <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: s.color }}>
+                    {s.shift_type?.toLowerCase() === 'support' ? <Headset className="h-2.5 w-2.5" style={{ color: getContrastColor(s.color || '#888') }} /> : null}
+                  </div>
+                  <span className="text-sm text-foreground flex items-center gap-1">
+                    {s.shift_type?.toLowerCase() === 'support' && <Headset className="h-3 w-3" />}
+                    {s.shift_name}: {formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -865,7 +871,10 @@ const ShiftCalendar = () => {
                   <TableHead className="text-center font-bold min-w-[100px]">{isAr ? 'اليوم' : 'Day'}</TableHead>
                   {filteredShifts.map(s => (
                     <TableHead key={s.id} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: getContrastColor(s.color || '#888') }}>
-                      <div>{s.shift_name}</div>
+                      <div className="flex items-center justify-center gap-1">
+                        {s.shift_type?.toLowerCase() === 'support' ? <Headset className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+                        {s.shift_name}
+                      </div>
                       <div className="text-xs opacity-80">{formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</div>
                     </TableHead>
                   ))}
