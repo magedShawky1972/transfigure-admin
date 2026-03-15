@@ -49,6 +49,7 @@ interface Shift {
   shift_start_time: string;
   shift_end_time: string;
   color: string;
+  shift_type?: string;
 }
 
 interface Assignment {
