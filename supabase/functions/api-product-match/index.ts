@@ -326,10 +326,13 @@ async function sendMismatchEmail(toEmails: string[], title: string, textMessage:
       },
     });
 
+    const rawSubject = `عدم تطابق منتج SKU: ${sku} - Salla vs Purple`;
+    const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(rawSubject)))}?=`;
+
     await client.send({
       from: "Edara System <edara@asuscards.com>",
       to: toEmails,
-      subject: `عدم تطابق منتج SKU: ${sku} - Salla vs Purple`,
+      subject: encodedSubject,
       content: "auto",
       html: emailHtml,
     });
