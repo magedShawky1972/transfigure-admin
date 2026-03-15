@@ -173,7 +173,9 @@ const ShiftSession = () => {
           shift_assignments (
             assignment_date,
             shifts (
-              shift_name
+              shift_name,
+              shift_type_id,
+              shift_types (type)
             )
           )
         `)
