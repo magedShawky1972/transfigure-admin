@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, RotateCcw, Loader2, Sparkles, Trash2, Image as ImageIcon, Eye, Keyboard } from "lucide-react";
+import { Upload, RotateCcw, Loader2, Sparkles, Trash2, Image as ImageIcon, Eye, Keyboard, Headset } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Dialog,
