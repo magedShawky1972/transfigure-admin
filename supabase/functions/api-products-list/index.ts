@@ -17,7 +17,6 @@ Deno.serve(async (req) => {
   let responseStatus = 200;
   let responseMessage = '';
   let success = true;
-  let sku = '';
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -32,9 +31,9 @@ Deno.serve(async (req) => {
   const logApiCall = async () => {
     try {
       await supabase.from('api_consumption_logs').insert({
-        endpoint: 'api-product-info',
+        endpoint: 'api-products-list',
         method: req.method,
-        request_body: { sku },
+        request_body: null,
         response_status: responseStatus,
         response_message: responseMessage,
         success,
@@ -105,50 +104,14 @@ Deno.serve(async (req) => {
     
     console.log(`API Mode: ${apiMode}, Using table: ${tables.products}`);
 
-    // Parse URL to get SKU from query params
-    const url = new URL(req.url);
-    sku = url.searchParams.get('sku') || '';
-
-    if (!sku) {
-      responseStatus = 400;
-      responseMessage = 'Missing required parameter: sku';
-      success = false;
-      await logApiCall();
-      return new Response(JSON.stringify({ 
-        error: responseMessage,
-        usage: 'GET /api-product-info?sku=<product_sku>'
-      }), {
-        status: responseStatus,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`Looking up product by SKU: ${sku}`);
-
-    // Query product by SKU - return required fields including brand_code
+    // Query all products - return required fields including brand_code
     const { data, error } = await supabase
       .from(tables.products)
-      .select('product_name, product_price, brand_code')
-      .eq('sku', sku)
-      .single();
+      .select('sku, product_name, product_price, brand_code')
+      .order('product_name', { ascending: true });
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // No rows found
-        responseStatus = 404;
-        responseMessage = 'Product not found';
-        success = false;
-        await logApiCall();
-        return new Response(JSON.stringify({ 
-          error: responseMessage,
-          sku 
-        }), {
-          status: responseStatus,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      console.error('Error looking up product:', error);
+      console.error('Error fetching products:', error);
       responseStatus = 500;
       responseMessage = error.message;
       success = false;
@@ -159,37 +122,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!data) {
+    if (!data || data.length === 0) {
       responseStatus = 404;
-      responseMessage = 'Product not found';
+      responseMessage = 'No products found';
       success = false;
       await logApiCall();
       return new Response(JSON.stringify({ 
-        error: responseMessage,
-        sku 
+        error: responseMessage
       }), {
         status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    responseMessage = 'Product found';
+    responseMessage = `${data.length} products found`;
     await logApiCall();
 
     return new Response(JSON.stringify({
       success: true,
-      sku,
-      product_name: data.product_name,
-      product_price: data.product_price,
-      brand_code: data.brand_code,
+      count: data.length,
       mode: apiMode,
+      products: data,
       message: responseMessage
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error in api-product-info:', error);
+    console.error('Error in api-products-list:', error);
     responseStatus = 500;
     responseMessage = error instanceof Error ? error.message : 'Unknown error';
     success = false;
