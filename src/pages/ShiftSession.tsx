@@ -1806,7 +1806,16 @@ const ShiftSession = () => {
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       <Card>
         <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-xl sm:text-2xl">{t("shiftSession")}</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+            {isSupportShift && <Headset className="h-6 w-6 text-blue-500" />}
+            {isSupportShift ? (language === 'ar' ? 'وردية الدعم' : 'Support Shift') : t("shiftSession")}
+          </CardTitle>
+          {isSupportShift && (
+            <Badge variant="secondary" className="w-fit bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              <Headset className="h-3 w-3 me-1" />
+              {language === 'ar' ? 'دعم فني' : 'Support'}
+            </Badge>
+          )}
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
