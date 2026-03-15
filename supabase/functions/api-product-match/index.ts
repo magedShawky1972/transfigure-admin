@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
 
 async function sendMismatchNotification(supabase: any, result: any) {
   try {
-    const targetNames = ['Amro Zaki', 'Abanoub', 'Maged'];
+    const targetNames = ['عمرو زكي', 'ابانوب', 'ماجد'];
     
     const { data: profiles } = await supabase
       .from('profiles')
