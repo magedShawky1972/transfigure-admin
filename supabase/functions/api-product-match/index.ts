@@ -329,8 +329,7 @@ async function sendMismatchEmail(toEmails: string[], title: string, textMessage:
     await client.send({
       from: "Edara System <edara@asuscards.com>",
       to: toEmails,
-      subject: `عدم تطابق منتج SKU: ${sku} - Salla vs Purple`,
-      content: "auto",
+      subject: `Product Mismatch SKU: ${sku} - Salla vs Purple`,
       html: emailHtml,
     });
 
