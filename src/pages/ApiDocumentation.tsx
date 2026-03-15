@@ -340,6 +340,36 @@ const API_ENDPOINTS = [
       { name: "id", type: "Query Param", required: true, note: "The Product SKU to look up" },
     ],
   },
+  {
+    id: "product-info",
+    name: "Product Info (GET by SKU)",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-product-info?sku={SKU}`,
+    method: "GET",
+    description: "Get product information by SKU. Returns product name, sales price, and brand code.",
+    fields: [
+      { name: "sku", type: "Query Param", required: true, note: "The Product SKU to look up" },
+    ],
+    responseFields: [
+      { name: "product_name", type: "Text", note: "Product name" },
+      { name: "product_price", type: "Decimal", note: "Sales price" },
+      { name: "brand_code", type: "Text", note: "Brand code" },
+    ],
+  },
+  {
+    id: "products-list",
+    name: "Products List (GET All)",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-products-list`,
+    method: "GET",
+    description: "Get all products. Returns a list of all products with SKU, name, price, and brand code.",
+    fields: [],
+    responseFields: [
+      { name: "count", type: "Integer", note: "Total number of products" },
+      { name: "products[].sku", type: "Text", note: "Product SKU" },
+      { name: "products[].product_name", type: "Text", note: "Product name" },
+      { name: "products[].product_price", type: "Decimal", note: "Sales price" },
+      { name: "products[].brand_code", type: "Text", note: "Brand code" },
+    ],
+  },
 ];
 
 interface ApiFieldConfig {
