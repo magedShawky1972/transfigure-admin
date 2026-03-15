@@ -1504,6 +1504,54 @@ const ShiftSession = () => {
     try {
       if (!shiftSession) return;
 
+      // For support shifts, skip all sales-related validations
+      if (isSupportShift) {
+        // Close the shift session directly
+        const { error: sessionError } = await supabase
+          .from("shift_sessions")
+          .update({ 
+            status: "closed", 
+            closed_at: new Date().toISOString(),
+            closing_notes: closingNotes || null,
+          })
+          .eq("id", shiftSession.id);
+
+        if (sessionError) throw sessionError;
+
+        // Send notifications
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const today = getKSADateString();
+          const { data: assignment } = await supabase
+            .from("shift_assignments")
+            .select("shift_id")
+            .eq("user_id", user?.id)
+            .eq("assignment_date", today)
+            .single();
+
+          if (assignment) {
+            await supabase.functions.invoke("send-shift-close-notification", {
+              body: {
+                shiftId: assignment.shift_id,
+                userId: user?.id,
+                shiftSessionId: shiftSession.id,
+              },
+            });
+          }
+        } catch (notifError) {
+          console.error("Error sending close notifications:", notifError);
+        }
+
+        toast({
+          title: t("success"),
+          description: t("shiftClosedSuccessfully"),
+        });
+
+        setShiftSession(null);
+        navigate("/");
+        return;
+      }
+
       // Validate Purple Last Order Number is mandatory
       if (!lastOrderNumber.trim()) {
         toast({
