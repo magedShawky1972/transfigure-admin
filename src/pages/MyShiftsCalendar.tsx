@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Calendar, ChevronLeft, ChevronRight, List, Grid3x3, TableProperties } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, List, Grid3x3, TableProperties, Headset, ShoppingCart } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, addWeeks, addDays, isSameDay, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
