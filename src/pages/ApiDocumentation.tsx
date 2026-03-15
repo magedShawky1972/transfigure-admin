@@ -551,7 +551,6 @@ const ApiDocumentation = () => {
       } else if (field.required && field.type !== 'Query Param' && field.type !== 'Header') {
         regularFields.push(field);
       }
-    });
 
     const getFieldValue = (type: string) => {
       if (type === 'Text') return '"value"';
