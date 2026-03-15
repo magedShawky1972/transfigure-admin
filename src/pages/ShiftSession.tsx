@@ -210,7 +210,7 @@ const ShiftSession = () => {
       const yesterday = getKSAYesterdayDateString();
       const { data: assignments } = await supabase
         .from("shift_assignments")
-        .select("id, shift_id, assignment_date, shifts(shift_name, shift_start_time, shift_end_time, shift_order)")
+        .select("id, shift_id, assignment_date, shifts(shift_name, shift_start_time, shift_end_time, shift_order, shift_type_id, shift_types(type))")
         .eq("user_id", user.id)
         .in("assignment_date", [today, yesterday])
         .order("assignment_date", { ascending: false })
