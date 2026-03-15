@@ -851,8 +851,13 @@ const ShiftCalendar = () => {
             <div className="flex flex-wrap gap-4 items-center justify-center">
               {filteredShifts.map(s => (
                 <div key={s.id} className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="text-sm text-foreground">{s.shift_name}: {formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</span>
+                  <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: s.color }}>
+                    {s.shift_type?.toLowerCase() === 'support' ? <Headset className="h-2.5 w-2.5" style={{ color: getContrastColor(s.color || '#888') }} /> : null}
+                  </div>
+                  <span className="text-sm text-foreground flex items-center gap-1">
+                    {s.shift_type?.toLowerCase() === 'support' && <Headset className="h-3 w-3" />}
+                    {s.shift_name}: {formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}
+                  </span>
                 </div>
               ))}
             </div>
