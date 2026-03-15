@@ -1843,49 +1843,69 @@ const ShiftSession = () => {
 
             {!shiftSession ? (
             <div className="space-y-4">
-              {/* Purple First Order Number Input */}
-              <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
-                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto bg-white rounded px-1" />
-                  أول طلب <span className="text-destructive">*</span>
-                </h3>
-                <Input
-                  type="text"
-                  value={firstOrderNumber}
-                  onChange={(e) => setFirstOrderNumber(e.target.value)}
-                  placeholder="أدخل رقم أول طلب Purple (إلزامي)"
-                  className="bg-background"
-                  required
-                />
-                <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
-                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر الكوينز
-                </p>
-              </div>
+              {/* Support shift - simplified open */}
+              {isSupportShift ? (
+                <>
+                  <div className="p-4 rounded-lg border-2 bg-blue-50 dark:bg-blue-900/20 border-blue-300">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <Headset className="h-5 w-5 text-blue-500" />
+                      {language === 'ar' ? 'وردية دعم فني - لا تتطلب إدخال بيانات مبيعات' : 'Support Shift - No sales data required'}
+                    </h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      {language === 'ar' ? 'يمكنك فتح الوردية مباشرة بدون إدخال أرقام طلبات أو رفع صور' : 'You can open the shift directly without entering order numbers or uploading images'}
+                    </p>
+                  </div>
+                  <Button onClick={handleOpenShift} className="w-full" disabled={openingShift}>
+                    {openingShift ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />{t("opening") || "جاري الفتح..."}</> : t("openShift")}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {/* Purple First Order Number Input */}
+                  <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto bg-white rounded px-1" />
+                      أول طلب <span className="text-destructive">*</span>
+                    </h3>
+                    <Input
+                      type="text"
+                      value={firstOrderNumber}
+                      onChange={(e) => setFirstOrderNumber(e.target.value)}
+                      placeholder="أدخل رقم أول طلب Purple (إلزامي)"
+                      className="bg-background"
+                      required
+                    />
+                    <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
+                      يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر الكوينز
+                    </p>
+                  </div>
 
-              {/* Salla First Order Number Input (optional at open) */}
-              <div
-                className="p-4 rounded-lg border-2"
-                style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
-              >
-                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
-                  أول طلب
-                </h3>
-                <Input
-                  type="text"
-                  value={sallaFirstOrderNumber}
-                  onChange={(e) => setSallaFirstOrderNumber(e.target.value)}
-                  placeholder="أدخل رقم أول طلب Salla (اختياري عند فتح الوردية)"
-                  className="bg-background"
-                />
-                <p className="text-sm mt-2" style={{ color: "#2AB090" }}>
-                  يمكنك تركه فارغاً الآن وإدخاله عند إغلاق الوردية
-                </p>
-              </div>
+                  {/* Salla First Order Number Input (optional at open) */}
+                  <div
+                    className="p-4 rounded-lg border-2"
+                    style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
+                  >
+                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                      أول طلب
+                    </h3>
+                    <Input
+                      type="text"
+                      value={sallaFirstOrderNumber}
+                      onChange={(e) => setSallaFirstOrderNumber(e.target.value)}
+                      placeholder="أدخل رقم أول طلب Salla (اختياري عند فتح الوردية)"
+                      className="bg-background"
+                    />
+                    <p className="text-sm mt-2" style={{ color: "#2AB090" }}>
+                      يمكنك تركه فارغاً الآن وإدخاله عند إغلاق الوردية
+                    </p>
+                  </div>
 
-              <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim() || openingShift}>
-                {openingShift ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />{t("opening") || "جاري الفتح..."}</> : t("openShift")}
-              </Button>
+                  <Button onClick={handleOpenShift} className="w-full" disabled={!firstOrderNumber.trim() || openingShift}>
+                    {openingShift ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />{t("opening") || "جاري الفتح..."}</> : t("openShift")}
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
