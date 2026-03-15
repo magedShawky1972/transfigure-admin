@@ -239,7 +239,7 @@ async function sendMismatchNotification(supabase: any, result: any) {
       user_id: p.user_id,
       title,
       message,
-      type: 'general',
+      type: 'system',
       is_read: false,
     }));
 
@@ -326,13 +326,10 @@ async function sendMismatchEmail(toEmails: string[], title: string, textMessage:
       },
     });
 
-    const rawSubject = `عدم تطابق منتج SKU: ${sku} - Salla vs Purple`;
-    const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(rawSubject)))}?=`;
-
     await client.send({
       from: "Edara System <edara@asuscards.com>",
       to: toEmails,
-      subject: encodedSubject,
+      subject: `عدم تطابق منتج SKU: ${sku} - Salla vs Purple`,
       content: "auto",
       html: emailHtml,
     });
