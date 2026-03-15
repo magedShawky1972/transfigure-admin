@@ -60,7 +60,7 @@ interface BrandBalance {
 const ShiftSession = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [shiftSession, setShiftSession] = useState<ShiftSession | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
