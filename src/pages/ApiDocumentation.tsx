@@ -548,9 +548,10 @@ const ApiDocumentation = () => {
         arrayFields[arrayName].push({ name: propName, type: field.type, required: field.required });
       } else if (field.type === 'Array') {
         arrayFields[field.name] = arrayFields[field.name] || [];
-      } else if (field.required && field.type !== 'Query Param' && field.type !== 'Header') {
+      } else if (field.type !== 'Query Param' && field.type !== 'Header') {
         regularFields.push(field);
       }
+    });
 
     const getFieldValue = (type: string) => {
       if (type === 'Text') return '"value"';
