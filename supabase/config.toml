@@ -167,3 +167,6 @@ verify_jwt = false
 
 [functions.check-request-escalation]
 verify_jwt = false
+
+[functions.api-product-match]
+verify_jwt = false
