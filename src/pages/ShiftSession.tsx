@@ -121,6 +121,7 @@ const ShiftSession = () => {
   } | null>(null);
   const [attendanceRequired, setAttendanceRequired] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [isSupportShift, setIsSupportShift] = useState(false);
 
   useEffect(() => {
     checkShiftAssignmentAndLoadData();
