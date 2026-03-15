@@ -125,10 +125,10 @@ Deno.serve(async (req) => {
 
     console.log(`Looking up product by SKU: ${sku}`);
 
-    // Query product by SKU - only return required fields
+    // Query product by SKU - return required fields including brand_code
     const { data, error } = await supabase
       .from(tables.products)
-      .select('product_name, product_price')
+      .select('product_name, product_price, brand_code')
       .eq('sku', sku)
       .single();
 
