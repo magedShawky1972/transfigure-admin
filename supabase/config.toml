@@ -42,6 +42,9 @@ verify_jwt = false
 [functions.api-product]
 verify_jwt = false
 
+[functions.api-product-info]
+verify_jwt = false
+
 [functions.twilio-webhook]
 verify_jwt = false
 
