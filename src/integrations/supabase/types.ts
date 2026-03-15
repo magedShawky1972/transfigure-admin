@@ -6096,6 +6096,7 @@ export type Database = {
           company: string | null
           created_at: string
           customer_ip: string | null
+          customer_name: string | null
           customer_phone: string
           device_fingerprint: string | null
           id: string
@@ -6121,6 +6122,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           customer_ip?: string | null
+          customer_name?: string | null
           customer_phone: string
           device_fingerprint?: string | null
           id?: string
@@ -6146,6 +6148,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           customer_ip?: string | null
+          customer_name?: string | null
           customer_phone?: string
           device_fingerprint?: string | null
           id?: string
@@ -6188,6 +6191,7 @@ export type Database = {
           total_cost: number | null
           unit_price: number | null
           updated_at: string
+          vendor_name: string | null
         }
         Insert: {
           coins_number?: number | null
@@ -6207,6 +6211,7 @@ export type Database = {
           total_cost?: number | null
           unit_price?: number | null
           updated_at?: string
+          vendor_name?: string | null
         }
         Update: {
           coins_number?: number | null
@@ -6226,6 +6231,7 @@ export type Database = {
           total_cost?: number | null
           unit_price?: number | null
           updated_at?: string
+          vendor_name?: string | null
         }
         Relationships: []
       }
@@ -8062,6 +8068,7 @@ export type Database = {
           company: string | null
           created_at: string
           customer_ip: string | null
+          customer_name: string | null
           customer_phone: string | null
           device_fingerprint: string | null
           id: string
@@ -8085,6 +8092,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           customer_ip?: string | null
+          customer_name?: string | null
           customer_phone?: string | null
           device_fingerprint?: string | null
           id?: string
@@ -8108,6 +8116,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           customer_ip?: string | null
+          customer_name?: string | null
           customer_phone?: string | null
           device_fingerprint?: string | null
           id?: string
@@ -8146,6 +8155,7 @@ export type Database = {
           total_cost: number | null
           unit_price: number | null
           updated_at: string
+          vendor_name: string | null
         }
         Insert: {
           coins_number?: number | null
@@ -8163,6 +8173,7 @@ export type Database = {
           total_cost?: number | null
           unit_price?: number | null
           updated_at?: string
+          vendor_name?: string | null
         }
         Update: {
           coins_number?: number | null
@@ -8180,6 +8191,7 @@ export type Database = {
           total_cost?: number | null
           unit_price?: number | null
           updated_at?: string
+          vendor_name?: string | null
         }
         Relationships: []
       }

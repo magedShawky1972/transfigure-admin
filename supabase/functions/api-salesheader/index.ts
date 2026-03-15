@@ -240,6 +240,7 @@ Deno.serve(async (req) => {
       device_fingerprint: body.Device_Fingerprint || body.device_fingerprint,
       transaction_location: body.Transaction_Location || body.transaction_location,
       register_user_id: body.Register_User_ID || body.register_user_id,
+      customer_name: body.Customer_Name || body.customer_name || null,
       player_id: body.Player_ID || body.player_id,
       is_point: body.point !== undefined ? body.point : (body.is_point ?? false),
       point_value: body.Point_Value || body.point_value,
