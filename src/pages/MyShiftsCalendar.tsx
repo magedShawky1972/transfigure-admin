@@ -248,12 +248,18 @@ const MyShiftsCalendar = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-2 py-2 space-y-2">
-                {da.map(a => (
+                {da.map(a => {
+                  const isSupport = a.shift.shift_type?.toLowerCase() === 'support';
+                  return (
                   <div key={a.id} className="p-2 rounded text-sm" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }}>
-                    <div className="font-medium">{a.shift.shift_name}</div>
+                    <div className="font-medium flex items-center gap-1">
+                      {isSupport ? <Headset className="h-4 w-4 shrink-0" /> : <ShoppingCart className="h-4 w-4 shrink-0" />}
+                      {a.shift.shift_name}
+                    </div>
                     <div className="text-xs opacity-80">{a.shift.shift_start_time} - {a.shift.shift_end_time}</div>
                   </div>
-                ))}
+                  );
+                })}
                 {da.length === 0 && <div className="text-center text-muted-foreground text-sm py-4">{isAr ? 'لا توجد ورديات' : 'No shifts'}</div>}
               </CardContent>
             </Card>
