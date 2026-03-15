@@ -287,16 +287,24 @@ const ShiftSession = () => {
 
       setHasActiveAssignment(true);
 
-      // Load A-Class brands
-      const { data: brandsData, error: brandsError } = await supabase
-        .from("brands")
-        .select("*")
-        .eq("status", "active")
-        .eq("abc_analysis", "A")
-        .order("brand_name");
+      // Detect if this is a support shift
+      const firstAssignment = assignments[0];
+      const shiftTypeData = (firstAssignment.shifts as any)?.shift_types?.type;
+      const isSupport = shiftTypeData?.toLowerCase() === 'support';
+      setIsSupportShift(isSupport);
 
-      if (brandsError) throw brandsError;
-      setBrands(brandsData || []);
+      // Load A-Class brands only for sales shifts
+      if (!isSupport) {
+        const { data: brandsData, error: brandsError } = await supabase
+          .from("brands")
+          .select("*")
+          .eq("status", "active")
+          .eq("abc_analysis", "A")
+          .order("brand_name");
+
+        if (brandsError) throw brandsError;
+        setBrands(brandsData || []);
+      }
 
       // Find the valid assignment for current time to check attendance
       let validAssignment = null;
