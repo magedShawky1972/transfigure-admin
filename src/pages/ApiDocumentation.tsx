@@ -370,6 +370,27 @@ const API_ENDPOINTS = [
       { name: "products[].brand_code", type: "Text", note: "Brand code" },
     ],
   },
+  {
+    id: "product-match",
+    name: "Product Match (Salla vs Purple)",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-product-match`,
+    method: "POST",
+    description: "Compare product data from Salla with Purple system. Posts SKU, Name, and Price to check if they match. Returns match status and details of any mismatches. Automatically sends notifications to designated users (Amro Zaki, Abanoub) when a mismatch is detected.",
+    fields: [
+      { name: "SKU", type: "Text", required: true, note: "Product SKU to match" },
+      { name: "Name", type: "Text", required: false, note: "Product name from Salla" },
+      { name: "Price", type: "Decimal", required: false, note: "Product price from Salla" },
+    ],
+    responseFields: [
+      { name: "match", type: "Boolean", note: "true if all fields match" },
+      { name: "status", type: "Text", note: "ALL_MATCH / MISMATCH / SKU_NOT_FOUND" },
+      { name: "message", type: "Text", note: "Human-readable result description" },
+      { name: "salla", type: "Object", note: "Submitted Salla data (SKU, Name, Price)" },
+      { name: "purple", type: "Object", note: "Purple system data (SKU, Name, Price)" },
+      { name: "comparison", type: "Object", note: "Field-by-field comparison details" },
+      { name: "mismatched_fields", type: "Array", note: "List of fields that don't match" },
+    ],
+  },
 ];
 
 interface ApiFieldConfig {
