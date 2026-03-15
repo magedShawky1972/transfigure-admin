@@ -1925,269 +1925,269 @@ const ShiftSession = () => {
                 })()}</p>
               </div>
 
-              {/* Purple First Order Number - Read Only Display */}
-              {firstOrderNumber && (
-                <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
-                  <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                    <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto bg-white rounded px-1" />
-                    أول طلب
-                  </h3>
-                  <p className="text-lg font-mono bg-background p-2 rounded border">{firstOrderNumber}</p>
-                </div>
-              )}
-
-              {/* Salla First Order Number */}
-              {sallaFirstOrderNumber ? (
-                <div
-                  className="p-4 rounded-lg border-2"
-                  style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
-                >
-                  <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                    <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
-                    أول طلب
-                  </h3>
-                  <p className="text-lg font-mono bg-background p-2 rounded border">{sallaFirstOrderNumber}</p>
-                </div>
-              ) : (
-                <div
-                  className="p-4 rounded-lg border-2"
-                  style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
-                >
-                  <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                    <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
-                    أول طلب <span className="text-destructive">*</span>
-                  </h3>
-                  <Input
-                    type="text"
-                    value={sallaFirstOrderNumber}
-                    onChange={(e) => setSallaFirstOrderNumber(e.target.value)}
-                    placeholder="أدخل رقم أول طلب Salla (إلزامي قبل الإغلاق)"
-                    className="bg-background"
-                    required
-                  />
-                  <p className="text-sm mt-2" style={{ color: "#2AB090" }}>
-                    يجب إدخاله قبل إغلاق الوردية
-                  </p>
-                </div>
-              )}
-
-              {/* Closing Balances */}
-              <div className="space-y-2">
-                {/* Progress Indicator for Required Brand Images */}
-                {(() => {
-                  const requiredBrands = brands.filter((brand) => {
-                    const brandNameLower = brand.brand_name.toLowerCase();
-                    return !brandNameLower.includes("yalla ludo") && 
-                           !brandNameLower.includes("يلا لودو") && 
-                           !brandNameLower.includes("ludo");
-                  });
-                  const uploadedCount = requiredBrands.filter(brand => 
-                    balances[brand.id]?.receipt_image_path
-                  ).length;
-                  const totalRequired = requiredBrands.length;
-                  const progressPercent = totalRequired > 0 ? (uploadedCount / totalRequired) * 100 : 0;
-                  const allUploaded = uploadedCount === totalRequired && totalRequired > 0;
-                  
-                  return totalRequired > 0 ? (
-                    <div className={`p-4 rounded-lg border-2 ${allUploaded ? 'bg-green-50 dark:bg-green-900/20 border-green-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300'}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold">
-                          {allUploaded ? '✅ اكتملت الصور المطلوبة' : '📷 تقدم رفع صور الإغلاق'}
-                        </span>
-                        <span className={`text-sm font-mono ${allUploaded ? 'text-green-700' : 'text-amber-700'}`}>
-                          {uploadedCount} / {totalRequired}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div 
-                          className={`h-2.5 rounded-full transition-all duration-500 ${allUploaded ? 'bg-green-500' : 'bg-amber-500'}`}
-                          style={{ width: `${progressPercent}%` }}
-                        />
-                      </div>
-                      {!allUploaded && (
-                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-                          يجب رفع صور الإغلاق لجميع العلامات التجارية قبل إغلاق الوردية
-                        </p>
-                      )}
+              {/* Sales-specific sections - hidden for support shifts */}
+              {!isSupportShift && (
+                <>
+                  {/* Purple First Order Number - Read Only Display */}
+                  {firstOrderNumber && (
+                    <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
+                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
+                        <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto bg-white rounded px-1" />
+                        أول طلب
+                      </h3>
+                      <p className="text-lg font-mono bg-background p-2 rounded border">{firstOrderNumber}</p>
                     </div>
-                  ) : null;
-                })()}
-                <h3 className="font-semibold text-lg">{t("closingBalance") || "أرصدة الإغلاق"}</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {brands.map((brand) => (
-                    <Card 
-                      key={brand.id}
-                      className={brandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
+                  )}
+
+                  {/* Salla First Order Number */}
+                  {sallaFirstOrderNumber ? (
+                    <div
+                      className="p-4 rounded-lg border-2"
+                      style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
                     >
-                      <CardHeader className="p-3 sm:p-4">
-                        <CardTitle className="text-base sm:text-lg flex items-center justify-between">
-                          <span className="truncate">{brand.short_name || brand.brand_name}</span>
-                          {brandErrors[brand.id] && (
-                            <span className="text-xs font-normal text-destructive">⚠️</span>
-                          )}
-                        </CardTitle>
-                        {brandErrors[brand.id] && (
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs text-destructive flex-1">{brandErrors[brand.id]}</p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 text-xs gap-1 border-primary text-primary hover:bg-primary/10"
-                              onClick={() => {
-                                // Focus the input for manual entry for this specific brand
-                                const input = document.getElementById(`balance-input-${brand.id}`) as HTMLInputElement;
-                                if (input) input.focus();
-                                // Clear the error
-                                setBrandErrors((prev) => ({ ...prev, [brand.id]: null }));
-                                toast({
-                                  title: "إدخال يدوي",
-                                  description: "يمكنك الآن إدخال الرقم يدوياً في الحقل أدناه",
-                                });
-                              }}
-                            >
-                              <Keyboard className="h-3 w-3" />
-                              إدخال يدوي
-                            </Button>
+                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
+                        <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                        أول طلب
+                      </h3>
+                      <p className="text-lg font-mono bg-background p-2 rounded border">{sallaFirstOrderNumber}</p>
+                    </div>
+                  ) : (
+                    <div
+                      className="p-4 rounded-lg border-2"
+                      style={{ backgroundColor: "rgba(187, 243, 229, 0.2)", borderColor: "#BBF3E5" }}
+                    >
+                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                        <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                        أول طلب <span className="text-destructive">*</span>
+                      </h3>
+                      <Input
+                        type="text"
+                        value={sallaFirstOrderNumber}
+                        onChange={(e) => setSallaFirstOrderNumber(e.target.value)}
+                        placeholder="أدخل رقم أول طلب Salla (إلزامي قبل الإغلاق)"
+                        className="bg-background"
+                        required
+                      />
+                      <p className="text-sm mt-2" style={{ color: "#2AB090" }}>
+                        يجب إدخاله قبل إغلاق الوردية
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Closing Balances */}
+                  <div className="space-y-2">
+                    {/* Progress Indicator for Required Brand Images */}
+                    {(() => {
+                      const requiredBrands = brands.filter((brand) => {
+                        const brandNameLower = brand.brand_name.toLowerCase();
+                        return !brandNameLower.includes("yalla ludo") && 
+                               !brandNameLower.includes("يلا لودو") && 
+                               !brandNameLower.includes("ludo");
+                      });
+                      const uploadedCount = requiredBrands.filter(brand => 
+                        balances[brand.id]?.receipt_image_path
+                      ).length;
+                      const totalRequired = requiredBrands.length;
+                      const progressPercent = totalRequired > 0 ? (uploadedCount / totalRequired) * 100 : 0;
+                      const allUploaded = uploadedCount === totalRequired && totalRequired > 0;
+                      
+                      return totalRequired > 0 ? (
+                        <div className={`p-4 rounded-lg border-2 ${allUploaded ? 'bg-green-50 dark:bg-green-900/20 border-green-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold">
+                              {allUploaded ? '✅ اكتملت الصور المطلوبة' : '📷 تقدم رفع صور الإغلاق'}
+                            </span>
+                            <span className={`text-sm font-mono ${allUploaded ? 'text-green-700' : 'text-amber-700'}`}>
+                              {uploadedCount} / {totalRequired}
+                            </span>
                           </div>
-                        )}
-                      </CardHeader>
-                      <CardContent className="p-3 sm:p-4 space-y-3">
-                        <div>
-                          <Label>{t("closingBalance")}</Label>
-                          <div className="relative">
-                            <Input
-                              id={`balance-input-${brand.id}`}
-                              type="number"
-                              value={balances[brand.id]?.closing_balance || ""}
-                              onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
-                              onBlur={() => handleBalanceBlur(brand.id)}
-                              placeholder="0.00"
-                              disabled={extractingBrands[brand.id]}
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                            <div 
+                              className={`h-2.5 rounded-full transition-all duration-500 ${allUploaded ? 'bg-green-500' : 'bg-amber-500'}`}
+                              style={{ width: `${progressPercent}%` }}
                             />
-                            {extractingBrands[brand.id] && (
-                              <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                              </div>
-                            )}
                           </div>
-                          {extractingBrands[brand.id] && (
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                              <Sparkles className="h-3 w-3" />
-                              جاري قراءة الرقم...
+                          {!allUploaded && (
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                              يجب رفع صور الإغلاق لجميع العلامات التجارية قبل إغلاق الوردية
                             </p>
                           )}
                         </div>
-                        <div className="space-y-2">
-                          <Label>{t("receiptImage")}</Label>
-                          
-                          {/* Image Preview */}
-                          {balances[brand.id]?.receipt_image_path && imageUrls[brand.id] && (
-                            <div className="relative rounded-lg overflow-hidden border bg-muted">
-                              <img
-                                src={imageUrls[brand.id] || ""}
-                                alt={brand.brand_name}
-                                className="w-full h-32 object-cover cursor-pointer"
-                                onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
-                              />
-                              <div className="absolute top-2 right-2 flex gap-1">
+                      ) : null;
+                    })()}
+                    <h3 className="font-semibold text-lg">{t("closingBalance") || "أرصدة الإغلاق"}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                      {brands.map((brand) => (
+                        <Card 
+                          key={brand.id}
+                          className={brandErrors[brand.id] ? "border-2 border-destructive bg-destructive/5 ring-2 ring-destructive/20" : ""}
+                        >
+                          <CardHeader className="p-3 sm:p-4">
+                            <CardTitle className="text-base sm:text-lg flex items-center justify-between">
+                              <span className="truncate">{brand.short_name || brand.brand_name}</span>
+                              {brandErrors[brand.id] && (
+                                <span className="text-xs font-normal text-destructive">⚠️</span>
+                              )}
+                            </CardTitle>
+                            {brandErrors[brand.id] && (
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-destructive flex-1">{brandErrors[brand.id]}</p>
                                 <Button
-                                  size="icon"
-                                  variant="secondary"
-                                  className="h-7 w-7 bg-background/80 hover:bg-background"
-                                  onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-xs gap-1 border-primary text-primary hover:bg-primary/10"
+                                  onClick={() => {
+                                    const input = document.getElementById(`balance-input-${brand.id}`) as HTMLInputElement;
+                                    if (input) input.focus();
+                                    setBrandErrors((prev) => ({ ...prev, [brand.id]: null }));
+                                    toast({
+                                      title: "إدخال يدوي",
+                                      description: "يمكنك الآن إدخال الرقم يدوياً في الحقل أدناه",
+                                    });
+                                  }}
                                 >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="destructive"
-                                  className="h-7 w-7"
-                                  onClick={() => handleDeleteImage(brand.id)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Keyboard className="h-3 w-3" />
+                                  إدخال يدوي
                                 </Button>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Upload Button */}
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) handleImageUpload(brand.id, file);
-                                e.target.value = '';
-                              }}
-                              className="hidden"
-                              id={`file-${brand.id}`}
-                              disabled={extractingBrands[brand.id]}
-                            />
-                            <Label
-                              htmlFor={`file-${brand.id}`}
-                              className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent w-full justify-center ${extractingBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
-                            >
-                              {extractingBrands[brand.id] ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Upload className="h-4 w-4" />
+                            )}
+                          </CardHeader>
+                          <CardContent className="p-3 sm:p-4 space-y-3">
+                            <div>
+                              <Label>{t("closingBalance")}</Label>
+                              <div className="relative">
+                                <Input
+                                  id={`balance-input-${brand.id}`}
+                                  type="number"
+                                  value={balances[brand.id]?.closing_balance || ""}
+                                  onChange={(e) => handleBalanceChange(brand.id, e.target.value)}
+                                  onBlur={() => handleBalanceBlur(brand.id)}
+                                  placeholder="0.00"
+                                  disabled={extractingBrands[brand.id]}
+                                />
+                                {extractingBrands[brand.id] && (
+                                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                  </div>
+                                )}
+                              </div>
+                              {extractingBrands[brand.id] && (
+                                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                  <Sparkles className="h-3 w-3" />
+                                  جاري قراءة الرقم...
+                                </p>
                               )}
-                              {balances[brand.id]?.receipt_image_path ? t("changeImage") : t("uploadImage")}
-                            </Label>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
+                            </div>
+                            <div className="space-y-2">
+                              {/* Image Preview */}
+                              {imageUrls[brand.id] && (
+                                <div className="relative">
+                                  <img
+                                    src={imageUrls[brand.id]!}
+                                    alt="Receipt"
+                                    className="w-full h-32 object-cover rounded-lg border"
+                                  />
+                                  <div className="absolute top-1 right-1 flex gap-1">
+                                    <Button
+                                      size="icon"
+                                      variant="secondary"
+                                      className="h-7 w-7 bg-background/80 hover:bg-background"
+                                      onClick={() => setSelectedImage(imageUrls[brand.id] || null)}
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="destructive"
+                                      className="h-7 w-7"
+                                      onClick={() => handleDeleteImage(brand.id)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
 
-              {/* Ludo Manual Transactions Section */}
-              <LudoTransactionsSection 
-                shiftSessionId={shiftSession.id} 
-                userId={shiftSession.user_id} 
-              />
+                              {/* Upload Button */}
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleImageUpload(brand.id, file);
+                                    e.target.value = '';
+                                  }}
+                                  className="hidden"
+                                  id={`file-${brand.id}`}
+                                  disabled={extractingBrands[brand.id]}
+                                />
+                                <Label
+                                  htmlFor={`file-${brand.id}`}
+                                  className={`flex items-center gap-2 cursor-pointer border border-input rounded-md px-3 py-2 hover:bg-accent w-full justify-center ${extractingBrands[brand.id] ? 'opacity-50 pointer-events-none' : ''}`}
+                                >
+                                  {extractingBrands[brand.id] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Upload className="h-4 w-4" />
+                                  )}
+                                  {balances[brand.id]?.receipt_image_path ? t("changeImage") : t("uploadImage")}
+                                </Label>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Purple Last Order Number Input */}
-              <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
-                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto bg-white rounded px-1" />
-                  آخر طلب <span className="text-destructive">*</span>
-                </h3>
-                <Input
-                  type="text"
-                  value={lastOrderNumber}
-                  onChange={(e) => setLastOrderNumber(e.target.value)}
-                  placeholder="أدخل رقم آخر طلب Purple (إلزامي)"
-                  className="bg-background"
-                  required
-                />
-                <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
-                  يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر الكوينز
-                </p>
-              </div>
+                  {/* Ludo Manual Transactions Section */}
+                  <LudoTransactionsSection 
+                    shiftSessionId={shiftSession.id} 
+                    userId={shiftSession.user_id} 
+                  />
 
-              {/* Salla Last Order Number Input */}
-              <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
-                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                  <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
-                  آخر طلب <span className="text-destructive">*</span>
-                </h3>
-                <Input
-                  type="text"
-                  value={sallaLastOrderNumber}
-                  onChange={(e) => setSallaLastOrderNumber(e.target.value)}
-                  placeholder="أدخل رقم آخر طلب Salla (إلزامي)"
-                  className="bg-background"
-                  required
-                />
-                <p className="text-sm mt-2" style={{ color: '#2AB090' }}>
-                  يستخدم هذا الرقم لتتبع طلبات سلة
-                </p>
-              </div>
+                  {/* Purple Last Order Number Input */}
+                  <div className="p-4 rounded-lg border-2 bg-purple-50 dark:bg-purple-900/20 border-purple-300">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <img src={purpleCardLogo} alt="Purple Card" className="h-6 w-auto bg-white rounded px-1" />
+                      آخر طلب <span className="text-destructive">*</span>
+                    </h3>
+                    <Input
+                      type="text"
+                      value={lastOrderNumber}
+                      onChange={(e) => setLastOrderNumber(e.target.value)}
+                      placeholder="أدخل رقم آخر طلب Purple (إلزامي)"
+                      className="bg-background"
+                      required
+                    />
+                    <p className="text-sm text-purple-700 dark:text-purple-300 mt-2">
+                      يستخدم هذا الرقم لتتبع الطلبات في تقرير دفتر الكوينز
+                    </p>
+                  </div>
 
-              {/* Closing Notes Input */}
+                  {/* Salla Last Order Number Input */}
+                  <div className="p-4 rounded-lg border-2" style={{ backgroundColor: 'rgba(187, 243, 229, 0.2)', borderColor: '#BBF3E5' }}>
+                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <img src={sallaLogo} alt="Salla" className="h-6 w-auto" />
+                      آخر طلب <span className="text-destructive">*</span>
+                    </h3>
+                    <Input
+                      type="text"
+                      value={sallaLastOrderNumber}
+                      onChange={(e) => setSallaLastOrderNumber(e.target.value)}
+                      placeholder="أدخل رقم آخر طلب Salla (إلزامي)"
+                      className="bg-background"
+                      required
+                    />
+                    <p className="text-sm mt-2" style={{ color: '#2AB090' }}>
+                      يستخدم هذا الرقم لتتبع طلبات سلة
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* Closing Notes Input - shown for both sales and support */}
               <div className="p-4 rounded-lg border-2 bg-blue-50 dark:bg-blue-900/20 border-blue-300">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
                   <span className="text-blue-600">📝</span>
@@ -2210,7 +2210,7 @@ const ShiftSession = () => {
                   onClick={handleCloseShift} 
                   className="flex-1" 
                   variant="destructive"
-                  disabled={brands.length === 0}
+                  disabled={!isSupportShift && brands.length === 0}
                 >
                   {t("closeShift")}
                 </Button>
