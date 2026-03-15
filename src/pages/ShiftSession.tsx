@@ -700,8 +700,8 @@ const ShiftSession = () => {
     try {
       setOpeningShift(true);
       
-      // Validate Purple First Order Number is mandatory
-      if (!firstOrderNumber.trim()) {
+      // Validate Purple First Order Number is mandatory (only for sales shifts)
+      if (!isSupportShift && !firstOrderNumber.trim()) {
         toast({
           title: t("error") || "خطأ",
           description: "يجب إدخال رقم أول طلب Purple قبل فتح الوردية",
