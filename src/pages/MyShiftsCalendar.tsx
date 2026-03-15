@@ -115,12 +115,12 @@ const MyShiftsCalendar = () => {
       const endDate = getEndDate();
       const { data, error } = await supabase
         .from("shift_assignments")
-        .select(`id, shift_id, assignment_date, shifts (id, shift_name, shift_start_time, shift_end_time, color)`)
+        .select(`id, shift_id, assignment_date, shifts (id, shift_name, shift_start_time, shift_end_time, color, shift_types (type))`)
         .eq("user_id", user.id)
         .gte("assignment_date", format(startDate, "yyyy-MM-dd"))
         .lte("assignment_date", format(endDate, "yyyy-MM-dd"));
       if (error) throw error;
-      setAssignments(data?.map(a => ({ ...a, shift: a.shifts as Shift })) || []);
+      setAssignments(data?.map(a => ({ ...a, shift: { ...(a.shifts as any), shift_type: (a.shifts as any)?.shift_types?.type } as Shift })) || []);
     } catch (error) {
       console.error("Error fetching assignments:", error);
       toast.error(isAr ? "فشل في تحميل الورديات" : "Failed to load shifts");
