@@ -207,12 +207,18 @@ const MyShiftsCalendar = () => {
                 <div key={di} className={cn("min-h-28 p-2 border-b border-r last:border-r-0", !isCurrent && "bg-muted/30", isToday && "bg-primary/5")}>
                   <div className={cn("text-sm font-medium mb-1", !isCurrent && "text-muted-foreground", isToday && "text-primary font-bold")}>{d.getDate()}</div>
                   <div className="space-y-1">
-                    {da.map(a => (
-                      <div key={a.id} className="text-xs p-1.5 rounded truncate" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }} title={`${a.shift.shift_name} (${a.shift.shift_start_time} - ${a.shift.shift_end_time})`}>
-                        <div className="font-medium">{a.shift.shift_name}</div>
+                    {da.map(a => {
+                      const isSupport = a.shift.shift_type?.toLowerCase() === 'support';
+                      return (
+                      <div key={a.id} className="text-xs p-1.5 rounded truncate" style={{ backgroundColor: a.shift.color, color: getContrastColor(a.shift.color || '#888') }} title={`${a.shift.shift_name} (${a.shift.shift_start_time} - ${a.shift.shift_end_time})${isSupport ? ' [Support]' : ''}`}>
+                        <div className="font-medium flex items-center gap-1">
+                          {isSupport ? <Headset className="h-3 w-3 shrink-0" /> : <ShoppingCart className="h-3 w-3 shrink-0" />}
+                          {a.shift.shift_name}
+                        </div>
                         <div className="opacity-80">{a.shift.shift_start_time} - {a.shift.shift_end_time}</div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
