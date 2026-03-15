@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { corsHeaders } from '../_shared/cors.ts';
 
 const TABLE_CONFIG = {
