@@ -1,0 +1,1 @@
+UPDATE public.api_keys SET allow_product = true WHERE id = 'b072fa22-c05b-4005-89c2-4df09e36b772';
