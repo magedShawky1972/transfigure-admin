@@ -191,18 +191,26 @@ const ShiftSession = () => {
         setFirstOrderNumber(anyOpenSession.first_order_number || "");
         setSallaFirstOrderNumber(anyOpenSession.salla_first_order_number || "");
         setHasActiveAssignment(true);
-        await loadBrandBalances(anyOpenSession.id);
         
-        // Load A-Class brands
-        const { data: brandsData, error: brandsError } = await supabase
-          .from("brands")
-          .select("*")
-          .eq("status", "active")
-          .eq("abc_analysis", "A")
-          .order("brand_name");
+        // Detect if this is a support shift
+        const openShiftType = (anyOpenSession.shift_assignments as any)?.shifts?.shift_types?.type;
+        const isSupport = openShiftType?.toLowerCase() === 'support';
+        setIsSupportShift(isSupport);
+        
+        if (!isSupport) {
+          await loadBrandBalances(anyOpenSession.id);
+          
+          // Load A-Class brands
+          const { data: brandsData, error: brandsError } = await supabase
+            .from("brands")
+            .select("*")
+            .eq("status", "active")
+            .eq("abc_analysis", "A")
+            .order("brand_name");
 
-        if (brandsError) throw brandsError;
-        setBrands(brandsData || []);
+          if (brandsError) throw brandsError;
+          setBrands(brandsData || []);
+        }
         setLoading(false);
         return;
       }
