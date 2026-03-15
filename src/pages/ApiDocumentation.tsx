@@ -62,6 +62,7 @@ const API_ENDPOINTS = [
       { name: "Cost_Price", type: "Decimal", required: false, note: "" },
       { name: "Total_Cost", type: "Decimal", required: false, note: "" },
       { name: "Player_Id", type: "Text", required: false, note: "Player identifier" },
+      { name: "Vendor_Name", type: "Text", required: false, note: "Vendor name (optional)" },
     ],
   },
   {
