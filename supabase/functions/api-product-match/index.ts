@@ -239,7 +239,7 @@ async function sendMismatchNotification(supabase: any, result: any) {
       user_id: p.user_id,
       title,
       message,
-      type: 'system',
+      type: 'general',
       is_read: false,
     }));
 
