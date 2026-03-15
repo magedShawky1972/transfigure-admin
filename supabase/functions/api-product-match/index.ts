@@ -205,12 +205,11 @@ Deno.serve(async (req) => {
 
 async function sendMismatchNotification(supabase: any, result: any) {
   try {
-    // Find users: Amro Zaki, Abanoub, and the notification recipients
-    const targetNames = ['Amro Zaki', 'Abanoub'];
+    const targetNames = ['Amro Zaki', 'Abanoub', 'Maged'];
     
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('user_id, user_name')
+      .select('user_id, user_name, email')
       .or(targetNames.map((n: string) => `user_name.ilike.%${n}%`).join(','));
 
     if (!profiles || profiles.length === 0) {
@@ -250,7 +249,94 @@ async function sendMismatchNotification(supabase: any, result: any) {
     } else {
       console.log(`Mismatch notifications sent to ${profiles.length} users`);
     }
+
+    // Send email to all target users
+    const emails = profiles
+      .map((p: any) => p.email)
+      .filter((e: string) => e && e.includes('@'));
+
+    if (emails.length > 0) {
+      await sendMismatchEmail(emails, title, message, result);
+    }
   } catch (err) {
     console.error('Error in sendMismatchNotification:', err);
+  }
+}
+
+async function sendMismatchEmail(toEmails: string[], title: string, textMessage: string, result: any) {
+  try {
+    const smtpPassword = Deno.env.get("SMTP_PASSWORD");
+    if (!smtpPassword) {
+      console.error('SMTP_PASSWORD not configured, skipping email');
+      return;
+    }
+
+    const sku = result.salla?.SKU || 'N/A';
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html dir="rtl">
+      <head><meta charset="UTF-8" /></head>
+      <body style="font-family: Arial, sans-serif; direction: rtl; text-align: right;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+          <h2 style="color: #d32f2f;">⚠️ عدم تطابق منتج - Salla vs Purple</h2>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background: #f5f5f5;">
+              <th style="padding: 8px; border: 1px solid #ddd;">الحقل</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">سلة (Salla)</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">بيربل (Purple)</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">الحالة</th>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;">SKU</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${sku}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.purple?.SKU || 'غير موجود'}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.status === 'SKU_NOT_FOUND' ? '❌ غير موجود' : '✅'}</td>
+            </tr>
+            ${result.comparison?.Name ? `
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;">الاسم</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.comparison.Name.salla || 'N/A'}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.comparison.Name.purple || 'N/A'}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.comparison.Name.match ? '✅' : '❌'}</td>
+            </tr>` : ''}
+            ${result.comparison?.Price ? `
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;">السعر</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.comparison.Price.salla}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.comparison.Price.purple}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${result.comparison.Price.match ? '✅' : '❌'}</td>
+            </tr>` : ''}
+          </table>
+          <p style="color: #666; font-size: 12px;">هذا الإشعار تم إرساله تلقائياً من نظام إدارة - Product Match API</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.hostinger.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: "edara@asuscards.com",
+          password: smtpPassword,
+        },
+      },
+    });
+
+    await client.send({
+      from: "Edara System <edara@asuscards.com>",
+      to: toEmails,
+      subject: `عدم تطابق منتج SKU: ${sku} - Salla vs Purple`,
+      content: "auto",
+      html: emailHtml,
+    });
+
+    await client.close();
+    console.log(`Mismatch email sent to: ${toEmails.join(', ')}`);
+  } catch (emailErr) {
+    console.error('Error sending mismatch email:', emailErr);
   }
 }
