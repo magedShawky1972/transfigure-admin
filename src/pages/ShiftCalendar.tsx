@@ -871,7 +871,10 @@ const ShiftCalendar = () => {
                   <TableHead className="text-center font-bold min-w-[100px]">{isAr ? 'اليوم' : 'Day'}</TableHead>
                   {filteredShifts.map(s => (
                     <TableHead key={s.id} className="text-center min-w-[120px]" style={{ backgroundColor: s.color, color: getContrastColor(s.color || '#888') }}>
-                      <div>{s.shift_name}</div>
+                      <div className="flex items-center justify-center gap-1">
+                        {s.shift_type?.toLowerCase() === 'support' ? <Headset className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+                        {s.shift_name}
+                      </div>
                       <div className="text-xs opacity-80">{formatTime(s.shift_start_time)} – {formatTime(s.shift_end_time)}</div>
                     </TableHead>
                   ))}
