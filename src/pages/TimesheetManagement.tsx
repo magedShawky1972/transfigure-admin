@@ -1495,7 +1495,7 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 13 : 12} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 14 : 13} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
