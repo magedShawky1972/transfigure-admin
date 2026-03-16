@@ -9754,6 +9754,54 @@ export type Database = {
         }
         Relationships: []
       }
+      wfh_checkins: {
+        Row: {
+          checkin_date: string
+          checkin_time: string
+          checkout_time: string | null
+          created_at: string
+          device_info: string | null
+          id: string
+          ip_address: string | null
+          location_lat: number | null
+          location_lng: number | null
+          notes: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checkin_date?: string
+          checkin_time?: string
+          checkout_time?: string | null
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checkin_date?: string
+          checkin_time?: string
+          checkout_time?: string | null
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_config: {
         Row: {
           created_at: string
