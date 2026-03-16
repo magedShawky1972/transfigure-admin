@@ -1501,7 +1501,7 @@ export default function TimesheetManagement() {
                   </TableRow>
                 ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 13 : 12} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 14 : 13} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
