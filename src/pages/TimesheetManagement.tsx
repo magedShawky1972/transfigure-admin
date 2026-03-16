@@ -58,6 +58,7 @@ interface Employee {
   fixed_shift_end: string | null;
   basic_salary: number | null;
   attendance_type_id: string | null;
+  user_id: string | null;
   attendance_types?: AttendanceType;
 }
 
