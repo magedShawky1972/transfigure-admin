@@ -141,6 +141,7 @@ import MissingShiftImages from "./pages/MissingShiftImages";
 import SalesOrderEntry from "./pages/SalesOrderEntry";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
 import AutoUpload from "./pages/AutoUpload";
+import WFHCheckIn from "./pages/WFHCheckIn";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
 import CoinsSheets from "./pages/CoinsSheets";
 import SalesSheets from "./pages/SalesSheets";
@@ -293,6 +294,7 @@ const App = () => (
               <Route path="/coins-transaction-guide" element={<CoinsTransactionGuide />} />
               <Route path="/supplier-advance-payment" element={<SupplierAdvancePayment />} />
               <Route path="/auto-upload" element={<AutoUpload />} />
+              <Route path="/wfh-checkin" element={<WFHCheckIn />} />
               <Route path="/coins-sheets" element={<CoinsSheets />} />
               <Route path="/sales-sheets" element={<SalesSheets />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
