@@ -45,7 +45,8 @@ import {
   Undo2,
   Coins,
   ImageIcon,
-  Bot
+  Bot,
+  Home
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
