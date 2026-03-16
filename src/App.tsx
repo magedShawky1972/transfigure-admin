@@ -141,6 +141,7 @@ import MissingShiftImages from "./pages/MissingShiftImages";
 import SalesOrderEntry from "./pages/SalesOrderEntry";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
 import AutoUpload from "./pages/AutoUpload";
+import WFHCheckIn from "./pages/WFHCheckIn";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
 import CoinsSheets from "./pages/CoinsSheets";
 import SalesSheets from "./pages/SalesSheets";
