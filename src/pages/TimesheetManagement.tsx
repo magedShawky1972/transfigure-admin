@@ -1488,6 +1488,7 @@ export default function TimesheetManagement() {
                   <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("status", e.ctrlKey || e.metaKey)}>
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "الحالة" : "Status"} {getSortIcon("status")}</span>
                   </TableHead>
+                  <TableHead className="text-center">{language === "ar" ? "من المنزل" : "WFH"}</TableHead>
                   <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
