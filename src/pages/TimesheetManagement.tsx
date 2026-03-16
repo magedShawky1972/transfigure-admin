@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { getPrintLogoUrl } from "@/lib/printLogo";
 import { format, parseISO, differenceInMinutes } from "date-fns";
@@ -58,6 +58,7 @@ interface Employee {
   fixed_shift_end: string | null;
   basic_salary: number | null;
   attendance_type_id: string | null;
+  user_id: string | null;
   attendance_types?: AttendanceType;
 }
 
@@ -520,7 +521,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -614,6 +615,32 @@ export default function TimesheetManagement() {
         .eq("status", "approved")
         .not("delay_date", "is", null);
 
+      // Fetch WFH check-ins for the date range
+      // Build a map from user_id to employee_id
+      const userToEmployee = new Map<string, string>();
+      (employeesRes.data || []).forEach((emp: any) => {
+        if (emp.user_id) userToEmployee.set(emp.user_id, emp.id);
+      });
+
+      let wfhQuery = supabase
+        .from("wfh_checkins")
+        .select("user_id, checkin_date");
+      if (filterMode === "date") {
+        wfhQuery = wfhQuery.eq("checkin_date", selectedDate);
+      } else {
+        wfhQuery = wfhQuery.gte("checkin_date", vacDateFrom).lte("checkin_date", vacDateTo);
+      }
+      const { data: wfhData } = await wfhQuery;
+
+      // Build a set of employee_id + date for WFH days
+      const wfhDays = new Set<string>();
+      (wfhData || []).forEach((wfh: any) => {
+        const empId = userToEmployee.get(wfh.user_id);
+        if (empId) {
+          wfhDays.add(`${empId}_${wfh.checkin_date}`);
+        }
+      });
+
       // Build a set of employee_id + date combos that are vacation days
       const vacationDays = new Set<string>();
       (approvedLeaves || []).forEach((leave: any) => {
@@ -649,6 +676,7 @@ export default function TimesheetManagement() {
         const isVacationDay = vacationDays.has(key);
         const hasApprovedDelay = approvedDelayDays.has(key);
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
+        const isWFH = wfhDays.has(key);
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
@@ -661,6 +689,7 @@ export default function TimesheetManagement() {
           deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
           has_approved_delay: hasApprovedDelay,
           has_approved_early_leave: hasApprovedEarlyLeave,
+          is_wfh: isWFH,
         };
       });
 
@@ -1459,19 +1488,20 @@ export default function TimesheetManagement() {
                   <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("status", e.ctrlKey || e.metaKey)}>
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "الحالة" : "Status"} {getSortIcon("status")}</span>
                   </TableHead>
+                  <TableHead className="text-center">{language === "ar" ? "من المنزل" : "WFH"}</TableHead>
                   <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 13 : 12} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 14 : 13} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 13 : 12} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 14 : 13} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
@@ -1551,6 +1581,14 @@ export default function TimesheetManagement() {
                         )}
                       </TableCell>
                       <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
+                      <TableCell className="text-center">
+                        {(ts as any).is_wfh ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                            <Home className="h-3 w-3 mr-1" />
+                            {language === "ar" ? "من المنزل" : "WFH"}
+                          </Badge>
+                        ) : "-"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)} disabled={!canEditTimesheet(ts)}>
