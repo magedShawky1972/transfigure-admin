@@ -293,6 +293,7 @@ const App = () => (
               <Route path="/coins-transaction-guide" element={<CoinsTransactionGuide />} />
               <Route path="/supplier-advance-payment" element={<SupplierAdvancePayment />} />
               <Route path="/auto-upload" element={<AutoUpload />} />
+              <Route path="/wfh-checkin" element={<WFHCheckIn />} />
               <Route path="/coins-sheets" element={<CoinsSheets />} />
               <Route path="/sales-sheets" element={<SalesSheets />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
