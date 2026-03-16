@@ -1581,6 +1581,14 @@ export default function TimesheetManagement() {
                         )}
                       </TableCell>
                       <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
+                      <TableCell className="text-center">
+                        {(ts as any).is_wfh ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                            <Home className="h-3 w-3 mr-1" />
+                            {language === "ar" ? "من المنزل" : "WFH"}
+                          </Badge>
+                        ) : "-"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)} disabled={!canEditTimesheet(ts)}>
