@@ -166,6 +166,7 @@ interface UserPermission {
         { key: "companyNews", label: "أخبار الشركة", labelEn: "Company News" },
         { key: "department_management", label: "إدارة الأقسام", labelEn: "Department Management" },
         { key: "acknowledgmentDocuments", label: "القرارات الإدارية", labelEn: "Administrative Decisions" },
+        { key: "wfhCheckin", label: "تسجيل حضور من المنزل", labelEn: "WFH Check-In" },
       ]
     },
     {

@@ -332,7 +332,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? "مدير البريد" : "Email Manager", url: "/email-manager", icon: Mail },
         { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
         { title: language === 'ar' ? "إدخال أمر البيع" : "Sales Order Entry", url: "/sales-order-entry", icon: Receipt },
-        { title: language === 'ar' ? "تسجيل حضور من المنزل" : "WFH Check-In", url: "/wfh-checkin", icon: Home },
       ]
     },
     {
@@ -374,6 +373,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "أخبار الشركة" : "Company News", url: "/company-news", icon: FileText },
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
         { title: language === 'ar' ? "القرارات الإدارية" : "Administrative Decisions", url: "/acknowledgment-documents", icon: ClipboardCheck },
+        { title: language === 'ar' ? "تسجيل حضور من المنزل" : "WFH Check-In", url: "/wfh-checkin", icon: Home },
       ]
     },
     {
