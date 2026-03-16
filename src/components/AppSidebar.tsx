@@ -174,6 +174,7 @@ export function AppSidebar() {
     "/acknowledgment-documents": "acknowledgmentDocuments",
     "/sales-order-entry": "salesOrderEntry",
     "/auto-upload": "autoUpload",
+    "/wfh-checkin": "wfhCheckin",
   };
 
   useEffect(() => {
