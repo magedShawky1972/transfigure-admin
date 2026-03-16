@@ -615,6 +615,32 @@ export default function TimesheetManagement() {
         .eq("status", "approved")
         .not("delay_date", "is", null);
 
+      // Fetch WFH check-ins for the date range
+      // Build a map from user_id to employee_id
+      const userToEmployee = new Map<string, string>();
+      (employeesRes.data || []).forEach((emp: any) => {
+        if (emp.user_id) userToEmployee.set(emp.user_id, emp.id);
+      });
+
+      let wfhQuery = supabase
+        .from("wfh_checkins")
+        .select("user_id, checkin_date");
+      if (filterMode === "date") {
+        wfhQuery = wfhQuery.eq("checkin_date", selectedDate);
+      } else {
+        wfhQuery = wfhQuery.gte("checkin_date", vacDateFrom).lte("checkin_date", vacDateTo);
+      }
+      const { data: wfhData } = await wfhQuery;
+
+      // Build a set of employee_id + date for WFH days
+      const wfhDays = new Set<string>();
+      (wfhData || []).forEach((wfh: any) => {
+        const empId = userToEmployee.get(wfh.user_id);
+        if (empId) {
+          wfhDays.add(`${empId}_${wfh.checkin_date}`);
+        }
+      });
+
       // Build a set of employee_id + date combos that are vacation days
       const vacationDays = new Set<string>();
       (approvedLeaves || []).forEach((leave: any) => {
@@ -650,6 +676,7 @@ export default function TimesheetManagement() {
         const isVacationDay = vacationDays.has(key);
         const hasApprovedDelay = approvedDelayDays.has(key);
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
+        const isWFH = wfhDays.has(key);
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
@@ -662,6 +689,7 @@ export default function TimesheetManagement() {
           deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
           has_approved_delay: hasApprovedDelay,
           has_approved_early_leave: hasApprovedEarlyLeave,
+          is_wfh: isWFH,
         };
       });
 
