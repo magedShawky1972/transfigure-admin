@@ -259,7 +259,7 @@ const WFHCheckIn = () => {
                       {isRTL ? "جاري تحديد الموقع..." : "Getting location..."}
                     </span>
                   ) : location ? (
-                    <span className="text-green-600">
+                    <span className="text-primary">
                       {isRTL ? "تم تحديد الموقع ✓" : "Location captured ✓"}
                     </span>
                   ) : (
