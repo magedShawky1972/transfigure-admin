@@ -448,6 +448,9 @@ const CRMCaseDetail = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Knowledge Base Panel */}
+          <CRMKnowledgeBasePanel />
         </div>
       </div>
 
