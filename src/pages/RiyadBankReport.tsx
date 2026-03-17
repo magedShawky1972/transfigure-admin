@@ -80,7 +80,6 @@ const RiyadBankReport = () => {
     return new Date(year, month - 1, day);
   };
 
-  const parseFilterDate = (dateStr: string): Date => new Date(dateStr + "T00:00:00");
 
   const fetchData = async () => {
     setLoading(true);
