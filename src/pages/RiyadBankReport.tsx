@@ -61,11 +61,11 @@ const RiyadBankReport = () => {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [data, setData] = useState<RiyadBankRow[]>([]);
 
-  // Filters
-  const [txnDateFrom, setTxnDateFrom] = useState("");
-  const [txnDateTo, setTxnDateTo] = useState("");
-  const [postDateFrom, setPostDateFrom] = useState("");
-  const [postDateTo, setPostDateTo] = useState("");
+  // Filters - using Date objects for calendar pickers
+  const [txnDateFrom, setTxnDateFrom] = useState<Date | undefined>();
+  const [txnDateTo, setTxnDateTo] = useState<Date | undefined>();
+  const [postDateFrom, setPostDateFrom] = useState<Date | undefined>();
+  const [postDateTo, setPostDateTo] = useState<Date | undefined>();
   const [cardTypeFilter, setCardTypeFilter] = useState("all");
   const [txnTypeFilter, setTxnTypeFilter] = useState("all");
 
