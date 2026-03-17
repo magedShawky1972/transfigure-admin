@@ -47,7 +47,8 @@ import {
   ImageIcon,
   Bot,
   Home,
-  Headset
+  Headset,
+  BookOpen
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
