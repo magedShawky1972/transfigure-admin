@@ -211,7 +211,7 @@ interface UserPermission {
       labelAr: "إدارة العملاء",
       labelEn: "CRM",
       items: [
-        { key: "crmAccess", label: "لوحة القضايا", labelEn: "Case Board" },
+        { key: "crmAccess", label: "خدمة العملاء", labelEn: "Case Board" },
         { key: "knowledgeBase", label: "قاعدة المعرفة", labelEn: "Knowledge Base" },
         { key: "crmSetup", label: "إعداد CRM", labelEn: "CRM Setup" },
       ]

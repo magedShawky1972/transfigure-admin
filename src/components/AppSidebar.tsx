@@ -321,7 +321,7 @@ export function AppSidebar() {
     {
       label: language === 'ar' ? 'إدارة العملاء' : 'CRM',
       items: [
-        { title: language === 'ar' ? 'لوحة القضايا' : 'Case Board', url: "/crm", icon: Headset },
+        { title: language === 'ar' ? 'خدمة العملاء' : 'Case Board', url: "/crm", icon: Headset },
         { title: language === 'ar' ? 'قاعدة المعرفة' : 'Knowledge Base', url: "/knowledge-base", icon: BookOpen },
         { title: language === 'ar' ? 'إعداد CRM' : 'CRM Setup', url: "/crm-setup", icon: Settings },
       ]
