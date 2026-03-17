@@ -624,7 +624,7 @@ export default function TimesheetManagement() {
 
       let wfhQuery = supabase
         .from("wfh_checkins")
-        .select("user_id, checkin_date");
+        .select("user_id, checkin_date, checkin_time, checkout_time");
       if (filterMode === "date") {
         wfhQuery = wfhQuery.eq("checkin_date", selectedDate);
       } else {
@@ -632,12 +632,15 @@ export default function TimesheetManagement() {
       }
       const { data: wfhData } = await wfhQuery;
 
-      // Build a set of employee_id + date for WFH days
+      // Build a set of employee_id + date for WFH days and a map for times
       const wfhDays = new Set<string>();
+      const wfhTimes = new Map<string, { checkin_time: string | null; checkout_time: string | null }>();
       (wfhData || []).forEach((wfh: any) => {
         const empId = userToEmployee.get(wfh.user_id);
         if (empId) {
-          wfhDays.add(`${empId}_${wfh.checkin_date}`);
+          const key = `${empId}_${wfh.checkin_date}`;
+          wfhDays.add(key);
+          wfhTimes.set(key, { checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time });
         }
       });
 
