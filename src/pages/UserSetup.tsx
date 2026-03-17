@@ -207,6 +207,15 @@ interface UserPermission {
       ]
     },
     {
+      groupKey: "crm",
+      labelAr: "إدارة العملاء",
+      labelEn: "CRM",
+      items: [
+        { key: "crmAccess", label: "لوحة القضايا", labelEn: "Case Board" },
+        { key: "crmSetup", label: "إعداد CRM", labelEn: "CRM Setup" },
+      ]
+    },
+    {
       groupKey: "admin",
       labelAr: "الإدارة",
       labelEn: "Admin",
