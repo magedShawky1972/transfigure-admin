@@ -671,6 +671,7 @@ export default function TimesheetManagement() {
       });
 
       // Mail status + auto-detect vacation days + clear delay/early leave for approved requests
+      const existingKeys = new Set((data || []).map((ts: any) => `${ts.employee_id}_${ts.work_date}`));
       const timesheetsWithMailStatus = (data || []).map(ts => {
         const key = `${ts.employee_id}_${ts.work_date}`;
         const isVacationDay = vacationDays.has(key);
@@ -693,7 +694,51 @@ export default function TimesheetManagement() {
         };
       });
 
-      setTimesheets(timesheetsWithMailStatus);
+      // Create virtual rows for WFH days that have no timesheet record
+      const virtualWfhRows: any[] = [];
+      wfhDays.forEach(key => {
+        if (!existingKeys.has(key)) {
+          const [empId, date] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
+          const emp = (employeesRes.data || []).find((e: any) => e.id === empId);
+          if (emp && (!selectedEmployee || selectedEmployee === empId)) {
+            virtualWfhRows.push({
+              id: `wfh-virtual-${key}`,
+              employee_id: empId,
+              work_date: date,
+              scheduled_start: null,
+              scheduled_end: null,
+              actual_start: null,
+              actual_end: null,
+              break_duration_minutes: 0,
+              status: "present",
+              is_absent: false,
+              absence_reason: null,
+              late_minutes: 0,
+              early_leave_minutes: 0,
+              overtime_minutes: 0,
+              total_work_minutes: 0,
+              deduction_amount: 0,
+              deduction_rule_id: null,
+              overtime_amount: 0,
+              notes: null,
+              employees: {
+                employee_number: emp.employee_number,
+                first_name: emp.first_name,
+                last_name: emp.last_name,
+                zk_employee_code: null,
+              },
+              mailSent: false,
+              deduction_rules: null,
+              is_wfh: true,
+              has_approved_delay: false,
+              has_approved_early_leave: false,
+              is_virtual_wfh: true,
+            });
+          }
+        }
+      });
+
+      setTimesheets([...timesheetsWithMailStatus, ...virtualWfhRows]);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
