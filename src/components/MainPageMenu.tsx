@@ -105,6 +105,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/employee-request-approvals": "employeeRequestApprovals",
   "/hr-manager-setup": "hrManagerSetup",
   "/void-payment": "voidPayment",
+  "/wfh-checkin": "wfhCheckin",
 };
 
 interface MenuItem {
