@@ -33,7 +33,7 @@ const WFHCheckIn = () => {
 
   // Update clock every second
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(getKSATimeFormatted()), 1000);
+    const timer = setInterval(() => setCurrentTime(getCairoTime()), 1000);
     return () => clearInterval(timer);
   }, []);
 
