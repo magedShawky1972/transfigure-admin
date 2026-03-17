@@ -159,7 +159,7 @@ const WFHCheckIn = () => {
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleTimeString(isRTL ? 'ar-SA' : 'en-US', {
-      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Riyadh'
+      hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo'
     });
   };
 
