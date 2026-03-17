@@ -1587,7 +1587,7 @@ export default function TimesheetManagement() {
                       </TableCell>
                       <TableCell>
                         {ts.actual_start || ts.actual_end
-                          ? `${ts.actual_start || '-'} - ${ts.actual_end || '-'}`
+                          ? `${ts.actual_start ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_start) ? new Date(ts.actual_start).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_start) : '-'} - ${ts.actual_end ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_end) ? new Date(ts.actual_end).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_end) : '-'}`
                           : "-"}
                       </TableCell>
                       <TableCell>
