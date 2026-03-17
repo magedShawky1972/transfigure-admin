@@ -27,7 +27,8 @@ const WFHCheckIn = () => {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [currentTime, setCurrentTime] = useState(getKSATimeFormatted());
+  const getCairoTime = () => new Date().toLocaleTimeString('ar-SA', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' });
+  const [currentTime, setCurrentTime] = useState(getCairoTime());
   const [userName, setUserName] = useState("");
 
   // Update clock every second
