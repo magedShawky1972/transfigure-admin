@@ -46,7 +46,8 @@ import {
   Coins,
   ImageIcon,
   Bot,
-  Home
+  Home,
+  Headset
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
