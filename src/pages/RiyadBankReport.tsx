@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Printer, Loader2, X } from "lucide-react";
+import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Printer, Loader2, X, CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface RiyadBankRow {
   id: string;
@@ -59,11 +61,11 @@ const RiyadBankReport = () => {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [data, setData] = useState<RiyadBankRow[]>([]);
 
-  // Filters
-  const [txnDateFrom, setTxnDateFrom] = useState("");
-  const [txnDateTo, setTxnDateTo] = useState("");
-  const [postDateFrom, setPostDateFrom] = useState("");
-  const [postDateTo, setPostDateTo] = useState("");
+  // Filters - using Date objects for calendar pickers
+  const [txnDateFrom, setTxnDateFrom] = useState<Date | undefined>();
+  const [txnDateTo, setTxnDateTo] = useState<Date | undefined>();
+  const [postDateFrom, setPostDateFrom] = useState<Date | undefined>();
+  const [postDateTo, setPostDateTo] = useState<Date | undefined>();
   const [cardTypeFilter, setCardTypeFilter] = useState("all");
   const [txnTypeFilter, setTxnTypeFilter] = useState("all");
 
@@ -78,7 +80,6 @@ const RiyadBankReport = () => {
     return new Date(year, month - 1, day);
   };
 
-  const parseFilterDate = (dateStr: string): Date => new Date(dateStr + "T00:00:00");
 
   const fetchData = async () => {
     setLoading(true);
@@ -103,8 +104,8 @@ const RiyadBankReport = () => {
           .order("txn_date_only", { ascending: false })
           .range(from, from + pageSize - 1);
 
-        if (txnDateFrom) query = query.gte("txn_date_only", txnDateFrom);
-        if (txnDateTo) query = query.lte("txn_date_only", txnDateTo);
+        if (txnDateFrom) query = query.gte("txn_date_only", format(txnDateFrom, "yyyy-MM-dd"));
+        if (txnDateTo) query = query.lte("txn_date_only", format(txnDateTo, "yyyy-MM-dd"));
 
         const { data: page, error } = await query;
         if (error) {
@@ -127,8 +128,8 @@ const RiyadBankReport = () => {
       let filtered = allRows;
 
       if (postDateFrom || postDateTo) {
-        const fromDate = postDateFrom ? parseFilterDate(postDateFrom) : null;
-        const toDate = postDateTo ? parseFilterDate(postDateTo) : null;
+        const fromDate = postDateFrom || null;
+        const toDate = postDateTo ? new Date(postDateTo) : null;
         if (toDate) toDate.setHours(23, 59, 59, 999);
         filtered = filtered.filter((row) => {
           const postDate = parsePostingDate(row.posting_date);
@@ -255,10 +256,10 @@ const RiyadBankReport = () => {
   };
 
   const clearFilters = () => {
-    setTxnDateFrom("");
-    setTxnDateTo("");
-    setPostDateFrom("");
-    setPostDateTo("");
+    setTxnDateFrom(undefined);
+    setTxnDateTo(undefined);
+    setPostDateFrom(undefined);
+    setPostDateTo(undefined);
     setCardTypeFilter("all");
     setTxnTypeFilter("all");
   };
@@ -320,19 +321,59 @@ const RiyadBankReport = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 no-print">
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ المعاملة من" : "Txn Date From"}</Label>
-                <Input type="date" value={txnDateFrom} onChange={(e) => setTxnDateFrom(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !txnDateFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {txnDateFrom ? format(txnDateFrom, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={txnDateFrom} onSelect={setTxnDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ المعاملة إلى" : "Txn Date To"}</Label>
-                <Input type="date" value={txnDateTo} onChange={(e) => setTxnDateTo(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !txnDateTo && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {txnDateTo ? format(txnDateTo, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={txnDateTo} onSelect={setTxnDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ الترحيل من" : "Posting Date From"}</Label>
-                <Input type="date" value={postDateFrom} onChange={(e) => setPostDateFrom(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !postDateFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {postDateFrom ? format(postDateFrom, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={postDateFrom} onSelect={setPostDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ الترحيل إلى" : "Posting Date To"}</Label>
-                <Input type="date" value={postDateTo} onChange={(e) => setPostDateTo(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !postDateTo && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {postDateTo ? format(postDateTo, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={postDateTo} onSelect={setPostDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "نوع البطاقة" : "Card Type"}</Label>
