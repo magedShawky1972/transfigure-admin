@@ -182,6 +182,15 @@ const Reports = () => {
       route: "/reports/bank-statement-as-of",
     },
     {
+      id: "riyad-bank",
+      name: language === "ar" ? "تقرير بنك الرياض (تفصيلي)" : "Riyad Bank Report (Detailed)",
+      description: language === "ar"
+        ? "تقرير تفصيلي لجميع معاملات بنك الرياض مع جميع الأعمدة والفلاتر"
+        : "Detailed report for all Riyad Bank transactions with all columns and filters",
+      icon: Landmark,
+      route: "/reports/riyad-bank",
+    },
+    {
       id: "security-dashboard",
       name: language === "ar" ? "لوحة الأمان" : "Security Dashboard",
       description: language === "ar" 

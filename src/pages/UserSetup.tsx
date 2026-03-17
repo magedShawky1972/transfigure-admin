@@ -288,6 +288,7 @@ const REPORTS = [
   { key: "coins-ledger", labelEn: "Coins Ledger Report", labelAr: "تقرير دفتر الكوينز" },
   { key: "bank-statement", labelEn: "Bank Statement Report", labelAr: "تقرير كشف حساب البنك" },
   { key: "bank-statement-as-of", labelEn: "Bank Statement As Of", labelAr: "كشف حساب البنك حتى تاريخ" },
+  { key: "riyad-bank", labelEn: "Riyad Bank Report (Detailed)", labelAr: "تقرير بنك الرياض (تفصيلي)" },
   { key: "security-dashboard", labelEn: "Security Dashboard", labelAr: "لوحة الأمان" },
   { key: "sold-product", labelEn: "Sold Product Report", labelAr: "تقرير المنتجات المباعة" },
   { key: "odoo-sync-status", labelEn: "Odoo Sync Status", labelAr: "حالة مزامنة Odoo" },
