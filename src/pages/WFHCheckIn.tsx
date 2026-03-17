@@ -27,12 +27,13 @@ const WFHCheckIn = () => {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [currentTime, setCurrentTime] = useState(getKSATimeFormatted());
+  const getCairoTime = () => new Date().toLocaleTimeString('ar-SA', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' });
+  const [currentTime, setCurrentTime] = useState(getCairoTime());
   const [userName, setUserName] = useState("");
 
   // Update clock every second
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(getKSATimeFormatted()), 1000);
+    const timer = setInterval(() => setCurrentTime(getCairoTime()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -158,7 +159,7 @@ const WFHCheckIn = () => {
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleTimeString(isRTL ? 'ar-SA' : 'en-US', {
-      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Riyadh'
+      hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo'
     });
   };
 
@@ -204,7 +205,9 @@ const WFHCheckIn = () => {
             <CardDescription>
               {userName && <span className="font-medium text-foreground">{userName}</span>}
               {" • "}
-              {new Date().toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {new Date().toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Africa/Cairo' })}
+              {" • "}
+              <span className="text-xs text-muted-foreground">{isRTL ? "توقيت القاهرة" : "Cairo Time"}</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
