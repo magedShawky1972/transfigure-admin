@@ -6,7 +6,7 @@ import {
   LayoutDashboard, TicketCheck, Clock, FolderKanban, Users, Key, FileBarChart, FileText, Table2, Grid3x3,
   FileSpreadsheet, Database, MessageCircle, Calendar, Mail, Settings, UserCheck, TrendingUp, CreditCard,
   DollarSign, Building2, Truck, UserCircle, Palmtree, ClipboardList, Calculator, HeartPulse, Briefcase,
-  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target, FileSignature, ImageIcon, Undo2
+  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target, FileSignature, ImageIcon, Undo2, Home
 } from "lucide-react";
 
 const URL_TO_PERMISSION: Record<string, string> = {
