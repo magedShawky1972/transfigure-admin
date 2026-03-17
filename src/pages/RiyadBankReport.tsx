@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Table, TableHead, TableHeader, TableRow, TableCell, TableFooter } from "@/components/ui/table";
 import { Search, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Printer, Loader2, X, CalendarIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -45,6 +46,17 @@ interface RiyadBankRow {
 type SortDirection = "asc" | "desc" | null;
 type SortConfig = { column: keyof RiyadBankRow | null; direction: SortDirection };
 
+interface Totals {
+  txnAmount: number;
+  fee: number;
+  vat: number;
+  netAmount: number;
+  aggFee: number;
+  aggVat: number;
+  rbFee: number;
+  rbVat: number;
+}
+
 const numericColumns: (keyof RiyadBankRow)[] = ["txn_amount", "fee", "vat", "net_amount", "agg_fee", "agg_vat", "rb_fee", "rb_vat"];
 
 const formatNumber = (num: number): string =>
@@ -53,6 +65,34 @@ const formatNumber = (num: number): string =>
 const parseNum = (val: string | null): number =>
   val ? parseFloat(String(val).replace(/,/g, "")) || 0 : 0;
 
+const ROW_HEIGHT = 35;
+const MAX_ROWS = 50000;
+
+const columnDefs: { key: keyof RiyadBankRow; label: string; labelAr: string; numeric?: boolean }[] = [
+  { key: "txn_date_only", label: "Txn Date", labelAr: "تاريخ المعاملة" },
+  { key: "txn_number", label: "Txn Number", labelAr: "رقم المعاملة" },
+  { key: "txn_type", label: "Type", labelAr: "النوع" },
+  { key: "txn_amount", label: "Txn Amount", labelAr: "مبلغ المعاملة", numeric: true },
+  { key: "fee", label: "Fee", labelAr: "الرسوم", numeric: true },
+  { key: "vat", label: "VAT", labelAr: "الضريبة", numeric: true },
+  { key: "vat_2", label: "VAT %", labelAr: "نسبة الضريبة" },
+  { key: "net_amount", label: "Net Amount", labelAr: "صافي المبلغ", numeric: true },
+  { key: "agg_fee", label: "Agg Fee", labelAr: "رسوم التجميع", numeric: true },
+  { key: "agg_vat", label: "Agg VAT", labelAr: "ضريبة التجميع", numeric: true },
+  { key: "rb_fee", label: "RB Fee", labelAr: "رسوم الرياض", numeric: true },
+  { key: "rb_vat", label: "RB VAT", labelAr: "ضريبة الرياض", numeric: true },
+  { key: "card_number", label: "Card #", labelAr: "رقم البطاقة" },
+  { key: "card_type", label: "Card Type", labelAr: "نوع البطاقة" },
+  { key: "auth_code", label: "Auth Code", labelAr: "كود التفويض" },
+  { key: "terminal_id", label: "Terminal", labelAr: "الجهاز" },
+  { key: "merchant_name", label: "Merchant", labelAr: "التاجر" },
+  { key: "merchant_account", label: "Merchant Acc", labelAr: "حساب التاجر" },
+  { key: "payment_date", label: "Payment Date", labelAr: "تاريخ الدفع" },
+  { key: "posting_date", label: "Posting Date", labelAr: "تاريخ الترحيل" },
+  { key: "payment_number", label: "Payment #", labelAr: "رقم الدفع" },
+  { key: "payment_reference", label: "Payment Ref", labelAr: "مرجع الدفع" },
+];
+
 const RiyadBankReport = () => {
   const { language } = useLanguage();
   const isRTL = language === "ar";
@@ -60,8 +100,9 @@ const RiyadBankReport = () => {
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [data, setData] = useState<RiyadBankRow[]>([]);
+  const [totals, setTotals] = useState<Totals>({ txnAmount: 0, fee: 0, vat: 0, netAmount: 0, aggFee: 0, aggVat: 0, rbFee: 0, rbVat: 0 });
 
-  // Filters - using Date objects for calendar pickers
+  // Filters
   const [txnDateFrom, setTxnDateFrom] = useState<Date | undefined>();
   const [txnDateTo, setTxnDateTo] = useState<Date | undefined>();
   const [postDateFrom, setPostDateFrom] = useState<Date | undefined>();
@@ -72,6 +113,9 @@ const RiyadBankReport = () => {
   // Sorting
   const [sortConfig, setSortConfig] = useState<SortConfig>({ column: null, direction: null });
 
+  // Virtualization ref
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
   const parsePostingDate = (dateStr: string | null): Date | null => {
     if (!dateStr) return null;
     const parts = dateStr.split("/");
@@ -80,8 +124,13 @@ const RiyadBankReport = () => {
     return new Date(year, month - 1, day);
   };
 
+  const fetchData = useCallback(async () => {
+    // Validate: require txn date range
+    if (!txnDateFrom || !txnDateTo) {
+      toast.error(isRTL ? "يرجى تحديد نطاق تاريخ المعاملة (من - إلى)" : "Please select Transaction Date range (From - To)");
+      return;
+    }
 
-  const fetchData = async () => {
     setLoading(true);
     setLoadingMessage(isRTL ? "جاري تحميل البيانات..." : "Loading data...");
     try {
@@ -90,6 +139,8 @@ const RiyadBankReport = () => {
       let hasMore = true;
       let from = 0;
       let pageNum = 1;
+      // Incremental totals
+      const runningTotals: Totals = { txnAmount: 0, fee: 0, vat: 0, netAmount: 0, aggFee: 0, aggVat: 0, rbFee: 0, rbVat: 0 };
 
       while (hasMore) {
         setLoadingMessage(
@@ -104,8 +155,8 @@ const RiyadBankReport = () => {
           .order("txn_date_only", { ascending: false })
           .range(from, from + pageSize - 1);
 
-        if (txnDateFrom) query = query.gte("txn_date_only", format(txnDateFrom, "yyyy-MM-dd"));
-        if (txnDateTo) query = query.lte("txn_date_only", format(txnDateTo, "yyyy-MM-dd"));
+        query = query.gte("txn_date_only", format(txnDateFrom, "yyyy-MM-dd"));
+        query = query.lte("txn_date_only", format(txnDateTo, "yyyy-MM-dd"));
 
         const { data: page, error } = await query;
         if (error) {
@@ -113,10 +164,46 @@ const RiyadBankReport = () => {
           return;
         }
 
-        const pageRows = (page || []) as RiyadBankRow[];
+        let pageRows = (page || []) as RiyadBankRow[];
+
+        // Client-side filters
+        if (postDateFrom || postDateTo) {
+          const fromDate = postDateFrom || null;
+          const toDate = postDateTo ? new Date(postDateTo) : null;
+          if (toDate) toDate.setHours(23, 59, 59, 999);
+          pageRows = pageRows.filter((row) => {
+            const postDate = parsePostingDate(row.posting_date);
+            if (!postDate) return false;
+            if (fromDate && postDate < fromDate) return false;
+            if (toDate && postDate > toDate) return false;
+            return true;
+          });
+        }
+        if (cardTypeFilter !== "all") {
+          pageRows = pageRows.filter((r) => r.card_type === cardTypeFilter);
+        }
+        if (txnTypeFilter !== "all") {
+          pageRows = pageRows.filter((r) => r.txn_type === txnTypeFilter);
+        }
+
+        // Accumulate totals incrementally
+        for (const row of pageRows) {
+          runningTotals.txnAmount += parseNum(row.txn_amount);
+          runningTotals.fee += parseNum(row.fee);
+          runningTotals.vat += parseNum(row.vat);
+          runningTotals.netAmount += parseNum(row.net_amount);
+          runningTotals.aggFee += parseNum(row.agg_fee);
+          runningTotals.aggVat += parseNum(row.agg_vat);
+          runningTotals.rbFee += parseNum(row.rb_fee);
+          runningTotals.rbVat += parseNum(row.rb_vat);
+        }
+
         allRows.push(...pageRows);
 
-        if (pageRows.length < pageSize) {
+        if ((page || []).length < pageSize) {
+          hasMore = false;
+        } else if (allRows.length >= MAX_ROWS) {
+          toast.warning(isRTL ? `تم الوصول للحد الأقصى ${MAX_ROWS.toLocaleString()} سجل` : `Reached maximum limit of ${MAX_ROWS.toLocaleString()} records`);
           hasMore = false;
         } else {
           from += pageSize;
@@ -124,37 +211,15 @@ const RiyadBankReport = () => {
         }
       }
 
-      // Client-side filters
-      let filtered = allRows;
-
-      if (postDateFrom || postDateTo) {
-        const fromDate = postDateFrom || null;
-        const toDate = postDateTo ? new Date(postDateTo) : null;
-        if (toDate) toDate.setHours(23, 59, 59, 999);
-        filtered = filtered.filter((row) => {
-          const postDate = parsePostingDate(row.posting_date);
-          if (!postDate) return false;
-          if (fromDate && postDate < fromDate) return false;
-          if (toDate && postDate > toDate) return false;
-          return true;
-        });
-      }
-
-      if (cardTypeFilter !== "all") {
-        filtered = filtered.filter((r) => r.card_type === cardTypeFilter);
-      }
-      if (txnTypeFilter !== "all") {
-        filtered = filtered.filter((r) => r.txn_type === txnTypeFilter);
-      }
-
-      setData(filtered);
-      toast.success(isRTL ? `تم جلب ${filtered.length} سجل` : `Fetched ${filtered.length} records`);
+      setData(allRows);
+      setTotals(runningTotals);
+      toast.success(isRTL ? `تم جلب ${allRows.length} سجل` : `Fetched ${allRows.length} records`);
     } catch {
       toast.error(isRTL ? "خطأ غير متوقع" : "Unexpected error");
     } finally {
       setLoading(false);
     }
-  };
+  }, [txnDateFrom, txnDateTo, postDateFrom, postDateTo, cardTypeFilter, txnTypeFilter, isRTL]);
 
   const handleSort = (column: keyof RiyadBankRow) => {
     let direction: SortDirection = "asc";
@@ -171,33 +236,29 @@ const RiyadBankReport = () => {
     return <ArrowDown className="h-3 w-3" />;
   };
 
-  const sortedData = [...data].sort((a, b) => {
-    if (!sortConfig.column || !sortConfig.direction) return 0;
-    const aVal = a[sortConfig.column];
-    const bVal = b[sortConfig.column];
-    if (aVal === null || aVal === undefined) return 1;
-    if (bVal === null || bVal === undefined) return -1;
-    if (numericColumns.includes(sortConfig.column)) {
-      return sortConfig.direction === "asc" ? parseNum(aVal) - parseNum(bVal) : parseNum(bVal) - parseNum(aVal);
-    }
-    const cmp = String(aVal).localeCompare(String(bVal));
-    return sortConfig.direction === "asc" ? cmp : -cmp;
-  });
+  const sortedData = useMemo(() => {
+    if (!sortConfig.column || !sortConfig.direction) return data;
+    const col = sortConfig.column;
+    const dir = sortConfig.direction;
+    return [...data].sort((a, b) => {
+      const aVal = a[col];
+      const bVal = b[col];
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+      if (numericColumns.includes(col)) {
+        return dir === "asc" ? parseNum(aVal) - parseNum(bVal) : parseNum(bVal) - parseNum(aVal);
+      }
+      const cmp = String(aVal).localeCompare(String(bVal));
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }, [data, sortConfig]);
 
-  const totals = sortedData.reduce(
-    (acc, row) => {
-      acc.txnAmount += parseNum(row.txn_amount);
-      acc.fee += parseNum(row.fee);
-      acc.vat += parseNum(row.vat);
-      acc.netAmount += parseNum(row.net_amount);
-      acc.aggFee += parseNum(row.agg_fee);
-      acc.aggVat += parseNum(row.agg_vat);
-      acc.rbFee += parseNum(row.rb_fee);
-      acc.rbVat += parseNum(row.rb_vat);
-      return acc;
-    },
-    { txnAmount: 0, fee: 0, vat: 0, netAmount: 0, aggFee: 0, aggVat: 0, rbFee: 0, rbVat: 0 }
-  );
+  const rowVirtualizer = useVirtualizer({
+    count: sortedData.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 20,
+  });
 
   const exportToExcel = () => {
     if (sortedData.length === 0) {
@@ -264,31 +325,6 @@ const RiyadBankReport = () => {
     setTxnTypeFilter("all");
   };
 
-  const columnDefs: { key: keyof RiyadBankRow; label: string; labelAr: string; numeric?: boolean }[] = [
-    { key: "txn_date_only", label: "Txn Date", labelAr: "تاريخ المعاملة" },
-    { key: "txn_number", label: "Txn Number", labelAr: "رقم المعاملة" },
-    { key: "txn_type", label: "Type", labelAr: "النوع" },
-    { key: "txn_amount", label: "Txn Amount", labelAr: "مبلغ المعاملة", numeric: true },
-    { key: "fee", label: "Fee", labelAr: "الرسوم", numeric: true },
-    { key: "vat", label: "VAT", labelAr: "الضريبة", numeric: true },
-    { key: "vat_2", label: "VAT %", labelAr: "نسبة الضريبة" },
-    { key: "net_amount", label: "Net Amount", labelAr: "صافي المبلغ", numeric: true },
-    { key: "agg_fee", label: "Agg Fee", labelAr: "رسوم التجميع", numeric: true },
-    { key: "agg_vat", label: "Agg VAT", labelAr: "ضريبة التجميع", numeric: true },
-    { key: "rb_fee", label: "RB Fee", labelAr: "رسوم الرياض", numeric: true },
-    { key: "rb_vat", label: "RB VAT", labelAr: "ضريبة الرياض", numeric: true },
-    { key: "card_number", label: "Card #", labelAr: "رقم البطاقة" },
-    { key: "card_type", label: "Card Type", labelAr: "نوع البطاقة" },
-    { key: "auth_code", label: "Auth Code", labelAr: "كود التفويض" },
-    { key: "terminal_id", label: "Terminal", labelAr: "الجهاز" },
-    { key: "merchant_name", label: "Merchant", labelAr: "التاجر" },
-    { key: "merchant_account", label: "Merchant Acc", labelAr: "حساب التاجر" },
-    { key: "payment_date", label: "Payment Date", labelAr: "تاريخ الدفع" },
-    { key: "posting_date", label: "Posting Date", labelAr: "تاريخ الترحيل" },
-    { key: "payment_number", label: "Payment #", labelAr: "رقم الدفع" },
-    { key: "payment_reference", label: "Payment Ref", labelAr: "مرجع الدفع" },
-  ];
-
   return (
     <>
       <style>{`
@@ -320,7 +356,7 @@ const RiyadBankReport = () => {
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 no-print">
               <div className="space-y-2">
-                <Label>{isRTL ? "تاريخ المعاملة من" : "Txn Date From"}</Label>
+                <Label>{isRTL ? "تاريخ المعاملة من *" : "Txn Date From *"}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !txnDateFrom && "text-muted-foreground")}>
@@ -329,12 +365,12 @@ const RiyadBankReport = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={txnDateFrom} onSelect={setTxnDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                    <Calendar mode="single" selected={txnDateFrom} onSelect={setTxnDateFrom} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label>{isRTL ? "تاريخ المعاملة إلى" : "Txn Date To"}</Label>
+                <Label>{isRTL ? "تاريخ المعاملة إلى *" : "Txn Date To *"}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !txnDateTo && "text-muted-foreground")}>
@@ -343,7 +379,7 @@ const RiyadBankReport = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={txnDateTo} onSelect={setTxnDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                    <Calendar mode="single" selected={txnDateTo} onSelect={setTxnDateTo} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -357,7 +393,7 @@ const RiyadBankReport = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={postDateFrom} onSelect={setPostDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                    <Calendar mode="single" selected={postDateFrom} onSelect={setPostDateFrom} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -371,7 +407,7 @@ const RiyadBankReport = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={postDateTo} onSelect={setPostDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                    <Calendar mode="single" selected={postDateTo} onSelect={setPostDateTo} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -423,71 +459,107 @@ const RiyadBankReport = () => {
 
             {data.length > 0 && (
               <div className="text-sm text-muted-foreground">
-                {isRTL ? `عدد السجلات: ${data.length}` : `Records: ${data.length}`}
+                {isRTL ? `عدد السجلات: ${data.length.toLocaleString()}` : `Records: ${data.length.toLocaleString()}`}
               </div>
             )}
 
-            {/* Table */}
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {columnDefs.map((col) => (
-                      <TableHead
-                        key={col.key}
-                        className={`cursor-pointer hover:bg-muted/50 whitespace-nowrap text-xs ${col.numeric ? "text-right" : ""}`}
-                        onClick={() => handleSort(col.key)}
-                      >
-                        <div className={`flex items-center gap-1 ${col.numeric ? "justify-end" : ""}`}>
-                          {isRTL ? col.labelAr : col.label}
-                          {getSortIcon(col.key)}
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedData.length === 0 ? (
+            {/* Virtualized Table */}
+            <div className="rounded-md border overflow-hidden">
+              {/* Sticky header */}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={columnDefs.length} className="text-center py-8 text-muted-foreground">
-                        {isRTL ? "لا توجد بيانات. استخدم الفلاتر ثم اضغط بحث" : "No data. Use filters and click Search"}
-                      </TableCell>
+                      {columnDefs.map((col) => (
+                        <TableHead
+                          key={col.key}
+                          className={`cursor-pointer hover:bg-muted/50 whitespace-nowrap text-xs ${col.numeric ? "text-right" : ""}`}
+                          style={{ minWidth: col.numeric ? 100 : 90 }}
+                          onClick={() => handleSort(col.key)}
+                        >
+                          <div className={`flex items-center gap-1 ${col.numeric ? "justify-end" : ""}`}>
+                            {isRTL ? col.labelAr : col.label}
+                            {getSortIcon(col.key)}
+                          </div>
+                        </TableHead>
+                      ))}
                     </TableRow>
-                  ) : (
-                    sortedData.map((row) => (
-                      <TableRow key={row.id}>
-                        {columnDefs.map((col) => (
-                          <TableCell
-                            key={col.key}
-                            className={`whitespace-nowrap text-xs ${col.numeric ? "text-right font-mono" : ""}`}
-                          >
-                            {col.numeric
-                              ? row[col.key] ? formatNumber(parseNum(row[col.key])) : "-"
-                              : row[col.key] || "-"}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-                {sortedData.length > 0 && (
-                  <TableFooter>
-                    <TableRow className="bg-muted/50 font-bold text-xs">
-                      <TableCell colSpan={3}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.txnAmount)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.fee)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.vat)}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.netAmount)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.aggFee)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.aggVat)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.rbFee)}</TableCell>
-                      <TableCell className="text-right font-mono">{formatNumber(totals.rbVat)}</TableCell>
-                      <TableCell colSpan={10}></TableCell>
-                    </TableRow>
-                  </TableFooter>
+                  </TableHeader>
+                </Table>
+              </div>
+
+              {/* Scrollable virtualized body */}
+              <div
+                ref={tableContainerRef}
+                className="overflow-auto"
+                style={{ maxHeight: "600px" }}
+              >
+                {sortedData.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {isRTL ? "لا توجد بيانات. حدد نطاق تاريخ المعاملة ثم اضغط بحث" : "No data. Select Transaction Date range and click Search"}
+                  </div>
+                ) : (
+                  <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}>
+                    <Table>
+                      <tbody>
+                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                          const row = sortedData[virtualRow.index];
+                          return (
+                            <tr
+                              key={row.id}
+                              className="border-b transition-colors hover:bg-muted/50"
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: `${virtualRow.size}px`,
+                                transform: `translateY(${virtualRow.start}px)`,
+                                display: "table-row",
+                              }}
+                            >
+                              {columnDefs.map((col) => (
+                                <td
+                                  key={col.key}
+                                  className={`px-4 py-2 whitespace-nowrap text-xs align-middle ${col.numeric ? "text-right font-mono" : ""}`}
+                                  style={{ minWidth: col.numeric ? 100 : 90 }}
+                                >
+                                  {col.numeric
+                                    ? row[col.key] ? formatNumber(parseNum(row[col.key])) : "-"
+                                    : row[col.key] || "-"}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </Table>
+                  </div>
                 )}
-              </Table>
+              </div>
+
+              {/* Footer totals */}
+              {sortedData.length > 0 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableFooter>
+                      <TableRow className="bg-muted/50 font-bold text-xs">
+                        <TableCell colSpan={3}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.txnAmount)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.fee)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.vat)}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.netAmount)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.aggFee)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.aggVat)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.rbFee)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatNumber(totals.rbVat)}</TableCell>
+                        <TableCell colSpan={10}></TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
