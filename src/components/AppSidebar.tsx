@@ -179,6 +179,7 @@ export function AppSidebar() {
     "/wfh-checkin": "wfhCheckin",
     "/crm": "crmAccess",
     "/crm-setup": "crmSetup",
+    "/knowledge-base": "knowledgeBase",
   };
 
   useEffect(() => {
