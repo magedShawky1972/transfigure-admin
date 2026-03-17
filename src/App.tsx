@@ -81,6 +81,7 @@ import CoinsLedgerReport from "./pages/CoinsLedgerReport";
 import ProjectGantt from "./pages/ProjectGantt";
 import BankStatementReport from "./pages/BankStatementReport";
 import BankStatementAsOf from "./pages/BankStatementAsOf";
+import RiyadBankReport from "./pages/RiyadBankReport";
 import SystemBackup from "./pages/SystemBackup";
 import SystemRestore from "./pages/SystemRestore";
 import OdooSyncBatch from "./pages/OdooSyncBatch";
