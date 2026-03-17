@@ -317,6 +317,13 @@ export function AppSidebar() {
       ]
     },
     {
+      label: language === 'ar' ? 'إدارة العملاء' : 'CRM',
+      items: [
+        { title: language === 'ar' ? 'لوحة القضايا' : 'Case Board', url: "/crm", icon: Headset },
+        { title: language === 'ar' ? 'إعداد CRM' : 'CRM Setup', url: "/crm-setup", icon: Settings },
+      ]
+    },
+    {
       label: t("sidebar.entry"),
       items: [
         { title: t("menu.loadData"), url: "/load-data", icon: FileSpreadsheet },
