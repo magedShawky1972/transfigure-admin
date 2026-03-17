@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks']);
         setLoading(false);
         return;
       }
@@ -180,6 +180,15 @@ const Reports = () => {
         : "View bank statement as of a specific date with opening and closing balances",
       icon: Landmark,
       route: "/reports/bank-statement-as-of",
+    },
+    {
+      id: "riyad-bank",
+      name: language === "ar" ? "تقرير بنك الرياض (تفصيلي)" : "Riyad Bank Report (Detailed)",
+      description: language === "ar"
+        ? "تقرير تفصيلي لجميع معاملات بنك الرياض مع جميع الأعمدة والفلاتر"
+        : "Detailed report for all Riyad Bank transactions with all columns and filters",
+      icon: Landmark,
+      route: "/reports/riyad-bank",
     },
     {
       id: "security-dashboard",
