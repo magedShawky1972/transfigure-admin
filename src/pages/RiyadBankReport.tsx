@@ -322,19 +322,59 @@ const RiyadBankReport = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 no-print">
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ المعاملة من" : "Txn Date From"}</Label>
-                <Input type="date" value={txnDateFrom} onChange={(e) => setTxnDateFrom(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !txnDateFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {txnDateFrom ? format(txnDateFrom, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={txnDateFrom} onSelect={setTxnDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ المعاملة إلى" : "Txn Date To"}</Label>
-                <Input type="date" value={txnDateTo} onChange={(e) => setTxnDateTo(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !txnDateTo && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {txnDateTo ? format(txnDateTo, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={txnDateTo} onSelect={setTxnDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ الترحيل من" : "Posting Date From"}</Label>
-                <Input type="date" value={postDateFrom} onChange={(e) => setPostDateFrom(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !postDateFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {postDateFrom ? format(postDateFrom, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={postDateFrom} onSelect={setPostDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "تاريخ الترحيل إلى" : "Posting Date To"}</Label>
-                <Input type="date" value={postDateTo} onChange={(e) => setPostDateTo(e.target.value)} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !postDateTo && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {postDateTo ? format(postDateTo, "dd/MM/yyyy") : (isRTL ? "اختر تاريخ" : "Pick date")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={postDateTo} onSelect={setPostDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{isRTL ? "نوع البطاقة" : "Card Type"}</Label>
