@@ -81,6 +81,7 @@ import CoinsLedgerReport from "./pages/CoinsLedgerReport";
 import ProjectGantt from "./pages/ProjectGantt";
 import BankStatementReport from "./pages/BankStatementReport";
 import BankStatementAsOf from "./pages/BankStatementAsOf";
+import RiyadBankReport from "./pages/RiyadBankReport";
 import SystemBackup from "./pages/SystemBackup";
 import SystemRestore from "./pages/SystemRestore";
 import OdooSyncBatch from "./pages/OdooSyncBatch";
@@ -214,6 +215,7 @@ const App = () => (
               <Route path="/reports/coins-ledger" element={<CoinsLedgerReport />} />
               <Route path="/reports/bank-statement" element={<BankStatementReport />} />
               <Route path="/reports/bank-statement-as-of" element={<BankStatementAsOf />} />
+              <Route path="/reports/riyad-bank" element={<RiyadBankReport />} />
               <Route path="/reports/security-dashboard" element={<SecurityDashboard />} />
               <Route path="/security-dashboard" element={<SecurityDashboard />} />
               <Route path="/tawasoul" element={<Tawasoul />} />
