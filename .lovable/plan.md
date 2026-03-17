@@ -1,38 +1,34 @@
 
 
-## Current Behavior
+## Problem
+The Riyad Bank Report crashes when loading two months of data (~16K+ rows) because:
+1. All rows are fetched into memory at once and stored in state
+2. All rows are rendered as DOM nodes simultaneously (no virtualization)
+3. Sorting/totals recompute on every render over the full dataset
 
-When migrating table data, the edge function (`migrate-to-external`) generates SQL with **`ON CONFLICT (pk) DO UPDATE`** — meaning it automatically **overwrites** existing records that share the same primary key. There is **no user prompt** asking how to handle duplicates during migration.
+## Plan
 
-The flow:
-1. Data is exported as INSERT statements with `ON CONFLICT ("id") DO UPDATE SET ...` 
-2. Foreign key checks are disabled (`SET session_replication_role = 'replica'`)
-3. If a batch fails, it falls back to individual INSERT execution
-4. No duplicate detection or user choice is offered
+### 1. Add server-side pagination with "Load More" approach
+- Require at least one date filter (txn_date) before allowing search — prevent loading the entire 308K row table
+- Keep the paginated fetch loop but add a configurable max limit (e.g., 50K rows) with a warning
+- Compute totals incrementally during fetch, not after
 
-## Proposed Enhancement
+### 2. Virtualize the table rendering
+- Use `@tanstack/react-virtual` (already in the project, used by `VirtualizedTransactionTable`) to only render visible rows
+- Replace the current `<TableBody>` that renders all `sortedData.map(...)` with a virtualized container showing ~30 visible rows at a time
+- This is the main fix — 16K DOM rows is what causes the crash
 
-Add a **duplicate handling option** to the migration UI, similar to the existing `DuplicateRecordsDialog` component used in `LoadData.tsx`. Before migrating each table, the user can choose:
+### 3. Optimize sorting and totals
+- Use `useMemo` for `sortedData` and `totals` to avoid recomputation on unrelated re-renders
+- Compute totals during the fetch loop instead of re-reducing the entire array on every render
 
-### UI Changes (`SystemRestore.tsx`)
-1. Add a **"Duplicate Data Strategy"** selector in the migration settings section (alongside the existing checkboxes for data/users/storage), with three options:
-   - **Update Existing** (current default) — `ON CONFLICT DO UPDATE`
-   - **Skip Duplicates** — `ON CONFLICT DO NOTHING`  
-   - **Fail on Duplicates** — plain INSERT, stops on conflict
+### Technical Details
+- Import `useVirtualizer` from `@tanstack/react-virtual`
+- Create a scrollable container div with a fixed height (~600px)
+- Virtualize rows with estimated row height of 35px
+- Wrap `sortedData` and `totals` in `useMemo` with proper dependencies
+- Add validation: if no txn date range selected, show warning and block fetch
 
-2. Pass the chosen strategy to the edge function via a new `conflictStrategy` parameter.
-
-### Edge Function Changes (`migrate-to-external/index.ts`)
-1. Accept `conflictStrategy` parameter (`'update' | 'skip' | 'fail'`) in the `export_table_as_sql` action.
-2. Generate SQL accordingly:
-   - `'update'` → current `ON CONFLICT DO UPDATE SET ...`
-   - `'skip'` → `ON CONFLICT DO NOTHING`
-   - `'fail'` → plain `INSERT` with no conflict clause
-
-### Migration Progress Enhancement
-- Show a count of **skipped** vs **inserted** vs **updated** rows per table in the progress UI when strategy is `skip`.
-
-### Files to Modify
-- `supabase/functions/migrate-to-external/index.ts` — add `conflictStrategy` support
-- `src/pages/SystemRestore.tsx` — add strategy selector UI + pass parameter to edge function
+### Files to modify
+- `src/pages/RiyadBankReport.tsx` — virtualization, memoization, fetch guard
 
