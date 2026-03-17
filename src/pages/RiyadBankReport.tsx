@@ -105,8 +105,8 @@ const RiyadBankReport = () => {
           .order("txn_date_only", { ascending: false })
           .range(from, from + pageSize - 1);
 
-        if (txnDateFrom) query = query.gte("txn_date_only", txnDateFrom);
-        if (txnDateTo) query = query.lte("txn_date_only", txnDateTo);
+        if (txnDateFrom) query = query.gte("txn_date_only", format(txnDateFrom, "yyyy-MM-dd"));
+        if (txnDateTo) query = query.lte("txn_date_only", format(txnDateTo, "yyyy-MM-dd"));
 
         const { data: page, error } = await query;
         if (error) {
