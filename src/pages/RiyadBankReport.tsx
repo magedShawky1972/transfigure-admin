@@ -257,10 +257,10 @@ const RiyadBankReport = () => {
   };
 
   const clearFilters = () => {
-    setTxnDateFrom("");
-    setTxnDateTo("");
-    setPostDateFrom("");
-    setPostDateTo("");
+    setTxnDateFrom(undefined);
+    setTxnDateTo(undefined);
+    setPostDateFrom(undefined);
+    setPostDateTo(undefined);
     setCardTypeFilter("all");
     setTxnTypeFilter("all");
   };
