@@ -205,7 +205,9 @@ const WFHCheckIn = () => {
             <CardDescription>
               {userName && <span className="font-medium text-foreground">{userName}</span>}
               {" • "}
-              {new Date().toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {new Date().toLocaleDateString(isRTL ? 'ar-SA' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Africa/Cairo' })}
+              {" • "}
+              <span className="text-xs text-muted-foreground">{isRTL ? "توقيت القاهرة" : "Cairo Time"}</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
