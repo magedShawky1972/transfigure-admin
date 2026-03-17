@@ -176,6 +176,8 @@ export function AppSidebar() {
     "/sales-order-entry": "salesOrderEntry",
     "/auto-upload": "autoUpload",
     "/wfh-checkin": "wfhCheckin",
+    "/crm": "crmAccess",
+    "/crm-setup": "crmSetup",
   };
 
   useEffect(() => {
