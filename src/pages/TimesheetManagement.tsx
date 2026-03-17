@@ -704,14 +704,15 @@ export default function TimesheetManagement() {
           const [empId, date] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
           const emp = (employeesRes.data || []).find((e: any) => e.id === empId);
           if (emp && (!selectedEmployee || selectedEmployee === empId)) {
+            const wfhTime = wfhTimes.get(key);
             virtualWfhRows.push({
               id: `wfh-virtual-${key}`,
               employee_id: empId,
               work_date: date,
               scheduled_start: null,
               scheduled_end: null,
-              actual_start: null,
-              actual_end: null,
+              actual_start: wfhTime?.checkin_time || null,
+              actual_end: wfhTime?.checkout_time || null,
               break_duration_minutes: 0,
               status: "present",
               is_absent: false,
@@ -719,7 +720,9 @@ export default function TimesheetManagement() {
               late_minutes: 0,
               early_leave_minutes: 0,
               overtime_minutes: 0,
-              total_work_minutes: 0,
+              total_work_minutes: wfhTime?.checkin_time && wfhTime?.checkout_time
+                ? Math.max(0, differenceInMinutes(new Date(wfhTime.checkout_time), new Date(wfhTime.checkin_time)))
+                : 0,
               deduction_amount: 0,
               deduction_rule_id: null,
               overtime_amount: 0,
