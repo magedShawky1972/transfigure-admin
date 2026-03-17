@@ -1,38 +1,20 @@
 
 
-## Current Behavior
+## Fix: WFH Check-In Page — Show Cairo Local Time Instead of KSA
 
-When migrating table data, the edge function (`migrate-to-external`) generates SQL with **`ON CONFLICT (pk) DO UPDATE`** — meaning it automatically **overwrites** existing records that share the same primary key. There is **no user prompt** asking how to handle duplicates during migration.
+### Problem
+The WFH Check-In page displays all times in KSA timezone (UTC+3), but the employee working from home is in Cairo (UTC+2). The real-time clock and check-in/check-out times all show KSA time, which is 1 hour ahead of their actual local time.
 
-The flow:
-1. Data is exported as INSERT statements with `ON CONFLICT ("id") DO UPDATE SET ...` 
-2. Foreign key checks are disabled (`SET session_replication_role = 'replica'`)
-3. If a batch fails, it falls back to individual INSERT execution
-4. No duplicate detection or user choice is offered
+### Solution
+Change the WFH Check-In page to display times in **Cairo timezone (Africa/Cairo, UTC+2)** instead of KSA:
 
-## Proposed Enhancement
+### Changes in `src/pages/WFHCheckIn.tsx`
 
-Add a **duplicate handling option** to the migration UI, similar to the existing `DuplicateRecordsDialog` component used in `LoadData.tsx`. Before migrating each table, the user can choose:
+1. **Real-time clock** (line 30, 35): Replace `getKSATimeFormatted()` with a Cairo-timezone formatted time using `toLocaleTimeString('ar-SA', { timeZone: 'Africa/Cairo' })`
 
-### UI Changes (`SystemRestore.tsx`)
-1. Add a **"Duplicate Data Strategy"** selector in the migration settings section (alongside the existing checkboxes for data/users/storage), with three options:
-   - **Update Existing** (current default) — `ON CONFLICT DO UPDATE`
-   - **Skip Duplicates** — `ON CONFLICT DO NOTHING`  
-   - **Fail on Duplicates** — plain INSERT, stops on conflict
+2. **`formatTime` function** (line 158-163): Change `timeZone: 'Asia/Riyadh'` → `timeZone: 'Africa/Cairo'`
 
-2. Pass the chosen strategy to the edge function via a new `conflictStrategy` parameter.
+3. **Date header** (line 207): Add Cairo timezone label so users know the displayed time is Cairo local time
 
-### Edge Function Changes (`migrate-to-external/index.ts`)
-1. Accept `conflictStrategy` parameter (`'update' | 'skip' | 'fail'`) in the `export_table_as_sql` action.
-2. Generate SQL accordingly:
-   - `'update'` → current `ON CONFLICT DO UPDATE SET ...`
-   - `'skip'` → `ON CONFLICT DO NOTHING`
-   - `'fail'` → plain `INSERT` with no conflict clause
-
-### Migration Progress Enhancement
-- Show a count of **skipped** vs **inserted** vs **updated** rows per table in the progress UI when strategy is `skip`.
-
-### Files to Modify
-- `supabase/functions/migrate-to-external/index.ts` — add `conflictStrategy` support
-- `src/pages/SystemRestore.tsx` — add strategy selector UI + pass parameter to edge function
+The check-in date (`checkin_date`) will still use KSA date via `getKSADateString()` to stay consistent with the rest of the system's date logic. Only the **displayed time** changes to Cairo.
 
