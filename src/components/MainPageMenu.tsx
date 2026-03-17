@@ -200,6 +200,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Company Hierarchy", titleAr: "الهيكل التنظيمي", url: "/company-hierarchy", icon: Building2 },
       { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
       { title: "Administrative Decisions", titleAr: "القرارات الإدارية", url: "/acknowledgment-documents", icon: ClipboardCheck },
+      { title: "WFH Check-In", titleAr: "تسجيل حضور من المنزل", url: "/wfh-checkin", icon: Home },
     ]
   },
   {
