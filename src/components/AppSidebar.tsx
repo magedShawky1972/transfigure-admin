@@ -82,6 +82,7 @@ export function AppSidebar() {
     "/task-dashboard": "task_dashboard",
     "/user-dashboard": "user_dashboard",
     "/reports": "reports",
+    "/reports/riyad-bank": "reports",
     "/transactions": "transactions",
     "/tickets": "tickets",
     "/admin-tickets": "admin_tickets",
