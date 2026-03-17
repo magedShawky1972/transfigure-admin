@@ -148,6 +148,7 @@ import SalesSheets from "./pages/SalesSheets";
 import CRM from "./pages/CRM";
 import CRMCaseDetail from "./pages/CRMCaseDetail";
 import CRMSetup from "./pages/CRMSetup";
+import KnowledgeBase from "./pages/KnowledgeBase";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -303,6 +304,7 @@ const App = () => (
               <Route path="/crm" element={<CRM />} />
               <Route path="/crm/:id" element={<CRMCaseDetail />} />
               <Route path="/crm-setup" element={<CRMSetup />} />
+              <Route path="/knowledge-base" element={<KnowledgeBase />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

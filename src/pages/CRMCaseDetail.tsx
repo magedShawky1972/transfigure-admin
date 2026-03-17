@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, ArrowRight, User, Phone, Mail, MessageSquare, Link2, Calendar, Clock, Send, Plus, Ticket, ListTodo, FileText } from "lucide-react";
+import CRMKnowledgeBasePanel from "@/components/CRMKnowledgeBasePanel";
 import { toast } from "sonner";
 
 interface CrmCase {
@@ -447,6 +448,9 @@ const CRMCaseDetail = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Knowledge Base Panel */}
+          <CRMKnowledgeBasePanel />
         </div>
       </div>
 

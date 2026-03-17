@@ -47,7 +47,8 @@ import {
   ImageIcon,
   Bot,
   Home,
-  Headset
+  Headset,
+  BookOpen
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -178,6 +179,7 @@ export function AppSidebar() {
     "/wfh-checkin": "wfhCheckin",
     "/crm": "crmAccess",
     "/crm-setup": "crmSetup",
+    "/knowledge-base": "knowledgeBase",
   };
 
   useEffect(() => {
@@ -320,6 +322,7 @@ export function AppSidebar() {
       label: language === 'ar' ? 'إدارة العملاء' : 'CRM',
       items: [
         { title: language === 'ar' ? 'لوحة القضايا' : 'Case Board', url: "/crm", icon: Headset },
+        { title: language === 'ar' ? 'قاعدة المعرفة' : 'Knowledge Base', url: "/knowledge-base", icon: BookOpen },
         { title: language === 'ar' ? 'إعداد CRM' : 'CRM Setup', url: "/crm-setup", icon: Settings },
       ]
     },
