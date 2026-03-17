@@ -1916,6 +1916,178 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_case_links: {
+        Row: {
+          case_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          link_type: string
+          linked_id: string
+          linked_title: string | null
+        }
+        Insert: {
+          case_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          link_type: string
+          linked_id: string
+          linked_title?: string | null
+        }
+        Update: {
+          case_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          link_type?: string
+          linked_id?: string
+          linked_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_case_links_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "crm_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_case_notes: {
+        Row: {
+          case_id: string
+          content: string
+          created_at: string | null
+          created_by: string
+          created_by_name: string | null
+          id: string
+          metadata: Json | null
+          note_type: string
+        }
+        Insert: {
+          case_id: string
+          content: string
+          created_at?: string | null
+          created_by: string
+          created_by_name?: string | null
+          id?: string
+          metadata?: Json | null
+          note_type?: string
+        }
+        Update: {
+          case_id?: string
+          content?: string
+          created_at?: string | null
+          created_by?: string
+          created_by_name?: string | null
+          id?: string
+          metadata?: Json | null
+          note_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_case_notes_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "crm_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_cases: {
+        Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
+          brand_id: string | null
+          case_number: string
+          case_type: string
+          closed_at: string | null
+          created_at: string | null
+          created_by: string
+          created_by_name: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          description: string | null
+          id: string
+          priority: string
+          product_id: string | null
+          resolved_at: string | null
+          shift_session_id: string | null
+          stage_id: string | null
+          subject: string
+          ticket_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          brand_id?: string | null
+          case_number: string
+          case_type?: string
+          closed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          created_by_name?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          description?: string | null
+          id?: string
+          priority?: string
+          product_id?: string | null
+          resolved_at?: string | null
+          shift_session_id?: string | null
+          stage_id?: string | null
+          subject: string
+          ticket_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          assigned_to_name?: string | null
+          brand_id?: string | null
+          case_number?: string
+          case_type?: string
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          created_by_name?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          description?: string | null
+          id?: string
+          priority?: string
+          product_id?: string | null
+          resolved_at?: string | null
+          shift_session_id?: string | null
+          stage_id?: string | null
+          subject?: string
+          ticket_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_cases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_cases_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "crm_pipeline_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_customer_followup: {
         Row: {
           created_at: string
@@ -1952,6 +2124,45 @@ export type Database = {
           reminder_date?: string | null
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      crm_pipeline_stages: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_closed: boolean | null
+          stage_name: string
+          stage_name_ar: string | null
+          stage_order: number
+          stage_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_closed?: boolean | null
+          stage_name: string
+          stage_name_ar?: string | null
+          stage_order?: number
+          stage_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_closed?: boolean | null
+          stage_name?: string
+          stage_name_ar?: string | null
+          stage_order?: number
+          stage_type?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -10161,6 +10372,7 @@ export type Database = {
       }
       format_date_to_int: { Args: { d: string }; Returns: number }
       generate_bank_entry_number: { Args: never; Returns: string }
+      generate_crm_case_number: { Args: never; Returns: string }
       generate_expense_request_number: { Args: never; Returns: string }
       generate_ludo_order_number: { Args: never; Returns: string }
       generate_sales_sheet_order_number: { Args: never; Returns: string }

@@ -130,6 +130,8 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/sales-order-entry": "salesOrderEntry",
   "/auto-upload": "autoUpload",
   "/wfh-checkin": "wfhCheckin",
+  "/crm": "crmAccess",
+  "/crm-setup": "crmSetup",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {

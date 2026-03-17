@@ -145,6 +145,9 @@ import WFHCheckIn from "./pages/WFHCheckIn";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
 import CoinsSheets from "./pages/CoinsSheets";
 import SalesSheets from "./pages/SalesSheets";
+import CRM from "./pages/CRM";
+import CRMCaseDetail from "./pages/CRMCaseDetail";
+import CRMSetup from "./pages/CRMSetup";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -297,6 +300,9 @@ const App = () => (
               <Route path="/wfh-checkin" element={<WFHCheckIn />} />
               <Route path="/coins-sheets" element={<CoinsSheets />} />
               <Route path="/sales-sheets" element={<SalesSheets />} />
+              <Route path="/crm" element={<CRM />} />
+              <Route path="/crm/:id" element={<CRMCaseDetail />} />
+              <Route path="/crm-setup" element={<CRMSetup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -46,7 +46,8 @@ import {
   Coins,
   ImageIcon,
   Bot,
-  Home
+  Home,
+  Headset
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -175,6 +176,8 @@ export function AppSidebar() {
     "/sales-order-entry": "salesOrderEntry",
     "/auto-upload": "autoUpload",
     "/wfh-checkin": "wfhCheckin",
+    "/crm": "crmAccess",
+    "/crm-setup": "crmSetup",
   };
 
   useEffect(() => {
@@ -311,6 +314,13 @@ export function AppSidebar() {
         { title: language === 'ar' ? "توثيق API" : "API Documentation", url: "/api-documentation", icon: FileText },
         { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
         { title: t("menu.pivotTable"), url: "/pivot-table", icon: Grid3x3 },
+      ]
+    },
+    {
+      label: language === 'ar' ? 'إدارة العملاء' : 'CRM',
+      items: [
+        { title: language === 'ar' ? 'لوحة القضايا' : 'Case Board', url: "/crm", icon: Headset },
+        { title: language === 'ar' ? 'إعداد CRM' : 'CRM Setup', url: "/crm-setup", icon: Settings },
       ]
     },
     {
