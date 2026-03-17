@@ -129,8 +129,8 @@ const RiyadBankReport = () => {
       let filtered = allRows;
 
       if (postDateFrom || postDateTo) {
-        const fromDate = postDateFrom ? parseFilterDate(postDateFrom) : null;
-        const toDate = postDateTo ? parseFilterDate(postDateTo) : null;
+        const fromDate = postDateFrom || null;
+        const toDate = postDateTo ? new Date(postDateTo) : null;
         if (toDate) toDate.setHours(23, 59, 59, 999);
         filtered = filtered.filter((row) => {
           const postDate = parsePostingDate(row.posting_date);
