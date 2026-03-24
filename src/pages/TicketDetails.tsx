@@ -2279,6 +2279,72 @@ const TicketDetails = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Transfer Department Dialog */}
+      <Dialog open={transferDeptDialogOpen} onOpenChange={setTransferDeptDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تحويل التذكرة لقسم آخر' : 'Transfer Ticket to Another Department'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {language === 'ar' 
+                ? 'سيتم تحويل التذكرة للقسم المختار وإعادة بدء سلسلة الموافقات.'
+                : 'The ticket will be transferred to the selected department and the approval chain will restart.'}
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'القسم الجديد' : 'New Department'}
+              </label>
+              <Select value={transferDeptId} onValueChange={setTransferDeptId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر القسم...' : 'Select department...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.filter(d => d.id !== ticket.department_id).map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.department_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'سبب التحويل (اختياري)' : 'Transfer Reason (optional)'}
+              </label>
+              <Textarea
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+                placeholder={language === 'ar' ? 'اكتب سبب التحويل...' : 'Why is this ticket being transferred...'}
+                className="min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTransferDeptDialogOpen(false);
+                setTransferDeptId("");
+                setTransferReason("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleTransferDepartment}
+              disabled={!transferDeptId || transferring}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {transferring 
+                ? (language === 'ar' ? 'جاري التحويل...' : 'Transferring...') 
+                : (language === 'ar' ? 'تحويل' : 'Transfer')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
