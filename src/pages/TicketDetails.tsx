@@ -1824,6 +1824,20 @@ const TicketDetails = () => {
                   
                   {/* Send for Extra Approval button */}
                   <div className="flex justify-end gap-2">
+                    {!ticket.approved_at && (
+                      <Button
+                        variant="outline"
+                        className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                        onClick={() => {
+                          setTransferDeptId("");
+                          setTransferReason("");
+                          setTransferDeptDialogOpen(true);
+                        }}
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4 rotate-180" />
+                        {language === 'ar' ? 'تحويل القسم' : 'Transfer Department'}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
