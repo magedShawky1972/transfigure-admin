@@ -169,6 +169,12 @@ const TicketDetails = () => {
   const [sendBackComment, setSendBackComment] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
 
+  // Transfer department states
+  const [transferDeptDialogOpen, setTransferDeptDialogOpen] = useState(false);
+  const [transferDeptId, setTransferDeptId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferring, setTransferring] = useState(false);
+
   // Get the source page from navigation state
   const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
 
@@ -1205,6 +1211,90 @@ const TicketDetails = () => {
     }
   };
 
+  const handleTransferDepartment = async () => {
+    if (!ticket || !transferDeptId || transferDeptId === ticket.department_id) return;
+
+    try {
+      setTransferring(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      const oldDeptName = ticket.departments.department_name;
+      const newDept = departments.find(d => d.id === transferDeptId);
+      const newDeptName = newDept?.department_name || "Unknown";
+
+      // Update ticket: change department, reset approval chain, set status to Open
+      const { error } = await supabase
+        .from("tickets")
+        .update({
+          department_id: transferDeptId,
+          next_admin_order: 0,
+          status: "Open",
+          approved_at: null,
+          approved_by: null,
+        })
+        .eq("id", ticket.id);
+
+      if (error) throw error;
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم تحويل التذكرة من قسم "${oldDeptName}" إلى قسم "${newDeptName}"${transferReason ? ` - السبب: ${transferReason}` : ''}`,
+        approval_level: 0,
+        activity_type: "department_transfer",
+      });
+
+      // Log activity
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "department_transfer",
+        user_id: user.id,
+        user_name: userProfile?.user_name,
+        description: `Transferred from "${oldDeptName}" to "${newDeptName}"${transferReason ? ` - Reason: ${transferReason}` : ''}`,
+      });
+
+      // Send notification to new department's first admin
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_created",
+          ticketId: ticket.id,
+          adminOrder: 0,
+          isPurchasePhase: false,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم تحويل التذكرة إلى قسم "${newDeptName}"` 
+          : `Ticket transferred to "${newDeptName}"`,
+      });
+
+      setTransferDeptDialogOpen(false);
+      setTransferDeptId("");
+      setTransferReason("");
+      fetchTicket();
+      fetchWorkflowNotes();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   const handleClarificationReply = async () => {
     if (!ticket || !clarificationReplyText.trim()) return;
     try {
@@ -1734,6 +1824,20 @@ const TicketDetails = () => {
                   
                   {/* Send for Extra Approval button */}
                   <div className="flex justify-end gap-2">
+                    {!ticket.approved_at && (
+                      <Button
+                        variant="outline"
+                        className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                        onClick={() => {
+                          setTransferDeptId("");
+                          setTransferReason("");
+                          setTransferDeptDialogOpen(true);
+                        }}
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4 rotate-180" />
+                        {language === 'ar' ? 'تحويل القسم' : 'Transfer Department'}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       className="border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
@@ -2171,6 +2275,72 @@ const TicketDetails = () => {
               {sendingClarificationReply
                 ? (language === 'ar' ? 'جاري الإرسال...' : 'Sending...')
                 : (language === 'ar' ? 'إرسال الرد' : 'Send Reply')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Transfer Department Dialog */}
+      <Dialog open={transferDeptDialogOpen} onOpenChange={setTransferDeptDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تحويل التذكرة لقسم آخر' : 'Transfer Ticket to Another Department'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {language === 'ar' 
+                ? 'سيتم تحويل التذكرة للقسم المختار وإعادة بدء سلسلة الموافقات.'
+                : 'The ticket will be transferred to the selected department and the approval chain will restart.'}
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'القسم الجديد' : 'New Department'}
+              </label>
+              <Select value={transferDeptId} onValueChange={setTransferDeptId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'اختر القسم...' : 'Select department...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.filter(d => d.id !== ticket.department_id).map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.department_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'سبب التحويل (اختياري)' : 'Transfer Reason (optional)'}
+              </label>
+              <Textarea
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+                placeholder={language === 'ar' ? 'اكتب سبب التحويل...' : 'Why is this ticket being transferred...'}
+                className="min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTransferDeptDialogOpen(false);
+                setTransferDeptId("");
+                setTransferReason("");
+              }}
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleTransferDepartment}
+              disabled={!transferDeptId || transferring}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {transferring 
+                ? (language === 'ar' ? 'جاري التحويل...' : 'Transferring...') 
+                : (language === 'ar' ? 'تحويل' : 'Transfer')}
             </Button>
           </DialogFooter>
         </DialogContent>
