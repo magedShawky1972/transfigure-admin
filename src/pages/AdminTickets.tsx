@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle, Building2, Undo2, XCircle } from "lucide-react";
+import { Eye, ShoppingCart, MessageSquare, Send, Trash2, Mail, History, ArrowRightLeft, RotateCcw, CheckCircle, Building2, Undo2, XCircle, Search } from "lucide-react";
 import TicketActivityLogDialog from "@/components/TicketActivityLogDialog";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -110,6 +110,7 @@ const AdminTickets = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [departmentMembers, setDepartmentMembers] = useState<Record<string, DepartmentMember[]>>({});
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [quickComment, setQuickComment] = useState<Record<string, string>>({});
@@ -1320,6 +1321,14 @@ const AdminTickets = () => {
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
     if (filterDepartment !== "all" && ticket.department_id !== filterDepartment) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchSubject = ticket.subject?.toLowerCase().includes(q);
+      const matchDescription = ticket.description?.toLowerCase().includes(q);
+      const matchUser = ticket.profiles?.user_name?.toLowerCase().includes(q);
+      const matchTicketNumber = ticket.ticket_number?.toLowerCase().includes(q);
+      if (!matchSubject && !matchDescription && !matchUser && !matchTicketNumber) return false;
+    }
     return true;
   });
 
@@ -1663,6 +1672,16 @@ const AdminTickets = () => {
       </div>
 
       <div className="flex flex-wrap gap-2 sm:gap-4">
+        <div className="relative w-full sm:w-[280px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={language === 'ar' ? 'بحث بالموضوع، الوصف، المستخدم...' : 'Search subject, description, user...'}
+            className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+        </div>
         <Select value={filterDepartment} onValueChange={setFilterDepartment}>
           <SelectTrigger className="w-full sm:w-[200px] h-9 text-sm">
             <SelectValue placeholder={language === 'ar' ? 'القسم' : 'Department'} />
