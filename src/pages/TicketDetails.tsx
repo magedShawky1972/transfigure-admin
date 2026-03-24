@@ -1211,6 +1211,90 @@ const TicketDetails = () => {
     }
   };
 
+  const handleTransferDepartment = async () => {
+    if (!ticket || !transferDeptId || transferDeptId === ticket.department_id) return;
+
+    try {
+      setTransferring(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .single();
+
+      const oldDeptName = ticket.departments.department_name;
+      const newDept = departments.find(d => d.id === transferDeptId);
+      const newDeptName = newDept?.department_name || "Unknown";
+
+      // Update ticket: change department, reset approval chain, set status to Open
+      const { error } = await supabase
+        .from("tickets")
+        .update({
+          department_id: transferDeptId,
+          next_admin_order: 0,
+          status: "Open",
+          approved_at: null,
+          approved_by: null,
+        })
+        .eq("id", ticket.id);
+
+      if (error) throw error;
+
+      // Add workflow note
+      await supabase.from("ticket_workflow_notes").insert({
+        ticket_id: ticket.id,
+        user_id: user.id,
+        user_name: userProfile?.user_name || "Unknown",
+        note: `تم تحويل التذكرة من قسم "${oldDeptName}" إلى قسم "${newDeptName}"${transferReason ? ` - السبب: ${transferReason}` : ''}`,
+        approval_level: 0,
+        activity_type: "department_transfer",
+      });
+
+      // Log activity
+      await supabase.from("ticket_activity_logs").insert({
+        ticket_id: ticket.id,
+        activity_type: "department_transfer",
+        user_id: user.id,
+        user_name: userProfile?.user_name,
+        description: `Transferred from "${oldDeptName}" to "${newDeptName}"${transferReason ? ` - Reason: ${transferReason}` : ''}`,
+      });
+
+      // Send notification to new department's first admin
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          type: "ticket_created",
+          ticketId: ticket.id,
+          adminOrder: 0,
+          isPurchasePhase: false,
+        },
+      });
+
+      toast({
+        title: language === 'ar' ? 'نجح' : 'Success',
+        description: language === 'ar' 
+          ? `تم تحويل التذكرة إلى قسم "${newDeptName}"` 
+          : `Ticket transferred to "${newDeptName}"`,
+      });
+
+      setTransferDeptDialogOpen(false);
+      setTransferDeptId("");
+      setTransferReason("");
+      fetchTicket();
+      fetchWorkflowNotes();
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   const handleClarificationReply = async () => {
     if (!ticket || !clarificationReplyText.trim()) return;
     try {
