@@ -169,6 +169,12 @@ const TicketDetails = () => {
   const [sendBackComment, setSendBackComment] = useState("");
   const [sendingBack, setSendingBack] = useState(false);
 
+  // Transfer department states
+  const [transferDeptDialogOpen, setTransferDeptDialogOpen] = useState(false);
+  const [transferDeptId, setTransferDeptId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferring, setTransferring] = useState(false);
+
   // Get the source page from navigation state
   const sourceRoute = (location.state as { from?: string })?.from || "/tickets";
 
