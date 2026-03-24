@@ -110,6 +110,7 @@ const AdminTickets = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [departmentMembers, setDepartmentMembers] = useState<Record<string, DepartmentMember[]>>({});
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [quickComment, setQuickComment] = useState<Record<string, string>>({});
