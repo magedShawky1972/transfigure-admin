@@ -1321,6 +1321,14 @@ const AdminTickets = () => {
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
     if (filterDepartment !== "all" && ticket.department_id !== filterDepartment) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchSubject = ticket.subject?.toLowerCase().includes(q);
+      const matchDescription = ticket.description?.toLowerCase().includes(q);
+      const matchUser = ticket.profiles?.user_name?.toLowerCase().includes(q);
+      const matchTicketNumber = ticket.ticket_number?.toLowerCase().includes(q);
+      if (!matchSubject && !matchDescription && !matchUser && !matchTicketNumber) return false;
+    }
     return true;
   });
 
