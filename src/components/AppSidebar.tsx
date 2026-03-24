@@ -314,7 +314,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? "لوحة الموظف" : "Employee Dashboard", url: "/user-dashboard", icon: Users },
         { title: language === 'ar' ? "البرامج والاشتراكات" : "Software & Subscription", url: "/software-licenses", icon: Key },
         { title: t("menu.reports"), url: "/reports", icon: FileBarChart },
-        { title: language === 'ar' ? "تقرير بنك الرياض" : "Riyad Bank Report", url: "/reports/riyad-bank", icon: FileBarChart },
         { title: language === 'ar' ? "توثيق API" : "API Documentation", url: "/api-documentation", icon: FileText },
         { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
         { title: t("menu.pivotTable"), url: "/pivot-table", icon: Grid3x3 },
