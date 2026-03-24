@@ -681,6 +681,7 @@ export default function TimesheetManagement() {
         const hasApprovedDelay = approvedDelayDays.has(key);
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
         const isWFH = wfhDays.has(key);
+        const wfhTime = isWFH ? wfhTimes.get(key) : null;
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
@@ -694,6 +695,8 @@ export default function TimesheetManagement() {
           has_approved_delay: hasApprovedDelay,
           has_approved_early_leave: hasApprovedEarlyLeave,
           is_wfh: isWFH,
+          actual_start: isWFH && !ts.actual_start && wfhTime?.checkin_time ? wfhTime.checkin_time : ts.actual_start,
+          actual_end: isWFH && !ts.actual_end && wfhTime?.checkout_time ? wfhTime.checkout_time : ts.actual_end,
         };
       });
 
