@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN asus_brand_name TEXT DEFAULT NULL;
