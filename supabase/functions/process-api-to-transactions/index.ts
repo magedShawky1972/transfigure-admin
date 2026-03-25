@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
         // Upsert purpletransaction rows
         const { error: txnError } = await supabase
           .from('purpletransaction')
-          .upsert(txnRows, { onConflict: 'ordernumber', ignoreDuplicates: false })
+          .upsert(txnRows, { onConflict: 'ordernumber,line_no', ignoreDuplicates: false })
           .select('id');
 
         if (txnError) {
