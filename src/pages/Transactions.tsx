@@ -347,7 +347,7 @@ const Transactions = () => {
     setPage(1);
     setIsAllDataLoaded(false);
     setTotalCountAll(0);
-  }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
+  }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection, filterCompany]);
 
   // Only refetch when page changes (after initial load)
   useEffect(() => {
@@ -417,6 +417,8 @@ const Transactions = () => {
       const endInt = parseInt(format(end, 'yyyyMMdd'), 10);
       q = q.gte('created_at_date_int', startInt).lte('created_at_date_int', endInt);
 
+      if (filterCompany !== 'all') q = q.eq('company', filterCompany);
+
       const phone = phoneFilter.trim();
       if (phone) q = q.ilike('customer_phone', `%${phone}%`);
       const orderNo = orderNumberFilter.trim();
@@ -442,6 +444,7 @@ const Transactions = () => {
 
       let countQuery = (supabase as any).from(table).select('*', { count: 'exact', head: true });
       countQuery = countQuery.gte('created_at_date_int', startInt).lte('created_at_date_int', endInt);
+      if (filterCompany !== 'all') countQuery = countQuery.eq('company', filterCompany);
       if (phone) countQuery = countQuery.ilike('customer_phone', `%${phone}%`);
       if (orderNo) countQuery = countQuery.ilike('order_number', `%${orderNo}%`);
       
@@ -549,6 +552,7 @@ const Transactions = () => {
             .gte('created_at_date_int', startInt)
             .lte('created_at_date_int', endInt);
 
+          if (filterCompany !== 'all') query = query.eq('company', filterCompany);
           if (phone) query = query.ilike('customer_phone', `%${phone}%`);
           if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
 
