@@ -454,7 +454,7 @@ Deno.serve(async (req) => {
             brand_name: row.brand_name.trim(),
             brand_code: row.brand_code || null,
             status: 'active',
-            creation_source: currentSheetName.toLowerCase().includes('asus') ? 'Asus Excel' : 'Purple Excel'
+            creation_source: (sheetConfig.sheet_name || '').toLowerCase().includes('asus') ? 'Asus Excel' : 'Purple Excel'
           }))
           .filter((brand: any, index: number, self: any[]) => 
             // Remove duplicates by brand_name
