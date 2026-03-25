@@ -46,6 +46,32 @@ serve(async (req) => {
       }
     );
 
+    // Verify the caller is an authenticated admin
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAdmin.auth.getUser(token);
+    if (claimsError || !claimsData?.user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: isAdmin } = await supabaseAdmin.rpc('has_role', { _user_id: claimsData.user.id, _role: 'admin' });
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { email, password } = await req.json();
 
     if (!email) {
@@ -104,7 +130,6 @@ serve(async (req) => {
 
     // Send email with new password
     console.log(`Attempting to send password reset email to: ${email}`);
-    console.log(`SMTP Server: smtp.hostinger.com, From: edara@asuscards.com`);
     
     try {
       const emailResult = await smtpClient.send({
@@ -134,12 +159,7 @@ serve(async (req) => {
       await smtpClient.close();
       console.log('Email sent successfully and SMTP connection closed');
     } catch (emailError: any) {
-      console.error('SMTP Error Details:', {
-        message: emailError?.message,
-        code: emailError?.code,
-        stack: emailError?.stack,
-        full: JSON.stringify(emailError)
-      });
+      console.error('SMTP Error:', emailError?.message);
       // Don't fail the request if email fails, password is already reset
     }
 
