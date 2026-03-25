@@ -462,16 +462,31 @@ Deno.serve(async (req) => {
           );
 
         if (brandsToUpsert.length > 0) {
-          // Check which brands already exist
+          // Check which brands already exist - check both brand_name and asus_brand_name
           const brandNames = brandsToUpsert.map(b => b.brand_name);
           const { data: existingBrands } = await supabase
             .from('brands')
-            .select('brand_name, brand_code')
+            .select('brand_name, brand_code, asus_brand_name')
             .in('brand_name', brandNames);
+
+          // Also check by asus_brand_name for Asus uploads
+          const { data: existingByAsusBrandName } = await supabase
+            .from('brands')
+            .select('brand_name, brand_code, asus_brand_name')
+            .in('asus_brand_name', brandNames);
 
           const existingBrandMap = new Map(
             (existingBrands || []).map(b => [b.brand_name, b])
           );
+          
+          // Also add brands found by asus_brand_name (map the asus name to the brand)
+          if (existingByAsusBrandName) {
+            for (const b of existingByAsusBrandName) {
+              if (b.asus_brand_name) {
+                existingBrandMap.set(b.asus_brand_name, b);
+              }
+            }
+          }
           
           // Separate new brands from existing ones that need updates
           const newBrands = brandsToUpsert.filter(b => !existingBrandMap.has(b.brand_name));
