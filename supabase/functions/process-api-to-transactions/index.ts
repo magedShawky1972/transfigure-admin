@@ -15,12 +15,25 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const singleOrderNumber = body.order_number || null;
 
-    // 1. Fetch unprocessed headers from Mar 11, 2025 onwards
+    // 1. Read start_date from api_integration_settings
+    let startDate = '2025-03-11';
+    const { data: settingsData } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'start_date')
+      .maybeSingle();
+
+    if (settingsData?.setting_value) {
+      startDate = settingsData.setting_value;
+    }
+    console.log(`Using start_date: ${startDate}`);
+
+    // 2. Fetch unprocessed headers from start_date onwards
     let headerQuery = supabase
       .from('sales_order_header')
       .select('*')
       .eq('is_processed', false)
-      .gte('order_date', '2025-03-11T00:00:00');
+      .gte('order_date', `${startDate}T00:00:00`);
 
     if (singleOrderNumber) {
       headerQuery = headerQuery.eq('order_number', singleOrderNumber);
@@ -46,7 +59,7 @@ Deno.serve(async (req) => {
     const orderNumbers = headers.map((h: any) => h.order_number);
     console.log(`Processing ${orderNumbers.length} orders:`, orderNumbers);
 
-    // 2. Fetch all related lines and payments in batch
+    // 3. Fetch all related lines and payments in batch
     const { data: allLines } = await supabase
       .from('sales_order_line')
       .select('*')
@@ -57,7 +70,7 @@ Deno.serve(async (req) => {
       .select('*')
       .in('order_number', orderNumbers);
 
-    // 3. Fetch all customers for phone lookup
+    // 4. Fetch all customers for phone lookup
     const customerPhones = [...new Set(headers.map((h: any) => h.customer_phone).filter(Boolean))];
     const { data: customers } = customerPhones.length > 0
       ? await supabase.from('customers').select('customer_phone, customer_name').in('customer_phone', customerPhones)
@@ -68,13 +81,12 @@ Deno.serve(async (req) => {
       customerMap[c.customer_phone] = c.customer_name;
     });
 
-    // 4. Fetch all products for SKU lookup
+    // 5. Fetch all products for SKU lookup
     const allSkus = [...new Set((allLines || []).map((l: any) => l.product_sku).filter(Boolean))];
     const { data: products } = allSkus.length > 0
       ? await supabase.from('products').select('product_id, sku, product_name, brand_name, brand_code').in('sku', allSkus)
       : { data: [] };
 
-    // Also try looking up by product_id if sku doesn't match
     const allProductIds = [...new Set((allLines || []).map((l: any) => String(l.product_id)).filter(Boolean))];
     const { data: productsByPid } = allProductIds.length > 0
       ? await supabase.from('products').select('product_id, sku, product_name, brand_name, brand_code').in('product_id', allProductIds)
@@ -85,7 +97,7 @@ Deno.serve(async (req) => {
     const productMapById: Record<string, any> = {};
     (productsByPid || []).forEach((p: any) => { productMapById[p.product_id] = p; });
 
-    // 4b. Fetch brands with default supplier for vendor_name lookup
+    // 5b. Fetch brands with default supplier for vendor_name lookup
     const { data: brandsWithSupplier } = await supabase
       .from('brands')
       .select('brand_code, default_supplier_id, suppliers:default_supplier_id(supplier_name)')
@@ -98,16 +110,23 @@ Deno.serve(async (req) => {
       }
     });
 
-    // 5. Fetch payment methods for bank fee calc
+    // 6. Fetch payment methods for bank fee calc (including bank_id and vat_fee)
     const { data: paymentMethods } = await supabase
       .from('payment_methods')
-      .select('payment_method, payment_type, gateway_fee, fixed_value, is_active')
+      .select('payment_method, payment_type, gateway_fee, fixed_value, vat_fee, bank_id, is_active')
       .eq('is_active', true);
 
     const pmMap: Record<string, any> = {};
     (paymentMethods || []).forEach((pm: any) => {
       const key = `${(pm.payment_type || '').toLowerCase()}|${(pm.payment_method || '').toLowerCase()}`;
       pmMap[key] = pm;
+    });
+
+    // Also build a map by payment_method (brand) only for fallback
+    const pmByBrand: Record<string, any> = {};
+    (paymentMethods || []).forEach((pm: any) => {
+      const brand = (pm.payment_method || '').trim().toLowerCase();
+      if (!pmByBrand[brand]) pmByBrand[brand] = pm;
     });
 
     // Group lines and payments by order_number
@@ -123,9 +142,25 @@ Deno.serve(async (req) => {
       paymentsByOrder[p.order_number].push(p);
     });
 
+    // 7. Fetch bank balances for bank_ledger processing
+    const bankIds = [...new Set((paymentMethods || []).map((pm: any) => pm.bank_id).filter(Boolean))];
+    let bankBalanceMap: Map<string, number> = new Map();
+
+    if (bankIds.length > 0) {
+      const { data: banks } = await supabase
+        .from('banks')
+        .select('id, current_balance')
+        .in('id', bankIds);
+
+      bankBalanceMap = new Map(
+        (banks || []).map((b: any) => [b.id, Number(b.current_balance) || 0])
+      );
+    }
+
     let processedCount = 0;
     let skippedCount = 0;
     const errors: string[] = [];
+    const bankLedgerEntries: any[] = [];
 
     for (const header of headers) {
       const orderNum = header.order_number;
@@ -150,11 +185,10 @@ Deno.serve(async (req) => {
         const paymentMethod = payment.payment_method || '';
         const paymentBrand = payment.payment_brand || '';
 
-        // Calculate bank fee using payment_methods table
-        // payment_method from API maps to both payment_method and payment_type in purpletransaction
-        // In payment_methods table: payment_type = type category, payment_method = brand
+        // Find matching payment method config
         const pmKey = `${paymentMethod.toLowerCase()}|${paymentBrand.toLowerCase()}`;
-        const pm = pmMap[pmKey];
+        const pm = pmMap[pmKey] || pmByBrand[paymentBrand.toLowerCase()] || null;
+        const vatRate = pm ? (Number(pm.vat_fee) || 15) : 15;
 
         // Build purpletransaction rows - one per sales line
         const txnRows: any[] = [];
@@ -175,15 +209,12 @@ Deno.serve(async (req) => {
           if (pm && paymentMethod.toLowerCase() !== 'point') {
             const gatewayFee = Number(pm.gateway_fee) || 0;
             const fixedValue = Number(pm.fixed_value) || 0;
-            // Fee = (total * gateway_fee/100 + fixed_value) * 1.15 (with VAT)
-            lineBankFee = ((lineTotal * gatewayFee / 100) + fixedValue) * 1.15;
+            lineBankFee = ((lineTotal * gatewayFee / 100) + fixedValue) * (1 + vatRate / 100);
           }
 
           orderTotal += lineTotal;
           orderCostSold += lineCostSold;
 
-          // Generate a unique ordernumber for the unique constraint
-          // Format: order_number-line_number
           const ordernumber = `${orderNum}-${line.line_number || 1}`;
 
           txnRows.push({
@@ -210,7 +241,7 @@ Deno.serve(async (req) => {
             total: lineTotal || null,
             profit: lineProfit || null,
             payment_method: paymentMethod || null,
-            payment_type: paymentMethod || null, // same as payment_method
+            payment_type: paymentMethod || null,
             payment_brand: paymentBrand || null,
             payment_reference: payment.payment_reference || null,
             payment_card_number: payment.payment_card_number || null,
@@ -231,7 +262,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Upsert purpletransaction rows (conflict on ordernumber unique index)
+        // Upsert purpletransaction rows
         const { error: txnError } = await supabase
           .from('purpletransaction')
           .upsert(txnRows, { onConflict: 'ordernumber', ignoreDuplicates: false })
@@ -245,13 +276,15 @@ Deno.serve(async (req) => {
 
         // Calculate order-level bank fee for ordertotals
         let orderBankFee = 0;
+        let orderBankId: string | null = null;
         if (pm && paymentMethod.toLowerCase() !== 'point') {
           const gatewayFee = Number(pm.gateway_fee) || 0;
           const fixedValue = Number(pm.fixed_value) || 0;
-          orderBankFee = ((orderTotal * gatewayFee / 100) + fixedValue) * 1.15;
+          orderBankFee = ((orderTotal * gatewayFee / 100) + fixedValue) * (1 + vatRate / 100);
+          orderBankId = pm.bank_id || null;
         }
 
-        // Upsert ordertotals (unique on order_number)
+        // Upsert ordertotals
         const { error: otError } = await supabase
           .from('ordertotals')
           .upsert({
@@ -267,6 +300,42 @@ Deno.serve(async (req) => {
         if (otError) {
           console.error(`Error upserting ordertotals for ${orderNum}:`, otError);
           errors.push(`${orderNum} ordertotals: ${otError.message}`);
+        }
+
+        // Create bank_ledger entries (same logic as Excel upload)
+        if (orderBankId && paymentMethod.toLowerCase() !== 'point') {
+          const currentBalance = bankBalanceMap.get(orderBankId) || 0;
+
+          // Sales In entry
+          const balanceAfterSalesIn = currentBalance + orderTotal;
+          bankLedgerEntries.push({
+            bank_id: orderBankId,
+            entry_date: header.order_date || new Date().toISOString(),
+            reference_type: 'sales_in',
+            reference_number: orderNum,
+            description: `Sales In - ${orderNum}`,
+            in_amount: orderTotal,
+            out_amount: 0,
+            balance_after: balanceAfterSalesIn,
+          });
+
+          // Bank Fee entry (Out) - only if there's a fee
+          if (orderBankFee > 0) {
+            const balanceAfterFee = balanceAfterSalesIn - orderBankFee;
+            bankLedgerEntries.push({
+              bank_id: orderBankId,
+              entry_date: header.order_date || new Date().toISOString(),
+              reference_type: 'bank_fee',
+              reference_number: orderNum,
+              description: `Bank Fee - ${paymentBrand || paymentMethod}`,
+              in_amount: 0,
+              out_amount: orderBankFee,
+              balance_after: balanceAfterFee,
+            });
+            bankBalanceMap.set(orderBankId, balanceAfterFee);
+          } else {
+            bankBalanceMap.set(orderBankId, balanceAfterSalesIn);
+          }
         }
 
         // Mark header as processed
@@ -285,11 +354,42 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 8. Insert bank_ledger entries in batches
+    if (bankLedgerEntries.length > 0) {
+      console.log(`Inserting ${bankLedgerEntries.length} bank ledger entries...`);
+      const batchSize = 500;
+      for (let i = 0; i < bankLedgerEntries.length; i += batchSize) {
+        const batch = bankLedgerEntries.slice(i, i + batchSize);
+        const { error: ledgerError } = await supabase
+          .from('bank_ledger')
+          .insert(batch);
+
+        if (ledgerError) {
+          console.error(`Error inserting bank ledger batch ${Math.floor(i / batchSize) + 1}:`, ledgerError);
+        }
+      }
+      console.log(`Successfully inserted ${bankLedgerEntries.length} bank ledger entries`);
+
+      // Update bank current_balance with final balances
+      for (const [bankId, finalBalance] of bankBalanceMap.entries()) {
+        const { error: updateError } = await supabase
+          .from('banks')
+          .update({ current_balance: finalBalance })
+          .eq('id', bankId);
+
+        if (updateError) {
+          console.error(`Error updating bank balance for ${bankId}:`, updateError);
+        }
+      }
+    }
+
     return new Response(JSON.stringify({
       success: true,
       processed: processedCount,
       skipped: skippedCount,
       total_headers: headers.length,
+      bank_ledger_entries: bankLedgerEntries.length,
+      start_date: startDate,
       errors: errors.length > 0 ? errors : undefined,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
