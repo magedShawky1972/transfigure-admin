@@ -1150,8 +1150,10 @@ export default function TimesheetManagement() {
       totalDeduction: number;
       totalOvertime: number;
       lateCount: number;
+      earlyLeaveCount: number;
       absentCount: number;
       totalLateMinutes: number;
+      totalEarlyLeaveMinutes: number;
       rules: Map<string, { name: string; count: number; amount: number }>;
     }>();
 
@@ -1167,8 +1169,10 @@ export default function TimesheetManagement() {
           totalDeduction: 0,
           totalOvertime: 0,
           lateCount: 0,
+          earlyLeaveCount: 0,
           absentCount: 0,
           totalLateMinutes: 0,
+          totalEarlyLeaveMinutes: 0,
           rules: new Map(),
         });
       }
@@ -1179,6 +1183,10 @@ export default function TimesheetManagement() {
       if (ts.late_minutes > 0) {
         emp.lateCount++;
         emp.totalLateMinutes += ts.late_minutes;
+      }
+      if (ts.early_leave_minutes > 0) {
+        emp.earlyLeaveCount++;
+        emp.totalEarlyLeaveMinutes += ts.early_leave_minutes;
       }
       if (ts.is_absent) emp.absentCount++;
 
