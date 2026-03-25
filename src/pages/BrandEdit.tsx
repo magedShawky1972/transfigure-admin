@@ -357,6 +357,7 @@ const BrandEdit = () => {
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
+            asus_brand_name: formData.asus_brand_name || null,
           } as any);
 
         if (error) throw error;
