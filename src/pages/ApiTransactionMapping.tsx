@@ -112,6 +112,7 @@ const DEFAULT_MAPPINGS = [
   { target_field: "profit_center", source_table: "sales_order_header", source_field: "profit_center" },
   { target_field: "payment_term", source_table: "sales_order_header", source_field: "payment_term" },
   { target_field: "transaction_type", source_table: "sales_order_header", source_field: "transaction_type" },
+  { target_field: "vendor_name", source_table: "computed", source_field: "vendor_name_from_brand" },
   { target_field: "trans_type", source_table: "fixed", source_field: "automatic" },
   { target_field: "is_deleted", source_table: "fixed", source_field: "false" },
   { target_field: "is_api_reviewed", source_table: "fixed", source_field: "false" },
