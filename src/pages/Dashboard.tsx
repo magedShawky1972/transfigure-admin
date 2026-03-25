@@ -412,12 +412,14 @@ const Dashboard = () => {
 
       // Use RPC function for fast aggregated metrics with optional brand filter
       const brandParam = globalBrandFilter !== 'all' ? globalBrandFilter : null;
+      const companyParam = companyFilter !== 'all' ? companyFilter : null;
       
       const { data: summary, error: summaryError } = await supabase
         .rpc('transactions_summary', {
           date_from: startDate,
           date_to: endDate,
-          p_brand_name: brandParam
+          p_brand_name: brandParam,
+          p_company: companyParam
         });
 
       if (summaryError) throw summaryError;
