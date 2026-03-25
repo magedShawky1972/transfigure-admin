@@ -2787,7 +2787,7 @@ const Dashboard = () => {
               </Select>
             </div>
 
-
+            <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-2 block">
                 {language === 'ar' ? 'تصفية حسب العلامة التجارية' : 'Filter by Brand'}
               </label>
