@@ -1116,7 +1116,8 @@ const Transactions = () => {
     // Navigate to Odoo sync batch page with date filters
     const fromDateStr = format(fromDate, 'yyyy-MM-dd');
     const toDateStr = format(toDate, 'yyyy-MM-dd');
-    navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}`);
+    const companyParam = filterCompany !== 'all' ? `&company=${filterCompany}` : '';
+    navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}${companyParam}`);
   };
 
   // Handle Daily Sync to Odoo (day by day background processing)
