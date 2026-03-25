@@ -59,7 +59,14 @@ interface Employee {
   basic_salary: number | null;
   attendance_type_id: string | null;
   user_id: string | null;
+  department_id: string | null;
   attendance_types?: AttendanceType;
+}
+
+interface Department {
+  id: string;
+  department_name: string;
+  parent_department_id: string | null;
 }
 
 interface Timesheet {
