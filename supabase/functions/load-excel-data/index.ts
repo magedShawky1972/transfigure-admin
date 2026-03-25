@@ -462,16 +462,37 @@ Deno.serve(async (req) => {
           );
 
         if (brandsToUpsert.length > 0) {
-          // Check which brands already exist
+          // Check which brands already exist - check both brand_name and asus_brand_name
           const brandNames = brandsToUpsert.map(b => b.brand_name);
           const { data: existingBrands } = await supabase
             .from('brands')
-            .select('brand_name, brand_code')
+            .select('brand_name, brand_code, asus_brand_name')
             .in('brand_name', brandNames);
+
+          // Also check by asus_brand_name for Asus uploads (case-insensitive)
+          const { data: allBrandsWithAsusName } = await supabase
+            .from('brands')
+            .select('brand_name, brand_code, asus_brand_name')
+            .not('asus_brand_name', 'is', null)
+            .neq('asus_brand_name', '');
 
           const existingBrandMap = new Map(
             (existingBrands || []).map(b => [b.brand_name, b])
           );
+          
+          // Also add brands found by asus_brand_name (case-insensitive match)
+          if (allBrandsWithAsusName) {
+            const brandNamesLower = brandNames.map(n => n.toLowerCase().trim());
+            for (const b of allBrandsWithAsusName) {
+              if (b.asus_brand_name && brandNamesLower.includes((b.asus_brand_name as string).toLowerCase().trim())) {
+                // Map the original asus name (from Excel) to this brand
+                const matchedExcelName = brandNames.find(n => n.toLowerCase().trim() === (b.asus_brand_name as string).toLowerCase().trim());
+                if (matchedExcelName) {
+                  existingBrandMap.set(matchedExcelName, b);
+                }
+              }
+            }
+          }
           
           // Separate new brands from existing ones that need updates
           const newBrands = brandsToUpsert.filter(b => !existingBrandMap.has(b.brand_name));
