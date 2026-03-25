@@ -452,7 +452,7 @@ const ApiTransactionMapping = () => {
                     <TableRow key={index} className={!mapping.is_active ? "opacity-50" : ""}>
                       <TableCell className="text-muted-foreground text-sm">{index + 1}</TableCell>
                       <TableCell>
-                        {mapping.id ? (
+                        {mapping.target_field ? (
                           <span className="font-mono text-sm">{mapping.target_field}</span>
                         ) : (
                           <Select
@@ -463,7 +463,7 @@ const ApiTransactionMapping = () => {
                               <SelectValue placeholder={language === "ar" ? "اختر الحقل" : "Select field"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {[mapping.target_field, ...unmappedTargets].filter(Boolean).map(f => (
+                              {unmappedTargets.map(f => (
                                 <SelectItem key={f} value={f}>{f}</SelectItem>
                               ))}
                             </SelectContent>
