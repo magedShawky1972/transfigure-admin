@@ -445,6 +445,8 @@ Deno.serve(async (req) => {
           const currentLine = (orderLineCountMap.get(orderNum) || 0) + 1;
           orderLineCountMap.set(orderNum, currentLine);
           record.line_no = currentLine;
+          // Sync ordernumber field (used by unique constraint)
+          record.ordernumber = orderNum;
         } else {
           record.line_no = 1;
         }
