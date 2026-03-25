@@ -444,6 +444,7 @@ const Transactions = () => {
 
       let countQuery = (supabase as any).from(table).select('*', { count: 'exact', head: true });
       countQuery = countQuery.gte('created_at_date_int', startInt).lte('created_at_date_int', endInt);
+      if (filterCompany !== 'all') countQuery = countQuery.eq('company', filterCompany);
       if (phone) countQuery = countQuery.ilike('customer_phone', `%${phone}%`);
       if (orderNo) countQuery = countQuery.ilike('order_number', `%${orderNo}%`);
       
