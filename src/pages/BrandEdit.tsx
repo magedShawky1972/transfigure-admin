@@ -687,6 +687,28 @@ const BrandEdit = () => {
                 placeholder="Set after syncing to Odoo"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="created_at">Date of Creation</Label>
+              <Input
+                id="created_at"
+                type="text"
+                value={brandId ? format(new Date((formData as any)._created_at || new Date()), 'yyyy-MM-dd HH:mm') : 'Auto-generated'}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="creation_source">Source of Creation</Label>
+              <Input
+                id="creation_source"
+                type="text"
+                value={formData.creation_source || 'Manual'}
+                disabled
+                className="bg-muted"
+              />
+            </div>
           </div>
 
           <div className="flex gap-4 pt-4">
