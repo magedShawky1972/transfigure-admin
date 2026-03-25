@@ -1263,11 +1263,14 @@ const Dashboard = () => {
       let allTransactions: any[] = [];
       
       while (true) {
-        const { data, error } = await supabase
+        let inactiveQuery = supabase
           .from('purpletransaction')
           .select('customer_phone, customer_name, total, created_at_date, brand_name, user_name, payment_method')
-          .order('created_at_date', { ascending: false })
-          .range(from, from + pageSize - 1);
+          .order('created_at_date', { ascending: false });
+        if (companyFilter !== 'all') {
+          inactiveQuery = inactiveQuery.eq('company', companyFilter);
+        }
+        const { data, error } = await inactiveQuery.range(from, from + pageSize - 1);
 
         if (error) throw error;
 
@@ -1655,10 +1658,14 @@ const Dashboard = () => {
       let allPointData: any[] = [];
       
       while (true) {
-        const { data, error } = await supabase
+        let pointQuery = supabase
           .from('purpletransaction')
           .select('id, order_number, customer_name, customer_phone, created_at_date, total, cost_sold')
-          .ilike('payment_method', 'point')
+          .ilike('payment_method', 'point');
+        if (companyFilter !== 'all') {
+          pointQuery = pointQuery.eq('company', companyFilter);
+        }
+        const { data, error } = await pointQuery
           .gte('created_at_date_int', startInt)
           .lte('created_at_date_int', endInt)
           .order('created_at_date_int', { ascending: false })
@@ -2061,11 +2068,15 @@ const Dashboard = () => {
       let allData: any[] = [];
       
       while (true) {
-        const { data, error } = await supabase
+        let detailQuery = supabase
           .from('purpletransaction')
           .select('order_number, customer_name, customer_phone, brand_name, product_name, qty, total')
           .eq('payment_method', payment_method)
-          .eq('payment_brand', payment_brand)
+          .eq('payment_brand', payment_brand);
+        if (companyFilter !== 'all') {
+          detailQuery = detailQuery.eq('company', companyFilter);
+        }
+        const { data, error } = await detailQuery
           .gte('created_at_date_int', startInt)
           .lte('created_at_date_int', endInt)
           .range(from, from + pageSize - 1);
