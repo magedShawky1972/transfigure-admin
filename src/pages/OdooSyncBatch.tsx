@@ -283,6 +283,7 @@ const OdooSyncBatch = () => {
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
+  const companyFilter = searchParams.get('company');
 
   // Get unique brands and products from order groups for filter dropdowns
   const uniqueBrands = useMemo(() => {
@@ -585,7 +586,7 @@ const OdooSyncBatch = () => {
         let offset = 0;
         
         while (hasMore) {
-          const { data: batchData, error: batchError } = await supabase
+          let query = supabase
             .from('purpletransaction')
             .select('*')
             .gte('created_at_date_int', fromDateInt)
@@ -595,6 +596,10 @@ const OdooSyncBatch = () => {
             .or('sendodoo.is.null,sendodoo.eq.false')
             .order('created_at_date_int', { ascending: false })
             .range(offset, offset + BATCH_SIZE - 1);
+          
+          if (companyFilter) query = query.eq('company', companyFilter);
+          
+          const { data: batchData, error: batchError } = await (query as any);
           
           if (batchError) throw batchError;
           
@@ -681,7 +686,7 @@ const OdooSyncBatch = () => {
     };
 
     loadTransactions();
-  }, [fromDate, toDate, language, navigate]);
+  }, [fromDate, toDate, companyFilter, language, navigate]);
 
   // Toggle select all (only for filtered items)
   const handleSelectAll = (checked: boolean) => {
