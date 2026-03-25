@@ -378,6 +378,7 @@ const Transactions = () => {
     setPaymentMethods([]);
     setPaymentBrands([]);
     setCustomers([]);
+    setFilterCompany("all");
     setFilterBrand("all");
     setFilterProduct("all");
     setFilterPaymentMethod("all");
