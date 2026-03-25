@@ -1510,6 +1510,20 @@ const Dashboard = () => {
     }
   }, [monthComparisonDirection]);
 
+  // Auto-refresh every 5 minutes when date range is "today"
+  useEffect(() => {
+    if (dateFilter !== 'today') return;
+
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing dashboard (today mode)...');
+      fetchMetrics();
+      fetchCharts();
+      fetchTables();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [dateFilter]);
+
   const handleNewCustomersClick = async () => {
     const dateRange = getDateRange();
     if (!dateRange) return;
