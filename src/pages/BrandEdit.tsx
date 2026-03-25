@@ -326,7 +326,8 @@ const BrandEdit = () => {
             abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
-          })
+            default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
+          } as any)
           .eq("id", brandId);
 
         if (error) throw error;
