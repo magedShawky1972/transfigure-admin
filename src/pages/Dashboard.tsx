@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info, Printer, FileSpreadsheet } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info, Printer, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -1512,21 +1512,33 @@ const Dashboard = () => {
 
   // Auto-refresh every 5 minutes when date range is "today"
   const refreshRef = useRef<() => void>(() => {});
+  const [refreshCountdown, setRefreshCountdown] = useState(300);
   refreshRef.current = () => {
     console.log('Auto-refreshing dashboard (today mode)...');
     fetchMetrics();
     fetchCharts();
     fetchTables();
+    setRefreshCountdown(300);
   };
 
   useEffect(() => {
-    if (dateFilter !== 'today') return;
+    if (dateFilter !== 'today') {
+      setRefreshCountdown(300);
+      return;
+    }
 
-    const interval = setInterval(() => {
-      refreshRef.current();
-    }, 5 * 60 * 1000);
+    setRefreshCountdown(300);
+    const tick = setInterval(() => {
+      setRefreshCountdown(prev => {
+        if (prev <= 1) {
+          refreshRef.current();
+          return 300;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(tick);
   }, [dateFilter]);
 
   const handleNewCustomersClick = async () => {
@@ -2656,6 +2668,13 @@ const Dashboard = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {dateFilter === 'today' && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '3s' }} />
+                <span>{language === 'ar' ? 'تحديث بعد' : 'Refresh in'} {Math.floor(refreshCountdown / 60)}:{String(refreshCountdown % 60).padStart(2, '0')}</span>
+              </div>
+            )}
 
             {dateFilter === "dateRange" && (
               <>
