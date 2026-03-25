@@ -195,7 +195,8 @@ const BrandEdit = () => {
           brand_type_id: data.brand_type_id || "none",
           status: data.status,
           odoo_category_id: data.odoo_category_id?.toString() || "",
-          default_supplier_id: (data as any).default_supplier_id || "none",
+           default_supplier_id: (data as any).default_supplier_id || "none",
+          asus_brand_name: (data as any).asus_brand_name || "",
         });
 
         // Fetch the latest closing balance from shift_brand_balances for closed shifts only
