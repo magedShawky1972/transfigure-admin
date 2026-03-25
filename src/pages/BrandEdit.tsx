@@ -83,7 +83,7 @@ const BrandEdit = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchBrandTypes();
+      await Promise.all([fetchBrandTypes(), fetchSuppliers()]);
       if (brandId) {
         await fetchBrand();
       }
