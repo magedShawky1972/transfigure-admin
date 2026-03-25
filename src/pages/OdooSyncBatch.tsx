@@ -2007,6 +2007,7 @@ const OdooSyncBatch = () => {
               {fromDate && toDate && (
                 <>
                   {format(parseISO(fromDate), 'yyyy-MM-dd')} → {format(parseISO(toDate), 'yyyy-MM-dd')}
+                  {companyFilter && <Badge variant="outline" className="ml-2">{companyFilter}</Badge>}
                   {' | '}
                   {aggregateMode 
                     ? (language === 'ar' 
