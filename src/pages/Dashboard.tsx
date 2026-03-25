@@ -436,17 +436,20 @@ const Dashboard = () => {
           supabase.rpc('get_cost_of_sales', {
             date_from: startDate,
             date_to: endDate,
-            p_brand_name: brandParam
+            p_brand_name: brandParam,
+            p_company: companyParam
           }),
           supabase.rpc('get_epayment_charges', {
             date_from: startDate,
             date_to: endDate,
-            p_brand_name: brandParam
+            p_brand_name: brandParam,
+            p_company: companyParam
           }),
           supabase.rpc('get_points_summary', {
             date_from: startDate,
             date_to: endDate,
-            p_brand_name: brandParam
+            p_brand_name: brandParam,
+            p_company: companyParam
           })
         ]);
 
