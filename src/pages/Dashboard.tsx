@@ -184,6 +184,9 @@ const Dashboard = () => {
   const [availableBrands, setAvailableBrands] = useState<{ brand_code: string; brand_name: string }[]>([]);
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
   
+  // Company Filter
+  const [companyFilter, setCompanyFilter] = useState<string>("Purple");
+  
   // Print Dialog
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
