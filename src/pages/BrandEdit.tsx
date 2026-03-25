@@ -106,6 +106,20 @@ const BrandEdit = () => {
     }
   };
 
+  const fetchSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, supplier_name")
+        .eq("status", "active")
+        .order("supplier_name", { ascending: true });
+      if (error) throw error;
+      setSuppliers(data || []);
+    } catch (error: any) {
+      console.error("Error fetching suppliers:", error);
+    }
+  };
+
   const generateBrandCode = async (brandTypeId: string) => {
     if (brandTypeId === "none") {
       setFormData(prev => ({ ...prev, brand_code: "" }));
