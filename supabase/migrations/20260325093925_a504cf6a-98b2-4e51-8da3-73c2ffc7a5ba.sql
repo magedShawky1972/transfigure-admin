@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN creation_source TEXT DEFAULT NULL;
