@@ -240,6 +240,7 @@ interface UserPermission {
         { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
         { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
         { key: "autoUpload", label: "التحميل التلقائي", labelEn: "Auto Upload" },
+        { key: "apiTransactionMapping", label: "خريطة حقول المعاملات", labelEn: "Transaction Mapping" },
       ]
     }
   ];
