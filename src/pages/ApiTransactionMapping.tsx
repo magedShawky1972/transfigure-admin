@@ -52,7 +52,8 @@ const SOURCE_COLUMNS: Record<string, string[]> = {
   ],
   computed: [
     "customer_name_lookup", "brand_name_lookup", "brand_code_lookup",
-    "product_name_lookup", "bank_fee_calc", "profit_calc", "ordernumber_concat"
+    "product_name_lookup", "bank_fee_calc", "profit_calc", "ordernumber_concat",
+    "vendor_name_from_brand"
   ],
   fixed: []
 };
