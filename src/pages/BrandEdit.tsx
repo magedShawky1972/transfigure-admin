@@ -637,6 +637,28 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="default_supplier_id">Default Vendor</Label>
+              <Select
+                value={formData.default_supplier_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, default_supplier_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select default vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.supplier_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="odoo_category_id">Odoo Category ID</Label>
               <Input
                 id="odoo_category_id"
