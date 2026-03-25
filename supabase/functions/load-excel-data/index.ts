@@ -113,13 +113,18 @@ Deno.serve(async (req) => {
     console.log(`Found ${mappings.length} column mappings for table ${tableName}`);
 
     // Find PK columns for upsert
-    const pkColumns = mappings
+    let pkColumns = mappings
       .filter((m) => m.is_pk && !m.is_json_column)
       .map((m) => (m.table_column || '').toLowerCase().trim())
       .filter((col) => col.length > 0);
     
+    // Force upsert on ordernumber + line_no for purpletransaction table
+    if (tableName === 'purpletransaction' && pkColumns.length === 0) {
+      pkColumns = ['ordernumber', 'line_no'];
+      console.log('Auto-detected PK columns for purpletransaction: ordernumber, line_no');
+    }
+    
     console.log(`PK columns for upsert: ${pkColumns.length > 0 ? pkColumns.join(', ') : 'none (insert mode)'}`);
-
     // Skip database schema validation (information_schema isn't exposed via REST)
     // Assume mappings are correct and normalize target column names
     const validMappings = mappings
