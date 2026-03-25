@@ -35,6 +35,7 @@ const BrandEdit = () => {
   const [searchParams] = useSearchParams();
   const brandId = searchParams.get("id");
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialBrandTypeId, setInitialBrandTypeId] = useState<string | null>(null);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
