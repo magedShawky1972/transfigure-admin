@@ -417,6 +417,8 @@ const Transactions = () => {
       const endInt = parseInt(format(end, 'yyyyMMdd'), 10);
       q = q.gte('created_at_date_int', startInt).lte('created_at_date_int', endInt);
 
+      if (filterCompany !== 'all') q = q.eq('company', filterCompany);
+
       const phone = phoneFilter.trim();
       if (phone) q = q.ilike('customer_phone', `%${phone}%`);
       const orderNo = orderNumberFilter.trim();
