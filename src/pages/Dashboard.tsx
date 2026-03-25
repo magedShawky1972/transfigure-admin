@@ -1512,21 +1512,33 @@ const Dashboard = () => {
 
   // Auto-refresh every 5 minutes when date range is "today"
   const refreshRef = useRef<() => void>(() => {});
+  const [refreshCountdown, setRefreshCountdown] = useState(300);
   refreshRef.current = () => {
     console.log('Auto-refreshing dashboard (today mode)...');
     fetchMetrics();
     fetchCharts();
     fetchTables();
+    setRefreshCountdown(300);
   };
 
   useEffect(() => {
-    if (dateFilter !== 'today') return;
+    if (dateFilter !== 'today') {
+      setRefreshCountdown(300);
+      return;
+    }
 
-    const interval = setInterval(() => {
-      refreshRef.current();
-    }, 5 * 60 * 1000);
+    setRefreshCountdown(300);
+    const tick = setInterval(() => {
+      setRefreshCountdown(prev => {
+        if (prev <= 1) {
+          refreshRef.current();
+          return 300;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(tick);
   }, [dateFilter]);
 
   const handleNewCustomersClick = async () => {
