@@ -586,7 +586,7 @@ const OdooSyncBatch = () => {
         let offset = 0;
         
         while (hasMore) {
-          const { data: batchData, error: batchError } = await supabase
+          let query = supabase
             .from('purpletransaction')
             .select('*')
             .gte('created_at_date_int', fromDateInt)
@@ -596,6 +596,10 @@ const OdooSyncBatch = () => {
             .or('sendodoo.is.null,sendodoo.eq.false')
             .order('created_at_date_int', { ascending: false })
             .range(offset, offset + BATCH_SIZE - 1);
+          
+          if (companyFilter) query = query.eq('company', companyFilter);
+          
+          const { data: batchData, error: batchError } = await (query as any);
           
           if (batchError) throw batchError;
           
