@@ -56,6 +56,7 @@ const BrandEdit = () => {
     status: "active",
     odoo_category_id: "",
     default_supplier_id: "none",
+    asus_brand_name: "",
   });
 
   // Format number with thousand separators and 2 decimal places
