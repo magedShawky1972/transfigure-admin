@@ -2771,7 +2771,23 @@ const Dashboard = () => {
               </>
             )}
 
-            <div className="flex-1 min-w-[180px]">
+            <div className="flex-1 min-w-[130px]">
+              <label className="text-sm font-medium mb-2 block">
+                {language === 'ar' ? 'الشركة' : 'Company'}
+              </label>
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                  <SelectItem value="Purple">Purple</SelectItem>
+                  <SelectItem value="Asus">Asus</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+
               <label className="text-sm font-medium mb-2 block">
                 {language === 'ar' ? 'تصفية حسب العلامة التجارية' : 'Filter by Brand'}
               </label>
