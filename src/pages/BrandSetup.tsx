@@ -68,6 +68,9 @@ const BrandSetup = () => {
   const [filterBrandType, setFilterBrandType] = useState(() => 
     localStorage.getItem("brandSetup_filterBrandType") || ""
   );
+  const [filterStatus, setFilterStatus] = useState(() => 
+    localStorage.getItem("brandSetup_filterStatus") || ""
+  );
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -87,6 +90,10 @@ const BrandSetup = () => {
   useEffect(() => {
     localStorage.setItem("brandSetup_filterBrandType", filterBrandType);
   }, [filterBrandType]);
+
+  useEffect(() => {
+    localStorage.setItem("brandSetup_filterStatus", filterStatus);
+  }, [filterStatus]);
 
   useEffect(() => {
     fetchBrands();
@@ -235,8 +242,10 @@ const BrandSetup = () => {
         brand.abc_analysis === filterABCAnalysis;
       const matchesBrandType = !filterBrandType || 
         brand.brand_type_id === filterBrandType;
+      const matchesStatus = !filterStatus || 
+        brand.status === filterStatus;
       
-      return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType;
+      return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
     })
     .sort((a, b) => {
       if (!sortColumn) return 0;
@@ -277,7 +286,7 @@ const BrandSetup = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label htmlFor="filterBrandName">Filter by Brand Name</Label>
             <Input
@@ -324,6 +333,19 @@ const BrandSetup = () => {
                   {type.type_name}
                 </option>
               ))}
+            </select>
+           </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterStatus">Filter by Status</Label>
+            <select
+              id="filterStatus"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
         </div>
