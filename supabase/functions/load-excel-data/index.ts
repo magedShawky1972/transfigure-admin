@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     // Get the sheet configuration
     const { data: sheetConfig, error: sheetError } = await supabase
       .from('excel_sheets')
-      .select('target_table')
+      .select('target_table, sheet_name')
       .eq('id', sheetId)
       .single();
 
@@ -388,6 +388,18 @@ Deno.serve(async (req) => {
           record.order_number = 'M' + String(lastSeq).padStart(6, '0');
         }
         console.log(`Generated order numbers M${String(lastSeq - rowsNeedingOrderNumber.length + 1).padStart(6, '0')} to M${String(lastSeq).padStart(6, '0')}`);
+      }
+
+      // For AsusTransaction sheet, prepend "A" to all order numbers to differentiate from Purple orders
+      const currentSheetName = sheetConfig.sheet_name || '';
+      if (currentSheetName.toLowerCase().includes('asus')) {
+        console.log('AsusTransaction detected: Prepending "A" to all order numbers...');
+        for (const record of validData) {
+          if (record.order_number && !String(record.order_number).startsWith('A')) {
+            record.order_number = 'A' + String(record.order_number);
+          }
+        }
+        console.log(`Prefixed ${validData.length} order numbers with "A"`);
       }
     }
 
