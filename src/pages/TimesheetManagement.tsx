@@ -744,7 +744,7 @@ export default function TimesheetManagement() {
         if (!existingKeys.has(key)) {
           const [empId, date] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
           const emp = (employeesRes.data || []).find((e: any) => e.id === empId);
-          if (emp && (!selectedEmployee || selectedEmployee === empId)) {
+          if (emp && (!selectedEmployee || selectedEmployee === empId) && (departmentEmployeeIds === null || departmentEmployeeIds.includes(empId))) {
             const wfhTime = wfhTimes.get(key);
             virtualWfhRows.push({
               id: `wfh-virtual-${key}`,
