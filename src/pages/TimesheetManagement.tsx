@@ -1765,6 +1765,25 @@ export default function TimesheetManagement() {
                   ))
                 )}
               </TableBody>
+              {sortedTimesheets.length > 0 && (
+                <tfoot>
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell colSpan={filterMode !== "date" ? 5 : 4} className="text-right">
+                      {language === "ar" ? "الإجمالي" : "Totals"}
+                    </TableCell>
+                    <TableCell className="text-destructive">
+                      {sortedTimesheets.reduce((sum, ts) => sum + (ts.late_minutes || 0), 0)} {language === "ar" ? "د" : "min"}
+                    </TableCell>
+                    <TableCell className="text-green-700">
+                      {sortedTimesheets.reduce((sum, ts) => sum + (ts.overtime_minutes || 0), 0)} {language === "ar" ? "د" : "min"}
+                    </TableCell>
+                    <TableCell className="text-destructive">
+                      {sortedTimesheets.reduce((sum, ts) => sum + (ts.deduction_amount || 0), 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell colSpan={filterMode !== "date" ? 5 : 5}></TableCell>
+                  </TableRow>
+                </tfoot>
+              )}
             </Table>
           </div>
         </CardContent>
