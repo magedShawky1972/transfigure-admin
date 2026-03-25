@@ -1302,18 +1302,22 @@ Deno.serve(async (req) => {
       // Upsert order totals (without _bank_id)
       if (orderTotalsToUpsert.length > 0) {
         const orderTotalsClean = orderTotalsToUpsert.map(({ _bank_id, ...rest }) => rest);
-        const { error: orderTotalsError } = await supabase
-          .from('ordertotals')
-          .upsert(orderTotalsClean, {
-            onConflict: 'order_number',
-            ignoreDuplicates: false
-          });
+        // Batch upsert ordertotals in chunks of 500
+        const otBatchSize = 500;
+        for (let i = 0; i < orderTotalsClean.length; i += otBatchSize) {
+          const batch = orderTotalsClean.slice(i, i + otBatchSize);
+          const { error: orderTotalsError } = await supabase
+            .from('ordertotals')
+            .upsert(batch, {
+              onConflict: 'order_number',
+              ignoreDuplicates: false
+            });
 
-        if (orderTotalsError) {
-          console.error('Error upserting order totals:', orderTotalsError);
-        } else {
-          console.log(`Successfully upserted ${orderTotalsToUpsert.length} order totals`);
+          if (orderTotalsError) {
+            console.error(`Error upserting order totals batch ${Math.floor(i / otBatchSize) + 1}:`, orderTotalsError);
+          }
         }
+        console.log(`Successfully upserted ${orderTotalsToUpsert.length} order totals`);
       }
 
       // Post to bank_ledger for orders that have a bank_id
