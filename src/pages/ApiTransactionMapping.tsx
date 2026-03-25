@@ -29,8 +29,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import usePageAccess from "@/hooks/usePageAccess";
-import AccessDenied from "@/components/AccessDenied";
+import { usePageAccess } from "@/hooks/usePageAccess";
+import { AccessDenied } from "@/components/AccessDenied";
 
 // Define source table columns
 const SOURCE_COLUMNS: Record<string, string[]> = {
