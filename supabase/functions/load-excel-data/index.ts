@@ -364,6 +364,31 @@ Deno.serve(async (req) => {
       }
       
       console.log('Bank fee calculation completed');
+
+      // Auto-generate order numbers for rows with empty order_number (M-sequence)
+      const rowsNeedingOrderNumber = validData.filter((r: any) => !r.order_number || String(r.order_number).trim() === '');
+      if (rowsNeedingOrderNumber.length > 0) {
+        console.log(`Generating M-sequence order numbers for ${rowsNeedingOrderNumber.length} rows...`);
+        // Find the max existing M-sequence number
+        const { data: maxOrder } = await supabase
+          .from('purpletransaction')
+          .select('order_number')
+          .like('order_number', 'M%')
+          .order('order_number', { ascending: false })
+          .limit(1);
+
+        let lastSeq = 0;
+        if (maxOrder && maxOrder.length > 0) {
+          const match = String(maxOrder[0].order_number).match(/^M(\d+)$/);
+          if (match) lastSeq = parseInt(match[1], 10);
+        }
+
+        for (const record of rowsNeedingOrderNumber) {
+          lastSeq++;
+          record.order_number = 'M' + String(lastSeq).padStart(6, '0');
+        }
+        console.log(`Generated order numbers M${String(lastSeq - rowsNeedingOrderNumber.length + 1).padStart(6, '0')} to M${String(lastSeq).padStart(6, '0')}`);
+      }
     }
 
     // For purpletransaction table, ensure brands and products exist BEFORE inserting transactions
