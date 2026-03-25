@@ -453,6 +453,17 @@ const BrandSetup = () => {
                         </span>
                       ) : '-'}
                     </TableCell>
+                    <TableCell className="text-xs">{brand.created_at ? format(new Date(brand.created_at), 'yyyy-MM-dd') : '-'}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        (brand as any).creation_source === 'Purple Excel' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                        : (brand as any).creation_source === 'API' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : (brand as any).creation_source === 'Asus Excel' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                        : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {(brand as any).creation_source || 'Manual'}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
