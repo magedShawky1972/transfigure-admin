@@ -602,6 +602,14 @@ export default function TimesheetManagement() {
 
       if (selectedEmployee) {
         query = query.eq("employee_id", selectedEmployee);
+      } else if (departmentEmployeeIds !== null) {
+        if (departmentEmployeeIds.length === 0) {
+          // No employees in this department hierarchy - return empty
+          setTimesheets([]);
+          setLoading(false);
+          return;
+        }
+        query = query.in("employee_id", departmentEmployeeIds);
       }
 
       const { data, error } = await query;
