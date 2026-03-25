@@ -1259,6 +1259,8 @@ export default function TimesheetManagement() {
               <th>${isAr ? "الموظف" : "Employee"}</th>
               <th>${isAr ? "عدد التأخيرات" : "Late Count"}</th>
               <th>${isAr ? "إجمالي دقائق التأخير" : "Total Late (min)"}</th>
+              <th>${isAr ? "عدد الخروج المبكر" : "Early Leave Count"}</th>
+              <th>${isAr ? "إجمالي دقائق الخروج المبكر" : "Early Leave (min)"}</th>
               <th>${isAr ? "أيام الغياب" : "Absent Days"}</th>
               <th>${isAr ? "تفاصيل الخصم" : "Deduction Details"}</th>
               <th>${isAr ? "إجمالي الخصم" : "Total Deduction"}</th>
@@ -1272,6 +1274,8 @@ export default function TimesheetManagement() {
                 <td>${emp.name}</td>
                 <td>${emp.lateCount}</td>
                 <td>${emp.totalLateMinutes}</td>
+                <td>${emp.earlyLeaveCount}</td>
+                <td>${emp.totalEarlyLeaveMinutes}</td>
                 <td>${emp.absentCount || "-"}</td>
                 <td>
                   ${Array.from(emp.rules.values()).map(r => 
@@ -1282,7 +1286,7 @@ export default function TimesheetManagement() {
               </tr>
             `).join("")}
             <tr class="total-row">
-              <td colspan="${isAr ? 7 : 7}" style="text-align: ${isAr ? 'left' : 'right'};">${isAr ? "الإجمالي" : "Grand Total"}</td>
+              <td colspan="${isAr ? 9 : 9}" style="text-align: ${isAr ? 'left' : 'right'};">${isAr ? "الإجمالي" : "Grand Total"}</td>
               <td class="text-red">${grandTotalDeduction.toFixed(2)}</td>
             </tr>
           </tbody>
