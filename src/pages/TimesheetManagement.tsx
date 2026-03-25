@@ -527,13 +527,14 @@ export default function TimesheetManagement() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [employeesRes, rulesRes] = await Promise.all([
+      const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
+        supabase.from("departments").select("id, department_name, parent_department_id").eq("is_active", true),
       ]);
 
       setEmployees(employeesRes.data || []);
