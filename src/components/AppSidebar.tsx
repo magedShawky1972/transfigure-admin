@@ -446,6 +446,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'سجلات استهلاك API' : 'API Consumption Logs', url: "/api-consumption-logs", icon: ScrollText },
         { title: language === 'ar' ? 'تحديث سجل البنك' : 'Update Bank Ledger', url: "/update-bank-ledger", icon: Database },
         { title: language === 'ar' ? 'التحميل التلقائي' : 'Auto Upload', url: "/auto-upload", icon: Bot },
+        { title: language === 'ar' ? 'خريطة حقول المعاملات' : 'Transaction Mapping', url: "/api-transaction-mapping", icon: ArrowRightLeft },
       ]
     }
   ];
