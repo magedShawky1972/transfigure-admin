@@ -310,10 +310,9 @@ const ApiTransactionMapping = () => {
     setMappings(prev => prev.filter((_, i) => i !== index));
   };
 
-  const unmappedTargets = useMemo(() => {
-    const mapped = new Set(mappings.map(m => m.target_field));
-    return TARGET_FIELDS.filter(f => !mapped.has(f));
-  }, [mappings]);
+  const targetFieldOptions = useMemo(() => {
+    return [...TARGET_FIELDS].sort((a, b) => a.localeCompare(b));
+  }, []);
 
   if (accessLoading) return null;
   if (!hasAccess) return <AccessDenied />;
@@ -463,7 +462,7 @@ const ApiTransactionMapping = () => {
                               <SelectValue placeholder={language === "ar" ? "اختر الحقل" : "Select field"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {unmappedTargets.map(f => (
+                              {targetFieldOptions.map(f => (
                                 <SelectItem key={f} value={f}>{f}</SelectItem>
                               ))}
                             </SelectContent>
