@@ -516,8 +516,8 @@ const LoadData = () => {
         f.id === fileId ? { ...f, progress: 40 } : f
       ));
 
-      // Batch upload
-      const BATCH_SIZE = 1000;
+      // Batch upload - use smaller batches for reliability (especially Asus uploads with heavy processing)
+      const BATCH_SIZE = 500;
       const batches = [];
       for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
         batches.push(jsonData.slice(i, i + BATCH_SIZE));
