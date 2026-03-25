@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     // Get the sheet configuration
     const { data: sheetConfig, error: sheetError } = await supabase
       .from('excel_sheets')
-      .select('target_table')
+      .select('target_table, sheet_name')
       .eq('id', sheetId)
       .single();
 
