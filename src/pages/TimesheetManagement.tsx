@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2 } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { getPrintLogoUrl } from "@/lib/printLogo";
 import { format, parseISO, differenceInMinutes } from "date-fns";
@@ -59,7 +59,14 @@ interface Employee {
   basic_salary: number | null;
   attendance_type_id: string | null;
   user_id: string | null;
+  department_id: string | null;
   attendance_types?: AttendanceType;
+}
+
+interface Department {
+  id: string;
+  department_name: string;
+  parent_department_id: string | null;
 }
 
 interface Timesheet {
@@ -126,6 +133,8 @@ export default function TimesheetManagement() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [formData, setFormData] = useState({
     employee_id: "",
     work_date: format(new Date(), "yyyy-MM-dd"),
@@ -280,7 +289,7 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo]);
+  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo, selectedDepartment]);
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
@@ -518,17 +527,38 @@ export default function TimesheetManagement() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [employeesRes, rulesRes] = await Promise.all([
+      const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
+        supabase.from("departments").select("id, department_name, parent_department_id").eq("is_active", true),
       ]);
 
       setEmployees(employeesRes.data || []);
       setDeductionRules(rulesRes.data || []);
+      setDepartments(deptsRes.data || []);
+
+      // Helper: get all descendant department IDs (including the given one)
+      const getAllDescendantDeptIds = (parentId: string, allDepts: Department[]): string[] => {
+        const result: string[] = [parentId];
+        const children = allDepts.filter(d => d.parent_department_id === parentId);
+        for (const child of children) {
+          result.push(...getAllDescendantDeptIds(child.id, allDepts));
+        }
+        return result;
+      };
+
+      // Determine employee IDs to filter by department
+      let departmentEmployeeIds: string[] | null = null;
+      if (selectedDepartment) {
+        const deptIds = getAllDescendantDeptIds(selectedDepartment, deptsRes.data || []);
+        departmentEmployeeIds = (employeesRes.data || [])
+          .filter(emp => emp.department_id && deptIds.includes(emp.department_id))
+          .map(emp => emp.id);
+      }
 
       // Only fetch timesheets if we have a valid date/month
       if (filterMode === "date" && !selectedDate) {
@@ -572,6 +602,14 @@ export default function TimesheetManagement() {
 
       if (selectedEmployee) {
         query = query.eq("employee_id", selectedEmployee);
+      } else if (departmentEmployeeIds !== null) {
+        if (departmentEmployeeIds.length === 0) {
+          // No employees in this department hierarchy - return empty
+          setTimesheets([]);
+          setLoading(false);
+          return;
+        }
+        query = query.in("employee_id", departmentEmployeeIds);
       }
 
       const { data, error } = await query;
@@ -706,7 +744,7 @@ export default function TimesheetManagement() {
         if (!existingKeys.has(key)) {
           const [empId, date] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
           const emp = (employeesRes.data || []).find((e: any) => e.id === empId);
-          if (emp && (!selectedEmployee || selectedEmployee === empId)) {
+          if (emp && (!selectedEmployee || selectedEmployee === empId) && (departmentEmployeeIds === null || departmentEmployeeIds.includes(empId))) {
             const wfhTime = wfhTimes.get(key);
             virtualWfhRows.push({
               id: `wfh-virtual-${key}`,
@@ -1414,6 +1452,27 @@ export default function TimesheetManagement() {
               </div>
             )}
             <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                {language === "ar" ? "القسم" : "Department"}
+              </Label>
+              <Select value={selectedDepartment || "_all_"} onValueChange={(v) => { setSelectedDepartment(v === "_all_" ? "" : v); setSelectedEmployee(""); }}>
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder={language === "ar" ? "جميع الأقسام" : "All Departments"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all_">{language === "ar" ? "جميع الأقسام" : "All Departments"}</SelectItem>
+                  {departments
+                    .sort((a, b) => a.department_name.localeCompare(b.department_name))
+                    .map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.department_name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>{language === "ar" ? "الموظف" : "Employee"}</Label>
               <Select value={selectedEmployee || "_all_"} onValueChange={(v) => setSelectedEmployee(v === "_all_" ? "" : v)}>
                 <SelectTrigger className="w-64">
@@ -1421,11 +1480,27 @@ export default function TimesheetManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all_">{language === "ar" ? "جميع الموظفين" : "All Employees"}</SelectItem>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.employee_number} - {emp.first_name} {emp.last_name}
-                    </SelectItem>
-                  ))}
+                  {(() => {
+                    // Helper to get all descendant dept IDs
+                    const getDescendants = (parentId: string): string[] => {
+                      const result: string[] = [parentId];
+                      departments.filter(d => d.parent_department_id === parentId).forEach(child => {
+                        result.push(...getDescendants(child.id));
+                      });
+                      return result;
+                    };
+                    const filteredEmps = selectedDepartment
+                      ? employees.filter(emp => {
+                          const deptIds = getDescendants(selectedDepartment);
+                          return emp.department_id && deptIds.includes(emp.department_id);
+                        })
+                      : employees;
+                    return filteredEmps.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.employee_number} - {emp.first_name} {emp.last_name}
+                      </SelectItem>
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
