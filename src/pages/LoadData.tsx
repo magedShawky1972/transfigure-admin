@@ -516,8 +516,8 @@ const LoadData = () => {
         f.id === fileId ? { ...f, progress: 40 } : f
       ));
 
-      // Batch upload
-      const BATCH_SIZE = 1000;
+      // Batch upload - use smaller batches for reliability (especially Asus uploads with heavy processing)
+      const BATCH_SIZE = 500;
       const batches = [];
       for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
         batches.push(jsonData.slice(i, i + BATCH_SIZE));
@@ -599,6 +599,24 @@ const LoadData = () => {
         setFileItems(prev => prev.map(f => 
           f.id === fileId ? { ...f, progress: progressPercent } : f
         ));
+
+        // Incrementally update upload_logs after each batch so stats aren't lost on timeout
+        if (uploadLogId && totalProcessed > 0) {
+          const sortedDatesSoFar = allDates.sort();
+          await supabase
+            .from("upload_logs")
+            .update({
+              records_processed: totalProcessed,
+              total_value: totalValue,
+              new_customers_count: newCustomersCount,
+              new_products_count: totalProductsUpserted,
+              new_brands_count: totalBrandsUpserted,
+              date_range_start: sortedDatesSoFar[0] || null,
+              date_range_end: sortedDatesSoFar[sortedDatesSoFar.length - 1] || null,
+              duplicate_records_count: totalInFileDuplicates,
+            })
+            .eq("id", uploadLogId);
+        }
       }
       
       // Reset duplicate action after successful upload
