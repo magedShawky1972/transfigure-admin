@@ -347,7 +347,7 @@ const Transactions = () => {
     setPage(1);
     setIsAllDataLoaded(false);
     setTotalCountAll(0);
-  }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection]);
+  }, [fromDate, toDate, orderNumberFilter, phoneFilter, sortColumn, sortDirection, filterCompany]);
 
   // Only refetch when page changes (after initial load)
   useEffect(() => {
