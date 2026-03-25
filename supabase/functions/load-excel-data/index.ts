@@ -913,14 +913,24 @@ Deno.serve(async (req) => {
       let insertError;
       
       if (useUpsert && !useManualUpsert) {
-        // Try upsert with onConflict for PK columns
-        const { error } = await supabase
-          .from(tableName)
-          .upsert(rowsToInsert, {
-            onConflict: pkColumns.join(','),
-            ignoreDuplicates: false
-          });
-        insertError = error;
+        // Try upsert with onConflict for PK columns - batch in chunks of 500
+        const chunkSize = 500;
+        let firstError: any = null;
+        for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+          const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+          console.log(`Upserting chunk ${Math.floor(ci / chunkSize) + 1} of ${Math.ceil(rowsToInsert.length / chunkSize)} (${chunk.length} rows)...`);
+          const { error } = await supabase
+            .from(tableName)
+            .upsert(chunk, {
+              onConflict: pkColumns.join(','),
+              ignoreDuplicates: false
+            });
+          if (error) {
+            firstError = error;
+            break;
+          }
+        }
+        insertError = firstError;
         
         // Check if error is due to missing unique constraint
         const message = (insertError as any)?.message || '';
@@ -1010,11 +1020,21 @@ Deno.serve(async (req) => {
         console.log(`Manual upsert completed: ${updateCount} updated, ${insertCount} inserted, ${successCount} total successful`);
         insertError = null; // Clear error since we handled it manually
       } else {
-        // Regular insert
-        const { error } = await supabase
-          .from(tableName)
-          .insert(rowsToInsert);
-        insertError = error;
+        // Regular insert - batch in chunks of 500 to avoid timeouts
+        const chunkSize = 500;
+        let chunkErrors: any[] = [];
+        for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+          const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+          console.log(`Inserting chunk ${Math.floor(ci / chunkSize) + 1} of ${Math.ceil(rowsToInsert.length / chunkSize)} (${chunk.length} rows)...`);
+          const { error } = await supabase
+            .from(tableName)
+            .insert(chunk);
+          if (error) {
+            chunkErrors.push(error);
+            break; // Stop on first error
+          }
+        }
+        insertError = chunkErrors.length > 0 ? chunkErrors[0] : null;
       }
 
       if (!insertError) {
@@ -1282,18 +1302,22 @@ Deno.serve(async (req) => {
       // Upsert order totals (without _bank_id)
       if (orderTotalsToUpsert.length > 0) {
         const orderTotalsClean = orderTotalsToUpsert.map(({ _bank_id, ...rest }) => rest);
-        const { error: orderTotalsError } = await supabase
-          .from('ordertotals')
-          .upsert(orderTotalsClean, {
-            onConflict: 'order_number',
-            ignoreDuplicates: false
-          });
+        // Batch upsert ordertotals in chunks of 500
+        const otBatchSize = 500;
+        for (let i = 0; i < orderTotalsClean.length; i += otBatchSize) {
+          const batch = orderTotalsClean.slice(i, i + otBatchSize);
+          const { error: orderTotalsError } = await supabase
+            .from('ordertotals')
+            .upsert(batch, {
+              onConflict: 'order_number',
+              ignoreDuplicates: false
+            });
 
-        if (orderTotalsError) {
-          console.error('Error upserting order totals:', orderTotalsError);
-        } else {
-          console.log(`Successfully upserted ${orderTotalsToUpsert.length} order totals`);
+          if (orderTotalsError) {
+            console.error(`Error upserting order totals batch ${Math.floor(i / otBatchSize) + 1}:`, orderTotalsError);
+          }
         }
+        console.log(`Successfully upserted ${orderTotalsToUpsert.length} order totals`);
       }
 
       // Post to bank_ledger for orders that have a bank_id
