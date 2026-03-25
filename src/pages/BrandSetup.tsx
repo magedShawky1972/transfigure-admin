@@ -386,7 +386,7 @@ const BrandSetup = () => {
                 </TableRow>
               ) : (
                 filteredBrands.map((brand) => (
-                  <TableRow key={brand.id}>
+                  <TableRow key={brand.id} onDoubleClick={() => handleEdit(brand)} className="cursor-pointer">
                     <TableCell className="font-medium">{brand.brand_name}</TableCell>
                     <TableCell>{brand.brand_code || '-'}</TableCell>
                     <TableCell>{brand.short_name || '-'}</TableCell>
