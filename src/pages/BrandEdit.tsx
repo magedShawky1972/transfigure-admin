@@ -55,6 +55,7 @@ const BrandEdit = () => {
     brand_type_id: "none",
     status: "active",
     odoo_category_id: "",
+    default_supplier_id: "none",
   });
 
   // Format number with thousand separators and 2 decimal places
