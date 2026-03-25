@@ -396,13 +396,19 @@ const BrandSetup = () => {
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("odoo_category_id")}>
                   Odoo ID {sortColumn === "odoo_category_id" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("created_at")}>
+                  Created At {sortColumn === "created_at" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("creation_source")}>
+                  Source {sortColumn === "creation_source" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead>{t("brandSetup.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                   <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName || filterABCAnalysis || filterBrandType ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -446,6 +452,17 @@ const BrandSetup = () => {
                           {brand.odoo_category_id}
                         </span>
                       ) : '-'}
+                    </TableCell>
+                    <TableCell className="text-xs">{brand.created_at ? format(new Date(brand.created_at), 'yyyy-MM-dd') : '-'}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        (brand as any).creation_source === 'Purple Excel' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                        : (brand as any).creation_source === 'API' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : (brand as any).creation_source === 'Asus Excel' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                        : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {(brand as any).creation_source || 'Manual'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">

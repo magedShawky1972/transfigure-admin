@@ -1141,6 +1141,7 @@ export type Database = {
           brand_name: string
           brand_type_id: string | null
           created_at: string
+          creation_source: string | null
           default_supplier_id: string | null
           id: string
           leadtime: number | null
@@ -1163,6 +1164,7 @@ export type Database = {
           brand_name: string
           brand_type_id?: string | null
           created_at?: string
+          creation_source?: string | null
           default_supplier_id?: string | null
           id?: string
           leadtime?: number | null
@@ -1185,6 +1187,7 @@ export type Database = {
           brand_name?: string
           brand_type_id?: string | null
           created_at?: string
+          creation_source?: string | null
           default_supplier_id?: string | null
           id?: string
           leadtime?: number | null

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Calculator } from "lucide-react";
+import { format } from "date-fns";
 
 interface BrandType {
   id: string;
@@ -57,6 +58,7 @@ const BrandEdit = () => {
     odoo_category_id: "",
     default_supplier_id: "none",
     asus_brand_name: "",
+    creation_source: "",
   });
 
   // Format number with thousand separators and 2 decimal places
@@ -197,7 +199,9 @@ const BrandEdit = () => {
           odoo_category_id: data.odoo_category_id?.toString() || "",
            default_supplier_id: (data as any).default_supplier_id || "none",
           asus_brand_name: (data as any).asus_brand_name || "",
-        });
+          creation_source: (data as any).creation_source || "",
+          _created_at: data.created_at,
+        } as any);
 
         // Fetch the latest closing balance from shift_brand_balances for closed shifts only
         const { data: balanceData, error: balanceError } = await supabase
@@ -683,6 +687,28 @@ const BrandEdit = () => {
                 disabled
                 className="bg-muted"
                 placeholder="Set after syncing to Odoo"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="created_at">Date of Creation</Label>
+              <Input
+                id="created_at"
+                type="text"
+                value={brandId ? format(new Date((formData as any)._created_at || new Date()), 'yyyy-MM-dd HH:mm') : 'Auto-generated'}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="creation_source">Source of Creation</Label>
+              <Input
+                id="creation_source"
+                type="text"
+                value={formData.creation_source || 'Manual'}
+                disabled
+                className="bg-muted"
               />
             </div>
           </div>
