@@ -396,6 +396,12 @@ const BrandSetup = () => {
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("odoo_category_id")}>
                   Odoo ID {sortColumn === "odoo_category_id" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("created_at")}>
+                  Created At {sortColumn === "created_at" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("creation_source")}>
+                  Source {sortColumn === "creation_source" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead>{t("brandSetup.actions")}</TableHead>
               </TableRow>
             </TableHeader>
