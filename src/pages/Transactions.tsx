@@ -1691,6 +1691,17 @@ const Transactions = () => {
               className="max-w-sm"
             />
 
+            <Select value={filterCompany} onValueChange={setFilterCompany}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder={language === 'ar' ? 'الشركة' : 'Company'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'جميع الشركات' : 'All Companies'}</SelectItem>
+                <SelectItem value="Purple">Purple</SelectItem>
+                <SelectItem value="Asus">Asus</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={filterBrand} onValueChange={setFilterBrand}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder={t("dashboard.filterBrand")} />
