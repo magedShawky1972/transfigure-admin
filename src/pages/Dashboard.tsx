@@ -2629,6 +2629,7 @@ const Dashboard = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="today">{language === 'ar' ? 'اليوم' : 'Today'}</SelectItem>
                   <SelectItem value="yesterday">{t("dashboard.yesterday")}</SelectItem>
                   <SelectItem value="thisMonth">{t("dashboard.thisMonth")}</SelectItem>
                   <SelectItem value="lastMonth">{t("dashboard.lastMonth")}</SelectItem>
