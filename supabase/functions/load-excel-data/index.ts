@@ -435,6 +435,22 @@ Deno.serve(async (req) => {
           console.log(`Mapped ${mappedCount} records from Asus brand names to system brand names`);
         }
       }
+
+      // Auto-assign line_no for orders with multiple lines
+      console.log('Assigning line_no for multi-line orders...');
+      const orderLineCountMap = new Map<string, number>();
+      for (const record of validData) {
+        if (record.order_number) {
+          const orderNum = String(record.order_number);
+          const currentLine = (orderLineCountMap.get(orderNum) || 0) + 1;
+          orderLineCountMap.set(orderNum, currentLine);
+          record.line_no = currentLine;
+        } else {
+          record.line_no = 1;
+        }
+      }
+      const multiLineOrders = Array.from(orderLineCountMap.entries()).filter(([_, count]) => count > 1).length;
+      console.log(`Assigned line_no: ${multiLineOrders} orders have multiple lines`);
     }
 
     // For purpletransaction table, ensure brands and products exist BEFORE inserting transactions
