@@ -225,6 +225,7 @@ Deno.serve(async (req) => {
             payment_term: header.payment_term || null,
             transaction_type: header.transaction_type || null,
             trans_type: 'automatic',
+            vendor_name: product?.brand_code ? (brandVendorMap[product.brand_code] || null) : null,
             is_deleted: false,
             is_api_reviewed: false,
           });
