@@ -392,12 +392,14 @@ const Dashboard = () => {
 
       // Fetch brand-specific customer count (distinct customers who purchased this brand)
       if (globalBrandFilter !== 'all') {
-        const { data: brandCustomerData, error: brandCustomerError } = await supabase
+        let brandCustQuery = supabase
           .from('purpletransaction')
           .select('customer_phone')
           .eq('brand_name', globalBrandFilter)
           .gte('created_at_date_int', startInt)
           .lte('created_at_date_int', endInt);
+        if (companyFilter !== 'all') brandCustQuery = brandCustQuery.eq('company', companyFilter);
+        const { data: brandCustomerData, error: brandCustomerError } = await brandCustQuery;
         
         if (!brandCustomerError && brandCustomerData) {
           // Count distinct customer phones
