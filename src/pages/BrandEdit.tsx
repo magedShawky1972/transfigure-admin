@@ -23,6 +23,11 @@ interface BrandType {
   status: string;
 }
 
+interface Supplier {
+  id: string;
+  supplier_name: string;
+}
+
 const BrandEdit = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
