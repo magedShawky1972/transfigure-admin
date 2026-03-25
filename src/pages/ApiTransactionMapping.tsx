@@ -59,7 +59,7 @@ const SOURCE_COLUMNS: Record<string, string[]> = {
 
 // Target fields for purpletransaction
 const TARGET_FIELDS = [
-  "order_number", "ordernumber", "created_at_date", "user_name",
+  "order_number", "ordernumber", "created_at_date", "created_at_date_int", "user_name",
   "customer_phone", "customer_name", "customer_ip", "device_fingerprint",
   "transaction_location", "register_user_id", "player_id",
   "brand_name", "brand_code", "product_name", "product_id",
@@ -68,7 +68,8 @@ const TARGET_FIELDS = [
   "payment_reference", "payment_card_number", "bank_fee",
   "company", "status", "status_description", "is_point", "point_value",
   "media", "profit_center", "payment_term", "transaction_type",
-  "trans_type", "is_deleted", "is_api_reviewed"
+  "trans_type", "is_deleted", "is_api_reviewed", "vendor_name",
+  "order_status", "sendodoo"
 ];
 
 // Default mappings based on current edge function logic
