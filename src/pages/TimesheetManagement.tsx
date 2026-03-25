@@ -1150,8 +1150,10 @@ export default function TimesheetManagement() {
       totalDeduction: number;
       totalOvertime: number;
       lateCount: number;
+      earlyLeaveCount: number;
       absentCount: number;
       totalLateMinutes: number;
+      totalEarlyLeaveMinutes: number;
       rules: Map<string, { name: string; count: number; amount: number }>;
     }>();
 
@@ -1167,8 +1169,10 @@ export default function TimesheetManagement() {
           totalDeduction: 0,
           totalOvertime: 0,
           lateCount: 0,
+          earlyLeaveCount: 0,
           absentCount: 0,
           totalLateMinutes: 0,
+          totalEarlyLeaveMinutes: 0,
           rules: new Map(),
         });
       }
@@ -1179,6 +1183,10 @@ export default function TimesheetManagement() {
       if (ts.late_minutes > 0) {
         emp.lateCount++;
         emp.totalLateMinutes += ts.late_minutes;
+      }
+      if (ts.early_leave_minutes > 0) {
+        emp.earlyLeaveCount++;
+        emp.totalEarlyLeaveMinutes += ts.early_leave_minutes;
       }
       if (ts.is_absent) emp.absentCount++;
 
@@ -1193,7 +1201,7 @@ export default function TimesheetManagement() {
 
     // Filter employees with any deductions, absences, or late occurrences
     const withDeductions = Array.from(employeeDeductions.entries())
-      .filter(([_, e]) => e.totalDeduction > 0 || e.absentCount > 0 || e.lateCount > 0)
+      .filter(([_, e]) => e.totalDeduction > 0 || e.absentCount > 0 || e.lateCount > 0 || e.earlyLeaveCount > 0)
       .sort((a, b) => b[1].totalDeduction - a[1].totalDeduction || b[1].lateCount - a[1].lateCount);
 
     if (withDeductions.length === 0) {
@@ -1251,6 +1259,8 @@ export default function TimesheetManagement() {
               <th>${isAr ? "الموظف" : "Employee"}</th>
               <th>${isAr ? "عدد التأخيرات" : "Late Count"}</th>
               <th>${isAr ? "إجمالي دقائق التأخير" : "Total Late (min)"}</th>
+              <th>${isAr ? "عدد الخروج المبكر" : "Early Leave Count"}</th>
+              <th>${isAr ? "إجمالي دقائق الخروج المبكر" : "Early Leave (min)"}</th>
               <th>${isAr ? "أيام الغياب" : "Absent Days"}</th>
               <th>${isAr ? "تفاصيل الخصم" : "Deduction Details"}</th>
               <th>${isAr ? "إجمالي الخصم" : "Total Deduction"}</th>
@@ -1264,6 +1274,8 @@ export default function TimesheetManagement() {
                 <td>${emp.name}</td>
                 <td>${emp.lateCount}</td>
                 <td>${emp.totalLateMinutes}</td>
+                <td>${emp.earlyLeaveCount}</td>
+                <td>${emp.totalEarlyLeaveMinutes}</td>
                 <td>${emp.absentCount || "-"}</td>
                 <td>
                   ${Array.from(emp.rules.values()).map(r => 
@@ -1274,7 +1286,7 @@ export default function TimesheetManagement() {
               </tr>
             `).join("")}
             <tr class="total-row">
-              <td colspan="${isAr ? 7 : 7}" style="text-align: ${isAr ? 'left' : 'right'};">${isAr ? "الإجمالي" : "Grand Total"}</td>
+              <td colspan="${isAr ? 9 : 9}" style="text-align: ${isAr ? 'left' : 'right'};">${isAr ? "الإجمالي" : "Grand Total"}</td>
               <td class="text-red">${grandTotalDeduction.toFixed(2)}</td>
             </tr>
           </tbody>
