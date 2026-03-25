@@ -400,6 +400,40 @@ Deno.serve(async (req) => {
           }
         }
         console.log(`Prefixed ${validData.length} order numbers with "A"`);
+
+        // Map Asus brand names to system brand names using asus_brand_name field
+        console.log('AsusTransaction: Mapping brand names to system brands...');
+        const { data: brandMappings } = await supabase
+          .from('brands')
+          .select('brand_name, asus_brand_name, brand_code')
+          .not('asus_brand_name', 'is', null)
+          .neq('asus_brand_name', '');
+
+        if (brandMappings && brandMappings.length > 0) {
+          // Build a case-insensitive lookup map: asus_brand_name -> { brand_name, brand_code }
+          const asusBrandMap = new Map<string, { brand_name: string; brand_code: string | null }>();
+          for (const bm of brandMappings) {
+            asusBrandMap.set((bm.asus_brand_name as string).toLowerCase().trim(), {
+              brand_name: bm.brand_name,
+              brand_code: bm.brand_code,
+            });
+          }
+
+          let mappedCount = 0;
+          for (const record of validData) {
+            if (record.brand_name) {
+              const mapped = asusBrandMap.get(String(record.brand_name).toLowerCase().trim());
+              if (mapped) {
+                record.brand_name = mapped.brand_name;
+                if (mapped.brand_code) {
+                  record.brand_code = mapped.brand_code;
+                }
+                mappedCount++;
+              }
+            }
+          }
+          console.log(`Mapped ${mappedCount} records from Asus brand names to system brand names`);
+        }
       }
     }
 

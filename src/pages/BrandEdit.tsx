@@ -56,6 +56,7 @@ const BrandEdit = () => {
     status: "active",
     odoo_category_id: "",
     default_supplier_id: "none",
+    asus_brand_name: "",
   });
 
   // Format number with thousand separators and 2 decimal places
@@ -194,7 +195,8 @@ const BrandEdit = () => {
           brand_type_id: data.brand_type_id || "none",
           status: data.status,
           odoo_category_id: data.odoo_category_id?.toString() || "",
-          default_supplier_id: (data as any).default_supplier_id || "none",
+           default_supplier_id: (data as any).default_supplier_id || "none",
+          asus_brand_name: (data as any).asus_brand_name || "",
         });
 
         // Fetch the latest closing balance from shift_brand_balances for closed shifts only
@@ -327,6 +329,7 @@ const BrandEdit = () => {
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
+            asus_brand_name: formData.asus_brand_name || null,
           } as any)
           .eq("id", brandId);
 
@@ -354,6 +357,7 @@ const BrandEdit = () => {
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
+            asus_brand_name: formData.asus_brand_name || null,
           } as any);
 
         if (error) throw error;
@@ -655,7 +659,19 @@ const BrandEdit = () => {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+            </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="asus_brand_name">Asus Brand Name</Label>
+              <Input
+                id="asus_brand_name"
+                value={formData.asus_brand_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, asus_brand_name: e.target.value })
+                }
+                placeholder="Brand name as it appears in Asus system"
+              />
             </div>
 
             <div className="space-y-2">
