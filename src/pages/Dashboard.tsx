@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1511,14 +1511,19 @@ const Dashboard = () => {
   }, [monthComparisonDirection]);
 
   // Auto-refresh every 5 minutes when date range is "today"
+  const refreshRef = useRef<() => void>(() => {});
+  refreshRef.current = () => {
+    console.log('Auto-refreshing dashboard (today mode)...');
+    fetchMetrics();
+    fetchCharts();
+    fetchTables();
+  };
+
   useEffect(() => {
     if (dateFilter !== 'today') return;
 
     const interval = setInterval(() => {
-      console.log('Auto-refreshing dashboard (today mode)...');
-      fetchMetrics();
-      fetchCharts();
-      fetchTables();
+      refreshRef.current();
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
