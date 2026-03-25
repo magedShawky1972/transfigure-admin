@@ -116,6 +116,7 @@ const Transactions = () => {
     }
     return new Date();
   });
+  const [filterCompany, setFilterCompany] = useState<string>("all");
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
@@ -377,6 +378,7 @@ const Transactions = () => {
     setPaymentMethods([]);
     setPaymentBrands([]);
     setCustomers([]);
+    setFilterCompany("all");
     setFilterBrand("all");
     setFilterProduct("all");
     setFilterPaymentMethod("all");
@@ -795,6 +797,7 @@ const Transactions = () => {
       const matchesOrderNumber = orderNumberFilter === "" || 
         transaction.order_number?.toLowerCase().includes(orderNumberFilter.toLowerCase());
       
+      const matchesCompany = filterCompany === "all" || (transaction as any).company === filterCompany;
       const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
       const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
       const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
@@ -807,9 +810,9 @@ const Transactions = () => {
       const matchesProductSearch = productSearchTerm === "" ||
         transaction.product_name?.toLowerCase().includes(productSearchTerm.toLowerCase());
 
-      return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch;
+      return matchesSearch && matchesPhone && matchesOrderNumber && matchesCompany && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch;
     });
-  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm]);
+  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterCompany, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm]);
 
   // Filter products by selected brand
   const filteredProducts = useMemo(() => {
@@ -1687,6 +1690,17 @@ const Transactions = () => {
               onChange={(e) => setOrderNumberFilter(e.target.value)}
               className="max-w-sm"
             />
+
+            <Select value={filterCompany} onValueChange={setFilterCompany}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder={language === 'ar' ? 'الشركة' : 'Company'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'جميع الشركات' : 'All Companies'}</SelectItem>
+                <SelectItem value="Purple">Purple</SelectItem>
+                <SelectItem value="Asus">Asus</SelectItem>
+              </SelectContent>
+            </Select>
 
             <Select value={filterBrand} onValueChange={setFilterBrand}>
               <SelectTrigger className="w-[180px]">
