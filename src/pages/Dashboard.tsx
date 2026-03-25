@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info, Printer, FileSpreadsheet } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info, Printer, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
