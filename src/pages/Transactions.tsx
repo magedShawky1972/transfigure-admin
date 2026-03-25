@@ -797,6 +797,7 @@ const Transactions = () => {
       const matchesOrderNumber = orderNumberFilter === "" || 
         transaction.order_number?.toLowerCase().includes(orderNumberFilter.toLowerCase());
       
+      const matchesCompany = filterCompany === "all" || (transaction as any).company === filterCompany;
       const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
       const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
       const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
@@ -809,9 +810,9 @@ const Transactions = () => {
       const matchesProductSearch = productSearchTerm === "" ||
         transaction.product_name?.toLowerCase().includes(productSearchTerm.toLowerCase());
 
-      return matchesSearch && matchesPhone && matchesOrderNumber && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch;
+      return matchesSearch && matchesPhone && matchesOrderNumber && matchesCompany && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch;
     });
-  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm]);
+  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterCompany, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm]);
 
   // Filter products by selected brand
   const filteredProducts = useMemo(() => {
