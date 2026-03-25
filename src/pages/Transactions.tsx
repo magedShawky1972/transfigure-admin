@@ -552,6 +552,7 @@ const Transactions = () => {
             .gte('created_at_date_int', startInt)
             .lte('created_at_date_int', endInt);
 
+          if (filterCompany !== 'all') query = query.eq('company', filterCompany);
           if (phone) query = query.ilike('customer_phone', `%${phone}%`);
           if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
 
