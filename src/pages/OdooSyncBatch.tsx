@@ -686,7 +686,7 @@ const OdooSyncBatch = () => {
     };
 
     loadTransactions();
-  }, [fromDate, toDate, language, navigate]);
+  }, [fromDate, toDate, companyFilter, language, navigate]);
 
   // Toggle select all (only for filtered items)
   const handleSelectAll = (checked: boolean) => {
