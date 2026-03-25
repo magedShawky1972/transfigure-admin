@@ -1683,7 +1683,7 @@ export default function TimesheetManagement() {
                       <TableCell>
                         {Math.floor(ts.total_work_minutes / 60)}h {ts.total_work_minutes % 60}m
                       </TableCell>
-                      <TableCell className={ts.deduction_rules && ts.deduction_rules.deduction_value > 0 ? "text-destructive font-medium" : (ts as any).has_approved_delay ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}>
+                      <TableCell className={(ts as any).has_approved_delay ? "text-emerald-600 dark:text-emerald-400 font-medium" : ts.late_minutes > 0 ? "text-destructive font-medium" : ""}>
                         {(ts as any).has_approved_delay
                           ? (language === "ar" ? "✓ طلب معتمد" : "✓ Approved")
                           : ts.late_minutes > 0 ? `${ts.late_minutes}m` : "-"}
