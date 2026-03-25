@@ -659,7 +659,19 @@ const BrandEdit = () => {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+            </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="asus_brand_name">Asus Brand Name</Label>
+              <Input
+                id="asus_brand_name"
+                value={formData.asus_brand_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, asus_brand_name: e.target.value })
+                }
+                placeholder="Brand name as it appears in Asus system"
+              />
             </div>
 
             <div className="space-y-2">
