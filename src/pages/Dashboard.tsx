@@ -61,7 +61,7 @@ const Dashboard = () => {
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingCharts, setLoadingCharts] = useState(false);
   const [loadingTables, setLoadingTables] = useState(false);
-  const [dateFilter, setDateFilter] = useState<string>("yesterday");
+  const [dateFilter, setDateFilter] = useState<string>("today");
   const [fromDate, setFromDate] = useState<Date>();
   const [toDate, setToDate] = useState<Date>();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
