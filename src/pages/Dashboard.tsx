@@ -184,6 +184,9 @@ const Dashboard = () => {
   const [availableBrands, setAvailableBrands] = useState<{ brand_code: string; brand_name: string }[]>([]);
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
   
+  // Company Filter
+  const [companyFilter, setCompanyFilter] = useState<string>("Purple");
+  
   // Print Dialog
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
@@ -389,12 +392,14 @@ const Dashboard = () => {
 
       // Fetch brand-specific customer count (distinct customers who purchased this brand)
       if (globalBrandFilter !== 'all') {
-        const { data: brandCustomerData, error: brandCustomerError } = await supabase
+        let brandCustQuery = supabase
           .from('purpletransaction')
           .select('customer_phone')
           .eq('brand_name', globalBrandFilter)
           .gte('created_at_date_int', startInt)
           .lte('created_at_date_int', endInt);
+        if (companyFilter !== 'all') brandCustQuery = brandCustQuery.eq('company', companyFilter);
+        const { data: brandCustomerData, error: brandCustomerError } = await brandCustQuery;
         
         if (!brandCustomerError && brandCustomerData) {
           // Count distinct customer phones
@@ -407,12 +412,14 @@ const Dashboard = () => {
 
       // Use RPC function for fast aggregated metrics with optional brand filter
       const brandParam = globalBrandFilter !== 'all' ? globalBrandFilter : null;
+      const companyParam = companyFilter !== 'all' ? companyFilter : null;
       
       const { data: summary, error: summaryError } = await supabase
         .rpc('transactions_summary', {
           date_from: startDate,
           date_to: endDate,
-          p_brand_name: brandParam
+          p_brand_name: brandParam,
+          p_company: companyParam
         });
 
       if (summaryError) throw summaryError;
@@ -429,17 +436,20 @@ const Dashboard = () => {
           supabase.rpc('get_cost_of_sales', {
             date_from: startDate,
             date_to: endDate,
-            p_brand_name: brandParam
+            p_brand_name: brandParam,
+            p_company: companyParam
           }),
           supabase.rpc('get_epayment_charges', {
             date_from: startDate,
             date_to: endDate,
-            p_brand_name: brandParam
+            p_brand_name: brandParam,
+            p_company: companyParam
           }),
           supabase.rpc('get_points_summary', {
             date_from: startDate,
             date_to: endDate,
-            p_brand_name: brandParam
+            p_brand_name: brandParam,
+            p_company: companyParam
           })
         ]);
 
@@ -478,6 +488,10 @@ const Dashboard = () => {
       if (globalBrandFilter !== 'all') {
         recentQuery = recentQuery.eq('brand_name', globalBrandFilter);
       }
+      // Apply company filter
+      if (companyFilter !== 'all') {
+        recentQuery = recentQuery.eq('company', companyFilter);
+      }
       
       const { data: recentTxns, error: recentError } = await recentQuery.limit(5);
 
@@ -515,6 +529,9 @@ const Dashboard = () => {
 
       if (trendBrandFilter !== 'all') {
         base = base.eq('brand_name', trendBrandFilter);
+      }
+      if (companyFilter !== 'all') {
+        base = base.eq('company', companyFilter);
       }
 
       // IMPORTANT: paginate to avoid the default 1000 row limit
@@ -602,6 +619,9 @@ const Dashboard = () => {
         if (globalBrandFilter !== 'all') {
           query = query.eq('brand_name', globalBrandFilter);
         }
+        if (companyFilter !== 'all') {
+          query = query.eq('company', companyFilter);
+        }
         
         const { data, error } = await query.range(from, from + pageSize - 1);
 
@@ -638,6 +658,9 @@ const Dashboard = () => {
         trendBase = trendBase.eq('brand_name', globalBrandFilter);
       } else if (trendBrandFilter !== 'all') {
         trendBase = trendBase.eq('brand_name', trendBrandFilter);
+      }
+      if (companyFilter !== 'all') {
+        trendBase = trendBase.eq('company', companyFilter);
       }
 
       // Paginate to avoid 1000 row limit
@@ -725,6 +748,9 @@ const Dashboard = () => {
           if (globalBrandFilter !== 'all') {
             npQuery = npQuery.eq('brand_name', globalBrandFilter);
           }
+          if (companyFilter !== 'all') {
+            npQuery = npQuery.eq('company', companyFilter);
+          }
           
           const { data, error } = await npQuery.range(fromNP, fromNP + pageSize - 1);
           if (error) throw error;
@@ -749,6 +775,9 @@ const Dashboard = () => {
           // Apply global brand filter for monthly comparison
           if (globalBrandFilter !== 'all') {
             pQuery = pQuery.eq('brand_name', globalBrandFilter);
+          }
+          if (companyFilter !== 'all') {
+            pQuery = pQuery.eq('company', companyFilter);
           }
           
           const { data, error } = await pQuery.range(fromP, fromP + pageSize - 1);
@@ -1053,6 +1082,9 @@ const Dashboard = () => {
         if (globalBrandFilter !== 'all') {
           query = query.eq('brand_name', globalBrandFilter);
         }
+        if (companyFilter !== 'all') {
+          query = query.eq('company', companyFilter);
+        }
         
         const { data, error } = await query.range(from, from + pageSize - 1);
 
@@ -1231,11 +1263,14 @@ const Dashboard = () => {
       let allTransactions: any[] = [];
       
       while (true) {
-        const { data, error } = await supabase
+        let inactiveQuery = supabase
           .from('purpletransaction')
           .select('customer_phone, customer_name, total, created_at_date, brand_name, user_name, payment_method')
-          .order('created_at_date', { ascending: false })
-          .range(from, from + pageSize - 1);
+          .order('created_at_date', { ascending: false });
+        if (companyFilter !== 'all') {
+          inactiveQuery = inactiveQuery.eq('company', companyFilter);
+        }
+        const { data, error } = await inactiveQuery.range(from, from + pageSize - 1);
 
         if (error) throw error;
 
@@ -1623,10 +1658,14 @@ const Dashboard = () => {
       let allPointData: any[] = [];
       
       while (true) {
-        const { data, error } = await supabase
+        let pointQuery = supabase
           .from('purpletransaction')
           .select('id, order_number, customer_name, customer_phone, created_at_date, total, cost_sold')
-          .ilike('payment_method', 'point')
+          .ilike('payment_method', 'point');
+        if (companyFilter !== 'all') {
+          pointQuery = pointQuery.eq('company', companyFilter);
+        }
+        const { data, error } = await pointQuery
           .gte('created_at_date_int', startInt)
           .lte('created_at_date_int', endInt)
           .order('created_at_date_int', { ascending: false })
@@ -2029,11 +2068,15 @@ const Dashboard = () => {
       let allData: any[] = [];
       
       while (true) {
-        const { data, error } = await supabase
+        let detailQuery = supabase
           .from('purpletransaction')
           .select('order_number, customer_name, customer_phone, brand_name, product_name, qty, total')
           .eq('payment_method', payment_method)
-          .eq('payment_brand', payment_brand)
+          .eq('payment_brand', payment_brand);
+        if (companyFilter !== 'all') {
+          detailQuery = detailQuery.eq('company', companyFilter);
+        }
+        const { data, error } = await detailQuery
           .gte('created_at_date_int', startInt)
           .lte('created_at_date_int', endInt)
           .range(from, from + pageSize - 1);
@@ -2727,6 +2770,22 @@ const Dashboard = () => {
                 </div>
               </>
             )}
+
+            <div className="flex-1 min-w-[130px]">
+              <label className="text-sm font-medium mb-2 block">
+                {language === 'ar' ? 'الشركة' : 'Company'}
+              </label>
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                  <SelectItem value="Purple">Purple</SelectItem>
+                  <SelectItem value="Asus">Asus</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-2 block">
