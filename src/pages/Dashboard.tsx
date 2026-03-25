@@ -2669,6 +2669,13 @@ const Dashboard = () => {
               </Select>
             </div>
 
+            {dateFilter === 'today' && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-2 rounded-md">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '3s' }} />
+                <span>{language === 'ar' ? 'تحديث بعد' : 'Refresh in'} {Math.floor(refreshCountdown / 60)}:{String(refreshCountdown % 60).padStart(2, '0')}</span>
+              </div>
+            )}
+
             {dateFilter === "dateRange" && (
               <>
                 <div className="flex-1 min-w-[150px]">
