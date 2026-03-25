@@ -85,6 +85,19 @@ Deno.serve(async (req) => {
     const productMapById: Record<string, any> = {};
     (productsByPid || []).forEach((p: any) => { productMapById[p.product_id] = p; });
 
+    // 4b. Fetch brands with default supplier for vendor_name lookup
+    const { data: brandsWithSupplier } = await supabase
+      .from('brands')
+      .select('brand_code, default_supplier_id, suppliers:default_supplier_id(supplier_name)')
+      .not('default_supplier_id', 'is', null);
+
+    const brandVendorMap: Record<string, string> = {};
+    (brandsWithSupplier || []).forEach((b: any) => {
+      if (b.brand_code && b.suppliers?.supplier_name) {
+        brandVendorMap[b.brand_code] = b.suppliers.supplier_name;
+      }
+    });
+
     // 5. Fetch payment methods for bank fee calc
     const { data: paymentMethods } = await supabase
       .from('payment_methods')
@@ -212,6 +225,7 @@ Deno.serve(async (req) => {
             payment_term: header.payment_term || null,
             transaction_type: header.transaction_type || null,
             trans_type: 'automatic',
+            vendor_name: product?.brand_code ? (brandVendorMap[product.brand_code] || null) : null,
             is_deleted: false,
             is_api_reviewed: false,
           });
