@@ -150,6 +150,7 @@ import CRM from "./pages/CRM";
 import CRMCaseDetail from "./pages/CRMCaseDetail";
 import CRMSetup from "./pages/CRMSetup";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import ApiTransactionMapping from "./pages/ApiTransactionMapping";
 const queryClient = new QueryClient();
 
 const App = () => (
