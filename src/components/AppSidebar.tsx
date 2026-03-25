@@ -181,6 +181,7 @@ export function AppSidebar() {
     "/crm": "crmAccess",
     "/crm-setup": "crmSetup",
     "/knowledge-base": "knowledgeBase",
+    "/api-transaction-mapping": "apiTransactionMapping",
   };
 
   useEffect(() => {
