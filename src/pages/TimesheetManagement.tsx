@@ -1201,7 +1201,7 @@ export default function TimesheetManagement() {
 
     // Filter employees with any deductions, absences, or late occurrences
     const withDeductions = Array.from(employeeDeductions.entries())
-      .filter(([_, e]) => e.totalDeduction > 0 || e.absentCount > 0 || e.lateCount > 0)
+      .filter(([_, e]) => e.totalDeduction > 0 || e.absentCount > 0 || e.lateCount > 0 || e.earlyLeaveCount > 0)
       .sort((a, b) => b[1].totalDeduction - a[1].totalDeduction || b[1].lateCount - a[1].lateCount);
 
     if (withDeductions.length === 0) {
