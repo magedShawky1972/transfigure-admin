@@ -334,6 +334,19 @@ const BrandSetup = () => {
                 </option>
               ))}
             </select>
+           </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterStatus">Filter by Status</Label>
+            <select
+              id="filterStatus"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
         </div>
 
