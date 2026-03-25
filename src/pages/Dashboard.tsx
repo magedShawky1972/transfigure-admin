@@ -232,6 +232,8 @@ const Dashboard = () => {
     const yesterday = subDays(now, 1);
     
     switch (dateFilter) {
+      case "today":
+        return { start: startOfDay(now), end: endOfDay(now) };
       case "yesterday":
         return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
       case "thisMonth":
