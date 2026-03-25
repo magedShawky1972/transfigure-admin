@@ -92,6 +92,10 @@ const BrandSetup = () => {
   }, [filterBrandType]);
 
   useEffect(() => {
+    localStorage.setItem("brandSetup_filterStatus", filterStatus);
+  }, [filterStatus]);
+
+  useEffect(() => {
     fetchBrands();
     fetchBrandTypes();
   }, []);
