@@ -200,7 +200,8 @@ const BrandEdit = () => {
            default_supplier_id: (data as any).default_supplier_id || "none",
           asus_brand_name: (data as any).asus_brand_name || "",
           creation_source: (data as any).creation_source || "",
-        });
+          _created_at: data.created_at,
+        } as any);
 
         // Fetch the latest closing balance from shift_brand_balances for closed shifts only
         const { data: balanceData, error: balanceError } = await supabase
