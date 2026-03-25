@@ -116,6 +116,7 @@ const Transactions = () => {
     }
     return new Date();
   });
+  const [filterCompany, setFilterCompany] = useState<string>("all");
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterProduct, setFilterProduct] = useState<string>("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("all");
