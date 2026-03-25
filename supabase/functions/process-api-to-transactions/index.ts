@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       headerQuery = headerQuery.eq('order_number', singleOrderNumber);
     }
 
-    const { data: headers, error: headerError } = await headerQuery.limit(100);
+    const { data: headers, error: headerError } = await headerQuery.order('order_date', { ascending: false }).limit(100);
 
     if (headerError) {
       console.error('Error fetching headers:', headerError);

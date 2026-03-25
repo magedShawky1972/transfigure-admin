@@ -199,8 +199,45 @@ Deno.serve(async (req) => {
     console.log(`Successfully inserted to ${tables.payment}:`, resultData);
     responseMessage = `Payment saved to ${tables.payment} table (${apiMode} mode)`;
 
-    // Auto-trigger: DISABLED — do not move data from API to purpletransaction until manually enabled
-    const autoProcessResult = null;
+    // Check trigger mode and auto-process if per_transaction
+    let autoProcessResult = null;
+    if (apiMode === 'production') {
+      const { data: triggerSetting } = await supabase
+        .from('api_integration_settings')
+        .select('setting_value')
+        .eq('setting_key', 'trigger_mode')
+        .maybeSingle();
+
+      const { data: enabledSetting } = await supabase
+        .from('api_integration_settings')
+        .select('setting_value')
+        .eq('setting_key', 'is_enabled')
+        .maybeSingle();
+
+      const triggerMode = triggerSetting?.setting_value || 'scheduled';
+      const isEnabled = enabledSetting?.setting_value === 'true';
+
+      if (isEnabled && triggerMode === 'per_transaction') {
+        const orderNumber = body.Order_number || body.order_number;
+        console.log(`Per-transaction trigger: processing order ${orderNumber}`);
+        try {
+          const processUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/process-api-to-transactions`;
+          const processResp = await fetch(processUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ order_number: orderNumber }),
+          });
+          autoProcessResult = await processResp.json();
+          console.log(`Auto-process result for ${orderNumber}:`, autoProcessResult);
+        } catch (procErr) {
+          console.error('Auto-process error:', procErr);
+          autoProcessResult = { error: 'Failed to auto-process' };
+        }
+      }
+    }
 
     await logApiCall();
 
