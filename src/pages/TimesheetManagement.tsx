@@ -1452,6 +1452,27 @@ export default function TimesheetManagement() {
               </div>
             )}
             <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                {language === "ar" ? "القسم" : "Department"}
+              </Label>
+              <Select value={selectedDepartment || "_all_"} onValueChange={(v) => { setSelectedDepartment(v === "_all_" ? "" : v); setSelectedEmployee(""); }}>
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder={language === "ar" ? "جميع الأقسام" : "All Departments"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all_">{language === "ar" ? "جميع الأقسام" : "All Departments"}</SelectItem>
+                  {departments
+                    .sort((a, b) => a.department_name.localeCompare(b.department_name))
+                    .map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.department_name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>{language === "ar" ? "الموظف" : "Employee"}</Label>
               <Select value={selectedEmployee || "_all_"} onValueChange={(v) => setSelectedEmployee(v === "_all_" ? "" : v)}>
                 <SelectTrigger className="w-64">
@@ -1459,11 +1480,27 @@ export default function TimesheetManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_all_">{language === "ar" ? "جميع الموظفين" : "All Employees"}</SelectItem>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.employee_number} - {emp.first_name} {emp.last_name}
-                    </SelectItem>
-                  ))}
+                  {(() => {
+                    // Helper to get all descendant dept IDs
+                    const getDescendants = (parentId: string): string[] => {
+                      const result: string[] = [parentId];
+                      departments.filter(d => d.parent_department_id === parentId).forEach(child => {
+                        result.push(...getDescendants(child.id));
+                      });
+                      return result;
+                    };
+                    const filteredEmps = selectedDepartment
+                      ? employees.filter(emp => {
+                          const deptIds = getDescendants(selectedDepartment);
+                          return emp.department_id && deptIds.includes(emp.department_id);
+                        })
+                      : employees;
+                    return filteredEmps.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.employee_number} - {emp.first_name} {emp.last_name}
+                      </SelectItem>
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
