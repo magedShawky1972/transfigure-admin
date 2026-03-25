@@ -591,13 +591,14 @@ const OdooSyncBatch = () => {
             .select('*')
             .gte('created_at_date_int', fromDateInt)
             .lte('created_at_date_int', toDateInt)
-            .neq('payment_method', 'point')
+            .or('payment_method.is.null,payment_method.neq.point')
             .eq('is_deleted', false)
             .or('sendodoo.is.null,sendodoo.eq.false')
-            .order('created_at_date_int', { ascending: false })
-            .range(offset, offset + BATCH_SIZE - 1);
+            .order('created_at_date_int', { ascending: false });
           
           if (companyFilter) query = query.eq('company', companyFilter);
+          
+          query = query.range(offset, offset + BATCH_SIZE - 1);
           
           const { data: batchData, error: batchError } = await (query as any);
           
