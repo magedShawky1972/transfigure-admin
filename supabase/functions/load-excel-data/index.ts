@@ -913,14 +913,24 @@ Deno.serve(async (req) => {
       let insertError;
       
       if (useUpsert && !useManualUpsert) {
-        // Try upsert with onConflict for PK columns
-        const { error } = await supabase
-          .from(tableName)
-          .upsert(rowsToInsert, {
-            onConflict: pkColumns.join(','),
-            ignoreDuplicates: false
-          });
-        insertError = error;
+        // Try upsert with onConflict for PK columns - batch in chunks of 500
+        const chunkSize = 500;
+        let firstError: any = null;
+        for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+          const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+          console.log(`Upserting chunk ${Math.floor(ci / chunkSize) + 1} of ${Math.ceil(rowsToInsert.length / chunkSize)} (${chunk.length} rows)...`);
+          const { error } = await supabase
+            .from(tableName)
+            .upsert(chunk, {
+              onConflict: pkColumns.join(','),
+              ignoreDuplicates: false
+            });
+          if (error) {
+            firstError = error;
+            break;
+          }
+        }
+        insertError = firstError;
         
         // Check if error is due to missing unique constraint
         const message = (insertError as any)?.message || '';
