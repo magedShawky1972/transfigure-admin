@@ -329,22 +329,34 @@ export type Database = {
       api_integration_settings: {
         Row: {
           id: string
+          is_enabled: boolean | null
+          schedule_interval_minutes: number | null
           setting_key: string
           setting_value: string
+          start_date: string | null
+          trigger_mode: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           id?: string
+          is_enabled?: boolean | null
+          schedule_interval_minutes?: number | null
           setting_key: string
           setting_value: string
+          start_date?: string | null
+          trigger_mode?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           id?: string
+          is_enabled?: boolean | null
+          schedule_interval_minutes?: number | null
           setting_key?: string
           setting_value?: string
+          start_date?: string | null
+          trigger_mode?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -406,6 +418,39 @@ export type Database = {
           description?: string
           id?: string
           is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      api_transaction_mapping: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          source_field: string
+          source_table: string
+          target_field: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          source_field?: string
+          source_table?: string
+          target_field: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          source_field?: string
+          source_table?: string
+          target_field?: string
           updated_at?: string
         }
         Relationships: []
