@@ -462,7 +462,7 @@ const ApiTransactionMapping = () => {
                               <SelectValue placeholder={language === "ar" ? "اختر الحقل" : "Select field"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {unmappedTargets.map(f => (
+                              {targetFieldOptions.map(f => (
                                 <SelectItem key={f} value={f}>{f}</SelectItem>
                               ))}
                             </SelectContent>
