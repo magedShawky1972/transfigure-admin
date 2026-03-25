@@ -289,7 +289,7 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo]);
+  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo, selectedDepartment]);
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
