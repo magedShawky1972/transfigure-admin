@@ -1010,11 +1010,21 @@ Deno.serve(async (req) => {
         console.log(`Manual upsert completed: ${updateCount} updated, ${insertCount} inserted, ${successCount} total successful`);
         insertError = null; // Clear error since we handled it manually
       } else {
-        // Regular insert
-        const { error } = await supabase
-          .from(tableName)
-          .insert(rowsToInsert);
-        insertError = error;
+        // Regular insert - batch in chunks of 500 to avoid timeouts
+        const chunkSize = 500;
+        let chunkErrors: any[] = [];
+        for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+          const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+          console.log(`Inserting chunk ${Math.floor(ci / chunkSize) + 1} of ${Math.ceil(rowsToInsert.length / chunkSize)} (${chunk.length} rows)...`);
+          const { error } = await supabase
+            .from(tableName)
+            .insert(chunk);
+          if (error) {
+            chunkErrors.push(error);
+            break; // Stop on first error
+          }
+        }
+        insertError = chunkErrors.length > 0 ? chunkErrors[0] : null;
       }
 
       if (!insertError) {
