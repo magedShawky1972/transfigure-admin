@@ -215,11 +215,13 @@ Deno.serve(async (req) => {
           orderTotal += lineTotal;
           orderCostSold += lineCostSold;
 
-          const ordernumber = `${orderNum}-${line.line_number || 1}`;
+          const lineNumber = line.line_number || 1;
+          const ordernumber = `${orderNum}-${lineNumber}`;
 
           txnRows.push({
             order_number: orderNum,
             ordernumber: ordernumber,
+            line_no: lineNumber,
             created_at_date: header.order_date,
             user_name: header.sales_person || null,
             customer_phone: header.customer_phone || null,
