@@ -530,6 +530,9 @@ const Dashboard = () => {
       if (trendBrandFilter !== 'all') {
         base = base.eq('brand_name', trendBrandFilter);
       }
+      if (companyFilter !== 'all') {
+        base = base.eq('company', companyFilter);
+      }
 
       // IMPORTANT: paginate to avoid the default 1000 row limit
       const pageSize = 1000;
@@ -616,6 +619,9 @@ const Dashboard = () => {
         if (globalBrandFilter !== 'all') {
           query = query.eq('brand_name', globalBrandFilter);
         }
+        if (companyFilter !== 'all') {
+          query = query.eq('company', companyFilter);
+        }
         
         const { data, error } = await query.range(from, from + pageSize - 1);
 
@@ -652,6 +658,9 @@ const Dashboard = () => {
         trendBase = trendBase.eq('brand_name', globalBrandFilter);
       } else if (trendBrandFilter !== 'all') {
         trendBase = trendBase.eq('brand_name', trendBrandFilter);
+      }
+      if (companyFilter !== 'all') {
+        trendBase = trendBase.eq('company', companyFilter);
       }
 
       // Paginate to avoid 1000 row limit
@@ -739,6 +748,9 @@ const Dashboard = () => {
           if (globalBrandFilter !== 'all') {
             npQuery = npQuery.eq('brand_name', globalBrandFilter);
           }
+          if (companyFilter !== 'all') {
+            npQuery = npQuery.eq('company', companyFilter);
+          }
           
           const { data, error } = await npQuery.range(fromNP, fromNP + pageSize - 1);
           if (error) throw error;
@@ -763,6 +775,9 @@ const Dashboard = () => {
           // Apply global brand filter for monthly comparison
           if (globalBrandFilter !== 'all') {
             pQuery = pQuery.eq('brand_name', globalBrandFilter);
+          }
+          if (companyFilter !== 'all') {
+            pQuery = pQuery.eq('company', companyFilter);
           }
           
           const { data, error } = await pQuery.range(fromP, fromP + pageSize - 1);
@@ -1066,6 +1081,9 @@ const Dashboard = () => {
         // Apply global brand filter
         if (globalBrandFilter !== 'all') {
           query = query.eq('brand_name', globalBrandFilter);
+        }
+        if (companyFilter !== 'all') {
+          query = query.eq('company', companyFilter);
         }
         
         const { data, error } = await query.range(from, from + pageSize - 1);
