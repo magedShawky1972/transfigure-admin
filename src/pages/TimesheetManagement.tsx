@@ -539,6 +539,26 @@ export default function TimesheetManagement() {
 
       setEmployees(employeesRes.data || []);
       setDeductionRules(rulesRes.data || []);
+      setDepartments(deptsRes.data || []);
+
+      // Helper: get all descendant department IDs (including the given one)
+      const getAllDescendantDeptIds = (parentId: string, allDepts: Department[]): string[] => {
+        const result: string[] = [parentId];
+        const children = allDepts.filter(d => d.parent_department_id === parentId);
+        for (const child of children) {
+          result.push(...getAllDescendantDeptIds(child.id, allDepts));
+        }
+        return result;
+      };
+
+      // Determine employee IDs to filter by department
+      let departmentEmployeeIds: string[] | null = null;
+      if (selectedDepartment) {
+        const deptIds = getAllDescendantDeptIds(selectedDepartment, deptsRes.data || []);
+        departmentEmployeeIds = (employeesRes.data || [])
+          .filter(emp => emp.department_id && deptIds.includes(emp.department_id))
+          .map(emp => emp.id);
+      }
 
       // Only fetch timesheets if we have a valid date/month
       if (filterMode === "date" && !selectedDate) {
