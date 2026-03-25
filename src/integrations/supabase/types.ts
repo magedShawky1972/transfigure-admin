@@ -5754,6 +5754,7 @@ export type Database = {
           is_api_reviewed: boolean | null
           is_deleted: boolean
           is_point: boolean | null
+          line_no: number
           media: string | null
           order_number: string | null
           order_status: string | null
@@ -5803,6 +5804,7 @@ export type Database = {
           is_api_reviewed?: boolean | null
           is_deleted?: boolean
           is_point?: boolean | null
+          line_no?: number
           media?: string | null
           order_number?: string | null
           order_status?: string | null
@@ -5852,6 +5854,7 @@ export type Database = {
           is_api_reviewed?: boolean | null
           is_deleted?: boolean
           is_point?: boolean | null
+          line_no?: number
           media?: string | null
           order_number?: string | null
           order_status?: string | null
