@@ -232,6 +232,8 @@ const Dashboard = () => {
     const yesterday = subDays(now, 1);
     
     switch (dateFilter) {
+      case "today":
+        return { start: startOfDay(now), end: endOfDay(now) };
       case "yesterday":
         return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
       case "thisMonth":
@@ -2627,6 +2629,7 @@ const Dashboard = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="today">{language === 'ar' ? 'اليوم' : 'Today'}</SelectItem>
                   <SelectItem value="yesterday">{t("dashboard.yesterday")}</SelectItem>
                   <SelectItem value="thisMonth">{t("dashboard.thisMonth")}</SelectItem>
                   <SelectItem value="lastMonth">{t("dashboard.lastMonth")}</SelectItem>
