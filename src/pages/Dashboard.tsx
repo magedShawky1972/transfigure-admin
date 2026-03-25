@@ -488,6 +488,10 @@ const Dashboard = () => {
       if (globalBrandFilter !== 'all') {
         recentQuery = recentQuery.eq('brand_name', globalBrandFilter);
       }
+      // Apply company filter
+      if (companyFilter !== 'all') {
+        recentQuery = recentQuery.eq('company', companyFilter);
+      }
       
       const { data: recentTxns, error: recentError } = await recentQuery.limit(5);
 
