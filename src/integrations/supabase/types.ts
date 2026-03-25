@@ -1140,6 +1140,7 @@ export type Database = {
           brand_name: string
           brand_type_id: string | null
           created_at: string
+          default_supplier_id: string | null
           id: string
           leadtime: number | null
           odoo_category_id: number | null
@@ -1160,6 +1161,7 @@ export type Database = {
           brand_name: string
           brand_type_id?: string | null
           created_at?: string
+          default_supplier_id?: string | null
           id?: string
           leadtime?: number | null
           odoo_category_id?: number | null
@@ -1180,6 +1182,7 @@ export type Database = {
           brand_name?: string
           brand_type_id?: string | null
           created_at?: string
+          default_supplier_id?: string | null
           id?: string
           leadtime?: number | null
           odoo_category_id?: number | null
@@ -1198,6 +1201,13 @@ export type Database = {
             columns: ["brand_type_id"]
             isOneToOne: false
             referencedRelation: "brand_type"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brands_default_supplier_id_fkey"
+            columns: ["default_supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]

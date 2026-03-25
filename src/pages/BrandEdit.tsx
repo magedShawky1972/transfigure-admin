@@ -23,6 +23,11 @@ interface BrandType {
   status: string;
 }
 
+interface Supplier {
+  id: string;
+  supplier_name: string;
+}
+
 const BrandEdit = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -30,6 +35,7 @@ const BrandEdit = () => {
   const [searchParams] = useSearchParams();
   const brandId = searchParams.get("id");
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialBrandTypeId, setInitialBrandTypeId] = useState<string | null>(null);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
@@ -49,6 +55,7 @@ const BrandEdit = () => {
     brand_type_id: "none",
     status: "active",
     odoo_category_id: "",
+    default_supplier_id: "none",
   });
 
   // Format number with thousand separators and 2 decimal places
@@ -76,7 +83,7 @@ const BrandEdit = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchBrandTypes();
+      await Promise.all([fetchBrandTypes(), fetchSuppliers()]);
       if (brandId) {
         await fetchBrand();
       }
@@ -96,6 +103,20 @@ const BrandEdit = () => {
       setBrandTypes(data || []);
     } catch (error: any) {
       console.error("Error fetching brand types:", error);
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, supplier_name")
+        .eq("status", "active")
+        .order("supplier_name", { ascending: true });
+      if (error) throw error;
+      setSuppliers(data || []);
+    } catch (error: any) {
+      console.error("Error fetching suppliers:", error);
     }
   };
 
@@ -173,6 +194,7 @@ const BrandEdit = () => {
           brand_type_id: data.brand_type_id || "none",
           status: data.status,
           odoo_category_id: data.odoo_category_id?.toString() || "",
+          default_supplier_id: (data as any).default_supplier_id || "none",
         });
 
         // Fetch the latest closing balance from shift_brand_balances for closed shifts only
@@ -304,7 +326,8 @@ const BrandEdit = () => {
             abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
-          })
+            default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
+          } as any)
           .eq("id", brandId);
 
         if (error) throw error;
@@ -330,7 +353,8 @@ const BrandEdit = () => {
             abc_analysis: formData.abc_analysis,
             brand_type_id: formData.brand_type_id === "none" ? null : formData.brand_type_id,
             status: formData.status,
-          });
+            default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
+          } as any);
 
         if (error) throw error;
         toast({
@@ -608,6 +632,28 @@ const BrandEdit = () => {
                 <SelectContent>
                   <SelectItem value="active">{t("brandSetup.active")}</SelectItem>
                   <SelectItem value="inactive">{t("brandSetup.inactive")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="default_supplier_id">Default Vendor</Label>
+              <Select
+                value={formData.default_supplier_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, default_supplier_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select default vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.supplier_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

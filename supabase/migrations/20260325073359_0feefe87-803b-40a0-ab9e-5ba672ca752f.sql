@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN default_supplier_id uuid REFERENCES public.suppliers(id) ON DELETE SET NULL;
