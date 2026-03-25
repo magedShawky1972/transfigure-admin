@@ -242,8 +242,10 @@ const BrandSetup = () => {
         brand.abc_analysis === filterABCAnalysis;
       const matchesBrandType = !filterBrandType || 
         brand.brand_type_id === filterBrandType;
+      const matchesStatus = !filterStatus || 
+        brand.status === filterStatus;
       
-      return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType;
+      return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
     })
     .sort((a, b) => {
       if (!sortColumn) return 0;
