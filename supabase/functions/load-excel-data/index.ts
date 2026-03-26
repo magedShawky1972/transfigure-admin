@@ -118,10 +118,10 @@ Deno.serve(async (req) => {
       .map((m) => (m.table_column || '').toLowerCase().trim())
       .filter((col) => col.length > 0);
     
-    // Force upsert on ordernumber + line_no for purpletransaction table
+    // Force upsert on order_number + product_id for purpletransaction table
     if (tableName === 'purpletransaction' && pkColumns.length === 0) {
-      pkColumns = ['ordernumber', 'line_no'];
-      console.log('Auto-detected PK columns for purpletransaction: ordernumber, line_no');
+      pkColumns = ['order_number', 'product_id'];
+      console.log('Auto-detected PK columns for purpletransaction: order_number, product_id');
     }
     
     console.log(`PK columns for upsert: ${pkColumns.length > 0 ? pkColumns.join(', ') : 'none (insert mode)'}`);
