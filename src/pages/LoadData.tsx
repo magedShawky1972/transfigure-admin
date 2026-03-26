@@ -918,7 +918,7 @@ const LoadData = () => {
               });
             }
 
-            const roundedDbTotal = Math.round(dbTotal);
+            const roundedDbTotal = Math.trunc(dbTotal);
             if (roundedDbTotal !== controlAmountValue) {
               toast({
                 title: 'DB Total Mismatch — Auto Reconciling',
