@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { BrandTypeSelectionDialog } from "@/components/BrandTypeSelectionDialog";
 import { DuplicateRecordsDialog } from "@/components/DuplicateRecordsDialog";
+import { ReconcileDialog } from "@/components/ReconcileDialog";
 import { Badge } from "@/components/ui/badge";
 
 interface ExcelSheet {
@@ -102,6 +103,11 @@ const LoadData = () => {
     duplicateMessage?: string;
   } | null>(null);
   const [pendingDuplicateAction, setPendingDuplicateAction] = useState<'update' | 'skip' | null>(null);
+
+  // Reconcile state
+  const [showReconcileDialog, setShowReconcileDialog] = useState(false);
+  const [reconcileExcelData, setReconcileExcelData] = useState<any[]>([]);
+  const [lastUploadTargetTable, setLastUploadTargetTable] = useState<string>('');
 
   // Keep session alive during long processing
   const startKeepAlive = () => {
@@ -656,7 +662,11 @@ const LoadData = () => {
         } : f
       ));
 
-      // Update bank fees
+      // Store excel data for reconciliation if target is purpletransaction
+      if (sheetConfig?.target_table === 'purpletransaction') {
+        setReconcileExcelData(jsonData);
+        setLastUploadTargetTable('purpletransaction');
+      }
       try {
         await supabase.functions.invoke('update-bank-fees');
       } catch (e) {
@@ -984,14 +994,34 @@ const LoadData = () => {
             </div>
           )}
 
-          <Button 
-            onClick={() => setShowSummaryDialog(false)}
-            className="w-full bg-gradient-to-r from-primary to-accent"
-          >
-            Close
-          </Button>
+          <div className="flex gap-2">
+            {lastUploadTargetTable === 'purpletransaction' && reconcileExcelData.length > 0 && (
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setShowSummaryDialog(false);
+                  setShowReconcileDialog(true);
+                }}
+                className="flex-1"
+              >
+                Reconcile with DB
+              </Button>
+            )}
+            <Button 
+              onClick={() => setShowSummaryDialog(false)}
+              className="flex-1 bg-gradient-to-r from-primary to-accent"
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
+
+      <ReconcileDialog
+        open={showReconcileDialog}
+        onOpenChange={setShowReconcileDialog}
+        excelData={reconcileExcelData}
+      />
 
       <BrandTypeSelectionDialog
         open={showBrandTypeDialog}
