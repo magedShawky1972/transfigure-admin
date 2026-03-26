@@ -157,6 +157,20 @@ const ClearData = () => {
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("clearData.company") || "Company"}</label>
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Companies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="Purple">Purple</SelectItem>
+                <SelectItem value="Asus">Asus</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">{t("clearData.fromDate")}</label>
