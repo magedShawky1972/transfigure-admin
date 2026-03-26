@@ -222,6 +222,32 @@ Deno.serve(async (req) => {
     
     console.log(`Order date parsing: raw="${orderDateRaw}", stored as="${parsedOrderDate}" (no timezone conversion)`);
 
+    // Enforce start_date: reject orders with dates before the configured start date
+    const { data: startDateSetting } = await supabase
+      .from('api_integration_settings')
+      .select('setting_value')
+      .eq('setting_key', 'start_date')
+      .maybeSingle();
+
+    if (startDateSetting?.setting_value) {
+      const configuredStartDate = startDateSetting.setting_value; // e.g. "2025-03-25"
+      const orderDateOnly = (parsedOrderDate || orderDateRaw || '').substring(0, 10);
+      if (orderDateOnly && orderDateOnly < configuredStartDate) {
+        console.log(`Order date ${orderDateOnly} is before start_date ${configuredStartDate} — skipping`);
+        responseStatus = 200;
+        responseMessage = `Order skipped: date ${orderDateOnly} is before configured start date ${configuredStartDate}`;
+        success = true;
+        await logApiCall();
+        return new Response(JSON.stringify({ 
+          success: true, 
+          skipped: true,
+          message: responseMessage 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Build the insert object with all available fields
     // Map to sales_order_header columns - handle both PascalCase and snake_case inputs
     const insertData: Record<string, any> = {

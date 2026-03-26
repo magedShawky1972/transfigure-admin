@@ -177,6 +177,37 @@ Deno.serve(async (req) => {
       };
     }
 
+    // Enforce start_date: check the order's header date before inserting payment
+    const paymentOrderNumber = body.Order_number || body.order_number;
+    if (paymentOrderNumber && apiMode === 'production') {
+      const { data: startDateSetting } = await supabase
+        .from('api_integration_settings')
+        .select('setting_value')
+        .eq('setting_key', 'start_date')
+        .maybeSingle();
+
+      if (startDateSetting?.setting_value) {
+        const configuredStartDate = startDateSetting.setting_value;
+        const { data: headerData } = await supabase
+          .from('sales_order_header')
+          .select('order_date')
+          .eq('order_number', paymentOrderNumber)
+          .maybeSingle();
+
+        const headerDate = headerData?.order_date ? String(headerData.order_date).substring(0, 10) : null;
+        if (headerDate && headerDate < configuredStartDate) {
+          console.log(`Payment for order ${paymentOrderNumber} (date ${headerDate}) is before start_date ${configuredStartDate} — skipping`);
+          responseMessage = `Payment skipped: order date ${headerDate} is before configured start date ${configuredStartDate}`;
+          await logApiCall();
+          return new Response(JSON.stringify({ 
+            success: true, skipped: true, message: responseMessage 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+    }
+
     // Insert to payment table based on mode
     const { data: resultData, error: insertError } = await supabase
       .from(tables.payment)
