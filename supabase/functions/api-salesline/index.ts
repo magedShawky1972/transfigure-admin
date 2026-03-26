@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getStartDateGuard } from '../_shared/api-start-date.ts';
 
 // KSA timezone offset (UTC+3)
 const KSA_OFFSET_HOURS = 3;
@@ -170,7 +171,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (startDateSetting?.setting_value) {
-        const configuredStartDate = startDateSetting.setting_value;
         // Look up the header's order_date
         const { data: headerData } = await supabase
           .from(tables.salesline === 'testsalesline' ? 'testsalesheader' : 'sales_order_header')
@@ -178,10 +178,10 @@ Deno.serve(async (req) => {
           .eq('order_number', orderNumber)
           .maybeSingle();
 
-        const headerDate = headerData?.order_date ? String(headerData.order_date).substring(0, 10) : null;
-        if (headerDate && headerDate < configuredStartDate) {
-          console.log(`Sales line for order ${orderNumber} (date ${headerDate}) is before start_date ${configuredStartDate} — skipping`);
-          responseMessage = `Sales line skipped: order date ${headerDate} is before configured start date ${configuredStartDate}`;
+        const { isBeforeStartDate, effectiveStartDate, orderDateOnly } = getStartDateGuard(headerData?.order_date, startDateSetting.setting_value);
+        if (isBeforeStartDate) {
+          console.log(`Sales line for order ${orderNumber} (date ${orderDateOnly}) is before start_date ${effectiveStartDate} — skipping`);
+          responseMessage = `Sales line skipped: order date ${orderDateOnly} is before configured start date ${effectiveStartDate}`;
           await logApiCall();
           return new Response(JSON.stringify({ 
             success: true, skipped: true, message: responseMessage 

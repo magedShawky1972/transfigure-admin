@@ -327,6 +327,10 @@ Deno.serve(async (req) => {
     // Calculate bank_fee for purpletransaction records
     if (tableName === 'purpletransaction') {
       console.log('Calculating bank_fee for transactions...');
+
+      for (const record of validData) {
+        record.source = 'EXCEL';
+      }
       
       // Fetch all active payment methods
       const { data: paymentMethods, error: pmError } = await supabase
