@@ -41,12 +41,29 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
   const runReconciliation = async () => {
     setLoading(true);
     try {
+      // Debug: log first row keys to identify column names
+      if (excelData.length > 0) {
+        const sampleRow = excelData[0];
+        const keys = Object.keys(sampleRow);
+        console.log('[Reconcile] Excel row keys:', keys);
+        console.log('[Reconcile] Sample row:', JSON.stringify(sampleRow).substring(0, 500));
+      }
+
       // Group Excel data by order number
       const excelByOrder = new Map<string, number>();
       excelData.forEach((row: any) => {
-        const orderNum = String(row.ordernumber || row['Order Number'] || row.order_number || '').trim();
+        const keys = Object.keys(row);
+        // Find order number - try multiple possible column names
+        const orderKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'ordernumber') 
+          || keys.find(k => k.toLowerCase().includes('order') && k.toLowerCase().includes('num'));
+        const orderNum = orderKey ? String(row[orderKey]).trim() : '';
         if (!orderNum) return;
-        const total = parseFloat(String(row.total || row.Total || 0).replace(/[,\s]/g, '')) || 0;
+        
+        // Find total - try multiple possible column names  
+        const totalKey = keys.find(k => k.toLowerCase().trim() === 'total');
+        const rawTotal = totalKey ? row[totalKey] : 0;
+        const total = parseFloat(String(rawTotal).replace(/[,\s]/g, '')) || 0;
+        
         excelByOrder.set(orderNum, (excelByOrder.get(orderNum) || 0) + total);
       });
 
