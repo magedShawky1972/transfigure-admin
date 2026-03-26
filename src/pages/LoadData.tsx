@@ -645,6 +645,7 @@ const LoadData = () => {
       const apiMonthDay = apiStartDateRaw.replace(/^\d{4}-/, '').slice(0, 5); // e.g. "03-01"
 
       const excelDates = extractDistinctExcelDates(jsonData);
+      console.log('checkApiDateOverlap: apiStartDate=', apiStartDateRaw, 'apiMonthDay=', apiMonthDay, 'excelDates=', excelDates);
       const overlappingDates = excelDates.filter((dateStr) => {
         // Compare month-day of each Excel date against the API start month-day
         const excelMonthDay = dateStr.slice(5, 10); // "MM-DD"
