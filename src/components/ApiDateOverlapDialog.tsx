@@ -167,32 +167,25 @@ export const ApiDateOverlapDialog = ({
     try {
       const dayStart = `${dateStr}T00:00:00`;
       const dayEnd = `${dateStr}T23:59:59.999`;
-      const dbOrders = new Map<string, { total: number; count: number; rawKey: string }>();
-      // Also build a map from the first part of composite ordernumbers (e.g. "926287" from "926287-928841")
-      const dbOrderPrefix = new Map<string, string>(); // prefix -> full ordernumber
+      const dbOrders = new Map<string, { total: number; count: number }>();
       let from = 0;
       const pageSize = 1000;
       while (true) {
         const { data } = await supabase
           .from('purpletransaction')
-          .select('ordernumber, total')
+          .select('ordernumber, order_number, total')
           .gte('created_at_date', dayStart)
           .lte('created_at_date', dayEnd)
           .range(from, from + pageSize - 1);
         if (!data || data.length === 0) break;
         data.forEach((row: any) => {
-          const on = row.ordernumber || 'unknown';
-          const existing = dbOrders.get(on) || { total: 0, count: 0, rawKey: on };
+          const canonicalOrder = String(
+            row.order_number || row.ordernumber?.split?.('-')?.[0] || row.ordernumber || 'unknown'
+          ).trim();
+          const existing = dbOrders.get(canonicalOrder) || { total: 0, count: 0 };
           existing.total += parseFloat(String(row.total)) || 0;
           existing.count++;
-          dbOrders.set(on, existing);
-          // Build prefix map for composite keys like "926287-928841"
-          if (on.includes('-')) {
-            const prefix = on.split('-')[0];
-            if (!dbOrderPrefix.has(prefix)) {
-              dbOrderPrefix.set(prefix, on);
-            }
-          }
+          dbOrders.set(canonicalOrder, existing);
         });
         if (data.length < pageSize) break;
         from += pageSize;
@@ -218,24 +211,17 @@ export const ApiDateOverlapDialog = ({
         if (rowDate !== dateStr && overlappingDates.length === 1) rowDate = dateStr;
         if (rowDate !== dateStr) return;
 
-        let on = orderKey ? String(row[orderKey] || 'unknown') : 'unknown';
+        const canonicalOrder = orderKey ? String(row[orderKey] || 'unknown').trim() : 'unknown';
         const rowTotal = totalKey ? (parseFloat(String(row[totalKey]).replace(/[,\s]/g, '')) || 0) : 0;
-        
-        // Try to resolve Excel order number to DB composite key
-        // e.g. Excel has "926287", DB has "926287-928841"
-        if (!dbOrders.has(on) && dbOrderPrefix.has(on)) {
-          on = dbOrderPrefix.get(on)!;
-        }
-        
-        const existing = excelOrders.get(on) || { total: 0, count: 0 };
+        const existing = excelOrders.get(canonicalOrder) || { total: 0, count: 0 };
         existing.total += rowTotal;
         existing.count++;
-        excelOrders.set(on, existing);
+        excelOrders.set(canonicalOrder, existing);
       });
 
       const allOrderNumbers = new Set([...dbOrders.keys(), ...excelOrders.keys()]);
       const diffs: OrderDiff[] = [];
-      allOrderNumbers.forEach(on => {
+      allOrderNumbers.forEach((on) => {
         const db = dbOrders.get(on);
         const ex = excelOrders.get(on);
         let status: OrderDiff['status'] = 'match';
