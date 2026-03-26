@@ -1852,13 +1852,13 @@ const Dashboard = () => {
   const [exportingTransactions, setExportingTransactions] = useState(false);
 
   const handleExportTransactionsExcel = async () => {
-    const dateRange = getDateRange();
-    if (!dateRange) return;
+    const exportRange = getDateRange();
+    if (!exportRange) return;
 
     setExportingTransactions(true);
     try {
-      const fromInt = parseInt(format(dateRange.start, 'yyyyMMdd'));
-      const toInt = parseInt(format(dateRange.end, 'yyyyMMdd'));
+      const fromInt = parseInt(format(exportRange.start, 'yyyyMMdd'));
+      const toInt = parseInt(format(exportRange.end, 'yyyyMMdd'));
 
       // Fetch all transactions in batches
       let allData: any[] = [];
