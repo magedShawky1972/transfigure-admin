@@ -824,7 +824,7 @@ const LoadData = () => {
 
       // Store excel data for reconciliation if target is PurpleTransaction
       if (sheetConfig?.target_table?.toLowerCase() === 'purpletransaction') {
-        reconcileExcelDataRef.current = jsonData;
+        reconcileExcelDataRef.current = await attachSavedLineNumbersToExcelData(jsonData);
         setLastUploadTargetTable(sheetConfig.target_table);
         setCanReconcile(jsonData.length > 0);
 
