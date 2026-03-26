@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, AlertTriangle, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 interface DateSummary {
   date: string;
@@ -19,6 +19,15 @@ interface DateSummary {
   dbSources: string[];
   excelCount: number;
   excelTotal: number;
+}
+
+interface OrderDiff {
+  orderNumber: string;
+  dbTotal: number;
+  dbCount: number;
+  excelTotal: number;
+  excelCount: number;
+  status: 'match' | 'different' | 'db_only' | 'excel_only';
 }
 
 interface ApiDateOverlapDialogProps {
@@ -44,6 +53,10 @@ export const ApiDateOverlapDialog = ({
   const [totalDbAmount, setTotalDbAmount] = useState(0);
   const [totalExcelRecords, setTotalExcelRecords] = useState(0);
   const [totalExcelAmount, setTotalExcelAmount] = useState(0);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [orderDiffs, setOrderDiffs] = useState<OrderDiff[]>([]);
+  const [detailsFilter, setDetailsFilter] = useState<'all' | 'different' | 'db_only' | 'excel_only'>('all');
 
   useEffect(() => {
     if (open && overlappingDates.length > 0) {
@@ -67,7 +80,6 @@ export const ApiDateOverlapDialog = ({
       const dateKey = findKey(keys, 'createdatdate', 'createatdate', 'createdat', 'createddate') ||
         keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes('createdatdate'));
 
-      // Build Excel summaries per date
       const excelByDate = new Map<string, { count: number; total: number }>();
       excelData.forEach((row: any) => {
         let dateVal: string | null = null;
@@ -80,7 +92,6 @@ export const ApiDateOverlapDialog = ({
           }
         }
         if (!dateVal) {
-          // Try to match from overlapping dates
           for (const d of overlappingDates) {
             dateVal = d;
             break;
@@ -94,13 +105,10 @@ export const ApiDateOverlapDialog = ({
         excelByDate.set(dateVal, existing);
       });
 
-      // Query existing DB records for overlapping dates
       const dbByDate = new Map<string, { count: number; total: number; sources: Set<string> }>();
       for (const dateStr of overlappingDates) {
         const dayStart = `${dateStr}T00:00:00`;
         const dayEnd = `${dateStr}T23:59:59.999`;
-        
-        // Paginate to avoid 1000-row limit
         const entry = { count: 0, total: 0, sources: new Set<string>() };
         let from = 0;
         const pageSize = 1000;
@@ -111,7 +119,6 @@ export const ApiDateOverlapDialog = ({
             .gte('created_at_date', dayStart)
             .lte('created_at_date', dayEnd)
             .range(from, from + pageSize - 1);
-
           if (!data || data.length === 0) break;
           data.forEach((row: any) => {
             entry.count++;
@@ -149,6 +156,103 @@ export const ApiDateOverlapDialog = ({
     }
   };
 
+  const loadDetails = async (dateStr: string) => {
+    if (expandedDate === dateStr) {
+      setExpandedDate(null);
+      return;
+    }
+    setExpandedDate(dateStr);
+    setDetailsLoading(true);
+    setDetailsFilter('all');
+    try {
+      const dayStart = `${dateStr}T00:00:00`;
+      const dayEnd = `${dateStr}T23:59:59.999`;
+      const dbOrders = new Map<string, { total: number; count: number }>();
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data } = await supabase
+          .from('purpletransaction')
+          .select('ordernumber, total')
+          .gte('created_at_date', dayStart)
+          .lte('created_at_date', dayEnd)
+          .range(from, from + pageSize - 1);
+        if (!data || data.length === 0) break;
+        data.forEach((row: any) => {
+          const on = row.ordernumber || 'unknown';
+          const existing = dbOrders.get(on) || { total: 0, count: 0 };
+          existing.total += parseFloat(String(row.total)) || 0;
+          existing.count++;
+          dbOrders.set(on, existing);
+        });
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+
+      const keys = excelData.length > 0 ? Object.keys(excelData[0]) : [];
+      const totalKey = findKey(keys, 'total') || keys.find(k => k.toLowerCase() === 'total');
+      const dateKey = findKey(keys, 'createdatdate', 'createatdate', 'createdat', 'createddate') ||
+        keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes('createdatdate'));
+      const orderKey = findKey(keys, 'ordernumber', 'orderno', 'order_number') ||
+        keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes('ordernumber'));
+
+      const excelOrders = new Map<string, { total: number; count: number }>();
+      excelData.forEach((row: any) => {
+        let rowDate: string | null = null;
+        if (dateKey) {
+          const raw = row[dateKey];
+          if (raw) {
+            const m = String(raw).trim().match(/^(\d{4}-\d{2}-\d{2})/);
+            if (m) rowDate = m[1];
+          }
+        }
+        if (rowDate !== dateStr && overlappingDates.length === 1) rowDate = dateStr;
+        if (rowDate !== dateStr) return;
+
+        const on = orderKey ? String(row[orderKey] || 'unknown') : 'unknown';
+        const rowTotal = totalKey ? (parseFloat(String(row[totalKey]).replace(/[,\s]/g, '')) || 0) : 0;
+        const existing = excelOrders.get(on) || { total: 0, count: 0 };
+        existing.total += rowTotal;
+        existing.count++;
+        excelOrders.set(on, existing);
+      });
+
+      const allOrderNumbers = new Set([...dbOrders.keys(), ...excelOrders.keys()]);
+      const diffs: OrderDiff[] = [];
+      allOrderNumbers.forEach(on => {
+        const db = dbOrders.get(on);
+        const ex = excelOrders.get(on);
+        let status: OrderDiff['status'] = 'match';
+        if (db && !ex) status = 'db_only';
+        else if (!db && ex) status = 'excel_only';
+        else if (db && ex && Math.abs(db.total - ex.total) > 0.01) status = 'different';
+        diffs.push({
+          orderNumber: on,
+          dbTotal: db?.total || 0,
+          dbCount: db?.count || 0,
+          excelTotal: ex?.total || 0,
+          excelCount: ex?.count || 0,
+          status,
+        });
+      });
+      const statusOrder = { different: 0, db_only: 1, excel_only: 2, match: 3 };
+      diffs.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+      setOrderDiffs(diffs);
+    } catch (err) {
+      console.error('Error loading details:', err);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const filteredDiffs = detailsFilter === 'all' ? orderDiffs : orderDiffs.filter(d => d.status === detailsFilter);
+  const diffCounts = {
+    all: orderDiffs.length,
+    different: orderDiffs.filter(d => d.status === 'different').length,
+    db_only: orderDiffs.filter(d => d.status === 'db_only').length,
+    excel_only: orderDiffs.filter(d => d.status === 'excel_only').length,
+  };
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); onOpenChange(v); }}>
       <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
@@ -179,7 +283,6 @@ export const ApiDateOverlapDialog = ({
           </div>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-3">
-            {/* Summary */}
             <div className="grid grid-cols-2 gap-2">
               <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-center">
                 <AlertCircle className="h-4 w-4 mx-auto text-blue-500 mb-1" />
@@ -207,31 +310,133 @@ export const ApiDateOverlapDialog = ({
                       <TableHead className="text-center">Excel Records</TableHead>
                       <TableHead className="text-right">Excel Total</TableHead>
                       <TableHead className="text-right">Difference</TableHead>
+                      <TableHead className="text-center">Details</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {dateSummaries.map((d) => (
-                      <TableRow key={d.date} className={d.dbCount > 0 ? 'bg-yellow-500/5' : ''}>
-                        <TableCell className="font-mono text-sm font-medium">{d.date}</TableCell>
-                        <TableCell className="text-center">{d.dbCount.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono">{d.dbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                        <TableCell>
-                          {d.dbSources.map(s => (
-                            <Badge key={s} variant="outline" className="text-xs mr-1">{s}</Badge>
-                          ))}
-                        </TableCell>
-                        <TableCell className="text-center">{d.excelCount.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-mono">{d.excelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="text-right font-mono font-medium">
-                          {(d.excelTotal - d.dbTotal) !== 0 ? (
-                            <span className={d.excelTotal - d.dbTotal > 0 ? 'text-green-500' : 'text-destructive'}>
-                              {(d.excelTotal - d.dbTotal) > 0 ? '+' : ''}{(d.excelTotal - d.dbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          ) : (
-                            <span className="text-green-500">Match</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow key={d.date} className={d.dbCount > 0 ? 'bg-yellow-500/5' : ''}>
+                          <TableCell className="font-mono text-sm font-medium">{d.date}</TableCell>
+                          <TableCell className="text-center">{d.dbCount.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-mono">{d.dbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell>
+                            {d.dbSources.map(s => (
+                              <Badge key={s} variant="outline" className="text-xs mr-1">{s}</Badge>
+                            ))}
+                          </TableCell>
+                          <TableCell className="text-center">{d.excelCount.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-mono">{d.excelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right font-mono font-medium">
+                            {(d.excelTotal - d.dbTotal) !== 0 ? (
+                              <span className={d.excelTotal - d.dbTotal > 0 ? 'text-green-500' : 'text-destructive'}>
+                                {(d.excelTotal - d.dbTotal) > 0 ? '+' : ''}{(d.excelTotal - d.dbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <span className="text-green-500">Match</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => loadDetails(d.date)}
+                              className="h-7 px-2 text-xs"
+                            >
+                              {expandedDate === d.date ? (
+                                <><ChevronUp className="h-3 w-3 mr-1" /> Hide</>
+                              ) : (
+                                <><ChevronDown className="h-3 w-3 mr-1" /> Details</>
+                              )}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {expandedDate === d.date && (
+                          <TableRow key={`${d.date}-details`}>
+                            <TableCell colSpan={8} className="p-0">
+                              <div className="bg-muted/30 p-3 border-t">
+                                {detailsLoading ? (
+                                  <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                    <span className="ml-2 text-sm text-muted-foreground">Loading order details...</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                      <span className="text-xs font-medium text-muted-foreground">Filter:</span>
+                                      {(['all', 'different', 'db_only', 'excel_only'] as const).map(f => (
+                                        <Badge
+                                          key={f}
+                                          variant={detailsFilter === f ? 'default' : 'outline'}
+                                          className="cursor-pointer text-xs"
+                                          onClick={() => setDetailsFilter(f)}
+                                        >
+                                          {f === 'all' ? 'All' : f === 'different' ? 'Diff' : f === 'db_only' ? 'DB Only' : 'Excel Only'}
+                                          {' '}({diffCounts[f]})
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                    <div className="max-h-48 overflow-auto rounded border bg-background">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead className="text-xs">Order #</TableHead>
+                                            <TableHead className="text-xs text-center">Status</TableHead>
+                                            <TableHead className="text-xs text-center">DB Lines</TableHead>
+                                            <TableHead className="text-xs text-right">DB Total</TableHead>
+                                            <TableHead className="text-xs text-center">Excel Lines</TableHead>
+                                            <TableHead className="text-xs text-right">Excel Total</TableHead>
+                                            <TableHead className="text-xs text-right">Diff</TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {filteredDiffs.length === 0 ? (
+                                            <TableRow>
+                                              <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-3">
+                                                No records match this filter
+                                              </TableCell>
+                                            </TableRow>
+                                          ) : filteredDiffs.slice(0, 200).map((od) => (
+                                            <TableRow key={od.orderNumber} className="text-xs">
+                                              <TableCell className="font-mono py-1">{od.orderNumber}</TableCell>
+                                              <TableCell className="text-center py-1">
+                                                <Badge variant="outline" className={`text-[10px] ${
+                                                  od.status === 'match' ? 'border-green-500 text-green-500' :
+                                                  od.status === 'different' ? 'border-yellow-500 text-yellow-500' :
+                                                  od.status === 'db_only' ? 'border-blue-500 text-blue-500' :
+                                                  'border-primary text-primary'
+                                                }`}>
+                                                  {od.status === 'match' ? '✓ Match' : od.status === 'different' ? '≠ Diff' : od.status === 'db_only' ? 'DB Only' : 'New'}
+                                                </Badge>
+                                              </TableCell>
+                                              <TableCell className="text-center py-1">{od.dbCount || '-'}</TableCell>
+                                              <TableCell className="text-right font-mono py-1">{od.dbTotal ? od.dbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</TableCell>
+                                              <TableCell className="text-center py-1">{od.excelCount || '-'}</TableCell>
+                                              <TableCell className="text-right font-mono py-1">{od.excelTotal ? od.excelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</TableCell>
+                                              <TableCell className="text-right font-mono py-1">
+                                                {od.status !== 'match' ? (
+                                                  <span className={od.excelTotal - od.dbTotal > 0 ? 'text-green-500' : 'text-destructive'}>
+                                                    {(od.excelTotal - od.dbTotal) > 0 ? '+' : ''}{(od.excelTotal - od.dbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                  </span>
+                                                ) : '-'}
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                      {filteredDiffs.length > 200 && (
+                                        <p className="text-xs text-muted-foreground text-center py-1">
+                                          Showing first 200 of {filteredDiffs.length} orders
+                                        </p>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     ))}
                   </TableBody>
                 </Table>
