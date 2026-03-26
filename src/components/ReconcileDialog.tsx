@@ -13,8 +13,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, AlertCircle, HelpCircle, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 
+interface LineDetail {
+  lineNo: number;
+  excelTotal: number;
+  dbTotal: number;
+}
+
 interface ReconcileResult {
   orderNumber: string;
+  lines: LineDetail[];
   excelTotal: number;
   dbTotal: number;
   difference: number;
@@ -31,6 +38,7 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ReconcileResult[]>([]);
   const [filter, setFilter] = useState<'all' | 'match' | 'mismatch' | 'missing' | 'differences'>('differences');
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open && excelData.length > 0) {
@@ -38,72 +46,103 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
     }
   }, [open]);
 
+  const findKey = (keys: string[], ...patterns: string[]) => {
+    for (const pattern of patterns) {
+      const found = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === pattern);
+      if (found) return found;
+    }
+    return undefined;
+  };
+
   const runReconciliation = async () => {
     setLoading(true);
     try {
-      // Debug: log first row keys to identify column names
       if (excelData.length > 0) {
-        const sampleRow = excelData[0];
-        const keys = Object.keys(sampleRow);
-        console.log('[Reconcile] Excel row keys:', keys);
-        console.log('[Reconcile] Sample row:', JSON.stringify(sampleRow).substring(0, 500));
+        console.log('[Reconcile] Excel row keys:', Object.keys(excelData[0]));
+        console.log('[Reconcile] Sample row:', JSON.stringify(excelData[0]).substring(0, 500));
       }
 
-      // Group Excel data by order number
-      const excelByOrder = new Map<string, number>();
+      // Build per-order, per-line from Excel
+      // Key: orderNumber, Value: Map<lineNo, total>
+      const excelByOrderLine = new Map<string, Map<number, number>>();
+      
       excelData.forEach((row: any) => {
         const keys = Object.keys(row);
-        // Find order number - try multiple possible column names
-        const orderKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'ordernumber') 
+        const orderKey = findKey(keys, 'ordernumber') 
           || keys.find(k => k.toLowerCase().includes('order') && k.toLowerCase().includes('num'));
         const orderNum = orderKey ? String(row[orderKey]).trim() : '';
         if (!orderNum) return;
-        
-        // Find total - try multiple possible column names  
+
+        const lineKey = findKey(keys, 'lineno', 'linenumber', 'line_no', 'line')
+          || keys.find(k => k.toLowerCase().replace(/[_\s]/g, '').includes('lineno'))
+          || keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'line');
+        const lineNo = lineKey ? (parseInt(String(row[lineKey])) || 1) : 1;
+
         const totalKey = keys.find(k => k.toLowerCase().trim() === 'total');
         const rawTotal = totalKey ? row[totalKey] : 0;
         const total = parseFloat(String(rawTotal).replace(/[,\s]/g, '')) || 0;
-        
-        excelByOrder.set(orderNum, (excelByOrder.get(orderNum) || 0) + total);
+
+        if (!excelByOrderLine.has(orderNum)) {
+          excelByOrderLine.set(orderNum, new Map());
+        }
+        const lineMap = excelByOrderLine.get(orderNum)!;
+        // If same line_no appears multiple times, sum them
+        lineMap.set(lineNo, (lineMap.get(lineNo) || 0) + total);
       });
 
-      const orderNums = Array.from(excelByOrder.keys());
+      const orderNums = Array.from(excelByOrderLine.keys());
 
-      // Fetch DB data in batches
-      const dbByOrder = new Map<string, number>();
+      // Fetch DB data per order+line
+      const dbByOrderLine = new Map<string, Map<number, number>>();
       for (let i = 0; i < orderNums.length; i += 500) {
         const batch = orderNums.slice(i, i + 500);
         const { data } = await supabase
           .from('purpletransaction')
-          .select('ordernumber, total')
+          .select('ordernumber, line_no, total')
           .in('ordernumber', batch);
 
         (data || []).forEach((row: any) => {
           const num = String(row.ordernumber || '');
+          const lineNo = parseInt(row.line_no) || 1;
           const total = parseFloat(row.total) || 0;
-          dbByOrder.set(num, (dbByOrder.get(num) || 0) + total);
+          if (!dbByOrderLine.has(num)) {
+            dbByOrderLine.set(num, new Map());
+          }
+          const lineMap = dbByOrderLine.get(num)!;
+          lineMap.set(lineNo, (lineMap.get(lineNo) || 0) + total);
         });
       }
 
-      // Compare
+      // Compare per order, with line-level detail
       const reconcileResults: ReconcileResult[] = [];
-      excelByOrder.forEach((excelTotal, orderNumber) => {
-        const dbTotal = dbByOrder.get(orderNumber);
-        if (dbTotal === undefined) {
-          reconcileResults.push({ orderNumber, excelTotal, dbTotal: 0, difference: excelTotal, status: 'missing' });
-        } else {
-          const diff = Math.round((excelTotal - dbTotal) * 100) / 100;
-          reconcileResults.push({
-            orderNumber,
-            excelTotal,
-            dbTotal,
-            difference: diff,
-            status: Math.abs(diff) < 0.01 ? 'match' : 'mismatch',
-          });
-        }
+      excelByOrderLine.forEach((excelLines, orderNumber) => {
+        const dbLines = dbByOrderLine.get(orderNumber);
+        
+        // Collect all unique line numbers
+        const allLineNos = new Set<number>();
+        excelLines.forEach((_, ln) => allLineNos.add(ln));
+        if (dbLines) dbLines.forEach((_, ln) => allLineNos.add(ln));
+        
+        const lines: LineDetail[] = Array.from(allLineNos).sort((a, b) => a - b).map(ln => ({
+          lineNo: ln,
+          excelTotal: excelLines.get(ln) || 0,
+          dbTotal: dbLines?.get(ln) || 0,
+        }));
+
+        const excelTotal = lines.reduce((s, l) => s + l.excelTotal, 0);
+        const dbTotal = lines.reduce((s, l) => s + l.dbTotal, 0);
+        const diff = Math.round((excelTotal - dbTotal) * 100) / 100;
+
+        reconcileResults.push({
+          orderNumber,
+          lines,
+          excelTotal,
+          dbTotal,
+          difference: diff,
+          status: !dbLines ? 'missing' : Math.abs(diff) < 0.01 ? 'match' : 'mismatch',
+        });
       });
 
-      // Sort: mismatch first, then missing, then match
       reconcileResults.sort((a, b) => {
         const order = { mismatch: 0, missing: 1, match: 2 };
         return order[a.status] - order[b.status];
@@ -117,6 +156,15 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
     }
   };
 
+  const toggleExpand = (orderNumber: string) => {
+    setExpandedOrders(prev => {
+      const next = new Set(prev);
+      if (next.has(orderNumber)) next.delete(orderNumber);
+      else next.add(orderNumber);
+      return next;
+    });
+  };
+
   const filtered = filter === 'all' ? results : filter === 'differences' ? results.filter(r => r.status !== 'match') : results.filter(r => r.status === filter);
   const matched = results.filter(r => r.status === 'match').length;
   const mismatched = results.filter(r => r.status === 'mismatch').length;
@@ -126,24 +174,52 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
   const totalDiff = Math.round((totalExcel - totalDb) * 100) / 100;
 
   const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(results.map(r => ({
-      'Order Number': r.orderNumber,
-      'Excel Total': r.excelTotal,
-      'DB Total': r.dbTotal,
-      'Difference': r.difference,
-      'Status': r.status,
-    })));
+    const rows: any[] = [];
+    results.forEach(r => {
+      if (r.lines.length > 1) {
+        r.lines.forEach(l => {
+          rows.push({
+            'Order Number': r.orderNumber,
+            'Line': l.lineNo,
+            'Excel Total': l.excelTotal,
+            'DB Total': l.dbTotal,
+            'Difference': Math.round((l.excelTotal - l.dbTotal) * 100) / 100,
+            'Status': '',
+          });
+        });
+        rows.push({
+          'Order Number': `${r.orderNumber} (Sum)`,
+          'Line': '',
+          'Excel Total': r.excelTotal,
+          'DB Total': r.dbTotal,
+          'Difference': r.difference,
+          'Status': r.status,
+        });
+      } else {
+        rows.push({
+          'Order Number': r.orderNumber,
+          'Line': r.lines[0]?.lineNo || 1,
+          'Excel Total': r.excelTotal,
+          'DB Total': r.dbTotal,
+          'Difference': r.difference,
+          'Status': r.status,
+        });
+      }
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reconciliation');
     XLSX.writeFile(wb, `reconciliation_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl">Reconcile: Excel vs Database</DialogTitle>
-          <DialogDescription>Comparing order totals between uploaded Excel and purpletransaction table</DialogDescription>
+          <DialogDescription>Comparing order totals (with line-level detail) between uploaded Excel and purpletransaction table</DialogDescription>
         </DialogHeader>
 
         {loading ? (
@@ -178,20 +254,19 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
               <div className="p-2 rounded-lg border border-border text-center">
                 <p className="text-xs text-muted-foreground">Difference</p>
                 <p className={`text-lg font-bold ${Math.abs(totalDiff) < 0.01 ? 'text-green-600' : 'text-destructive'}`}>
-                  {totalDiff.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmt(totalDiff)}
                 </p>
               </div>
             </div>
 
-            {/* Totals row */}
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 rounded-lg bg-muted/50 text-center">
                 <p className="text-xs text-muted-foreground">Excel Total</p>
-                <p className="text-lg font-semibold">{totalExcel.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-lg font-semibold">{fmt(totalExcel)}</p>
               </div>
               <div className="p-2 rounded-lg bg-muted/50 text-center">
                 <p className="text-xs text-muted-foreground">DB Total</p>
-                <p className="text-lg font-semibold">{totalDb.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-lg font-semibold">{fmt(totalDb)}</p>
               </div>
             </div>
 
@@ -201,6 +276,7 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order Number</TableHead>
+                    <TableHead className="text-center">Line</TableHead>
                     <TableHead className="text-right">Excel Total</TableHead>
                     <TableHead className="text-right">DB Total</TableHead>
                     <TableHead className="text-right">Difference</TableHead>
@@ -208,28 +284,57 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((r) => (
-                    <TableRow
-                      key={r.orderNumber}
-                      className={
-                        r.status === 'match' ? 'bg-green-500/5' :
-                        r.status === 'mismatch' ? 'bg-destructive/5' :
-                        'bg-yellow-500/5'
-                      }
-                    >
-                      <TableCell className="font-mono text-sm">{r.orderNumber}</TableCell>
-                      <TableCell className="text-right">{r.excelTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right">{r.dbTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      <TableCell className={`text-right font-semibold ${Math.abs(r.difference) < 0.01 ? '' : 'text-destructive'}`}>
-                        {r.difference.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {r.status === 'match' && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30"><CheckCircle2 className="h-3 w-3 mr-1" />Match</Badge>}
-                        {r.status === 'mismatch' && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30"><AlertCircle className="h-3 w-3 mr-1" />Mismatch</Badge>}
-                        {r.status === 'missing' && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30"><HelpCircle className="h-3 w-3 mr-1" />Missing</Badge>}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filtered.map((r) => {
+                    const hasMultiLines = r.lines.length > 1;
+                    const isExpanded = expandedOrders.has(r.orderNumber);
+                    return (
+                      <>
+                        {/* Order summary row */}
+                        <TableRow
+                          key={r.orderNumber}
+                          className={`${
+                            r.status === 'match' ? 'bg-green-500/5' :
+                            r.status === 'mismatch' ? 'bg-destructive/5' :
+                            'bg-yellow-500/5'
+                          } ${hasMultiLines ? 'cursor-pointer' : ''}`}
+                          onClick={() => hasMultiLines && toggleExpand(r.orderNumber)}
+                        >
+                          <TableCell className="font-mono text-sm">
+                            {hasMultiLines && <span className="mr-1 text-muted-foreground">{isExpanded ? '▼' : '▶'}</span>}
+                            {r.orderNumber}
+                            {hasMultiLines && <span className="ml-1 text-xs text-muted-foreground">({r.lines.length} lines)</span>}
+                          </TableCell>
+                          <TableCell className="text-center text-muted-foreground">{hasMultiLines ? 'Sum' : r.lines[0]?.lineNo || 1}</TableCell>
+                          <TableCell className="text-right font-semibold">{fmt(r.excelTotal)}</TableCell>
+                          <TableCell className="text-right font-semibold">{fmt(r.dbTotal)}</TableCell>
+                          <TableCell className={`text-right font-semibold ${Math.abs(r.difference) < 0.01 ? '' : 'text-destructive'}`}>
+                            {fmt(r.difference)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {r.status === 'match' && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30"><CheckCircle2 className="h-3 w-3 mr-1" />Match</Badge>}
+                            {r.status === 'mismatch' && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30"><AlertCircle className="h-3 w-3 mr-1" />Mismatch</Badge>}
+                            {r.status === 'missing' && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30"><HelpCircle className="h-3 w-3 mr-1" />Missing</Badge>}
+                          </TableCell>
+                        </TableRow>
+                        {/* Expanded line details */}
+                        {hasMultiLines && isExpanded && r.lines.map((line) => {
+                          const lineDiff = Math.round((line.excelTotal - line.dbTotal) * 100) / 100;
+                          return (
+                            <TableRow key={`${r.orderNumber}-${line.lineNo}`} className="bg-muted/30">
+                              <TableCell className="pl-10 text-xs text-muted-foreground">↳ Line</TableCell>
+                              <TableCell className="text-center text-sm">{line.lineNo}</TableCell>
+                              <TableCell className="text-right text-sm">{fmt(line.excelTotal)}</TableCell>
+                              <TableCell className="text-right text-sm">{fmt(line.dbTotal)}</TableCell>
+                              <TableCell className={`text-right text-sm ${Math.abs(lineDiff) < 0.01 ? '' : 'text-destructive'}`}>
+                                {fmt(lineDiff)}
+                              </TableCell>
+                              <TableCell />
+                            </TableRow>
+                          );
+                        })}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
