@@ -664,7 +664,7 @@ const LoadData = () => {
 
       // Store excel data for reconciliation if target is purpletransaction
       if (sheetConfig?.target_table === 'purpletransaction') {
-        setReconcileExcelData(jsonData);
+        reconcileExcelDataRef.current = jsonData;
         setLastUploadTargetTable('purpletransaction');
       }
       try {
