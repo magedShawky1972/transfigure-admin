@@ -16,6 +16,7 @@ const ClearData = () => {
   const { t } = useLanguage();
   const [tables, setTables] = useState<string[]>([]);
   const [selectedTable, setSelectedTable] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState("all");
   const [fromDate, setFromDate] = useState<Date>();
   const [toDate, setToDate] = useState<Date>();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -95,11 +96,17 @@ const ClearData = () => {
       console.log('Clearing data:', { tableName, dateColumn, fromDateValue, toDateValue });
 
       // Delete data within the date range
-      const { error, count } = await (supabase as any)
+      let deleteQuery = (supabase as any)
         .from(tableName)
         .delete({ count: 'exact' })
         .gte(dateColumn, fromDateValue)
         .lte(dateColumn, toDateValue);
+
+      if (selectedCompany !== 'all') {
+        deleteQuery = deleteQuery.eq('company', selectedCompany);
+      }
+
+      const { error, count } = await deleteQuery;
 
       if (error) {
         console.error('Delete error:', error);
@@ -110,6 +117,7 @@ const ClearData = () => {
 
       toast.success(t("clearData.success"));
       setSelectedTable("");
+      setSelectedCompany("all");
       setFromDate(undefined);
       setToDate(undefined);
     } catch (error) {
@@ -146,6 +154,20 @@ const ClearData = () => {
                     {table}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t("clearData.company") || "Company"}</label>
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Companies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="Purple">Purple</SelectItem>
+                <SelectItem value="Asus">Asus</SelectItem>
               </SelectContent>
             </Select>
           </div>
