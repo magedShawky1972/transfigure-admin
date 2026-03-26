@@ -735,6 +735,7 @@ const LoadData = () => {
     });
     if (hasPurpleTarget) {
       setLastUploadTargetTable('purpletransaction');
+      setCanReconcile(reconcileExcelDataRef.current.length > 0);
     }
 
     setAllFilesSummary({
