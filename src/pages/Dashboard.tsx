@@ -2934,6 +2934,15 @@ const Dashboard = () => {
                 <Printer className="h-4 w-4" />
                 {language === 'ar' ? 'طباعة' : 'Print'}
               </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExportTransactionsExcel}
+                disabled={exportingTransactions}
+                className="gap-2"
+              >
+                {exportingTransactions ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                {language === 'ar' ? 'تصدير المعاملات' : 'Export Transactions'}
+              </Button>
             </div>
           </div>
         </CardContent>
