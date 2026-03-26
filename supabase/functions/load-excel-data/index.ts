@@ -713,14 +713,14 @@ Deno.serve(async (req) => {
       console.log('Pre-processing complete.');
     }
 
-    // For purpletransaction: fill-gaps mode
-    // Only insert orders not already in DB, and update missing vendor_name/customer_name on existing records
-    let fillGapsUpdatedVendor = 0;
-    let fillGapsUpdatedCustomer = 0;
+    // For purpletransaction: upsert mode
+    // Update ALL fields from Excel on existing records, insert new records for missing ones
+    let fillGapsUpdated = 0;
+    let fillGapsInserted = 0;
     let fillGapsSkipped = 0;
 
     if (tableName === 'purpletransaction') {
-      console.log('Fill-gaps mode: checking existing orders to only insert missing ones...');
+      console.log('Upsert mode: updating existing records and inserting missing ones...');
       
       // Collect all unique order numbers from the Excel data
       const excelOrderNumbers = [...new Set(
@@ -731,12 +731,8 @@ Deno.serve(async (req) => {
       )];
       
       if (excelOrderNumbers.length > 0) {
-        // Check which order numbers already exist in the database
-        // Track existing records at order+line level (not just order level)
-        // so that new lines for an existing order are still inserted
+        // Check which order+line combinations already exist in the database
         const existingOrderLineSet = new Set<string>();
-        // Also collect records with missing vendor_name or customer_name for patching
-        const recordsToUpdate: Array<{ ordernumber: string; line_no: number; vendor_name: string | null; customer_name: string | null }> = [];
         
         const batchSize = 500;
         for (let i = 0; i < excelOrderNumbers.length; i += batchSize) {
@@ -744,91 +740,85 @@ Deno.serve(async (req) => {
           
           const { data: existingRows, error: existErr } = await supabase
             .from('purpletransaction')
-            .select('ordernumber, line_no, vendor_name, customer_name')
+            .select('ordernumber, line_no')
             .in('ordernumber', batch);
           
           if (existErr) {
             console.error('Error checking existing orders:', existErr);
           } else if (existingRows) {
             for (const row of existingRows) {
-              // Track at order+line level so new lines for existing orders are still inserted
               existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
-              // Track records with missing vendor_name or customer_name
-              if (!row.vendor_name || !row.customer_name) {
-                recordsToUpdate.push({
-                  ordernumber: row.ordernumber,
-                  line_no: row.line_no,
-                  vendor_name: row.vendor_name,
-                  customer_name: row.customer_name,
-                });
-              }
             }
           }
         }
         
         console.log(`Found ${existingOrderLineSet.size} existing order+line records out of ${validData.length} Excel rows`);
         
-        // Update missing vendor_name and customer_name from Excel data
+        // Separate into records to update vs records to insert
+        const recordsToUpdate: any[] = [];
+        const recordsToInsert: any[] = [];
+        
+        for (const row of validData) {
+          const orderNum = row.ordernumber || row.order_number;
+          const lineNo = row.line_no || 1;
+          if (!orderNum) {
+            recordsToInsert.push(row);
+            continue;
+          }
+          const key = `${String(orderNum).trim()}|${lineNo}`;
+          if (existingOrderLineSet.has(key)) {
+            recordsToUpdate.push(row);
+          } else {
+            recordsToInsert.push(row);
+          }
+        }
+        
+        console.log(`Records to update: ${recordsToUpdate.length}, Records to insert: ${recordsToInsert.length}`);
+        
+        // Update existing records with ALL fields from Excel
         if (recordsToUpdate.length > 0) {
-          console.log(`Checking ${recordsToUpdate.length} existing records for missing vendor_name/customer_name...`);
+          console.log(`Updating ${recordsToUpdate.length} existing records with Excel data...`);
           
-          // Build a lookup from Excel data: ordernumber+line_no -> row
-          const excelLookup = new Map<string, any>();
-          for (const row of validData) {
+          for (const row of recordsToUpdate) {
             const orderNum = row.ordernumber || row.order_number;
             const lineNo = row.line_no || 1;
-            if (orderNum) {
-              excelLookup.set(`${orderNum}|${lineNo}`, row);
-            }
-          }
-          
-          for (const existing of recordsToUpdate) {
-            const key = `${existing.ordernumber}|${existing.line_no}`;
-            const excelRow = excelLookup.get(key);
-            if (!excelRow) continue;
             
+            // Build update object from all non-PK fields that have values
             const updates: Record<string, any> = {};
-            
-            if (!existing.vendor_name && excelRow.vendor_name) {
-              updates.vendor_name = excelRow.vendor_name;
-            }
-            if (!existing.customer_name && excelRow.customer_name) {
-              updates.customer_name = excelRow.customer_name;
+            for (const [key, value] of Object.entries(row)) {
+              // Skip PK fields and empty values
+              if (key === 'ordernumber' || key === 'order_number' || key === 'line_no') continue;
+              if (value !== undefined && value !== null && value !== '') {
+                updates[key] = value;
+              }
             }
             
             if (Object.keys(updates).length > 0) {
               const { error: updateErr } = await supabase
                 .from('purpletransaction')
                 .update(updates)
-                .eq('ordernumber', existing.ordernumber)
-                .eq('line_no', existing.line_no);
+                .eq('ordernumber', String(orderNum).trim())
+                .eq('line_no', lineNo);
               
               if (!updateErr) {
-                if (updates.vendor_name) fillGapsUpdatedVendor++;
-                if (updates.customer_name) fillGapsUpdatedCustomer++;
+                fillGapsUpdated++;
               } else {
-                console.error(`Error updating record ${existing.ordernumber}/${existing.line_no}:`, updateErr);
+                console.error(`Error updating record ${orderNum}/${lineNo}:`, updateErr);
               }
             }
           }
           
-          console.log(`Updated missing fields: ${fillGapsUpdatedVendor} vendor_name, ${fillGapsUpdatedCustomer} customer_name`);
+          console.log(`Updated ${fillGapsUpdated} existing records with Excel data`);
         }
         
-        // Filter validData to only skip records that already exist at the order+line level
-        const originalCount = validData.length;
-        validData = validData.filter((row: any) => {
-          const orderNum = row.ordernumber || row.order_number;
-          const lineNo = row.line_no || 1;
-          if (!orderNum) return true;
-          return !existingOrderLineSet.has(`${String(orderNum).trim()}|${lineNo}`);
-        });
-        fillGapsSkipped = originalCount - validData.length;
+        // Set validData to only the new records for insertion
+        fillGapsSkipped = recordsToUpdate.length;
+        validData = recordsToInsert;
         
-        console.log(`Fill-gaps: ${fillGapsSkipped} existing records skipped, ${validData.length} new records to insert`);
+        console.log(`Upsert summary: ${fillGapsUpdated} updated, ${validData.length} new records to insert`);
         
         if (validData.length === 0) {
-          console.log('All records already exist - returning summary');
+          console.log('No new records to insert - returning summary');
           
           const totalValue = transformedData.reduce((sum: number, row: any) => {
             const total = parseFloat((row.total || '0').toString().replace(/[,\s]/g, ''));
@@ -843,9 +833,8 @@ Deno.serve(async (req) => {
               productsUpserted,
               brandsUpserted,
               fillGapsSkipped,
-              fillGapsUpdatedVendor,
-              fillGapsUpdatedCustomer,
-              message: `All ${fillGapsSkipped} records already exist. Updated: ${fillGapsUpdatedVendor} vendor names, ${fillGapsUpdatedCustomer} customer names.`
+              fillGapsUpdated,
+              message: `Updated ${fillGapsUpdated} existing records. No new records to insert.`
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
@@ -1598,8 +1587,8 @@ Deno.serve(async (req) => {
       .filter((date: any) => date)
     )].sort();
 
-    const fillGapsSummary = (fillGapsSkipped > 0 || fillGapsUpdatedVendor > 0 || fillGapsUpdatedCustomer > 0)
-      ? `, ${fillGapsSkipped} existing skipped, ${fillGapsUpdatedVendor} vendor names updated, ${fillGapsUpdatedCustomer} customer names updated`
+    const fillGapsSummary = (fillGapsSkipped > 0 || fillGapsUpdated > 0)
+      ? `, ${fillGapsUpdated} existing updated, ${validData.length} new inserted`
       : '';
 
     return new Response(
@@ -1616,8 +1605,7 @@ Deno.serve(async (req) => {
         inFileDuplicateCount,
         inFileDuplicateKeys,
         fillGapsSkipped,
-        fillGapsUpdatedVendor,
-        fillGapsUpdatedCustomer,
+        fillGapsUpdated,
         message: `Successfully loaded ${validData.length} records${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}${inFileDuplicateCount > 0 ? ` (${inFileDuplicateCount} duplicates merged)` : ''}${fillGapsSummary}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
