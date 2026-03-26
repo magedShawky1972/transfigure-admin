@@ -28,7 +28,7 @@ export const ControlAmountDialog = ({
 }: ControlAmountDialogProps) => {
   const [controlAmount, setControlAmount] = useState("");
 
-  const roundedExcelTotal = Math.round(excelTotal);
+  const roundedExcelTotal = Math.trunc(excelTotal);
   const enteredAmount = parseInt(controlAmount.replace(/[,\s]/g, '')) || 0;
   const isMatch = enteredAmount > 0 && enteredAmount === roundedExcelTotal;
   const showMismatch = enteredAmount > 0 && !isMatch;
