@@ -1007,7 +1007,7 @@ const LoadData = () => {
           )}
 
           <div className="flex gap-2">
-            {lastUploadTargetTable === 'purpletransaction' && canReconcile && (
+            {lastUploadTargetTable?.toLowerCase() === 'purpletransaction' && canReconcile && (
               <Button 
                 variant="outline"
                 onClick={() => {
