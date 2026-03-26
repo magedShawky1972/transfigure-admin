@@ -173,17 +173,15 @@ export const ApiDateOverlapDialog = ({
       while (true) {
         const { data } = await supabase
           .from('purpletransaction')
-          .select('ordernumber, order_number, total')
+          .select('order_number, total')
           .gte('created_at_date', dayStart)
           .lte('created_at_date', dayEnd)
           .range(from, from + pageSize - 1);
         if (!data || data.length === 0) break;
         data.forEach((row: any) => {
-          const canonicalOrder = String(
-            row.order_number || row.ordernumber?.split?.('-')?.[0] || row.ordernumber || 'unknown'
-          ).trim();
+          const canonicalOrder = String(row.order_number || 'unknown').trim();
           const existing = dbOrders.get(canonicalOrder) || { total: 0, count: 0 };
-          existing.total += parseFloat(String(row.total)) || 0;
+          existing.total += parseFloat(String(row.total).replace(/[,\s]/g, '')) || 0;
           existing.count++;
           dbOrders.set(canonicalOrder, existing);
         });
@@ -196,7 +194,10 @@ export const ApiDateOverlapDialog = ({
       const dateKey = findKey(keys, 'createdatdate', 'createatdate', 'createdat', 'createddate') ||
         keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes('createdatdate'));
       const orderKey = findKey(keys, 'ordernumber', 'orderno', 'order_number') ||
-        keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes('ordernumber'));
+        keys.find(k => {
+          const normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normalized === 'ordernumber' || normalized === 'orderno';
+        });
 
       const excelOrders = new Map<string, { total: number; count: number }>();
       excelData.forEach((row: any) => {
@@ -237,8 +238,7 @@ export const ApiDateOverlapDialog = ({
           status,
         });
       });
-      const statusOrder = { different: 0, db_only: 1, excel_only: 2, match: 3 };
-      diffs.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+      diffs.sort((a, b) => Math.abs(b.excelTotal - b.dbTotal) - Math.abs(a.excelTotal - a.dbTotal));
       setOrderDiffs(diffs);
     } catch (err) {
       console.error('Error loading details:', err);
