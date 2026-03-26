@@ -1869,7 +1869,7 @@ const Dashboard = () => {
       while (hasMore) {
         let query = supabase
           .from('purpletransaction')
-          .select('created_at_date, order_number, ordernumber, line_no, user_name, customer_name, customer_phone, brand_name, brand_code, product_name, product_id, coins_number, unit_price, cost_price, qty, cost_sold, total, profit, payment_method, payment_type, payment_brand, vendor_name, order_status, bank_fee, trans_type, company, payment_term, transaction_type, media, profit_center, status, status_description, player_id, is_point, point_value, payment_reference, payment_card_number')
+          .select('created_at_date, order_number, ordernumber, line_no, source, user_name, customer_name, customer_phone, brand_name, brand_code, product_name, product_id, coins_number, unit_price, cost_price, qty, cost_sold, total, profit, payment_method, payment_type, payment_brand, vendor_name, order_status, bank_fee, trans_type, company, payment_term, transaction_type, media, profit_center, status, status_description, player_id, is_point, point_value, payment_reference, payment_card_number')
           .eq('is_deleted', false)
           .gte('created_at_date_int', fromInt)
           .lte('created_at_date_int', toInt);
