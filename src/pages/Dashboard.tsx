@@ -2152,6 +2152,13 @@ const Dashboard = () => {
       onClick: handlePointsClick,
     },
     {
+      key: "total_sales_and_points",
+      title: language === 'ar' ? 'إجمالي المبيعات والنقاط' : 'Total Sales & Points',
+      value: formatCurrency(metrics.totalSales + metrics.totalPoints),
+      icon: DollarSign,
+      gradient: "from-emerald-500 to-teal-500",
+    },
+    {
       key: "transaction_count",
       title: t("dashboard.transactions"),
       value: metrics.transactionCount.toLocaleString(),
