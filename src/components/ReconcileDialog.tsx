@@ -137,10 +137,14 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-4">
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
               <button onClick={() => setFilter('all')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'all' ? 'border-primary bg-primary/10' : 'border-border'}`}>
                 <p className="text-xs text-muted-foreground">Total</p>
                 <p className="text-lg font-bold">{results.length}</p>
+              </button>
+              <button onClick={() => setFilter('differences')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'differences' ? 'border-orange-500 bg-orange-500/10' : 'border-border'}`}>
+                <p className="text-xs text-muted-foreground">Differences</p>
+                <p className="text-lg font-bold text-orange-600">{mismatched + missing}</p>
               </button>
               <button onClick={() => setFilter('match')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'match' ? 'border-green-500 bg-green-500/10' : 'border-border'}`}>
                 <p className="text-xs text-muted-foreground">Matched</p>
