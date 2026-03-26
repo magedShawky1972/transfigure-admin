@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -189,6 +190,7 @@ const Dashboard = () => {
   
   // Print Dialog
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [exportingTransactions, setExportingTransactions] = useState(false);
 
   const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B'];
 
@@ -1848,6 +1850,78 @@ const Dashboard = () => {
     });
   };
 
+
+  const handleExportTransactionsExcel = async () => {
+    const exportRange = getDateRange();
+    if (!exportRange) return;
+
+    setExportingTransactions(true);
+    try {
+      const fromInt = parseInt(format(exportRange.start, 'yyyyMMdd'));
+      const toInt = parseInt(format(exportRange.end, 'yyyyMMdd'));
+
+      // Fetch all transactions in batches
+      let allData: any[] = [];
+      const batchSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = supabase
+          .from('purpletransaction')
+          .select('created_at_date, order_number, ordernumber, line_no, user_name, customer_name, customer_phone, brand_name, brand_code, product_name, product_id, coins_number, unit_price, cost_price, qty, cost_sold, total, profit, payment_method, payment_type, payment_brand, vendor_name, order_status, bank_fee, trans_type, company, payment_term, transaction_type, media, profit_center, status, status_description, player_id, is_point, point_value, payment_reference, payment_card_number')
+          .eq('is_deleted', false)
+          .gte('created_at_date_int', fromInt)
+          .lte('created_at_date_int', toInt);
+
+        if (companyFilter !== 'all') {
+          query = query.eq('company', companyFilter);
+        }
+        if (globalBrandFilter !== 'all') {
+          query = query.eq('brand_name', globalBrandFilter);
+        }
+
+        const { data: batch, error } = await query.range(offset, offset + batchSize - 1);
+        if (error) throw error;
+
+        if (batch && batch.length > 0) {
+          allData = [...allData, ...batch];
+          offset += batchSize;
+          hasMore = batch.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (allData.length === 0) {
+        toast({
+          title: language === 'ar' ? 'لا توجد بيانات' : 'No Data',
+          description: language === 'ar' ? 'لا توجد معاملات للتصدير' : 'No transactions to export',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(allData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+      XLSX.writeFile(wb, `transactions_${format(exportRange.start, 'yyyyMMdd')}_${format(exportRange.end, 'yyyyMMdd')}.xlsx`);
+
+      toast({
+        title: language === 'ar' ? 'تم التصدير' : 'Exported',
+        description: language === 'ar' ? `تم تصدير ${allData.length} معاملة` : `Exported ${allData.length} transactions`,
+      });
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setExportingTransactions(false);
+    }
+  };
+
   const handleBrandSalesPrint = () => {
     if (brandSalesGrid.length === 0) {
       toast({
@@ -2859,6 +2933,15 @@ const Dashboard = () => {
               >
                 <Printer className="h-4 w-4" />
                 {language === 'ar' ? 'طباعة' : 'Print'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExportTransactionsExcel}
+                disabled={exportingTransactions}
+                className="gap-2"
+              >
+                {exportingTransactions ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                {language === 'ar' ? 'تصدير المعاملات' : 'Export Transactions'}
               </Button>
             </div>
           </div>

@@ -115,6 +115,38 @@ const ClearData = () => {
 
       console.log('Records deleted:', count);
 
+      // If clearing purpletransaction, also clear related ordertotals and bank_ledger
+      if (tableName === 'purpletransaction') {
+        const fromInt = parseInt(format(fromDate, 'yyyyMMdd'));
+        const toInt = parseInt(format(toDate, 'yyyyMMdd'));
+
+        // Clear ordertotals for the date range
+        const { error: otError, count: otCount } = await (supabase as any)
+          .from('ordertotals')
+          .delete({ count: 'exact' })
+          .gte('order_date_int', fromInt)
+          .lte('order_date_int', toInt);
+
+        if (otError) {
+          console.error('Error clearing ordertotals:', otError);
+        } else {
+          console.log('OrderTotals deleted:', otCount);
+        }
+
+        // Clear bank_ledger for the date range
+        const { error: blError, count: blCount } = await (supabase as any)
+          .from('bank_ledger')
+          .delete({ count: 'exact' })
+          .gte('entry_date_int', fromInt)
+          .lte('entry_date_int', toInt);
+
+        if (blError) {
+          console.error('Error clearing bank_ledger:', blError);
+        } else {
+          console.log('Bank ledger deleted:', blCount);
+        }
+      }
+
       toast.success(t("clearData.success"));
       setSelectedTable("");
       setSelectedCompany("all");
