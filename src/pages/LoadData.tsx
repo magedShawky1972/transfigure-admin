@@ -1160,11 +1160,19 @@ const LoadData = () => {
             }}>
               Skip File
             </AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
+            <AlertDialogAction onClick={async () => {
               setShowExtraColumnsDialog(false);
               const idx = pendingFileIndex ?? currentFileIndex;
               if (pendingUploadData && pendingFileId) {
-                processFileUpload(pendingFileId, pendingUploadData, idx);
+                // Check if this is a purpletransaction sheet - run pre-upload checks (control amount, API overlap)
+                const fileItem = fileItems.find(f => f.id === pendingFileId);
+                const sheetConfig = fileItem ? availableSheets.find(s => s.id === fileItem.sheetId) : null;
+                const isPurpleTransaction = sheetConfig?.target_table?.toLowerCase() === 'purpletransaction';
+                if (isPurpleTransaction && sheetConfig) {
+                  await runPreUploadChecks(pendingFileId, pendingUploadData, idx, sheetConfig);
+                } else {
+                  processFileUpload(pendingFileId, pendingUploadData, idx);
+                }
               }
             }}>
               Continue Anyway
