@@ -247,18 +247,8 @@ export const ApiDateOverlapDialog = ({
     }
   };
 
-  const differenceOrders = orderDiffs.filter(d => Math.abs(d.excelTotal - d.dbTotal) > 0.01);
-  const filteredDiffs = detailsFilter === 'all'
-    ? orderDiffs
-    : detailsFilter === 'different'
-      ? [...differenceOrders].sort((a, b) => Math.abs(b.excelTotal - b.dbTotal) - Math.abs(a.excelTotal - a.dbTotal))
-      : orderDiffs.filter(d => d.status === detailsFilter);
-  const diffCounts = {
-    all: orderDiffs.length,
-    different: differenceOrders.length,
-    db_only: orderDiffs.filter(d => d.status === 'db_only').length,
-    excel_only: orderDiffs.filter(d => d.status === 'excel_only').length,
-  };
+  const filteredDiffs = orderDiffs.filter(d => Math.abs(d.excelTotal - d.dbTotal) > 0.01)
+    .sort((a, b) => Math.abs(b.excelTotal - b.dbTotal) - Math.abs(a.excelTotal - a.dbTotal));
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); onOpenChange(v); }}>
@@ -406,26 +396,6 @@ export const ApiDateOverlapDialog = ({
                                         </div>
                                       );
                                     })()}
-                                    {diffCounts.db_only > 0 && diffCounts.excel_only > 0 && diffCounts.different === 0 && (
-                                      <div className="mb-2 p-2 rounded bg-blue-500/10 border border-blue-500/20 text-xs text-muted-foreground">
-                                        <strong>Note:</strong> API and Excel use different order numbers, so orders cannot be matched individually. 
-                                        The +{((d.excelTotal - d.dbTotal)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} difference reflects the net total gap between all DB-only and Excel-only orders.
-                                      </div>
-                                    )}
-                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                      <span className="text-xs font-medium text-muted-foreground">Filter:</span>
-                                      {(['all', 'different', 'db_only', 'excel_only'] as const).map(f => (
-                                        <Badge
-                                          key={f}
-                                          variant={detailsFilter === f ? 'default' : 'outline'}
-                                          className="cursor-pointer text-xs"
-                                          onClick={() => setDetailsFilter(f)}
-                                        >
-                                          {f === 'all' ? 'All' : f === 'different' ? 'Diff' : f === 'db_only' ? 'DB Only' : 'Excel Only'}
-                                          {' '}({diffCounts[f]})
-                                        </Badge>
-                                      ))}
-                                    </div>
                                     <div className="mb-2 rounded border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                                       Details are grouped by <span className="font-medium text-foreground">order number</span> only. Each row shows the <span className="font-medium text-foreground">summed total</span> for DB vs Excel.
                                     </div>
