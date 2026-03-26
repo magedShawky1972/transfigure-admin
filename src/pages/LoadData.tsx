@@ -748,11 +748,44 @@ const LoadData = () => {
         f.id === fileId ? { ...f, progress: 40 } : f
       ));
 
-      // Batch upload - use smaller batches for reliability (especially Asus uploads with heavy processing)
+      // Batch upload while keeping the same order together so line_no stays stable across batches
       const BATCH_SIZE = 500;
-      const batches = [];
-      for (let i = 0; i < jsonData.length; i += BATCH_SIZE) {
-        batches.push(jsonData.slice(i, i + BATCH_SIZE));
+      const batches: any[][] = [];
+      let currentBatch: any[] = [];
+      let currentBatchOrderNumbers = new Set<string>();
+
+      const getOrderNumber = (row: any) => {
+        const value = row?.ordernumber ?? row?.order_number;
+        return value === undefined || value === null || value === '' ? '' : String(value).trim();
+      };
+
+      const assignedLineTracker = new Map<string, number>();
+      const preparedRows = jsonData.map((row: any) => {
+        const orderNum = getOrderNumber(row);
+        if (!orderNum) return row;
+
+        const nextLine = (assignedLineTracker.get(orderNum) || 0) + 1;
+        assignedLineTracker.set(orderNum, nextLine);
+        return { ...row, line_no: nextLine };
+      });
+
+      for (const row of preparedRows) {
+        const orderNum = getOrderNumber(row);
+        const wouldExceedBatch = currentBatch.length >= BATCH_SIZE;
+        const isExistingOrderInBatch = orderNum ? currentBatchOrderNumbers.has(orderNum) : false;
+
+        if (wouldExceedBatch && !isExistingOrderInBatch && currentBatch.length > 0) {
+          batches.push(currentBatch);
+          currentBatch = [];
+          currentBatchOrderNumbers = new Set<string>();
+        }
+
+        currentBatch.push(row);
+        if (orderNum) currentBatchOrderNumbers.add(orderNum);
+      }
+
+      if (currentBatch.length > 0) {
+        batches.push(currentBatch);
       }
 
       setTotalBatches(batches.length);
