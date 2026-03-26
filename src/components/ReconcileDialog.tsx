@@ -63,8 +63,9 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
       }
 
       // Build per-order, per-line from Excel
-      // Key: orderNumber, Value: Map<lineNo, total>
+      // Auto-assign sequential line numbers per order (1, 2, 3...) just like the upload does
       const excelByOrderLine = new Map<string, Map<number, number>>();
+      const orderLineCounter = new Map<string, number>();
       
       excelData.forEach((row: any) => {
         const keys = Object.keys(row);
@@ -73,10 +74,10 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
         const orderNum = orderKey ? String(row[orderKey]).trim() : '';
         if (!orderNum) return;
 
-        const lineKey = findKey(keys, 'lineno', 'linenumber', 'line_no', 'line')
-          || keys.find(k => k.toLowerCase().replace(/[_\s]/g, '').includes('lineno'))
-          || keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'line');
-        const lineNo = lineKey ? (parseInt(String(row[lineKey])) || 1) : 1;
+        // Auto-assign sequential line number per order (matching upload logic)
+        const currentLine = (orderLineCounter.get(orderNum) || 0) + 1;
+        orderLineCounter.set(orderNum, currentLine);
+        const lineNo = currentLine;
 
         const totalKey = keys.find(k => k.toLowerCase().trim() === 'total');
         const rawTotal = totalKey ? row[totalKey] : 0;
@@ -86,8 +87,7 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
           excelByOrderLine.set(orderNum, new Map());
         }
         const lineMap = excelByOrderLine.get(orderNum)!;
-        // If same line_no appears multiple times, sum them
-        lineMap.set(lineNo, (lineMap.get(lineNo) || 0) + total);
+        lineMap.set(lineNo, total);
       });
 
       const orderNums = Array.from(excelByOrderLine.keys());
