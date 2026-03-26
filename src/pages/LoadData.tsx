@@ -376,6 +376,92 @@ const LoadData = () => {
     await processNextFile(idx);
   };
 
+  const normalizeDateFieldKey = (value: string) => value.toLowerCase().replace(/[_\s]/g, '');
+
+  const getRowDateValue = (row: any) => {
+    const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
+    const keys = Object.keys(row || {});
+
+    for (const field of dateFields) {
+      const matchKey = keys.find((key) => normalizeDateFieldKey(key) === normalizeDateFieldKey(field));
+      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && row[matchKey] !== '') {
+        return row[matchKey];
+      }
+    }
+
+    return null;
+  };
+
+  const parseExcelLikeDate = (value: any): string | null => {
+    if (value === null || value === undefined || value === '') return null;
+
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return value.toISOString().split('T')[0];
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value > 20000 && value < 80000) {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const parsedDate = new Date(excelEpoch.getTime() + Math.floor(value) * 24 * 60 * 60 * 1000);
+        return isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().split('T')[0];
+      }
+
+      const parsedDate = new Date(value);
+      return isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().split('T')[0];
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      if (/^\d+(\.\d+)?$/.test(trimmed)) {
+        return parseExcelLikeDate(Number(trimmed));
+      }
+
+      const parsedDate = new Date(trimmed);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate.toISOString().split('T')[0];
+      }
+    }
+
+    return null;
+  };
+
+  const extractDistinctExcelDates = (jsonData: any[]) => {
+    const excelDates = new Set<string>();
+
+    jsonData.forEach((row: any) => {
+      const parsedDate = parseExcelLikeDate(getRowDateValue(row));
+      if (parsedDate) {
+        excelDates.add(parsedDate);
+      }
+    });
+
+    return Array.from(excelDates).sort();
+  };
+
+  const filterRowsByDates = (jsonData: any[], allowedDates: Set<string>) => {
+    return jsonData.filter((row: any) => {
+      const parsedDate = parseExcelLikeDate(getRowDateValue(row));
+      return parsedDate ? allowedDates.has(parsedDate) : false;
+    });
+  };
+
+  const promptControlAmountDialog = (fileId: string, jsonData: any[], queueIndex: number) => {
+    const keys = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
+    const totalKey = keys.find(k => k.toLowerCase().trim() === 'total');
+    let excelTotal = 0;
+
+    jsonData.forEach((row: any) => {
+      const rawTotal = totalKey ? row[totalKey] : 0;
+      excelTotal += parseFloat(String(rawTotal).replace(/[,\s]/g, '')) || 0;
+    });
+
+    setControlAmountExcelTotal(excelTotal);
+    setPendingControlAmountData({ fileId, jsonData, queueIndex });
+    setShowControlAmountDialog(true);
+  };
+
   const processFileValidation = async (fileItem: FileUploadItem, queueIndex: number) => {
     const sheetConfig = availableSheets.find((s) => s.id === fileItem.sheetId);
     const shouldSkipFirstRow = sheetConfig?.skip_first_row ?? false;
@@ -451,19 +537,7 @@ const LoadData = () => {
     queueIndex: number,
     sheetConfig: ExcelSheet
   ) => {
-    // Step 1: Calculate Excel total
-    const keys = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
-    const totalKey = keys.find(k => k.toLowerCase().trim() === 'total');
-    let excelTotal = 0;
-    jsonData.forEach((row: any) => {
-      const rawTotal = totalKey ? row[totalKey] : 0;
-      excelTotal += parseFloat(String(rawTotal).replace(/[,\s]/g, '')) || 0;
-    });
-
-    // Show control amount dialog
-    setControlAmountExcelTotal(excelTotal);
-    setPendingControlAmountData({ fileId, jsonData, queueIndex });
-    setShowControlAmountDialog(true);
+    await checkApiDateOverlap(fileId, jsonData, queueIndex);
   };
 
   const handleControlAmountConfirm = async (controlAmount: number) => {
@@ -474,8 +548,7 @@ const LoadData = () => {
     const { fileId, jsonData, queueIndex } = pendingControlAmountData;
     setPendingControlAmountData(null);
 
-    // Step 2: Check API date overlap
-    await checkApiDateOverlap(fileId, jsonData, queueIndex);
+    await processFileUpload(fileId, jsonData, queueIndex);
   };
 
   const handleControlAmountCancel = () => {
@@ -502,55 +575,28 @@ const LoadData = () => {
         .maybeSingle();
 
       if (!startDateSetting?.setting_value) {
-        // No API start date configured, proceed directly
-        await processFileUpload(fileId, jsonData, queueIndex);
+        promptControlAmountDialog(fileId, jsonData, queueIndex);
         return;
       }
 
       const apiStartDate = startDateSetting.setting_value;
 
-      // Extract dates from Excel data
-      const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
-      const excelDates = new Set<string>();
-      jsonData.forEach((row: any) => {
-        dateFields.forEach(field => {
-          const keys = Object.keys(row);
-          const matchKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === field.replace(/_/g, ''));
-          const val = matchKey ? row[matchKey] : row[field];
-          if (val) {
-            try {
-              const d = new Date(val);
-              if (!isNaN(d.getTime())) {
-                excelDates.add(d.toISOString().split('T')[0]);
-              }
-            } catch {}
-          }
-        });
-      });
-
-      // Check which Excel dates are >= API start date
-      const apiStartParts = apiStartDate.split('-');
-      const apiStartMonth = parseInt(apiStartParts[1] || apiStartParts[0]);
-      const apiStartDay = parseInt(apiStartParts[2] || '1');
-      
-      const overlappingDates = Array.from(excelDates).filter(dateStr => {
-        return dateStr >= apiStartDate;
-      }).sort();
+      const excelDates = extractDistinctExcelDates(jsonData);
+      const overlappingDates = excelDates.filter((dateStr) => dateStr >= apiStartDate).sort();
 
       if (overlappingDates.length > 0) {
-        // Show API overlap dialog
+        const overlappingRows = filterRowsByDates(jsonData, new Set(overlappingDates));
         setApiOverlapDates(overlappingDates);
-        setApiOverlapExcelData(jsonData);
+        setApiOverlapExcelData(overlappingRows);
         setPendingApiOverlapData({ fileId, jsonData, queueIndex });
         setShowApiOverlapDialog(true);
         return;
       }
 
-      // No overlap, proceed directly
-      await processFileUpload(fileId, jsonData, queueIndex);
+      promptControlAmountDialog(fileId, jsonData, queueIndex);
     } catch (error) {
       console.error('Error checking API date overlap:', error);
-      await processFileUpload(fileId, jsonData, queueIndex);
+      promptControlAmountDialog(fileId, jsonData, queueIndex);
     }
   };
 
@@ -559,7 +605,7 @@ const LoadData = () => {
     if (pendingApiOverlapData) {
       const { fileId, jsonData, queueIndex } = pendingApiOverlapData;
       setPendingApiOverlapData(null);
-      await processFileUpload(fileId, jsonData, queueIndex);
+      promptControlAmountDialog(fileId, jsonData, queueIndex);
     }
   };
 
@@ -668,17 +714,7 @@ const LoadData = () => {
 
       setUploadStatus(`Processing ${fileItem.file.name}...`);
 
-      // Extract dates
-      const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
-      const distinctDates = new Set<string>();
-      jsonData.forEach((row: any) => {
-        dateFields.forEach(field => {
-          if (row[field]) {
-            const dateStr = new Date(row[field]).toISOString().split('T')[0];
-            distinctDates.add(dateStr);
-          }
-        });
-      });
+      const distinctDates = new Set<string>(extractDistinctExcelDates(jsonData));
 
       const now = new Date();
       const { data: logData } = await supabase
