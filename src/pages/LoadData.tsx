@@ -31,6 +31,8 @@ import {
 import { BrandTypeSelectionDialog } from "@/components/BrandTypeSelectionDialog";
 import { DuplicateRecordsDialog } from "@/components/DuplicateRecordsDialog";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
+import { ControlAmountDialog } from "@/components/ControlAmountDialog";
+import { ApiDateOverlapDialog } from "@/components/ApiDateOverlapDialog";
 import { Badge } from "@/components/ui/badge";
 
 interface ExcelSheet {
