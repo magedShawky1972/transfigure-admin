@@ -30,7 +30,7 @@ interface ReconcileDialogProps {
 export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ReconcileResult[]>([]);
-  const [filter, setFilter] = useState<'all' | 'match' | 'mismatch' | 'missing'>('all');
+  const [filter, setFilter] = useState<'all' | 'match' | 'mismatch' | 'missing' | 'differences'>('differences');
 
   useEffect(() => {
     if (open && excelData.length > 0) {
