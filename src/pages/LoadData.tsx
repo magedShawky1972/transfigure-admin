@@ -639,10 +639,17 @@ const LoadData = () => {
         return;
       }
 
-      const apiStartDate = startDateSetting.setting_value;
+      const apiStartDateRaw = startDateSetting.setting_value;
+      // Extract just the month-day portion (MM-DD) from the configured start_date,
+      // matching the API guard logic that compares month/day only.
+      const apiMonthDay = apiStartDateRaw.replace(/^\d{4}-/, '').slice(0, 5); // e.g. "03-01"
 
       const excelDates = extractDistinctExcelDates(jsonData);
-      const overlappingDates = excelDates.filter((dateStr) => dateStr >= apiStartDate).sort();
+      const overlappingDates = excelDates.filter((dateStr) => {
+        // Compare month-day of each Excel date against the API start month-day
+        const excelMonthDay = dateStr.slice(5, 10); // "MM-DD"
+        return excelMonthDay >= apiMonthDay;
+      }).sort();
 
       if (overlappingDates.length > 0) {
         const overlappingRows = filterRowsByDates(jsonData, new Set(overlappingDates));
