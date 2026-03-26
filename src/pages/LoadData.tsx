@@ -104,6 +104,11 @@ const LoadData = () => {
   } | null>(null);
   const [pendingDuplicateAction, setPendingDuplicateAction] = useState<'update' | 'skip' | null>(null);
 
+  // Reconcile state
+  const [showReconcileDialog, setShowReconcileDialog] = useState(false);
+  const [reconcileExcelData, setReconcileExcelData] = useState<any[]>([]);
+  const [lastUploadTargetTable, setLastUploadTargetTable] = useState<string>('');
+
   // Keep session alive during long processing
   const startKeepAlive = () => {
     if (keepAliveRef.current) {
