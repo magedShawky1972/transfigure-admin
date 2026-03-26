@@ -106,7 +106,7 @@ const LoadData = () => {
 
   // Reconcile state
   const [showReconcileDialog, setShowReconcileDialog] = useState(false);
-  const [reconcileExcelData, setReconcileExcelData] = useState<any[]>([]);
+  const reconcileExcelDataRef = useRef<any[]>([]);
   const [lastUploadTargetTable, setLastUploadTargetTable] = useState<string>('');
 
   // Keep session alive during long processing
