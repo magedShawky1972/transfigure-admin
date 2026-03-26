@@ -52,7 +52,7 @@ export const ControlAmountDialog = ({
 
         <div className="space-y-4">
           <div className="bg-muted/50 p-3 rounded-lg text-center">
-            <p className="text-xs text-muted-foreground mb-1">Excel File Total (rounded)</p>
+            <p className="text-xs text-muted-foreground mb-1">Excel File Total (no decimals)</p>
             <p className="text-2xl font-bold text-primary">
               {roundedExcelTotal.toLocaleString()}
             </p>
