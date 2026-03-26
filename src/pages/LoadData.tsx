@@ -112,6 +112,26 @@ const LoadData = () => {
   const [lastUploadTargetTable, setLastUploadTargetTable] = useState<string>('');
   const [canReconcile, setCanReconcile] = useState(false);
 
+  // Control amount state
+  const [showControlAmountDialog, setShowControlAmountDialog] = useState(false);
+  const [controlAmountExcelTotal, setControlAmountExcelTotal] = useState(0);
+  const [controlAmountValue, setControlAmountValue] = useState<number | null>(null);
+  const [pendingControlAmountData, setPendingControlAmountData] = useState<{
+    fileId: string;
+    jsonData: any[];
+    queueIndex: number;
+  } | null>(null);
+
+  // API date overlap state
+  const [showApiOverlapDialog, setShowApiOverlapDialog] = useState(false);
+  const [apiOverlapDates, setApiOverlapDates] = useState<string[]>([]);
+  const [apiOverlapExcelData, setApiOverlapExcelData] = useState<any[]>([]);
+  const [pendingApiOverlapData, setPendingApiOverlapData] = useState<{
+    fileId: string;
+    jsonData: any[];
+    queueIndex: number;
+  } | null>(null);
+
   // Keep session alive during long processing
   const startKeepAlive = () => {
     if (keepAliveRef.current) {
