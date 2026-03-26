@@ -100,7 +100,7 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
     }
   };
 
-  const filtered = filter === 'all' ? results : results.filter(r => r.status === filter);
+  const filtered = filter === 'all' ? results : filter === 'differences' ? results.filter(r => r.status !== 'match') : results.filter(r => r.status === filter);
   const matched = results.filter(r => r.status === 'match').length;
   const mismatched = results.filter(r => r.status === 'mismatch').length;
   const missing = results.filter(r => r.status === 'missing').length;
