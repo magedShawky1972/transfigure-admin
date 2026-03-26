@@ -1920,6 +1920,9 @@ const Dashboard = () => {
     } finally {
       setExportingTransactions(false);
     }
+  };
+
+  const handleBrandSalesPrint = () => {
     if (brandSalesGrid.length === 0) {
       toast({
         title: language === 'ar' ? 'لا توجد بيانات' : 'No Data',
