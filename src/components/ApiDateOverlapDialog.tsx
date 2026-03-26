@@ -362,6 +362,49 @@ export const ApiDateOverlapDialog = ({
                                   </div>
                                 ) : (
                                   <>
+                                    {/* Difference breakdown summary */}
+                                    {(() => {
+                                      const matchOrders = orderDiffs.filter(o => o.status === 'match');
+                                      const diffOrders = orderDiffs.filter(o => o.status === 'different');
+                                      const dbOnlyOrders = orderDiffs.filter(o => o.status === 'db_only');
+                                      const excelOnlyOrders = orderDiffs.filter(o => o.status === 'excel_only');
+                                      const dbOnlyTotal = dbOnlyOrders.reduce((s, o) => s + o.dbTotal, 0);
+                                      const excelOnlyTotal = excelOnlyOrders.reduce((s, o) => s + o.excelTotal, 0);
+                                      const matchTotal = matchOrders.reduce((s, o) => s + o.dbTotal, 0);
+                                      const diffDbTotal = diffOrders.reduce((s, o) => s + o.dbTotal, 0);
+                                      const diffExTotal = diffOrders.reduce((s, o) => s + o.excelTotal, 0);
+                                      const netDiff = excelOnlyTotal - dbOnlyTotal + (diffExTotal - diffDbTotal);
+                                      return (
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 text-xs">
+                                          <div className="rounded border border-green-500/30 bg-green-500/5 p-2 text-center">
+                                            <p className="text-muted-foreground">Matched</p>
+                                            <p className="font-bold text-green-500">{matchOrders.length} orders</p>
+                                            <p className="text-muted-foreground">{matchTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                          </div>
+                                          <div className="rounded border border-yellow-500/30 bg-yellow-500/5 p-2 text-center">
+                                            <p className="text-muted-foreground">Different Totals</p>
+                                            <p className="font-bold text-yellow-500">{diffOrders.length} orders</p>
+                                            <p className="text-muted-foreground">Δ {(diffExTotal - diffDbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                          </div>
+                                          <div className="rounded border border-blue-500/30 bg-blue-500/5 p-2 text-center">
+                                            <p className="text-muted-foreground">DB Only</p>
+                                            <p className="font-bold text-blue-500">{dbOnlyOrders.length} orders</p>
+                                            <p className="text-muted-foreground">-{dbOnlyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                          </div>
+                                          <div className="rounded border border-primary/30 bg-primary/5 p-2 text-center">
+                                            <p className="text-muted-foreground">Excel Only (New)</p>
+                                            <p className="font-bold text-primary">{excelOnlyOrders.length} orders</p>
+                                            <p className="text-muted-foreground">+{excelOnlyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                    {diffCounts.db_only > 0 && diffCounts.excel_only > 0 && diffCounts.different === 0 && (
+                                      <div className="mb-2 p-2 rounded bg-blue-500/10 border border-blue-500/20 text-xs text-muted-foreground">
+                                        <strong>Note:</strong> API and Excel use different order numbers, so orders cannot be matched individually. 
+                                        The +{((d.excelTotal - d.dbTotal)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} difference reflects the net total gap between all DB-only and Excel-only orders.
+                                      </div>
+                                    )}
                                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                                       <span className="text-xs font-medium text-muted-foreground">Filter:</span>
                                       {(['all', 'different', 'db_only', 'excel_only'] as const).map(f => (
