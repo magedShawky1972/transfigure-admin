@@ -108,6 +108,7 @@ const LoadData = () => {
   const [showReconcileDialog, setShowReconcileDialog] = useState(false);
   const reconcileExcelDataRef = useRef<any[]>([]);
   const [lastUploadTargetTable, setLastUploadTargetTable] = useState<string>('');
+  const [canReconcile, setCanReconcile] = useState(false);
 
   // Keep session alive during long processing
   const startKeepAlive = () => {
@@ -666,6 +667,7 @@ const LoadData = () => {
       if (sheetConfig?.target_table === 'purpletransaction') {
         reconcileExcelDataRef.current = jsonData;
         setLastUploadTargetTable('purpletransaction');
+        setCanReconcile(jsonData.length > 0);
       }
       try {
         await supabase.functions.invoke('update-bank-fees');
@@ -733,6 +735,7 @@ const LoadData = () => {
     });
     if (hasPurpleTarget) {
       setLastUploadTargetTable('purpletransaction');
+      setCanReconcile(reconcileExcelDataRef.current.length > 0);
     }
 
     setAllFilesSummary({
@@ -1004,7 +1007,7 @@ const LoadData = () => {
           )}
 
           <div className="flex gap-2">
-            {lastUploadTargetTable === 'purpletransaction' && reconcileExcelDataRef.current.length > 0 && (
+            {lastUploadTargetTable === 'purpletransaction' && canReconcile && (
               <Button 
                 variant="outline"
                 onClick={() => {
