@@ -934,15 +934,21 @@ Deno.serve(async (req) => {
           }
         }
       } else if (pkCols.length > 1) {
-        // For composite keys, sample check
-        const sampleSize = Math.min(100, values.length);
-        for (let i = 0; i < sampleSize; i++) {
-          const item = values[i];
-          const filters = pkCols.map(c => `${c}=eq.${encodeURIComponent(item[c])}`).join('&');
+        // For composite keys, batch check using OR filters
+        // Process in batches to avoid URL length limits
+        const batchSize = 50;
+        for (let i = 0; i < values.length; i += batchSize) {
+          const batch = values.slice(i, i + batchSize);
+          
+          // Build OR filter: or=(and(order_number.eq.X,product_id.eq.Y),and(...))
+          const orClauses = batch.map(item => {
+            const andParts = pkCols.map(c => `${c}.eq.${item[c]}`).join(',');
+            return `and(${andParts})`;
+          }).join(',');
           
           try {
             const response = await fetch(
-              `${supabaseUrl}/rest/v1/${tbl}?select=${pkCols.join(',')}&${filters}&limit=1`,
+              `${supabaseUrl}/rest/v1/${tbl}?select=${pkCols.join(',')}&or=(${encodeURIComponent(orClauses)})&limit=${batchSize}`,
               {
                 headers: {
                   'apikey': supabaseServiceKey,
@@ -953,9 +959,11 @@ Deno.serve(async (req) => {
             
             if (response.ok) {
               const existing = await response.json();
-              if (existing && existing.length > 0) {
-                existingSet.add(pkKeyFn(item));
-              }
+              existing.forEach((row: any) => {
+                existingSet.add(pkKeyFn(row));
+              });
+            } else {
+              console.error('Error checking composite key batch:', await response.text());
             }
           } catch (e) {
             console.error('Error checking composite key:', e);
