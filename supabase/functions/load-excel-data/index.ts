@@ -732,7 +732,9 @@ Deno.serve(async (req) => {
       
       if (excelOrderNumbers.length > 0) {
         // Check which order numbers already exist in the database
-        const existingOrderSet = new Set<string>();
+        // Track existing records at order+line level (not just order level)
+        // so that new lines for an existing order are still inserted
+        const existingOrderLineSet = new Set<string>();
         // Also collect records with missing vendor_name or customer_name for patching
         const recordsToUpdate: Array<{ ordernumber: string; line_no: number; vendor_name: string | null; customer_name: string | null }> = [];
         
@@ -749,7 +751,8 @@ Deno.serve(async (req) => {
             console.error('Error checking existing orders:', existErr);
           } else if (existingRows) {
             for (const row of existingRows) {
-              existingOrderSet.add(String(row.ordernumber));
+              // Track at order+line level so new lines for existing orders are still inserted
+              existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
               // Track records with missing vendor_name or customer_name
               if (!row.vendor_name || !row.customer_name) {
                 recordsToUpdate.push({
@@ -763,7 +766,7 @@ Deno.serve(async (req) => {
           }
         }
         
-        console.log(`Found ${existingOrderSet.size} existing orders out of ${excelOrderNumbers.length} in Excel`);
+        console.log(`Found ${existingOrderLineSet.size} existing order+line records out of ${validData.length} Excel rows`);
         
         // Update missing vendor_name and customer_name from Excel data
         if (recordsToUpdate.length > 0) {
@@ -812,11 +815,13 @@ Deno.serve(async (req) => {
           console.log(`Updated missing fields: ${fillGapsUpdatedVendor} vendor_name, ${fillGapsUpdatedCustomer} customer_name`);
         }
         
-        // Filter validData to only include orders NOT already in DB
+        // Filter validData to only skip records that already exist at the order+line level
         const originalCount = validData.length;
         validData = validData.filter((row: any) => {
           const orderNum = row.ordernumber || row.order_number;
-          return !orderNum || !existingOrderSet.has(String(orderNum).trim());
+          const lineNo = row.line_no || 1;
+          if (!orderNum) return true;
+          return !existingOrderLineSet.has(`${String(orderNum).trim()}|${lineNo}`);
         });
         fillGapsSkipped = originalCount - validData.length;
         
