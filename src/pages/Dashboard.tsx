@@ -1850,7 +1850,6 @@ const Dashboard = () => {
     });
   };
 
-  const [exportingTransactions, setExportingTransactions] = useState(false);
 
   const handleExportTransactionsExcel = async () => {
     const exportRange = getDateRange();
