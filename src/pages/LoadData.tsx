@@ -106,7 +106,7 @@ const LoadData = () => {
 
   // Reconcile state
   const [showReconcileDialog, setShowReconcileDialog] = useState(false);
-  const [reconcileExcelData, setReconcileExcelData] = useState<any[]>([]);
+  const reconcileExcelDataRef = useRef<any[]>([]);
   const [lastUploadTargetTable, setLastUploadTargetTable] = useState<string>('');
 
   // Keep session alive during long processing
@@ -664,7 +664,7 @@ const LoadData = () => {
 
       // Store excel data for reconciliation if target is purpletransaction
       if (sheetConfig?.target_table === 'purpletransaction') {
-        setReconcileExcelData(jsonData);
+        reconcileExcelDataRef.current = jsonData;
         setLastUploadTargetTable('purpletransaction');
       }
       try {
@@ -1004,7 +1004,7 @@ const LoadData = () => {
           )}
 
           <div className="flex gap-2">
-            {lastUploadTargetTable === 'purpletransaction' && reconcileExcelData.length > 0 && (
+            {lastUploadTargetTable === 'purpletransaction' && reconcileExcelDataRef.current.length > 0 && (
               <Button 
                 variant="outline"
                 onClick={() => {
@@ -1029,7 +1029,7 @@ const LoadData = () => {
       <ReconcileDialog
         open={showReconcileDialog}
         onOpenChange={setShowReconcileDialog}
-        excelData={reconcileExcelData}
+        excelData={reconcileExcelDataRef.current}
       />
 
       <BrandTypeSelectionDialog
