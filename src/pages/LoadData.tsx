@@ -53,6 +53,7 @@ interface FileUploadItem {
   status: 'pending' | 'processing' | 'completed' | 'error';
   progress: number;
   error?: string;
+  extractedDates?: string[];
   summary?: {
     totalRecords: number;
     totalValue: number;
@@ -200,6 +201,39 @@ const LoadData = () => {
         progress: 0,
       }));
       setFileItems(prev => [...prev, ...newFiles]);
+      newFiles.forEach(f => extractDatesFromFile(f.id, f.file));
+    }
+  };
+
+  const extractDatesFromFile = async (fileId: string, file: File) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      if (jsonData.length === 0) return;
+      const dates = new Set<string>();
+      const keys = Object.keys(jsonData[0] as object);
+      const dateKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'createdatdate');
+      if (!dateKey) return;
+      jsonData.forEach((row: any) => {
+        const val = row[dateKey];
+        if (val === null || val === undefined || val === '') return;
+        let parsed: string | null = null;
+        if (typeof val === 'number' && Number.isFinite(val) && val > 20000 && val < 80000) {
+          const epoch = new Date(Date.UTC(1899, 11, 30));
+          const d = new Date(epoch.getTime() + Math.floor(val) * 86400000);
+          if (!isNaN(d.getTime())) parsed = d.toISOString().split('T')[0];
+        } else {
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) parsed = d.toISOString().split('T')[0];
+        }
+        if (parsed) dates.add(parsed);
+      });
+      const sortedDates = Array.from(dates).sort();
+      setFileItems(prev => prev.map(f => f.id === fileId ? { ...f, extractedDates: sortedDates } : f));
+    } catch (err) {
+      console.error('Error extracting dates:', err);
     }
   };
 
@@ -314,6 +348,7 @@ const LoadData = () => {
         progress: 0,
       }));
       setFileItems(prev => [...prev, ...newFiles]);
+      newFiles.forEach(f => extractDatesFromFile(f.id, f.file));
     }
   };
 
@@ -1197,6 +1232,16 @@ const LoadData = () => {
                       )}
                       {item.status === 'processing' && (
                         <Progress value={item.progress} className="h-1 mt-1" />
+                      )}
+                      {item.extractedDates && item.extractedDates.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="text-[10px] text-muted-foreground mr-1">Dates:</span>
+                          {item.extractedDates.map(date => (
+                            <Badge key={date} variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-mono">
+                              {date}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
                     </div>
 
