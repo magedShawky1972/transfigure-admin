@@ -249,155 +249,32 @@ export const ApiDateOverlapDialog = ({
 
   const filteredDiffs = orderDiffs.filter(d => Math.abs(d.excelTotal - d.dbTotal) > 0.01)
     .sort((a, b) => Math.abs(b.excelTotal - b.dbTotal) - Math.abs(a.excelTotal - a.dbTotal));
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); onOpenChange(v); }}>
-      <DialogContent className="max-w-[85vw] max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-            API Date Overlap Detected
-          </DialogTitle>
-          <DialogDescription>
-            The Excel data includes dates that overlap with the API sync period. 
-            The system will compare records already uploaded by API with this Excel file before upload starts.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-2">
-          <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-            Overlapping dates: {overlappingDates.join(', ')}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Records from these dates already exist in the database. Review the summary below before continuing. Existing records will be updated and missing records will be added.
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-muted-foreground">Checking existing records...</span>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-hidden flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-center">
-                <AlertCircle className="h-4 w-4 mx-auto text-blue-500 mb-1" />
-                <p className="text-xs text-muted-foreground">Existing DB Records</p>
-                <p className="text-lg font-bold text-blue-500">{totalDbRecords.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">{totalDbAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-center">
-                <CheckCircle2 className="h-4 w-4 mx-auto text-primary mb-1" />
-                <p className="text-xs text-muted-foreground">Excel Records to Upload</p>
-                <p className="text-lg font-bold text-primary">{totalExcelRecords.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">{totalExcelAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
-            </div>
-
-            {dateSummaries.length > 0 && (
-              <div className="flex-1 overflow-auto border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-center">DB Records</TableHead>
-                      <TableHead className="text-right">DB Total</TableHead>
-                      <TableHead>Sources</TableHead>
-                      <TableHead className="text-center">Excel Records</TableHead>
-                      <TableHead className="text-right">Excel Total</TableHead>
-                      <TableHead className="text-right">Difference</TableHead>
-                      <TableHead className="text-center">Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dateSummaries.map((d) => (
-                      <>
-                        <TableRow key={d.date} className={d.dbCount > 0 ? 'bg-yellow-500/5' : ''}>
-                          <TableCell className="font-mono text-sm font-medium">{d.date}</TableCell>
-                          <TableCell className="text-center">{d.dbCount.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-mono">{d.dbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell>
-                            {d.dbSources.map(s => (
-                              <Badge key={s} variant="outline" className="text-xs mr-1">{s}</Badge>
-                            ))}
-                          </TableCell>
-                          <TableCell className="text-center">{d.excelCount.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-mono">{d.excelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right font-mono font-medium">
-                            {(d.excelTotal - d.dbTotal) !== 0 ? (
-                              <span className={d.excelTotal - d.dbTotal > 0 ? 'text-green-500' : 'text-destructive'}>
-                                {(d.excelTotal - d.dbTotal) > 0 ? '+' : ''}{(d.excelTotal - d.dbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
-                            ) : (
-                              <span className="text-green-500">Match</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => loadDetails(d.date)}
-                              className="h-7 px-2 text-xs"
-                            >
-                              {expandedDate === d.date ? (
-                                <><ChevronUp className="h-3 w-3 mr-1" /> Hide</>
-                              ) : (
-                                <><ChevronDown className="h-3 w-3 mr-1" /> Details</>
-                              )}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                        {expandedDate === d.date && (
-                          <TableRow key={`${d.date}-details`}>
-                            <TableCell colSpan={8} className="p-0">
-                              <div className="bg-muted/30 p-3 border-t">
-                                {detailsLoading ? (
-                                  <div className="flex items-center justify-center py-4">
-                                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                                    <span className="ml-2 text-sm text-muted-foreground">Loading order details...</span>
-                                  </div>
-                                ) : (
-                                  <>
-                                    {/* Difference breakdown summary */}
-                                    {(() => {
-                                      const matchOrders = orderDiffs.filter(o => o.status === 'match');
-                                      const diffOrders = orderDiffs.filter(o => o.status === 'different');
-                                      const dbOnlyOrders = orderDiffs.filter(o => o.status === 'db_only');
-                                      const excelOnlyOrders = orderDiffs.filter(o => o.status === 'excel_only');
-                                      const dbOnlyTotal = dbOnlyOrders.reduce((s, o) => s + o.dbTotal, 0);
-                                      const excelOnlyTotal = excelOnlyOrders.reduce((s, o) => s + o.excelTotal, 0);
-                                      const matchTotal = matchOrders.reduce((s, o) => s + o.dbTotal, 0);
-                                      const diffDbTotal = diffOrders.reduce((s, o) => s + o.dbTotal, 0);
-                                      const diffExTotal = diffOrders.reduce((s, o) => s + o.excelTotal, 0);
-                                      const netDiff = excelOnlyTotal - dbOnlyTotal + (diffExTotal - diffDbTotal);
-                                      return (
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 text-xs">
-                                          <div className="rounded border border-green-500/30 bg-green-500/5 p-2 text-center">
-                                            <p className="text-muted-foreground">Matched</p>
-                                            <p className="font-bold text-green-500">{matchOrders.length} orders</p>
-                                            <p className="text-muted-foreground">{matchTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                          <div className="rounded border border-yellow-500/30 bg-yellow-500/5 p-2 text-center">
-                                            <p className="text-muted-foreground">Different Totals</p>
-                                            <p className="font-bold text-yellow-500">{diffOrders.length} orders</p>
-                                            <p className="text-muted-foreground">Δ {(diffExTotal - diffDbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                          <div className="rounded border border-blue-500/30 bg-blue-500/5 p-2 text-center">
-                                            <p className="text-muted-foreground">DB Only</p>
-                                            <p className="font-bold text-blue-500">{dbOnlyOrders.length} orders</p>
-                                            <p className="text-muted-foreground">-{dbOnlyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                          <div className="rounded border border-primary/30 bg-primary/5 p-2 text-center">
-                                            <p className="text-muted-foreground">Excel Only (New)</p>
-                                            <p className="font-bold text-primary">{excelOnlyOrders.length} orders</p>
-                                            <p className="text-muted-foreground">+{excelOnlyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
+  const filteredDbTotal = filteredDiffs.reduce((sum, item) => sum + item.dbTotal, 0);
+  const filteredExcelTotal = filteredDiffs.reduce((sum, item) => sum + item.excelTotal, 0);
+  const filteredNetDiff = filteredExcelTotal - filteredDbTotal;
+...
                                     <div className="mb-2 rounded border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                                       Details are grouped by <span className="font-medium text-foreground">order number</span> only. Each row shows the <span className="font-medium text-foreground">summed total</span> for DB vs Excel.
+                                    </div>
+                                    <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                      <div className="rounded border border-border/60 bg-background px-3 py-2 text-xs">
+                                        <p className="text-muted-foreground">Diff DB Total</p>
+                                        <p className="font-mono font-semibold text-foreground">
+                                          {filteredDbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
+                                      <div className="rounded border border-border/60 bg-background px-3 py-2 text-xs">
+                                        <p className="text-muted-foreground">Diff Excel Total</p>
+                                        <p className="font-mono font-semibold text-foreground">
+                                          {filteredExcelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
+                                      <div className="rounded border border-border/60 bg-background px-3 py-2 text-xs">
+                                        <p className="text-muted-foreground">Diff Total</p>
+                                        <p className={`font-mono font-semibold ${filteredNetDiff > 0 ? 'text-green-500' : filteredNetDiff < 0 ? 'text-destructive' : 'text-foreground'}`}>
+                                          {filteredNetDiff > 0 ? '+' : ''}{filteredNetDiff.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
                                     </div>
                                     <div className="max-h-48 overflow-auto rounded border bg-background">
                                       <Table>
