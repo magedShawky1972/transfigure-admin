@@ -99,18 +99,28 @@ export const ApiDateOverlapDialog = ({
       for (const dateStr of overlappingDates) {
         const dayStart = `${dateStr}T00:00:00`;
         const dayEnd = `${dateStr}T23:59:59.999`;
-        const { data } = await supabase
-          .from('purpletransaction')
-          .select('total, source')
-          .gte('created_at_date', dayStart)
-          .lte('created_at_date', dayEnd);
-
+        
+        // Paginate to avoid 1000-row limit
         const entry = { count: 0, total: 0, sources: new Set<string>() };
-        (data || []).forEach((row: any) => {
-          entry.count++;
-          entry.total += parseFloat(String(row.total)) || 0;
-          if (row.source) entry.sources.add(row.source);
-        });
+        let from = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data } = await supabase
+            .from('purpletransaction')
+            .select('total, source')
+            .gte('created_at_date', dayStart)
+            .lte('created_at_date', dayEnd)
+            .range(from, from + pageSize - 1);
+
+          if (!data || data.length === 0) break;
+          data.forEach((row: any) => {
+            entry.count++;
+            entry.total += parseFloat(String(row.total)) || 0;
+            if (row.source) entry.sources.add(row.source);
+          });
+          if (data.length < pageSize) break;
+          from += pageSize;
+        }
         dbByDate.set(dateStr, entry);
       }
 
