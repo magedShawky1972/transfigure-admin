@@ -74,14 +74,15 @@ export const ApiDateOverlapDialog = ({
           .filter(Boolean)
       )];
 
-      // Fetch existing DB records for these orders
+      // Fetch existing API-loaded DB records for these orders
       const dbRecords = new Map<string, any>();
       for (let i = 0; i < orderNumbers.length; i += 500) {
         const batch = orderNumbers.slice(i, i + 500);
         const { data } = await supabase
           .from('purpletransaction')
-          .select('ordernumber, line_no, user_name, vendor_name, customer_name, total, cost_sold, product_name, brand_name')
-          .in('ordernumber', batch);
+          .select('ordernumber, line_no, user_name, vendor_name, customer_name, total, cost_sold, product_name, brand_name, source')
+          .in('ordernumber', batch)
+          .eq('source', 'API');
 
         (data || []).forEach(row => {
           dbRecords.set(`${row.ordernumber}|${row.line_no || 1}`, row);
@@ -164,7 +165,7 @@ export const ApiDateOverlapDialog = ({
           </DialogTitle>
           <DialogDescription>
             The Excel data includes dates that overlap with the API sync period. 
-            The system will compare existing API data with Excel data before uploading.
+            The system will compare records already uploaded by API with this Excel file before upload starts.
           </DialogDescription>
         </DialogHeader>
 
@@ -173,7 +174,7 @@ export const ApiDateOverlapDialog = ({
             Overlapping dates: {overlappingDates.join(', ')}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Records from these dates may already exist from API sync. Excel upload will update existing records with Excel data.
+            Records from these dates already exist from API upload. Review the differences before continuing to control amount and upload.
           </p>
         </div>
 
