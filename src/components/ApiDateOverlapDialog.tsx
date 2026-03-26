@@ -426,15 +426,16 @@ export const ApiDateOverlapDialog = ({
                                         </Badge>
                                       ))}
                                     </div>
+                                    <div className="mb-2 rounded border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                                      Details are grouped by <span className="font-medium text-foreground">order number</span> only. Each row shows the <span className="font-medium text-foreground">summed total</span> for DB vs Excel.
+                                    </div>
                                     <div className="max-h-48 overflow-auto rounded border bg-background">
                                       <Table>
                                         <TableHeader>
                                           <TableRow>
                                             <TableHead className="text-xs">Order #</TableHead>
                                             <TableHead className="text-xs text-center">Status</TableHead>
-                                            <TableHead className="text-xs text-center">DB Lines</TableHead>
                                             <TableHead className="text-xs text-right">DB Total</TableHead>
-                                            <TableHead className="text-xs text-center">Excel Lines</TableHead>
                                             <TableHead className="text-xs text-right">Excel Total</TableHead>
                                             <TableHead className="text-xs text-right">Diff</TableHead>
                                           </TableRow>
@@ -442,7 +443,7 @@ export const ApiDateOverlapDialog = ({
                                         <TableBody>
                                           {filteredDiffs.length === 0 ? (
                                             <TableRow>
-                                              <TableCell colSpan={7} className="text-center text-xs text-muted-foreground py-3">
+                                              <TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-3">
                                                 No records match this filter
                                               </TableCell>
                                             </TableRow>
@@ -459,9 +460,7 @@ export const ApiDateOverlapDialog = ({
                                                   {od.status === 'match' ? '✓ Match' : od.status === 'different' ? '≠ Diff' : od.status === 'db_only' ? 'DB Only' : 'New'}
                                                 </Badge>
                                               </TableCell>
-                                              <TableCell className="text-center py-1">{od.dbCount || '-'}</TableCell>
                                               <TableCell className="text-right font-mono py-1">{od.dbTotal ? od.dbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</TableCell>
-                                              <TableCell className="text-center py-1">{od.excelCount || '-'}</TableCell>
                                               <TableCell className="text-right font-mono py-1">{od.excelTotal ? od.excelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</TableCell>
                                               <TableCell className="text-right font-mono py-1">
                                                 {od.status !== 'match' ? (
