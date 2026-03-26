@@ -663,10 +663,10 @@ const LoadData = () => {
         } : f
       ));
 
-      // Store excel data for reconciliation if target is purpletransaction
-      if (sheetConfig?.target_table === 'purpletransaction') {
+      // Store excel data for reconciliation if target is PurpleTransaction
+      if (sheetConfig?.target_table?.toLowerCase() === 'purpletransaction') {
         reconcileExcelDataRef.current = jsonData;
-        setLastUploadTargetTable('purpletransaction');
+        setLastUploadTargetTable(sheetConfig.target_table);
         setCanReconcile(jsonData.length > 0);
       }
       try {
