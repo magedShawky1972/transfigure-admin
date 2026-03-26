@@ -117,6 +117,7 @@ const ClearData = () => {
 
       toast.success(t("clearData.success"));
       setSelectedTable("");
+      setSelectedCompany("all");
       setFromDate(undefined);
       setToDate(undefined);
     } catch (error) {
