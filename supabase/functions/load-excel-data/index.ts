@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
     });
 
     // Filter out empty rows
-    const validData = transformedData.filter((row: any) => 
+    let validData = transformedData.filter((row: any) => 
       Object.keys(row).length > 0
     );
 
