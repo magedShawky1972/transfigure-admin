@@ -31,6 +31,8 @@ import {
 import { BrandTypeSelectionDialog } from "@/components/BrandTypeSelectionDialog";
 import { DuplicateRecordsDialog } from "@/components/DuplicateRecordsDialog";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
+import { ControlAmountDialog } from "@/components/ControlAmountDialog";
+import { ApiDateOverlapDialog } from "@/components/ApiDateOverlapDialog";
 import { Badge } from "@/components/ui/badge";
 
 interface ExcelSheet {
@@ -109,6 +111,26 @@ const LoadData = () => {
   const reconcileExcelDataRef = useRef<any[]>([]);
   const [lastUploadTargetTable, setLastUploadTargetTable] = useState<string>('');
   const [canReconcile, setCanReconcile] = useState(false);
+
+  // Control amount state
+  const [showControlAmountDialog, setShowControlAmountDialog] = useState(false);
+  const [controlAmountExcelTotal, setControlAmountExcelTotal] = useState(0);
+  const [controlAmountValue, setControlAmountValue] = useState<number | null>(null);
+  const [pendingControlAmountData, setPendingControlAmountData] = useState<{
+    fileId: string;
+    jsonData: any[];
+    queueIndex: number;
+  } | null>(null);
+
+  // API date overlap state
+  const [showApiOverlapDialog, setShowApiOverlapDialog] = useState(false);
+  const [apiOverlapDates, setApiOverlapDates] = useState<string[]>([]);
+  const [apiOverlapExcelData, setApiOverlapExcelData] = useState<any[]>([]);
+  const [pendingApiOverlapData, setPendingApiOverlapData] = useState<{
+    fileId: string;
+    jsonData: any[];
+    queueIndex: number;
+  } | null>(null);
 
   // Keep session alive during long processing
   const startKeepAlive = () => {
@@ -409,10 +431,147 @@ const LoadData = () => {
         return;
       }
 
+      // For purpletransaction sheets: run control amount + API date overlap checks
+      const isPurpleTransaction = sheetConfig?.target_table?.toLowerCase() === 'purpletransaction';
+      if (isPurpleTransaction) {
+        await runPreUploadChecks(fileItem.id, jsonData, queueIndex, sheetConfig);
+        return;
+      }
+
       await processFileUpload(fileItem.id, jsonData, queueIndex);
     } catch (error: any) {
       setFileItems((prev) => prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'error', error: error.message } : f)));
       await processNextFile(queueIndex + 1);
+    }
+  };
+
+  const runPreUploadChecks = async (
+    fileId: string,
+    jsonData: any[],
+    queueIndex: number,
+    sheetConfig: ExcelSheet
+  ) => {
+    // Step 1: Calculate Excel total
+    const keys = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
+    const totalKey = keys.find(k => k.toLowerCase().trim() === 'total');
+    let excelTotal = 0;
+    jsonData.forEach((row: any) => {
+      const rawTotal = totalKey ? row[totalKey] : 0;
+      excelTotal += parseFloat(String(rawTotal).replace(/[,\s]/g, '')) || 0;
+    });
+
+    // Show control amount dialog
+    setControlAmountExcelTotal(excelTotal);
+    setPendingControlAmountData({ fileId, jsonData, queueIndex });
+    setShowControlAmountDialog(true);
+  };
+
+  const handleControlAmountConfirm = async (controlAmount: number) => {
+    setShowControlAmountDialog(false);
+    setControlAmountValue(controlAmount);
+    
+    if (!pendingControlAmountData) return;
+    const { fileId, jsonData, queueIndex } = pendingControlAmountData;
+    setPendingControlAmountData(null);
+
+    // Step 2: Check API date overlap
+    await checkApiDateOverlap(fileId, jsonData, queueIndex);
+  };
+
+  const handleControlAmountCancel = () => {
+    setShowControlAmountDialog(false);
+    setControlAmountValue(null);
+    
+    if (pendingControlAmountData) {
+      const { fileId, queueIndex } = pendingControlAmountData;
+      setFileItems(prev => prev.map(f =>
+        f.id === fileId ? { ...f, status: 'error', error: 'Control amount validation cancelled' } : f
+      ));
+      setPendingControlAmountData(null);
+      processNextFile(queueIndex + 1);
+    }
+  };
+
+  const checkApiDateOverlap = async (fileId: string, jsonData: any[], queueIndex: number) => {
+    try {
+      // Get API start_date setting
+      const { data: startDateSetting } = await supabase
+        .from('api_integration_settings')
+        .select('setting_value')
+        .eq('setting_key', 'start_date')
+        .maybeSingle();
+
+      if (!startDateSetting?.setting_value) {
+        // No API start date configured, proceed directly
+        await processFileUpload(fileId, jsonData, queueIndex);
+        return;
+      }
+
+      const apiStartDate = startDateSetting.setting_value;
+
+      // Extract dates from Excel data
+      const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
+      const excelDates = new Set<string>();
+      jsonData.forEach((row: any) => {
+        dateFields.forEach(field => {
+          const keys = Object.keys(row);
+          const matchKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === field.replace(/_/g, ''));
+          const val = matchKey ? row[matchKey] : row[field];
+          if (val) {
+            try {
+              const d = new Date(val);
+              if (!isNaN(d.getTime())) {
+                excelDates.add(d.toISOString().split('T')[0]);
+              }
+            } catch {}
+          }
+        });
+      });
+
+      // Check which Excel dates are >= API start date
+      const apiStartParts = apiStartDate.split('-');
+      const apiStartMonth = parseInt(apiStartParts[1] || apiStartParts[0]);
+      const apiStartDay = parseInt(apiStartParts[2] || '1');
+      
+      const overlappingDates = Array.from(excelDates).filter(dateStr => {
+        return dateStr >= apiStartDate;
+      }).sort();
+
+      if (overlappingDates.length > 0) {
+        // Show API overlap dialog
+        setApiOverlapDates(overlappingDates);
+        setApiOverlapExcelData(jsonData);
+        setPendingApiOverlapData({ fileId, jsonData, queueIndex });
+        setShowApiOverlapDialog(true);
+        return;
+      }
+
+      // No overlap, proceed directly
+      await processFileUpload(fileId, jsonData, queueIndex);
+    } catch (error) {
+      console.error('Error checking API date overlap:', error);
+      await processFileUpload(fileId, jsonData, queueIndex);
+    }
+  };
+
+  const handleApiOverlapConfirm = async () => {
+    setShowApiOverlapDialog(false);
+    if (pendingApiOverlapData) {
+      const { fileId, jsonData, queueIndex } = pendingApiOverlapData;
+      setPendingApiOverlapData(null);
+      await processFileUpload(fileId, jsonData, queueIndex);
+    }
+  };
+
+  const handleApiOverlapCancel = () => {
+    setShowApiOverlapDialog(false);
+    if (pendingApiOverlapData) {
+      const { fileId, queueIndex } = pendingApiOverlapData;
+      setFileItems(prev => prev.map(f =>
+        f.id === fileId ? { ...f, status: 'error', error: 'Upload cancelled due to API date overlap' } : f
+      ));
+      setPendingApiOverlapData(null);
+      processNextFile(queueIndex + 1);
     }
   };
 
@@ -668,6 +827,53 @@ const LoadData = () => {
         reconcileExcelDataRef.current = jsonData;
         setLastUploadTargetTable(sheetConfig.target_table);
         setCanReconcile(jsonData.length > 0);
+
+        // Post-upload: verify DB total matches control amount
+        if (controlAmountValue) {
+          setUploadStatus('Verifying DB total against control amount...');
+          try {
+            // Get all order numbers from Excel
+            const keys = Object.keys(jsonData[0] || {});
+            const orderKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'ordernumber')
+              || keys.find(k => k.toLowerCase().includes('order') && k.toLowerCase().includes('num'));
+            const orderNumbers = [...new Set(
+              jsonData.map((r: any) => orderKey ? String(r[orderKey]).trim() : '').filter(Boolean)
+            )];
+
+            let dbTotal = 0;
+            for (let i = 0; i < orderNumbers.length; i += 500) {
+              const batch = orderNumbers.slice(i, i + 500);
+              const { data: dbRows } = await supabase
+                .from('purpletransaction')
+                .select('total')
+                .in('ordernumber', batch);
+              (dbRows || []).forEach((r: any) => {
+                dbTotal += parseFloat(r.total) || 0;
+              });
+            }
+
+            const roundedDbTotal = Math.round(dbTotal);
+            if (roundedDbTotal !== controlAmountValue) {
+              toast({
+                title: 'DB Total Mismatch — Auto Reconciling',
+                description: `Control: ${controlAmountValue.toLocaleString()} | DB: ${roundedDbTotal.toLocaleString()} | Diff: ${(roundedDbTotal - controlAmountValue).toLocaleString()}`,
+                variant: 'destructive',
+                duration: 10000,
+              });
+              // Auto-open reconcile dialog
+              setTimeout(() => setShowReconcileDialog(true), 500);
+            } else {
+              toast({
+                title: 'DB Total Verified ✓',
+                description: `Control amount matches DB total: ${controlAmountValue.toLocaleString()}`,
+                duration: 5000,
+              });
+            }
+          } catch (e) {
+            console.error('Post-upload DB verification error:', e);
+          }
+          setControlAmountValue(null);
+        }
       }
       try {
         await supabase.functions.invoke('update-bank-fees');
@@ -1051,6 +1257,23 @@ const LoadData = () => {
         onAction={handleDuplicateAction}
         duplicateKeyColumn={duplicateInfo?.duplicateKeyColumn}
         duplicateMessage={duplicateInfo?.duplicateMessage}
+      />
+
+      <ControlAmountDialog
+        open={showControlAmountDialog}
+        onOpenChange={setShowControlAmountDialog}
+        excelTotal={controlAmountExcelTotal}
+        onConfirm={handleControlAmountConfirm}
+        onCancel={handleControlAmountCancel}
+      />
+
+      <ApiDateOverlapDialog
+        open={showApiOverlapDialog}
+        onOpenChange={setShowApiOverlapDialog}
+        excelData={apiOverlapExcelData}
+        overlappingDates={apiOverlapDates}
+        onConfirm={handleApiOverlapConfirm}
+        onCancel={handleApiOverlapCancel}
       />
     </div>
   );
