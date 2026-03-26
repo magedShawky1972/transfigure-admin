@@ -16,6 +16,7 @@ const ClearData = () => {
   const { t } = useLanguage();
   const [tables, setTables] = useState<string[]>([]);
   const [selectedTable, setSelectedTable] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState("all");
   const [fromDate, setFromDate] = useState<Date>();
   const [toDate, setToDate] = useState<Date>();
   const [showConfirm, setShowConfirm] = useState(false);
