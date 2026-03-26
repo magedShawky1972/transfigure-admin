@@ -74,8 +74,8 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
         const orderNum = orderKey ? String(row[orderKey]).trim() : '';
         if (!orderNum) return;
 
-        const explicitLineKey = findKey(keys, 'lineno', 'linenumber', 'line_no', 'lineassigned', 'assignedline', 'dbline')
-          || keys.find(k => ['line_no', 'lineassigned', 'assigned_line_no', 'db_line_no'].includes(k.toLowerCase().replace(/[_\s]/g, '')));
+        const explicitLineKey = findKey(keys, 'lineno', 'linenumber', 'assignedlineno', 'dblineno')
+          || keys.find(k => ['lineno', 'assignedlineno', 'dblineno'].includes(k.toLowerCase().replace(/[_\s]/g, '')));
         const explicitLineNo = explicitLineKey ? (parseInt(String(row[explicitLineKey])) || 0) : 0;
 
         const currentLine = (orderLineCounter.get(orderNum) || 0) + 1;

@@ -575,6 +575,72 @@ const LoadData = () => {
     }
   };
 
+  const attachSavedLineNumbersToExcelData = async (jsonData: any[]) => {
+    if (jsonData.length === 0) return jsonData;
+
+    const normalizeKey = (value: string) => value.toLowerCase().replace(/[_\s]/g, '');
+    const getRowValue = (row: any, matcher: (normalizedKey: string) => boolean) => {
+      const key = Object.keys(row).find((k) => matcher(normalizeKey(k)));
+      return key ? row[key] : undefined;
+    };
+
+    const parsedRows = jsonData.map((row) => {
+      const orderNum = String(getRowValue(row, (k) => k === 'ordernumber' || (k.includes('order') && k.includes('num'))) || '').trim();
+      const total = parseFloat(String(getRowValue(row, (k) => k === 'total') ?? 0).replace(/[,\s]/g, '')) || 0;
+      return { row, orderNum, total };
+    });
+
+    const orderNumbers = [...new Set(parsedRows.map((r) => r.orderNum).filter(Boolean))];
+    if (orderNumbers.length === 0) return jsonData;
+
+    const dbRows: Array<{ ordernumber: string; line_no: number; total: number }> = [];
+    for (let i = 0; i < orderNumbers.length; i += 500) {
+      const batch = orderNumbers.slice(i, i + 500);
+      const { data } = await supabase
+        .from('purpletransaction')
+        .select('ordernumber, line_no, total')
+        .in('ordernumber', batch)
+        .order('ordernumber')
+        .order('line_no');
+
+      (data || []).forEach((item: any) => {
+        dbRows.push({
+          ordernumber: String(item.ordernumber || '').trim(),
+          line_no: parseInt(String(item.line_no)) || 1,
+          total: parseFloat(String(item.total)) || 0,
+        });
+      });
+    }
+
+    const matchedDbLines = new Set<string>();
+    const dbByOrderTotal = new Map<string, Array<{ line_no: number }>>();
+    const maxLineByOrder = new Map<string, number>();
+
+    dbRows.forEach((item) => {
+      const totalKey = `${item.ordernumber}|${item.total.toFixed(2)}`;
+      if (!dbByOrderTotal.has(totalKey)) dbByOrderTotal.set(totalKey, []);
+      dbByOrderTotal.get(totalKey)!.push({ line_no: item.line_no });
+      maxLineByOrder.set(item.ordernumber, Math.max(maxLineByOrder.get(item.ordernumber) || 0, item.line_no));
+    });
+
+    return parsedRows.map(({ row, orderNum, total }) => {
+      if (!orderNum) return row;
+
+      const totalKey = `${orderNum}|${total.toFixed(2)}`;
+      const candidates = dbByOrderTotal.get(totalKey) || [];
+      const matched = candidates.find((candidate) => !matchedDbLines.has(`${orderNum}|${candidate.line_no}`));
+
+      if (matched) {
+        matchedDbLines.add(`${orderNum}|${matched.line_no}`);
+        return { ...row, assigned_line_no: matched.line_no };
+      }
+
+      const nextLine = (maxLineByOrder.get(orderNum) || 0) + 1;
+      maxLineByOrder.set(orderNum, nextLine);
+      return { ...row, assigned_line_no: nextLine };
+    });
+  };
+
   const processFileUpload = async (
     fileId: string,
     jsonData: any[],
