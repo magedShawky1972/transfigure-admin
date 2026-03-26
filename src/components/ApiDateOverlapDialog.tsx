@@ -262,7 +262,7 @@ export const ApiDateOverlapDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); onOpenChange(v); }}>
-      <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-[85vw] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <AlertTriangle className="h-5 w-5 text-yellow-500" />
