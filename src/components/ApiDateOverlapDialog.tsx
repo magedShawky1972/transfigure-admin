@@ -97,10 +97,13 @@ export const ApiDateOverlapDialog = ({
       // Query existing DB records for overlapping dates
       const dbByDate = new Map<string, { count: number; total: number; sources: Set<string> }>();
       for (const dateStr of overlappingDates) {
+        const dayStart = `${dateStr}T00:00:00`;
+        const dayEnd = `${dateStr}T23:59:59.999`;
         const { data } = await supabase
           .from('purpletransaction')
           .select('total, source')
-          .eq('created_at_date', dateStr);
+          .gte('created_at_date', dayStart)
+          .lte('created_at_date', dayEnd);
 
         const entry = { count: 0, total: 0, sources: new Set<string>() };
         (data || []).forEach((row: any) => {
