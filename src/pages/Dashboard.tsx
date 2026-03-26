@@ -1905,7 +1905,7 @@ const Dashboard = () => {
       const ws = XLSX.utils.json_to_sheet(allData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
-      XLSX.writeFile(wb, `transactions_${format(dateRange.start, 'yyyyMMdd')}_${format(dateRange.end, 'yyyyMMdd')}.xlsx`);
+      XLSX.writeFile(wb, `transactions_${format(exportRange.start, 'yyyyMMdd')}_${format(exportRange.end, 'yyyyMMdd')}.xlsx`);
 
       toast({
         title: language === 'ar' ? 'تم التصدير' : 'Exported',
