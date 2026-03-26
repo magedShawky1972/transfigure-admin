@@ -247,8 +247,12 @@ export const ApiDateOverlapDialog = ({
     }
   };
 
-  const filteredDiffs = orderDiffs.filter(d => Math.abs(d.excelTotal - d.dbTotal) > 0.01)
+  const filteredDiffs = orderDiffs
+    .filter((d) => Math.abs(d.excelTotal - d.dbTotal) > 0.01)
     .sort((a, b) => Math.abs(b.excelTotal - b.dbTotal) - Math.abs(a.excelTotal - a.dbTotal));
+  const filteredDbTotal = filteredDiffs.reduce((sum, item) => sum + item.dbTotal, 0);
+  const filteredExcelTotal = filteredDiffs.reduce((sum, item) => sum + item.excelTotal, 0);
+  const filteredNetDiff = filteredExcelTotal - filteredDbTotal;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); onOpenChange(v); }}>
@@ -259,7 +263,7 @@ export const ApiDateOverlapDialog = ({
             API Date Overlap Detected
           </DialogTitle>
           <DialogDescription>
-            The Excel data includes dates that overlap with the API sync period. 
+            The Excel data includes dates that overlap with the API sync period.
             The system will compare records already uploaded by API with this Excel file before upload starts.
           </DialogDescription>
         </DialogHeader>
@@ -318,7 +322,7 @@ export const ApiDateOverlapDialog = ({
                           <TableCell className="text-center">{d.dbCount.toLocaleString()}</TableCell>
                           <TableCell className="text-right font-mono">{d.dbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                           <TableCell>
-                            {d.dbSources.map(s => (
+                            {d.dbSources.map((s) => (
                               <Badge key={s} variant="outline" className="text-xs mr-1">{s}</Badge>
                             ))}
                           </TableCell>
@@ -359,45 +363,28 @@ export const ApiDateOverlapDialog = ({
                                   </div>
                                 ) : (
                                   <>
-                                    {/* Difference breakdown summary */}
-                                    {(() => {
-                                      const matchOrders = orderDiffs.filter(o => o.status === 'match');
-                                      const diffOrders = orderDiffs.filter(o => o.status === 'different');
-                                      const dbOnlyOrders = orderDiffs.filter(o => o.status === 'db_only');
-                                      const excelOnlyOrders = orderDiffs.filter(o => o.status === 'excel_only');
-                                      const dbOnlyTotal = dbOnlyOrders.reduce((s, o) => s + o.dbTotal, 0);
-                                      const excelOnlyTotal = excelOnlyOrders.reduce((s, o) => s + o.excelTotal, 0);
-                                      const matchTotal = matchOrders.reduce((s, o) => s + o.dbTotal, 0);
-                                      const diffDbTotal = diffOrders.reduce((s, o) => s + o.dbTotal, 0);
-                                      const diffExTotal = diffOrders.reduce((s, o) => s + o.excelTotal, 0);
-                                      const netDiff = excelOnlyTotal - dbOnlyTotal + (diffExTotal - diffDbTotal);
-                                      return (
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2 text-xs">
-                                          <div className="rounded border border-green-500/30 bg-green-500/5 p-2 text-center">
-                                            <p className="text-muted-foreground">Matched</p>
-                                            <p className="font-bold text-green-500">{matchOrders.length} orders</p>
-                                            <p className="text-muted-foreground">{matchTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                          <div className="rounded border border-yellow-500/30 bg-yellow-500/5 p-2 text-center">
-                                            <p className="text-muted-foreground">Different Totals</p>
-                                            <p className="font-bold text-yellow-500">{diffOrders.length} orders</p>
-                                            <p className="text-muted-foreground">Δ {(diffExTotal - diffDbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                          <div className="rounded border border-blue-500/30 bg-blue-500/5 p-2 text-center">
-                                            <p className="text-muted-foreground">DB Only</p>
-                                            <p className="font-bold text-blue-500">{dbOnlyOrders.length} orders</p>
-                                            <p className="text-muted-foreground">-{dbOnlyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                          <div className="rounded border border-primary/30 bg-primary/5 p-2 text-center">
-                                            <p className="text-muted-foreground">Excel Only (New)</p>
-                                            <p className="font-bold text-primary">{excelOnlyOrders.length} orders</p>
-                                            <p className="text-muted-foreground">+{excelOnlyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
                                     <div className="mb-2 rounded border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                                       Details are grouped by <span className="font-medium text-foreground">order number</span> only. Each row shows the <span className="font-medium text-foreground">summed total</span> for DB vs Excel.
+                                    </div>
+                                    <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                      <div className="rounded border border-border/60 bg-background px-3 py-2 text-xs">
+                                        <p className="text-muted-foreground">Diff DB Total</p>
+                                        <p className="font-mono font-semibold text-foreground">
+                                          {filteredDbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
+                                      <div className="rounded border border-border/60 bg-background px-3 py-2 text-xs">
+                                        <p className="text-muted-foreground">Diff Excel Total</p>
+                                        <p className="font-mono font-semibold text-foreground">
+                                          {filteredExcelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
+                                      <div className="rounded border border-border/60 bg-background px-3 py-2 text-xs">
+                                        <p className="text-muted-foreground">Diff Total</p>
+                                        <p className={`font-mono font-semibold ${filteredNetDiff > 0 ? 'text-green-500' : filteredNetDiff < 0 ? 'text-destructive' : 'text-foreground'}`}>
+                                          {filteredNetDiff > 0 ? '+' : ''}{filteredNetDiff.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                      </div>
                                     </div>
                                     <div className="max-h-48 overflow-auto rounded border bg-background">
                                       <Table>
@@ -433,11 +420,9 @@ export const ApiDateOverlapDialog = ({
                                               <TableCell className="text-right font-mono py-1">{od.dbTotal ? od.dbTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</TableCell>
                                               <TableCell className="text-right font-mono py-1">{od.excelTotal ? od.excelTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</TableCell>
                                               <TableCell className="text-right font-mono py-1">
-                                                {od.status !== 'match' ? (
-                                                  <span className={od.excelTotal - od.dbTotal > 0 ? 'text-green-500' : 'text-destructive'}>
-                                                    {(od.excelTotal - od.dbTotal) > 0 ? '+' : ''}{(od.excelTotal - od.dbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                  </span>
-                                                ) : '-'}
+                                                <span className={od.excelTotal - od.dbTotal > 0 ? 'text-green-500' : 'text-destructive'}>
+                                                  {(od.excelTotal - od.dbTotal) > 0 ? '+' : ''}{(od.excelTotal - od.dbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
                                               </TableCell>
                                             </TableRow>
                                           ))}
@@ -465,7 +450,7 @@ export const ApiDateOverlapDialog = ({
             {totalDbRecords > 0 && (
               <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
                 <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-                  ⚠ {totalDbRecords.toLocaleString()} existing records found for these dates. 
+                  ⚠ {totalDbRecords.toLocaleString()} existing records found for these dates.
                   Uploading will update matching orders and add new ones.
                 </p>
               </div>
