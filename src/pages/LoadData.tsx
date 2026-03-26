@@ -430,17 +430,23 @@ const LoadData = () => {
     await processNextFile(idx);
   };
 
-  const normalizeDateFieldKey = (value: string) => value.toLowerCase().replace(/[_\s]/g, '');
+  const normalizeDateFieldKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
   const getRowDateValue = (row: any) => {
-    const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
     const keys = Object.keys(row || {});
+    const normalizedCandidates = new Set([
+      'createdatdate',
+      'createatdate',
+      'createddate',
+      'createdat',
+      'transactiondate',
+      'orderdate',
+      'date',
+    ]);
 
-    for (const field of dateFields) {
-      const matchKey = keys.find((key) => normalizeDateFieldKey(key) === normalizeDateFieldKey(field));
-      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && row[matchKey] !== '') {
-        return row[matchKey];
-      }
+    const matchKey = keys.find((key) => normalizedCandidates.has(normalizeDateFieldKey(key)));
+    if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null && row[matchKey] !== '') {
+      return row[matchKey];
     }
 
     return null;
@@ -645,7 +651,6 @@ const LoadData = () => {
       const apiMonthDay = apiStartDateRaw.replace(/^\d{4}-/, '').slice(0, 5); // e.g. "03-01"
 
       const excelDates = extractDistinctExcelDates(jsonData);
-      console.log('checkApiDateOverlap: apiStartDate=', apiStartDateRaw, 'apiMonthDay=', apiMonthDay, 'excelDates=', excelDates);
       const overlappingDates = excelDates.filter((dateStr) => {
         // Compare month-day of each Excel date against the API start month-day
         const excelMonthDay = dateStr.slice(5, 10); // "MM-DD"
