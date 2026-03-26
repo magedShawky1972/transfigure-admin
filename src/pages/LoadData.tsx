@@ -1007,7 +1007,7 @@ const LoadData = () => {
           )}
 
           <div className="flex gap-2">
-            {lastUploadTargetTable === 'purpletransaction' && reconcileExcelDataRef.current.length > 0 && (
+            {lastUploadTargetTable === 'purpletransaction' && canReconcile && (
               <Button 
                 variant="outline"
                 onClick={() => {
