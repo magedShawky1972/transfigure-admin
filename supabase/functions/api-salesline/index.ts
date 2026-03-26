@@ -192,14 +192,45 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Prepare data based on mode - same structure for both
-    const conflictColumns = 'order_number,line_number';
+    // Use order_number + product_id as the unique key (ignore identity line_number from API)
+    // Auto-assign sequential line_number based on existing lines for this order
+    const incomingOrderNumber = body.Order_Number;
+    const incomingProductId = body.Product_Id || body.product_id;
+
+    // Check if this order+product combination already exists
+    const { data: existingLine } = await supabase
+      .from(tables.salesline)
+      .select('line_number')
+      .eq('order_number', incomingOrderNumber)
+      .eq('product_id', incomingProductId)
+      .maybeSingle();
+
+    let assignedLineNumber: number;
+
+    if (existingLine) {
+      // Record exists - use the existing line_number for update
+      assignedLineNumber = existingLine.line_number;
+      console.log(`Existing line found for order ${incomingOrderNumber}, product ${incomingProductId} => line_number ${assignedLineNumber}`);
+    } else {
+      // New line - assign next sequential line_number for this order
+      const { data: maxLineData } = await supabase
+        .from(tables.salesline)
+        .select('line_number')
+        .eq('order_number', incomingOrderNumber)
+        .order('line_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      assignedLineNumber = (maxLineData?.line_number || 0) + 1;
+      console.log(`New line for order ${incomingOrderNumber}, product ${incomingProductId} => assigning line_number ${assignedLineNumber}`);
+    }
+
     const upsertData: Record<string, any> = {
-      order_number: body.Order_Number,
-      line_number: body.Line_Number,
+      order_number: incomingOrderNumber,
+      line_number: assignedLineNumber,
       line_status: body.Line_Status,
       product_sku: body.Product_SKU,
-      product_id: body.Product_Id,
+      product_id: incomingProductId,
       quantity: body.Quantity,
       unit_price: body.Unit_price,
       total: body.Total,
@@ -212,7 +243,8 @@ Deno.serve(async (req) => {
       created_at: getKSATimestamp(),
     };
 
-    // Upsert to sales line table based on mode
+    // Upsert using order_number + line_number (our sequential number)
+    const conflictColumns = 'order_number,line_number';
     const { data: resultData, error: upsertError } = await supabase
       .from(tables.salesline)
       .upsert(upsertData, {
