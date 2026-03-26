@@ -431,10 +431,147 @@ const LoadData = () => {
         return;
       }
 
+      // For purpletransaction sheets: run control amount + API date overlap checks
+      const isPurpleTransaction = sheetConfig?.target_table?.toLowerCase() === 'purpletransaction';
+      if (isPurpleTransaction) {
+        await runPreUploadChecks(fileItem.id, jsonData, queueIndex, sheetConfig);
+        return;
+      }
+
       await processFileUpload(fileItem.id, jsonData, queueIndex);
     } catch (error: any) {
       setFileItems((prev) => prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'error', error: error.message } : f)));
       await processNextFile(queueIndex + 1);
+    }
+  };
+
+  const runPreUploadChecks = async (
+    fileId: string,
+    jsonData: any[],
+    queueIndex: number,
+    sheetConfig: ExcelSheet
+  ) => {
+    // Step 1: Calculate Excel total
+    const keys = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
+    const totalKey = keys.find(k => k.toLowerCase().trim() === 'total');
+    let excelTotal = 0;
+    jsonData.forEach((row: any) => {
+      const rawTotal = totalKey ? row[totalKey] : 0;
+      excelTotal += parseFloat(String(rawTotal).replace(/[,\s]/g, '')) || 0;
+    });
+
+    // Show control amount dialog
+    setControlAmountExcelTotal(excelTotal);
+    setPendingControlAmountData({ fileId, jsonData, queueIndex });
+    setShowControlAmountDialog(true);
+  };
+
+  const handleControlAmountConfirm = async (controlAmount: number) => {
+    setShowControlAmountDialog(false);
+    setControlAmountValue(controlAmount);
+    
+    if (!pendingControlAmountData) return;
+    const { fileId, jsonData, queueIndex } = pendingControlAmountData;
+    setPendingControlAmountData(null);
+
+    // Step 2: Check API date overlap
+    await checkApiDateOverlap(fileId, jsonData, queueIndex);
+  };
+
+  const handleControlAmountCancel = () => {
+    setShowControlAmountDialog(false);
+    setControlAmountValue(null);
+    
+    if (pendingControlAmountData) {
+      const { fileId, queueIndex } = pendingControlAmountData;
+      setFileItems(prev => prev.map(f =>
+        f.id === fileId ? { ...f, status: 'error', error: 'Control amount validation cancelled' } : f
+      ));
+      setPendingControlAmountData(null);
+      processNextFile(queueIndex + 1);
+    }
+  };
+
+  const checkApiDateOverlap = async (fileId: string, jsonData: any[], queueIndex: number) => {
+    try {
+      // Get API start_date setting
+      const { data: startDateSetting } = await supabase
+        .from('api_integration_settings')
+        .select('setting_value')
+        .eq('setting_key', 'start_date')
+        .maybeSingle();
+
+      if (!startDateSetting?.setting_value) {
+        // No API start date configured, proceed directly
+        await processFileUpload(fileId, jsonData, queueIndex);
+        return;
+      }
+
+      const apiStartDate = startDateSetting.setting_value;
+
+      // Extract dates from Excel data
+      const dateFields = ['created_at_date', 'date', 'transaction_date', 'order_date'];
+      const excelDates = new Set<string>();
+      jsonData.forEach((row: any) => {
+        dateFields.forEach(field => {
+          const keys = Object.keys(row);
+          const matchKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === field.replace(/_/g, ''));
+          const val = matchKey ? row[matchKey] : row[field];
+          if (val) {
+            try {
+              const d = new Date(val);
+              if (!isNaN(d.getTime())) {
+                excelDates.add(d.toISOString().split('T')[0]);
+              }
+            } catch {}
+          }
+        });
+      });
+
+      // Check which Excel dates are >= API start date
+      const apiStartParts = apiStartDate.split('-');
+      const apiStartMonth = parseInt(apiStartParts[1] || apiStartParts[0]);
+      const apiStartDay = parseInt(apiStartParts[2] || '1');
+      
+      const overlappingDates = Array.from(excelDates).filter(dateStr => {
+        return dateStr >= apiStartDate;
+      }).sort();
+
+      if (overlappingDates.length > 0) {
+        // Show API overlap dialog
+        setApiOverlapDates(overlappingDates);
+        setApiOverlapExcelData(jsonData);
+        setPendingApiOverlapData({ fileId, jsonData, queueIndex });
+        setShowApiOverlapDialog(true);
+        return;
+      }
+
+      // No overlap, proceed directly
+      await processFileUpload(fileId, jsonData, queueIndex);
+    } catch (error) {
+      console.error('Error checking API date overlap:', error);
+      await processFileUpload(fileId, jsonData, queueIndex);
+    }
+  };
+
+  const handleApiOverlapConfirm = async () => {
+    setShowApiOverlapDialog(false);
+    if (pendingApiOverlapData) {
+      const { fileId, jsonData, queueIndex } = pendingApiOverlapData;
+      setPendingApiOverlapData(null);
+      await processFileUpload(fileId, jsonData, queueIndex);
+    }
+  };
+
+  const handleApiOverlapCancel = () => {
+    setShowApiOverlapDialog(false);
+    if (pendingApiOverlapData) {
+      const { fileId, queueIndex } = pendingApiOverlapData;
+      setFileItems(prev => prev.map(f =>
+        f.id === fileId ? { ...f, status: 'error', error: 'Upload cancelled due to API date overlap' } : f
+      ));
+      setPendingApiOverlapData(null);
+      processNextFile(queueIndex + 1);
     }
   };
 
