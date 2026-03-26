@@ -994,14 +994,34 @@ const LoadData = () => {
             </div>
           )}
 
-          <Button 
-            onClick={() => setShowSummaryDialog(false)}
-            className="w-full bg-gradient-to-r from-primary to-accent"
-          >
-            Close
-          </Button>
+          <div className="flex gap-2">
+            {lastUploadTargetTable === 'purpletransaction' && reconcileExcelData.length > 0 && (
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setShowSummaryDialog(false);
+                  setShowReconcileDialog(true);
+                }}
+                className="flex-1"
+              >
+                Reconcile with DB
+              </Button>
+            )}
+            <Button 
+              onClick={() => setShowSummaryDialog(false)}
+              className="flex-1 bg-gradient-to-r from-primary to-accent"
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
+
+      <ReconcileDialog
+        open={showReconcileDialog}
+        onOpenChange={setShowReconcileDialog}
+        excelData={reconcileExcelData}
+      />
 
       <BrandTypeSelectionDialog
         open={showBrandTypeDialog}
