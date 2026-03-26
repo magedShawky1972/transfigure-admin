@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getStartDateGuard } from '../_shared/api-start-date.ts';
 
 // Table configuration for test vs production mode
 const TABLE_CONFIG = {
@@ -187,17 +188,16 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (startDateSetting?.setting_value) {
-        const configuredStartDate = startDateSetting.setting_value;
         const { data: headerData } = await supabase
           .from('sales_order_header')
           .select('order_date')
           .eq('order_number', paymentOrderNumber)
           .maybeSingle();
 
-        const headerDate = headerData?.order_date ? String(headerData.order_date).substring(0, 10) : null;
-        if (headerDate && headerDate < configuredStartDate) {
-          console.log(`Payment for order ${paymentOrderNumber} (date ${headerDate}) is before start_date ${configuredStartDate} — skipping`);
-          responseMessage = `Payment skipped: order date ${headerDate} is before configured start date ${configuredStartDate}`;
+        const { isBeforeStartDate, effectiveStartDate, orderDateOnly } = getStartDateGuard(headerData?.order_date, startDateSetting.setting_value);
+        if (isBeforeStartDate) {
+          console.log(`Payment for order ${paymentOrderNumber} (date ${orderDateOnly}) is before start_date ${effectiveStartDate} — skipping`);
+          responseMessage = `Payment skipped: order date ${orderDateOnly} is before configured start date ${effectiveStartDate}`;
           await logApiCall();
           return new Response(JSON.stringify({ 
             success: true, skipped: true, message: responseMessage 

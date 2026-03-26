@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getStartDateGuard } from '../_shared/api-start-date.ts';
 
 // KSA timezone offset (UTC+3)
 const KSA_OFFSET_HOURS = 3;
@@ -230,12 +231,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (startDateSetting?.setting_value) {
-      const configuredStartDate = startDateSetting.setting_value; // e.g. "2025-03-25"
-      const orderDateOnly = (parsedOrderDate || orderDateRaw || '').substring(0, 10);
-      if (orderDateOnly && orderDateOnly < configuredStartDate) {
-        console.log(`Order date ${orderDateOnly} is before start_date ${configuredStartDate} — skipping`);
+      const { isBeforeStartDate, effectiveStartDate, orderDateOnly } = getStartDateGuard(parsedOrderDate || orderDateRaw, startDateSetting.setting_value);
+      if (isBeforeStartDate) {
+        console.log(`Order date ${orderDateOnly} is before start_date ${effectiveStartDate} — skipping`);
         responseStatus = 200;
-        responseMessage = `Order skipped: date ${orderDateOnly} is before configured start date ${configuredStartDate}`;
+        responseMessage = `Order skipped: date ${orderDateOnly} is before configured start date ${effectiveStartDate}`;
         success = true;
         await logApiCall();
         return new Response(JSON.stringify({ 

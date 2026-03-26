@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { getStartDateGuard, resolveEffectiveStartDate } from '../_shared/api-start-date.ts';
 
 const normalizeLineNumber = (value: unknown, fallback: number): number => {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (settingsData?.setting_value) {
-      startDate = settingsData.setting_value;
+      startDate = resolveEffectiveStartDate(settingsData.setting_value) || settingsData.setting_value;
     }
     console.log(`Using start_date: ${startDate}`);
 
@@ -180,6 +181,13 @@ Deno.serve(async (req) => {
       }
 
       try {
+        const { isBeforeStartDate, effectiveStartDate, orderDateOnly } = getStartDateGuard(header.order_date, settingsData?.setting_value || startDate);
+        if (isBeforeStartDate) {
+          skippedCount++;
+          console.log(`Skipping ${orderNum}: order date ${orderDateOnly} is before effective start date ${effectiveStartDate}`);
+          continue;
+        }
+
         // Customer name lookup
         const customerName = header.customer_phone 
           ? (customerMap[header.customer_phone] || 'Not Defined')
