@@ -663,10 +663,10 @@ const LoadData = () => {
         } : f
       ));
 
-      // Store excel data for reconciliation if target is purpletransaction
-      if (sheetConfig?.target_table === 'purpletransaction') {
+      // Store excel data for reconciliation if target is PurpleTransaction
+      if (sheetConfig?.target_table?.toLowerCase() === 'purpletransaction') {
         reconcileExcelDataRef.current = jsonData;
-        setLastUploadTargetTable('purpletransaction');
+        setLastUploadTargetTable(sheetConfig.target_table);
         setCanReconcile(jsonData.length > 0);
       }
       try {
@@ -728,13 +728,13 @@ const LoadData = () => {
     const totalRecords = completed.reduce((sum, f) => sum + (f.summary?.totalRecords || 0), 0);
     const totalValue = completed.reduce((sum, f) => sum + (f.summary?.totalValue || 0), 0);
 
-    // Check if any completed file targeted purpletransaction
-    const hasPurpleTarget = completed.some(f => {
-      const sheet = availableSheets.find(s => s.id === f.sheetId);
-      return sheet?.target_table === 'purpletransaction';
-    });
-    if (hasPurpleTarget) {
-      setLastUploadTargetTable('purpletransaction');
+    // Check if any completed file targeted PurpleTransaction
+    const purpleTargetSheet = completed
+      .map(f => availableSheets.find(s => s.id === f.sheetId))
+      .find(sheet => sheet?.target_table?.toLowerCase() === 'purpletransaction');
+
+    if (purpleTargetSheet) {
+      setLastUploadTargetTable(purpleTargetSheet.target_table);
       setCanReconcile(reconcileExcelDataRef.current.length > 0);
     }
 
@@ -1007,7 +1007,7 @@ const LoadData = () => {
           )}
 
           <div className="flex gap-2">
-            {lastUploadTargetTable === 'purpletransaction' && canReconcile && (
+            {lastUploadTargetTable?.toLowerCase() === 'purpletransaction' && canReconcile && (
               <Button 
                 variant="outline"
                 onClick={() => {
