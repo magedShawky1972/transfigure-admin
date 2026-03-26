@@ -662,7 +662,11 @@ const LoadData = () => {
         } : f
       ));
 
-      // Update bank fees
+      // Store excel data for reconciliation if target is purpletransaction
+      if (sheetConfig?.target_table === 'purpletransaction') {
+        setReconcileExcelData(jsonData);
+        setLastUploadTargetTable('purpletransaction');
+      }
       try {
         await supabase.functions.invoke('update-bank-fees');
       } catch (e) {
