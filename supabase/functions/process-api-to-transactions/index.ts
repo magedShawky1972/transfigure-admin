@@ -1,6 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+const normalizeLineNumber = (value: unknown, fallback: number): number => {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? fallback : fallback;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -195,7 +200,15 @@ Deno.serve(async (req) => {
         let orderTotal = 0;
         let orderCostSold = 0;
 
-        for (const line of lines) {
+        const normalizedLines = [...lines].sort((a: any, b: any) => {
+          const aLine = Number.parseInt(String(a?.line_number ?? ''), 10);
+          const bLine = Number.parseInt(String(b?.line_number ?? ''), 10);
+          const safeA = Number.isFinite(aLine) ? aLine : Number.MAX_SAFE_INTEGER;
+          const safeB = Number.isFinite(bLine) ? bLine : Number.MAX_SAFE_INTEGER;
+          return safeA - safeB;
+        });
+
+        for (const [index, line] of normalizedLines.entries()) {
           const sku = line.product_sku || '';
           const pid = String(line.product_id || '');
           const product = productMapBySku[sku] || productMapById[pid] || null;
@@ -215,8 +228,8 @@ Deno.serve(async (req) => {
           orderTotal += lineTotal;
           orderCostSold += lineCostSold;
 
-          const lineNumber = line.line_number || 1;
-          const ordernumber = `${orderNum}-${lineNumber}`;
+          const lineNumber = normalizeLineNumber(line.line_number, index + 1);
+          const ordernumber = orderNum;
 
           txnRows.push({
             order_number: orderNum,
@@ -258,6 +271,7 @@ Deno.serve(async (req) => {
             payment_term: header.payment_term || null,
             transaction_type: header.transaction_type || null,
             trans_type: 'automatic',
+            source: 'API',
             vendor_name: product?.brand_code ? (brandVendorMap[product.brand_code] || null) : null,
             is_deleted: false,
             is_api_reviewed: false,
