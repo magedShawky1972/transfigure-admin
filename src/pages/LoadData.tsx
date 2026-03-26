@@ -667,6 +667,7 @@ const LoadData = () => {
       if (sheetConfig?.target_table === 'purpletransaction') {
         reconcileExcelDataRef.current = jsonData;
         setLastUploadTargetTable('purpletransaction');
+        setCanReconcile(jsonData.length > 0);
       }
       try {
         await supabase.functions.invoke('update-bank-fees');
