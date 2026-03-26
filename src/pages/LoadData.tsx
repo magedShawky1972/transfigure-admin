@@ -214,8 +214,16 @@ const LoadData = () => {
       if (jsonData.length === 0) return;
       const dates = new Set<string>();
       const keys = Object.keys(jsonData[0] as object);
-      const dateKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'createdatdate');
-      if (!dateKey) return;
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const dateKey = keys.find(k => {
+        const n = normalize(k);
+        return n === 'createdatdate' || n === 'createatdate' || n === 'createdat' || n === 'createddate';
+      });
+      if (!dateKey) {
+        console.log('extractDatesFromFile: no date column found. Available columns:', keys);
+        return;
+      }
+      console.log('extractDatesFromFile: using column:', dateKey);
       jsonData.forEach((row: any) => {
         const val = row[dateKey];
         if (val === null || val === undefined || val === '') return;
