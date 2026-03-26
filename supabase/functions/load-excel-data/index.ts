@@ -449,13 +449,18 @@ Deno.serve(async (req) => {
       console.log('Assigning line_no for multi-line orders...');
       const orderLineCountMap = new Map<string, number>();
       for (const record of validData) {
-        if (record.order_number) {
-          const orderNum = String(record.order_number);
+        // Check both field names: order_number (mapped) and ordernumber (direct)
+        const rawOrderNum = record.order_number || record.ordernumber;
+        if (rawOrderNum) {
+          const orderNum = String(rawOrderNum).trim();
           const currentLine = (orderLineCountMap.get(orderNum) || 0) + 1;
           orderLineCountMap.set(orderNum, currentLine);
           record.line_no = currentLine;
-          // Sync ordernumber field (used by unique constraint)
+          // Sync both fields to ensure consistency
           record.ordernumber = orderNum;
+          if (record.order_number) {
+            record.order_number = orderNum;
+          }
         } else {
           record.line_no = 1;
         }
