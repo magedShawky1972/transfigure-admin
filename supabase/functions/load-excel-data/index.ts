@@ -1589,6 +1589,10 @@ Deno.serve(async (req) => {
       .filter((date: any) => date)
     )].sort();
 
+    const fillGapsSummary = (fillGapsSkipped > 0 || fillGapsUpdatedVendor > 0 || fillGapsUpdatedCustomer > 0)
+      ? `, ${fillGapsSkipped} existing skipped, ${fillGapsUpdatedVendor} vendor names updated, ${fillGapsUpdatedCustomer} customer names updated`
+      : '';
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -1602,7 +1606,10 @@ Deno.serve(async (req) => {
         brandsUpserted,
         inFileDuplicateCount,
         inFileDuplicateKeys,
-        message: `Successfully loaded ${validData.length} records${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}${inFileDuplicateCount > 0 ? ` (${inFileDuplicateCount} duplicates merged)` : ''}`
+        fillGapsSkipped,
+        fillGapsUpdatedVendor,
+        fillGapsUpdatedCustomer,
+        message: `Successfully loaded ${validData.length} records${brandsUpserted > 0 ? ` (${brandsUpserted} new brands added)` : ''}${inFileDuplicateCount > 0 ? ` (${inFileDuplicateCount} duplicates merged)` : ''}${fillGapsSummary}`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
