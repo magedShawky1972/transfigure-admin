@@ -261,10 +261,15 @@ export const ApiDateOverlapDialog = ({
     }
   };
 
-  const filteredDiffs = detailsFilter === 'all' ? orderDiffs : orderDiffs.filter(d => d.status === detailsFilter);
+  const differenceOrders = orderDiffs.filter(d => Math.abs(d.excelTotal - d.dbTotal) > 0.01);
+  const filteredDiffs = detailsFilter === 'all'
+    ? orderDiffs
+    : detailsFilter === 'different'
+      ? [...differenceOrders].sort((a, b) => Math.abs(b.excelTotal - b.dbTotal) - Math.abs(a.excelTotal - a.dbTotal))
+      : orderDiffs.filter(d => d.status === detailsFilter);
   const diffCounts = {
     all: orderDiffs.length,
-    different: orderDiffs.filter(d => d.status === 'different').length,
+    different: differenceOrders.length,
     db_only: orderDiffs.filter(d => d.status === 'db_only').length,
     excel_only: orderDiffs.filter(d => d.status === 'excel_only').length,
   };
