@@ -827,6 +827,53 @@ const LoadData = () => {
         reconcileExcelDataRef.current = jsonData;
         setLastUploadTargetTable(sheetConfig.target_table);
         setCanReconcile(jsonData.length > 0);
+
+        // Post-upload: verify DB total matches control amount
+        if (controlAmountValue) {
+          setUploadStatus('Verifying DB total against control amount...');
+          try {
+            // Get all order numbers from Excel
+            const keys = Object.keys(jsonData[0] || {});
+            const orderKey = keys.find(k => k.toLowerCase().replace(/[_\s]/g, '') === 'ordernumber')
+              || keys.find(k => k.toLowerCase().includes('order') && k.toLowerCase().includes('num'));
+            const orderNumbers = [...new Set(
+              jsonData.map((r: any) => orderKey ? String(r[orderKey]).trim() : '').filter(Boolean)
+            )];
+
+            let dbTotal = 0;
+            for (let i = 0; i < orderNumbers.length; i += 500) {
+              const batch = orderNumbers.slice(i, i + 500);
+              const { data: dbRows } = await supabase
+                .from('purpletransaction')
+                .select('total')
+                .in('ordernumber', batch);
+              (dbRows || []).forEach((r: any) => {
+                dbTotal += parseFloat(r.total) || 0;
+              });
+            }
+
+            const roundedDbTotal = Math.round(dbTotal);
+            if (roundedDbTotal !== controlAmountValue) {
+              toast({
+                title: 'DB Total Mismatch — Auto Reconciling',
+                description: `Control: ${controlAmountValue.toLocaleString()} | DB: ${roundedDbTotal.toLocaleString()} | Diff: ${(roundedDbTotal - controlAmountValue).toLocaleString()}`,
+                variant: 'destructive',
+                duration: 10000,
+              });
+              // Auto-open reconcile dialog
+              setTimeout(() => setShowReconcileDialog(true), 500);
+            } else {
+              toast({
+                title: 'DB Total Verified ✓',
+                description: `Control amount matches DB total: ${controlAmountValue.toLocaleString()}`,
+                duration: 5000,
+              });
+            }
+          } catch (e) {
+            console.error('Post-upload DB verification error:', e);
+          }
+          setControlAmountValue(null);
+        }
       }
       try {
         await supabase.functions.invoke('update-bank-fees');
