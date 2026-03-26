@@ -96,11 +96,17 @@ const ClearData = () => {
       console.log('Clearing data:', { tableName, dateColumn, fromDateValue, toDateValue });
 
       // Delete data within the date range
-      const { error, count } = await (supabase as any)
+      let deleteQuery = (supabase as any)
         .from(tableName)
         .delete({ count: 'exact' })
         .gte(dateColumn, fromDateValue)
         .lte(dateColumn, toDateValue);
+
+      if (selectedCompany !== 'all') {
+        deleteQuery = deleteQuery.eq('company', selectedCompany);
+      }
+
+      const { error, count } = await deleteQuery;
 
       if (error) {
         console.error('Delete error:', error);
