@@ -1258,6 +1258,23 @@ const LoadData = () => {
         duplicateKeyColumn={duplicateInfo?.duplicateKeyColumn}
         duplicateMessage={duplicateInfo?.duplicateMessage}
       />
+
+      <ControlAmountDialog
+        open={showControlAmountDialog}
+        onOpenChange={setShowControlAmountDialog}
+        excelTotal={controlAmountExcelTotal}
+        onConfirm={handleControlAmountConfirm}
+        onCancel={handleControlAmountCancel}
+      />
+
+      <ApiDateOverlapDialog
+        open={showApiOverlapDialog}
+        onOpenChange={setShowApiOverlapDialog}
+        excelData={apiOverlapExcelData}
+        overlappingDates={apiOverlapDates}
+        onConfirm={handleApiOverlapConfirm}
+        onCancel={handleApiOverlapCancel}
+      />
     </div>
   );
 };
