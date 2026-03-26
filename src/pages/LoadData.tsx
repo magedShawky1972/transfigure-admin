@@ -726,6 +726,15 @@ const LoadData = () => {
     const totalRecords = completed.reduce((sum, f) => sum + (f.summary?.totalRecords || 0), 0);
     const totalValue = completed.reduce((sum, f) => sum + (f.summary?.totalValue || 0), 0);
 
+    // Check if any completed file targeted purpletransaction
+    const hasPurpleTarget = completed.some(f => {
+      const sheet = availableSheets.find(s => s.id === f.sheetId);
+      return sheet?.target_table === 'purpletransaction';
+    });
+    if (hasPurpleTarget) {
+      setLastUploadTargetTable('purpletransaction');
+    }
+
     setAllFilesSummary({
       totalFiles: completed.length + failed.length,
       successfulFiles: completed.length,
