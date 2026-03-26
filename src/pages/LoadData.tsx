@@ -1029,7 +1029,7 @@ const LoadData = () => {
       <ReconcileDialog
         open={showReconcileDialog}
         onOpenChange={setShowReconcileDialog}
-        excelData={reconcileExcelData}
+        excelData={reconcileExcelDataRef.current}
       />
 
       <BrandTypeSelectionDialog
