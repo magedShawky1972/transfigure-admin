@@ -233,8 +233,19 @@ const LoadData = () => {
           const d = new Date(epoch.getTime() + Math.floor(val) * 86400000);
           if (!isNaN(d.getTime())) parsed = d.toISOString().split('T')[0];
         } else {
-          const d = new Date(val);
-          if (!isNaN(d.getTime())) parsed = d.toISOString().split('T')[0];
+          const str = String(val).trim();
+          // Try to extract YYYY-MM-DD directly from the string first
+          const isoMatch = str.match(/^(\d{4}-\d{2}-\d{2})/);
+          if (isoMatch) {
+            parsed = isoMatch[1];
+          } else {
+            // Fallback: parse with Date but use UTC to avoid timezone shift
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+              // Use local date parts to avoid timezone shift
+              parsed = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
+          }
         }
         if (parsed) dates.add(parsed);
       });
@@ -439,7 +450,7 @@ const LoadData = () => {
     if (value === null || value === undefined || value === '') return null;
 
     if (value instanceof Date && !isNaN(value.getTime())) {
-      return value.toISOString().split('T')[0];
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
     }
 
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -461,9 +472,15 @@ const LoadData = () => {
         return parseExcelLikeDate(Number(trimmed));
       }
 
-      const parsedDate = new Date(trimmed);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate.toISOString().split('T')[0];
+      // Extract YYYY-MM-DD directly if present
+      const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) {
+        return isoMatch[1];
+      }
+
+      const pd = new Date(trimmed);
+      if (!isNaN(pd.getTime())) {
+        return `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, '0')}-${String(pd.getDate()).padStart(2, '0')}`;
       }
     }
 
