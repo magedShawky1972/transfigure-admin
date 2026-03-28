@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BrandTypeSelectionDialog } from "@/components/BrandTypeSelectionDialog";
-import { DuplicateRecordsDialog } from "@/components/DuplicateRecordsDialog";
+import { DuplicateFieldChangesDialog } from "@/components/DuplicateFieldChangesDialog";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
 import { ControlAmountDialog } from "@/components/ControlAmountDialog";
 import { ApiDateOverlapDialog } from "@/components/ApiDateOverlapDialog";
