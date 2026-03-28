@@ -20,9 +20,9 @@ const WFHCheckIn = () => {
   const isRTL = language === 'ar';
 
   const [loading, setLoading] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
-  const [todayCheckin, setTodayCheckin] = useState<any>(null);
+  const [todayCheckins, setTodayCheckins] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -31,7 +31,6 @@ const WFHCheckIn = () => {
   const [currentTime, setCurrentTime] = useState(getCairoTime());
   const [userName, setUserName] = useState("");
 
-  // Update clock every second
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCairoTime()), 1000);
     return () => clearInterval(timer);
@@ -39,7 +38,7 @@ const WFHCheckIn = () => {
 
   useEffect(() => {
     if (userId) {
-      fetchTodayCheckin();
+      fetchTodayCheckins();
       fetchHistory();
       fetchUserName();
       getLocation();
@@ -56,7 +55,7 @@ const WFHCheckIn = () => {
     if (data) setUserName(data.user_name || "");
   };
 
-  const fetchTodayCheckin = async () => {
+  const fetchTodayCheckins = async () => {
     if (!userId) return;
     const today = getKSADateString();
     const { data } = await supabase
@@ -64,8 +63,8 @@ const WFHCheckIn = () => {
       .select("*")
       .eq("user_id", userId)
       .eq("checkin_date", today)
-      .maybeSingle();
-    setTodayCheckin(data);
+      .order("checkin_time", { ascending: true });
+    setTodayCheckins(data || []);
   };
 
   const fetchHistory = async () => {
@@ -76,7 +75,8 @@ const WFHCheckIn = () => {
       .select("*")
       .eq("user_id", userId)
       .order("checkin_date", { ascending: false })
-      .limit(30);
+      .order("checkin_time", { ascending: true })
+      .limit(60);
     setHistory(data || []);
     setHistoryLoading(false);
   };
@@ -94,8 +94,20 @@ const WFHCheckIn = () => {
     );
   };
 
+  // Check if there's an active (not checked out) session
+  const activeSession = todayCheckins.find(c => c.status === 'checked_in');
+
   const handleCheckIn = async () => {
     if (!userId) return;
+    // Don't allow new check-in if there's an active session
+    if (activeSession) {
+      toast({
+        title: isRTL ? "يوجد جلسة نشطة" : "Active Session Exists",
+        description: isRTL ? "يرجى تسجيل الانصراف أولاً قبل تسجيل حضور جديد" : "Please check out first before starting a new check-in",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.from("wfh_checkins").insert({
@@ -107,23 +119,14 @@ const WFHCheckIn = () => {
         device_info: navigator.userAgent,
       });
 
-      if (error) {
-        if (error.code === '23505') {
-          toast({
-            title: isRTL ? "تم التسجيل مسبقاً" : "Already Checked In",
-            description: isRTL ? "لقد سجلت حضورك اليوم مسبقاً" : "You have already checked in today",
-            variant: "destructive",
-          });
-        } else throw error;
-        return;
-      }
+      if (error) throw error;
 
       toast({
         title: isRTL ? "تم تسجيل الحضور" : "Checked In",
         description: isRTL ? "تم تسجيل حضورك من المنزل بنجاح" : "Your WFH check-in has been recorded successfully",
       });
       setNotes("");
-      fetchTodayCheckin();
+      fetchTodayCheckins();
       fetchHistory();
     } catch (error: any) {
       toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
@@ -132,14 +135,13 @@ const WFHCheckIn = () => {
     }
   };
 
-  const handleCheckOut = async () => {
-    if (!todayCheckin) return;
-    setCheckoutLoading(true);
+  const handleCheckOut = async (checkinId: string) => {
+    setCheckoutLoading(checkinId);
     try {
       const { error } = await supabase
         .from("wfh_checkins")
         .update({ checkout_time: new Date().toISOString(), status: 'checked_out' })
-        .eq("id", todayCheckin.id);
+        .eq("id", checkinId);
 
       if (error) throw error;
 
@@ -147,12 +149,12 @@ const WFHCheckIn = () => {
         title: isRTL ? "تم تسجيل الانصراف" : "Checked Out",
         description: isRTL ? "تم تسجيل انصرافك بنجاح" : "Your check-out has been recorded",
       });
-      fetchTodayCheckin();
+      fetchTodayCheckins();
       fetchHistory();
     } catch (error: any) {
       toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
-      setCheckoutLoading(false);
+      setCheckoutLoading(null);
     }
   };
 
@@ -211,49 +213,49 @@ const WFHCheckIn = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {todayCheckin ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 p-4 rounded-lg bg-primary/10 border border-primary/20">
-                  <CheckCircle className="h-6 w-6 text-primary" />
-                  <div>
-                    <p className="font-medium text-primary">
-                      {isRTL ? "تم تسجيل الحضور" : "Checked In"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isRTL ? "وقت الحضور:" : "Check-in time:"} {formatTime(todayCheckin.checkin_time)}
-                    </p>
-                    {todayCheckin.checkout_time && (
-                      <p className="text-sm text-muted-foreground">
-                        {isRTL ? "وقت الانصراف:" : "Check-out time:"} {formatTime(todayCheckin.checkout_time)}
-                      </p>
-                    )}
+            {/* Today's sessions list */}
+            {todayCheckins.length > 0 && (
+              <div className="space-y-3">
+                {todayCheckins.map((checkin, idx) => (
+                  <div key={checkin.id} className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className={`h-5 w-5 ${checkin.status === 'checked_in' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div className="text-sm">
+                        <span className="font-medium">#{idx + 1}</span>
+                        {" "}
+                        <span>{isRTL ? "دخول:" : "In:"} {formatTime(checkin.checkin_time)}</span>
+                        {checkin.checkout_time && (
+                          <span className="ml-2">{isRTL ? "خروج:" : "Out:"} {formatTime(checkin.checkout_time)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={checkin.status === 'checked_out' ? 'secondary' : 'default'} className="text-xs">
+                        {checkin.status === 'checked_out'
+                          ? (isRTL ? 'انصرف' : 'Out')
+                          : (isRTL ? 'يعمل' : 'Active')}
+                      </Badge>
+                      {checkin.status === 'checked_in' && (
+                        <Button
+                          onClick={() => handleCheckOut(checkin.id)}
+                          disabled={checkoutLoading === checkin.id}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {checkoutLoading === checkin.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                          <LogOut className="h-3 w-3 mr-1" />
+                          {isRTL ? "انصراف" : "Out"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge variant={todayCheckin.status === 'checked_out' ? 'secondary' : 'default'}>
-                    {todayCheckin.status === 'checked_out'
-                      ? (isRTL ? 'انصرف' : 'Checked Out')
-                      : (isRTL ? 'يعمل' : 'Working')}
-                  </Badge>
-                </div>
-
-                {todayCheckin.status === 'checked_in' && (
-                  <Button onClick={handleCheckOut} disabled={checkoutLoading} variant="outline" className="w-full">
-                    {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <LogOut className="mr-2 h-4 w-4" />
-                    {isRTL ? "تسجيل الانصراف" : "Check Out"}
-                  </Button>
-                )}
-
-                {todayCheckin.notes && (
-                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
-                    {todayCheckin.notes}
-                  </div>
-                )}
+                ))}
               </div>
-            ) : (
-              <div className="space-y-4">
+            )}
+
+            {/* New check-in form - show when no active session */}
+            {!activeSession && (
+              <div className="space-y-4 pt-2">
                 {/* Location */}
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4" />
@@ -311,17 +313,23 @@ const WFHCheckIn = () => {
                 const d = new Date(h.checkin_date);
                 return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
               });
+              // Count unique dates
+              const uniqueDates = new Set(thisMonth.map(h => h.checkin_date));
               return (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-muted rounded-lg">
+                    <p className="text-3xl font-bold text-primary">{uniqueDates.size}</p>
+                    <p className="text-sm text-muted-foreground">{isRTL ? "أيام الحضور" : "Days Attended"}</p>
+                  </div>
                   <div className="text-center p-4 bg-muted rounded-lg">
                     <p className="text-3xl font-bold text-primary">{thisMonth.length}</p>
-                    <p className="text-sm text-muted-foreground">{isRTL ? "أيام الحضور" : "Days Attended"}</p>
+                    <p className="text-sm text-muted-foreground">{isRTL ? "جلسات" : "Sessions"}</p>
                   </div>
                   <div className="text-center p-4 bg-muted rounded-lg">
                     <p className="text-3xl font-bold text-primary">
                       {thisMonth.filter(h => h.checkout_time).length}
                     </p>
-                    <p className="text-sm text-muted-foreground">{isRTL ? "أيام مكتملة" : "Complete Days"}</p>
+                    <p className="text-sm text-muted-foreground">{isRTL ? "مكتملة" : "Completed"}</p>
                   </div>
                 </div>
               );
