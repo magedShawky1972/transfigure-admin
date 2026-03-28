@@ -1,0 +1,1 @@
+ALTER TABLE public.wfh_checkins DROP CONSTRAINT wfh_checkins_user_id_checkin_date_key;
