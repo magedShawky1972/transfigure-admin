@@ -828,7 +828,10 @@ Deno.serve(async (req) => {
         fillGapsSkipped = recordsToUpdate.length;
         validData = recordsToInsert;
         
-        console.log(`Upsert summary: ${fillGapsUpdated} updated, ${validData.length} new records to insert`);
+        // IMPORTANT: After the purpletransaction upsert pass, remaining records are genuinely NEW.
+        // Force plain INSERT mode to avoid upsert conflicts when multiple lines share the same product_id.
+        pkColumns = [];
+        console.log(`Upsert summary: ${fillGapsUpdated} updated, ${validData.length} new records to insert (switching to plain INSERT mode)`);
         
         if (validData.length === 0) {
           console.log('No new records to insert - returning summary');
