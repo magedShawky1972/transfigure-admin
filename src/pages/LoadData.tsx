@@ -99,9 +99,14 @@ const LoadData = () => {
   // Duplicate detection state
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{
-    duplicates: { key: string; existingCount: number; newCount: number }[];
+    fieldChanges: Array<{
+      key: string;
+      keyParts: Record<string, string>;
+      changes: Array<{ field: string; dbValue: any; excelValue: any }>;
+    }>;
     totalRecords: number;
     duplicateCount: number;
+    newRecordCount: number;
     duplicateKeyColumn?: string;
     duplicateMessage?: string;
   } | null>(null);
