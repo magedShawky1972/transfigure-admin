@@ -935,9 +935,10 @@ const LoadData = () => {
         // Handle duplicate decision request
         if (result.requiresDuplicateDecision) {
           setDuplicateInfo({
-            duplicates: result.duplicates || [],
+            fieldChanges: result.fieldChanges || [],
             totalRecords: result.totalRecords || 0,
             duplicateCount: result.duplicateCount || 0,
+            newRecordCount: result.newRecordCount || 0,
             duplicateKeyColumn: result.duplicateKeyColumn || undefined,
             duplicateMessage: result.duplicateMessage || undefined,
           });
