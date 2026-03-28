@@ -991,28 +991,107 @@ Deno.serve(async (req) => {
       const duplicateCount = existingKeys.size;
       
       if (duplicateCount > 0) {
-        console.log(`Found ${duplicateCount} duplicate records`);
+        console.log(`Found ${duplicateCount} duplicate records, fetching field-level diffs...`);
         
-        // Get the actual PK values for duplicates (order numbers, etc.)
-        const duplicateKeys = Array.from(existingKeys);
-        const duplicateValues = duplicateKeys.slice(0, 50); // Show up to 50 for display
-        
-        // For single PK column, show the actual values (e.g., order numbers)
         const pkColumnName = pkColumns.length === 1 ? pkColumns[0] : pkColumns.join(', ');
-        const displayValues = duplicateValues.map(key => {
-          // For composite keys, the key is joined with '|', split it back
-          if (pkColumns.length > 1) {
-            const parts = key.split('|');
-            return pkColumns.map((col, i) => `${col}: ${parts[i]}`).join(', ');
-          }
-          return key;
-        });
         
-        const duplicateInfo = duplicateKeys.slice(0, 100).map(key => ({
-          key,
-          existingCount: 1,
-          newCount: 1
-        }));
+        // Build a map of Excel rows by their PK key
+        const excelByKey = new Map<string, any>();
+        for (const row of rowsToInsert) {
+          const key = pkKeyFn(row);
+          if (existingKeys.has(key)) {
+            excelByKey.set(key, row);
+          }
+        }
+        
+        // Fetch full existing records for duplicates to compare field-by-field
+        const fieldChanges: Array<{
+          key: string;
+          keyParts: Record<string, string>;
+          changes: Array<{ field: string; dbValue: any; excelValue: any }>;
+        }> = [];
+        
+        const duplicateKeysList = Array.from(existingKeys);
+        const fetchBatchSize = 20; // Fetch full records in small batches
+        
+        for (let i = 0; i < duplicateKeysList.length && fieldChanges.length < 100; i += fetchBatchSize) {
+          const batch = duplicateKeysList.slice(i, i + fetchBatchSize);
+          
+          // Build OR filter to fetch full records
+          const orClauses = batch.map(key => {
+            if (pkColumns.length === 1) {
+              return `${pkColumns[0]}.eq.${key}`;
+            }
+            const parts = key.split('|');
+            const andParts = pkColumns.map((c, idx) => `${c}.eq.${parts[idx]}`).join(',');
+            return `and(${andParts})`;
+          }).join(',');
+          
+          try {
+            const response = await fetch(
+              `${supabaseUrl}/rest/v1/${tableName}?select=*&or=(${encodeURIComponent(orClauses)})&limit=${fetchBatchSize}`,
+              {
+                headers: {
+                  'apikey': supabaseServiceKey,
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                },
+              }
+            );
+            
+            if (response.ok) {
+              const existingRows = await response.json();
+              for (const dbRow of existingRows) {
+                const dbKey = pkKeyFn(dbRow);
+                const excelRow = excelByKey.get(dbKey);
+                if (!excelRow) continue;
+                
+                // Compare field by field - find fields that will change
+                const changes: Array<{ field: string; dbValue: any; excelValue: any }> = [];
+                for (const [field, excelVal] of Object.entries(excelRow)) {
+                  // Skip PK fields and internal fields
+                  if (pkColumns.includes(field) || field === 'id' || field === 'created_at') continue;
+                  if (excelVal === undefined || excelVal === null || excelVal === '') continue;
+                  
+                  const dbVal = dbRow[field];
+                  // Only show if DB value is different from Excel value
+                  const dbStr = String(dbVal ?? '');
+                  const excelStr = String(excelVal);
+                  
+                  // Numeric comparison with tolerance
+                  const dbNum = parseFloat(dbStr);
+                  const excelNum = parseFloat(excelStr);
+                  if (!isNaN(dbNum) && !isNaN(excelNum)) {
+                    if (Math.abs(dbNum - excelNum) < 0.001) continue;
+                  } else if (dbStr === excelStr) {
+                    continue;
+                  }
+                  
+                  changes.push({
+                    field,
+                    dbValue: dbVal,
+                    excelValue: excelVal,
+                  });
+                }
+                
+                if (changes.length > 0) {
+                  const keyParts: Record<string, string> = {};
+                  const keyVals = dbKey.split('|');
+                  pkColumns.forEach((col, idx) => { keyParts[col] = keyVals[idx]; });
+                  
+                  fieldChanges.push({
+                    key: dbKey,
+                    keyParts,
+                    changes,
+                  });
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error fetching existing records for diff:', e);
+          }
+        }
+        
+        console.log(`Found ${fieldChanges.length} records with field-level changes out of ${duplicateCount} duplicates`);
         
         return new Response(
           JSON.stringify({
@@ -1020,12 +1099,9 @@ Deno.serve(async (req) => {
             totalRecords: rowsToInsert.length,
             duplicateCount,
             newRecordCount: rowsToInsert.length - duplicateCount,
-            duplicates: duplicateInfo,
             duplicateKeyColumn: pkColumnName,
-            duplicateKeyValues: displayValues,
-            duplicateMessage: duplicateCount > 50 
-              ? `Found ${duplicateCount} duplicate ${pkColumnName}(s). First 50: ${displayValues.join(', ')}...`
-              : `Found ${duplicateCount} duplicate ${pkColumnName}(s): ${displayValues.join(', ')}`
+            fieldChanges,
+            duplicateMessage: `Found ${duplicateCount} existing records. ${fieldChanges.length} will have field updates.`
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
