@@ -913,7 +913,9 @@ const LoadData = () => {
 
       for (let i = 0; i < batches.length; i++) {
         setCurrentBatch(i + 1);
-        setUploadStatus(`${fileItem.file.name}: Batch ${i + 1}/${batches.length}`);
+        const batchOrderNumbers = [...new Set(batches[i].map((r: any) => r.order_number || r.Order_Number || '').filter(Boolean))];
+        const orderPreview = batchOrderNumbers.length > 0 ? ` — Orders: ${batchOrderNumbers.slice(0, 3).join(', ')}${batchOrderNumbers.length > 3 ? ` +${batchOrderNumbers.length - 3} more` : ''}` : '';
+        setUploadStatus(`${fileItem.file.name}: Batch ${i + 1}/${batches.length}${orderPreview}`);
 
         // For first batch, check for duplicates if no action was provided yet
         const shouldCheckDuplicates = i === 0 && !duplicateAction && !pendingDuplicateAction;
