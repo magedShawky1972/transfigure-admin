@@ -913,7 +913,9 @@ const LoadData = () => {
 
       for (let i = 0; i < batches.length; i++) {
         setCurrentBatch(i + 1);
-        setUploadStatus(`${fileItem.file.name}: Batch ${i + 1}/${batches.length}`);
+        const batchOrderNumbers = [...new Set(batches[i].map((r: any) => r.order_number || r.Order_Number || '').filter(Boolean))];
+        const orderPreview = batchOrderNumbers.length > 0 ? ` — Orders: ${batchOrderNumbers.slice(0, 3).join(', ')}${batchOrderNumbers.length > 3 ? ` +${batchOrderNumbers.length - 3} more` : ''}` : '';
+        setUploadStatus(`${fileItem.file.name}: Batch ${i + 1}/${batches.length}${orderPreview}`);
 
         // For first batch, check for duplicates if no action was provided yet
         const shouldCheckDuplicates = i === 0 && !duplicateAction && !pendingDuplicateAction;
@@ -1325,18 +1327,25 @@ const LoadData = () => {
           )}
 
           {isLoading && (
-            <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
-              {uploadStatus && (
-                <p className="text-sm text-center">{uploadStatus}</p>
+            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
+              <div className="flex items-center gap-2 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                {uploadStatus && (
+                  <p className="text-sm font-medium">{uploadStatus}</p>
+                )}
+              </div>
+              {totalBatches > 0 && (
+                <>
+                  <Progress value={totalBatches > 0 ? (currentBatch / totalBatches) * 100 : 0} className="h-2" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Batch {currentBatch} of {totalBatches}</span>
+                    <span>{processedRows} / {totalRows} rows</span>
+                  </div>
+                </>
               )}
               {elapsedMs > 0 && (
                 <p className="text-xs text-muted-foreground text-center">
                   Elapsed: {Math.floor(elapsedMs / 60000).toString().padStart(2, '0')}:{Math.floor((elapsedMs % 60000) / 1000).toString().padStart(2, '0')}
-                </p>
-              )}
-              {totalBatches > 0 && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Batch {currentBatch} of {totalBatches}
                 </p>
               )}
             </div>
