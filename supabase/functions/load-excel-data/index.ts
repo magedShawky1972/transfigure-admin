@@ -784,7 +784,11 @@ Deno.serve(async (req) => {
             continue;
           }
           const key = `${String(orderNum).trim()}|${lineNo}`;
-          if (existingOrderLineSet.has(key)) {
+          // Also check by order_number+product_id (conditional unique index)
+          const opKey = row.order_number && row.product_id 
+            ? `${String(row.order_number)}|${String(row.product_id)}` 
+            : null;
+          if (existingOrderLineSet.has(key) || (opKey && existingOrderProductSet.has(opKey))) {
             recordsToUpdate.push(row);
           } else {
             recordsToInsert.push(row);
