@@ -746,6 +746,8 @@ Deno.serve(async (req) => {
       if (excelOrderNumbers.length > 0) {
         // Check which order+line combinations already exist in the database
         const existingOrderLineSet = new Set<string>();
+        // Also track order_number+product_id to catch records matching the conditional unique index
+        const existingOrderProductSet = new Set<string>();
         
         const batchSize = 500;
         for (let i = 0; i < excelOrderNumbers.length; i += batchSize) {
@@ -753,7 +755,7 @@ Deno.serve(async (req) => {
           
           const { data: existingRows, error: existErr } = await supabase
             .from('purpletransaction')
-            .select('ordernumber, line_no')
+            .select('ordernumber, line_no, order_number, product_id')
             .in('ordernumber', batch);
           
           if (existErr) {
@@ -761,6 +763,9 @@ Deno.serve(async (req) => {
           } else if (existingRows) {
             for (const row of existingRows) {
               existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
+              if (row.order_number && row.product_id) {
+                existingOrderProductSet.add(`${String(row.order_number)}|${String(row.product_id)}`);
+              }
             }
           }
         }
