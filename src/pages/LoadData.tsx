@@ -1325,18 +1325,25 @@ const LoadData = () => {
           )}
 
           {isLoading && (
-            <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
-              {uploadStatus && (
-                <p className="text-sm text-center">{uploadStatus}</p>
+            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
+              <div className="flex items-center gap-2 justify-center">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                {uploadStatus && (
+                  <p className="text-sm font-medium">{uploadStatus}</p>
+                )}
+              </div>
+              {totalBatches > 0 && (
+                <>
+                  <Progress value={totalBatches > 0 ? (currentBatch / totalBatches) * 100 : 0} className="h-2" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Batch {currentBatch} of {totalBatches}</span>
+                    <span>{processedRows} / {totalRows} rows</span>
+                  </div>
+                </>
               )}
               {elapsedMs > 0 && (
                 <p className="text-xs text-muted-foreground text-center">
                   Elapsed: {Math.floor(elapsedMs / 60000).toString().padStart(2, '0')}:{Math.floor((elapsedMs % 60000) / 1000).toString().padStart(2, '0')}
-                </p>
-              )}
-              {totalBatches > 0 && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Batch {currentBatch} of {totalBatches}
                 </p>
               )}
             </div>
