@@ -688,8 +688,12 @@ const ShiftCalendar = () => {
     const startDate = getStartDate();
     const endDate = getEndDate();
     
-    let currentDay = startDate;
-    while (currentDay <= endDate) {
+    // Pad start to align with correct day of week (Sunday = 0)
+    const gridStart = viewType === "month" ? startOfWeek(startDate) : startDate;
+    const gridEnd = viewType === "month" ? endOfWeek(endDate) : endDate;
+    
+    let currentDay = gridStart;
+    while (currentDay <= gridEnd) {
       days.push(currentDay);
       currentDay = addDays(currentDay, 1);
     }
