@@ -1327,26 +1327,42 @@ const LoadData = () => {
           )}
 
           {isLoading && (
-            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border border-border">
-              <div className="flex items-center gap-2 justify-center">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                {uploadStatus && (
-                  <p className="text-sm font-medium">{uploadStatus}</p>
+            <div className="space-y-4 p-5 bg-primary/5 rounded-lg border-2 border-primary/30 shadow-md animate-in fade-in duration-300">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="h-10 w-10 rounded-full border-2 border-primary/30 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  </div>
+                  {totalBatches > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                      {currentBatch}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {uploadStatus || "Preparing upload..."}
+                  </p>
+                  {totalBatches > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Batch {currentBatch} of {totalBatches} • {processedRows} / {totalRows} rows processed
+                    </p>
+                  )}
+                </div>
+                {elapsedMs > 0 && (
+                  <Badge variant="outline" className="shrink-0 font-mono text-xs">
+                    {Math.floor(elapsedMs / 60000).toString().padStart(2, '0')}:{Math.floor((elapsedMs % 60000) / 1000).toString().padStart(2, '0')}
+                  </Badge>
                 )}
               </div>
               {totalBatches > 0 && (
-                <>
-                  <Progress value={totalBatches > 0 ? (currentBatch / totalBatches) * 100 : 0} className="h-2" />
+                <div className="space-y-1">
+                  <Progress value={(currentBatch / totalBatches) * 100} className="h-3" />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Batch {currentBatch} of {totalBatches}</span>
-                    <span>{processedRows} / {totalRows} rows</span>
+                    <span>{Math.round((currentBatch / totalBatches) * 100)}% complete</span>
+                    <span>{totalRows - processedRows} rows remaining</span>
                   </div>
-                </>
-              )}
-              {elapsedMs > 0 && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Elapsed: {Math.floor(elapsedMs / 60000).toString().padStart(2, '0')}:{Math.floor((elapsedMs % 60000) / 1000).toString().padStart(2, '0')}
-                </p>
+                </div>
               )}
             </div>
           )}
