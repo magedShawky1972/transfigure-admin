@@ -1480,12 +1480,13 @@ const LoadData = () => {
         onCancel={handleBrandTypeCancel}
       />
 
-      <DuplicateRecordsDialog
+      <DuplicateFieldChangesDialog
         open={showDuplicateDialog}
         onOpenChange={setShowDuplicateDialog}
-        duplicates={duplicateInfo?.duplicates || []}
-        totalNewRecords={duplicateInfo?.totalRecords || 0}
-        totalDuplicates={duplicateInfo?.duplicateCount || 0}
+        fieldChanges={duplicateInfo?.fieldChanges || []}
+        totalRecords={duplicateInfo?.totalRecords || 0}
+        duplicateCount={duplicateInfo?.duplicateCount || 0}
+        newRecordCount={duplicateInfo?.newRecordCount || 0}
         onAction={handleDuplicateAction}
         duplicateKeyColumn={duplicateInfo?.duplicateKeyColumn}
         duplicateMessage={duplicateInfo?.duplicateMessage}
