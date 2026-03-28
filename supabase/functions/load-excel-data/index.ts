@@ -823,6 +823,48 @@ Deno.serve(async (req) => {
           }
           
           console.log(`Updated ${fillGapsUpdated} existing records with Excel data`);
+          
+          // Fill empty vendor_name for records that were updated but had no vendor_name in DB
+          // Use vendor_name from Excel data to patch records where vendor_name is null/empty
+          const vendorUpdates = new Map<string, string>();
+          for (const row of recordsToUpdate) {
+            const vendorName = row.vendor_name || row.Vendor_Name;
+            const orderNum = String(row.ordernumber || row.order_number).trim();
+            if (vendorName && orderNum) {
+              vendorUpdates.set(orderNum, vendorName);
+            }
+          }
+          
+          if (vendorUpdates.size > 0) {
+            const orderNums = [...vendorUpdates.keys()];
+            const vendorBatchSize = 500;
+            let vendorFixed = 0;
+            
+            for (let vb = 0; vb < orderNums.length; vb += vendorBatchSize) {
+              const batch = orderNums.slice(vb, vb + vendorBatchSize);
+              
+              // Find records with empty vendor_name in this batch
+              const { data: emptyVendorRows } = await supabase
+                .from('purpletransaction')
+                .select('id, ordernumber')
+                .in('ordernumber', batch)
+                .or('vendor_name.is.null,vendor_name.eq.');
+              
+              if (emptyVendorRows && emptyVendorRows.length > 0) {
+                for (const row of emptyVendorRows) {
+                  const newVendor = vendorUpdates.get(String(row.ordernumber));
+                  if (newVendor) {
+                    const { error: vErr } = await supabase
+                      .from('purpletransaction')
+                      .update({ vendor_name: newVendor })
+                      .eq('id', row.id);
+                    if (!vErr) vendorFixed++;
+                  }
+                }
+                console.log(`Fixed vendor_name for ${vendorFixed} records`);
+              }
+            }
+          }
         }
         
         // Set validData to only the new records for insertion
