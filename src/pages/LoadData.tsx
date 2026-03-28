@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BrandTypeSelectionDialog } from "@/components/BrandTypeSelectionDialog";
-import { DuplicateRecordsDialog } from "@/components/DuplicateRecordsDialog";
+import { DuplicateFieldChangesDialog } from "@/components/DuplicateFieldChangesDialog";
 import { ReconcileDialog } from "@/components/ReconcileDialog";
 import { ControlAmountDialog } from "@/components/ControlAmountDialog";
 import { ApiDateOverlapDialog } from "@/components/ApiDateOverlapDialog";
@@ -99,9 +99,14 @@ const LoadData = () => {
   // Duplicate detection state
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{
-    duplicates: { key: string; existingCount: number; newCount: number }[];
+    fieldChanges: Array<{
+      key: string;
+      keyParts: Record<string, string>;
+      changes: Array<{ field: string; dbValue: any; excelValue: any }>;
+    }>;
     totalRecords: number;
     duplicateCount: number;
+    newRecordCount: number;
     duplicateKeyColumn?: string;
     duplicateMessage?: string;
   } | null>(null);
@@ -930,9 +935,10 @@ const LoadData = () => {
         // Handle duplicate decision request
         if (result.requiresDuplicateDecision) {
           setDuplicateInfo({
-            duplicates: result.duplicates || [],
+            fieldChanges: result.fieldChanges || [],
             totalRecords: result.totalRecords || 0,
             duplicateCount: result.duplicateCount || 0,
+            newRecordCount: result.newRecordCount || 0,
             duplicateKeyColumn: result.duplicateKeyColumn || undefined,
             duplicateMessage: result.duplicateMessage || undefined,
           });
@@ -1474,12 +1480,13 @@ const LoadData = () => {
         onCancel={handleBrandTypeCancel}
       />
 
-      <DuplicateRecordsDialog
+      <DuplicateFieldChangesDialog
         open={showDuplicateDialog}
         onOpenChange={setShowDuplicateDialog}
-        duplicates={duplicateInfo?.duplicates || []}
-        totalNewRecords={duplicateInfo?.totalRecords || 0}
-        totalDuplicates={duplicateInfo?.duplicateCount || 0}
+        fieldChanges={duplicateInfo?.fieldChanges || []}
+        totalRecords={duplicateInfo?.totalRecords || 0}
+        duplicateCount={duplicateInfo?.duplicateCount || 0}
+        newRecordCount={duplicateInfo?.newRecordCount || 0}
         onAction={handleDuplicateAction}
         duplicateKeyColumn={duplicateInfo?.duplicateKeyColumn}
         duplicateMessage={duplicateInfo?.duplicateMessage}
