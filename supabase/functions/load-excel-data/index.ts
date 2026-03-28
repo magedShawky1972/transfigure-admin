@@ -788,36 +788,37 @@ Deno.serve(async (req) => {
         
         console.log(`Records to update: ${recordsToUpdate.length}, Records to insert: ${recordsToInsert.length}`);
         
-        // Update existing records with ALL fields from Excel
+        // Update existing records with ALL fields from Excel - batch upsert for speed
         if (recordsToUpdate.length > 0) {
-          console.log(`Updating ${recordsToUpdate.length} existing records with Excel data...`);
+          console.log(`Updating ${recordsToUpdate.length} existing records with Excel data (batch mode)...`);
           
-          for (const row of recordsToUpdate) {
-            const orderNum = row.ordernumber || row.order_number;
-            const lineNo = row.line_no || 1;
-            
-            // Build update object from all non-PK fields that have values
-            const updates: Record<string, any> = {};
+          // Prepare all rows for batch upsert
+          const upsertRows = recordsToUpdate.map((row: any) => {
+            const cleanRow: Record<string, any> = {};
             for (const [key, value] of Object.entries(row)) {
-              // Skip PK fields and empty values
-              if (key === 'ordernumber' || key === 'order_number' || key === 'line_no') continue;
+              if (key === 'order_number') continue; // skip alias
               if (value !== undefined && value !== null && value !== '') {
-                updates[key] = value;
+                cleanRow[key] = value;
               }
             }
+            // Ensure PK fields are present
+            cleanRow.ordernumber = String(row.ordernumber || row.order_number).trim();
+            cleanRow.line_no = row.line_no || 1;
+            return cleanRow;
+          });
+
+          // Upsert in batches of 200 for speed
+          const updateBatchSize = 200;
+          for (let b = 0; b < upsertRows.length; b += updateBatchSize) {
+            const batch = upsertRows.slice(b, b + updateBatchSize);
+            const { error: upsertErr, data: upsertData } = await supabase
+              .from('purpletransaction')
+              .upsert(batch, { onConflict: 'ordernumber,line_no' });
             
-            if (Object.keys(updates).length > 0) {
-              const { error: updateErr } = await supabase
-                .from('purpletransaction')
-                .update(updates)
-                .eq('ordernumber', String(orderNum).trim())
-                .eq('line_no', lineNo);
-              
-              if (!updateErr) {
-                fillGapsUpdated++;
-              } else {
-                console.error(`Error updating record ${orderNum}/${lineNo}:`, updateErr);
-              }
+            if (!upsertErr) {
+              fillGapsUpdated += batch.length;
+            } else {
+              console.error(`Error batch-upserting records (batch ${b / updateBatchSize + 1}):`, upsertErr);
             }
           }
           
