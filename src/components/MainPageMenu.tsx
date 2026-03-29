@@ -220,6 +220,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Expense Requests", titleAr: "طلبات المصروفات", url: "/expense-requests", icon: ClipboardList },
       { title: "Void Payment", titleAr: "إلغاء الدفع", url: "/void-payment", icon: Undo2 },
       { title: "Payment Bank Link", titleAr: "ربط طرق الدفع بالبنوك", url: "/payment-bank-link", icon: Link2 },
+      { title: "Payment What-If", titleAr: "سيناريو ماذا لو - الدفع", url: "/reports/payment-whatif", icon: Calculator },
     ]
   },
   {
