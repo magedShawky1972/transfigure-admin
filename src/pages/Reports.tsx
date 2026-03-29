@@ -325,6 +325,15 @@ const Reports = () => {
       icon: FolderKanban,
       route: "/reports/projects-tasks",
     },
+    {
+      id: "payment-whatif",
+      name: language === "ar" ? "سيناريو ماذا لو - الدفع" : "Payment What-If Scenario",
+      description: language === "ar"
+        ? "محاكاة تأثير تغيير نسب رسوم بوابة الدفع على رسوم الدفع الإلكتروني"
+        : "Simulate the impact of changing payment gateway fee percentages on e-payment charges",
+      icon: Calculator,
+      route: "/reports/payment-whatif",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
