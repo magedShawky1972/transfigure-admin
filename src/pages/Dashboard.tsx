@@ -2026,7 +2026,7 @@ const Dashboard = () => {
       const startDate = format(dateRange.start, "yyyy-MM-dd");
       const endDate = format(dateRange.end, "yyyy-MM-dd");
       const brandParam = selectedBrand === "all" ? null : selectedBrand;
-      const companyParam = selectedCompany === "all" ? null : selectedCompany;
+      const companyParam = companyFilter === "all" ? null : companyFilter;
 
       const { data, error } = await supabase.rpc('get_epayment_charges_breakdown', {
         p_date_from: startDate,
