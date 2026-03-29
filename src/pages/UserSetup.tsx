@@ -186,6 +186,7 @@ interface UserPermission {
         { key: "expenseRequests", label: "طلبات المصروفات", labelEn: "Expense Requests" },
         { key: "voidPayment", label: "إلغاء الدفع", labelEn: "Void Payment" },
         { key: "paymentBankLink", label: "ربط طرق الدفع بالبنوك", labelEn: "Payment Bank Link" },
+        { key: "paymentWhatIf", label: "سيناريو ماذا لو - الدفع", labelEn: "Payment What-If Scenario" },
       ]
     },
     {
@@ -298,6 +299,7 @@ const REPORTS = [
   { key: "expense-paid", labelEn: "Paid Expenses", labelAr: "المصروفات المدفوعة" },
   { key: "bank-balance-by-date", labelEn: "Bank Balance by Date", labelAr: "تقرير رصيد البنك بالتاريخ" },
   { key: "projects-tasks", labelEn: "Projects & Tasks Report", labelAr: "تقرير المشاريع والمهام" },
+  { key: "payment-whatif", labelEn: "Payment What-If Scenario", labelAr: "سيناريو ماذا لو - الدفع" },
 ];
 
 const UserSetup = () => {
