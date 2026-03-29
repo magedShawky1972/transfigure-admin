@@ -10614,6 +10614,21 @@ export type Database = {
             }
             Returns: number
           }
+      get_epayment_charges_breakdown: {
+        Args: {
+          p_brand_name?: string
+          p_company?: string
+          p_date_from: string
+          p_date_to: string
+        }
+        Returns: {
+          bank_fee: number
+          payment_brand: string
+          payment_method: string
+          total_sales: number
+          transaction_count: number
+        }[]
+      }
       get_foreign_keys_info: {
         Args: never
         Returns: {

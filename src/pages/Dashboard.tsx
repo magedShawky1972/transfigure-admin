@@ -2023,90 +2023,29 @@ const Dashboard = () => {
         return;
       }
 
-      const startStr = appliedStartStr ?? format(dateRange.start, "yyyy-MM-dd 00:00:00");
-      const endStr = appliedEndNextStr ?? format(dateRange.end, "yyyy-MM-dd 23:59:59");
+      const startDate = format(dateRange.start, "yyyy-MM-dd");
+      const endDate = format(dateRange.end, "yyyy-MM-dd");
+      const brandParam = globalBrandFilter !== "all" ? globalBrandFilter : null;
+      const companyParam = companyFilter === "all" ? null : companyFilter;
 
-      // Fetch payment methods configuration
-      const { data: paymentMethods, error: pmError } = await supabase
-        .from('payment_methods')
-        .select('payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active')
-        .eq('is_active', true);
-
-      if (pmError) throw pmError;
-
-      // Create a lookup map for payment methods (composite key)
-      const paymentMethodMap = new Map();
-      (paymentMethods || []).forEach((pm: any) => {
-        const key = `${pm.payment_type?.toLowerCase()}||${pm.payment_method?.toLowerCase()}`;
-        paymentMethodMap.set(key, pm);
+      const { data, error } = await supabase.rpc('get_epayment_charges_breakdown', {
+        p_date_from: startDate,
+        p_date_to: endDate,
+        p_brand_name: brandParam,
+        p_company: companyParam
       });
 
-      // Fetch only non-point orders from ordertotals table with pagination
-      const pageSize = 1000;
-      let from = 0;
-      let allData: any[] = [];
-      
-      while (true) {
-        const { data, error } = await supabase
-          .from('ordertotals')
-          .select('payment_brand, payment_method, total')
-          .gte('order_date', startStr)
-          .lte('order_date', endStr)
-          .order('order_date', { ascending: true })
-          .range(from, from + pageSize - 1);
+      if (error) throw error;
 
-        if (error) throw error;
+      const breakdown = (data || []).map((item: any) => ({
+        payment_method: item.payment_method || 'Unknown',
+        payment_brand: item.payment_brand || 'Unknown',
+        transaction_count: Number(item.transaction_count) || 0,
+        total: Number(item.total_sales) || 0,
+        bank_fee: Number(item.bank_fee) || 0,
+        percentage: Number(item.total_sales) > 0 ? (Number(item.bank_fee) / Number(item.total_sales)) * 100 : 0
+      })).sort((a: any, b: any) => b.bank_fee - a.bank_fee);
 
-        const batch = data || [];
-        allData = allData.concat(batch);
-        
-        if (batch.length < pageSize) break;
-        from += pageSize;
-      }
-
-      // Group by payment_method + payment_brand and calculate fees dynamically
-      const grouped = allData.reduce((acc: any, item) => {
-        // Skip point transactions
-        if ((item.payment_method || '').toLowerCase() === 'point') return acc;
-        
-        const brand = item.payment_brand || 'Unknown';
-        const method = item.payment_method || 'Unknown';
-        const key = `${method}||${brand}`;
-        
-        // Get payment method config using composite key
-        const pmKey = `${method.toLowerCase()}||${brand.toLowerCase()}`;
-        const pmConfig = paymentMethodMap.get(pmKey);
-        
-        // Calculate bank fee dynamically: ((total * gateway_fee%) + fixed_value) * (1 + vat_fee%)
-        const total = parseNumber(item.total);
-        let bankFee = 0;
-        if (pmConfig) {
-          const gatewayFee = (total * (pmConfig.gateway_fee || 0)) / 100;
-          bankFee = (gatewayFee + (pmConfig.fixed_value || 0)) * (1 + (pmConfig.vat_fee || 15) / 100);
-        }
-        
-        if (!acc[key]) {
-          acc[key] = {
-            payment_brand: brand,
-            payment_method: method,
-            total: 0,
-            bank_fee: 0,
-            transaction_count: 0
-          };
-        }
-        acc[key].total += total;
-        acc[key].bank_fee += bankFee;
-        acc[key].transaction_count += 1;
-        return acc;
-      }, {});
-
-      // Add percentage to each item (bank_fee / sales * 100)
-      const groupedArray = Object.values(grouped) as Array<{payment_brand: string, total: number, bank_fee: number, transaction_count: number}>;
-      const breakdown = groupedArray.map((item) => ({
-        ...item,
-        percentage: item.total > 0 ? (item.bank_fee / item.total) * 100 : 0
-      })).sort((a, b) => b.bank_fee - a.bank_fee);
-      
       setPaymentChargesBreakdown(breakdown);
       setPaymentChargesSortColumn('bank_fee');
       setPaymentChargesSortDirection('desc');
