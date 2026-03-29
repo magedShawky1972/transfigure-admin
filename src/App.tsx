@@ -151,6 +151,7 @@ import CRMCaseDetail from "./pages/CRMCaseDetail";
 import CRMSetup from "./pages/CRMSetup";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import ApiTransactionMapping from "./pages/ApiTransactionMapping";
+import PaymentWhatIfScenario from "./pages/PaymentWhatIfScenario";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -273,6 +274,7 @@ const App = () => (
               <Route path="/expense-entry/new" element={<ExpenseEntryForm />} />
               <Route path="/expense-entry/:id" element={<ExpenseEntryForm />} />
               <Route path="/payment-bank-link" element={<PaymentBankLink />} />
+              <Route path="/reports/payment-whatif" element={<PaymentWhatIfScenario />} />
               <Route path="/reports/bank-balance-by-date" element={<BankBalanceByDateReport />} />
               <Route path="/reports/bank-statement-by-bank" element={<BankStatementByBankReport />} />
               <Route path="/reports/daily-sales" element={<DailySalesReport />} />
