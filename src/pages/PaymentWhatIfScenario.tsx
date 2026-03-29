@@ -21,8 +21,9 @@ interface PaymentMethod {
 }
 
 interface SimulationRow {
-  payment_method: string;
-  payment_type: string | null;
+  payment_brand: string;
+  payment_type: string;
+  pm_id: string;
   current_gateway_fee: number;
   new_gateway_fee: number;
   current_fixed_value: number;
@@ -82,36 +83,43 @@ const PaymentWhatIfScenario = () => {
   const runSimulation = async () => {
     setLoading(true);
     try {
-      const { data: txData, error } = await supabase
-        .from("purpletransaction")
-        .select("payment_method, payment_brand, total")
-        .gte("created_at_date", dateFrom)
-        .lte("created_at_date", dateTo)
-        .neq("payment_method", "point");
+      // Use server-side RPC to aggregate ALL transactions (no row limit)
+      const { data: aggData, error } = await supabase.rpc("get_payment_whatif_aggregates", {
+        p_date_from: dateFrom,
+        p_date_to: dateTo,
+      });
 
       if (error) throw error;
 
-      const aggregated: Record<string, { count: number; totalSales: number }> = {};
-      (txData || []).forEach((tx: any) => {
-        const key = (tx.payment_brand || "").toLowerCase();
-        if (!key) return;
-        if (!aggregated[key]) aggregated[key] = { count: 0, totalSales: 0 };
-        aggregated[key].count += 1;
-        aggregated[key].totalSales += Number(tx.total) || 0;
+      // Build a lookup: payment_type (lowercase) + payment_brand (lowercase) -> payment_methods row
+      const pmLookup: Record<string, PaymentMethod> = {};
+      paymentMethods.forEach((pm) => {
+        const key = `${(pm.payment_type || "").toLowerCase()}|${pm.payment_method.toLowerCase()}`;
+        pmLookup[key] = pm;
       });
 
-      const rows: SimulationRow[] = paymentMethods.map((pm) => {
-        const key = pm.payment_method.toLowerCase();
-        const agg = aggregated[key] || { count: 0, totalSales: 0 };
+      // Build simulation rows matching by BOTH payment_method (tx) -> payment_type (pm) AND payment_brand (tx) -> payment_method (pm)
+      const rows: SimulationRow[] = [];
+
+      (aggData || []).forEach((agg: any) => {
+        const txPaymentMethod = (agg.payment_method || "").toLowerCase(); // e.g., "hyperpay", "salla"
+        const txPaymentBrand = (agg.payment_brand || "").toLowerCase();   // e.g., "visa", "mada"
+        const key = `${txPaymentMethod}|${txPaymentBrand}`;
+        const pm = pmLookup[key];
+
+        if (!pm) return; // No matching payment method config
+
         const currentFee = pm.gateway_fee;
         const currentFixed = pm.fixed_value;
         const vatRate = pm.vat_fee || 15;
         const newFee = newFees[pm.id]?.gateway_fee ?? currentFee;
         const newFixed = newFees[pm.id]?.fixed_value ?? currentFixed;
+        const totalSales = Number(agg.total_sales) || 0;
+        const txCount = Number(agg.transaction_count) || 0;
 
         const calcCharges = (fee: number, fixed: number) => {
-          const gatewayCharge = agg.totalSales * (fee / 100);
-          const fixedCharge = fixed * agg.count;
+          const gatewayCharge = totalSales * (fee / 100);
+          const fixedCharge = fixed * txCount;
           return (gatewayCharge + fixedCharge) * (1 + vatRate / 100);
         };
 
@@ -120,22 +128,23 @@ const PaymentWhatIfScenario = () => {
         const difference = newCharges - currentCharges;
         const differencePercent = currentCharges !== 0 ? (difference / currentCharges) * 100 : 0;
 
-        return {
-          payment_method: pm.payment_method,
-          payment_type: pm.payment_type,
+        rows.push({
+          payment_brand: agg.payment_brand,
+          payment_type: agg.payment_method,
+          pm_id: pm.id,
           current_gateway_fee: currentFee,
           new_gateway_fee: newFee,
           current_fixed_value: currentFixed,
           new_fixed_value: newFixed,
           vat_fee: vatRate,
-          transaction_count: agg.count,
-          total_sales: agg.totalSales,
+          transaction_count: txCount,
+          total_sales: totalSales,
           current_charges: currentCharges,
           new_charges: newCharges,
           difference,
           difference_percent: differencePercent,
-        };
-      }).filter(r => r.transaction_count > 0 || r.current_gateway_fee !== r.new_gateway_fee || r.current_fixed_value !== r.new_fixed_value);
+        });
+      });
 
       rows.sort((a, b) => b.total_sales - a.total_sales);
 
@@ -158,8 +167,8 @@ const PaymentWhatIfScenario = () => {
   const exportToCSV = () => {
     if (results.length === 0) return;
     const headers = [
-      isRTL ? "طريقة الدفع" : "Payment Method",
-      isRTL ? "نوع الدفع" : "Payment Type",
+      isRTL ? "طريقة الدفع" : "Payment Brand",
+      isRTL ? "نوع الدفع" : "Payment Method",
       isRTL ? "النسبة الحالية %" : "Current Fee %",
       isRTL ? "النسبة الجديدة %" : "New Fee %",
       isRTL ? "الثابت الحالي" : "Current Fixed",
@@ -175,7 +184,7 @@ const PaymentWhatIfScenario = () => {
     const csv = [
       headers.join(","),
       ...results.map(r => [
-        `"${r.payment_method}"`, `"${r.payment_type || ""}"`,
+        `"${r.payment_brand}"`, `"${r.payment_type}"`,
         r.current_gateway_fee, r.new_gateway_fee,
         r.current_fixed_value, r.new_fixed_value, r.vat_fee,
         r.transaction_count, r.total_sales.toFixed(2),
@@ -244,8 +253,8 @@ const PaymentWhatIfScenario = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>{isRTL ? "العلامة التجارية" : "Payment Brand"}</TableHead>
                     <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
-                    <TableHead>{isRTL ? "نوع الدفع" : "Payment Type"}</TableHead>
                     <TableHead className="text-center">{isRTL ? "النسبة الحالية %" : "Current Fee %"}</TableHead>
                     <TableHead className="text-center">{isRTL ? "النسبة الجديدة %" : "New Fee %"}</TableHead>
                     <TableHead className="text-center">{isRTL ? "الثابت الحالي" : "Current Fixed"}</TableHead>
@@ -259,7 +268,7 @@ const PaymentWhatIfScenario = () => {
                     return (
                       <TableRow key={pm.id} className={isChanged ? "bg-accent/30" : ""}>
                         <TableCell className="font-medium">{pm.payment_method}</TableCell>
-                        <TableCell>{pm.payment_type}</TableCell>
+                        <TableCell className="text-muted-foreground">{pm.payment_type}</TableCell>
                         <TableCell className="text-center">{pm.gateway_fee}%</TableCell>
                         <TableCell className="text-center">
                           <Input
@@ -350,6 +359,7 @@ const PaymentWhatIfScenario = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
+                    <TableHead>{isRTL ? "العلامة التجارية" : "Payment Brand"}</TableHead>
                     <TableHead className="text-right">{isRTL ? "المعاملات" : "Transactions"}</TableHead>
                     <TableHead className="text-right">{isRTL ? "إجمالي المبيعات" : "Total Sales"}</TableHead>
                     <TableHead className="text-center">{isRTL ? "النسبة %" : "Fee %"}</TableHead>
@@ -360,12 +370,10 @@ const PaymentWhatIfScenario = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {results.map((r) => (
-                    <TableRow key={r.payment_method}>
-                      <TableCell className="font-medium">
-                        {r.payment_method}
-                        {r.payment_type && <span className="text-muted-foreground text-xs ms-1">({r.payment_type})</span>}
-                      </TableCell>
+                  {results.map((r, idx) => (
+                    <TableRow key={`${r.payment_type}-${r.payment_brand}-${idx}`}>
+                      <TableCell className="text-muted-foreground">{r.payment_type}</TableCell>
+                      <TableCell className="font-medium">{r.payment_brand}</TableCell>
                       <TableCell className="text-right">{r.transaction_count.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{fmtSAR(r.total_sales)}</TableCell>
                       <TableCell className="text-center">
@@ -385,7 +393,7 @@ const PaymentWhatIfScenario = () => {
                     </TableRow>
                   ))}
                   <TableRow className="font-bold bg-muted/50">
-                    <TableCell>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell colSpan={2}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
                     <TableCell className="text-right">{results.reduce((s, r) => s + r.transaction_count, 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right">{fmtSAR(results.reduce((s, r) => s + r.total_sales, 0))}</TableCell>
                     <TableCell />
