@@ -10655,6 +10655,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_payment_whatif_aggregates: {
+        Args: { p_date_from: string; p_date_to: string }
+        Returns: {
+          payment_brand: string
+          payment_method: string
+          total_sales: number
+          transaction_count: number
+        }[]
+      }
       get_points_summary:
         | {
             Args: { date_from: string; date_to: string }
