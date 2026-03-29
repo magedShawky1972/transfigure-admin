@@ -183,6 +183,7 @@ export function AppSidebar() {
     "/crm-setup": "crmSetup",
     "/knowledge-base": "knowledgeBase",
     "/api-transaction-mapping": "apiTransactionMapping",
+    "/reports/payment-whatif": "paymentWhatIf",
   };
 
   useEffect(() => {
