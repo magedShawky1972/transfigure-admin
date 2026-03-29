@@ -183,6 +183,7 @@ export function AppSidebar() {
     "/crm-setup": "crmSetup",
     "/knowledge-base": "knowledgeBase",
     "/api-transaction-mapping": "apiTransactionMapping",
+    "/reports/payment-whatif": "paymentWhatIf",
   };
 
   useEffect(() => {
@@ -407,6 +408,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'طلبات المصروفات' : 'Expense Requests', url: "/expense-requests", icon: ClipboardList },
         { title: language === 'ar' ? 'إلغاء الدفع' : 'Void Payment', url: "/void-payment", icon: Undo2 },
         { title: language === 'ar' ? 'ربط طرق الدفع بالبنوك' : 'Payment Bank Link', url: "/payment-bank-link", icon: Link2 },
+        { title: language === 'ar' ? 'سيناريو ماذا لو - الدفع' : 'Payment What-If', url: "/reports/payment-whatif", icon: Calculator },
       ]
     },
     {
