@@ -1231,6 +1231,7 @@ const Dashboard = () => {
         });
         
         const sortedBrandSales = Object.values(brandSalesData)
+          .filter((a: any) => a.totalSales > 0 || a.totalCost > 0 || a.transactionCount > 0)
           .sort((a: any, b: any) => b.totalSales - a.totalSales);
         setBrandSalesGrid(sortedBrandSales);
       }
