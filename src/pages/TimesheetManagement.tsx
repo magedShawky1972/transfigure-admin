@@ -670,118 +670,15 @@ export default function TimesheetManagement() {
       }
       const { data: wfhData } = await wfhQuery;
 
-      // Build a set of employee_id + date for WFH days and a map for times
-      const wfhDays = new Set<string>();
-      const wfhTimes = new Map<string, { checkin_time: string | null; checkout_time: string | null }>();
+      // Build WFH sessions list (each check-in is a separate session)
+      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null }[] = [];
+      const wfhDaysForApproval = new Set<string>(); // still used to clear deductions for ZK rows on WFH days
       (wfhData || []).forEach((wfh: any) => {
         const empId = userToEmployee.get(wfh.user_id);
         if (empId) {
           const key = `${empId}_${wfh.checkin_date}`;
-          wfhDays.add(key);
-          wfhTimes.set(key, { checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time });
-        }
-      });
-
-      // Build a set of employee_id + date combos that are vacation days
-      const vacationDays = new Set<string>();
-      (approvedLeaves || []).forEach((leave: any) => {
-        const start = new Date(leave.start_date);
-        const end = new Date(leave.end_date);
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          vacationDays.add(`${leave.employee_id}_${d.toISOString().split("T")[0]}`);
-        }
-      });
-      (manualVacations || []).forEach((vac: any) => {
-        const start = new Date(vac.start_date);
-        const end = new Date(vac.end_date);
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          vacationDays.add(`${vac.employee_id}_${d.toISOString().split("T")[0]}`);
-        }
-      });
-
-      // Build sets for approved delay/early_leave dates
-      const approvedDelayDays = new Set<string>();
-      const approvedEarlyLeaveDays = new Set<string>();
-      (approvedDelays || []).forEach((req: any) => {
-        const key = `${req.employee_id}_${req.delay_date}`;
-        if (req.request_type === "delay") {
-          approvedDelayDays.add(key);
-        } else if (req.request_type === "early_leave") {
-          approvedEarlyLeaveDays.add(key);
-        }
-      });
-
-      // Mail status + auto-detect vacation days + clear delay/early leave for approved requests
-      const existingKeys = new Set((data || []).map((ts: any) => `${ts.employee_id}_${ts.work_date}`));
-      const timesheetsWithMailStatus = (data || []).map(ts => {
-        const key = `${ts.employee_id}_${ts.work_date}`;
-        const isVacationDay = vacationDays.has(key);
-        const hasApprovedDelay = approvedDelayDays.has(key);
-        const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
-        const isWFH = wfhDays.has(key);
-        const wfhTime = isWFH ? wfhTimes.get(key) : null;
-        return {
-          ...ts,
-          mailSent: ts.deduction_notification_sent === true,
-          status: isWFH ? "present" : isVacationDay ? "vacation" : ts.status,
-          is_absent: isWFH ? false : isVacationDay ? false : ts.is_absent,
-          late_minutes: (isWFH || hasApprovedDelay) ? 0 : ts.late_minutes,
-          early_leave_minutes: (isWFH || hasApprovedEarlyLeave) ? 0 : ts.early_leave_minutes,
-          deduction_amount: (isWFH || hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
-          deduction_rule_id: (isWFH || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
-          deduction_rules: (isWFH || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
-          has_approved_delay: hasApprovedDelay,
-          has_approved_early_leave: hasApprovedEarlyLeave,
-          is_wfh: isWFH,
-          actual_start: isWFH && !ts.actual_start && wfhTime?.checkin_time ? wfhTime.checkin_time : ts.actual_start,
-          actual_end: isWFH && !ts.actual_end && wfhTime?.checkout_time ? wfhTime.checkout_time : ts.actual_end,
-        };
-      });
-
-      // Create virtual rows for WFH days that have no timesheet record
-      const virtualWfhRows: any[] = [];
-      wfhDays.forEach(key => {
-        if (!existingKeys.has(key)) {
-          const [empId, date] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
-          const emp = (employeesRes.data || []).find((e: any) => e.id === empId);
-          if (emp && (!selectedEmployee || selectedEmployee === empId) && (departmentEmployeeIds === null || departmentEmployeeIds.includes(empId))) {
-            const wfhTime = wfhTimes.get(key);
-            virtualWfhRows.push({
-              id: `wfh-virtual-${key}`,
-              employee_id: empId,
-              work_date: date,
-              scheduled_start: null,
-              scheduled_end: null,
-              actual_start: wfhTime?.checkin_time || null,
-              actual_end: wfhTime?.checkout_time || null,
-              break_duration_minutes: 0,
-              status: "present",
-              is_absent: false,
-              absence_reason: null,
-              late_minutes: 0,
-              early_leave_minutes: 0,
-              overtime_minutes: 0,
-              total_work_minutes: wfhTime?.checkin_time && wfhTime?.checkout_time
-                ? Math.max(0, differenceInMinutes(new Date(wfhTime.checkout_time), new Date(wfhTime.checkin_time)))
-                : 0,
-              deduction_amount: 0,
-              deduction_rule_id: null,
-              overtime_amount: 0,
-              notes: null,
-              employees: {
-                employee_number: emp.employee_number,
-                first_name: emp.first_name,
-                last_name: emp.last_name,
-                zk_employee_code: null,
-              },
-              mailSent: false,
-              deduction_rules: null,
-              is_wfh: true,
-              has_approved_delay: false,
-              has_approved_early_leave: false,
-              is_virtual_wfh: true,
-            });
-          }
+          wfhDaysForApproval.add(key);
+          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time });
         }
       });
 
