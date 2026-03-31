@@ -735,11 +735,30 @@ export default function TimesheetManagement() {
         };
       });
 
+      // Build set of employee+date keys that have existing ZK/timesheet records
+      const existingTimesheetKeys = new Set((data || []).map((ts: any) => `${ts.employee_id}_${ts.work_date}`));
+
       // Create virtual WFH rows for ALL WFH sessions (even if ZK record exists for same day)
+      // If employee already has a ZK record for the same day, WFH work minutes count as overtime
       const virtualWfhRows: any[] = [];
       wfhSessions.forEach((session, idx) => {
         const emp = (employeesRes.data || []).find((e: any) => e.id === session.empId);
         if (emp && (!selectedEmployee || selectedEmployee === session.empId) && (departmentEmployeeIds === null || departmentEmployeeIds.includes(session.empId))) {
+          const workMinutes = session.checkin_time && session.checkout_time
+            ? Math.max(0, differenceInMinutes(new Date(session.checkout_time), new Date(session.checkin_time)))
+            : 0;
+          const hasZkRecord = existingTimesheetKeys.has(`${session.empId}_${session.date}`);
+          
+          // Calculate overtime amount if employee has a ZK record (WFH is extra hours)
+          let overtimeAmount = 0;
+          if (hasZkRecord && workMinutes > 0 && emp.basic_salary) {
+            const dailySalary = emp.basic_salary / 30;
+            const hourlyRate = dailySalary / 8;
+            const overtimeRule = deductionRules.find((r) => r.is_overtime);
+            const multiplier = overtimeRule?.overtime_multiplier || 1.5;
+            overtimeAmount = hourlyRate * (workMinutes / 60) * multiplier;
+          }
+
           virtualWfhRows.push({
             id: `wfh-virtual-${session.empId}_${session.date}_${idx}`,
             employee_id: session.empId,
@@ -754,14 +773,12 @@ export default function TimesheetManagement() {
             absence_reason: null,
             late_minutes: 0,
             early_leave_minutes: 0,
-            overtime_minutes: 0,
-            total_work_minutes: session.checkin_time && session.checkout_time
-              ? Math.max(0, differenceInMinutes(new Date(session.checkout_time), new Date(session.checkin_time)))
-              : 0,
+            overtime_minutes: hasZkRecord ? workMinutes : 0,
+            total_work_minutes: workMinutes,
             deduction_amount: 0,
             deduction_rule_id: null,
-            overtime_amount: 0,
-            notes: null,
+            overtime_amount: overtimeAmount,
+            notes: hasZkRecord ? (language === "ar" ? "ساعات إضافية من المنزل" : "WFH Extra Hours") : null,
             employees: {
               employee_number: emp.employee_number,
               first_name: emp.first_name,
