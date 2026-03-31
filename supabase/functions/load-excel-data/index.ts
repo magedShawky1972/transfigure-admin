@@ -50,6 +50,25 @@ function convertExcelDate(value: any): string | null {
   return String(value);
 }
 
+function getCanonicalOrderNumber(primaryValue: any, fallbackValue?: any): string {
+  const primary = String(primaryValue ?? '').trim();
+  if (primary) return primary;
+
+  const fallback = String(fallbackValue ?? '').trim();
+  if (!fallback) return '';
+
+  const apiStyleMatch = fallback.match(/^([A-Za-z0-9]+)-\d+$/);
+  return apiStyleMatch ? apiStyleMatch[1] : fallback;
+}
+
+function parseNumericValue(value: any): number {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = typeof value === 'string'
+    ? parseFloat(value.replace(/[\s,]/g, ''))
+    : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -316,6 +335,13 @@ Deno.serve(async (req) => {
         }
       });
 
+      if (tableName === 'purpletransaction') {
+        const explicitLineNo = Number(row.assigned_line_no ?? row.line_no);
+        if (Number.isFinite(explicitLineNo) && explicitLineNo > 0) {
+          transformedRow.line_no = explicitLineNo;
+        }
+      }
+
       return transformedRow;
     });
 
@@ -456,9 +482,7 @@ Deno.serve(async (req) => {
         if (rawOrderNum) {
           const orderNum = String(rawOrderNum).trim();
           record.ordernumber = orderNum;
-          if (record.order_number) {
-            record.order_number = orderNum;
-          }
+          record.order_number = getCanonicalOrderNumber(record.order_number, orderNum) || orderNum;
 
           if (Number.isFinite(existingLineNo) && existingLineNo > 0) {
             record.line_no = existingLineNo;
@@ -735,55 +759,121 @@ Deno.serve(async (req) => {
     if (tableName === 'purpletransaction') {
       console.log('Upsert mode: updating existing records and inserting missing ones...');
       
-      // Collect all unique order numbers from the Excel data
-      const excelOrderNumbers = [...new Set(
-        validData
-          .map((r: any) => r.ordernumber || r.order_number)
-          .filter((o: any) => o && String(o).trim())
-          .map((o: any) => String(o).trim())
-      )];
+      const excelRowsByOrder = new Map<string, any[]>();
+      for (const row of validData) {
+        const canonicalOrderNumber = getCanonicalOrderNumber(row.order_number, row.ordernumber);
+        if (!canonicalOrderNumber) continue;
+
+        row.order_number = canonicalOrderNumber;
+        row.ordernumber = String(row.ordernumber || canonicalOrderNumber).trim();
+
+        if (!excelRowsByOrder.has(canonicalOrderNumber)) {
+          excelRowsByOrder.set(canonicalOrderNumber, []);
+        }
+        excelRowsByOrder.get(canonicalOrderNumber)!.push(row);
+      }
+
+      const excelOrderNumbers = Array.from(excelRowsByOrder.keys());
       
       if (excelOrderNumbers.length > 0) {
-        // Check which order+line combinations already exist in the database
-        const existingOrderLineSet = new Set<string>();
-        // Also track order_number+product_id to catch records matching the conditional unique index
-        const existingOrderProductSet = new Set<string>();
-        
+        const existingRowsByCanonicalOrder = new Map<string, any[]>();
+        const seenExistingIds = new Set<string>();
+
+        const addExistingRow = (row: any) => {
+          if (!row?.id || seenExistingIds.has(row.id)) return;
+          seenExistingIds.add(row.id);
+
+          const canonicalOrderNumber = getCanonicalOrderNumber(row.order_number, row.ordernumber);
+          if (!canonicalOrderNumber) return;
+
+          if (!existingRowsByCanonicalOrder.has(canonicalOrderNumber)) {
+            existingRowsByCanonicalOrder.set(canonicalOrderNumber, []);
+          }
+          existingRowsByCanonicalOrder.get(canonicalOrderNumber)!.push(row);
+        };
+
+        const selectExistingColumns = 'id, ordernumber, order_number, line_no, product_id, total';
         const batchSize = 200;
         for (let i = 0; i < excelOrderNumbers.length; i += batchSize) {
           const batch = excelOrderNumbers.slice(i, i + batchSize);
-          
-          // Query by ordernumber with high limit to avoid missing multi-line orders
-          const { data: existingRows, error: existErr } = await supabase
+
+          const { data: existingByOrderNumber, error: existErr1 } = await supabase
             .from('purpletransaction')
-            .select('ordernumber, line_no, order_number, product_id')
-            .in('ordernumber', batch)
-            .limit(10000);
-          
-          if (existErr) {
-            console.error('Error checking existing orders by ordernumber:', existErr);
-          } else if (existingRows) {
-            for (const row of existingRows) {
-              existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
-              if (row.order_number && row.product_id) {
-                existingOrderProductSet.add(`${String(row.order_number)}|${String(row.product_id)}`);
-              }
-            }
-          }
-          
-          // Also query by order_number to catch API-sourced records with different ordernumber format
-          const { data: existingByOrderNum, error: existErr2 } = await supabase
-            .from('purpletransaction')
-            .select('ordernumber, line_no, order_number, product_id')
+            .select(selectExistingColumns)
             .in('order_number', batch)
             .limit(10000);
-          
-          if (!existErr2 && existingByOrderNum) {
-            for (const row of existingByOrderNum) {
-              existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
-              if (row.order_number && row.product_id) {
-                existingOrderProductSet.add(`${String(row.order_number)}|${String(row.product_id)}`);
-              }
+
+          if (existErr1) {
+            console.error('Error checking existing orders by order_number:', existErr1);
+          } else {
+            (existingByOrderNumber || []).forEach(addExistingRow);
+          }
+
+          const { data: existingByOrderAlias, error: existErr2 } = await supabase
+            .from('purpletransaction')
+            .select(selectExistingColumns)
+            .in('ordernumber', batch)
+            .limit(10000);
+
+          if (existErr2) {
+            console.error('Error checking existing orders by ordernumber:', existErr2);
+          } else {
+            (existingByOrderAlias || []).forEach(addExistingRow);
+          }
+        }
+
+        const replacedOrders = new Set<string>();
+        for (const [orderNumber, excelRows] of excelRowsByOrder.entries()) {
+          const existingRows = existingRowsByCanonicalOrder.get(orderNumber) || [];
+          if (existingRows.length === 0) continue;
+
+          const excelTotal = excelRows.reduce((sum, row) => sum + parseNumericValue(row.total), 0);
+          const existingTotal = existingRows.reduce((sum, row) => sum + parseNumericValue(row.total), 0);
+          const countMismatch = existingRows.length !== excelRows.length;
+          const totalMismatch = Math.abs(existingTotal - excelTotal) > 0.001;
+
+          if (countMismatch || totalMismatch) {
+            replacedOrders.add(orderNumber);
+          }
+        }
+
+        if (replacedOrders.size > 0) {
+          const idsToDelete = Array.from(replacedOrders)
+            .flatMap((orderNumber) => (existingRowsByCanonicalOrder.get(orderNumber) || []).map((row: any) => row.id))
+            .filter(Boolean);
+
+          console.log(`Replacing ${replacedOrders.size} mismatched orders from Excel: ${Array.from(replacedOrders).slice(0, 10).join(', ')}`);
+
+          for (let i = 0; i < idsToDelete.length; i += 500) {
+            const deleteBatch = idsToDelete.slice(i, i + 500);
+            const { error: deleteErr } = await supabase
+              .from('purpletransaction')
+              .delete()
+              .in('id', deleteBatch);
+
+            if (deleteErr) {
+              console.error('Error deleting mismatched purpletransaction rows:', deleteErr);
+              return new Response(
+                JSON.stringify({ error: `Failed to replace mismatched order data: ${deleteErr.message}` }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+        }
+
+        const existingOrderLineSet = new Set<string>();
+        const existingOrderProductSet = new Set<string>();
+        const orderProductToDbId = new Map<string, string>();
+
+        for (const [orderNumber, existingRows] of existingRowsByCanonicalOrder.entries()) {
+          if (replacedOrders.has(orderNumber)) continue;
+
+          for (const row of existingRows) {
+            existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
+            if (row.order_number && row.product_id) {
+              const productKey = `${String(row.order_number)}|${String(row.product_id)}`;
+              existingOrderProductSet.add(productKey);
+              orderProductToDbId.set(productKey, row.id);
             }
           }
         }
@@ -791,28 +881,7 @@ Deno.serve(async (req) => {
         console.log(`Found ${existingOrderLineSet.size} existing order+line records out of ${validData.length} Excel rows`);
         
         // Separate into records to update vs records to insert
-        const recordsToUpdate: any[] = [];
         const recordsToInsert: any[] = [];
-        
-        // Also build a map from order_number+product_id -> DB record id for direct updates
-        const orderProductToDbId = new Map<string, string>();
-        // Re-fetch IDs for records matched by order_number+product_id
-        const allOrderNums = [...new Set(validData.map((r: any) => String(r.order_number || r.ordernumber || '').trim()).filter(Boolean))];
-        for (let i = 0; i < allOrderNums.length; i += 200) {
-          const batch = allOrderNums.slice(i, i + 200);
-          const { data: dbRows } = await supabase
-            .from('purpletransaction')
-            .select('id, order_number, product_id')
-            .in('order_number', batch)
-            .limit(10000);
-          if (dbRows) {
-            for (const r of dbRows) {
-              if (r.order_number && r.product_id) {
-                orderProductToDbId.set(`${String(r.order_number)}|${String(r.product_id)}`, r.id);
-              }
-            }
-          }
-        }
 
         // Separate into: update by ordernumber+line_no, update by order_number+product_id (direct), or insert
         const recordsToUpsertByOrderLine: any[] = [];
@@ -820,14 +889,19 @@ Deno.serve(async (req) => {
         
         for (const row of validData) {
           const orderNum = row.ordernumber || row.order_number;
+          const canonicalOrderNumber = getCanonicalOrderNumber(row.order_number, orderNum);
           const lineNo = row.line_no || 1;
           if (!orderNum) {
             recordsToInsert.push(row);
             continue;
           }
+          if (canonicalOrderNumber && replacedOrders.has(canonicalOrderNumber)) {
+            recordsToInsert.push(row);
+            continue;
+          }
           const key = `${String(orderNum).trim()}|${lineNo}`;
-          const opKey = row.order_number && row.product_id 
-            ? `${String(row.order_number)}|${String(row.product_id)}` 
+          const opKey = canonicalOrderNumber && row.product_id 
+            ? `${String(canonicalOrderNumber)}|${String(row.product_id)}` 
             : null;
           
           if (existingOrderLineSet.has(key)) {
