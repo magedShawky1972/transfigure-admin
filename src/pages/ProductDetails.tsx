@@ -217,6 +217,7 @@ const ProductDetails = () => {
         setMobileEnabled(data.mobile_enabled ?? true);
         setNonStock(data.non_stock ?? false);
         setAllowPurchase((data as any).allow_purchase ?? true);
+        setIsMainProduct((data as any).is_main_product ?? false);
         setCoinsNumber(data.coins_number?.toString() || "4000000");
         setMinCoins(data.min_coins?.toString() || "0");
         setMaxCoins(data.max_coins?.toString() || "0");
