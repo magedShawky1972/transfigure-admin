@@ -119,6 +119,7 @@ const ProductDetails = () => {
   // Non-stock toggle
   const [nonStock, setNonStock] = useState(false);
   const [allowPurchase, setAllowPurchase] = useState(true);
+  const [isMainProduct, setIsMainProduct] = useState(false);
 
   // Free coins section
   const [freeCoins, setFreeCoins] = useState<FreeCoin[]>([
@@ -216,6 +217,7 @@ const ProductDetails = () => {
         setMobileEnabled(data.mobile_enabled ?? true);
         setNonStock(data.non_stock ?? false);
         setAllowPurchase((data as any).allow_purchase ?? true);
+        setIsMainProduct((data as any).is_main_product ?? false);
         setCoinsNumber(data.coins_number?.toString() || "4000000");
         setMinCoins(data.min_coins?.toString() || "0");
         setMaxCoins(data.max_coins?.toString() || "0");
@@ -328,6 +330,7 @@ const ProductDetails = () => {
           mobile_enabled: mobileEnabled,
           non_stock: nonStock,
           allow_purchase: allowPurchase,
+          is_main_product: isMainProduct,
           coins_number: coinsNumber ? parseFloat(coinsNumber) : 0,
           min_coins: minCoins ? parseFloat(minCoins) : 0,
           max_coins: maxCoins ? parseFloat(maxCoins) : 0,
@@ -555,7 +558,18 @@ const ProductDetails = () => {
                       onChange={(e) => setBarcode(e.target.value)}
                       placeholder={isRTL ? "أدخل الباركود" : "Enter barcode"}
                     />
-                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  <Checkbox
+                    id="isMainProduct"
+                    checked={isMainProduct}
+                    onCheckedChange={(checked) => setIsMainProduct(checked === true)}
+                  />
+                  <Label htmlFor="isMainProduct" className="cursor-pointer">
+                    {isRTL ? "منتج رئيسي" : "Main Product"}
+                  </Label>
+                </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
