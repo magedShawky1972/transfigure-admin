@@ -132,6 +132,7 @@ import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
 import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
 import DataComparisonReport from "./pages/DataComparisonReport";
 import CoinsComparisonReport from "./pages/CoinsComparisonReport";
+import MainProductSalesReport from "./pages/MainProductSalesReport";
 import ReceivingCoins from "./pages/ReceivingCoins";
 import CoinsCreation from "./pages/CoinsCreation";
 import CoinsSending from "./pages/CoinsSending";
