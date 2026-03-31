@@ -558,7 +558,18 @@ const ProductDetails = () => {
                       onChange={(e) => setBarcode(e.target.value)}
                       placeholder={isRTL ? "أدخل الباركود" : "Enter barcode"}
                     />
-                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                  <Checkbox
+                    id="isMainProduct"
+                    checked={isMainProduct}
+                    onCheckedChange={(checked) => setIsMainProduct(checked === true)}
+                  />
+                  <Label htmlFor="isMainProduct" className="cursor-pointer">
+                    {isRTL ? "منتج رئيسي" : "Main Product"}
+                  </Label>
+                </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
