@@ -956,7 +956,7 @@ Deno.serve(async (req) => {
         }
         
         // Set validData to only the new records for insertion
-        fillGapsSkipped = recordsToUpdate.length;
+        fillGapsSkipped = recordsToUpsertByOrderLine.length + recordsToUpdateByProductId.length;
         validData = recordsToInsert;
         
         // Use upsert with ordernumber,line_no for new records to handle the order_number,product_id unique index gracefully
