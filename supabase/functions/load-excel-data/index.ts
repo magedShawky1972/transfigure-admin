@@ -794,6 +794,30 @@ Deno.serve(async (req) => {
         const recordsToUpdate: any[] = [];
         const recordsToInsert: any[] = [];
         
+        // Also build a map from order_number+product_id -> DB record id for direct updates
+        const orderProductToDbId = new Map<string, string>();
+        // Re-fetch IDs for records matched by order_number+product_id
+        const allOrderNums = [...new Set(validData.map((r: any) => String(r.order_number || r.ordernumber || '').trim()).filter(Boolean))];
+        for (let i = 0; i < allOrderNums.length; i += 200) {
+          const batch = allOrderNums.slice(i, i + 200);
+          const { data: dbRows } = await supabase
+            .from('purpletransaction')
+            .select('id, order_number, product_id')
+            .in('order_number', batch)
+            .limit(10000);
+          if (dbRows) {
+            for (const r of dbRows) {
+              if (r.order_number && r.product_id) {
+                orderProductToDbId.set(`${String(r.order_number)}|${String(r.product_id)}`, r.id);
+              }
+            }
+          }
+        }
+
+        // Separate into: update by ordernumber+line_no, update by order_number+product_id (direct), or insert
+        const recordsToUpsertByOrderLine: any[] = [];
+        const recordsToUpdateByProductId: Array<{ row: any; dbId: string }> = [];
+        
         for (const row of validData) {
           const orderNum = row.ordernumber || row.order_number;
           const lineNo = row.line_no || 1;
@@ -802,94 +826,131 @@ Deno.serve(async (req) => {
             continue;
           }
           const key = `${String(orderNum).trim()}|${lineNo}`;
-          // Also check by order_number+product_id (conditional unique index)
           const opKey = row.order_number && row.product_id 
             ? `${String(row.order_number)}|${String(row.product_id)}` 
             : null;
-          if (existingOrderLineSet.has(key) || (opKey && existingOrderProductSet.has(opKey))) {
-            recordsToUpdate.push(row);
+          
+          if (existingOrderLineSet.has(key)) {
+            // Matched by ordernumber+line_no - can upsert normally
+            recordsToUpsertByOrderLine.push(row);
+          } else if (opKey && existingOrderProductSet.has(opKey)) {
+            // Matched by order_number+product_id only - need direct update by ID
+            const dbId = orderProductToDbId.get(opKey);
+            if (dbId) {
+              recordsToUpdateByProductId.push({ row, dbId });
+            } else {
+              recordsToUpsertByOrderLine.push(row);
+            }
           } else {
             recordsToInsert.push(row);
           }
         }
         
-        console.log(`Records to update: ${recordsToUpdate.length}, Records to insert: ${recordsToInsert.length}`);
+        const totalToUpdate = recordsToUpsertByOrderLine.length + recordsToUpdateByProductId.length;
+        console.log(`Records to update: ${totalToUpdate} (${recordsToUpsertByOrderLine.length} by order+line, ${recordsToUpdateByProductId.length} by order+product), Records to insert: ${recordsToInsert.length}`);
         
-        // Update existing records with ALL fields from Excel - batch upsert for speed
-        if (recordsToUpdate.length > 0) {
-          console.log(`Updating ${recordsToUpdate.length} existing records with Excel data (batch mode)...`);
+        // Update existing records with ALL fields from Excel
+        // Part A: Batch upsert records matched by ordernumber+line_no
+        if (recordsToUpsertByOrderLine.length > 0) {
+          console.log(`Updating ${recordsToUpsertByOrderLine.length} records via ordernumber+line_no upsert...`);
           
-          // Prepare all rows for batch upsert
-          const upsertRows = recordsToUpdate.map((row: any) => {
+          const upsertRows = recordsToUpsertByOrderLine.map((row: any) => {
             const cleanRow: Record<string, any> = {};
             for (const [key, value] of Object.entries(row)) {
-              if (key === 'order_number') continue; // skip alias
+              if (key === 'order_number') continue;
               if (value !== undefined && value !== null && value !== '') {
                 cleanRow[key] = value;
               }
             }
-            // Ensure PK fields are present
             cleanRow.ordernumber = String(row.ordernumber || row.order_number).trim();
             cleanRow.line_no = row.line_no || 1;
             return cleanRow;
           });
 
-          // Upsert in batches of 200 for speed
           const updateBatchSize = 200;
           for (let b = 0; b < upsertRows.length; b += updateBatchSize) {
             const batch = upsertRows.slice(b, b + updateBatchSize);
-            const { error: upsertErr, data: upsertData } = await supabase
+            const { error: upsertErr } = await supabase
               .from('purpletransaction')
               .upsert(batch, { onConflict: 'ordernumber,line_no' });
             
             if (!upsertErr) {
               fillGapsUpdated += batch.length;
             } else {
-              console.error(`Error batch-upserting records (batch ${b / updateBatchSize + 1}):`, upsertErr);
+              console.error(`Error batch-upserting records:`, upsertErr);
             }
           }
+        }
+
+        // Part B: Direct update records matched by order_number+product_id (API-sourced records)
+        if (recordsToUpdateByProductId.length > 0) {
+          console.log(`Updating ${recordsToUpdateByProductId.length} API-sourced records by ID...`);
           
-          console.log(`Updated ${fillGapsUpdated} existing records with Excel data`);
-          
-          // Fill empty vendor_name for records that were updated but had no vendor_name in DB
-          // Use vendor_name from Excel data to patch records where vendor_name is null/empty
-          const vendorUpdates = new Map<string, string>();
-          for (const row of recordsToUpdate) {
-            const vendorName = row.vendor_name || row.Vendor_Name;
-            const orderNum = String(row.ordernumber || row.order_number).trim();
-            if (vendorName && orderNum) {
-              vendorUpdates.set(orderNum, vendorName);
-            }
-          }
-          
-          if (vendorUpdates.size > 0) {
-            const orderNums = [...vendorUpdates.keys()];
-            const vendorBatchSize = 500;
-            let vendorFixed = 0;
-            
-            for (let vb = 0; vb < orderNums.length; vb += vendorBatchSize) {
-              const batch = orderNums.slice(vb, vb + vendorBatchSize);
-              
-              // Find records with empty vendor_name in this batch
-              const { data: emptyVendorRows } = await supabase
-                .from('purpletransaction')
-                .select('id, ordernumber')
-                .in('ordernumber', batch)
-                .or('vendor_name.is.null,vendor_name.eq.');
-              
-              if (emptyVendorRows && emptyVendorRows.length > 0) {
-                for (const row of emptyVendorRows) {
-                  const newVendor = vendorUpdates.get(String(row.ordernumber));
-                  if (newVendor) {
-                    const { error: vErr } = await supabase
-                      .from('purpletransaction')
-                      .update({ vendor_name: newVendor })
-                      .eq('id', row.id);
-                    if (!vErr) vendorFixed++;
-                  }
-                }
-                console.log(`Fixed vendor_name for ${vendorFixed} records`);
+          for (const { row, dbId } of recordsToUpdateByProductId) {
+            const updateData: Record<string, any> = {};
+            for (const [key, value] of Object.entries(row)) {
+              // Skip PK/alias fields and empty values
+              if (['order_number', 'ordernumber', 'line_no', 'id'].includes(key)) continue;
+              if (value !== undefined && value !== null && value !== '') {
+                updateData[key] = value;
               }
+            }
+            
+            if (Object.keys(updateData).length > 0) {
+              const { error: updateErr } = await supabase
+                .from('purpletransaction')
+                .update(updateData)
+                .eq('id', dbId);
+              
+              if (!updateErr) {
+                fillGapsUpdated++;
+              } else {
+                console.error(`Error updating record ${dbId}:`, updateErr);
+              }
+            }
+          }
+          console.log(`Updated ${recordsToUpdateByProductId.length} API-sourced records with Excel data (vendor_name, user_name, customer_name, etc.)`);
+        }
+        
+        console.log(`Total updated: ${fillGapsUpdated} existing records with Excel data`);
+        
+        // Fill empty vendor_name for remaining records
+        const vendorUpdates = new Map<string, string>();
+        const allUpdatedRows = [...recordsToUpsertByOrderLine, ...recordsToUpdateByProductId.map(r => r.row)];
+        for (const row of allUpdatedRows) {
+          const vendorName = row.vendor_name || row.Vendor_Name;
+          const orderNum = String(row.order_number || row.ordernumber || '').trim();
+          if (vendorName && orderNum) {
+            vendorUpdates.set(orderNum, vendorName);
+          }
+        }
+        
+        if (vendorUpdates.size > 0) {
+          const orderNums = [...vendorUpdates.keys()];
+          let vendorFixed = 0;
+          
+          for (let vb = 0; vb < orderNums.length; vb += 500) {
+            const batch = orderNums.slice(vb, vb + 500);
+            
+            // Query by both ordernumber and order_number to catch API records
+            const { data: emptyVendorRows } = await supabase
+              .from('purpletransaction')
+              .select('id, ordernumber, order_number')
+              .or(`ordernumber.in.(${batch.join(',')}),order_number.in.(${batch.join(',')})`)
+              .or('vendor_name.is.null,vendor_name.eq.');
+            
+            if (emptyVendorRows && emptyVendorRows.length > 0) {
+              for (const row of emptyVendorRows) {
+                const newVendor = vendorUpdates.get(String(row.ordernumber)) || vendorUpdates.get(String(row.order_number));
+                if (newVendor) {
+                  const { error: vErr } = await supabase
+                    .from('purpletransaction')
+                    .update({ vendor_name: newVendor })
+                    .eq('id', row.id);
+                  if (!vErr) vendorFixed++;
+                }
+              }
+              console.log(`Fixed vendor_name for ${vendorFixed} records`);
             }
           }
         }
