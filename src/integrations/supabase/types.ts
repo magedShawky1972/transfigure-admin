@@ -5403,6 +5403,7 @@ export type Database = {
           discounts: Json | null
           free_coins: Json | null
           id: string
+          is_main_product: boolean | null
           leadtime: number | null
           max_coins: number | null
           maximum_order_quantity: number | null
@@ -5450,6 +5451,7 @@ export type Database = {
           discounts?: Json | null
           free_coins?: Json | null
           id?: string
+          is_main_product?: boolean | null
           leadtime?: number | null
           max_coins?: number | null
           maximum_order_quantity?: number | null
@@ -5497,6 +5499,7 @@ export type Database = {
           discounts?: Json | null
           free_coins?: Json | null
           id?: string
+          is_main_product?: boolean | null
           leadtime?: number | null
           max_coins?: number | null
           maximum_order_quantity?: number | null
