@@ -682,6 +682,102 @@ export default function TimesheetManagement() {
         }
       });
 
+      // Build a set of employee_id + date combos that are vacation days
+      const vacationDays = new Set<string>();
+      (approvedLeaves || []).forEach((leave: any) => {
+        const start = new Date(leave.start_date);
+        const end = new Date(leave.end_date);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          vacationDays.add(`${leave.employee_id}_${d.toISOString().split("T")[0]}`);
+        }
+      });
+      (manualVacations || []).forEach((vac: any) => {
+        const start = new Date(vac.start_date);
+        const end = new Date(vac.end_date);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          vacationDays.add(`${vac.employee_id}_${d.toISOString().split("T")[0]}`);
+        }
+      });
+
+      // Build sets for approved delay/early_leave dates
+      const approvedDelayDays = new Set<string>();
+      const approvedEarlyLeaveDays = new Set<string>();
+      (approvedDelays || []).forEach((req: any) => {
+        const key = `${req.employee_id}_${req.delay_date}`;
+        if (req.request_type === "delay") {
+          approvedDelayDays.add(key);
+        } else if (req.request_type === "early_leave") {
+          approvedEarlyLeaveDays.add(key);
+        }
+      });
+
+      // Mail status + auto-detect vacation days + clear delay/early leave for approved requests
+      // WFH days no longer overwrite ZK rows — WFH sessions appear as separate rows
+      const timesheetsWithMailStatus = (data || []).map(ts => {
+        const key = `${ts.employee_id}_${ts.work_date}`;
+        const isVacationDay = vacationDays.has(key);
+        const hasApprovedDelay = approvedDelayDays.has(key);
+        const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
+        return {
+          ...ts,
+          mailSent: ts.deduction_notification_sent === true,
+          status: isVacationDay ? "vacation" : ts.status,
+          is_absent: isVacationDay ? false : ts.is_absent,
+          late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
+          early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
+          deduction_amount: (hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
+          deduction_rule_id: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
+          deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
+          has_approved_delay: hasApprovedDelay,
+          has_approved_early_leave: hasApprovedEarlyLeave,
+          is_wfh: false,
+          is_virtual_wfh: false,
+        };
+      });
+
+      // Create virtual WFH rows for ALL WFH sessions (even if ZK record exists for same day)
+      const virtualWfhRows: any[] = [];
+      wfhSessions.forEach((session, idx) => {
+        const emp = (employeesRes.data || []).find((e: any) => e.id === session.empId);
+        if (emp && (!selectedEmployee || selectedEmployee === session.empId) && (departmentEmployeeIds === null || departmentEmployeeIds.includes(session.empId))) {
+          virtualWfhRows.push({
+            id: `wfh-virtual-${session.empId}_${session.date}_${idx}`,
+            employee_id: session.empId,
+            work_date: session.date,
+            scheduled_start: null,
+            scheduled_end: null,
+            actual_start: session.checkin_time || null,
+            actual_end: session.checkout_time || null,
+            break_duration_minutes: 0,
+            status: "present",
+            is_absent: false,
+            absence_reason: null,
+            late_minutes: 0,
+            early_leave_minutes: 0,
+            overtime_minutes: 0,
+            total_work_minutes: session.checkin_time && session.checkout_time
+              ? Math.max(0, differenceInMinutes(new Date(session.checkout_time), new Date(session.checkin_time)))
+              : 0,
+            deduction_amount: 0,
+            deduction_rule_id: null,
+            overtime_amount: 0,
+            notes: null,
+            employees: {
+              employee_number: emp.employee_number,
+              first_name: emp.first_name,
+              last_name: emp.last_name,
+              zk_employee_code: null,
+            },
+            mailSent: false,
+            deduction_rules: null,
+            is_wfh: true,
+            has_approved_delay: false,
+            has_approved_early_leave: false,
+            is_virtual_wfh: true,
+          });
+        }
+      });
+
       setTimesheets([...timesheetsWithMailStatus, ...virtualWfhRows]);
     } catch (error: any) {
       toast.error(error.message);
