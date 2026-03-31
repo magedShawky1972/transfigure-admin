@@ -619,7 +619,8 @@ const LoadData = () => {
     const { fileId, jsonData, queueIndex } = pendingControlAmountData;
     setPendingControlAmountData(null);
 
-    await processFileUpload(fileId, jsonData, queueIndex);
+    const preparedJsonData = await attachSavedLineNumbersToExcelData(jsonData);
+    await processFileUpload(fileId, preparedJsonData, queueIndex);
   };
 
   const handleControlAmountCancel = () => {
