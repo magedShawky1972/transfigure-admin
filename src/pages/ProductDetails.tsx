@@ -119,6 +119,7 @@ const ProductDetails = () => {
   // Non-stock toggle
   const [nonStock, setNonStock] = useState(false);
   const [allowPurchase, setAllowPurchase] = useState(true);
+  const [isMainProduct, setIsMainProduct] = useState(false);
 
   // Free coins section
   const [freeCoins, setFreeCoins] = useState<FreeCoin[]>([
