@@ -1092,6 +1092,34 @@ Deno.serve(async (req) => {
       const originalCount = rowsToInsert.length;
       rowsToInsert = Array.from(uniqueRowsMap.values());
       inFileDuplicateCount = originalCount - rowsToInsert.length;
+
+      // For purpletransaction: also deduplicate by (order_number, product_id) since that partial unique index exists
+      if (tableName === 'purpletransaction') {
+        const opMap = new Map<string, any>();
+        for (const row of rowsToInsert) {
+          const opKey = `${String(row.order_number || '')}|${String(row.product_id || '')}`;
+          if (opKey === '|') { opMap.set(crypto.randomUUID(), row); continue; }
+          if (opMap.has(opKey)) {
+            duplicateKeysSet.add(opKey);
+            // Merge: sum totals, keep higher line_no fields
+            const existing = opMap.get(opKey)!;
+            const mergedTotal = parseNumericValue(existing.total) + parseNumericValue(row.total);
+            const mergedQuantity = parseNumericValue(existing.quantity) + parseNumericValue(row.quantity);
+            const mergedTotalCost = parseNumericValue(existing.total_cost) + parseNumericValue(row.total_cost);
+            row.total = mergedTotal;
+            row.quantity = mergedQuantity;
+            row.total_cost = mergedTotalCost;
+          }
+          opMap.set(opKey, row);
+        }
+        const beforeOp = rowsToInsert.length;
+        rowsToInsert = Array.from(opMap.values());
+        const opDedupCount = beforeOp - rowsToInsert.length;
+        if (opDedupCount > 0) {
+          inFileDuplicateCount += opDedupCount;
+          console.log(`Merged ${opDedupCount} rows with duplicate (order_number, product_id) — totals summed`);
+        }
+      }
       
       // Get first 10 duplicate keys for display
       inFileDuplicateKeys.push(...Array.from(duplicateKeysSet).slice(0, 10));
@@ -1526,24 +1554,37 @@ Deno.serve(async (req) => {
         
         // Determine which constraint was violated and retry with appropriate conflict target
         if (message.includes('order_number') && message.includes('product_id')) {
-          console.log('Retrying with upsert on order_number,product_id...');
-          const chunkSize = 500;
-          let retryError: any = null;
-          for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
-            const chunk = rowsToInsert.slice(ci, ci + chunkSize);
-            const { error } = await supabase
-              .from(tableName)
-              .upsert(chunk, { onConflict: 'order_number,product_id', ignoreDuplicates: false });
-            if (error) {
-              retryError = error;
-              break;
+          console.log('Retrying with row-by-row insert/update for order_number+product_id conflicts...');
+          let rowSuccess = 0;
+          let rowUpdated = 0;
+          for (const row of rowsToInsert) {
+            const orderNum = String(row.order_number || '').trim();
+            const productId = row.product_id;
+            if (!orderNum || !productId) {
+              const { error: iErr } = await supabase.from(tableName).insert(row);
+              if (!iErr) rowSuccess++;
+              continue;
+            }
+            // Try insert first
+            const { error: iErr } = await supabase.from(tableName).insert(row);
+            if (!iErr) { rowSuccess++; continue; }
+            if ((iErr as any)?.code === '23505') {
+              // Update existing record
+              const updateData = { ...row };
+              delete updateData.id;
+              const { error: uErr } = await supabase
+                .from(tableName)
+                .update(updateData)
+                .eq('order_number', orderNum)
+                .eq('product_id', productId);
+              if (!uErr) { rowUpdated++; rowSuccess++; }
+              else { console.error(`Row update failed for ${orderNum}/${productId}:`, uErr); }
+            } else {
+              console.error('Row insert failed:', iErr);
             }
           }
-          if (!retryError) {
-            console.log(`Successfully upserted ${rowsToInsert.length} rows using order_number,product_id conflict`);
-            break;
-          }
-          console.error('Retry upsert also failed:', retryError);
+          console.log(`Row-by-row fallback: ${rowSuccess} succeeded (${rowUpdated} updated)`);
+          break;
         }
         
         // For other 23505 errors, try ignoreDuplicates
