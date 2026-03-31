@@ -276,6 +276,7 @@ const App = () => (
               <Route path="/expense-entry/:id" element={<ExpenseEntryForm />} />
               <Route path="/payment-bank-link" element={<PaymentBankLink />} />
               <Route path="/reports/payment-whatif" element={<PaymentWhatIfScenario />} />
+              <Route path="/reports/main-product-sales" element={<MainProductSalesReport />} />
               <Route path="/reports/bank-balance-by-date" element={<BankBalanceByDateReport />} />
               <Route path="/reports/bank-statement-by-bank" element={<BankStatementByBankReport />} />
               <Route path="/reports/daily-sales" element={<DailySalesReport />} />
