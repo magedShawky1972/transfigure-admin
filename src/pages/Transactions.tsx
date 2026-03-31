@@ -55,6 +55,7 @@ import { DailySyncStatusCard } from "@/components/DailySyncStatusCard";
 import { ResetOdooSyncDialog } from "@/components/ResetOdooSyncDialog";
 import { OdooSyncHistoryDialog } from "@/components/OdooSyncHistoryDialog";
 import { VirtualizedTransactionTable } from "@/components/transactions/VirtualizedTransactionTable";
+import { AggregatedInvoiceSearchDialog } from "@/components/AggregatedInvoiceSearchDialog";
 
 interface GroupLevel {
   columnId: string;
@@ -1463,6 +1464,7 @@ const Transactions = () => {
             </Badge>
           )}
           <OdooSyncHistoryDialog language={language} />
+          <AggregatedInvoiceSearchDialog language={language} />
         </div>
       </div>
 
