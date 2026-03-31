@@ -1101,13 +1101,11 @@ Deno.serve(async (req) => {
           if (opKey === '|') { opMap.set(crypto.randomUUID(), row); continue; }
           if (opMap.has(opKey)) {
             duplicateKeysSet.add(opKey);
-            // Merge: sum totals, keep higher line_no fields
+            // Merge: sum totals
             const existing = opMap.get(opKey)!;
             const mergedTotal = parseNumericValue(existing.total) + parseNumericValue(row.total);
-            const mergedQuantity = parseNumericValue(existing.quantity) + parseNumericValue(row.quantity);
             const mergedTotalCost = parseNumericValue(existing.total_cost) + parseNumericValue(row.total_cost);
             row.total = mergedTotal;
-            row.quantity = mergedQuantity;
             row.total_cost = mergedTotalCost;
           }
           opMap.set(opKey, row);
@@ -1532,18 +1530,21 @@ Deno.serve(async (req) => {
 
       console.error(`${useUpsert ? 'Upsert' : 'Insert'} error:`, insertError);
 
-      // Handle undefined column error (Postgres code 42703)
+      // Handle undefined column error (Postgres code 42703 or PostgREST PGRST204)
       const message = (insertError as any).message || '';
-      const match = message.match(/column \"([^\"]+)\"/i);
-      if (match && match[1]) {
-        const badColumn = match[1];
-        console.warn(`Retrying after removing unknown column: ${badColumn}`);
-        rowsToInsert = rowsToInsert.map((r: any) => {
-          const { [badColumn]: _, ...rest } = r;
-          return rest;
-        });
-        // Continue loop to retry
-        continue;
+      const errCode = (insertError as any).code || '';
+      const colMatch = message.match(/column [\"']([^\"']+)[\"']/i) || message.match(/the [\"']([^\"']+)[\"'] column/i) || message.match(/['"](\w+)['"] column/i);
+      if (colMatch && colMatch[1] || errCode === 'PGRST204') {
+        const badColumn = colMatch ? colMatch[1] : '';
+        if (badColumn) {
+          console.warn(`Retrying after removing unknown column: ${badColumn}`);
+          rowsToInsert = rowsToInsert.map((r: any) => {
+            const { [badColumn]: _, ...rest } = r;
+            return rest;
+          });
+          // Continue loop to retry
+          continue;
+        }
       }
 
       // Handle duplicate key violation (23505) - retry with upsert on the conflicting constraint
