@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales']);
         setLoading(false);
         return;
       }
@@ -333,6 +333,15 @@ const Reports = () => {
         : "Simulate the impact of changing payment gateway fee percentages on e-payment charges",
       icon: Calculator,
       route: "/reports/payment-whatif",
+    },
+    {
+      id: "main-product-sales",
+      name: language === "ar" ? "تقرير مبيعات المنتجات الرئيسية" : "Main Product Sales Report",
+      description: language === "ar"
+        ? "عرض مبيعات المنتجات المحددة كمنتج رئيسي مع الكمية والكوينز والإجمالي"
+        : "View sales for main products with qty, coins, unit price and total",
+      icon: ShoppingCart,
+      route: "/reports/main-product-sales",
     },
   ];
 
