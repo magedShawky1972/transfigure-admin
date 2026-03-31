@@ -1101,13 +1101,11 @@ Deno.serve(async (req) => {
           if (opKey === '|') { opMap.set(crypto.randomUUID(), row); continue; }
           if (opMap.has(opKey)) {
             duplicateKeysSet.add(opKey);
-            // Merge: sum totals, keep higher line_no fields
+            // Merge: sum totals
             const existing = opMap.get(opKey)!;
             const mergedTotal = parseNumericValue(existing.total) + parseNumericValue(row.total);
-            const mergedQuantity = parseNumericValue(existing.quantity) + parseNumericValue(row.quantity);
             const mergedTotalCost = parseNumericValue(existing.total_cost) + parseNumericValue(row.total_cost);
             row.total = mergedTotal;
-            row.quantity = mergedQuantity;
             row.total_cost = mergedTotalCost;
           }
           opMap.set(opKey, row);
