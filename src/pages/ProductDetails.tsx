@@ -471,7 +471,27 @@ const ProductDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Product Information */}
+            {/* Main Product Toggle */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">
+                    {language === "ar" ? "منتج رئيسي" : "Main Product"}
+                  </Label>
+                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <Checkbox
+                      checked={isMainProduct}
+                      onCheckedChange={(checked) => setIsMainProduct(checked === true)}
+                      className="h-5 w-5"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {isMainProduct ? (language === "ar" ? "نعم" : "Yes") : (language === "ar" ? "لا" : "No")}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className={isRTL ? 'text-right' : ''}>{t("productSetup.productInformation")}</CardTitle>
