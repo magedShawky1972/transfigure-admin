@@ -749,19 +749,37 @@ Deno.serve(async (req) => {
         // Also track order_number+product_id to catch records matching the conditional unique index
         const existingOrderProductSet = new Set<string>();
         
-        const batchSize = 500;
+        const batchSize = 200;
         for (let i = 0; i < excelOrderNumbers.length; i += batchSize) {
           const batch = excelOrderNumbers.slice(i, i + batchSize);
           
+          // Query by ordernumber with high limit to avoid missing multi-line orders
           const { data: existingRows, error: existErr } = await supabase
             .from('purpletransaction')
             .select('ordernumber, line_no, order_number, product_id')
-            .in('ordernumber', batch);
+            .in('ordernumber', batch)
+            .limit(10000);
           
           if (existErr) {
-            console.error('Error checking existing orders:', existErr);
+            console.error('Error checking existing orders by ordernumber:', existErr);
           } else if (existingRows) {
             for (const row of existingRows) {
+              existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
+              if (row.order_number && row.product_id) {
+                existingOrderProductSet.add(`${String(row.order_number)}|${String(row.product_id)}`);
+              }
+            }
+          }
+          
+          // Also query by order_number to catch API-sourced records with different ordernumber format
+          const { data: existingByOrderNum, error: existErr2 } = await supabase
+            .from('purpletransaction')
+            .select('ordernumber, line_no, order_number, product_id')
+            .in('order_number', batch)
+            .limit(10000);
+          
+          if (!existErr2 && existingByOrderNum) {
+            for (const row of existingByOrderNum) {
               existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
               if (row.order_number && row.product_id) {
                 existingOrderProductSet.add(`${String(row.order_number)}|${String(row.product_id)}`);
@@ -1363,6 +1381,55 @@ Deno.serve(async (req) => {
         });
         // Continue loop to retry
         continue;
+      }
+
+      // Handle duplicate key violation (23505) - retry with upsert on the conflicting constraint
+      const code23505 = (insertError as any)?.code === '23505';
+      if (code23505) {
+        const detailMsg = (insertError as any)?.details || message;
+        console.warn(`Duplicate key violation detected: ${detailMsg}`);
+        
+        // Determine which constraint was violated and retry with appropriate conflict target
+        if (message.includes('order_number') && message.includes('product_id')) {
+          console.log('Retrying with upsert on order_number,product_id...');
+          const chunkSize = 500;
+          let retryError: any = null;
+          for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+            const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+            const { error } = await supabase
+              .from(tableName)
+              .upsert(chunk, { onConflict: 'order_number,product_id', ignoreDuplicates: false });
+            if (error) {
+              retryError = error;
+              break;
+            }
+          }
+          if (!retryError) {
+            console.log(`Successfully upserted ${rowsToInsert.length} rows using order_number,product_id conflict`);
+            break;
+          }
+          console.error('Retry upsert also failed:', retryError);
+        }
+        
+        // For other 23505 errors, try ignoreDuplicates
+        console.log('Retrying with ignoreDuplicates=true...');
+        const chunkSize = 500;
+        let retryError2: any = null;
+        for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+          const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+          const { error } = await supabase
+            .from(tableName)
+            .upsert(chunk, { onConflict: pkColumns.join(','), ignoreDuplicates: true });
+          if (error) {
+            retryError2 = error;
+            break;
+          }
+        }
+        if (!retryError2) {
+          console.log(`Successfully upserted ${rowsToInsert.length} rows with ignoreDuplicates`);
+          break;
+        }
+        console.error('Retry with ignoreDuplicates also failed:', retryError2);
       }
 
       // Other errors: return immediately
