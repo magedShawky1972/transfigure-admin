@@ -1533,19 +1533,18 @@ Deno.serve(async (req) => {
       // Handle undefined column error (Postgres code 42703 or PostgREST PGRST204)
       const message = (insertError as any).message || '';
       const errCode = (insertError as any).code || '';
-      const match = message.match(/column [\"']([^\"']+)[\"']/i) || message.match(/the [\"']([^\"']+)[\"'] column/i);
-      if (match && match[1] || errCode === 'PGRST204') {
-        const badColumn = match ? match[1] : message.match(/['"](\w+)['"]\s+column/)?.[1] || '';
+      const colMatch = message.match(/column [\"']([^\"']+)[\"']/i) || message.match(/the [\"']([^\"']+)[\"'] column/i) || message.match(/['"](\w+)['"] column/i);
+      if (colMatch && colMatch[1] || errCode === 'PGRST204') {
+        const badColumn = colMatch ? colMatch[1] : '';
         if (badColumn) {
-      if (match && match[1]) {
-        const badColumn = match[1];
-        console.warn(`Retrying after removing unknown column: ${badColumn}`);
-        rowsToInsert = rowsToInsert.map((r: any) => {
-          const { [badColumn]: _, ...rest } = r;
-          return rest;
-        });
-        // Continue loop to retry
-        continue;
+          console.warn(`Retrying after removing unknown column: ${badColumn}`);
+          rowsToInsert = rowsToInsert.map((r: any) => {
+            const { [badColumn]: _, ...rest } = r;
+            return rest;
+          });
+          // Continue loop to retry
+          continue;
+        }
       }
 
       // Handle duplicate key violation (23505) - retry with upsert on the conflicting constraint
