@@ -749,19 +749,37 @@ Deno.serve(async (req) => {
         // Also track order_number+product_id to catch records matching the conditional unique index
         const existingOrderProductSet = new Set<string>();
         
-        const batchSize = 500;
+        const batchSize = 200;
         for (let i = 0; i < excelOrderNumbers.length; i += batchSize) {
           const batch = excelOrderNumbers.slice(i, i + batchSize);
           
+          // Query by ordernumber with high limit to avoid missing multi-line orders
           const { data: existingRows, error: existErr } = await supabase
             .from('purpletransaction')
             .select('ordernumber, line_no, order_number, product_id')
-            .in('ordernumber', batch);
+            .in('ordernumber', batch)
+            .limit(10000);
           
           if (existErr) {
-            console.error('Error checking existing orders:', existErr);
+            console.error('Error checking existing orders by ordernumber:', existErr);
           } else if (existingRows) {
             for (const row of existingRows) {
+              existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
+              if (row.order_number && row.product_id) {
+                existingOrderProductSet.add(`${String(row.order_number)}|${String(row.product_id)}`);
+              }
+            }
+          }
+          
+          // Also query by order_number to catch API-sourced records with different ordernumber format
+          const { data: existingByOrderNum, error: existErr2 } = await supabase
+            .from('purpletransaction')
+            .select('ordernumber, line_no, order_number, product_id')
+            .in('order_number', batch)
+            .limit(10000);
+          
+          if (!existErr2 && existingByOrderNum) {
+            for (const row of existingByOrderNum) {
               existingOrderLineSet.add(`${String(row.ordernumber)}|${row.line_no || 1}`);
               if (row.order_number && row.product_id) {
                 existingOrderProductSet.add(`${String(row.order_number)}|${String(row.product_id)}`);
