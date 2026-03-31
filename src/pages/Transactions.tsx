@@ -1464,6 +1464,7 @@ const Transactions = () => {
             </Badge>
           )}
           <OdooSyncHistoryDialog language={language} />
+          <AggregatedInvoiceSearchDialog language={language} />
         </div>
       </div>
 
