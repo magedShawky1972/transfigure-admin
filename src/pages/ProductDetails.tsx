@@ -330,6 +330,7 @@ const ProductDetails = () => {
           mobile_enabled: mobileEnabled,
           non_stock: nonStock,
           allow_purchase: allowPurchase,
+          is_main_product: isMainProduct,
           coins_number: coinsNumber ? parseFloat(coinsNumber) : 0,
           min_coins: minCoins ? parseFloat(minCoins) : 0,
           max_coins: maxCoins ? parseFloat(maxCoins) : 0,
