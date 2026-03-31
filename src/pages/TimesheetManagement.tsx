@@ -670,15 +670,15 @@ export default function TimesheetManagement() {
       }
       const { data: wfhData } = await wfhQuery;
 
-      // Build a set of employee_id + date for WFH days and a map for times
-      const wfhDays = new Set<string>();
-      const wfhTimes = new Map<string, { checkin_time: string | null; checkout_time: string | null }>();
+      // Build WFH sessions list (each check-in is a separate session)
+      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null }[] = [];
+      const wfhDaysForApproval = new Set<string>(); // still used to clear deductions for ZK rows on WFH days
       (wfhData || []).forEach((wfh: any) => {
         const empId = userToEmployee.get(wfh.user_id);
         if (empId) {
           const key = `${empId}_${wfh.checkin_date}`;
-          wfhDays.add(key);
-          wfhTimes.set(key, { checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time });
+          wfhDaysForApproval.add(key);
+          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time });
         }
       });
 
@@ -712,76 +712,69 @@ export default function TimesheetManagement() {
       });
 
       // Mail status + auto-detect vacation days + clear delay/early leave for approved requests
-      const existingKeys = new Set((data || []).map((ts: any) => `${ts.employee_id}_${ts.work_date}`));
+      // WFH days no longer overwrite ZK rows — WFH sessions appear as separate rows
       const timesheetsWithMailStatus = (data || []).map(ts => {
         const key = `${ts.employee_id}_${ts.work_date}`;
         const isVacationDay = vacationDays.has(key);
         const hasApprovedDelay = approvedDelayDays.has(key);
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
-        const isWFH = wfhDays.has(key);
-        const wfhTime = isWFH ? wfhTimes.get(key) : null;
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
-          status: isWFH ? "present" : isVacationDay ? "vacation" : ts.status,
-          is_absent: isWFH ? false : isVacationDay ? false : ts.is_absent,
-          late_minutes: (isWFH || hasApprovedDelay) ? 0 : ts.late_minutes,
-          early_leave_minutes: (isWFH || hasApprovedEarlyLeave) ? 0 : ts.early_leave_minutes,
-          deduction_amount: (isWFH || hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
-          deduction_rule_id: (isWFH || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
-          deduction_rules: (isWFH || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
+          status: isVacationDay ? "vacation" : ts.status,
+          is_absent: isVacationDay ? false : ts.is_absent,
+          late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
+          early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
+          deduction_amount: (hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
+          deduction_rule_id: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
+          deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
           has_approved_delay: hasApprovedDelay,
           has_approved_early_leave: hasApprovedEarlyLeave,
-          is_wfh: isWFH,
-          actual_start: isWFH && !ts.actual_start && wfhTime?.checkin_time ? wfhTime.checkin_time : ts.actual_start,
-          actual_end: isWFH && !ts.actual_end && wfhTime?.checkout_time ? wfhTime.checkout_time : ts.actual_end,
+          is_wfh: false,
+          is_virtual_wfh: false,
         };
       });
 
-      // Create virtual rows for WFH days that have no timesheet record
+      // Create virtual WFH rows for ALL WFH sessions (even if ZK record exists for same day)
       const virtualWfhRows: any[] = [];
-      wfhDays.forEach(key => {
-        if (!existingKeys.has(key)) {
-          const [empId, date] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
-          const emp = (employeesRes.data || []).find((e: any) => e.id === empId);
-          if (emp && (!selectedEmployee || selectedEmployee === empId) && (departmentEmployeeIds === null || departmentEmployeeIds.includes(empId))) {
-            const wfhTime = wfhTimes.get(key);
-            virtualWfhRows.push({
-              id: `wfh-virtual-${key}`,
-              employee_id: empId,
-              work_date: date,
-              scheduled_start: null,
-              scheduled_end: null,
-              actual_start: wfhTime?.checkin_time || null,
-              actual_end: wfhTime?.checkout_time || null,
-              break_duration_minutes: 0,
-              status: "present",
-              is_absent: false,
-              absence_reason: null,
-              late_minutes: 0,
-              early_leave_minutes: 0,
-              overtime_minutes: 0,
-              total_work_minutes: wfhTime?.checkin_time && wfhTime?.checkout_time
-                ? Math.max(0, differenceInMinutes(new Date(wfhTime.checkout_time), new Date(wfhTime.checkin_time)))
-                : 0,
-              deduction_amount: 0,
-              deduction_rule_id: null,
-              overtime_amount: 0,
-              notes: null,
-              employees: {
-                employee_number: emp.employee_number,
-                first_name: emp.first_name,
-                last_name: emp.last_name,
-                zk_employee_code: null,
-              },
-              mailSent: false,
-              deduction_rules: null,
-              is_wfh: true,
-              has_approved_delay: false,
-              has_approved_early_leave: false,
-              is_virtual_wfh: true,
-            });
-          }
+      wfhSessions.forEach((session, idx) => {
+        const emp = (employeesRes.data || []).find((e: any) => e.id === session.empId);
+        if (emp && (!selectedEmployee || selectedEmployee === session.empId) && (departmentEmployeeIds === null || departmentEmployeeIds.includes(session.empId))) {
+          virtualWfhRows.push({
+            id: `wfh-virtual-${session.empId}_${session.date}_${idx}`,
+            employee_id: session.empId,
+            work_date: session.date,
+            scheduled_start: null,
+            scheduled_end: null,
+            actual_start: session.checkin_time || null,
+            actual_end: session.checkout_time || null,
+            break_duration_minutes: 0,
+            status: "present",
+            is_absent: false,
+            absence_reason: null,
+            late_minutes: 0,
+            early_leave_minutes: 0,
+            overtime_minutes: 0,
+            total_work_minutes: session.checkin_time && session.checkout_time
+              ? Math.max(0, differenceInMinutes(new Date(session.checkout_time), new Date(session.checkin_time)))
+              : 0,
+            deduction_amount: 0,
+            deduction_rule_id: null,
+            overtime_amount: 0,
+            notes: null,
+            employees: {
+              employee_number: emp.employee_number,
+              first_name: emp.first_name,
+              last_name: emp.last_name,
+              zk_employee_code: null,
+            },
+            mailSent: false,
+            deduction_rules: null,
+            is_wfh: true,
+            has_approved_delay: false,
+            has_approved_early_leave: false,
+            is_virtual_wfh: true,
+          });
         }
       });
 
