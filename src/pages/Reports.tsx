@@ -334,6 +334,15 @@ const Reports = () => {
       icon: Calculator,
       route: "/reports/payment-whatif",
     },
+    {
+      id: "main-product-sales",
+      name: language === "ar" ? "تقرير مبيعات المنتجات الرئيسية" : "Main Product Sales Report",
+      description: language === "ar"
+        ? "عرض مبيعات المنتجات المحددة كمنتج رئيسي مع الكمية والكوينز والإجمالي"
+        : "View sales for main products with qty, coins, unit price and total",
+      icon: ShoppingCart,
+      route: "/reports/main-product-sales",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
