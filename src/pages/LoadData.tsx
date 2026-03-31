@@ -595,7 +595,8 @@ const LoadData = () => {
         return;
       }
 
-      await processFileUpload(fileItem.id, jsonData, queueIndex);
+      const preparedJsonData = await attachSavedLineNumbersToExcelData(jsonData);
+      await processFileUpload(fileItem.id, preparedJsonData, queueIndex);
     } catch (error: any) {
       setFileItems((prev) => prev.map((f) => (f.id === fileItem.id ? { ...f, status: 'error', error: error.message } : f)));
       await processNextFile(queueIndex + 1);
