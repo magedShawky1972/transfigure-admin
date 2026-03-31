@@ -1530,9 +1530,13 @@ Deno.serve(async (req) => {
 
       console.error(`${useUpsert ? 'Upsert' : 'Insert'} error:`, insertError);
 
-      // Handle undefined column error (Postgres code 42703)
+      // Handle undefined column error (Postgres code 42703 or PostgREST PGRST204)
       const message = (insertError as any).message || '';
-      const match = message.match(/column \"([^\"]+)\"/i);
+      const errCode = (insertError as any).code || '';
+      const match = message.match(/column [\"']([^\"']+)[\"']/i) || message.match(/the [\"']([^\"']+)[\"'] column/i);
+      if (match && match[1] || errCode === 'PGRST204') {
+        const badColumn = match ? match[1] : message.match(/['"](\w+)['"]\s+column/)?.[1] || '';
+        if (badColumn) {
       if (match && match[1]) {
         const badColumn = match[1];
         console.warn(`Retrying after removing unknown column: ${badColumn}`);
