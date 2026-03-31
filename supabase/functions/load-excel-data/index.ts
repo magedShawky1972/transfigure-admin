@@ -1383,6 +1383,55 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Handle duplicate key violation (23505) - retry with upsert on the conflicting constraint
+      const code23505 = (insertError as any)?.code === '23505';
+      if (code23505) {
+        const detailMsg = (insertError as any)?.details || message;
+        console.warn(`Duplicate key violation detected: ${detailMsg}`);
+        
+        // Determine which constraint was violated and retry with appropriate conflict target
+        if (message.includes('order_number') && message.includes('product_id')) {
+          console.log('Retrying with upsert on order_number,product_id...');
+          const chunkSize = 500;
+          let retryError: any = null;
+          for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+            const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+            const { error } = await supabase
+              .from(tableName)
+              .upsert(chunk, { onConflict: 'order_number,product_id', ignoreDuplicates: false });
+            if (error) {
+              retryError = error;
+              break;
+            }
+          }
+          if (!retryError) {
+            console.log(`Successfully upserted ${rowsToInsert.length} rows using order_number,product_id conflict`);
+            break;
+          }
+          console.error('Retry upsert also failed:', retryError);
+        }
+        
+        // For other 23505 errors, try ignoreDuplicates
+        console.log('Retrying with ignoreDuplicates=true...');
+        const chunkSize = 500;
+        let retryError2: any = null;
+        for (let ci = 0; ci < rowsToInsert.length; ci += chunkSize) {
+          const chunk = rowsToInsert.slice(ci, ci + chunkSize);
+          const { error } = await supabase
+            .from(tableName)
+            .upsert(chunk, { onConflict: pkColumns.join(','), ignoreDuplicates: true });
+          if (error) {
+            retryError2 = error;
+            break;
+          }
+        }
+        if (!retryError2) {
+          console.log(`Successfully upserted ${rowsToInsert.length} rows with ignoreDuplicates`);
+          break;
+        }
+        console.error('Retry with ignoreDuplicates also failed:', retryError2);
+      }
+
       // Other errors: return immediately
       return new Response(
         JSON.stringify({ error: `Failed to ${useUpsert ? 'upsert' : 'insert'} data: ${message}` }),
