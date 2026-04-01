@@ -323,89 +323,98 @@ Body:
           </div>
 
           <div>
-            <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "رابط WebView" : "WebView URL"}</h4>
+            <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "رابط الجلسة التلقائية (PWA)" : "Auto-Login Session URL (PWA)"}</h4>
             <code className="text-sm bg-muted px-3 py-1.5 rounded block break-all">
-              {APP_URL}/shift-session
+              {APP_URL}/crm-session#token={'{base64_encoded_session}'}
             </code>
+          </div>
+
+          <div className="p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+            <p className="text-sm flex items-center gap-2">
+              <Shield className="h-4 w-4 text-green-600" />
+              <strong>{isRTL ? "أمان:" : "Security:"}</strong>
+              {isRTL 
+                ? " يتم تمرير بيانات الجلسة عبر URL hash fragment (#) وليس query parameter (?). هذا يعني أن البيانات لا تُرسل إلى السيرفر ولا تظهر في سجلات الوصول. يتم مسح الـ hash فوراً بعد القراءة."
+                : " Session data is passed via URL hash fragment (#) not query parameter (?). This means data is never sent to the server or logged in access logs. The hash is cleared immediately after reading."}
+            </p>
           </div>
 
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">
-              {isRTL ? "تعيين الجلسة عبر JavaScript" : "Set Session via JavaScript"}
+              {isRTL ? "بناء رابط الجلسة (JavaScript)" : "Build Session URL (JavaScript)"}
             </h4>
-            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`// Inject this JavaScript before loading the WebView URL
-// This sets the Supabase auth session so the user is auto-logged in
+            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`// After successful CRM Login API call, construct the session URL
 
-const sessionData = {
+const sessionData = JSON.stringify({
   access_token: "{session_id}",           // From CRM Login API
   refresh_token: "{refresh_token}",       // From CRM Login API
   expires_at: {expires_at},               // From CRM Login API
   expires_in: 3600,
   token_type: "bearer",
   user: {
-    id: "{user_id}",                      // From CRM Login API
+    id: "{user_id}",
     email: "{user_email}",
     aud: "authenticated",
     role: "authenticated"
   }
-};
+});
 
-// Set in localStorage (Supabase auth storage key)
-const storageKey = "sb-ysqqnkbgkrjoxrzlejxy-auth-token";
-localStorage.setItem(storageKey, JSON.stringify(sessionData));
+// Base64 encode the session data
+const encodedSession = btoa(sessionData);
 
-// Then navigate to: ${APP_URL}/shift-session`}</pre>
+// Navigate to the auto-login URL
+// The hash fragment (#) is NOT sent to the server (secure)
+window.location.href = \`${APP_URL}/crm-session#token=\${encodedSession}\`;
+
+// What happens:
+// 1. Page reads the token from the hash
+// 2. Decodes base64 → sets in localStorage
+// 3. Clears the hash from URL bar (user never sees it)
+// 4. Redirects to /shift-session (logged in)`}</pre>
           </div>
 
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">
-              {isRTL ? "مثال Android (Kotlin)" : "Android Example (Kotlin)"}
+              {isRTL ? "مثال: فتح في iframe أو نافذة جديدة" : "Example: Open in iframe or new window"}
             </h4>
-            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`val webView = WebView(context)
-webView.settings.javaScriptEnabled = true
-webView.settings.domStorageEnabled = true
+            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`// Option 1: Open in new window/tab
+function openShiftClosing(sessionId, refreshToken, expiresAt, userId, email) {
+  const session = JSON.stringify({
+    access_token: sessionId,
+    refresh_token: refreshToken,
+    expires_at: expiresAt,
+    expires_in: 3600,
+    token_type: "bearer",
+    user: { id: userId, email: email, aud: "authenticated", role: "authenticated" }
+  });
+  
+  const encoded = btoa(session);
+  window.open(\`${APP_URL}/crm-session#token=\${encoded}\`, '_blank');
+}
 
-// Set session before loading URL
-val jsCode = """
-  localStorage.setItem(
-    'sb-ysqqnkbgkrjoxrzlejxy-auth-token',
-    JSON.stringify($sessionJson)
-  );
-""".trimIndent()
-
-webView.evaluateJavascript(jsCode) {
-  webView.loadUrl("${APP_URL}/shift-session")
-}`}</pre>
-          </div>
-
-          <div>
-            <h4 className="font-medium text-sm text-muted-foreground mb-2">
-              {isRTL ? "مثال iOS (Swift)" : "iOS Example (Swift)"}
-            </h4>
-            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`import WebKit
-
-let webView = WKWebView()
-
-let jsCode = """
-localStorage.setItem(
-  'sb-ysqqnkbgkrjoxrzlejxy-auth-token',
-  JSON.stringify(\(sessionJson))
-);
-"""
-
-webView.evaluateJavaScript(jsCode) { _, _ in
-  let url = URL(string: "${APP_URL}/shift-session")!
-  webView.load(URLRequest(url: url))
+// Option 2: Navigate in current window
+function navigateToShift(sessionId, refreshToken, expiresAt, userId, email) {
+  const session = JSON.stringify({
+    access_token: sessionId,
+    refresh_token: refreshToken,
+    expires_at: expiresAt,
+    expires_in: 3600,
+    token_type: "bearer",
+    user: { id: userId, email: email, aud: "authenticated", role: "authenticated" }
+  });
+  
+  const encoded = btoa(session);
+  window.location.href = \`${APP_URL}/crm-session#token=\${encoded}\`;
 }`}</pre>
           </div>
 
           <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
             <p className="text-sm flex items-center gap-2">
               <Smartphone className="h-4 w-4 text-blue-600" />
-              <strong>{isRTL ? "ملاحظة:" : "Note:"}</strong>
+              <strong>{isRTL ? "ملاحظة PWA:" : "PWA Note:"}</strong>
               {isRTL 
-                ? " تأكد من تفعيل DOM Storage في WebView لكي تعمل localStorage. الشاشة ستعرض تلقائياً وردية المستخدم المفتوحة مع إمكانية رفع صور الإغلاق وإدخال أرقام الإغلاق."
-                : " Ensure DOM Storage is enabled in WebView for localStorage to work. The screen will automatically show the user's open shift with options to upload closing images and enter closing numbers."}
+                ? " تطبيق CRM هو PWA وليس تطبيق أصلي. استخدم الرابط المباشر مع الـ hash token بدلاً من JavaScript injection. الشاشة ستعرض تلقائياً وردية المستخدم المفتوحة مع إمكانية رفع صور الإغلاق وإدخال أرقام الإغلاق."
+                : " CRM app is a PWA, not a native app. Use the direct URL with hash token instead of JavaScript injection. The screen will automatically show the user's open shift with options to upload closing images and enter closing numbers."}
             </p>
           </div>
         </CardContent>
