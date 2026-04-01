@@ -9,10 +9,7 @@ const getKSADate = (): Date => {
   return new Date(utcTime + (KSA_OFFSET_HOURS * 60 * 60 * 1000));
 };
 
-const getKSADateString = (): string => {
-  const ksa = getKSADate();
-  return ksa.toISOString().split('T')[0];
-};
+const getKSADateString = (): string => getKSADate().toISOString().split('T')[0];
 
 const getKSAYesterdayDateString = (): string => {
   const ksa = getKSADate();
@@ -26,51 +23,123 @@ const getKSATimeInMinutes = (): number => {
 };
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
+  let requestBody: any = null;
+  let apiKeyData: any = null;
+  let responseStatus = 200;
+  let responseMessage = '';
+  let success = true;
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
+  const logApiCall = async () => {
+    try {
+      await supabaseAdmin.from('api_consumption_logs').insert({
+        endpoint: 'api-crm-shift-checkin',
+        method: req.method,
+        request_body: requestBody,
+        response_status: responseStatus,
+        response_message: responseMessage,
+        success,
+        execution_time_ms: Date.now() - startTime,
+        api_key_id: apiKeyData?.id || null,
+        api_key_description: apiKeyData?.description || null,
+      });
+    } catch (logError) {
+      console.error('Error logging API call:', logError);
+    }
+  };
+
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
-      status: 405,
+    responseStatus = 405;
+    responseMessage = 'Method not allowed. Use POST.';
+    success = false;
+    await logApiCall();
+    return new Response(JSON.stringify({ error: responseMessage }), {
+      status: responseStatus,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    // Validate session
+    // Validate API key from x-api-key header
+    const apiKeyHeader = req.headers.get('x-api-key');
+    if (!apiKeyHeader) {
+      responseStatus = 401;
+      responseMessage = 'Missing API key (x-api-key header)';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: apiKey, error: keyError } = await supabaseAdmin
+      .from('api_keys')
+      .select('*')
+      .eq('api_key', apiKeyHeader)
+      .eq('is_active', true)
+      .single();
+
+    apiKeyData = apiKey;
+
+    if (keyError || !apiKey || !apiKey.allow_crm) {
+      responseStatus = 403;
+      responseMessage = 'Invalid API key or CRM permission denied';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate session token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
-        status: 401,
+      responseStatus = 401;
+      responseMessage = 'Missing or invalid session token (Authorization: Bearer <session_id>)';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
     if (userError || !userData?.user) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid or expired session' }), {
-        status: 401,
+      responseStatus = 401;
+      responseMessage = 'Invalid or expired session';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const userId = userData.user.id;
     const body = await req.json();
+    requestBody = body;
     const { first_order_number, salla_first_order_number } = body;
 
     if (!first_order_number) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'first_order_number is required (Purple first order number)' 
-      }), {
-        status: 400,
+      responseStatus = 400;
+      responseMessage = 'first_order_number is required (Purple first order number)';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -85,14 +154,18 @@ Deno.serve(async (req) => {
 
     if (existingOpen) {
       const assignment = existingOpen.shift_assignments as any;
+      responseStatus = 409;
+      responseMessage = 'User already has an open shift session';
+      success = false;
+      await logApiCall();
       return new Response(JSON.stringify({
         success: false,
-        error: 'User already has an open shift session',
+        error: responseMessage,
         existing_shift_session_id: existingOpen.id,
         shift_name: assignment?.shifts?.shift_name || null,
         assignment_date: assignment?.assignment_date || null,
       }), {
-        status: 409,
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -101,7 +174,7 @@ Deno.serve(async (req) => {
     const today = getKSADateString();
     const yesterday = getKSAYesterdayDateString();
     const currentTimeInMinutes = getKSATimeInMinutes();
-    const BUFFER_MINUTES = 10; // 10 min early access
+    const BUFFER_MINUTES = 10;
 
     const { data: assignments } = await supabaseAdmin
       .from('shift_assignments')
@@ -116,11 +189,12 @@ Deno.serve(async (req) => {
       .order('assignment_date', { ascending: false });
 
     if (!assignments || assignments.length === 0) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'No shift assignment found for today' 
-      }), {
-        status: 404,
+      responseStatus = 404;
+      responseMessage = 'No shift assignment found for today';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -156,11 +230,12 @@ Deno.serve(async (req) => {
     }
 
     if (!validAssignment) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'No valid shift found for current time' 
-      }), {
-        status: 400,
+      responseStatus = 400;
+      responseMessage = 'No valid shift found for current time';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -191,7 +266,7 @@ Deno.serve(async (req) => {
         });
     }
 
-    // Check for existing closed session on this assignment
+    // Check for existing closed session
     const { data: closedSession } = await supabaseAdmin
       .from('shift_sessions')
       .select('id')
@@ -200,11 +275,12 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (closedSession) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Shift has already been opened and closed for this assignment' 
-      }), {
-        status: 409,
+      responseStatus = 409;
+      responseMessage = 'Shift has already been opened and closed for this assignment';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -222,9 +298,7 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (sessionError) {
-      throw sessionError;
-    }
+    if (sessionError) throw sessionError;
 
     // Send shift open notification
     try {
@@ -240,6 +314,8 @@ Deno.serve(async (req) => {
     }
 
     const shiftData = validAssignment.shifts as any;
+    responseMessage = 'Shift checked in successfully';
+    await logApiCall();
 
     return new Response(JSON.stringify({
       success: true,
@@ -251,10 +327,10 @@ Deno.serve(async (req) => {
       shift_end_time: shiftData?.shift_end_time || null,
       shift_type: shiftData?.shift_types?.type || null,
       assignment_date: validAssignment.assignment_date,
-      first_order_number: first_order_number,
+      first_order_number,
       salla_first_order_number: salla_first_order_number || null,
       opened_at: newSession.opened_at,
-      message: 'Shift checked in successfully'
+      message: responseMessage
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -262,8 +338,12 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('CRM Shift Check-in error:', error);
-    return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
-      status: 500,
+    responseStatus = 500;
+    responseMessage = 'Internal server error';
+    success = false;
+    await logApiCall();
+    return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+      status: responseStatus,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

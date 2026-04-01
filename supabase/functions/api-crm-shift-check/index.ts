@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
-// KSA timezone offset (UTC+3)
 const KSA_OFFSET_HOURS = 3;
 
 const getKSADate = (): Date => {
@@ -10,10 +9,7 @@ const getKSADate = (): Date => {
   return new Date(utcTime + (KSA_OFFSET_HOURS * 60 * 60 * 1000));
 };
 
-const getKSADateString = (): string => {
-  const ksa = getKSADate();
-  return ksa.toISOString().split('T')[0];
-};
+const getKSADateString = (): string => getKSADate().toISOString().split('T')[0];
 
 const getKSAYesterdayDateString = (): string => {
   const ksa = getKSADate();
@@ -27,42 +23,113 @@ const getKSATimeInMinutes = (): number => {
 };
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
+  let requestBody: any = null;
+  let apiKeyData: any = null;
+  let responseStatus = 200;
+  let responseMessage = '';
+  let success = true;
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
+  const logApiCall = async () => {
+    try {
+      await supabaseAdmin.from('api_consumption_logs').insert({
+        endpoint: 'api-crm-shift-check',
+        method: req.method,
+        request_body: requestBody,
+        response_status: responseStatus,
+        response_message: responseMessage,
+        success,
+        execution_time_ms: Date.now() - startTime,
+        api_key_id: apiKeyData?.id || null,
+        api_key_description: apiKeyData?.description || null,
+      });
+    } catch (logError) {
+      console.error('Error logging API call:', logError);
+    }
+  };
+
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed. Use POST.' }), {
-      status: 405,
+    responseStatus = 405;
+    responseMessage = 'Method not allowed. Use POST.';
+    success = false;
+    await logApiCall();
+    return new Response(JSON.stringify({ error: responseMessage }), {
+      status: responseStatus,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    // Validate session
+    // Validate API key from x-api-key header
+    const apiKeyHeader = req.headers.get('x-api-key');
+    if (!apiKeyHeader) {
+      responseStatus = 401;
+      responseMessage = 'Missing API key (x-api-key header)';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: apiKey, error: keyError } = await supabaseAdmin
+      .from('api_keys')
+      .select('*')
+      .eq('api_key', apiKeyHeader)
+      .eq('is_active', true)
+      .single();
+
+    apiKeyData = apiKey;
+
+    if (keyError || !apiKey || !apiKey.allow_crm) {
+      responseStatus = 403;
+      responseMessage = 'Invalid API key or CRM permission denied';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate session token from Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
-        status: 401,
+      responseStatus = 401;
+      responseMessage = 'Missing or invalid session token (Authorization: Bearer <session_id>)';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
     if (userError || !userData?.user) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid or expired session' }), {
-        status: 401,
+      responseStatus = 401;
+      responseMessage = 'Invalid or expired session';
+      success = false;
+      await logApiCall();
+      return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+        status: responseStatus,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const userId = userData.user.id;
+    requestBody = { user_id: userId };
     const today = getKSADateString();
     const yesterday = getKSAYesterdayDateString();
     const currentTimeInMinutes = getKSATimeInMinutes();
@@ -89,6 +156,8 @@ Deno.serve(async (req) => {
     if (openSession) {
       const assignment = openSession.shift_assignments as any;
       const shift = assignment?.shifts;
+      responseMessage = 'User has an active open shift session';
+      await logApiCall();
       return new Response(JSON.stringify({
         success: true,
         has_shift: true,
@@ -101,7 +170,7 @@ Deno.serve(async (req) => {
         assignment_date: assignment?.assignment_date || null,
         first_order_number: openSession.first_order_number || null,
         salla_first_order_number: openSession.salla_first_order_number || null,
-        message: 'User has an active open shift session'
+        message: responseMessage
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -122,28 +191,27 @@ Deno.serve(async (req) => {
       .order('assignment_date', { ascending: false });
 
     if (!assignments || assignments.length === 0) {
+      responseMessage = 'No shift assignment found for today';
+      await logApiCall();
       return new Response(JSON.stringify({
         success: true,
         has_shift: false,
         shift_status: 'no_assignment',
-        message: 'No shift assignment found for today'
+        message: responseMessage
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check each assignment with ±5 min buffer
     for (const assignment of assignments) {
       const shiftData = assignment.shifts as any;
       if (!shiftData) continue;
 
       const [startHours, startMinutes] = shiftData.shift_start_time.split(':').map(Number);
       const startTimeInMinutes = startHours * 60 + startMinutes;
-
       const [endHours, endMinutes] = shiftData.shift_end_time.split(':').map(Number);
       const endTimeInMinutes = endHours * 60 + endMinutes;
-
       const isOvernightShift = endTimeInMinutes < startTimeInMinutes;
       const effectiveStartTime = startTimeInMinutes - BUFFER_MINUTES;
       const effectiveEndTime = endTimeInMinutes + BUFFER_MINUTES;
@@ -151,24 +219,13 @@ Deno.serve(async (req) => {
       let isInShiftWindow = false;
 
       if (isOvernightShift) {
-        if (assignment.assignment_date === today) {
-          if (currentTimeInMinutes >= effectiveStartTime) {
-            isInShiftWindow = true;
-          }
-        }
-        if (assignment.assignment_date === yesterday) {
-          if (currentTimeInMinutes <= effectiveEndTime) {
-            isInShiftWindow = true;
-          }
-        }
+        if (assignment.assignment_date === today && currentTimeInMinutes >= effectiveStartTime) isInShiftWindow = true;
+        if (assignment.assignment_date === yesterday && currentTimeInMinutes <= effectiveEndTime) isInShiftWindow = true;
       } else {
-        if (currentTimeInMinutes >= effectiveStartTime && currentTimeInMinutes <= effectiveEndTime) {
-          isInShiftWindow = true;
-        }
+        if (currentTimeInMinutes >= effectiveStartTime && currentTimeInMinutes <= effectiveEndTime) isInShiftWindow = true;
       }
 
       if (isInShiftWindow) {
-        // Check if shift session already exists (closed)
         const { data: closedSession } = await supabaseAdmin
           .from('shift_sessions')
           .select('id, status')
@@ -176,6 +233,8 @@ Deno.serve(async (req) => {
           .eq('status', 'closed')
           .maybeSingle();
 
+        responseMessage = closedSession ? 'Shift has already been closed' : 'User has a scheduled shift in this time window';
+        await logApiCall();
         return new Response(JSON.stringify({
           success: true,
           has_shift: true,
@@ -186,9 +245,7 @@ Deno.serve(async (req) => {
           shift_end_time: shiftData.shift_end_time || null,
           shift_type: shiftData.shift_types?.type || null,
           assignment_date: assignment.assignment_date,
-          message: closedSession 
-            ? 'Shift has already been closed' 
-            : 'User has a scheduled shift in this time window'
+          message: responseMessage
         }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -196,12 +253,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // No shift in current time window
+    responseMessage = 'No shift scheduled within the current time window (±5 minutes)';
+    await logApiCall();
     return new Response(JSON.stringify({
       success: true,
       has_shift: false,
       shift_status: 'outside_window',
-      message: 'No shift scheduled within the current time window (±5 minutes)'
+      message: responseMessage
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -209,8 +267,12 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('CRM Shift Check error:', error);
-    return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
-      status: 500,
+    responseStatus = 500;
+    responseMessage = 'Internal server error';
+    success = false;
+    await logApiCall();
+    return new Response(JSON.stringify({ success: false, error: responseMessage }), {
+      status: responseStatus,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
