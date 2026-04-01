@@ -194,7 +194,6 @@ const MainProductSalesReport = () => {
       } else {
         map.set(key, {
           product_name: r.product_name,
-          brand_name: r.brand_name,
           month_year: monthYear,
           sort_key: sortKey,
           total_qty: r.qty || 0,
