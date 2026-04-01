@@ -88,8 +88,12 @@ const ProductSkuReport = () => {
 
     const matchesBrand = brandFilter === "all" || p.brand_name === brandFilter;
     const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+    const matchesPrice =
+      priceFilter === "all" ||
+      (priceFilter === "with_price" && p.product_price && p.product_price !== "0") ||
+      (priceFilter === "no_price" && (!p.product_price || p.product_price === "0"));
 
-    return matchesSearch && matchesBrand && matchesStatus;
+    return matchesSearch && matchesBrand && matchesStatus && matchesPrice;
   });
   const startEdit = (product: ProductRow) => {
     setEditingId(product.id);
