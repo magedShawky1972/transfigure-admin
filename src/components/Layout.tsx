@@ -425,7 +425,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {/* Push Notification Enable Bar */}
           {(user || isSysadminSession) && <PushNotificationBar />}
           
-          <header className={`border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10 transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+          <header className={`border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10 transition-transform duration-300 print:hidden ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
             {/* Main header row */}
             <div className="h-12 flex items-center justify-between px-3 md:px-4">
               <div className="flex items-center gap-3">
