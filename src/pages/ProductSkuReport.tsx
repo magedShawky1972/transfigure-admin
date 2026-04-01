@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, Download, Printer, ArrowLeft, Package, Pencil, Check, X } from "lucide-react";
+import { Loader2, Search, Download, Printer, ArrowLeft, Package, Pencil, Check, X, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 
@@ -95,6 +95,74 @@ const ProductSkuReport = () => {
 
     return matchesSearch && matchesBrand && matchesStatus && matchesPrice;
   });
+  const generateSkuForProduct = (product: ProductRow): string | null => {
+    if (!product.brand_code) return null;
+    
+    // Find all SKUs for the same brand
+    const brandSkus = products
+      .filter(p => p.brand_code === product.brand_code && p.sku)
+      .map(p => p.sku!);
+    
+    if (brandSkus.length === 0) return null;
+    
+    // Find the common prefix pattern (letters) and extract numbers
+    const patterns = brandSkus.map(sku => {
+      const match = sku.match(/^([A-Za-z]+)(\d+)$/);
+      return match ? { prefix: match[1], num: parseInt(match[2], 10), digits: match[2].length } : null;
+    }).filter(Boolean) as { prefix: string; num: number; digits: number }[];
+    
+    if (patterns.length === 0) return null;
+    
+    // Use the most common prefix
+    const prefixCounts: Record<string, { count: number; digits: number }> = {};
+    for (const p of patterns) {
+      if (!prefixCounts[p.prefix]) prefixCounts[p.prefix] = { count: 0, digits: p.digits };
+      prefixCounts[p.prefix].count++;
+    }
+    const bestPrefix = Object.entries(prefixCounts).sort((a, b) => b[1].count - a[1].count)[0][0];
+    const digitLength = prefixCounts[bestPrefix].digits;
+    
+    // Find max number with that prefix
+    const maxNum = Math.max(...patterns.filter(p => p.prefix === bestPrefix).map(p => p.num));
+    const nextNum = maxNum + 1;
+    
+    return bestPrefix + String(nextNum).padStart(digitLength, "0");
+  };
+
+  const handleGenerateSku = async (product: ProductRow) => {
+    const newSku = generateSkuForProduct(product);
+    if (!newSku) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: language === "ar" ? "لا يمكن توليد SKU - لا توجد أنماط SKU في نفس البراند" : "Cannot generate SKU - no SKU patterns found in same brand",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ sku: newSku })
+        .eq("id", product.id);
+
+      if (error) throw error;
+
+      setProducts(prev =>
+        prev.map(p => p.id === product.id ? { ...p, sku: newSku } : p)
+      );
+      toast({
+        title: language === "ar" ? "تم التوليد" : "Generated",
+        description: language === "ar" ? `تم توليد SKU: ${newSku}` : `SKU generated: ${newSku}`,
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const startEdit = (product: ProductRow) => {
     setEditingId(product.id);
     setEditValue(product.sku || "");
@@ -310,6 +378,18 @@ const ProductSkuReport = () => {
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
+                              {!p.sku && p.brand_code && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 print:hidden text-muted-foreground hover:text-primary"
+                                  onClick={() => handleGenerateSku(p)}
+                                  disabled={saving}
+                                  title={language === "ar" ? "توليد SKU تلقائي" : "Auto-generate SKU"}
+                                >
+                                  <Wand2 className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </TableCell>
