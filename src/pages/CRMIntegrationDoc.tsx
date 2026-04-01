@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Printer, ExternalLink, Code, Monitor, Smartphone, ArrowRight, Shield, Key, Globe } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -11,9 +15,19 @@ const APP_URL = 'https://id-preview--5b494188-68a9-41d5-980e-26f6e07be39c.lovabl
 const CRMIntegrationDoc = () => {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printApiKey, setPrintApiKey] = useState("");
 
   const handlePrint = () => {
-    window.print();
+    setPrintDialogOpen(true);
+  };
+
+  const executePrint = () => {
+    setPrintDialogOpen(false);
+    // Small delay to let dialog close before printing
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   return (
