@@ -93,8 +93,12 @@ const ProductSkuReport = () => {
       priceFilter === "all" ||
       (priceFilter === "with_price" && p.product_price && p.product_price !== "0") ||
       (priceFilter === "no_price" && (!p.product_price || p.product_price === "0"));
+    const matchesSku =
+      skuFilter === "all" ||
+      (skuFilter === "with_sku" && p.sku) ||
+      (skuFilter === "no_sku" && !p.sku);
 
-    return matchesSearch && matchesBrand && matchesStatus && matchesPrice;
+    return matchesSearch && matchesBrand && matchesStatus && matchesPrice && matchesSku;
   });
   const generateSkuForProduct = (product: ProductRow): string | null => {
     if (!product.brand_name) return null;
