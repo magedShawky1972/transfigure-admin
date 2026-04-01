@@ -154,6 +154,7 @@ import KnowledgeBase from "./pages/KnowledgeBase";
 import ApiTransactionMapping from "./pages/ApiTransactionMapping";
 import PaymentWhatIfScenario from "./pages/PaymentWhatIfScenario";
 import CRMIntegrationDoc from "./pages/CRMIntegrationDoc";
+import CRMSession from "./pages/CRMSession";
 const queryClient = new QueryClient();
 
 const App = () => (
