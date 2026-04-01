@@ -314,6 +314,7 @@ const App = () => (
               <Route path="/crm-setup" element={<CRMSetup />} />
               <Route path="/knowledge-base" element={<KnowledgeBase />} />
               <Route path="/api-transaction-mapping" element={<ApiTransactionMapping />} />
+              <Route path="/crm-integration-doc" element={<CRMIntegrationDoc />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
