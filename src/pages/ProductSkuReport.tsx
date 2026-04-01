@@ -220,6 +220,16 @@ const ProductSkuReport = () => {
                 <SelectItem value="inactive">{language === "ar" ? "غير نشط" : "Inactive"}</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={priceFilter} onValueChange={setPriceFilter}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder={language === "ar" ? "كل الأسعار" : "All Prices"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === "ar" ? "كل الأسعار" : "All Prices"}</SelectItem>
+                <SelectItem value="with_price">{language === "ar" ? "بسعر" : "With Price"}</SelectItem>
+                <SelectItem value="no_price">{language === "ar" ? "بدون سعر" : "No Price"}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
