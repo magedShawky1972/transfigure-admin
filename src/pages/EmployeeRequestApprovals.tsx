@@ -88,21 +88,36 @@ const EmployeeRequestApprovals = () => {
   const [selectedReassignUserId, setSelectedReassignUserId] = useState('');
   const [reassigning, setReassigning] = useState(false);
 
-  useEffect(() => { fetchUserPermissions(); }, []);
+  useEffect(() => {
+    // Listen for auth state changes to ensure session is ready before fetching permissions
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        fetchUserPermissions(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        setLoading(false);
+      }
+    });
+    // Also try immediately in case session is already available
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) fetchUserPermissions(user.id);
+      else setLoading(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, filterType, filterStatus]);
 
-  const fetchUserPermissions = async () => {
+  const fetchUserPermissions = async (userId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const [{ data: hrData }, { data: adminData }] = await Promise.all([
+        supabase.from('hr_managers').select('id, admin_order').eq('user_id', userId).eq('is_active', true).maybeSingle(),
+        supabase.from('department_admins').select('department_id, admin_order').eq('user_id', userId).eq('approve_employee_request', true),
+      ]);
 
-      const { data: hrData } = await supabase.from('hr_managers').select('id, admin_order').eq('user_id', user.id).eq('is_active', true).maybeSingle();
       if (hrData) {
         setIsHRManager(true);
         setHrManagerLevel(hrData.admin_order);
       }
 
-      const { data: adminData } = await supabase.from('department_admins').select('department_id, admin_order').eq('user_id', user.id).eq('approve_employee_request', true);
       if (adminData && adminData.length > 0) {
         setUserAdminDepts(adminData.map(a => a.department_id));
         const levelMap = new Map<string, number>();
