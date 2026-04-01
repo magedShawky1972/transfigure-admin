@@ -90,8 +90,42 @@ const ProductSkuReport = () => {
 
     return matchesSearch && matchesBrand && matchesStatus;
   });
+  const startEdit = (product: ProductRow) => {
+    setEditingId(product.id);
+    setEditValue(product.sku || "");
+  };
 
-  const handleExportExcel = () => {
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const saveSku = async (productId: string) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ sku: editValue.trim() || null })
+        .eq("id", productId);
+
+      if (error) throw error;
+
+      setProducts(prev =>
+        prev.map(p => p.id === productId ? { ...p, sku: editValue.trim() || null } : p)
+      );
+      setEditingId(null);
+      toast({
+        title: language === "ar" ? "تم الحفظ" : "Saved",
+        description: language === "ar" ? "تم تحديث SKU بنجاح" : "SKU updated successfully",
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
     const exportData = filteredProducts.map((p, idx) => ({
       "#": idx + 1,
       [language === "ar" ? "اسم المنتج" : "Product Name"]: p.product_name,
