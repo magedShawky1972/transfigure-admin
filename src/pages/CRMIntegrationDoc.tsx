@@ -49,7 +49,7 @@ const CRMIntegrationDoc = () => {
               ? "يوفر هذا الدليل تفاصيل كاملة لتكامل تطبيق CRM الخارجي مع نظام إدارة. يتضمن التكامل 3 واجهات API وشاشة WebView لإغلاق الوردية."
               : "This guide provides complete details for integrating the external CRM application with Edara system. The integration includes 3 APIs and a WebView screen for shift closing."}
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-lg bg-muted">
               <h3 className="font-semibold mb-2">{isRTL ? "التدفق الأساسي" : "Core Flow"}</h3>
               <ol className="space-y-2 text-sm list-decimal list-inside">
@@ -66,6 +66,18 @@ const CRMIntegrationDoc = () => {
                 <li>{isRTL ? "وردية مجدولة للمستخدم" : "Scheduled shift assignment for the user"}</li>
                 <li>{isRTL ? "اتصال إنترنت" : "Internet connectivity"}</li>
                 <li>{isRTL ? "WebView لشاشة إغلاق الوردية" : "WebView support for shift closing screen"}</li>
+              </ul>
+            </div>
+            <div className="p-4 rounded-lg border-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                {isRTL ? "مصادقة API Key" : "API Key Authentication"}
+              </h3>
+              <ul className="space-y-2 text-sm list-disc list-inside">
+                <li>{isRTL ? "جميع الـ APIs تتطلب API Key مع صلاحية CRM" : "All APIs require an API Key with CRM permission"}</li>
+                <li>{isRTL ? "Login: أرسل API Key في header الـ Authorization" : "Login: Send API Key in Authorization header"}</li>
+                <li>{isRTL ? "باقي الـ APIs: أرسل API Key في x-api-key و Session في Authorization" : "Other APIs: API Key in x-api-key header, Session in Authorization"}</li>
+                <li>{isRTL ? "أنشئ API Key من إعدادات النظام" : "Create API Key from System Configuration"}</li>
               </ul>
             </div>
           </div>
@@ -92,8 +104,13 @@ const CRMIntegrationDoc = () => {
           </div>
           
           <div>
-            <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الطلب" : "Request Body"}</h4>
-            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`{
+            <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الرؤوس والطلب" : "Headers & Request Body"}</h4>
+            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Headers:
+  Authorization: {api_key}         // API Key with CRM permission
+  Content-Type: application/json
+
+Body:
+{
   "email": "user@example.com",
   "password": "user_password"
 }`}</pre>
@@ -152,7 +169,8 @@ const CRMIntegrationDoc = () => {
 
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الرؤوس" : "Headers"}</h4>
-            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Authorization: Bearer {session_id}
+            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`x-api-key: {api_key}                // API Key with CRM permission
+Authorization: Bearer {session_id}  // Session from login
 Content-Type: application/json`}</pre>
           </div>
 
@@ -206,7 +224,8 @@ Content-Type: application/json`}</pre>
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الطلب" : "Request"}</h4>
             <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Headers:
-  Authorization: Bearer {session_id}
+  x-api-key: {api_key}                // API Key with CRM permission
+  Authorization: Bearer {session_id}  // Session from login
   Content-Type: application/json
 
 Body:
