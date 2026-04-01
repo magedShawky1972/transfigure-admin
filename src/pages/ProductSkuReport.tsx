@@ -378,6 +378,18 @@ const ProductSkuReport = () => {
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
+                              {!p.sku && p.brand_code && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 print:hidden text-muted-foreground hover:text-primary"
+                                  onClick={() => handleGenerateSku(p)}
+                                  disabled={saving}
+                                  title={language === "ar" ? "توليد SKU تلقائي" : "Auto-generate SKU"}
+                                >
+                                  <Wand2 className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </TableCell>
