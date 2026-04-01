@@ -45,7 +45,6 @@ interface SalesRow {
 
 interface AggregatedRow {
   product_name: string;
-  brand_name: string;
   month_year: string;
   sort_key: string;
   total_qty: number;
@@ -185,7 +184,7 @@ const MainProductSalesReport = () => {
         sortKey = `${year}${month}`;
       }
 
-      const key = `${r.product_name}||${r.brand_name}||${monthYear}`;
+      const key = `${r.product_name}||${monthYear}`;
 
       if (map.has(key)) {
         const existing = map.get(key)!;
@@ -195,7 +194,6 @@ const MainProductSalesReport = () => {
       } else {
         map.set(key, {
           product_name: r.product_name,
-          brand_name: r.brand_name,
           month_year: monthYear,
           sort_key: sortKey,
           total_qty: r.qty || 0,
@@ -208,8 +206,6 @@ const MainProductSalesReport = () => {
     return Array.from(map.values()).sort((a, b) => {
       const nameCompare = a.product_name.localeCompare(b.product_name);
       if (nameCompare !== 0) return nameCompare;
-      const brandCompare = a.brand_name.localeCompare(b.brand_name);
-      if (brandCompare !== 0) return brandCompare;
       return a.sort_key.localeCompare(b.sort_key);
     });
   }, [results, showAggregated]);
@@ -226,7 +222,6 @@ const MainProductSalesReport = () => {
     if (showAggregated && aggregatedData.length > 0) {
       const exportData = aggregatedData.map((r) => ({
         [isRTL ? "اسم المنتج" : "Product Name"]: r.product_name,
-        [isRTL ? "العلامة التجارية" : "Brand"]: r.brand_name,
         [isRTL ? "الشهر/السنة" : "Month/Year"]: r.month_year,
         [isRTL ? "إجمالي الكمية" : "Total Qty"]: r.total_qty,
         [isRTL ? "إجمالي الكوينز" : "Total Coins"]: r.total_coins,
@@ -422,7 +417,6 @@ const MainProductSalesReport = () => {
                   <TableRow>
                     <TableHead>#</TableHead>
                     <TableHead>{isRTL ? "اسم المنتج" : "Product Name"}</TableHead>
-                    <TableHead>{isRTL ? "العلامة التجارية" : "Brand"}</TableHead>
                     <TableHead>{isRTL ? "الشهر/السنة" : "Month/Year"}</TableHead>
                     <TableHead className="text-right">{isRTL ? "إجمالي الكمية" : "Total Qty"}</TableHead>
                     <TableHead className="text-right">{isRTL ? "إجمالي الكوينز" : "Total Coins"}</TableHead>
@@ -434,7 +428,6 @@ const MainProductSalesReport = () => {
                     <TableRow key={idx}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell className="font-medium">{row.product_name}</TableCell>
-                      <TableCell>{row.brand_name}</TableCell>
                       <TableCell>{row.month_year}</TableCell>
                       <TableCell className="text-right">{row.total_qty.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{row.total_coins.toLocaleString()}</TableCell>
@@ -442,7 +435,7 @@ const MainProductSalesReport = () => {
                     </TableRow>
                   ))}
                   <TableRow className="font-bold bg-muted/50">
-                    <TableCell colSpan={4}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell colSpan={3}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
                     <TableCell className="text-right">{aggregatedTotals.qty.toLocaleString()}</TableCell>
                     <TableCell className="text-right">{aggregatedTotals.coins.toLocaleString()}</TableCell>
                     <TableCell className="text-right">{aggregatedTotals.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
