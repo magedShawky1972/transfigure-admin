@@ -244,6 +244,55 @@ const EmployeeRequestApprovals = () => {
     }
   };
 
+  const updateTimesheetsForDelayOrEarlyLeave = async (request: any) => {
+    try {
+      if (!request.delay_date || !request.employee_id) return;
+
+      const isDelay = request.request_type === 'delay';
+      const noteText = isDelay 
+        ? (language === 'ar' ? 'تأخير معتمد' : 'Approved Delay') 
+        : (language === 'ar' ? 'خروج مبكر معتمد' : 'Approved Early Leave');
+
+      // Update timesheets table - clear late/early minutes and deductions
+      const timesheetUpdate: any = {
+        deduction_amount: 0,
+        deduction_rule_id: null,
+      };
+      if (isDelay) {
+        timesheetUpdate.late_minutes = 0;
+      } else {
+        timesheetUpdate.early_leave_minutes = 0;
+      }
+
+      await supabase
+        .from('timesheets')
+        .update(timesheetUpdate)
+        .eq('employee_id', request.employee_id)
+        .eq('work_date', request.delay_date);
+
+      // Update saved_attendance table - need employee_code (zk_employee_code)
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('zk_employee_code')
+        .eq('id', request.employee_id)
+        .maybeSingle();
+
+      if (emp?.zk_employee_code) {
+        await supabase
+          .from('saved_attendance')
+          .update({
+            deduction_amount: 0,
+            deduction_rule_id: null,
+            notes: noteText,
+          })
+          .eq('employee_code', emp.zk_employee_code)
+          .eq('attendance_date', request.delay_date);
+      }
+    } catch (err) {
+      console.error('Error updating timesheets for delay/early leave:', err);
+    }
+  };
+
   const handleAction = async () => {
     if (!selectedRequest || !actionType) return;
     setProcessing(true);
