@@ -67,7 +67,7 @@ export function PushNotificationBar() {
           : "Enable notifications to stay updated with the latest alerts");
 
   return (
-    <div className="bg-primary text-primary-foreground px-4 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-20">
+    <div className="bg-primary text-primary-foreground px-4 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-20 print:hidden">
       <div className="flex items-center gap-3 flex-1">
         <Bell className="h-4 w-4 flex-shrink-0" />
         <span className="text-sm font-medium">{message}</span>

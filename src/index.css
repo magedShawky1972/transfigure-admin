@@ -165,12 +165,14 @@ All colors MUST be HSL.
     width: 0 !important;
   }
 
-  /* Hide sidebar, header, nav in print */
+  /* Hide sidebar, header, nav, notification bars in print */
   [data-sidebar],
   aside,
   header,
   nav,
-  .print\\:hidden {
+  .print\\:hidden,
+  [data-sonner-toaster],
+  [role="status"] {
     display: none !important;
   }
 
