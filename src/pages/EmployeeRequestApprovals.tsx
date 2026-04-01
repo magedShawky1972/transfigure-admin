@@ -377,6 +377,14 @@ const EmployeeRequestApprovals = () => {
                 }
               }
             }
+
+            // Auto-update timesheets & saved_attendance for delay / early_leave approvals
+            if (
+              (selectedRequest.request_type === 'delay' || selectedRequest.request_type === 'early_leave') &&
+              selectedRequest.delay_date
+            ) {
+              await updateTimesheetsForDelayOrEarlyLeave(selectedRequest);
+            }
           }
         }
       }
