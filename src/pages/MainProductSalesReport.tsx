@@ -45,7 +45,6 @@ interface SalesRow {
 
 interface AggregatedRow {
   product_name: string;
-  brand_name: string;
   month_year: string;
   sort_key: string;
   total_qty: number;
