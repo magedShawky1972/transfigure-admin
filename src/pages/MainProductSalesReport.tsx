@@ -181,7 +181,7 @@ const MainProductSalesReport = () => {
       let sortKey = "";
       if (dateStr.length >= 7) {
         const [year, month] = dateStr.split("-");
-        monthYear = `${month}${year}`; // MMyyyy format
+        monthYear = `${month}/${year}`; // MM/yyyy format
         sortKey = `${year}${month}`;
       }
 
