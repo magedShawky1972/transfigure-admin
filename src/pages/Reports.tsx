@@ -352,6 +352,15 @@ const Reports = () => {
       icon: Headset,
       route: "/crm-integration-doc",
     },
+    {
+      id: "product-sku",
+      name: language === "ar" ? "تقرير المنتجات و SKU" : "Product & SKU Report",
+      description: language === "ar"
+        ? "عرض جميع المنتجات مع SKU وكود البراند واسم البراند مع إمكانية التصدير والطباعة"
+        : "View all products with SKU, brand code, and brand name with export and print",
+      icon: ShoppingCart,
+      route: "/reports/product-sku",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
