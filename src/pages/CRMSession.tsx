@@ -24,8 +24,8 @@ const CRMSession = () => {
       // Clear the hash immediately so user can't see the token
       window.history.replaceState(null, "", window.location.pathname);
 
-      // Redirect to shift session
-      navigate("/shift-session", { replace: true });
+      // Force full page reload so Supabase client picks up the new session
+      window.location.replace("/shift-session");
     } catch (e) {
       console.error("Session error:", e);
       setError("Failed to process session");
