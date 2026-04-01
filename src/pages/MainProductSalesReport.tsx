@@ -380,9 +380,13 @@ const MainProductSalesReport = () => {
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
-      printWindow.print();
+      try {
+        printWindow.print();
+      } catch (e) {
+        console.warn('Print dialog was cancelled or failed:', e);
+      }
       printWindow.close();
-    }, 300);
+    }, 500);
   };
 
   const hasData = showAggregated ? aggregatedData.length > 0 : results.length > 0;
