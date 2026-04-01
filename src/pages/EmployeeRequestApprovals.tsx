@@ -315,14 +315,6 @@ const EmployeeRequestApprovals = () => {
             : actionComment;
             }
 
-            // Auto-update timesheets for delay / early_leave approvals
-            if (
-              (selectedRequest.request_type === 'delay' || selectedRequest.request_type === 'early_leave') &&
-              selectedRequest.delay_date
-            ) {
-              await updateTimesheetsForDelayOrEarlyLeave(selectedRequest);
-            }
-
         if (selectedRequest.current_phase === 'manager') {
           const { data: nextAdmin } = await supabase.from('department_admins').select('admin_order').eq('department_id', selectedRequest.department_id).eq('approve_employee_request', true).gt('admin_order', selectedRequest.current_approval_level).order('admin_order').limit(1);
           if (nextAdmin && nextAdmin.length > 0) {
