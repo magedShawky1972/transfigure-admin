@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Printer, ExternalLink, Code, Monitor, Smartphone, ArrowRight, Shield, Key, Globe } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -11,9 +15,19 @@ const APP_URL = 'https://id-preview--5b494188-68a9-41d5-980e-26f6e07be39c.lovabl
 const CRMIntegrationDoc = () => {
   const { language } = useLanguage();
   const isRTL = language === 'ar';
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printApiKey, setPrintApiKey] = useState("");
 
   const handlePrint = () => {
-    window.print();
+    setPrintDialogOpen(true);
+  };
+
+  const executePrint = () => {
+    setPrintDialogOpen(false);
+    // Small delay to let dialog close before printing
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   return (
@@ -106,7 +120,7 @@ const CRMIntegrationDoc = () => {
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الرؤوس والطلب" : "Headers & Request Body"}</h4>
             <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Headers:
-  Authorization: {api_key}         // API Key with CRM permission
+  Authorization: ${printApiKey || '{api_key}'}         // API Key with CRM permission
   Content-Type: application/json
 
 Body:
@@ -169,7 +183,7 @@ Body:
 
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الرؤوس" : "Headers"}</h4>
-            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`x-api-key: {api_key}                // API Key with CRM permission
+            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`x-api-key: ${printApiKey || '{api_key}'}                // API Key with CRM permission
 Authorization: Bearer {session_id}  // Session from login
 Content-Type: application/json`}</pre>
           </div>
@@ -224,7 +238,7 @@ Content-Type: application/json`}</pre>
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الطلب" : "Request"}</h4>
             <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Headers:
-  x-api-key: {api_key}                // API Key with CRM permission
+  x-api-key: ${printApiKey || '{api_key}'}                // API Key with CRM permission
   Authorization: Bearer {session_id}  // Session from login
   Content-Type: application/json
 
@@ -522,6 +536,56 @@ if (Date.now() / 1000 > expires_at - 300) {
           </div>
         </CardContent>
       </Card>
+      {/* Print-only API Key Banner */}
+      {printApiKey && (
+        <div className="hidden print:block border-2 border-black p-4 rounded-lg mb-4" style={{ breakBefore: 'avoid' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Key className="h-5 w-5" />
+            <h3 className="font-bold text-lg">API Key</h3>
+          </div>
+          <code className="text-sm font-mono bg-gray-100 px-3 py-2 rounded block break-all">
+            {printApiKey}
+          </code>
+        </div>
+      )}
+
+      {/* Print API Key Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent dir={isRTL ? "rtl" : "ltr"} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              {isRTL ? "إضافة API Key للطباعة" : "Add API Key to Print"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {isRTL 
+                ? "أدخل API Key لتضمينه في المستند المطبوع. سيتم استبدال {api_key} في جميع الأمثلة."
+                : "Enter the API Key to include in the printed document. It will replace {api_key} in all examples."}
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="print-api-key">API Key</Label>
+              <Input
+                id="print-api-key"
+                value={printApiKey}
+                onChange={(e) => setPrintApiKey(e.target.value)}
+                placeholder={isRTL ? "أدخل API Key هنا..." : "Paste your API Key here..."}
+                className="font-mono text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setPrintApiKey(""); setPrintDialogOpen(false); }}>
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={executePrint} className="gap-2">
+              <Printer className="h-4 w-4" />
+              {isRTL ? "طباعة" : "Print"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
