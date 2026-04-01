@@ -417,7 +417,6 @@ const MainProductSalesReport = () => {
                   <TableRow>
                     <TableHead>#</TableHead>
                     <TableHead>{isRTL ? "اسم المنتج" : "Product Name"}</TableHead>
-                    <TableHead>{isRTL ? "العلامة التجارية" : "Brand"}</TableHead>
                     <TableHead>{isRTL ? "الشهر/السنة" : "Month/Year"}</TableHead>
                     <TableHead className="text-right">{isRTL ? "إجمالي الكمية" : "Total Qty"}</TableHead>
                     <TableHead className="text-right">{isRTL ? "إجمالي الكوينز" : "Total Coins"}</TableHead>
