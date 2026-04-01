@@ -776,6 +776,18 @@ const SystemConfig = () => {
                     Salla Transaction
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="crm"
+                    checked={permissions.allow_crm}
+                    onCheckedChange={(checked) =>
+                      setPermissions({ ...permissions, allow_crm: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="crm" className="cursor-pointer text-sm">
+                    CRM
+                  </Label>
+                </div>
               </div>
             </div>
 
