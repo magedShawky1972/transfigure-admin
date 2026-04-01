@@ -428,7 +428,6 @@ const MainProductSalesReport = () => {
                     <TableRow key={idx}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell className="font-medium">{row.product_name}</TableCell>
-                      <TableCell>{row.brand_name}</TableCell>
                       <TableCell>{row.month_year}</TableCell>
                       <TableCell className="text-right">{row.total_qty.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{row.total_coins.toLocaleString()}</TableCell>
