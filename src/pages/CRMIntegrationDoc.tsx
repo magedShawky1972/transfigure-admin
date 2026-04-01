@@ -169,7 +169,8 @@ Body:
 
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الرؤوس" : "Headers"}</h4>
-            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Authorization: Bearer {session_id}
+            <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`x-api-key: {api_key}                // API Key with CRM permission
+Authorization: Bearer {session_id}  // Session from login
 Content-Type: application/json`}</pre>
           </div>
 
