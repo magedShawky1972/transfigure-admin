@@ -45,6 +45,7 @@ const ProductSkuReport = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [brandFilter, setBrandFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priceFilter, setPriceFilter] = useState("all");
   const [brands, setBrands] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -87,8 +88,12 @@ const ProductSkuReport = () => {
 
     const matchesBrand = brandFilter === "all" || p.brand_name === brandFilter;
     const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+    const matchesPrice =
+      priceFilter === "all" ||
+      (priceFilter === "with_price" && p.product_price && p.product_price !== "0") ||
+      (priceFilter === "no_price" && (!p.product_price || p.product_price === "0"));
 
-    return matchesSearch && matchesBrand && matchesStatus;
+    return matchesSearch && matchesBrand && matchesStatus && matchesPrice;
   });
   const startEdit = (product: ProductRow) => {
     setEditingId(product.id);
@@ -213,6 +218,16 @@ const ProductSkuReport = () => {
                 <SelectItem value="all">{language === "ar" ? "كل الحالات" : "All Status"}</SelectItem>
                 <SelectItem value="active">{language === "ar" ? "نشط" : "Active"}</SelectItem>
                 <SelectItem value="inactive">{language === "ar" ? "غير نشط" : "Inactive"}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={priceFilter} onValueChange={setPriceFilter}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder={language === "ar" ? "كل الأسعار" : "All Prices"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === "ar" ? "كل الأسعار" : "All Prices"}</SelectItem>
+                <SelectItem value="with_price">{language === "ar" ? "بسعر" : "With Price"}</SelectItem>
+                <SelectItem value="no_price">{language === "ar" ? "بدون سعر" : "No Price"}</SelectItem>
               </SelectContent>
             </Select>
           </div>
