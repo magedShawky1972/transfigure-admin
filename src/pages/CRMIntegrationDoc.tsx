@@ -536,6 +536,56 @@ if (Date.now() / 1000 > expires_at - 300) {
           </div>
         </CardContent>
       </Card>
+      {/* Print-only API Key Banner */}
+      {printApiKey && (
+        <div className="hidden print:block border-2 border-black p-4 rounded-lg mb-4" style={{ breakBefore: 'avoid' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Key className="h-5 w-5" />
+            <h3 className="font-bold text-lg">API Key</h3>
+          </div>
+          <code className="text-sm font-mono bg-gray-100 px-3 py-2 rounded block break-all">
+            {printApiKey}
+          </code>
+        </div>
+      )}
+
+      {/* Print API Key Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent dir={isRTL ? "rtl" : "ltr"} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              {isRTL ? "إضافة API Key للطباعة" : "Add API Key to Print"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {isRTL 
+                ? "أدخل API Key لتضمينه في المستند المطبوع. سيتم استبدال {api_key} في جميع الأمثلة."
+                : "Enter the API Key to include in the printed document. It will replace {api_key} in all examples."}
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="print-api-key">API Key</Label>
+              <Input
+                id="print-api-key"
+                value={printApiKey}
+                onChange={(e) => setPrintApiKey(e.target.value)}
+                placeholder={isRTL ? "أدخل API Key هنا..." : "Paste your API Key here..."}
+                className="font-mono text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setPrintApiKey(""); setPrintDialogOpen(false); }}>
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={executePrint} className="gap-2">
+              <Printer className="h-4 w-4" />
+              {isRTL ? "طباعة" : "Print"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
