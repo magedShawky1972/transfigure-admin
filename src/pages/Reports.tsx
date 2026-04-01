@@ -343,6 +343,15 @@ const Reports = () => {
       icon: ShoppingCart,
       route: "/reports/main-product-sales",
     },
+    {
+      id: "crm-integration",
+      name: language === "ar" ? "دليل تكامل CRM" : "CRM Integration Guide",
+      description: language === "ar"
+        ? "دليل شامل لتكامل تطبيق CRM الخارجي مع APIs و WebView لإدارة الورديات"
+        : "Complete guide for external CRM app integration with APIs and WebView for shift management",
+      icon: Headset,
+      route: "/crm-integration-doc",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
