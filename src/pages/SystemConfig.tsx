@@ -342,6 +342,7 @@ const SystemConfig = () => {
       allow_product: false,
       allow_zk_attendance: false,
       allow_salla_transaction: false,
+      allow_crm: false,
     });
     loadApiKeys();
   };
