@@ -120,7 +120,7 @@ const CRMIntegrationDoc = () => {
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الرؤوس والطلب" : "Headers & Request Body"}</h4>
             <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Headers:
-  Authorization: {api_key}         // API Key with CRM permission
+  Authorization: ${printApiKey || '{api_key}'}         // API Key with CRM permission
   Content-Type: application/json
 
 Body:
