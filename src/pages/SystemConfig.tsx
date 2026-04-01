@@ -38,6 +38,7 @@ interface ApiKey {
   allow_product: boolean;
   allow_zk_attendance: boolean;
   allow_salla_transaction: boolean;
+  allow_crm: boolean;
   created_at: string;
 }
 
@@ -72,6 +73,7 @@ const SystemConfig = () => {
     allow_product: false,
     allow_zk_attendance: false,
     allow_salla_transaction: false,
+    allow_crm: false,
   });
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
     mobile_number: "",
@@ -340,6 +342,7 @@ const SystemConfig = () => {
       allow_product: false,
       allow_zk_attendance: false,
       allow_salla_transaction: false,
+      allow_crm: false,
     });
     loadApiKeys();
   };
@@ -773,6 +776,18 @@ const SystemConfig = () => {
                     Salla Transaction
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="crm"
+                    checked={permissions.allow_crm}
+                    onCheckedChange={(checked) =>
+                      setPermissions({ ...permissions, allow_crm: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="crm" className="cursor-pointer text-sm">
+                    CRM
+                  </Label>
+                </div>
               </div>
             </div>
 
@@ -864,6 +879,9 @@ const SystemConfig = () => {
                       )}
                       {key.allow_salla_transaction && (
                         <span className="bg-primary/10 px-2 py-1 rounded">Salla Transaction</span>
+                      )}
+                      {key.allow_crm && (
+                        <span className="bg-primary/10 px-2 py-1 rounded">CRM</span>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
