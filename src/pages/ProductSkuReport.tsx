@@ -264,7 +264,40 @@ const ProductSkuReport = () => {
                       <TableRow key={p.id} className="print:text-xs">
                         <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="font-medium">{p.product_name}</TableCell>
-                        <TableCell className="font-mono text-sm">{p.sku || "-"}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {editingId === p.id ? (
+                            <div className="flex items-center gap-1 print:hidden">
+                              <Input
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="h-7 w-32 text-xs font-mono"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveSku(p.id);
+                                  if (e.key === "Escape") cancelEdit();
+                                }}
+                              />
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => saveSku(p.id)} disabled={saving}>
+                                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-600" />}
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancelEdit}>
+                                <X className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group">
+                              <span>{p.sku || "-"}</span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
+                                onClick={() => startEdit(p)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-mono text-sm">{p.brand_code || "-"}</TableCell>
                         <TableCell>{p.brand_name || "-"}</TableCell>
                         <TableCell>{p.product_price || "-"}</TableCell>
