@@ -154,6 +154,7 @@ import KnowledgeBase from "./pages/KnowledgeBase";
 import ApiTransactionMapping from "./pages/ApiTransactionMapping";
 import PaymentWhatIfScenario from "./pages/PaymentWhatIfScenario";
 import CRMIntegrationDoc from "./pages/CRMIntegrationDoc";
+import CRMSession from "./pages/CRMSession";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -315,6 +316,7 @@ const App = () => (
               <Route path="/knowledge-base" element={<KnowledgeBase />} />
               <Route path="/api-transaction-mapping" element={<ApiTransactionMapping />} />
               <Route path="/crm-integration-doc" element={<CRMIntegrationDoc />} />
+              <Route path="/crm-session" element={<CRMSession />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
