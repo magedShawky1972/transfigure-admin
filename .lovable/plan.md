@@ -1,63 +1,55 @@
 
 
-## Reconcile Excel vs Database Feature
+## Plan: Update CRM Integration for PWA WebView with Production URL
 
-### What It Does
-After upload completes, a "Reconcile" button appears in the summary dialog. Clicking it re-reads the last uploaded Excel file, groups rows by order number, sums the `total` column per order, then queries `purpletransaction` for the same order numbers and compares totals. A new dialog shows a table with columns: Order Number, Excel Total, DB Total, Difference, and Status (Match/Mismatch). Summary stats at top show total matched, mismatched, and missing orders.
+### What Changed
+The CRM app is a **PWA** (not a native mobile app), so the WebView approach using JavaScript injection won't work. Instead, we need a URL-based session passing mechanism where the session ID is embedded in the URL but hidden from users.
 
-### Implementation Steps
+### Changes
 
-**Step 1: Store uploaded Excel data for reconciliation**
-In `src/pages/LoadData.tsx`, after a successful upload, store the parsed `jsonData` and the file's sheet config in state so the reconcile function can access it without re-reading the file.
+#### 1. Update Production URL (CRMIntegrationDoc.tsx)
+- Change `APP_URL` from preview URL to `https://edaraasus.com`
+- Remove Android (Kotlin) and iOS (Swift) native WebView examples since the CRM is a PWA
 
-**Step 2: Add Reconcile button to the summary dialog**
-In the `showSummaryDialog` section of `LoadData.tsx`, add a "Reconcile with Database" button below the existing summary stats. Only show it when the target table is `purpletransaction`.
+#### 2. Create Session-Based Auto-Login Route
+- Add a new route `/crm-session` that accepts an encrypted/encoded session token as a URL hash fragment (hash fragments are NOT sent to servers, adding security)
+- URL format: `https://edaraasus.com/crm-session#token={base64_encoded_session_data}`
+- The page will:
+  1. Read the token from the URL hash (not visible in server logs)
+  2. Decode the base64 session data
+  3. Set it in localStorage as the auth session
+  4. Clear the hash from the URL bar immediately (so user can't see it)
+  5. Redirect to `/shift-session`
 
-**Step 3: Create ReconcileDialog component**
-New file: `src/components/ReconcileDialog.tsx`
-- Accepts: `excelData` (array of rows from Excel), `open`, `onOpenChange`
-- On open:
-  1. Groups Excel rows by `ordernumber` (or mapped order column), sums `total` per order
-  2. Fetches from `purpletransaction` using `.in('ordernumber', orderNumbers)` in batches, sums `total` per order
-  3. Compares and builds a results array with: orderNumber, excelTotal, dbTotal, difference
-- Renders a scrollable table with color-coded rows (green=match, red=mismatch, yellow=missing in DB)
-- Shows summary: X matched, Y mismatched, Z missing, total Excel value, total DB value, total difference
+#### 3. New Page: `src/pages/CRMSession.tsx`
+- Handles the auto-login flow from the URL hash
+- Shows a brief "Connecting..." loading state
+- Clears the URL hash after reading to hide the session ID
+- Redirects to `/shift-session` once authenticated
 
-**Step 4: Wire it together**
-- Add state for `reconcileExcelData` and `showReconcileDialog` in `LoadData.tsx`
-- When upload completes for purpletransaction target, save the jsonData
-- Reconcile button opens the dialog with the saved data
+#### 4. Register Route in App.tsx
+- Add `/crm-session` route pointing to the new CRMSession component
+
+#### 5. Update CRM Integration Doc
+- Replace native mobile examples with PWA integration examples
+- Show how to construct the URL with base64-encoded session:
+  ```
+  const sessionData = base64encode(JSON.stringify({
+    access_token: session_id,
+    refresh_token: refresh_token,
+    expires_at: expires_at,
+    ...
+  }));
+  
+  // Open in PWA WebView / iframe
+  window.location.href = `https://edaraasus.com/crm-session#token=${sessionData}`;
+  ```
+- Update WebView section to explain the PWA approach
+- Remove Kotlin/Swift examples, replace with JavaScript/PWA examples
+- Add security note: hash fragments are not sent to servers
 
 ### Technical Details
-
-**Excel grouping logic:**
-```typescript
-const excelByOrder = new Map<string, number>();
-excelData.forEach(row => {
-  const orderNum = String(row.ordernumber || row['Order Number'] || '');
-  const total = parseFloat(String(row.total || 0));
-  excelByOrder.set(orderNum, (excelByOrder.get(orderNum) || 0) + total);
-});
-```
-
-**DB query (batched):**
-```typescript
-const orderNums = Array.from(excelByOrder.keys());
-// Fetch in batches of 500
-const dbData = [];
-for (let i = 0; i < orderNums.length; i += 500) {
-  const batch = orderNums.slice(i, i + 500);
-  const { data } = await supabase
-    .from('purpletransaction')
-    .select('ordernumber, total')
-    .in('ordernumber', batch);
-  dbData.push(...(data || []));
-}
-```
-
-**Matching tolerance:** Use `Math.abs(diff) < 0.01` to account for floating point.
-
-### Files to Create/Edit
-- **Create**: `src/components/ReconcileDialog.tsx`
-- **Edit**: `src/pages/LoadData.tsx` (add reconcile state, button in summary dialog, store excel data after upload)
+- **Security**: Using URL hash (`#`) instead of query params (`?`) ensures the session token is never sent to the server in HTTP requests or logged in server access logs
+- **UX**: The hash is cleared immediately via `window.history.replaceState` so the user never sees the token
+- **Files modified**: `src/pages/CRMIntegrationDoc.tsx`, `src/pages/CRMSession.tsx` (new), `src/App.tsx`
 
