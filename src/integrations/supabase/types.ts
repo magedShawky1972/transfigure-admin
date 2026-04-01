@@ -365,6 +365,7 @@ export type Database = {
       api_keys: {
         Row: {
           allow_brand: boolean
+          allow_crm: boolean
           allow_customer: boolean
           allow_payment: boolean
           allow_product: boolean
@@ -384,6 +385,7 @@ export type Database = {
         }
         Insert: {
           allow_brand?: boolean
+          allow_crm?: boolean
           allow_customer?: boolean
           allow_payment?: boolean
           allow_product?: boolean
@@ -403,6 +405,7 @@ export type Database = {
         }
         Update: {
           allow_brand?: boolean
+          allow_crm?: boolean
           allow_customer?: boolean
           allow_payment?: boolean
           allow_product?: boolean
