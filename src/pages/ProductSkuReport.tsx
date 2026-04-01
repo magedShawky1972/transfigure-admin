@@ -290,7 +290,7 @@ const ProductSkuReport = () => {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
+                                className="h-6 w-6 print:hidden text-muted-foreground hover:text-foreground"
                                 onClick={() => startEdit(p)}
                               >
                                 <Pencil className="h-3 w-3" />
