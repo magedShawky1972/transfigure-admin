@@ -206,8 +206,6 @@ const MainProductSalesReport = () => {
     return Array.from(map.values()).sort((a, b) => {
       const nameCompare = a.product_name.localeCompare(b.product_name);
       if (nameCompare !== 0) return nameCompare;
-      const brandCompare = a.brand_name.localeCompare(b.brand_name);
-      if (brandCompare !== 0) return brandCompare;
       return a.sort_key.localeCompare(b.sort_key);
     });
   }, [results, showAggregated]);
