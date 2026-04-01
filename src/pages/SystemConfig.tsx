@@ -880,6 +880,9 @@ const SystemConfig = () => {
                       {key.allow_salla_transaction && (
                         <span className="bg-primary/10 px-2 py-1 rounded">Salla Transaction</span>
                       )}
+                      {key.allow_crm && (
+                        <span className="bg-primary/10 px-2 py-1 rounded">CRM</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Created: {new Date(key.created_at).toLocaleString()}
