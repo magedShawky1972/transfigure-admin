@@ -96,11 +96,11 @@ const ProductSkuReport = () => {
     return matchesSearch && matchesBrand && matchesStatus && matchesPrice;
   });
   const generateSkuForProduct = (product: ProductRow): string | null => {
-    if (!product.brand_code) return null;
+    if (!product.brand_name) return null;
     
-    // Find all SKUs for the same brand
+    // Find all SKUs for the same brand_name (not brand_code)
     const brandSkus = products
-      .filter(p => p.brand_code === product.brand_code && p.sku)
+      .filter(p => p.brand_name === product.brand_name && p.sku)
       .map(p => p.sku!);
     
     if (brandSkus.length === 0) return null;
@@ -122,8 +122,16 @@ const ProductSkuReport = () => {
     const bestPrefix = Object.entries(prefixCounts).sort((a, b) => b[1].count - a[1].count)[0][0];
     const digitLength = prefixCounts[bestPrefix].digits;
     
-    // Find max number with that prefix
-    const maxNum = Math.max(...patterns.filter(p => p.prefix === bestPrefix).map(p => p.num));
+    // Find max number with that prefix across ALL products (not just same brand)
+    const allSkusWithPrefix = products
+      .filter(p => p.sku)
+      .map(p => {
+        const match = p.sku!.match(/^([A-Za-z]+)(\d+)$/);
+        return match && match[1] === bestPrefix ? parseInt(match[2], 10) : null;
+      })
+      .filter(Boolean) as number[];
+    
+    const maxNum = Math.max(...allSkusWithPrefix, 0);
     const nextNum = maxNum + 1;
     
     return bestPrefix + String(nextNum).padStart(digitLength, "0");
@@ -378,7 +386,7 @@ const ProductSkuReport = () => {
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
-                              {!p.sku && p.brand_code && (
+                              {!p.sku && p.brand_name && (
                                 <Button
                                   size="icon"
                                   variant="ghost"
