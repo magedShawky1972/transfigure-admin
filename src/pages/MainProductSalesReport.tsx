@@ -435,7 +435,7 @@ const MainProductSalesReport = () => {
                     </TableRow>
                   ))}
                   <TableRow className="font-bold bg-muted/50">
-                    <TableCell colSpan={4}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell colSpan={3}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
                     <TableCell className="text-right">{aggregatedTotals.qty.toLocaleString()}</TableCell>
                     <TableCell className="text-right">{aggregatedTotals.coins.toLocaleString()}</TableCell>
                     <TableCell className="text-right">{aggregatedTotals.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
