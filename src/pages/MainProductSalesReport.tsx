@@ -185,7 +185,7 @@ const MainProductSalesReport = () => {
         sortKey = `${year}${month}`;
       }
 
-      const key = `${r.product_name}||${r.brand_name}||${monthYear}`;
+      const key = `${r.product_name}||${monthYear}`;
 
       if (map.has(key)) {
         const existing = map.get(key)!;
