@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku']);
         setLoading(false);
         return;
       }
@@ -351,6 +351,15 @@ const Reports = () => {
         : "Complete guide for external CRM app integration with APIs and WebView for shift management",
       icon: Headset,
       route: "/crm-integration-doc",
+    },
+    {
+      id: "product-sku",
+      name: language === "ar" ? "تقرير المنتجات و SKU" : "Product & SKU Report",
+      description: language === "ar"
+        ? "عرض جميع المنتجات مع SKU وكود البراند واسم البراند مع إمكانية التصدير والطباعة"
+        : "View all products with SKU, brand code, and brand name with export and print",
+      icon: ShoppingCart,
+      route: "/reports/product-sku",
     },
   ];
 

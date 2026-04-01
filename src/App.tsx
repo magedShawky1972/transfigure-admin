@@ -101,6 +101,7 @@ import CertificateManagement from "./pages/CertificateManagement";
 import ZKAttendanceLogs from "./pages/ZKAttendanceLogs";
 import SavedAttendance from "./pages/SavedAttendance";
 import SoldProductReport from "./pages/SoldProductReport";
+import ProductSkuReport from "./pages/ProductSkuReport";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 import DailySalesReport from "./pages/DailySalesReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
@@ -261,6 +262,7 @@ const App = () => (
               <Route path="/zk-attendance-logs" element={<ZKAttendanceLogs />} />
               <Route path="/saved-attendance" element={<SavedAttendance />} />
               <Route path="/reports/sold-product" element={<SoldProductReport />} />
+              <Route path="/reports/product-sku" element={<ProductSkuReport />} />
               <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />
               <Route path="/reports/aggregated-orders" element={<AggregatedOrderReport />} />
               <Route path="/hr-vacation-calendar" element={<HRVacationCalendar />} />
