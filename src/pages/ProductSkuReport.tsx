@@ -386,7 +386,7 @@ const ProductSkuReport = () => {
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
-                              {!p.sku && p.brand_code && (
+                              {!p.sku && p.brand_name && (
                                 <Button
                                   size="icon"
                                   variant="ghost"
