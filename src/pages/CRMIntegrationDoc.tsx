@@ -460,8 +460,8 @@ function navigateToShift(sessionId, refreshToken, expiresAt, userId, email) {
               <Badge className="bg-purple-600 shrink-0">Step 4</Badge>
               <ArrowRight className="h-4 w-4 shrink-0" />
               <div>
-                <p className="font-medium text-sm">WebView → /shift-session</p>
-                <p className="text-xs text-muted-foreground">{isRTL ? "فتح شاشة إغلاق الوردية مع تعيين الجلسة" : "Open shift closing screen with session set"}</p>
+                <p className="font-medium text-sm">URL → /crm-session#token=...</p>
+                <p className="text-xs text-muted-foreground">{isRTL ? "فتح شاشة إغلاق الوردية عبر رابط الجلسة التلقائي" : "Open shift closing screen via auto-login session URL"}</p>
               </div>
             </div>
           </div>
