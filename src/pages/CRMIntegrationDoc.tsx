@@ -10,7 +10,7 @@ import { Printer, ExternalLink, Code, Monitor, Smartphone, ArrowRight, Shield, K
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const SUPABASE_FUNCTIONS_URL = 'https://ysqqnkbgkrjoxrzlejxy.supabase.co/functions/v1';
-const APP_URL = 'https://id-preview--5b494188-68a9-41d5-980e-26f6e07be39c.lovable.app';
+const APP_URL = 'https://edaraasus.com';
 
 const CRMIntegrationDoc = () => {
   const { language } = useLanguage();
