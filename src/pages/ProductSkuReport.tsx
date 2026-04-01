@@ -125,7 +125,7 @@ const ProductSkuReport = () => {
     }
   };
 
-
+  const handleExportExcel = () => {
     const exportData = filteredProducts.map((p, idx) => ({
       "#": idx + 1,
       [language === "ar" ? "اسم المنتج" : "Product Name"]: p.product_name,
