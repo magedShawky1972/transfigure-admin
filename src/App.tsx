@@ -101,6 +101,7 @@ import CertificateManagement from "./pages/CertificateManagement";
 import ZKAttendanceLogs from "./pages/ZKAttendanceLogs";
 import SavedAttendance from "./pages/SavedAttendance";
 import SoldProductReport from "./pages/SoldProductReport";
+import ProductSkuReport from "./pages/ProductSkuReport";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 import DailySalesReport from "./pages/DailySalesReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
