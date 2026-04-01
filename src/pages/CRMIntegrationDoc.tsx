@@ -238,7 +238,7 @@ Content-Type: application/json`}</pre>
           <div>
             <h4 className="font-medium text-sm text-muted-foreground mb-2">{isRTL ? "الطلب" : "Request"}</h4>
             <pre className="text-sm bg-muted p-4 rounded overflow-x-auto">{`Headers:
-  x-api-key: {api_key}                // API Key with CRM permission
+  x-api-key: ${printApiKey || '{api_key}'}                // API Key with CRM permission
   Authorization: Bearer {session_id}  // Session from login
   Content-Type: application/json
 
