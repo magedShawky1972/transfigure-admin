@@ -38,6 +38,7 @@ interface ApiKey {
   allow_product: boolean;
   allow_zk_attendance: boolean;
   allow_salla_transaction: boolean;
+  allow_crm: boolean;
   created_at: string;
 }
 
