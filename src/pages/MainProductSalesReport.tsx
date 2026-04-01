@@ -222,7 +222,6 @@ const MainProductSalesReport = () => {
     if (showAggregated && aggregatedData.length > 0) {
       const exportData = aggregatedData.map((r) => ({
         [isRTL ? "اسم المنتج" : "Product Name"]: r.product_name,
-        [isRTL ? "العلامة التجارية" : "Brand"]: r.brand_name,
         [isRTL ? "الشهر/السنة" : "Month/Year"]: r.month_year,
         [isRTL ? "إجمالي الكمية" : "Total Qty"]: r.total_qty,
         [isRTL ? "إجمالي الكوينز" : "Total Coins"]: r.total_coins,
