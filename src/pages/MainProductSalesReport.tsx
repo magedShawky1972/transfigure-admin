@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Search, Download, Printer } from "lucide-react";
+import { CalendarIcon, Search, Download, Printer, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
@@ -50,6 +50,13 @@ interface AggregatedRow {
   total_qty: number;
   total_coins: number;
   total_amount: number;
+  def: number;
+}
+
+type SortDirection = "asc" | "desc";
+interface SortConfig {
+  key: string;
+  direction: SortDirection;
 }
 
 const MainProductSalesReport = () => {
@@ -65,6 +72,9 @@ const MainProductSalesReport = () => {
   const [toDate, setToDate] = useState<Date | undefined>();
   const [mainProductNames, setMainProductNames] = useState<string[]>([]);
   const [showAggregated, setShowAggregated] = useState(false);
+  const [aggSortConfigs, setAggSortConfigs] = useState<SortConfig[]>([]);
+  const [detailSortConfigs, setDetailSortConfigs] = useState<SortConfig[]>([]);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchBrands();
@@ -143,6 +153,8 @@ const MainProductSalesReport = () => {
       }
 
       setResults(allData);
+      setAggSortConfigs([]);
+      setDetailSortConfigs([]);
 
       if (allData.length === 0) {
         toast({
@@ -180,7 +192,7 @@ const MainProductSalesReport = () => {
       let sortKey = "";
       if (dateStr.length >= 7) {
         const [year, month] = dateStr.split("-");
-        monthYear = `${month}/${year}`; // MM/yyyy format
+        monthYear = `${month}/${year}`;
         sortKey = `${year}${month}`;
       }
 
@@ -191,14 +203,18 @@ const MainProductSalesReport = () => {
         existing.total_qty += r.qty || 0;
         existing.total_coins += r.coins_number || 0;
         existing.total_amount += r.total || 0;
+        existing.def = existing.total_qty - existing.total_coins;
       } else {
+        const qty = r.qty || 0;
+        const coins = r.coins_number || 0;
         map.set(key, {
           product_name: r.product_name,
           month_year: monthYear,
           sort_key: sortKey,
-          total_qty: r.qty || 0,
-          total_coins: r.coins_number || 0,
+          total_qty: qty,
+          total_coins: coins,
           total_amount: r.total || 0,
+          def: qty - coins,
         });
       }
     }
@@ -211,20 +227,83 @@ const MainProductSalesReport = () => {
   }, [results, showAggregated]);
 
   const aggregatedTotals = useMemo(() => {
+    const qty = aggregatedData.reduce((sum, r) => sum + r.total_qty, 0);
+    const coins = aggregatedData.reduce((sum, r) => sum + r.total_coins, 0);
     return {
-      qty: aggregatedData.reduce((sum, r) => sum + r.total_qty, 0),
-      coins: aggregatedData.reduce((sum, r) => sum + r.total_coins, 0),
+      qty,
+      coins,
       total: aggregatedData.reduce((sum, r) => sum + r.total_amount, 0),
+      def: qty - coins,
     };
   }, [aggregatedData]);
 
+  // Multi-column sorting
+  const handleSort = useCallback((key: string, isAgg: boolean) => {
+    const setter = isAgg ? setAggSortConfigs : setDetailSortConfigs;
+    setter((prev) => {
+      const idx = prev.findIndex((s) => s.key === key);
+      if (idx === -1) return [...prev, { key, direction: "asc" as SortDirection }];
+      if (prev[idx].direction === "asc") return prev.map((s, i) => i === idx ? { ...s, direction: "desc" as SortDirection } : s);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }, []);
+
+  const getSortIcon = (key: string, configs: SortConfig[]) => {
+    const config = configs.find((s) => s.key === key);
+    if (!config) return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-40" />;
+    const idx = configs.indexOf(config);
+    const badge = configs.length > 1 ? <span className="text-[10px] ml-0.5">{idx + 1}</span> : null;
+    return config.direction === "asc"
+      ? <><ArrowUp className="h-3 w-3 ml-1 inline text-primary" />{badge}</>
+      : <><ArrowDown className="h-3 w-3 ml-1 inline text-primary" />{badge}</>;
+  };
+
+  const multiSort = <T,>(data: T[], configs: SortConfig[], getVal: (item: T, key: string) => any): T[] => {
+    if (configs.length === 0) return data;
+    return [...data].sort((a, b) => {
+      for (const { key, direction } of configs) {
+        const aVal = getVal(a, key);
+        const bVal = getVal(b, key);
+        let cmp = 0;
+        if (typeof aVal === "number" && typeof bVal === "number") {
+          cmp = aVal - bVal;
+        } else {
+          cmp = String(aVal ?? "").localeCompare(String(bVal ?? ""));
+        }
+        if (cmp !== 0) return direction === "asc" ? cmp : -cmp;
+      }
+      return 0;
+    });
+  };
+
+  const sortedAggregated = useMemo(() => {
+    if (aggSortConfigs.length === 0) return aggregatedData;
+    return multiSort(aggregatedData, aggSortConfigs, (item, key) => {
+      const map: Record<string, any> = {
+        product_name: item.product_name,
+        month_year: item.sort_key,
+        total_qty: item.total_qty,
+        total_coins: item.total_coins,
+        total_amount: item.total_amount,
+        def: item.def,
+      };
+      return map[key];
+    });
+  }, [aggregatedData, aggSortConfigs]);
+
+  const sortedResults = useMemo(() => {
+    if (detailSortConfigs.length === 0) return results;
+    return multiSort(results, detailSortConfigs, (item, key) => (item as any)[key]);
+  }, [results, detailSortConfigs]);
+
   const exportToExcel = () => {
     if (showAggregated && aggregatedData.length > 0) {
-      const exportData = aggregatedData.map((r) => ({
+      const exportData = sortedAggregated.map((r) => ({
         [isRTL ? "اسم المنتج" : "Product Name"]: r.product_name,
         [isRTL ? "الشهر/السنة" : "Month/Year"]: r.month_year,
         [isRTL ? "إجمالي الكمية" : "Total Qty"]: r.total_qty,
         [isRTL ? "إجمالي الكوينز" : "Total Coins"]: r.total_coins,
+        [isRTL ? "الفرق" : "Def."]: r.def,
         [isRTL ? "الإجمالي" : "Total"]: r.total_amount,
       }));
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -236,7 +315,7 @@ const MainProductSalesReport = () => {
 
     if (results.length === 0) return;
 
-    const exportData = results.map((r) => ({
+    const exportData = sortedResults.map((r) => ({
       [isRTL ? "اسم المنتج" : "Product Name"]: r.product_name,
       [isRTL ? "الكمية" : "Qty"]: r.qty,
       [isRTL ? "الكوينز" : "Coins"]: r.coins_number,
@@ -253,9 +332,70 @@ const MainProductSalesReport = () => {
     XLSX.writeFile(wb, "main_product_sales.xlsx");
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const title = isRTL ? "تقرير مبيعات المنتجات الرئيسية" : "Main Product Sales Report";
+    const dateRange = fromDate && toDate
+      ? `${format(fromDate, "yyyy-MM-dd")} → ${format(toDate, "yyyy-MM-dd")}`
+      : "";
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html dir="${isRTL ? "rtl" : "ltr"}">
+      <head>
+        <title>${title}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          .header h1 { font-size: 18px; margin-bottom: 4px; }
+          .header p { font-size: 12px; color: #666; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: ${isRTL ? "right" : "left"}; font-size: 11px; }
+          th { background: #f0f0f0; font-weight: bold; }
+          .text-right { text-align: right; }
+          .total-row { font-weight: bold; background: #f5f5f5; }
+          .summary { display: flex; gap: 20px; margin-bottom: 15px; flex-wrap: wrap; }
+          .summary-item { border: 1px solid #ccc; padding: 8px 16px; text-align: center; border-radius: 4px; }
+          .summary-item .label { font-size: 10px; color: #666; }
+          .summary-item .value { font-size: 16px; font-weight: bold; }
+          @media print { body { padding: 10px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${title}</h1>
+          <p>${dateRange}${selectedBrand !== "all" ? ` | ${isRTL ? "العلامة" : "Brand"}: ${selectedBrand}` : ""}</p>
+          <p>${showAggregated ? (isRTL ? "ملخص مجمع" : "Aggregated Summary") : (isRTL ? "تفاصيل" : "Detail View")}</p>
+        </div>
+        ${printContent.innerHTML}
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
+  };
 
   const hasData = showAggregated ? aggregatedData.length > 0 : results.length > 0;
+
+  const SortableHead = ({ label, sortKey, isAgg }: { label: string; sortKey: string; isAgg: boolean }) => (
+    <TableHead
+      className={cn("cursor-pointer select-none hover:bg-muted/50", sortKey.includes("qty") || sortKey.includes("coins") || sortKey.includes("total") || sortKey.includes("unit_price") || sortKey === "def" ? "text-right" : "")}
+      onClick={() => handleSort(sortKey, isAgg)}
+    >
+      {label}
+      {getSortIcon(sortKey, isAgg ? aggSortConfigs : detailSortConfigs)}
+    </TableHead>
+  );
 
   return (
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
@@ -286,7 +426,6 @@ const MainProductSalesReport = () => {
       <Card className="print:hidden">
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-            {/* Brand Filter */}
             <div className="space-y-2">
               <Label>{isRTL ? "العلامة التجارية" : "Brand"}</Label>
               <Select value={selectedBrand} onValueChange={setSelectedBrand}>
@@ -302,7 +441,6 @@ const MainProductSalesReport = () => {
               </Select>
             </div>
 
-            {/* From Date */}
             <div className="space-y-2">
               <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
               <Popover>
@@ -316,18 +454,11 @@ const MainProductSalesReport = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={fromDate}
-                    onSelect={setFromDate}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
+                  <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
 
-            {/* To Date */}
             <div className="space-y-2">
               <Label>{isRTL ? "إلى تاريخ" : "To Date"}</Label>
               <Popover>
@@ -341,32 +472,21 @@ const MainProductSalesReport = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={toDate}
-                    onSelect={setToDate}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
+                  <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
 
-            {/* Aggregated Toggle */}
             <div className="space-y-2">
               <Label>{isRTL ? "ملخص مجمع" : "Aggregated Summary"}</Label>
               <div className="flex items-center gap-2 h-10">
-                <Switch
-                  checked={showAggregated}
-                  onCheckedChange={setShowAggregated}
-                />
+                <Switch checked={showAggregated} onCheckedChange={setShowAggregated} />
                 <span className="text-sm text-muted-foreground">
                   {showAggregated ? (isRTL ? "مفعل" : "On") : (isRTL ? "معطل" : "Off")}
                 </span>
               </div>
             </div>
 
-            {/* Search Button */}
             <Button onClick={handleSearch} disabled={loading}>
               <Search className="h-4 w-4 mr-2" />
               {loading ? (isRTL ? "جاري البحث..." : "Searching...") : (isRTL ? "بحث" : "Search")}
@@ -407,93 +527,103 @@ const MainProductSalesReport = () => {
         </div>
       )}
 
-      {/* Aggregated Summary Table */}
-      {showAggregated && aggregatedData.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>{isRTL ? "اسم المنتج" : "Product Name"}</TableHead>
-                    <TableHead>{isRTL ? "الشهر/السنة" : "Month/Year"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "إجمالي الكمية" : "Total Qty"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "إجمالي الكوينز" : "Total Coins"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "الإجمالي" : "Total"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {aggregatedData.map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell className="font-medium">{row.product_name}</TableCell>
-                      <TableCell>{row.month_year}</TableCell>
-                      <TableCell className="text-right">{row.total_qty.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{row.total_coins.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{row.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+      {/* Printable content wrapper */}
+      <div ref={printRef}>
+        {/* Aggregated Summary Table */}
+        {showAggregated && aggregatedData.length > 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <SortableHead label={isRTL ? "اسم المنتج" : "Product Name"} sortKey="product_name" isAgg />
+                      <SortableHead label={isRTL ? "الشهر/السنة" : "Month/Year"} sortKey="month_year" isAgg />
+                      <SortableHead label={isRTL ? "إجمالي الكمية" : "Total Qty"} sortKey="total_qty" isAgg />
+                      <SortableHead label={isRTL ? "إجمالي الكوينز" : "Total Coins"} sortKey="total_coins" isAgg />
+                      <SortableHead label={isRTL ? "الفرق" : "Def."} sortKey="def" isAgg />
+                      <SortableHead label={isRTL ? "الإجمالي" : "Total"} sortKey="total_amount" isAgg />
                     </TableRow>
-                  ))}
-                  <TableRow className="font-bold bg-muted/50">
-                    <TableCell colSpan={3}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
-                    <TableCell className="text-right">{aggregatedTotals.qty.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{aggregatedTotals.coins.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{aggregatedTotals.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  </TableHeader>
+                  <TableBody>
+                    {sortedAggregated.map((row, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell className="font-medium">{row.product_name}</TableCell>
+                        <TableCell>{row.month_year}</TableCell>
+                        <TableCell className="text-right">{row.total_qty.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{row.total_coins.toLocaleString()}</TableCell>
+                        <TableCell className={cn("text-right font-medium", row.def !== 0 ? "text-destructive" : "")}>
+                          {row.def.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right">{row.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-bold bg-muted/50">
+                      <TableCell colSpan={3}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                      <TableCell className="text-right">{aggregatedTotals.qty.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{aggregatedTotals.coins.toLocaleString()}</TableCell>
+                      <TableCell className={cn("text-right", aggregatedTotals.def !== 0 ? "text-destructive" : "")}>
+                        {aggregatedTotals.def.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">{aggregatedTotals.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Detail Results Table */}
-      {!showAggregated && results.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>{isRTL ? "اسم المنتج" : "Product Name"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "الكمية" : "Qty"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "سعر الوحدة" : "Unit Price"}</TableHead>
-                    <TableHead className="text-right">{isRTL ? "الإجمالي" : "Total"}</TableHead>
-                    <TableHead>{isRTL ? "العلامة التجارية" : "Brand"}</TableHead>
-                    <TableHead>{isRTL ? "رقم الطلب" : "Order #"}</TableHead>
-                    <TableHead>{isRTL ? "التاريخ" : "Date"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell className="font-medium">{row.product_name}</TableCell>
-                      <TableCell className="text-right">{row.qty?.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{row.coins_number?.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{row.unit_price?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right">{row.total?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell>{row.brand_name}</TableCell>
-                      <TableCell>{row.order_number}</TableCell>
-                      <TableCell>{row.created_at_date ? String(row.created_at_date).substring(0, 10) : ""}</TableCell>
+        {/* Detail Results Table */}
+        {!showAggregated && results.length > 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <SortableHead label={isRTL ? "اسم المنتج" : "Product Name"} sortKey="product_name" isAgg={false} />
+                      <SortableHead label={isRTL ? "الكمية" : "Qty"} sortKey="qty" isAgg={false} />
+                      <SortableHead label={isRTL ? "الكوينز" : "Coins"} sortKey="coins_number" isAgg={false} />
+                      <SortableHead label={isRTL ? "سعر الوحدة" : "Unit Price"} sortKey="unit_price" isAgg={false} />
+                      <SortableHead label={isRTL ? "الإجمالي" : "Total"} sortKey="total" isAgg={false} />
+                      <SortableHead label={isRTL ? "العلامة التجارية" : "Brand"} sortKey="brand_name" isAgg={false} />
+                      <SortableHead label={isRTL ? "رقم الطلب" : "Order #"} sortKey="order_number" isAgg={false} />
+                      <SortableHead label={isRTL ? "التاريخ" : "Date"} sortKey="created_at_date" isAgg={false} />
                     </TableRow>
-                  ))}
-                  <TableRow className="font-bold bg-muted/50">
-                    <TableCell colSpan={2}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
-                    <TableCell className="text-right">{totals.qty.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{totals.coins.toLocaleString()}</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-right">{totals.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell colSpan={3}></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  </TableHeader>
+                  <TableBody>
+                    {sortedResults.map((row, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell className="font-medium">{row.product_name}</TableCell>
+                        <TableCell className="text-right">{row.qty?.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{row.coins_number?.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{row.unit_price?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right">{row.total?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell>{row.brand_name}</TableCell>
+                        <TableCell>{row.order_number}</TableCell>
+                        <TableCell>{row.created_at_date ? String(row.created_at_date).substring(0, 10) : ""}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-bold bg-muted/50">
+                      <TableCell colSpan={2}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                      <TableCell className="text-right">{totals.qty.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{totals.coins.toLocaleString()}</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="text-right">{totals.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell colSpan={3}></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
