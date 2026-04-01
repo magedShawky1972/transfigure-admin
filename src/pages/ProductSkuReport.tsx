@@ -311,6 +311,16 @@ const ProductSkuReport = () => {
                 <SelectItem value="no_price">{language === "ar" ? "بدون سعر" : "No Price"}</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={skuFilter} onValueChange={setSkuFilter}>
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder={language === "ar" ? "كل SKU" : "All SKU"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === "ar" ? "كل SKU" : "All SKU"}</SelectItem>
+                <SelectItem value="with_sku">{language === "ar" ? "بـ SKU" : "With SKU"}</SelectItem>
+                <SelectItem value="no_sku">{language === "ar" ? "بدون SKU" : "No SKU"}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
