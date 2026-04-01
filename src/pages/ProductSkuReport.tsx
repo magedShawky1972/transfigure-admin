@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Search, Download, Printer, ArrowLeft, Package, Pencil, Check, X } from "lucide-react";
+import { Loader2, Search, Download, Printer, ArrowLeft, Package, Pencil, Check, X, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 
