@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList, FileSpreadsheet, AlertTriangle, Scale, FolderKanban, Calculator } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList, FileSpreadsheet, AlertTriangle, Scale, FolderKanban, Calculator, Headset } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration']);
         setLoading(false);
         return;
       }
@@ -342,6 +342,15 @@ const Reports = () => {
         : "View sales for main products with qty, coins, unit price and total",
       icon: ShoppingCart,
       route: "/reports/main-product-sales",
+    },
+    {
+      id: "crm-integration",
+      name: language === "ar" ? "دليل تكامل CRM" : "CRM Integration Guide",
+      description: language === "ar"
+        ? "دليل شامل لتكامل تطبيق CRM الخارجي مع APIs و WebView لإدارة الورديات"
+        : "Complete guide for external CRM app integration with APIs and WebView for shift management",
+      icon: Headset,
+      route: "/crm-integration-doc",
     },
   ];
 

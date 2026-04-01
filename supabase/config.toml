@@ -170,3 +170,12 @@ verify_jwt = false
 
 [functions.api-product-match]
 verify_jwt = false
+
+[functions.api-crm-login]
+verify_jwt = false
+
+[functions.api-crm-shift-check]
+verify_jwt = false
+
+[functions.api-crm-shift-checkin]
+verify_jwt = false
