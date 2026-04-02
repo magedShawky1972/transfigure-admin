@@ -1046,6 +1046,16 @@ const ProductSetup = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${syncingAllProducts ? 'animate-spin' : ''}`} />
               {syncingAllProducts ? 'Syncing...' : 'Sync All to Odoo'}
             </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleBackupProducts}
+              disabled={backingUp}
+            >
+              <DatabaseBackup className={`h-4 w-4 mr-2 ${backingUp ? 'animate-spin' : ''}`} />
+              {backingUp 
+                ? (language === 'ar' ? 'جاري النسخ...' : 'Backing up...') 
+                : (language === 'ar' ? 'نسخ احتياطي' : 'Backup Products')}
+            </Button>
             <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Upload Excel
