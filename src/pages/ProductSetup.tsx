@@ -454,6 +454,29 @@ const ProductSetup = () => {
     if (!productToDelete) return;
 
     try {
+      // Find the product to get its product_id
+      const product = products.find(p => p.id === productToDelete);
+      if (product?.product_id) {
+        // Check if product has transactions
+        const { count, error: checkError } = await (supabase as any)
+          .from("purpletransaction")
+          .select("id", { count: "exact", head: true })
+          .eq("product_id", product.product_id);
+
+        if (!checkError && count && count > 0) {
+          toast({
+            title: language === "ar" ? "لا يمكن الحذف" : "Cannot Delete",
+            description: language === "ar"
+              ? `هذا المنتج مرتبط بـ ${count} معاملة ولا يمكن حذفه`
+              : `This product has ${count} transaction(s) and cannot be deleted`,
+            variant: "destructive",
+          });
+          setDeleteDialogOpen(false);
+          setProductToDelete(null);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("products")
         .delete()
