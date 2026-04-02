@@ -177,16 +177,33 @@ const ProductSetup = () => {
 
   const fetchProductSkusWithTransactions = async () => {
     try {
-      // purpletransaction uses product_id to identify products
-      const { data, error } = await supabase
-        .from("purpletransaction")
-        .select("product_id")
-        .not("product_id", "is", null);
-      if (error) throw error;
+      // Fetch all distinct product_ids from purpletransaction using pagination
       const idSet = new Set<string>();
-      (data || []).forEach((row: any) => {
-        if (row.product_id) idSet.add(String(row.product_id));
-      });
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("purpletransaction")
+          .select("product_id")
+          .not("product_id", "is", null)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          data.forEach((row: any) => {
+            if (row.product_id) idSet.add(String(row.product_id));
+          });
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            from += pageSize;
+          }
+        }
+      }
+      
       setProductSkusWithTransactions(idSet);
     } catch (err) {
       console.error("Error fetching transaction product IDs:", err);
