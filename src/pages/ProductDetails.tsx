@@ -586,10 +586,14 @@ const ProductDetails = () => {
                               .select("sku_start_with")
                               .eq("id", selectedBrand.id)
                               .single();
-                            const prefix = (brandData as any)?.sku_start_with;
+                            let prefix = (brandData as any)?.sku_start_with;
                             if (!prefix) {
-                              toast({ title: "Error", description: isRTL ? "لا يوجد بادئة SKU للبراند" : "No SKU prefix set for this brand", variant: "destructive" });
-                              return;
+                              // Fallback: use brand name's first 2 uppercase characters
+                              prefix = brandName.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase();
+                              if (!prefix) {
+                                toast({ title: "Error", description: isRTL ? "لا يمكن توليد بادئة SKU" : "Cannot generate SKU prefix from brand", variant: "destructive" });
+                                return;
+                              }
                             }
                             const { data: existingProducts } = await supabase
                               .from("products")
