@@ -566,18 +566,42 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="brandName" className={isRTL ? 'text-right block' : ''}>{t("brandSetup.brandName")}</Label>
-                    <Select value={brandName} onValueChange={handleBrandChange}>
-                      <SelectTrigger className={isRTL ? 'text-right' : ''}>
-                        <SelectValue placeholder={isRTL ? "اختر العلامة التجارية" : "Select brand"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {brands.map((brand) => (
-                          <SelectItem key={brand.id} value={brand.brand_name}>
-                            {brand.brand_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between font-normal",
+                            !brandName && "text-muted-foreground",
+                            isRTL && "text-right"
+                          )}
+                        >
+                          {brandName || (isRTL ? "اختر العلامة التجارية" : "Select brand")}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder={isRTL ? "ابحث عن علامة تجارية..." : "Search brand..."} />
+                          <CommandList>
+                            <CommandEmpty>{isRTL ? "لا توجد نتائج" : "No brand found."}</CommandEmpty>
+                            <CommandGroup>
+                              {brands.map((brand) => (
+                                <CommandItem
+                                  key={brand.id}
+                                  value={brand.brand_name}
+                                  onSelect={() => handleBrandChange(brand.brand_name)}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", brandName === brand.brand_name ? "opacity-100" : "opacity-0")} />
+                                  {brand.brand_name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
