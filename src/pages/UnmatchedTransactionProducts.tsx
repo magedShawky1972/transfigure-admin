@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Download, Search, Printer, ArrowLeft, ArrowRightLeft } from "lucide-react";
+import { Download, Search, Printer, ArrowLeft, ArrowRightLeft, CalendarIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
 interface UnmatchedProduct {
@@ -33,17 +37,20 @@ type ViewMode = "unmatched" | "no-transactions";
 const UnmatchedTransactionProducts = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const isRTL = language === "ar";
   const [data, setData] = useState<UnmatchedProduct[]>([]);
   const [orphanData, setOrphanData] = useState<OrphanProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("unmatched");
-
-  useEffect(() => {
-    fetchData();
-  }, [viewMode]);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const fetchData = async () => {
+    if (!dateFrom || !dateTo) {
+      toast.error(isRTL ? "يرجى تحديد نطاق التاريخ" : "Please select a date range");
+      return;
+    }
     setLoading(true);
     try {
       if (viewMode === "unmatched") {
@@ -53,18 +60,39 @@ const UnmatchedTransactionProducts = () => {
       }
     } catch (error) {
       console.error("Error fetching data:", error);
-      toast.error(language === "ar" ? "خطأ في تحميل البيانات" : "Error loading data");
+      toast.error(isRTL ? "خطأ في تحميل البيانات" : "Error loading data");
     } finally {
       setLoading(false);
     }
   };
 
   const fetchUnmatched = async () => {
-    const { data: txProducts, error: txError } = await supabase
-      .from("purpletransaction")
-      .select("product_id, product_name, brand_name, brand_code")
-      .not("product_id", "is", null);
-    if (txError) throw txError;
+    const fromStr = format(dateFrom!, "yyyy-MM-dd");
+    const toStr = format(dateTo!, "yyyy-MM-dd");
+
+    // Fetch transactions in date range in batches
+    let allTx: any[] = [];
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data: txBatch, error } = await supabase
+        .from("purpletransaction")
+        .select("product_id, product_name, brand_name, brand_code")
+        .not("product_id", "is", null)
+        .gte("created_at_date", fromStr)
+        .lte("created_at_date", toStr)
+        .range(from, from + batchSize - 1);
+      if (error) throw error;
+      if (txBatch && txBatch.length > 0) {
+        allTx = [...allTx, ...txBatch];
+        hasMore = txBatch.length === batchSize;
+        from += batchSize;
+      } else {
+        hasMore = false;
+      }
+    }
 
     const { data: products, error: pError } = await supabase
       .from("products")
@@ -74,7 +102,7 @@ const UnmatchedTransactionProducts = () => {
     const productIdSet = new Set(products?.map(p => p.product_id) || []);
     const unmatchedMap = new Map<string, UnmatchedProduct>();
 
-    txProducts?.forEach(tx => {
+    allTx.forEach(tx => {
       if (!tx.product_id || productIdSet.has(tx.product_id)) return;
       const existing = unmatchedMap.get(tx.product_id);
       if (existing) {
@@ -94,16 +122,37 @@ const UnmatchedTransactionProducts = () => {
   };
 
   const fetchNoTransactions = async () => {
-    // Use existing RPC to get distinct transaction product_ids efficiently
-    const { data: txIds, error: txError } = await supabase.rpc("get_distinct_transaction_product_ids");
-    if (txError) throw txError;
-    const txIdSet = new Set<string>((txIds || []).map((t: any) => t.product_id));
+    const fromStr = format(dateFrom!, "yyyy-MM-dd");
+    const toStr = format(dateTo!, "yyyy-MM-dd");
 
-    // Get all products in batches
-    let allProducts: OrphanProduct[] = [];
+    // Get distinct product_ids from transactions in date range
+    const txIdSet = new Set<string>();
     let from = 0;
     const batchSize = 1000;
     let hasMore = true;
+
+    while (hasMore) {
+      const { data: txBatch, error } = await supabase
+        .from("purpletransaction")
+        .select("product_id")
+        .not("product_id", "is", null)
+        .gte("created_at_date", fromStr)
+        .lte("created_at_date", toStr)
+        .range(from, from + batchSize - 1);
+      if (error) throw error;
+      if (txBatch && txBatch.length > 0) {
+        txBatch.forEach(t => { if (t.product_id) txIdSet.add(t.product_id); });
+        hasMore = txBatch.length === batchSize;
+        from += batchSize;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    // Get all products in batches
+    let allProducts: OrphanProduct[] = [];
+    from = 0;
+    hasMore = true;
 
     while (hasMore) {
       const { data: pBatch, error } = await supabase
@@ -152,23 +201,23 @@ const UnmatchedTransactionProducts = () => {
   const handleExport = () => {
     if (viewMode === "unmatched") {
       const ws = XLSX.utils.json_to_sheet((filtered as UnmatchedProduct[]).map(item => ({
-        [language === "ar" ? "رقم المنتج" : "Product ID"]: item.product_id,
-        [language === "ar" ? "اسم المنتج" : "Product Name"]: item.product_name,
-        [language === "ar" ? "اسم البراند" : "Brand Name"]: item.brand_name,
-        [language === "ar" ? "كود البراند" : "Brand Code"]: item.brand_code,
-        [language === "ar" ? "عدد المعاملات" : "Transaction Count"]: item.transaction_count,
+        [isRTL ? "رقم المنتج" : "Product ID"]: item.product_id,
+        [isRTL ? "اسم المنتج" : "Product Name"]: item.product_name,
+        [isRTL ? "اسم البراند" : "Brand Name"]: item.brand_name,
+        [isRTL ? "كود البراند" : "Brand Code"]: item.brand_code,
+        [isRTL ? "عدد المعاملات" : "Transaction Count"]: item.transaction_count,
       })));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Unmatched Products");
       XLSX.writeFile(wb, "unmatched_transaction_products.xlsx");
     } else {
       const ws = XLSX.utils.json_to_sheet((filtered as OrphanProduct[]).map(item => ({
-        [language === "ar" ? "رقم المنتج" : "Product ID"]: item.product_id,
-        [language === "ar" ? "اسم المنتج" : "Product Name"]: item.product_name,
+        [isRTL ? "رقم المنتج" : "Product ID"]: item.product_id,
+        [isRTL ? "اسم المنتج" : "Product Name"]: item.product_name,
         SKU: item.sku,
-        [language === "ar" ? "اسم البراند" : "Brand Name"]: item.brand_name,
-        [language === "ar" ? "كود البراند" : "Brand Code"]: item.brand_code,
-        [language === "ar" ? "الحالة" : "Status"]: item.status,
+        [isRTL ? "اسم البراند" : "Brand Name"]: item.brand_name,
+        [isRTL ? "كود البراند" : "Brand Code"]: item.brand_code,
+        [isRTL ? "الحالة" : "Status"]: item.status,
       })));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Products Without Transactions");
@@ -176,12 +225,8 @@ const UnmatchedTransactionProducts = () => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div className="space-y-6" dir={language === "ar" ? "rtl" : "ltr"}>
+    <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/reports")}>
@@ -189,14 +234,14 @@ const UnmatchedTransactionProducts = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">
-              {language === "ar" ? "منتجات المعاملات غير المطابقة" : "Unmatched Transaction Products"}
+              {isRTL ? "منتجات المعاملات غير المطابقة" : "Unmatched Transaction Products"}
             </h1>
             <p className="text-muted-foreground text-sm">
               {viewMode === "unmatched"
-                ? (language === "ar"
+                ? (isRTL
                   ? "منتجات موجودة في المعاملات ولكن غير موجودة في جدول المنتجات"
                   : "Products found in transactions but missing from the products table")
-                : (language === "ar"
+                : (isRTL
                   ? "منتجات موجودة في جدول المنتجات ولكن ليس لها معاملات"
                   : "Products in product setup with no transactions")}
             </p>
@@ -205,38 +250,71 @@ const UnmatchedTransactionProducts = () => {
         <div className="flex gap-2 print:hidden">
           <Button variant="outline" onClick={handleExport} disabled={filtered.length === 0}>
             <Download className="h-4 w-4 mr-2" />
-            {language === "ar" ? "تصدير Excel" : "Export Excel"}
+            {isRTL ? "تصدير Excel" : "Export Excel"}
           </Button>
-          <Button variant="outline" onClick={handlePrint}>
+          <Button variant="outline" onClick={() => window.print()}>
             <Printer className="h-4 w-4 mr-2" />
-            {language === "ar" ? "طباعة" : "Print"}
+            {isRTL ? "طباعة" : "Print"}
           </Button>
         </div>
       </div>
 
-      <Tabs value={viewMode} onValueChange={(v) => { setSearch(""); setViewMode(v as ViewMode); }} className="print:hidden">
+      <Tabs value={viewMode} onValueChange={(v) => { setSearch(""); setData([]); setOrphanData([]); setViewMode(v as ViewMode); }} className="print:hidden">
         <TabsList>
           <TabsTrigger value="unmatched" className="gap-2">
             <ArrowRightLeft className="h-4 w-4" />
-            {language === "ar" ? "في المعاملات وليس في المنتجات" : "In Transactions, Not in Products"}
+            {isRTL ? "في المعاملات وليس في المنتجات" : "In Transactions, Not in Products"}
           </TabsTrigger>
           <TabsTrigger value="no-transactions" className="gap-2">
             <ArrowRightLeft className="h-4 w-4" />
-            {language === "ar" ? "في المنتجات وليس في المعاملات" : "In Products, Not in Transactions"}
+            {isRTL ? "في المنتجات وليس في المعاملات" : "In Products, Not in Transactions"}
           </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {/* Date Range Filter */}
+      <div className="flex items-center gap-3 flex-wrap print:hidden">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateFrom ? format(dateFrom, "yyyy-MM-dd") : (isRTL ? "من تاريخ" : "From Date")}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateTo ? format(dateTo, "yyyy-MM-dd") : (isRTL ? "إلى تاريخ" : "To Date")}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+
+        <Button onClick={fetchData} disabled={loading || !dateFrom || !dateTo}>
+          {loading
+            ? (isRTL ? "جاري التحميل..." : "Loading...")
+            : (isRTL ? "بحث" : "Search")}
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">
-              {language === "ar" ? `إجمالي: ${filtered.length} منتج` : `Total: ${filtered.length} products`}
+              {isRTL ? `إجمالي: ${filtered.length} منتج` : `Total: ${filtered.length} products`}
             </CardTitle>
             <div className="relative w-72 print:hidden">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={language === "ar" ? "بحث..." : "Search..."}
+                placeholder={isRTL ? "بحث..." : "Search..."}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9"
@@ -255,18 +333,18 @@ const UnmatchedTransactionProducts = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>{language === "ar" ? "رقم المنتج" : "Product ID"}</TableHead>
-                    <TableHead>{language === "ar" ? "اسم المنتج" : "Product Name"}</TableHead>
-                    <TableHead>{language === "ar" ? "اسم البراند" : "Brand Name"}</TableHead>
-                    <TableHead>{language === "ar" ? "كود البراند" : "Brand Code"}</TableHead>
-                    <TableHead className="text-center">{language === "ar" ? "عدد المعاملات" : "Txn Count"}</TableHead>
+                    <TableHead>{isRTL ? "رقم المنتج" : "Product ID"}</TableHead>
+                    <TableHead>{isRTL ? "اسم المنتج" : "Product Name"}</TableHead>
+                    <TableHead>{isRTL ? "اسم البراند" : "Brand Name"}</TableHead>
+                    <TableHead>{isRTL ? "كود البراند" : "Brand Code"}</TableHead>
+                    <TableHead className="text-center">{isRTL ? "عدد المعاملات" : "Txn Count"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {(filtered as UnmatchedProduct[]).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        {language === "ar" ? "لا توجد منتجات غير مطابقة" : "No unmatched products found"}
+                        {isRTL ? "لا توجد منتجات غير مطابقة" : "No unmatched products found"}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -290,19 +368,19 @@ const UnmatchedTransactionProducts = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>{language === "ar" ? "رقم المنتج" : "Product ID"}</TableHead>
-                    <TableHead>{language === "ar" ? "اسم المنتج" : "Product Name"}</TableHead>
+                    <TableHead>{isRTL ? "رقم المنتج" : "Product ID"}</TableHead>
+                    <TableHead>{isRTL ? "اسم المنتج" : "Product Name"}</TableHead>
                     <TableHead>SKU</TableHead>
-                    <TableHead>{language === "ar" ? "اسم البراند" : "Brand Name"}</TableHead>
-                    <TableHead>{language === "ar" ? "كود البراند" : "Brand Code"}</TableHead>
-                    <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                    <TableHead>{isRTL ? "اسم البراند" : "Brand Name"}</TableHead>
+                    <TableHead>{isRTL ? "كود البراند" : "Brand Code"}</TableHead>
+                    <TableHead>{isRTL ? "الحالة" : "Status"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {(filtered as OrphanProduct[]).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        {language === "ar" ? "لا توجد منتجات بدون معاملات" : "No products without transactions found"}
+                        {isRTL ? "لا توجد منتجات بدون معاملات" : "No products without transactions found"}
                       </TableCell>
                     </TableRow>
                   ) : (
