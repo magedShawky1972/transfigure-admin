@@ -379,6 +379,15 @@ const Reports = () => {
       icon: AlertTriangle,
       route: "/reports/orphan-brand-products",
     },
+    {
+      id: "unmatched-transaction-products",
+      name: language === "ar" ? "منتجات معاملات غير مطابقة" : "Unmatched Transaction Products",
+      description: language === "ar"
+        ? "منتجات موجودة في المعاملات ولكن غير موجودة في جدول المنتجات"
+        : "Products found in transactions but missing from the products table",
+      icon: AlertTriangle,
+      route: "/reports/unmatched-transaction-products",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
