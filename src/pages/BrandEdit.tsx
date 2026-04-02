@@ -206,6 +206,30 @@ const BrandEdit = () => {
           _created_at: data.created_at,
         } as any);
 
+        // Fetch distinct SKU first characters from related products
+        if (data.brand_code) {
+          supabase
+            .from("products")
+            .select("sku")
+            .eq("brand_code", data.brand_code)
+            .not("sku", "is", null)
+            .then(({ data: products }) => {
+              if (products && products.length > 0) {
+                const prefixes = new Set<string>();
+                products.forEach((p: any) => {
+                  if (p.sku) {
+                    // Extract leading non-digit characters as prefix
+                    const match = p.sku.match(/^[A-Za-z]+/);
+                    if (match) prefixes.add(match[0].toUpperCase());
+                  }
+                });
+                setCurrentSkuPrefixes(Array.from(prefixes).sort().join(", ") || "-");
+              } else {
+                setCurrentSkuPrefixes("-");
+              }
+            });
+        }
+
         // Fetch the latest closing balance from shift_brand_balances for closed shifts only
         const { data: balanceData, error: balanceError } = await supabase
           .from("shift_brand_balances")
