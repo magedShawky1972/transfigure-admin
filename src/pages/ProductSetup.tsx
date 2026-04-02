@@ -862,11 +862,55 @@ const ProductSetup = () => {
           </div>
         </div>
 
+        {/* Bulk Actions Bar */}
+        {selectedProducts.size > 0 && (
+          <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-md">
+            <span className="text-sm font-medium">
+              {language === "ar"
+                ? `${selectedProducts.size} منتج محدد`
+                : `${selectedProducts.size} selected`}
+            </span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkDeleteDialogOpen(true)}
+              disabled={bulkDeleting}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {language === "ar" ? "حذف المحدد" : "Delete Selected"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkSync}
+              disabled={bulkSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${bulkSyncing ? 'animate-spin' : ''}`} />
+              {bulkSyncing
+                ? (language === "ar" ? "جاري المزامنة..." : "Syncing...")
+                : (language === "ar" ? "مزامنة المحدد مع Odoo" : "Sync Selected to Odoo")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedProducts(new Set())}
+            >
+              {language === "ar" ? "إلغاء التحديد" : "Clear Selection"}
+            </Button>
+          </div>
+        )}
+
         {viewMode === "grid" ? (
           <div className="rounded-md border bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={sortedProducts.length > 0 && selectedProducts.size === sortedProducts.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead 
                     className="cursor-pointer select-none hover:bg-muted/50"
                     onClick={() => handleSort("product_id")}
