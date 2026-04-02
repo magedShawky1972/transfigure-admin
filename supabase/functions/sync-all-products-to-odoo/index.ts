@@ -138,6 +138,19 @@ Deno.serve(async (req) => {
         } else {
           const errText = (putResult?.error || putResult?.message || '').toString();
 
+          // If error is about product.template.type, the product EXISTS - treat as synced
+          if (errText.toLowerCase().includes('product.template.type')) {
+            await supabase
+              .from('products')
+              .update({ 
+                odoo_sync_status: 'synced',
+                odoo_synced_at: new Date().toISOString()
+              })
+              .eq('id', product.id);
+            results.synced++;
+            results.details.push({ sku, status: 'synced', note: 'exists_type_readonly' });
+          } else {
+
           // If product not found in Odoo, try POST to create it
           const isNotFound = putResponse.status === 404 || 
             errText.toLowerCase().includes('not found') ||
