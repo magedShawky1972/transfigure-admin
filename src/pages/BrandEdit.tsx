@@ -40,6 +40,7 @@ const BrandEdit = () => {
   const [loading, setLoading] = useState(false);
   const [initialBrandTypeId, setInitialBrandTypeId] = useState<string | null>(null);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
+  const [currentSkuPrefixes, setCurrentSkuPrefixes] = useState<string>("");
   const [formData, setFormData] = useState({
     brand_name: "",
     brand_code: "",
@@ -204,6 +205,30 @@ const BrandEdit = () => {
           creation_source: (data as any).creation_source || "",
           _created_at: data.created_at,
         } as any);
+
+        // Fetch distinct SKU first characters from related products
+        if (data.brand_code) {
+          supabase
+            .from("products")
+            .select("sku")
+            .eq("brand_code", data.brand_code)
+            .not("sku", "is", null)
+            .then(({ data: products }) => {
+              if (products && products.length > 0) {
+                const prefixes = new Set<string>();
+                products.forEach((p: any) => {
+                  if (p.sku) {
+                    // Extract leading non-digit characters as prefix
+                    const match = p.sku.match(/^[A-Za-z]+/);
+                    if (match) prefixes.add(match[0].toUpperCase());
+                  }
+                });
+                setCurrentSkuPrefixes(Array.from(prefixes).sort().join(", ") || "-");
+              } else {
+                setCurrentSkuPrefixes("-");
+              }
+            });
+        }
 
         // Fetch the latest closing balance from shift_brand_balances for closed shifts only
         const { data: balanceData, error: balanceError } = await supabase
@@ -681,6 +706,18 @@ const BrandEdit = () => {
                 placeholder="e.g. ITN, GOG, SAM"
               />
             </div>
+
+            {brandId && (
+              <div className="space-y-2">
+                <Label>Current SKU Prefix in Products</Label>
+                <Input
+                  value={currentSkuPrefixes || "-"}
+                  readOnly
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="asus_brand_name">Asus Brand Name</Label>
