@@ -96,7 +96,9 @@ Deno.serve(async (req) => {
       name: productName,
     };
 
-    // Add optional fields for update (excluding cat_code)
+    // Add optional fields for update (excluding cat_code and is_non_stock)
+    // is_non_stock is excluded from PUT because it maps to product.template.type in Odoo
+    // which is read-only for existing products and causes "Wrong value for product.template.type" errors
     if (uom) putBody.uom = uom;
     if (reorderPoint !== undefined && reorderPoint !== null) putBody.reorder_point = reorderPoint;
     if (minimumOrder !== undefined && minimumOrder !== null) putBody.minimum_order = minimumOrder;
@@ -104,7 +106,6 @@ Deno.serve(async (req) => {
     if (costPrice !== undefined && costPrice !== null) putBody.cost_price = costPrice;
     if (salesPrice !== undefined && salesPrice !== null) putBody.sales_price = salesPrice;
     if (productWeight !== undefined && productWeight !== null) putBody.product_weight = productWeight;
-    if (isNonStock !== undefined && isNonStock !== null) putBody.is_non_stock = isNonStock;
 
     // Try PUT first to update existing product
     console.log('Trying PUT to update product:', `${productApiUrl}/${sku}`);
