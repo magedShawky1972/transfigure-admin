@@ -107,6 +107,10 @@ const ProductSetup = () => {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [syncingProducts, setSyncingProducts] = useState<Set<string>>(new Set());
   const [syncingAllProducts, setSyncingAllProducts] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   
   // Filter states
   const [filterName, setFilterName] = useState<string>(() =>
