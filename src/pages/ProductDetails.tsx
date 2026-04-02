@@ -561,13 +561,66 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sku" className={isRTL ? 'text-right block' : ''}>SKU</Label>
-                    <Input
-                      id="sku"
-                      className={isRTL ? 'text-right' : ''}
-                      value={sku}
-                      onChange={(e) => setSku(e.target.value)}
-                      placeholder={isRTL ? "أدخل SKU" : "Enter SKU"}
-                    />
+                    <div className="flex gap-1">
+                      <Input
+                        id="sku"
+                        className={isRTL ? 'text-right' : ''}
+                        value={sku}
+                        onChange={(e) => setSku(e.target.value)}
+                        placeholder={isRTL ? "أدخل SKU" : "Enter SKU"}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        title={isRTL ? "توليد SKU تلقائي" : "Auto-generate SKU"}
+                        onClick={async () => {
+                          const selectedBrand = brands.find(b => b.brand_name === brandName);
+                          if (!selectedBrand) {
+                            toast({ title: "Error", description: isRTL ? "اختر البراند أولاً" : "Select a brand first", variant: "destructive" });
+                            return;
+                          }
+                          try {
+                            const { data: brandData } = await supabase
+                              .from("brands")
+                              .select("sku_start_with")
+                              .eq("id", selectedBrand.id)
+                              .single();
+                            const prefix = (brandData as any)?.sku_start_with;
+                            if (!prefix) {
+                              toast({ title: "Error", description: isRTL ? "لا يوجد بادئة SKU للبراند" : "No SKU prefix set for this brand", variant: "destructive" });
+                              return;
+                            }
+                            const { data: existingProducts } = await supabase
+                              .from("products")
+                              .select("sku")
+                              .like("sku", `${prefix}%`)
+                              .not("sku", "is", null);
+                            let maxNum = 0;
+                            let padLength = 3;
+                            if (existingProducts && existingProducts.length > 0) {
+                              existingProducts.forEach((p: any) => {
+                                if (p.sku) {
+                                  const numPart = p.sku.substring(prefix.length);
+                                  const num = parseInt(numPart, 10);
+                                  if (!isNaN(num)) {
+                                    if (num > maxNum) maxNum = num;
+                                    if (numPart.length > padLength) padLength = numPart.length;
+                                  }
+                                }
+                              });
+                            }
+                            const newSku = prefix + String(maxNum + 1).padStart(padLength, "0");
+                            setSku(newSku);
+                            toast({ title: isRTL ? "تم التوليد" : "Generated", description: `SKU: ${newSku}` });
+                          } catch (err: any) {
+                            toast({ title: "Error", description: err.message, variant: "destructive" });
+                          }
+                        }}
+                      >
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="barcode" className={isRTL ? 'text-right block' : ''}>{t("productSetup.barcode")}</Label>
