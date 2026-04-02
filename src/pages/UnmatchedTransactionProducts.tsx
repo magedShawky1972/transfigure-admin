@@ -41,55 +41,109 @@ const UnmatchedTransactionProducts = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [viewMode]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Get distinct product_ids from purpletransaction
-      const { data: txProducts, error: txError } = await supabase
-        .from("purpletransaction")
-        .select("product_id, product_name, brand_name, brand_code")
-        .not("product_id", "is", null);
-
-      if (txError) throw txError;
-
-      // Get all product_ids from products table
-      const { data: products, error: pError } = await supabase
-        .from("products")
-        .select("product_id");
-
-      if (pError) throw pError;
-
-      const productIdSet = new Set(products?.map(p => p.product_id) || []);
-
-      // Group by product_id and count, filter those not in products
-      const unmatchedMap = new Map<string, UnmatchedProduct>();
-
-      txProducts?.forEach(tx => {
-        if (!tx.product_id || productIdSet.has(tx.product_id)) return;
-
-        const existing = unmatchedMap.get(tx.product_id);
-        if (existing) {
-          existing.transaction_count++;
-        } else {
-          unmatchedMap.set(tx.product_id, {
-            product_id: tx.product_id,
-            product_name: tx.product_name || "",
-            brand_name: tx.brand_name || "",
-            brand_code: tx.brand_code || "",
-            transaction_count: 1,
-          });
-        }
-      });
-
-      setData(Array.from(unmatchedMap.values()).sort((a, b) => b.transaction_count - a.transaction_count));
+      if (viewMode === "unmatched") {
+        await fetchUnmatched();
+      } else {
+        await fetchNoTransactions();
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error(language === "ar" ? "خطأ في تحميل البيانات" : "Error loading data");
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchUnmatched = async () => {
+    const { data: txProducts, error: txError } = await supabase
+      .from("purpletransaction")
+      .select("product_id, product_name, brand_name, brand_code")
+      .not("product_id", "is", null);
+    if (txError) throw txError;
+
+    const { data: products, error: pError } = await supabase
+      .from("products")
+      .select("product_id");
+    if (pError) throw pError;
+
+    const productIdSet = new Set(products?.map(p => p.product_id) || []);
+    const unmatchedMap = new Map<string, UnmatchedProduct>();
+
+    txProducts?.forEach(tx => {
+      if (!tx.product_id || productIdSet.has(tx.product_id)) return;
+      const existing = unmatchedMap.get(tx.product_id);
+      if (existing) {
+        existing.transaction_count++;
+      } else {
+        unmatchedMap.set(tx.product_id, {
+          product_id: tx.product_id,
+          product_name: tx.product_name || "",
+          brand_name: tx.brand_name || "",
+          brand_code: tx.brand_code || "",
+          transaction_count: 1,
+        });
+      }
+    });
+
+    setData(Array.from(unmatchedMap.values()).sort((a, b) => b.transaction_count - a.transaction_count));
+  };
+
+  const fetchNoTransactions = async () => {
+    // Get distinct product_ids from transactions
+    const txIdSet = new Set<string>();
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data: txBatch, error } = await supabase
+        .from("purpletransaction")
+        .select("product_id")
+        .not("product_id", "is", null)
+        .range(from, from + batchSize - 1);
+      if (error) throw error;
+      txBatch?.forEach(t => { if (t.product_id) txIdSet.add(t.product_id); });
+      hasMore = (txBatch?.length || 0) === batchSize;
+      from += batchSize;
+    }
+
+    // Get all products in batches
+    let allProducts: OrphanProduct[] = [];
+    from = 0;
+    hasMore = true;
+
+    while (hasMore) {
+      const { data: pBatch, error } = await supabase
+        .from("products")
+        .select("product_id, product_name, brand_name, brand_code, sku, status")
+        .range(from, from + batchSize - 1);
+      if (error) throw error;
+      if (pBatch && pBatch.length > 0) {
+        pBatch.forEach(p => {
+          if (!p.product_id || !txIdSet.has(p.product_id)) {
+            allProducts.push({
+              product_id: p.product_id || "",
+              product_name: p.product_name || "",
+              brand_name: p.brand_name || "",
+              brand_code: p.brand_code || "",
+              sku: p.sku || "",
+              status: p.status || "",
+            });
+          }
+        });
+        hasMore = pBatch.length === batchSize;
+        from += batchSize;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    setOrphanData(allProducts);
   };
 
   const filtered = data.filter(item =>
