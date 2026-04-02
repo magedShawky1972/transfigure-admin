@@ -18,12 +18,25 @@ interface UnmatchedProduct {
   transaction_count: number;
 }
 
+interface OrphanProduct {
+  product_id: string;
+  product_name: string;
+  brand_name: string;
+  brand_code: string;
+  sku: string;
+  status: string;
+}
+
+type ViewMode = "unmatched" | "no-transactions";
+
 const UnmatchedTransactionProducts = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [data, setData] = useState<UnmatchedProduct[]>([]);
+  const [orphanData, setOrphanData] = useState<OrphanProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("unmatched");
 
   useEffect(() => {
     fetchData();
