@@ -223,7 +223,15 @@ const BrandEdit = () => {
                     if (match) prefixes.add(match[0].toUpperCase());
                   }
                 });
-                setCurrentSkuPrefixes(Array.from(prefixes).sort().join(", ") || "-");
+                const prefixStr = Array.from(prefixes).sort().join(", ") || "-";
+                setCurrentSkuPrefixes(prefixStr);
+                // Auto-fill SKU Start With if empty and prefix is available
+                if (prefixStr !== "-") {
+                  setFormData(prev => ({
+                    ...prev,
+                    sku_start_with: prev.sku_start_with || prefixStr,
+                  }));
+                }
               } else {
                 setCurrentSkuPrefixes("-");
               }
