@@ -43,7 +43,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown, Wand2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProductExcelUpload } from "@/components/ProductExcelUpload";
 import { AdvancedProductFilter, FilterRule } from "@/components/AdvancedProductFilter";
