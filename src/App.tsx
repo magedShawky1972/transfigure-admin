@@ -104,6 +104,7 @@ import SoldProductReport from "./pages/SoldProductReport";
 import ProductSkuReport from "./pages/ProductSkuReport";
 import DuplicateSkuReport from "./pages/DuplicateSkuReport";
 import OrphanBrandProductsReport from "./pages/OrphanBrandProductsReport";
+import UnmatchedTransactionProducts from "./pages/UnmatchedTransactionProducts";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 import DailySalesReport from "./pages/DailySalesReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
@@ -267,6 +268,7 @@ const App = () => (
               <Route path="/reports/product-sku" element={<ProductSkuReport />} />
               <Route path="/reports/duplicate-sku" element={<DuplicateSkuReport />} />
               <Route path="/reports/orphan-brand-products" element={<OrphanBrandProductsReport />} />
+              <Route path="/reports/unmatched-transaction-products" element={<UnmatchedTransactionProducts />} />
               <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />
               <Route path="/reports/aggregated-orders" element={<AggregatedOrderReport />} />
               <Route path="/hr-vacation-calendar" element={<HRVacationCalendar />} />
