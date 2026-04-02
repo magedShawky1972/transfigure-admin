@@ -94,23 +94,10 @@ const UnmatchedTransactionProducts = () => {
   };
 
   const fetchNoTransactions = async () => {
-    // Get distinct product_ids from transactions
-    const txIdSet = new Set<string>();
-    let from = 0;
-    const batchSize = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data: txBatch, error } = await supabase
-        .from("purpletransaction")
-        .select("product_id")
-        .not("product_id", "is", null)
-        .range(from, from + batchSize - 1);
-      if (error) throw error;
-      txBatch?.forEach(t => { if (t.product_id) txIdSet.add(t.product_id); });
-      hasMore = (txBatch?.length || 0) === batchSize;
-      from += batchSize;
-    }
+    // Use existing RPC to get distinct transaction product_ids efficiently
+    const { data: txIds, error: txError } = await supabase.rpc("get_distinct_transaction_product_ids");
+    if (txError) throw txError;
+    const txIdSet = new Set<string>((txIds || []).map((t: any) => t.product_id));
 
     // Get all products in batches
     let allProducts: OrphanProduct[] = [];
