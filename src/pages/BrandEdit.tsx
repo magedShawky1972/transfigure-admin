@@ -58,6 +58,7 @@ const BrandEdit = () => {
     odoo_category_id: "",
     default_supplier_id: "none",
     asus_brand_name: "",
+    sku_start_with: "",
     creation_source: "",
   });
 
