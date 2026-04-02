@@ -1024,8 +1024,14 @@ const ProductSetup = () => {
               </TableHeader>
               <TableBody>
                 {sortedProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
+                    <TableRow key={product.id} className={selectedProducts.has(product.id) ? "bg-primary/5" : ""}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedProducts.has(product.id)}
+                          onCheckedChange={() => toggleSelectProduct(product.id)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
                     <TableCell>{product.sku || "-"}</TableCell>
                     <TableCell>{product.product_name}</TableCell>
                     <TableCell>{product.product_price || "-"}</TableCell>
