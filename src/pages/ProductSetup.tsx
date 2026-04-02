@@ -723,6 +723,7 @@ const ProductSetup = () => {
             salesPrice: product.product_price ? parseFloat(product.product_price) : null,
             productWeight: product.weight || null,
             isNonStock: product.non_stock ?? false,
+            odoo_product_id: product.odoo_product_id || null,
           }
         });
 
