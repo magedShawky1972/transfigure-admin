@@ -370,6 +370,15 @@ const Reports = () => {
       icon: AlertTriangle,
       route: "/reports/duplicate-sku",
     },
+    {
+      id: "orphan-brand-products",
+      name: language === "ar" ? "منتجات بدون براند" : "Orphan Brand Products",
+      description: language === "ar"
+        ? "عرض المنتجات المرتبطة ببراند غير موجود في إعداد البراندات"
+        : "Products linked to brands that don't exist in Brand Setup",
+      icon: AlertTriangle,
+      route: "/reports/orphan-brand-products",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
