@@ -190,13 +190,30 @@ const ProductSetup = () => {
   const fetchProducts = async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .order("product_name", { ascending: true });
+      // Fetch all products in batches to avoid the 1000-row default limit
+      let allProducts: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      setProducts(data || []);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .order("product_name", { ascending: true })
+          .range(from, from + batchSize - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allProducts = [...allProducts, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setProducts(allProducts);
     } catch (error: any) {
       toast({
         title: t("common.error"),
