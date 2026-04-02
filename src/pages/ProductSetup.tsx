@@ -1125,21 +1125,43 @@ const ProductSetup = () => {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>{t("productSetup.productId")}</TableHead>
-                            <TableHead>{t("productSetup.productName")}</TableHead>
-                            <TableHead>{t("productSetup.productPrice")}</TableHead>
-                            <TableHead>{t("productSetup.productCost")}</TableHead>
-                            <TableHead>{t("productSetup.status")}</TableHead>
-                            <TableHead>Odoo ID</TableHead>
-                            <TableHead>Odoo Sync Status</TableHead>
-                            <TableHead>{t("productSetup.createdDate")}</TableHead>
-                            <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {brandProducts.map((product) => (
-                            <TableRow key={product.id}>
-                              <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
+                            <TableHead className="w-12">
+                              <Checkbox
+                                checked={brandProducts.every(p => selectedProducts.has(p.id))}
+                                onCheckedChange={() => {
+                                  const allSelected = brandProducts.every(p => selectedProducts.has(p.id));
+                                  setSelectedProducts(prev => {
+                                    const next = new Set(prev);
+                                    brandProducts.forEach(p => {
+                                      if (allSelected) next.delete(p.id);
+                                      else next.add(p.id);
+                                    });
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </TableHead>
+                             <TableHead>{t("productSetup.productId")}</TableHead>
+                             <TableHead>{t("productSetup.productName")}</TableHead>
+                             <TableHead>{t("productSetup.productPrice")}</TableHead>
+                             <TableHead>{t("productSetup.productCost")}</TableHead>
+                             <TableHead>{t("productSetup.status")}</TableHead>
+                             <TableHead>Odoo ID</TableHead>
+                             <TableHead>Odoo Sync Status</TableHead>
+                             <TableHead>{t("productSetup.createdDate")}</TableHead>
+                             <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
+                           </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                           {brandProducts.map((product) => (
+                             <TableRow key={product.id} className={selectedProducts.has(product.id) ? "bg-primary/5" : ""}>
+                               <TableCell>
+                                 <Checkbox
+                                   checked={selectedProducts.has(product.id)}
+                                   onCheckedChange={() => toggleSelectProduct(product.id)}
+                                 />
+                               </TableCell>
+                               <TableCell className="font-medium">{product.product_id || "-"}</TableCell>
                               <TableCell>{product.product_name}</TableCell>
                               <TableCell>{product.product_price || "-"}</TableCell>
                               <TableCell>{product.product_cost || "-"}</TableCell>
