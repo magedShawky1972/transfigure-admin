@@ -97,9 +97,7 @@ Deno.serve(async (req) => {
         if (product.weight !== undefined && product.weight !== null) {
           putBody.product_weight = product.weight;
         }
-        if (product.non_stock !== undefined && product.non_stock !== null) {
-          putBody.is_non_stock = product.non_stock;
-        }
+        // is_non_stock excluded from PUT - maps to product.template.type which is read-only in Odoo
 
         console.log(`PUT ${productApiUrl}/${sku}`, putBody);
 
