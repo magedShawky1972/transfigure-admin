@@ -10604,6 +10604,12 @@ export type Database = {
           payment_method: string
         }[]
       }
+      get_distinct_transaction_product_ids: {
+        Args: never
+        Returns: {
+          product_id: string
+        }[]
+      }
       get_email_config_password: {
         Args: { config_id: string }
         Returns: string
