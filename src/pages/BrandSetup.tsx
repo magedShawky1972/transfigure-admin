@@ -59,6 +59,9 @@ const BrandSetup = () => {
   const [filterBrandName, setFilterBrandName] = useState(() => 
     localStorage.getItem("brandSetup_filterBrandName") || ""
   );
+  const [filterBrandCode, setFilterBrandCode] = useState(() => 
+    localStorage.getItem("brandSetup_filterBrandCode") || ""
+  );
   const [filterShortName, setFilterShortName] = useState(() => 
     localStorage.getItem("brandSetup_filterShortName") || ""
   );
