@@ -19,7 +19,8 @@ Deno.serve(async (req) => {
       costPrice,
       salesPrice,
       productWeight,
-      isNonStock
+      isNonStock,
+      odoo_product_id
     } = await req.json();
 
     console.log('Syncing product to Odoo:', { product_id, sku, productName, brandCode });
@@ -237,11 +238,12 @@ Deno.serve(async (req) => {
     }
 
     // Check if PUT failed because product doesn't exist (404 or specific error message)
-    const isNotFound = putResponse.status === 404 || 
+    // Only try POST creation if the product does NOT already have an odoo_product_id
+    const isNotFound = !odoo_product_id && (putResponse.status === 404 || 
       (putResult.error && (
         putResult.error.toLowerCase().includes('not found') ||
         putResult.error.toLowerCase().includes('does not exist')
-      ));
+      )));
 
     if (isNotFound) {
       // Product doesn't exist, try POST to create
