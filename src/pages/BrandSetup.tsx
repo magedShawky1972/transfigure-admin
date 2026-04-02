@@ -243,6 +243,8 @@ const BrandSetup = () => {
     .filter((brand) => {
       const matchesBrandName = !filterBrandName || 
         brand.brand_name.toLowerCase().includes(filterBrandName.toLowerCase());
+      const matchesBrandCode = !filterBrandCode || 
+        (brand.brand_code && brand.brand_code.toLowerCase().includes(filterBrandCode.toLowerCase()));
       const matchesShortName = !filterShortName || 
         (brand.short_name && brand.short_name.toLowerCase().includes(filterShortName.toLowerCase()));
       const matchesABCAnalysis = !filterABCAnalysis || 
@@ -252,7 +254,7 @@ const BrandSetup = () => {
       const matchesStatus = !filterStatus || 
         brand.status === filterStatus;
       
-      return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
+      return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
     })
     .sort((a, b) => {
       if (!sortColumn) return 0;
