@@ -172,7 +172,26 @@ const ProductSetup = () => {
   useEffect(() => {
     fetchProducts(true);
     fetchBrands();
+    fetchProductSkusWithTransactions();
   }, []);
+
+  const fetchProductSkusWithTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("purpletransaction")
+        .select("sku")
+        .not("sku", "is", null)
+        .limit(50000);
+      if (error) throw error;
+      const skuSet = new Set<string>();
+      (data || []).forEach((row: any) => {
+        if (row.sku) skuSet.add(row.sku);
+      });
+      setProductSkusWithTransactions(skuSet);
+    } catch (err) {
+      console.error("Error fetching transaction SKUs:", err);
+    }
+  };
 
   const fetchBrands = async () => {
     try {
