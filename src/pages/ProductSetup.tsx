@@ -130,14 +130,25 @@ const ProductSetup = () => {
   const [filterBrandType, setFilterBrandType] = useState<string>(() =>
     localStorage.getItem("ps.filterBrandType") ?? "all"
   );
-  const [filterHasTransactions, setFilterHasTransactions] = useState(false);
+  const [filterHasTransactions, setFilterHasTransactions] = useState<boolean>(() =>
+    localStorage.getItem("ps.filterHasTransactions") === "true"
+  );
   
   // Advanced filters
-  const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>([]);
+  const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>(() => {
+    try {
+      const saved = localStorage.getItem("ps.advancedFilters");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   
   // Sorting state
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortColumn, setSortColumn] = useState<string | null>(() =>
+    localStorage.getItem("ps.sortColumn") || null
+  );
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(() =>
+    (localStorage.getItem("ps.sortDirection") as "asc" | "desc") || "asc"
+  );
   
   // View mode state
   const [viewMode, setViewMode] = useState<"grid" | "tree">(
