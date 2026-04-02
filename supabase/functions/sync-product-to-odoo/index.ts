@@ -19,7 +19,8 @@ Deno.serve(async (req) => {
       costPrice,
       salesPrice,
       productWeight,
-      isNonStock
+      isNonStock,
+      odoo_product_id
     } = await req.json();
 
     console.log('Syncing product to Odoo:', { product_id, sku, productName, brandCode });
