@@ -458,6 +458,7 @@ const BrandSetup = () => {
                       ) : '-'}
                     </TableCell>
                     <TableCell className="text-xs">{brand.created_at ? format(new Date(brand.created_at), 'yyyy-MM-dd') : '-'}</TableCell>
+                    <TableCell>{(brand as any).sku_start_with || '-'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         (brand as any).creation_source === 'Purple Excel' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'

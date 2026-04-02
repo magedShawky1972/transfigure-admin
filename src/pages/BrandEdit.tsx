@@ -671,6 +671,18 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="sku_start_with">SKU Start With</Label>
+              <Input
+                id="sku_start_with"
+                value={formData.sku_start_with}
+                onChange={(e) =>
+                  setFormData({ ...formData, sku_start_with: e.target.value })
+                }
+                placeholder="e.g. ITN, GOG, SAM"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="asus_brand_name">Asus Brand Name</Label>
               <Input
                 id="asus_brand_name"
