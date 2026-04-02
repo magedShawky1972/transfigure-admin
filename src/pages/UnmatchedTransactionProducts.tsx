@@ -146,24 +146,46 @@ const UnmatchedTransactionProducts = () => {
     setOrphanData(allProducts);
   };
 
-  const filtered = data.filter(item =>
-    item.product_id.toLowerCase().includes(search.toLowerCase()) ||
-    item.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    item.brand_name.toLowerCase().includes(search.toLowerCase()) ||
-    item.brand_code.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = viewMode === "unmatched"
+    ? data.filter(item =>
+        item.product_id.toLowerCase().includes(search.toLowerCase()) ||
+        item.product_name.toLowerCase().includes(search.toLowerCase()) ||
+        item.brand_name.toLowerCase().includes(search.toLowerCase()) ||
+        item.brand_code.toLowerCase().includes(search.toLowerCase())
+      )
+    : orphanData.filter(item =>
+        item.product_id.toLowerCase().includes(search.toLowerCase()) ||
+        item.product_name.toLowerCase().includes(search.toLowerCase()) ||
+        item.brand_name.toLowerCase().includes(search.toLowerCase()) ||
+        item.brand_code.toLowerCase().includes(search.toLowerCase()) ||
+        item.sku.toLowerCase().includes(search.toLowerCase())
+      );
 
   const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(filtered.map(item => ({
-      [language === "ar" ? "رقم المنتج" : "Product ID"]: item.product_id,
-      [language === "ar" ? "اسم المنتج" : "Product Name"]: item.product_name,
-      [language === "ar" ? "اسم البراند" : "Brand Name"]: item.brand_name,
-      [language === "ar" ? "كود البراند" : "Brand Code"]: item.brand_code,
-      [language === "ar" ? "عدد المعاملات" : "Transaction Count"]: item.transaction_count,
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Unmatched Products");
-    XLSX.writeFile(wb, "unmatched_transaction_products.xlsx");
+    if (viewMode === "unmatched") {
+      const ws = XLSX.utils.json_to_sheet((filtered as UnmatchedProduct[]).map(item => ({
+        [language === "ar" ? "رقم المنتج" : "Product ID"]: item.product_id,
+        [language === "ar" ? "اسم المنتج" : "Product Name"]: item.product_name,
+        [language === "ar" ? "اسم البراند" : "Brand Name"]: item.brand_name,
+        [language === "ar" ? "كود البراند" : "Brand Code"]: item.brand_code,
+        [language === "ar" ? "عدد المعاملات" : "Transaction Count"]: item.transaction_count,
+      })));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Unmatched Products");
+      XLSX.writeFile(wb, "unmatched_transaction_products.xlsx");
+    } else {
+      const ws = XLSX.utils.json_to_sheet((filtered as OrphanProduct[]).map(item => ({
+        [language === "ar" ? "رقم المنتج" : "Product ID"]: item.product_id,
+        [language === "ar" ? "اسم المنتج" : "Product Name"]: item.product_name,
+        SKU: item.sku,
+        [language === "ar" ? "اسم البراند" : "Brand Name"]: item.brand_name,
+        [language === "ar" ? "كود البراند" : "Brand Code"]: item.brand_code,
+        [language === "ar" ? "الحالة" : "Status"]: item.status,
+      })));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Products Without Transactions");
+      XLSX.writeFile(wb, "products_without_transactions.xlsx");
+    }
   };
 
   const handlePrint = () => {
@@ -182,9 +204,13 @@ const UnmatchedTransactionProducts = () => {
               {language === "ar" ? "منتجات المعاملات غير المطابقة" : "Unmatched Transaction Products"}
             </h1>
             <p className="text-muted-foreground text-sm">
-              {language === "ar"
-                ? "منتجات موجودة في المعاملات ولكن غير موجودة في جدول المنتجات"
-                : "Products found in transactions but missing from the products table"}
+              {viewMode === "unmatched"
+                ? (language === "ar"
+                  ? "منتجات موجودة في المعاملات ولكن غير موجودة في جدول المنتجات"
+                  : "Products found in transactions but missing from the products table")
+                : (language === "ar"
+                  ? "منتجات موجودة في جدول المنتجات ولكن ليس لها معاملات"
+                  : "Products in product setup with no transactions")}
             </p>
           </div>
         </div>
@@ -199,6 +225,19 @@ const UnmatchedTransactionProducts = () => {
           </Button>
         </div>
       </div>
+
+      <Tabs value={viewMode} onValueChange={(v) => { setSearch(""); setViewMode(v as ViewMode); }} className="print:hidden">
+        <TabsList>
+          <TabsTrigger value="unmatched" className="gap-2">
+            <ArrowRightLeft className="h-4 w-4" />
+            {language === "ar" ? "في المعاملات وليس في المنتجات" : "In Transactions, Not in Products"}
+          </TabsTrigger>
+          <TabsTrigger value="no-transactions" className="gap-2">
+            <ArrowRightLeft className="h-4 w-4" />
+            {language === "ar" ? "في المنتجات وليس في المعاملات" : "In Products, Not in Transactions"}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <Card>
         <CardHeader>
@@ -222,7 +261,7 @@ const UnmatchedTransactionProducts = () => {
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
-          ) : (
+          ) : viewMode === "unmatched" ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -236,14 +275,14 @@ const UnmatchedTransactionProducts = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
+                  {(filtered as UnmatchedProduct[]).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         {language === "ar" ? "لا توجد منتجات غير مطابقة" : "No unmatched products found"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtered.map((item, idx) => (
+                    (filtered as UnmatchedProduct[]).map((item, idx) => (
                       <TableRow key={item.product_id}>
                         <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                         <TableCell className="font-mono">{item.product_id}</TableCell>
@@ -251,6 +290,43 @@ const UnmatchedTransactionProducts = () => {
                         <TableCell>{item.brand_name}</TableCell>
                         <TableCell className="font-mono">{item.brand_code}</TableCell>
                         <TableCell className="text-center font-semibold">{item.transaction_count.toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>{language === "ar" ? "رقم المنتج" : "Product ID"}</TableHead>
+                    <TableHead>{language === "ar" ? "اسم المنتج" : "Product Name"}</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>{language === "ar" ? "اسم البراند" : "Brand Name"}</TableHead>
+                    <TableHead>{language === "ar" ? "كود البراند" : "Brand Code"}</TableHead>
+                    <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(filtered as OrphanProduct[]).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        {language === "ar" ? "لا توجد منتجات بدون معاملات" : "No products without transactions found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    (filtered as OrphanProduct[]).map((item, idx) => (
+                      <TableRow key={`${item.product_id}-${idx}`}>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell className="font-mono">{item.product_id || "-"}</TableCell>
+                        <TableCell>{item.product_name}</TableCell>
+                        <TableCell className="font-mono">{item.sku || "-"}</TableCell>
+                        <TableCell>{item.brand_name || "-"}</TableCell>
+                        <TableCell className="font-mono">{item.brand_code || "-"}</TableCell>
+                        <TableCell>{item.status}</TableCell>
                       </TableRow>
                     ))
                   )}
