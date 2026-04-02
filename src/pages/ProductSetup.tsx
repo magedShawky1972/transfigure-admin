@@ -450,14 +450,59 @@ const ProductSetup = () => {
     setEditingProduct(null);
   };
 
-  const handleBrandChange = (brandName: string) => {
+  const handleBrandChange = async (brandName: string) => {
     const selectedBrand = brands.find(b => b.brand_name === brandName);
-    setFormData({
+    const newFormData = {
       ...formData,
       brand_name: brandName,
       brand_code: selectedBrand?.brand_code || "",
       brand_type: selectedBrand?.brand_type?.type_name || "",
-    });
+    };
+
+    // Auto-generate SKU for new products based on brand's sku_start_with
+    if (!editingProduct && selectedBrand?.brand_code) {
+      try {
+        // Fetch the brand's sku_start_with
+        const { data: brandData } = await supabase
+          .from("brands")
+          .select("sku_start_with")
+          .eq("id", selectedBrand.id)
+          .single();
+
+        const prefix = (brandData as any)?.sku_start_with;
+        if (prefix) {
+          // Find the highest existing SKU number with this prefix
+          const { data: existingProducts } = await supabase
+            .from("products")
+            .select("sku")
+            .like("sku", `${prefix}%`)
+            .not("sku", "is", null);
+
+          let maxNum = 0;
+          let padLength = 3; // default padding
+          if (existingProducts && existingProducts.length > 0) {
+            existingProducts.forEach((p: any) => {
+              if (p.sku) {
+                const numPart = p.sku.substring(prefix.length);
+                const num = parseInt(numPart, 10);
+                if (!isNaN(num)) {
+                  if (num > maxNum) maxNum = num;
+                  if (numPart.length > padLength) padLength = numPart.length;
+                }
+              }
+            });
+          }
+
+          const nextNum = maxNum + 1;
+          const newSku = prefix + String(nextNum).padStart(padLength, "0");
+          newFormData.sku = newSku;
+        }
+      } catch (err) {
+        console.error("Error generating SKU:", err);
+      }
+    }
+
+    setFormData(newFormData);
   };
 
   const getSelectedBrandType = () => {
