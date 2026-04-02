@@ -295,7 +295,7 @@ const BrandSetup = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div className="space-y-2">
             <Label htmlFor="filterBrandName">Filter by Brand Name</Label>
             <Input
@@ -303,6 +303,15 @@ const BrandSetup = () => {
               placeholder="Search brand name..."
               value={filterBrandName}
               onChange={(e) => setFilterBrandName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterBrandCode">Filter by Brand Code</Label>
+            <Input
+              id="filterBrandCode"
+              placeholder="Search brand code..."
+              value={filterBrandCode}
+              onChange={(e) => setFilterBrandCode(e.target.value)}
             />
           </div>
           <div className="space-y-2">
