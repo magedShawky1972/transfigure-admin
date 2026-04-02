@@ -59,6 +59,9 @@ const BrandSetup = () => {
   const [filterBrandName, setFilterBrandName] = useState(() => 
     localStorage.getItem("brandSetup_filterBrandName") || ""
   );
+  const [filterBrandCode, setFilterBrandCode] = useState(() => 
+    localStorage.getItem("brandSetup_filterBrandCode") || ""
+  );
   const [filterShortName, setFilterShortName] = useState(() => 
     localStorage.getItem("brandSetup_filterShortName") || ""
   );
@@ -78,6 +81,10 @@ const BrandSetup = () => {
   useEffect(() => {
     localStorage.setItem("brandSetup_filterBrandName", filterBrandName);
   }, [filterBrandName]);
+
+  useEffect(() => {
+    localStorage.setItem("brandSetup_filterBrandCode", filterBrandCode);
+  }, [filterBrandCode]);
 
   useEffect(() => {
     localStorage.setItem("brandSetup_filterShortName", filterShortName);
@@ -236,6 +243,8 @@ const BrandSetup = () => {
     .filter((brand) => {
       const matchesBrandName = !filterBrandName || 
         brand.brand_name.toLowerCase().includes(filterBrandName.toLowerCase());
+      const matchesBrandCode = !filterBrandCode || 
+        (brand.brand_code && brand.brand_code.toLowerCase().includes(filterBrandCode.toLowerCase()));
       const matchesShortName = !filterShortName || 
         (brand.short_name && brand.short_name.toLowerCase().includes(filterShortName.toLowerCase()));
       const matchesABCAnalysis = !filterABCAnalysis || 
@@ -245,7 +254,7 @@ const BrandSetup = () => {
       const matchesStatus = !filterStatus || 
         brand.status === filterStatus;
       
-      return matchesBrandName && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
+      return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
     })
     .sort((a, b) => {
       if (!sortColumn) return 0;
@@ -286,7 +295,7 @@ const BrandSetup = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div className="space-y-2">
             <Label htmlFor="filterBrandName">Filter by Brand Name</Label>
             <Input
@@ -294,6 +303,15 @@ const BrandSetup = () => {
               placeholder="Search brand name..."
               value={filterBrandName}
               onChange={(e) => setFilterBrandName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterBrandCode">Filter by Brand Code</Label>
+            <Input
+              id="filterBrandCode"
+              placeholder="Search brand code..."
+              value={filterBrandCode}
+              onChange={(e) => setFilterBrandCode(e.target.value)}
             />
           </div>
           <div className="space-y-2">
