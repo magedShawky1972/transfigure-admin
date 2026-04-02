@@ -8,7 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Save, Plus, X, Wand2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, X, Wand2, Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -563,18 +566,42 @@ const ProductDetails = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="brandName" className={isRTL ? 'text-right block' : ''}>{t("brandSetup.brandName")}</Label>
-                    <Select value={brandName} onValueChange={handleBrandChange}>
-                      <SelectTrigger className={isRTL ? 'text-right' : ''}>
-                        <SelectValue placeholder={isRTL ? "اختر العلامة التجارية" : "Select brand"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {brands.map((brand) => (
-                          <SelectItem key={brand.id} value={brand.brand_name}>
-                            {brand.brand_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between font-normal",
+                            !brandName && "text-muted-foreground",
+                            isRTL && "text-right"
+                          )}
+                        >
+                          {brandName || (isRTL ? "اختر العلامة التجارية" : "Select brand")}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder={isRTL ? "ابحث عن علامة تجارية..." : "Search brand..."} />
+                          <CommandList>
+                            <CommandEmpty>{isRTL ? "لا توجد نتائج" : "No brand found."}</CommandEmpty>
+                            <CommandGroup>
+                              {brands.map((brand) => (
+                                <CommandItem
+                                  key={brand.id}
+                                  value={brand.brand_name}
+                                  onSelect={() => handleBrandChange(brand.brand_name)}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", brandName === brand.brand_name ? "opacity-100" : "opacity-0")} />
+                                  {brand.brand_name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
