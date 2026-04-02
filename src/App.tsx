@@ -264,6 +264,7 @@ const App = () => (
               <Route path="/saved-attendance" element={<SavedAttendance />} />
               <Route path="/reports/sold-product" element={<SoldProductReport />} />
               <Route path="/reports/product-sku" element={<ProductSkuReport />} />
+              <Route path="/reports/duplicate-sku" element={<DuplicateSkuReport />} />
               <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />
               <Route path="/reports/aggregated-orders" element={<AggregatedOrderReport />} />
               <Route path="/hr-vacation-calendar" element={<HRVacationCalendar />} />

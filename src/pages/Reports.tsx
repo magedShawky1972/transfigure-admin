@@ -361,6 +361,15 @@ const Reports = () => {
       icon: ShoppingCart,
       route: "/reports/product-sku",
     },
+    {
+      id: "duplicate-sku",
+      name: language === "ar" ? "تقرير SKU المكررة" : "Duplicate SKU Report",
+      description: language === "ar"
+        ? "عرض جميع SKU المكررة والمنتجات المرتبطة بها لتحديد التكرارات وتنظيفها"
+        : "View all duplicate SKUs and which products share the same SKU",
+      icon: AlertTriangle,
+      route: "/reports/duplicate-sku",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
