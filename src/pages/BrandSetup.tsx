@@ -400,6 +400,9 @@ const BrandSetup = () => {
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("created_at")}>
                   Created At {sortColumn === "created_at" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("sku_start_with")}>
+                  SKU Start With {sortColumn === "sku_start_with" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("creation_source")}>
                   Source {sortColumn === "creation_source" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
