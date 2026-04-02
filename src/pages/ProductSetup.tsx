@@ -177,33 +177,12 @@ const ProductSetup = () => {
 
   const fetchProductSkusWithTransactions = async () => {
     try {
-      // Fetch all distinct product_ids from purpletransaction using pagination
+      const { data, error } = await supabase.rpc('get_distinct_transaction_product_ids');
+      if (error) throw error;
       const idSet = new Set<string>();
-      const pageSize = 1000;
-      let from = 0;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from("purpletransaction")
-          .select("product_id")
-          .not("product_id", "is", null)
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) {
-          hasMore = false;
-        } else {
-          data.forEach((row: any) => {
-            if (row.product_id) idSet.add(String(row.product_id));
-          });
-          if (data.length < pageSize) {
-            hasMore = false;
-          } else {
-            from += pageSize;
-          }
-        }
-      }
-      
+      (data || []).forEach((row: any) => {
+        if (row.product_id) idSet.add(String(row.product_id));
+      });
       setProductSkusWithTransactions(idSet);
     } catch (err) {
       console.error("Error fetching transaction product IDs:", err);
