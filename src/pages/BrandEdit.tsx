@@ -336,6 +336,7 @@ const BrandEdit = () => {
             status: formData.status,
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
             asus_brand_name: formData.asus_brand_name || null,
+            sku_start_with: formData.sku_start_with || null,
           } as any)
           .eq("id", brandId);
 
