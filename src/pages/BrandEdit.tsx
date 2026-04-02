@@ -40,6 +40,7 @@ const BrandEdit = () => {
   const [loading, setLoading] = useState(false);
   const [initialBrandTypeId, setInitialBrandTypeId] = useState<string | null>(null);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
+  const [currentSkuPrefixes, setCurrentSkuPrefixes] = useState<string>("");
   const [formData, setFormData] = useState({
     brand_name: "",
     brand_code: "",
