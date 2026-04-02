@@ -98,6 +98,7 @@ const ProductSetup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productSkusWithTransactions, setProductSkusWithTransactions] = useState<Set<string>>(new Set());
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
