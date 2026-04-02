@@ -130,14 +130,25 @@ const ProductSetup = () => {
   const [filterBrandType, setFilterBrandType] = useState<string>(() =>
     localStorage.getItem("ps.filterBrandType") ?? "all"
   );
-  const [filterHasTransactions, setFilterHasTransactions] = useState(false);
+  const [filterHasTransactions, setFilterHasTransactions] = useState<boolean>(() =>
+    localStorage.getItem("ps.filterHasTransactions") === "true"
+  );
   
   // Advanced filters
-  const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>([]);
+  const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>(() => {
+    try {
+      const saved = localStorage.getItem("ps.advancedFilters");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   
   // Sorting state
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortColumn, setSortColumn] = useState<string | null>(() =>
+    localStorage.getItem("ps.sortColumn") || null
+  );
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(() =>
+    (localStorage.getItem("ps.sortDirection") as "asc" | "desc") || "asc"
+  );
   
   // View mode state
   const [viewMode, setViewMode] = useState<"grid" | "tree">(
@@ -152,8 +163,12 @@ const ProductSetup = () => {
       localStorage.setItem("ps.filterBrand", filterBrand);
       localStorage.setItem("ps.filterBrandType", filterBrandType);
       localStorage.setItem("ps.viewMode", viewMode);
+      localStorage.setItem("ps.filterHasTransactions", String(filterHasTransactions));
+      localStorage.setItem("ps.advancedFilters", JSON.stringify(advancedFilters));
+      localStorage.setItem("ps.sortColumn", sortColumn || "");
+      localStorage.setItem("ps.sortDirection", sortDirection);
     } catch {}
-  }, [filterName, filterStatus, filterBrand, filterBrandType, viewMode]);
+  }, [filterName, filterStatus, filterBrand, filterBrandType, viewMode, filterHasTransactions, advancedFilters, sortColumn, sortDirection]);
   
   const [formData, setFormData] = useState({
     product_id: "",
