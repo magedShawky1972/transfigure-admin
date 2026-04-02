@@ -1320,6 +1320,15 @@ const ProductSetup = () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  onClick={() => handleTestSync(product)}
+                                  title="Test Sync (Debug)"
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <Bug className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   onClick={() => navigate(`/product-details/${product.id}`)}
                                   title="More Details"
                                 >
