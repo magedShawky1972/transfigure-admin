@@ -5540,6 +5540,165 @@ export type Database = {
         }
         Relationships: []
       }
+      products_backup: {
+        Row: {
+          abc_analysis: string | null
+          allow_purchase: boolean
+          backed_up_at: string
+          backed_up_by: string | null
+          backup_id: string
+          barcode: string | null
+          brand_code: string | null
+          brand_name: string | null
+          brand_type: string | null
+          category: string | null
+          coins_number: number | null
+          customer_group_prices: Json | null
+          description: string | null
+          discounts: Json | null
+          free_coins: Json | null
+          id: string
+          is_main_product: boolean | null
+          leadtime: number | null
+          max_coins: number | null
+          maximum_order_quantity: number | null
+          meta_description_ar: string | null
+          meta_description_en: string | null
+          meta_keywords_ar: string | null
+          meta_keywords_en: string | null
+          meta_title_ar: string | null
+          meta_title_en: string | null
+          min_coins: number | null
+          minimum_order_quantity: number | null
+          mobile_enabled: boolean | null
+          non_stock: boolean
+          notes: string | null
+          odoo_product_id: number | null
+          odoo_sync_status: string | null
+          odoo_synced_at: string | null
+          options: Json | null
+          original_created_at: string | null
+          original_product_id: string
+          original_updated_at: string | null
+          product_cost: string | null
+          product_id: string | null
+          product_name: string
+          product_price: string | null
+          reorder_point: number | null
+          safety_stock: number | null
+          sku: string | null
+          status: string
+          stock_quantity: number | null
+          supplier: string | null
+          tax_type: string | null
+          weight: number | null
+        }
+        Insert: {
+          abc_analysis?: string | null
+          allow_purchase?: boolean
+          backed_up_at?: string
+          backed_up_by?: string | null
+          backup_id: string
+          barcode?: string | null
+          brand_code?: string | null
+          brand_name?: string | null
+          brand_type?: string | null
+          category?: string | null
+          coins_number?: number | null
+          customer_group_prices?: Json | null
+          description?: string | null
+          discounts?: Json | null
+          free_coins?: Json | null
+          id?: string
+          is_main_product?: boolean | null
+          leadtime?: number | null
+          max_coins?: number | null
+          maximum_order_quantity?: number | null
+          meta_description_ar?: string | null
+          meta_description_en?: string | null
+          meta_keywords_ar?: string | null
+          meta_keywords_en?: string | null
+          meta_title_ar?: string | null
+          meta_title_en?: string | null
+          min_coins?: number | null
+          minimum_order_quantity?: number | null
+          mobile_enabled?: boolean | null
+          non_stock?: boolean
+          notes?: string | null
+          odoo_product_id?: number | null
+          odoo_sync_status?: string | null
+          odoo_synced_at?: string | null
+          options?: Json | null
+          original_created_at?: string | null
+          original_product_id: string
+          original_updated_at?: string | null
+          product_cost?: string | null
+          product_id?: string | null
+          product_name: string
+          product_price?: string | null
+          reorder_point?: number | null
+          safety_stock?: number | null
+          sku?: string | null
+          status?: string
+          stock_quantity?: number | null
+          supplier?: string | null
+          tax_type?: string | null
+          weight?: number | null
+        }
+        Update: {
+          abc_analysis?: string | null
+          allow_purchase?: boolean
+          backed_up_at?: string
+          backed_up_by?: string | null
+          backup_id?: string
+          barcode?: string | null
+          brand_code?: string | null
+          brand_name?: string | null
+          brand_type?: string | null
+          category?: string | null
+          coins_number?: number | null
+          customer_group_prices?: Json | null
+          description?: string | null
+          discounts?: Json | null
+          free_coins?: Json | null
+          id?: string
+          is_main_product?: boolean | null
+          leadtime?: number | null
+          max_coins?: number | null
+          maximum_order_quantity?: number | null
+          meta_description_ar?: string | null
+          meta_description_en?: string | null
+          meta_keywords_ar?: string | null
+          meta_keywords_en?: string | null
+          meta_title_ar?: string | null
+          meta_title_en?: string | null
+          min_coins?: number | null
+          minimum_order_quantity?: number | null
+          mobile_enabled?: boolean | null
+          non_stock?: boolean
+          notes?: string | null
+          odoo_product_id?: number | null
+          odoo_sync_status?: string | null
+          odoo_synced_at?: string | null
+          options?: Json | null
+          original_created_at?: string | null
+          original_product_id?: string
+          original_updated_at?: string | null
+          product_cost?: string | null
+          product_id?: string | null
+          product_name?: string
+          product_price?: string | null
+          reorder_point?: number | null
+          safety_stock?: number | null
+          sku?: string | null
+          status?: string
+          stock_quantity?: number | null
+          supplier?: string | null
+          tax_type?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
