@@ -177,19 +177,19 @@ const ProductSetup = () => {
 
   const fetchProductSkusWithTransactions = async () => {
     try {
+      // purpletransaction uses product_id to identify products
       const { data, error } = await supabase
         .from("purpletransaction")
-        .select("sku")
-        .not("sku", "is", null)
-        .limit(50000);
+        .select("product_id")
+        .not("product_id", "is", null);
       if (error) throw error;
-      const skuSet = new Set<string>();
+      const idSet = new Set<string>();
       (data || []).forEach((row: any) => {
-        if (row.sku) skuSet.add(row.sku);
+        if (row.product_id) idSet.add(String(row.product_id));
       });
-      setProductSkusWithTransactions(skuSet);
+      setProductSkusWithTransactions(idSet);
     } catch (err) {
-      console.error("Error fetching transaction SKUs:", err);
+      console.error("Error fetching transaction product IDs:", err);
     }
   };
 
