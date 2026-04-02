@@ -1,55 +1,62 @@
 
 
-## Plan: Update CRM Integration for PWA WebView with Production URL
+## One-time SQL: Populate `sku_start_with` from existing product SKUs
 
-### What Changed
-The CRM app is a **PWA** (not a native mobile app), so the WebView approach using JavaScript injection won't work. Instead, we need a URL-based session passing mechanism where the session ID is embedded in the URL but hidden from users.
+**Goal**: Run a single SQL UPDATE to set `brands.sku_start_with` for all brands where it's currently NULL, using the alphabetic prefix detected from existing product SKUs.
 
-### Changes
+### SQL Logic
 
-#### 1. Update Production URL (CRMIntegrationDoc.tsx)
-- Change `APP_URL` from preview URL to `https://edaraasus.com`
-- Remove Android (Kotlin) and iOS (Swift) native WebView examples since the CRM is a PWA
+For each brand with `sku_start_with IS NULL`:
+1. Find products matching that brand's `brand_code`
+2. Extract the leading alphabetic characters from their SKU (e.g., "B" from "B001")
+3. Pick the most common prefix
+4. Update `brands.sku_start_with` with that value
 
-#### 2. Create Session-Based Auto-Login Route
-- Add a new route `/crm-session` that accepts an encrypted/encoded session token as a URL hash fragment (hash fragments are NOT sent to servers, adding security)
-- URL format: `https://edaraasus.com/crm-session#token={base64_encoded_session_data}`
-- The page will:
-  1. Read the token from the URL hash (not visible in server logs)
-  2. Decode the base64 session data
-  3. Set it in localStorage as the auth session
-  4. Clear the hash from the URL bar immediately (so user can't see it)
-  5. Redirect to `/shift-session`
+### SQL Query
 
-#### 3. New Page: `src/pages/CRMSession.tsx`
-- Handles the auto-login flow from the URL hash
-- Shows a brief "Connecting..." loading state
-- Clears the URL hash after reading to hide the session ID
-- Redirects to `/shift-session` once authenticated
+```sql
+UPDATE brands b
+SET sku_start_with = sub.detected_prefix
+FROM (
+  SELECT 
+    p.brand_code,
+    UPPER(
+      (regexp_match(p.sku, '^[A-Za-z]+'))[1]
+    ) AS detected_prefix,
+    COUNT(*) AS cnt
+  FROM products p
+  WHERE p.sku IS NOT NULL
+    AND p.brand_code IS NOT NULL
+    AND (regexp_match(p.sku, '^[A-Za-z]+'))[1] IS NOT NULL
+  GROUP BY p.brand_code, UPPER((regexp_match(p.sku, '^[A-Za-z]+'))[1])
+) sub
+WHERE b.brand_code = sub.brand_code
+  AND b.sku_start_with IS NULL;
+```
 
-#### 4. Register Route in App.tsx
-- Add `/crm-session` route pointing to the new CRMSession component
+If multiple prefixes exist for a brand, we take the most common one using `DISTINCT ON`:
 
-#### 5. Update CRM Integration Doc
-- Replace native mobile examples with PWA integration examples
-- Show how to construct the URL with base64-encoded session:
-  ```
-  const sessionData = base64encode(JSON.stringify({
-    access_token: session_id,
-    refresh_token: refresh_token,
-    expires_at: expires_at,
-    ...
-  }));
-  
-  // Open in PWA WebView / iframe
-  window.location.href = `https://edaraasus.com/crm-session#token=${sessionData}`;
-  ```
-- Update WebView section to explain the PWA approach
-- Remove Kotlin/Swift examples, replace with JavaScript/PWA examples
-- Add security note: hash fragments are not sent to servers
+```sql
+UPDATE brands b
+SET sku_start_with = sub.detected_prefix
+FROM (
+  SELECT DISTINCT ON (brand_code) 
+    brand_code,
+    UPPER((regexp_match(sku, '^[A-Za-z]+'))[1]) AS detected_prefix,
+    COUNT(*) AS cnt
+  FROM products
+  WHERE sku IS NOT NULL
+    AND brand_code IS NOT NULL
+    AND (regexp_match(sku, '^[A-Za-z]+'))[1] IS NOT NULL
+  GROUP BY brand_code, UPPER((regexp_match(sku, '^[A-Za-z]+'))[1])
+  ORDER BY brand_code, cnt DESC
+) sub
+WHERE b.brand_code = sub.brand_code
+  AND b.sku_start_with IS NULL;
+```
 
-### Technical Details
-- **Security**: Using URL hash (`#`) instead of query params (`?`) ensures the session token is never sent to the server in HTTP requests or logged in server access logs
-- **UX**: The hash is cleared immediately via `window.history.replaceState` so the user never sees the token
-- **Files modified**: `src/pages/CRMIntegrationDoc.tsx`, `src/pages/CRMSession.tsx` (new), `src/App.tsx`
+### Implementation
+- Run this as a data UPDATE via the insert tool (not a migration, since it's a data change)
+- No code changes needed — the existing SKU generation logic already reads `sku_start_with` correctly
+- After this runs, all brands like Binmo will have `sku_start_with = 'B'` saved in the database
 
