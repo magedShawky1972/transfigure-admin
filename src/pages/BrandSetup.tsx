@@ -83,6 +83,10 @@ const BrandSetup = () => {
   }, [filterBrandName]);
 
   useEffect(() => {
+    localStorage.setItem("brandSetup_filterBrandCode", filterBrandCode);
+  }, [filterBrandCode]);
+
+  useEffect(() => {
     localStorage.setItem("brandSetup_filterShortName", filterShortName);
   }, [filterShortName]);
 
