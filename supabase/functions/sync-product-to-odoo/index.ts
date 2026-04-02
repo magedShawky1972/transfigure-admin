@@ -90,13 +90,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build PUT request body (for updates - do NOT include cat_code, let Odoo keep existing category)
-    // Use 'consu' for consumable products (digital goods) or 'service' for services.
-    // Some Odoo API gateways still rely on the legacy 'type' field (and may reject 'product').
+    // Build PUT request body (for updates - do NOT include type/detailed_type or cat_code)
+    // Odoo rejects type changes on existing products, so we only update other fields
     const putBody: any = {
       name: productName,
-      detailed_type: 'consu',
-      type: 'consu',
     };
 
     // Add optional fields for update (excluding cat_code)
