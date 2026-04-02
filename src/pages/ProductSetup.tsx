@@ -297,10 +297,13 @@ const ProductSetup = () => {
     const brandMatch = filterBrand === "all" || product.brand_name === filterBrand;
     const brandTypeMatch = filterBrandType === "all" || product.brand_type === filterBrandType;
     
+    // Transaction exists filter
+    const transactionMatch = !filterHasTransactions || productSkusWithTransactions.has(product.sku || product.product_id || "");
+    
     // Apply advanced filters (all must match)
     const advancedMatch = advancedFilters.every(filter => applyAdvancedFilter(product, filter));
     
-    return nameMatch && statusMatch && brandMatch && brandTypeMatch && advancedMatch;
+    return nameMatch && statusMatch && brandMatch && brandTypeMatch && transactionMatch && advancedMatch;
   });
   
   // Sort products
