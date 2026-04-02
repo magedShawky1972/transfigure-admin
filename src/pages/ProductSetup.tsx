@@ -163,8 +163,12 @@ const ProductSetup = () => {
       localStorage.setItem("ps.filterBrand", filterBrand);
       localStorage.setItem("ps.filterBrandType", filterBrandType);
       localStorage.setItem("ps.viewMode", viewMode);
+      localStorage.setItem("ps.filterHasTransactions", String(filterHasTransactions));
+      localStorage.setItem("ps.advancedFilters", JSON.stringify(advancedFilters));
+      localStorage.setItem("ps.sortColumn", sortColumn || "");
+      localStorage.setItem("ps.sortDirection", sortDirection);
     } catch {}
-  }, [filterName, filterStatus, filterBrand, filterBrandType, viewMode]);
+  }, [filterName, filterStatus, filterBrand, filterBrandType, viewMode, filterHasTransactions, advancedFilters, sortColumn, sortDirection]);
   
   const [formData, setFormData] = useState({
     product_id: "",
