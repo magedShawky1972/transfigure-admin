@@ -707,6 +707,18 @@ const BrandEdit = () => {
               />
             </div>
 
+            {brandId && (
+              <div className="space-y-2">
+                <Label>Current SKU Prefix in Products</Label>
+                <Input
+                  value={currentSkuPrefixes || "-"}
+                  readOnly
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="asus_brand_name">Asus Brand Name</Label>
               <Input
