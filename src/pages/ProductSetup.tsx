@@ -1423,6 +1423,32 @@ const ProductSetup = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "ar"
+                ? `هل تريد حذف ${selectedProducts.size} منتج؟`
+                : `Delete ${selectedProducts.size} products?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "ar"
+                ? "سيتم حذف جميع المنتجات المحددة نهائياً. لا يمكن التراجع عن هذا الإجراء."
+                : "All selected products will be permanently deleted. This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={bulkDeleting}>
+              {bulkDeleting
+                ? (language === "ar" ? "جاري الحذف..." : "Deleting...")
+                : t("common.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Upload Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent className="max-w-2xl">
