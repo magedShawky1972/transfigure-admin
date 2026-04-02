@@ -643,6 +643,124 @@ const ProductSetup = () => {
     }
   };
 
+  const toggleSelectProduct = (id: string) => {
+    setSelectedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProducts.size === sortedProducts.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(sortedProducts.map(p => p.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedProducts);
+      // Delete in batches of 100
+      for (let i = 0; i < ids.length; i += 100) {
+        const batch = ids.slice(i, i + 100);
+        const { error } = await supabase
+          .from("products")
+          .delete()
+          .in("id", batch);
+        if (error) throw error;
+      }
+
+      toast({
+        title: t("common.success"),
+        description: language === "ar"
+          ? `تم حذف ${ids.length} منتج بنجاح`
+          : `${ids.length} products deleted successfully`,
+      });
+      setSelectedProducts(new Set());
+      setBulkDeleteDialogOpen(false);
+      fetchProducts();
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleBulkSync = async () => {
+    setBulkSyncing(true);
+    const ids = Array.from(selectedProducts);
+    const selectedProductsList = sortedProducts.filter(p => ids.includes(p.id));
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const product of selectedProductsList) {
+      try {
+        await supabase
+          .from("products")
+          .update({ odoo_sync_status: 'pending' })
+          .eq("id", product.id);
+
+        const { data, error } = await supabase.functions.invoke('sync-product-to-odoo', {
+          body: {
+            product_id: product.id,
+            sku: product.sku || product.product_id,
+            productName: product.product_name,
+            uom: null,
+            brandCode: product.brand_code || null,
+            reorderPoint: product.reorder_point || null,
+            minimumOrder: product.minimum_order_quantity || null,
+            maximumOrder: null,
+            costPrice: product.product_cost ? parseFloat(product.product_cost) : null,
+            salesPrice: product.product_price ? parseFloat(product.product_price) : null,
+            productWeight: product.weight || null,
+            isNonStock: product.non_stock ?? false,
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.success) {
+          await supabase
+            .from("products")
+            .update({
+              odoo_sync_status: 'synced',
+              odoo_synced_at: new Date().toISOString(),
+              odoo_product_id: data.odoo_product_id || null
+            })
+            .eq("id", product.id);
+          successCount++;
+        } else {
+          throw new Error(data?.error || "Failed");
+        }
+      } catch {
+        await supabase
+          .from("products")
+          .update({ odoo_sync_status: 'failed' })
+          .eq("id", product.id);
+        failCount++;
+      }
+    }
+
+    toast({
+      title: t("common.success"),
+      description: language === "ar"
+        ? `تم مزامنة ${successCount} منتج، فشل ${failCount}`
+        : `${successCount} synced, ${failCount} failed`,
+    });
+
+    setSelectedProducts(new Set());
+    setBulkSyncing(false);
+    fetchProducts();
+  };
+
   return (
     <>
       {loading && <LoadingOverlay progress={100} message={t("common.loading")} />}
