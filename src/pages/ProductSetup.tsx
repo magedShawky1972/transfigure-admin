@@ -700,7 +700,97 @@ const ProductSetup = () => {
     }
   };
 
-  const handleTestSync = async (product: Product) => {
+  const handleBackupProducts = async () => {
+    setBackingUp(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = user ? await supabase.from('profiles').select('user_name').eq('user_id', user.id).maybeSingle() : { data: null };
+      
+      // Fetch all products
+      const { data: allProducts, error: fetchErr } = await supabase.from('products').select('*');
+      if (fetchErr) throw fetchErr;
+      if (!allProducts || allProducts.length === 0) {
+        toast({ title: language === 'ar' ? 'لا توجد منتجات' : 'No products to backup', variant: 'destructive' });
+        return;
+      }
+
+      const backupId = `BKP-${format(new Date(), 'yyyyMMdd-HHmmss')}`;
+      const backedUpBy = profile?.user_name || user?.email || 'Unknown';
+      const now = new Date().toISOString();
+
+      // Insert in batches of 200
+      const batchSize = 200;
+      for (let i = 0; i < allProducts.length; i += batchSize) {
+        const batch = allProducts.slice(i, i + batchSize).map((p: any) => ({
+          original_product_id: p.id,
+          backup_id: backupId,
+          backed_up_at: now,
+          backed_up_by: backedUpBy,
+          product_id: p.product_id,
+          product_name: p.product_name,
+          product_price: p.product_price,
+          product_cost: p.product_cost,
+          status: p.status,
+          brand_name: p.brand_name,
+          odoo_product_id: p.odoo_product_id,
+          odoo_sync_status: p.odoo_sync_status,
+          odoo_synced_at: p.odoo_synced_at,
+          sku: p.sku,
+          description: p.description,
+          category: p.category,
+          stock_quantity: p.stock_quantity,
+          minimum_order_quantity: p.minimum_order_quantity,
+          reorder_point: p.reorder_point,
+          weight: p.weight,
+          barcode: p.barcode,
+          supplier: p.supplier,
+          notes: p.notes,
+          mobile_enabled: p.mobile_enabled,
+          coins_number: p.coins_number,
+          min_coins: p.min_coins,
+          max_coins: p.max_coins,
+          maximum_order_quantity: p.maximum_order_quantity,
+          tax_type: p.tax_type,
+          free_coins: p.free_coins,
+          options: p.options,
+          customer_group_prices: p.customer_group_prices,
+          discounts: p.discounts,
+          meta_title_ar: p.meta_title_ar,
+          meta_keywords_ar: p.meta_keywords_ar,
+          meta_description_ar: p.meta_description_ar,
+          meta_title_en: p.meta_title_en,
+          meta_keywords_en: p.meta_keywords_en,
+          meta_description_en: p.meta_description_en,
+          leadtime: p.leadtime,
+          safety_stock: p.safety_stock,
+          abc_analysis: p.abc_analysis,
+          brand_code: p.brand_code,
+          brand_type: p.brand_type,
+          non_stock: p.non_stock,
+          allow_purchase: p.allow_purchase,
+          is_main_product: p.is_main_product,
+          original_created_at: p.created_at,
+          original_updated_at: p.updated_at,
+        }));
+
+        const { error: insertErr } = await (supabase as any).from('products_backup').insert(batch);
+        if (insertErr) throw insertErr;
+      }
+
+      toast({
+        title: language === 'ar' ? 'تم النسخ الاحتياطي' : 'Backup Complete',
+        description: language === 'ar'
+          ? `تم نسخ ${allProducts.length} منتج احتياطياً (${backupId})`
+          : `${allProducts.length} products backed up (${backupId})`,
+      });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+
     setSyncTestProduct(product);
     setSyncTestDialogOpen(true);
     setSyncTestRunning(true);
