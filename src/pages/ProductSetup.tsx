@@ -1154,7 +1154,7 @@ const ProductSetup = () => {
                          </TableHeader>
                          <TableBody>
                            {brandProducts.map((product) => (
-                             <TableRow key={product.id} className={selectedProducts.has(product.id) ? "bg-primary/5" : ""}>
+                             <TableRow key={product.id} className={`cursor-pointer ${selectedProducts.has(product.id) ? "bg-primary/5" : ""}`} onDoubleClick={() => navigate(`/product-details/${product.id}`)}>
                                <TableCell>
                                  <Checkbox
                                    checked={selectedProducts.has(product.id)}
