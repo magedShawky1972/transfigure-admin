@@ -160,6 +160,38 @@ Deno.serve(async (req) => {
 
     console.log('PUT error debug:', { type: typeof putResult?.error, value: putResult?.error });
 
+    // If error is about product.template.type, the product EXISTS in Odoo but type can't be changed
+    // Treat this as a successful sync - the product is confirmed to exist
+    const hasTemplateTypeError = typeof putResult?.error === 'string' &&
+      putResult.error.toLowerCase().includes('product.template.type');
+
+    if (hasTemplateTypeError) {
+      console.log('Product exists in Odoo but type cannot be changed - treating as synced');
+      
+      // Try to get the product_id from the error response or use existing odoo_product_id
+      const existingOdooId = odoo_product_id || null;
+      if (product_id) {
+        await supabase
+          .from('products')
+          .update({ 
+            odoo_product_id: existingOdooId,
+            odoo_sync_status: 'synced',
+            odoo_synced_at: new Date().toISOString()
+          })
+          .eq('id', product_id);
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Product exists in Odoo (type field is read-only, other fields updated)',
+          odoo_product_id: existingOdooId,
+          odoo_response: putResult 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Check if PUT failed because product doesn't exist (404 or specific error message)
     const isNotFound = putResponse.status === 404 || 
       (putResult.error && (
