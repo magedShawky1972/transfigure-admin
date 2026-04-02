@@ -104,6 +104,7 @@ import SoldProductReport from "./pages/SoldProductReport";
 import ProductSkuReport from "./pages/ProductSkuReport";
 import DuplicateSkuReport from "./pages/DuplicateSkuReport";
 import OrphanBrandProductsReport from "./pages/OrphanBrandProductsReport";
+import UnmatchedTransactionProducts from "./pages/UnmatchedTransactionProducts";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
 import DailySalesReport from "./pages/DailySalesReport";
 import AggregatedOrderReport from "./pages/AggregatedOrderReport";
