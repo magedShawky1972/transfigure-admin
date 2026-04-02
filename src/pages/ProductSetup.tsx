@@ -98,6 +98,7 @@ const ProductSetup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productSkusWithTransactions, setProductSkusWithTransactions] = useState<Set<string>>(new Set());
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -129,6 +130,7 @@ const ProductSetup = () => {
   const [filterBrandType, setFilterBrandType] = useState<string>(() =>
     localStorage.getItem("ps.filterBrandType") ?? "all"
   );
+  const [filterHasTransactions, setFilterHasTransactions] = useState(false);
   
   // Advanced filters
   const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>([]);
@@ -170,7 +172,26 @@ const ProductSetup = () => {
   useEffect(() => {
     fetchProducts(true);
     fetchBrands();
+    fetchProductSkusWithTransactions();
   }, []);
+
+  const fetchProductSkusWithTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("purpletransaction")
+        .select("sku")
+        .not("sku", "is", null)
+        .limit(50000);
+      if (error) throw error;
+      const skuSet = new Set<string>();
+      (data || []).forEach((row: any) => {
+        if (row.sku) skuSet.add(row.sku);
+      });
+      setProductSkusWithTransactions(skuSet);
+    } catch (err) {
+      console.error("Error fetching transaction SKUs:", err);
+    }
+  };
 
   const fetchBrands = async () => {
     try {
@@ -276,10 +297,13 @@ const ProductSetup = () => {
     const brandMatch = filterBrand === "all" || product.brand_name === filterBrand;
     const brandTypeMatch = filterBrandType === "all" || product.brand_type === filterBrandType;
     
+    // Transaction exists filter
+    const transactionMatch = !filterHasTransactions || productSkusWithTransactions.has(product.sku || product.product_id || "");
+    
     // Apply advanced filters (all must match)
     const advancedMatch = advancedFilters.every(filter => applyAdvancedFilter(product, filter));
     
-    return nameMatch && statusMatch && brandMatch && brandTypeMatch && advancedMatch;
+    return nameMatch && statusMatch && brandMatch && brandTypeMatch && transactionMatch && advancedMatch;
   });
   
   // Sort products
@@ -954,10 +978,22 @@ const ProductSetup = () => {
           </div>
           
           <div className="flex items-center justify-between">
-            <AdvancedProductFilter
-              filters={advancedFilters}
-              onFiltersChange={setAdvancedFilters}
-            />
+            <div className="flex items-center gap-4">
+              <AdvancedProductFilter
+                filters={advancedFilters}
+                onFiltersChange={setAdvancedFilters}
+              />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="filterHasTransactions"
+                  checked={filterHasTransactions}
+                  onCheckedChange={(checked) => setFilterHasTransactions(checked === true)}
+                />
+                <Label htmlFor="filterHasTransactions" className="text-sm cursor-pointer">
+                  {language === "ar" ? "لديه معاملات" : "Has Transactions"}
+                </Label>
+              </div>
+            </div>
             <div className="text-sm text-muted-foreground">
               Showing {sortedProducts.length} of {products.length} products
             </div>
