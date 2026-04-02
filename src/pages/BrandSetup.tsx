@@ -400,6 +400,9 @@ const BrandSetup = () => {
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("created_at")}>
                   Created At {sortColumn === "created_at" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("sku_start_with")}>
+                  SKU Start With {sortColumn === "sku_start_with" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("creation_source")}>
                   Source {sortColumn === "creation_source" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
@@ -409,7 +412,7 @@ const BrandSetup = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                   <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
+                   <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName || filterABCAnalysis || filterBrandType ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -455,6 +458,7 @@ const BrandSetup = () => {
                       ) : '-'}
                     </TableCell>
                     <TableCell className="text-xs">{brand.created_at ? format(new Date(brand.created_at), 'yyyy-MM-dd') : '-'}</TableCell>
+                    <TableCell>{(brand as any).sku_start_with || '-'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         (brand as any).creation_source === 'Purple Excel' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'

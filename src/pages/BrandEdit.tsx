@@ -58,6 +58,7 @@ const BrandEdit = () => {
     odoo_category_id: "",
     default_supplier_id: "none",
     asus_brand_name: "",
+    sku_start_with: "",
     creation_source: "",
   });
 
@@ -198,7 +199,8 @@ const BrandEdit = () => {
           status: data.status,
           odoo_category_id: data.odoo_category_id?.toString() || "",
            default_supplier_id: (data as any).default_supplier_id || "none",
-          asus_brand_name: (data as any).asus_brand_name || "",
+           asus_brand_name: (data as any).asus_brand_name || "",
+          sku_start_with: (data as any).sku_start_with || "",
           creation_source: (data as any).creation_source || "",
           _created_at: data.created_at,
         } as any);
@@ -334,6 +336,7 @@ const BrandEdit = () => {
             status: formData.status,
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
             asus_brand_name: formData.asus_brand_name || null,
+            sku_start_with: formData.sku_start_with || null,
           } as any)
           .eq("id", brandId);
 
@@ -362,6 +365,7 @@ const BrandEdit = () => {
             status: formData.status,
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
             asus_brand_name: formData.asus_brand_name || null,
+            sku_start_with: formData.sku_start_with || null,
           } as any);
 
         if (error) throw error;
@@ -664,6 +668,18 @@ const BrandEdit = () => {
                   ))}
                 </SelectContent>
             </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sku_start_with">SKU Start With</Label>
+              <Input
+                id="sku_start_with"
+                value={formData.sku_start_with}
+                onChange={(e) =>
+                  setFormData({ ...formData, sku_start_with: e.target.value })
+                }
+                placeholder="e.g. ITN, GOG, SAM"
+              />
             </div>
 
             <div className="space-y-2">
