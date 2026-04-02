@@ -94,7 +94,7 @@ interface Brand {
 }
 
 const ProductSetup = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
