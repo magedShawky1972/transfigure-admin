@@ -130,6 +130,7 @@ const ProductSetup = () => {
   const [filterBrandType, setFilterBrandType] = useState<string>(() =>
     localStorage.getItem("ps.filterBrandType") ?? "all"
   );
+  const [filterHasTransactions, setFilterHasTransactions] = useState(false);
   
   // Advanced filters
   const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>([]);
