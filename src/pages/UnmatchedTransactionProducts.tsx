@@ -101,8 +101,9 @@ const UnmatchedTransactionProducts = () => {
 
     // Get all products in batches
     let allProducts: OrphanProduct[] = [];
-    from = 0;
-    hasMore = true;
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
 
     while (hasMore) {
       const { data: pBatch, error } = await supabase
