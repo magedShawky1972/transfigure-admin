@@ -43,7 +43,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown, Wand2 } from "lucide-react";
+import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown, Wand2, Bug } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProductExcelUpload } from "@/components/ProductExcelUpload";
 import { AdvancedProductFilter, FilterRule } from "@/components/AdvancedProductFilter";
@@ -111,6 +111,10 @@ const ProductSetup = () => {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [syncTestDialogOpen, setSyncTestDialogOpen] = useState(false);
+  const [syncTestProduct, setSyncTestProduct] = useState<Product | null>(null);
+  const [syncTestSteps, setSyncTestSteps] = useState<Array<{ step: string; status: 'pending' | 'running' | 'success' | 'error'; detail?: string; timestamp?: string }>>([]);
+  const [syncTestRunning, setSyncTestRunning] = useState(false);
   
   // Filter states
   const [filterName, setFilterName] = useState<string>(() =>
@@ -637,6 +641,102 @@ const ProductSetup = () => {
     }
   };
 
+  const handleTestSync = async (product: Product) => {
+    setSyncTestProduct(product);
+    setSyncTestDialogOpen(true);
+    setSyncTestRunning(true);
+    const steps: Array<{ step: string; status: 'pending' | 'running' | 'success' | 'error'; detail?: string; timestamp?: string }> = [];
+    const addStep = (step: string, status: 'pending' | 'running' | 'success' | 'error', detail?: string) => {
+      const entry = { step, status, detail, timestamp: new Date().toLocaleTimeString() };
+      steps.push(entry);
+      setSyncTestSteps([...steps]);
+    };
+
+    const sku = product.sku || product.product_id;
+    try {
+      // Step 1: Fetch Odoo config
+      addStep('Fetching Odoo API configuration', 'running');
+      const { data: odooConfig, error: configError } = await supabase
+        .from('odoo_api_config')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (configError || !odooConfig) {
+        addStep('Fetching Odoo API configuration', 'error', configError?.message || 'No active config found');
+        setSyncTestRunning(false);
+        return;
+      }
+      const isProductionMode = odooConfig.is_production_mode !== false;
+      const productApiUrl = isProductionMode ? odooConfig.product_api_url : odooConfig.product_api_url_test;
+      steps[steps.length - 1] = { ...steps[steps.length - 1], status: 'success', detail: `Environment: ${isProductionMode ? 'Production' : 'Test'}` };
+      setSyncTestSteps([...steps]);
+
+      // Step 2: Show PUT URL
+      const putUrl = `${productApiUrl}/${sku}`;
+      addStep(`PUT ${putUrl}`, 'running', 'Sending update request...');
+
+      // Step 3: Call the edge function
+      addStep('Calling sync-product-to-odoo edge function', 'running');
+      const { data, error } = await supabase.functions.invoke('sync-product-to-odoo', {
+        body: {
+          product_id: product.id,
+          sku: sku,
+          productName: product.product_name,
+          uom: null,
+          brandCode: product.brand_code || null,
+          reorderPoint: product.reorder_point || null,
+          minimumOrder: product.minimum_order_quantity || null,
+          maximumOrder: null,
+          costPrice: product.product_cost ? parseFloat(product.product_cost) : null,
+          salesPrice: product.product_price ? parseFloat(product.product_price) : null,
+          productWeight: product.weight || null,
+          isNonStock: product.non_stock ?? false,
+          odoo_product_id: product.odoo_product_id || null,
+        }
+      });
+
+      // Update PUT step
+      steps[steps.length - 2] = { ...steps[steps.length - 2], status: data?.success ? 'success' : 'error', detail: `PUT ${putUrl}` };
+      setSyncTestSteps([...steps]);
+
+      if (error) {
+        steps[steps.length - 1] = { ...steps[steps.length - 1], status: 'error', detail: `Edge Function Error: ${error.message}` };
+        setSyncTestSteps([...steps]);
+        setSyncTestRunning(false);
+        return;
+      }
+
+      // Step 4: Show result
+      steps[steps.length - 1] = { ...steps[steps.length - 1], status: data?.success ? 'success' : 'error', detail: JSON.stringify(data, null, 2) };
+      setSyncTestSteps([...steps]);
+
+      if (data?.success) {
+        addStep('Result: Product synced successfully', 'success', `Odoo Product ID: ${data.odoo_product_id || 'N/A'}\nMessage: ${data.message || ''}`);
+        // Update local record
+        await supabase
+          .from("products")
+          .update({
+            odoo_sync_status: 'synced',
+            odoo_synced_at: new Date().toISOString(),
+            odoo_product_id: data.odoo_product_id || null
+          })
+          .eq("id", product.id);
+        fetchProducts();
+      } else {
+        addStep('Result: Sync failed', 'error', data?.error || 'Unknown error');
+        await supabase
+          .from("products")
+          .update({ odoo_sync_status: 'failed' })
+          .eq("id", product.id);
+        fetchProducts();
+      }
+    } catch (err: any) {
+      addStep('Unexpected error', 'error', err.message || 'Unknown error');
+    }
+    setSyncTestRunning(false);
+  };
+
   const handleDialogOpenChange = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
@@ -1085,6 +1185,15 @@ const ProductSetup = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => handleTestSync(product)}
+                        title="Test Sync (Debug)"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Bug className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => navigate(`/product-details/${product.id}`)}
                         title="More Details"
                       >
@@ -1207,6 +1316,15 @@ const ProductSetup = () => {
                                   title="Sync to Odoo"
                                 >
                                   <RefreshCw className={`h-4 w-4 ${syncingProducts.has(product.id) ? 'animate-spin' : ''}`} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleTestSync(product)}
+                                  title="Test Sync (Debug)"
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <Bug className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -1485,6 +1603,53 @@ const ProductSetup = () => {
               fetchProducts();
             }}
           />
+        </DialogContent>
+      </Dialog>
+      {/* Sync Test Debug Dialog */}
+      <Dialog open={syncTestDialogOpen} onOpenChange={(open) => { if (!syncTestRunning) { setSyncTestDialogOpen(open); if (!open) setSyncTestSteps([]); } }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bug className="h-5 w-5" />
+              Odoo Sync Debug - {syncTestProduct?.product_name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 text-sm">
+            <div className="flex gap-2 text-muted-foreground mb-3">
+              <span>SKU: <strong>{syncTestProduct?.sku || syncTestProduct?.product_id}</strong></span>
+              <span>|</span>
+              <span>Brand: <strong>{syncTestProduct?.brand_code}</strong></span>
+              <span>|</span>
+              <span>Odoo ID: <strong>{syncTestProduct?.odoo_product_id || 'N/A'}</strong></span>
+            </div>
+            {syncTestSteps.map((s, i) => (
+              <div key={i} className={`flex items-start gap-2 p-2 rounded border ${
+                s.status === 'success' ? 'border-green-500/30 bg-green-500/5' :
+                s.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
+                s.status === 'running' ? 'border-yellow-500/30 bg-yellow-500/5' :
+                'border-border'
+              }`}>
+                <span className="mt-0.5">
+                  {s.status === 'success' ? '✅' : s.status === 'error' ? '❌' : s.status === 'running' ? '⏳' : '⏸️'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{s.step}</div>
+                  {s.detail && (
+                    <pre className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-all font-mono bg-muted/50 p-2 rounded">
+                      {s.detail}
+                    </pre>
+                  )}
+                </div>
+                {s.timestamp && <span className="text-xs text-muted-foreground shrink-0">{s.timestamp}</span>}
+              </div>
+            ))}
+            {syncTestRunning && (
+              <div className="flex items-center gap-2 text-muted-foreground p-2">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Processing...
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
