@@ -90,13 +90,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build PUT request body (for updates - do NOT include cat_code, let Odoo keep existing category)
-    // Use 'consu' for consumable products (digital goods) or 'service' for services.
-    // Some Odoo API gateways still rely on the legacy 'type' field (and may reject 'product').
+    // Build PUT request body (for updates - do NOT include type/detailed_type or cat_code)
+    // Odoo rejects type changes on existing products, so we only update other fields
     const putBody: any = {
       name: productName,
-      detailed_type: 'consu',
-      type: 'consu',
     };
 
     // Add optional fields for update (excluding cat_code)
@@ -161,86 +158,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // If PUT failed due to Odoo rejecting the template type change, retry PUT WITHOUT type/detailed_type fields
     console.log('PUT error debug:', { type: typeof putResult?.error, value: putResult?.error });
 
-    const hasTemplateTypeError = typeof putResult?.error === 'string' &&
-      putResult.error.toLowerCase().includes('product.template.type');
-
-    if (hasTemplateTypeError) {
-      console.log('PUT failed due to template type restriction; retrying PUT without type fields');
-
-      // Build a new PUT body WITHOUT detailed_type and type (keep the existing type in Odoo)
-      const retryPutBody: any = {
-        name: productName,
-      };
-
-      if (uom) retryPutBody.uom = uom;
-      if (reorderPoint !== undefined && reorderPoint !== null) retryPutBody.reorder_point = reorderPoint;
-      if (minimumOrder !== undefined && minimumOrder !== null) retryPutBody.minimum_order = minimumOrder;
-      if (maximumOrder !== undefined && maximumOrder !== null) retryPutBody.maximum_order = maximumOrder;
-      if (costPrice !== undefined && costPrice !== null) retryPutBody.cost_price = costPrice;
-      if (salesPrice !== undefined && salesPrice !== null) retryPutBody.sales_price = salesPrice;
-      if (productWeight !== undefined && productWeight !== null) retryPutBody.product_weight = productWeight;
-      if (isNonStock !== undefined && isNonStock !== null) retryPutBody.is_non_stock = isNonStock;
-
-      console.log('Retry PUT body (no type fields):', retryPutBody);
-
-      const retryResponse = await fetch(`${productApiUrl}/${sku}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': odooApiKey,
-        },
-        body: JSON.stringify(retryPutBody),
-      });
-
-      const retryText = await retryResponse.text();
-      console.log('Retry PUT response status:', retryResponse.status);
-      console.log('Retry PUT response:', retryText);
-
-      let retryResult: any;
-      try {
-        retryResult = JSON.parse(retryText);
-      } catch (e) {
-        retryResult = { success: false, error: retryText };
-      }
-
-      if (retryResult.success) {
-        const odooProductId = retryResult.product_id || retryResult.product_template_id || retryResult.product_master_id;
-        if (product_id) {
-          await supabase
-            .from('products')
-            .update({
-              odoo_product_id: odooProductId || null,
-              odoo_sync_status: 'synced',
-              odoo_synced_at: new Date().toISOString()
-            })
-            .eq('id', product_id);
-        }
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: retryResult.message || 'Product updated in Odoo (without type change)',
-            odoo_product_id: odooProductId,
-            odoo_response: retryResult,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // If retry PUT also failed, continue with normal error handling below
-      console.log('Retry PUT without type also failed, continuing with normal error handling');
-    }
-
     // Check if PUT failed because product doesn't exist (404 or specific error message)
-    // Only try POST creation if the product does NOT already have an odoo_product_id
-    const isNotFound = !odoo_product_id && (putResponse.status === 404 || 
+    const isNotFound = putResponse.status === 404 || 
       (putResult.error && (
         putResult.error.toLowerCase().includes('not found') ||
         putResult.error.toLowerCase().includes('does not exist')
-      )));
+      ));
 
     if (isNotFound) {
       // Product doesn't exist, try POST to create
