@@ -199,7 +199,8 @@ const BrandEdit = () => {
           status: data.status,
           odoo_category_id: data.odoo_category_id?.toString() || "",
            default_supplier_id: (data as any).default_supplier_id || "none",
-          asus_brand_name: (data as any).asus_brand_name || "",
+           asus_brand_name: (data as any).asus_brand_name || "",
+          sku_start_with: (data as any).sku_start_with || "",
           creation_source: (data as any).creation_source || "",
           _created_at: data.created_at,
         } as any);
