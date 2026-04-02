@@ -229,6 +229,7 @@ Deno.serve(async (req) => {
             results.skipped++;
             results.details.push({ sku, status: 'skipped', reason: putResult.error || 'PUT update failed' });
           }
+          } // end else (not template type error)
         }
       } catch (error) {
         console.error(`Error syncing product ${sku}:`, error);
