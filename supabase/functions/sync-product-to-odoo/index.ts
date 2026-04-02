@@ -161,56 +161,53 @@ Deno.serve(async (req) => {
       );
     }
 
-    // If PUT failed due to Odoo rejecting the existing template type, try POST as an upsert fallback
+    // If PUT failed due to Odoo rejecting the template type change, retry PUT WITHOUT type/detailed_type fields
     console.log('PUT error debug:', { type: typeof putResult?.error, value: putResult?.error });
 
     const hasTemplateTypeError = typeof putResult?.error === 'string' &&
       putResult.error.toLowerCase().includes('product.template.type');
 
     if (hasTemplateTypeError) {
-      console.log('PUT failed due to template type restriction; trying POST upsert fallback');
+      console.log('PUT failed due to template type restriction; retrying PUT without type fields');
 
-      const postBody: any = {
-        sku: sku,
+      // Build a new PUT body WITHOUT detailed_type and type (keep the existing type in Odoo)
+      const retryPutBody: any = {
         name: productName,
-        detailed_type: 'consu',
-        type: 'consu',
       };
 
-      if (uom) postBody.uom = uom;
-      if (odooCategoryId) postBody.cat_code = brandCode;
-      if (reorderPoint !== undefined && reorderPoint !== null) postBody.reorder_point = reorderPoint;
-      if (minimumOrder !== undefined && minimumOrder !== null) postBody.minimum_order = minimumOrder;
-      if (maximumOrder !== undefined && maximumOrder !== null) postBody.maximum_order = maximumOrder;
-      if (costPrice !== undefined && costPrice !== null) postBody.cost_price = costPrice;
-      if (salesPrice !== undefined && salesPrice !== null) postBody.sales_price = salesPrice;
-      if (productWeight !== undefined && productWeight !== null) postBody.product_weight = productWeight;
-      if (isNonStock !== undefined && isNonStock !== null) postBody.is_non_stock = isNonStock;
+      if (uom) retryPutBody.uom = uom;
+      if (reorderPoint !== undefined && reorderPoint !== null) retryPutBody.reorder_point = reorderPoint;
+      if (minimumOrder !== undefined && minimumOrder !== null) retryPutBody.minimum_order = minimumOrder;
+      if (maximumOrder !== undefined && maximumOrder !== null) retryPutBody.maximum_order = maximumOrder;
+      if (costPrice !== undefined && costPrice !== null) retryPutBody.cost_price = costPrice;
+      if (salesPrice !== undefined && salesPrice !== null) retryPutBody.sales_price = salesPrice;
+      if (productWeight !== undefined && productWeight !== null) retryPutBody.product_weight = productWeight;
+      if (isNonStock !== undefined && isNonStock !== null) retryPutBody.is_non_stock = isNonStock;
 
-      console.log('POST upsert body:', postBody);
+      console.log('Retry PUT body (no type fields):', retryPutBody);
 
-      const postResponse = await fetch(productApiUrl, {
-        method: 'POST',
+      const retryResponse = await fetch(`${productApiUrl}/${sku}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': odooApiKey,
         },
-        body: JSON.stringify(postBody),
+        body: JSON.stringify(retryPutBody),
       });
 
-      const postText = await postResponse.text();
-      console.log('POST upsert response status:', postResponse.status);
-      console.log('POST upsert response:', postText);
+      const retryText = await retryResponse.text();
+      console.log('Retry PUT response status:', retryResponse.status);
+      console.log('Retry PUT response:', retryText);
 
-      let postResult: any;
+      let retryResult: any;
       try {
-        postResult = JSON.parse(postText);
+        retryResult = JSON.parse(retryText);
       } catch (e) {
-        postResult = { success: false, error: postText };
+        retryResult = { success: false, error: retryText };
       }
 
-      if (postResult.success) {
-        const odooProductId = postResult.product_id || postResult.product_template_id || postResult.product_master_id;
+      if (retryResult.success) {
+        const odooProductId = retryResult.product_id || retryResult.product_template_id || retryResult.product_master_id;
         if (product_id) {
           await supabase
             .from('products')
@@ -225,16 +222,16 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({
             success: true,
-            message: postResult.message || 'Product synced via POST fallback',
+            message: retryResult.message || 'Product updated in Odoo (without type change)',
             odoo_product_id: odooProductId,
-            odoo_response: postResult,
+            odoo_response: retryResult,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // If POST fallback failed, continue with normal error handling below
-      console.log('POST fallback failed, continuing with normal error handling');
+      // If retry PUT also failed, continue with normal error handling below
+      console.log('Retry PUT without type also failed, continuing with normal error handling');
     }
 
     // Check if PUT failed because product doesn't exist (404 or specific error message)
