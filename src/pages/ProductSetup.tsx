@@ -111,6 +111,10 @@ const ProductSetup = () => {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [syncTestDialogOpen, setSyncTestDialogOpen] = useState(false);
+  const [syncTestProduct, setSyncTestProduct] = useState<Product | null>(null);
+  const [syncTestSteps, setSyncTestSteps] = useState<Array<{ step: string; status: 'pending' | 'running' | 'success' | 'error'; detail?: string; timestamp?: string }>>([]);
+  const [syncTestRunning, setSyncTestRunning] = useState(false);
   
   // Filter states
   const [filterName, setFilterName] = useState<string>(() =>
