@@ -1047,12 +1047,64 @@ const ProductSetup = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="sku">SKU</Label>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                placeholder="Enter product SKU"
-              />
+              <div className="flex gap-1">
+                <Input
+                  id="sku"
+                  value={formData.sku}
+                  onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                  placeholder="Enter product SKU"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  title={language === "ar" ? "توليد SKU تلقائي" : "Auto-generate SKU"}
+                  onClick={async () => {
+                    if (!formData.brand_code) {
+                      toast({ title: "Error", description: language === "ar" ? "اختر البراند أولاً" : "Select a brand first", variant: "destructive" });
+                      return;
+                    }
+                    try {
+                      const { data: brandData } = await supabase
+                        .from("brands")
+                        .select("sku_start_with")
+                        .eq("brand_code", formData.brand_code)
+                        .single();
+                      const prefix = (brandData as any)?.sku_start_with;
+                      if (!prefix) {
+                        toast({ title: "Error", description: language === "ar" ? "لا يوجد بادئة SKU للبراند" : "No SKU prefix set for this brand", variant: "destructive" });
+                        return;
+                      }
+                      const { data: existingProducts } = await supabase
+                        .from("products")
+                        .select("sku")
+                        .like("sku", `${prefix}%`)
+                        .not("sku", "is", null);
+                      let maxNum = 0;
+                      let padLength = 3;
+                      if (existingProducts && existingProducts.length > 0) {
+                        existingProducts.forEach((p: any) => {
+                          if (p.sku) {
+                            const numPart = p.sku.substring(prefix.length);
+                            const num = parseInt(numPart, 10);
+                            if (!isNaN(num)) {
+                              if (num > maxNum) maxNum = num;
+                              if (numPart.length > padLength) padLength = numPart.length;
+                            }
+                          }
+                        });
+                      }
+                      const newSku = prefix + String(maxNum + 1).padStart(padLength, "0");
+                      setFormData(prev => ({ ...prev, sku: newSku }));
+                      toast({ title: language === "ar" ? "تم التوليد" : "Generated", description: `SKU: ${newSku}` });
+                    } catch (err: any) {
+                      toast({ title: "Error", description: err.message, variant: "destructive" });
+                    }
+                  }}
+                >
+                  <Wand2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="odoo_product_id">Odoo Product ID</Label>
