@@ -298,7 +298,7 @@ const ProductSetup = () => {
     const brandTypeMatch = filterBrandType === "all" || product.brand_type === filterBrandType;
     
     // Transaction exists filter
-    const transactionMatch = !filterHasTransactions || productSkusWithTransactions.has(product.sku || product.product_id || "");
+    const transactionMatch = !filterHasTransactions || productSkusWithTransactions.has(String(product.product_id || ""));
     
     // Apply advanced filters (all must match)
     const advancedMatch = advancedFilters.every(filter => applyAdvancedFilter(product, filter));
