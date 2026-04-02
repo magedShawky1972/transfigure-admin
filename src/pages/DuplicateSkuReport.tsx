@@ -48,18 +48,35 @@ const DuplicateSkuReport = () => {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, product_name, sku, brand_code, brand_name, product_price, status")
-        .not("sku", "is", null)
-        .neq("sku", "")
-        .order("sku", { ascending: true })
-        .order("product_name", { ascending: true });
+      // Fetch all products in batches to avoid the 1000-row default limit
+      let allProducts: ProductRow[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      setProducts(data || []);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, product_name, sku, brand_code, brand_name, product_price, status")
+          .not("sku", "is", null)
+          .neq("sku", "")
+          .order("sku", { ascending: true })
+          .order("product_name", { ascending: true })
+          .range(from, from + batchSize - 1);
 
-      const uniqueBrands = [...new Set((data || []).map(p => p.brand_name).filter(Boolean))] as string[];
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allProducts = [...allProducts, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setProducts(allProducts);
+
+      const uniqueBrands = [...new Set(allProducts.map(p => p.brand_name).filter(Boolean))] as string[];
       setBrands(uniqueBrands.sort());
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
