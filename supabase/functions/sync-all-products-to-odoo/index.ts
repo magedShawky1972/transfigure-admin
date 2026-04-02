@@ -140,56 +140,53 @@ Deno.serve(async (req) => {
         } else {
           const errText = (putResult?.error || putResult?.message || '').toString();
 
-          // If Odoo rejects existing product template type on PUT, try POST fallback (upsert behavior on some gateways)
+          // If Odoo rejects existing product template type on PUT, retry PUT without type fields
           if (errText.toLowerCase().includes('product.template.type')) {
             try {
-              const postBody: any = {
-                sku,
+              const retryPutBody: any = {
                 name: product.product_name,
-                detailed_type: 'consu',
-                type: 'consu',
               };
 
               if (product.reorder_point !== undefined && product.reorder_point !== null) {
-                postBody.reorder_point = product.reorder_point;
+                retryPutBody.reorder_point = product.reorder_point;
               }
               if (product.minimum_order_quantity !== undefined && product.minimum_order_quantity !== null) {
-                postBody.minimum_order = product.minimum_order_quantity;
+                retryPutBody.minimum_order = product.minimum_order_quantity;
               }
               if (product.product_cost) {
-                postBody.cost_price = parseFloat(product.product_cost);
+                retryPutBody.cost_price = parseFloat(product.product_cost);
               }
               if (product.product_price) {
-                postBody.sales_price = parseFloat(product.product_price);
+                retryPutBody.sales_price = parseFloat(product.product_price);
               }
               if (product.weight !== undefined && product.weight !== null) {
-                postBody.product_weight = product.weight;
+                retryPutBody.product_weight = product.weight;
               }
               if (product.non_stock !== undefined && product.non_stock !== null) {
-                postBody.is_non_stock = product.non_stock;
+                retryPutBody.is_non_stock = product.non_stock;
               }
 
-              console.log(`POST fallback ${productApiUrl}`, postBody);
+              console.log(`Retry PUT without type ${productApiUrl}/${sku}`, retryPutBody);
 
-              const postResponse = await fetch(productApiUrl, {
-                method: 'POST',
+              const retryResponse = await fetch(`${productApiUrl}/${sku}`, {
+                method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
                   'Authorization': odooApiKey,
                 },
-                body: JSON.stringify(postBody),
+                body: JSON.stringify(retryPutBody),
               });
 
-              const postText = await postResponse.text();
-              let postResult: any;
+              const retryText = await retryResponse.text();
+              let retryResult: any;
               try {
-                postResult = JSON.parse(postText);
+                retryResult = JSON.parse(retryText);
               } catch {
-                postResult = { success: false, error: postText };
+                retryResult = { success: false, error: retryText };
               }
 
-              if (postResult.success) {
-                const odooProductId = postResult.product_id || postResult.product_template_id || postResult.product_master_id;
+              if (retryResult.success) {
+                const odooProductId = retryResult.product_id || retryResult.product_template_id || retryResult.product_master_id;
                 await supabase
                   .from('products')
                   .update({ 
@@ -200,14 +197,14 @@ Deno.serve(async (req) => {
                   .eq('id', product.id);
 
                 results.synced++;
-                results.details.push({ sku, status: 'synced', odoo_product_id: odooProductId, note: 'post_fallback' });
+                results.details.push({ sku, status: 'synced', odoo_product_id: odooProductId, note: 'retry_put_no_type' });
               } else {
                 results.skipped++;
-                results.details.push({ sku, status: 'skipped', reason: postResult.error || postResult.message || 'POST fallback failed' });
+                results.details.push({ sku, status: 'skipped', reason: retryResult.error || retryResult.message || 'Retry PUT failed' });
               }
-            } catch (postErr) {
+            } catch (retryErr) {
               results.failed++;
-              results.details.push({ sku, status: 'failed', error: postErr instanceof Error ? postErr.message : 'POST fallback error' });
+              results.details.push({ sku, status: 'failed', error: retryErr instanceof Error ? retryErr.message : 'Retry PUT error' });
             }
           } else {
             // Product not found in Odoo or other error - skip (PUT only mode)
