@@ -77,11 +77,9 @@ Deno.serve(async (req) => {
       }
 
       try {
-        // Build PUT request body
+        // Build PUT request body (no type/detailed_type - Odoo rejects type changes on existing products)
         const putBody: any = {
           name: product.product_name,
-          detailed_type: 'consu',
-          type: 'consu',
         };
 
         if (product.reorder_point !== undefined && product.reorder_point !== null) {
