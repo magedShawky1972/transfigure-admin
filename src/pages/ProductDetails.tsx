@@ -289,11 +289,51 @@ const ProductDetails = () => {
     setDiscounts(discounts.filter((_, i) => i !== index));
   };
 
-  const handleBrandChange = (selectedBrandName: string) => {
+  const handleBrandChange = async (selectedBrandName: string) => {
     const selectedBrand = brands.find(b => b.brand_name === selectedBrandName);
     setBrandName(selectedBrandName);
     setBrandCode(selectedBrand?.brand_code || "");
     setBrandType(selectedBrand?.brand_type?.type_name || "");
+
+    // Auto-generate SKU if current SKU is empty
+    if (!sku && selectedBrand) {
+      try {
+        const { data: brandData } = await supabase
+          .from("brands")
+          .select("sku_start_with")
+          .eq("id", selectedBrand.id)
+          .single();
+        let prefix = (brandData as any)?.sku_start_with;
+        if (!prefix) {
+          prefix = selectedBrandName.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase();
+        }
+        if (prefix) {
+          const { data: existingProducts } = await supabase
+            .from("products")
+            .select("sku")
+            .like("sku", `${prefix}%`)
+            .not("sku", "is", null);
+          let maxNum = 0;
+          let padLength = 3;
+          if (existingProducts && existingProducts.length > 0) {
+            existingProducts.forEach((p: any) => {
+              if (p.sku) {
+                const numPart = p.sku.substring(prefix.length);
+                const num = parseInt(numPart, 10);
+                if (!isNaN(num)) {
+                  if (num > maxNum) maxNum = num;
+                  if (numPart.length > padLength) padLength = numPart.length;
+                }
+              }
+            });
+          }
+          const newSku = prefix + String(maxNum + 1).padStart(padLength, "0");
+          setSku(newSku);
+        }
+      } catch (err) {
+        console.error("Error auto-generating SKU:", err);
+      }
+    }
   };
 
   const getSelectedBrandType = () => {
