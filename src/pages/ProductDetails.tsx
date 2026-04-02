@@ -298,12 +298,13 @@ const ProductDetails = () => {
     // Auto-generate SKU if current SKU is empty
     if (!sku && selectedBrand) {
       try {
-        const { data: brandData } = await supabase
+        const { data: skuBrandData, error: skuBrandError } = await supabase
           .from("brands")
           .select("sku_start_with")
           .eq("id", selectedBrand.id)
           .single();
-        let prefix = (brandData as any)?.sku_start_with;
+        console.log("Brand SKU lookup:", { brandId: selectedBrand.id, skuBrandData, skuBrandError });
+        let prefix = skuBrandData?.sku_start_with;
         if (!prefix) {
           prefix = selectedBrandName.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase();
         }
@@ -621,12 +622,13 @@ const ProductDetails = () => {
                             return;
                           }
                           try {
-                            const { data: brandData } = await supabase
+                            const { data: brandData, error: brandError } = await supabase
                               .from("brands")
                               .select("sku_start_with")
                               .eq("id", selectedBrand.id)
                               .single();
-                            let prefix = (brandData as any)?.sku_start_with;
+                            console.log("Button SKU lookup:", { brandId: selectedBrand.id, brandData, brandError });
+                            let prefix = brandData?.sku_start_with;
                             if (!prefix) {
                               // Fallback: use brand name's first 2 uppercase characters
                               prefix = brandName.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase();
