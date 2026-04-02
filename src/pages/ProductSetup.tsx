@@ -1605,6 +1605,53 @@ const ProductSetup = () => {
           />
         </DialogContent>
       </Dialog>
+      {/* Sync Test Debug Dialog */}
+      <Dialog open={syncTestDialogOpen} onOpenChange={(open) => { if (!syncTestRunning) { setSyncTestDialogOpen(open); if (!open) setSyncTestSteps([]); } }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bug className="h-5 w-5" />
+              Odoo Sync Debug - {syncTestProduct?.product_name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 text-sm">
+            <div className="flex gap-2 text-muted-foreground mb-3">
+              <span>SKU: <strong>{syncTestProduct?.sku || syncTestProduct?.product_id}</strong></span>
+              <span>|</span>
+              <span>Brand: <strong>{syncTestProduct?.brand_code}</strong></span>
+              <span>|</span>
+              <span>Odoo ID: <strong>{syncTestProduct?.odoo_product_id || 'N/A'}</strong></span>
+            </div>
+            {syncTestSteps.map((s, i) => (
+              <div key={i} className={`flex items-start gap-2 p-2 rounded border ${
+                s.status === 'success' ? 'border-green-500/30 bg-green-500/5' :
+                s.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
+                s.status === 'running' ? 'border-yellow-500/30 bg-yellow-500/5' :
+                'border-border'
+              }`}>
+                <span className="mt-0.5">
+                  {s.status === 'success' ? '✅' : s.status === 'error' ? '❌' : s.status === 'running' ? '⏳' : '⏸️'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{s.step}</div>
+                  {s.detail && (
+                    <pre className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-all font-mono bg-muted/50 p-2 rounded">
+                      {s.detail}
+                    </pre>
+                  )}
+                </div>
+                {s.timestamp && <span className="text-xs text-muted-foreground shrink-0">{s.timestamp}</span>}
+              </div>
+            ))}
+            {syncTestRunning && (
+              <div className="flex items-center gap-2 text-muted-foreground p-2">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Processing...
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
