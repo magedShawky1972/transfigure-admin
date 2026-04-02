@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN sku_start_with text DEFAULT null;

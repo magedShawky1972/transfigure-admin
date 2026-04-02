@@ -1154,6 +1154,7 @@ export type Database = {
           reorder_point: number | null
           safety_stock: number | null
           short_name: string | null
+          sku_start_with: string | null
           status: string
           updated_at: string
           usd_value_for_coins: number | null
@@ -1177,6 +1178,7 @@ export type Database = {
           reorder_point?: number | null
           safety_stock?: number | null
           short_name?: string | null
+          sku_start_with?: string | null
           status?: string
           updated_at?: string
           usd_value_for_coins?: number | null
@@ -1200,6 +1202,7 @@ export type Database = {
           reorder_point?: number | null
           safety_stock?: number | null
           short_name?: string | null
+          sku_start_with?: string | null
           status?: string
           updated_at?: string
           usd_value_for_coins?: number | null
