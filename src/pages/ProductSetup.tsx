@@ -978,10 +978,22 @@ const ProductSetup = () => {
           </div>
           
           <div className="flex items-center justify-between">
-            <AdvancedProductFilter
-              filters={advancedFilters}
-              onFiltersChange={setAdvancedFilters}
-            />
+            <div className="flex items-center gap-4">
+              <AdvancedProductFilter
+                filters={advancedFilters}
+                onFiltersChange={setAdvancedFilters}
+              />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="filterHasTransactions"
+                  checked={filterHasTransactions}
+                  onCheckedChange={(checked) => setFilterHasTransactions(checked === true)}
+                />
+                <Label htmlFor="filterHasTransactions" className="text-sm cursor-pointer">
+                  {language === "ar" ? "لديه معاملات" : "Has Transactions"}
+                </Label>
+              </div>
+            </div>
             <div className="text-sm text-muted-foreground">
               Showing {sortedProducts.length} of {products.length} products
             </div>
