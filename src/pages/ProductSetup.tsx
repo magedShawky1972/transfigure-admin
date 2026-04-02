@@ -790,7 +790,7 @@ const ProductSetup = () => {
     }
   };
 
-
+  const handleTestSync = async (product: Product) => {
     setSyncTestProduct(product);
     setSyncTestDialogOpen(true);
     setSyncTestRunning(true);
