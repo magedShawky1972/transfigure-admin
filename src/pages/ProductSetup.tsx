@@ -701,7 +701,37 @@ const ProductSetup = () => {
     }
   };
 
-  const handleBackupProducts = async () => {
+  const handleExportToExcel = () => {
+    const exportData = sortedProducts.map((p) => ({
+      "Product Name": p.product_name,
+      "Product ID": p.product_id || "",
+      "SKU": p.sku || "",
+      "Brand": p.brand_name || "",
+      "Brand Code": p.brand_code || "",
+      "Brand Type": p.brand_type || "",
+      "Price": p.product_price || "",
+      "Cost": p.product_cost || "",
+      "Status": p.status,
+      "Odoo ID": p.odoo_product_id || "",
+      "Odoo Sync": p.odoo_sync_status || "",
+      "Category": p.category || "",
+      "Barcode": p.barcode || "",
+      "Stock Qty": p.stock_quantity ?? "",
+      "Non Stock": p.non_stock ? "Yes" : "No",
+      "Created At": p.created_at ? format(new Date(p.created_at), "yyyy-MM-dd") : "",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, `Products_Export_${format(new Date(), "yyyy-MM-dd_HHmm")}.xlsx`);
+
+    toast({
+      title: language === 'ar' ? 'تم التصدير' : 'Exported',
+      description: language === 'ar' ? `تم تصدير ${exportData.length} منتج` : `${exportData.length} products exported`,
+    });
+  };
+
     setBackingUp(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
