@@ -125,6 +125,8 @@ const Transactions = () => {
   const [filterCustomer, setFilterCustomer] = useState<string>("all");
   const [filterSku, setFilterSku] = useState<string>("");
   const [productSearchTerm, setProductSearchTerm] = useState<string>("");
+  const [totalMin, setTotalMin] = useState<string>("");
+  const [totalMax, setTotalMax] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [brands, setBrands] = useState<string[]>([]);
@@ -388,6 +390,8 @@ const Transactions = () => {
     setFilterSku("");
     setProductSearchTerm("");
     setSearchTerm("");
+    setTotalMin("");
+    setTotalMax("");
     setPage(1);
     toast({
       title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
@@ -815,9 +819,15 @@ const Transactions = () => {
       const matchesProductSearch = productSearchTerm === "" ||
         transaction.product_name?.toLowerCase().includes(productSearchTerm.toLowerCase());
 
-      return matchesSearch && matchesPhone && matchesOrderNumber && matchesCompany && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch;
+      const minVal = totalMin !== "" ? parseFloat(totalMin) : null;
+      const maxVal = totalMax !== "" ? parseFloat(totalMax) : null;
+      const matchesTotalRange = 
+        (minVal === null || transaction.total >= minVal) &&
+        (maxVal === null || transaction.total <= maxVal);
+
+      return matchesSearch && matchesPhone && matchesOrderNumber && matchesCompany && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch && matchesTotalRange;
     });
-  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterCompany, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm]);
+  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterCompany, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm, totalMin, totalMax]);
 
   // Filter products by selected brand
   const filteredProducts = useMemo(() => {
@@ -1745,6 +1755,21 @@ const Transactions = () => {
               value={filterSku}
               onChange={(e) => setFilterSku(e.target.value)}
               className="max-w-[150px]"
+            />
+
+            <Input
+              type="number"
+              placeholder={language === 'ar' ? 'المبلغ من' : 'Total Min'}
+              value={totalMin}
+              onChange={(e) => setTotalMin(e.target.value)}
+              className="max-w-[120px]"
+            />
+            <Input
+              type="number"
+              placeholder={language === 'ar' ? 'المبلغ إلى' : 'Total Max'}
+              value={totalMax}
+              onChange={(e) => setTotalMax(e.target.value)}
+              className="max-w-[120px]"
             />
 
             <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
