@@ -732,6 +732,7 @@ const ProductSetup = () => {
     });
   };
 
+  const handleBackupProducts = async () => {
     setBackingUp(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
