@@ -390,6 +390,8 @@ const Transactions = () => {
     setFilterSku("");
     setProductSearchTerm("");
     setSearchTerm("");
+    setTotalMin("");
+    setTotalMax("");
     setPage(1);
     toast({
       title: language === 'ar' ? 'تم إعادة التعيين' : 'Reset Complete',
