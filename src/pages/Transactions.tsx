@@ -125,6 +125,8 @@ const Transactions = () => {
   const [filterCustomer, setFilterCustomer] = useState<string>("all");
   const [filterSku, setFilterSku] = useState<string>("");
   const [productSearchTerm, setProductSearchTerm] = useState<string>("");
+  const [totalMin, setTotalMin] = useState<string>("");
+  const [totalMax, setTotalMax] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [brands, setBrands] = useState<string[]>([]);
