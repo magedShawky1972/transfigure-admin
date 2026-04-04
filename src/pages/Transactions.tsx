@@ -1757,6 +1757,21 @@ const Transactions = () => {
               className="max-w-[150px]"
             />
 
+            <Input
+              type="number"
+              placeholder={language === 'ar' ? 'المبلغ من' : 'Total Min'}
+              value={totalMin}
+              onChange={(e) => setTotalMin(e.target.value)}
+              className="max-w-[120px]"
+            />
+            <Input
+              type="number"
+              placeholder={language === 'ar' ? 'المبلغ إلى' : 'Total Max'}
+              value={totalMax}
+              onChange={(e) => setTotalMax(e.target.value)}
+              className="max-w-[120px]"
+            />
+
             <Select value={filterPaymentMethod} onValueChange={setFilterPaymentMethod}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder={t("transactions.paymentMethod")} />
