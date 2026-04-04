@@ -819,9 +819,15 @@ const Transactions = () => {
       const matchesProductSearch = productSearchTerm === "" ||
         transaction.product_name?.toLowerCase().includes(productSearchTerm.toLowerCase());
 
-      return matchesSearch && matchesPhone && matchesOrderNumber && matchesCompany && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch;
+      const minVal = totalMin !== "" ? parseFloat(totalMin) : null;
+      const maxVal = totalMax !== "" ? parseFloat(totalMax) : null;
+      const matchesTotalRange = 
+        (minVal === null || transaction.total >= minVal) &&
+        (maxVal === null || transaction.total <= maxVal);
+
+      return matchesSearch && matchesPhone && matchesOrderNumber && matchesCompany && matchesBrand && matchesProduct && matchesPaymentMethod && matchesPaymentBrand && matchesCustomer && matchesSku && matchesProductSearch && matchesTotalRange;
     });
-  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterCompany, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm]);
+  }, [transactions, searchTerm, phoneFilter, orderNumberFilter, filterCompany, filterBrand, filterProduct, filterPaymentMethod, filterPaymentBrand, filterCustomer, filterSku, productSearchTerm, totalMin, totalMax]);
 
   // Filter products by selected brand
   const filteredProducts = useMemo(() => {
