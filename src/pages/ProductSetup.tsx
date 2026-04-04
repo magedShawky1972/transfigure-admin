@@ -48,6 +48,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ProductExcelUpload } from "@/components/ProductExcelUpload";
 import { AdvancedProductFilter, FilterRule } from "@/components/AdvancedProductFilter";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 import {
   Collapsible,
   CollapsibleContent,
