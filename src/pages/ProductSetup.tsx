@@ -1057,6 +1057,10 @@ const ProductSetup = () => {
                 ? (language === 'ar' ? 'جاري النسخ...' : 'Backing up...') 
                 : (language === 'ar' ? 'نسخ احتياطي' : 'Backup Products')}
             </Button>
+            <Button variant="outline" onClick={handleExportToExcel}>
+              <Download className="h-4 w-4 mr-2" />
+              {language === 'ar' ? 'تصدير إلى Excel' : 'Export to Excel'}
+            </Button>
             <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Upload Excel
