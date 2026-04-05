@@ -78,6 +78,7 @@ const SalesOrderDetailReport = () => {
   const [productOptions, setProductOptions] = useState<{ id: string; name: string }[]>([]);
   const [brandOptions, setBrandOptions] = useState<{ id: string; name: string }[]>([]);
   const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
+  const [timeZoneMode, setTimeZoneMode] = useState<"ksa" | "utc">("ksa");
 
   // Load product and brand options for dropdowns
   useEffect(() => {
