@@ -604,6 +604,18 @@ const SalesOrderDetailReport = () => {
                 className="w-36"
               />
             </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "التوقيت" : "Timezone"}</Label>
+              <Select value={timeZoneMode} onValueChange={(v) => setTimeZoneMode(v as "ksa" | "utc")}>
+                <SelectTrigger className="w-36 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="ksa">{language === "ar" ? "توقيت السعودية" : "KSA (UTC+3)"}</SelectItem>
+                  <SelectItem value="utc">UTC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={fetchReport} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               {language === "ar" ? "تشغيل التقرير" : "Run Report"}
