@@ -253,7 +253,7 @@ const SalesOrderDetailReport = () => {
           results.push({
             order_number: line.order_number,
             customer_phone: header.customer_phone || "",
-            order_date: header.created_at ? new Date(header.created_at).toLocaleString("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : "",
+            order_date: header.created_at ? new Date(header.created_at).toLocaleString("en-CA", { timeZone: timeZoneMode === "ksa" ? "Asia/Riyadh" : "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : "",
             player_id: header.player_id || "",
             transaction_type: header.transaction_type || "",
             register_user_id: header.register_user_id || "",
