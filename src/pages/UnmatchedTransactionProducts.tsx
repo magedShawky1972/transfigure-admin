@@ -377,6 +377,50 @@ const UnmatchedTransactionProducts = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Orders Dialog */}
+      <Dialog open={ordersDialogOpen} onOpenChange={setOrdersDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              {isRTL ? `طلبات المنتج: ${selectedProductId}` : `Orders for Product: ${selectedProductId}`}
+            </DialogTitle>
+          </DialogHeader>
+          {ordersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : orderNumbers.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              {isRTL ? "لا توجد طلبات" : "No orders found"}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {isRTL ? `إجمالي: ${orderNumbers.length} طلب` : `Total: ${orderNumbers.length} orders`}
+              </p>
+              <div className="overflow-auto max-h-[50vh] border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>{isRTL ? "رقم الطلب" : "Order Number"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orderNumbers.map((order, idx) => (
+                      <TableRow key={order}>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell className="font-mono">{order}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
