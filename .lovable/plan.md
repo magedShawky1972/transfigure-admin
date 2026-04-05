@@ -1,62 +1,24 @@
 
 
-## One-time SQL: Populate `sku_start_with` from existing product SKUs
+## Plan: Add Search to Brand Filter in Sales Order Detail Report
 
-**Goal**: Run a single SQL UPDATE to set `brands.sku_start_with` for all brands where it's currently NULL, using the alphabetic prefix detected from existing product SKUs.
+**What**: Replace the plain `Select` dropdown for the Brand filter with the searchable Combobox pattern (Popover + Command) already used throughout the app.
 
-### SQL Logic
+**Why**: The brand list is long, making it hard to find a specific brand in a plain dropdown.
 
-For each brand with `sku_start_with IS NULL`:
-1. Find products matching that brand's `brand_code`
-2. Extract the leading alphabetic characters from their SKU (e.g., "B" from "B001")
-3. Pick the most common prefix
-4. Update `brands.sku_start_with` with that value
+### Changes
 
-### SQL Query
+**File: `src/pages/SalesOrderDetailReport.tsx`**
 
-```sql
-UPDATE brands b
-SET sku_start_with = sub.detected_prefix
-FROM (
-  SELECT 
-    p.brand_code,
-    UPPER(
-      (regexp_match(p.sku, '^[A-Za-z]+'))[1]
-    ) AS detected_prefix,
-    COUNT(*) AS cnt
-  FROM products p
-  WHERE p.sku IS NOT NULL
-    AND p.brand_code IS NOT NULL
-    AND (regexp_match(p.sku, '^[A-Za-z]+'))[1] IS NOT NULL
-  GROUP BY p.brand_code, UPPER((regexp_match(p.sku, '^[A-Za-z]+'))[1])
-) sub
-WHERE b.brand_code = sub.brand_code
-  AND b.sku_start_with IS NULL;
-```
+1. Add imports for `Popover`, `PopoverTrigger`, `PopoverContent`, `Command`, `CommandInput`, `CommandList`, `CommandEmpty`, `CommandGroup`, `CommandItem`, and `Check` icon.
 
-If multiple prefixes exist for a brand, we take the most common one using `DISTINCT ON`:
+2. Add a local state `brandOpen` (boolean) to control the popover visibility.
 
-```sql
-UPDATE brands b
-SET sku_start_with = sub.detected_prefix
-FROM (
-  SELECT DISTINCT ON (brand_code) 
-    brand_code,
-    UPPER((regexp_match(sku, '^[A-Za-z]+'))[1]) AS detected_prefix,
-    COUNT(*) AS cnt
-  FROM products
-  WHERE sku IS NOT NULL
-    AND brand_code IS NOT NULL
-    AND (regexp_match(sku, '^[A-Za-z]+'))[1] IS NOT NULL
-  GROUP BY brand_code, UPPER((regexp_match(sku, '^[A-Za-z]+'))[1])
-  ORDER BY brand_code, cnt DESC
-) sub
-WHERE b.brand_code = sub.brand_code
-  AND b.sku_start_with IS NULL;
-```
+3. Replace the current Brand `<Select>` block (lines 484-497) with a searchable Combobox:
+   - Popover with a Button trigger showing the selected brand name (or "All" placeholder)
+   - CommandInput for typing to search/filter brands
+   - CommandList with "All" option + filtered `brandOptions`
+   - On select: set `filterBrand`, close popover
 
-### Implementation
-- Run this as a data UPDATE via the insert tool (not a migration, since it's a data change)
-- No code changes needed — the existing SKU generation logic already reads `sku_start_with` correctly
-- After this runs, all brands like Binmo will have `sku_start_with = 'B'` saved in the database
+This follows the exact same searchable selection pattern already used in Dashboard brand filter, Coins Sheets, and Product Details.
 
