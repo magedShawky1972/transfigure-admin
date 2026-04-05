@@ -148,6 +148,7 @@ import SalesOrderEntry from "./pages/SalesOrderEntry";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
 import AutoUpload from "./pages/AutoUpload";
 import WFHCheckIn from "./pages/WFHCheckIn";
+import CompanyWFHCalendar from "./pages/CompanyWFHCalendar";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
 import CoinsSheets from "./pages/CoinsSheets";
 import SalesSheets from "./pages/SalesSheets";
