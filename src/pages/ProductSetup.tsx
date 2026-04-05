@@ -72,6 +72,7 @@ interface Product {
   created_at: string;
   updated_at: string;
   sku?: string | null;
+  creation_source?: string | null;
   description?: string | null;
   category?: string | null;
   stock_quantity?: number | null;
