@@ -448,7 +448,7 @@ const ProductDetails = () => {
       </div>
 
       {/* Content */}
-      <ScrollArea className="h-[calc(100vh-80px)]">
+      <div className="overflow-auto pb-12">
         <div className="container mx-auto px-4 py-6">
           <div className="max-w-6xl mx-auto space-y-6">
             {/* Mobile Toggle */}
@@ -1455,7 +1455,7 @@ const ProductDetails = () => {
             </Card>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
