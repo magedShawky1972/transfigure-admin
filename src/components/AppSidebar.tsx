@@ -49,7 +49,8 @@ import {
   Bot,
   Home,
   Headset,
-  BookOpen
+  BookOpen,
+  CalendarDays
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
