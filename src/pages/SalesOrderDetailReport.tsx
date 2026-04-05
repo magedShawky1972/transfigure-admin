@@ -134,15 +134,17 @@ const SalesOrderDetailReport = () => {
     setLoadingProgress(0);
     setLoadingStep(language === "ar" ? "تحميل الطلبات..." : "Loading orders...");
     try {
-      const fromBounds = getKSADayBoundaries(fromDate);
-      const toBounds = getKSADayBoundaries(toDate);
+      // Convert date strings to YYYYMMDD integers for filtering
+      const fromDateInt = parseInt(fromDate.replace(/-/g, ""), 10);
+      const toDateInt = parseInt(toDate.replace(/-/g, ""), 10);
+      const dateIntColumn = timeZoneMode === "utc" ? "order_date_int_utc" : "order_date_int";
 
-      // Step 1: Fetch headers
+      // Step 1: Fetch headers using integer date column based on timezone
       let headerQuery = supabase
         .from("sales_order_header")
         .select("order_number, customer_phone, order_date, player_id, transaction_type, register_user_id, created_at")
-        .gte("created_at", fromBounds.start)
-        .lte("created_at", toBounds.end);
+        .gte(dateIntColumn, fromDateInt)
+        .lte(dateIntColumn, toDateInt);
 
       if (filterSalesPerson) headerQuery = headerQuery.ilike("register_user_id", `%${filterSalesPerson}%`);
       if (filterOrderNumber) headerQuery = headerQuery.ilike("order_number", `%${filterOrderNumber}%`);
