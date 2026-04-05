@@ -591,6 +591,15 @@ const SalesOrderDetailReport = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label>{language === "ar" ? "مرجع الدفع" : "Payment Reference"}</Label>
+              <Input
+                placeholder={language === "ar" ? "مرجع الدفع" : "Payment Ref"}
+                value={filterPaymentReference}
+                onChange={(e) => setFilterPaymentReference(e.target.value)}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-2">
               <Label>{language === "ar" ? "البائع" : "Sales Person"}</Label>
               <Input
                 placeholder={language === "ar" ? "معرف المستخدم" : "User ID"}
