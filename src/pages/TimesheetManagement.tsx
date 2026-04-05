@@ -721,7 +721,7 @@ export default function TimesheetManagement() {
 
       let wfhQuery = supabase
         .from("wfh_checkins")
-        .select("user_id, checkin_date, checkin_time, checkout_time");
+        .select("id, user_id, checkin_date, checkin_time, checkout_time, manager_note, manager_note_by");
       if (filterMode === "date") {
         wfhQuery = wfhQuery.eq("checkin_date", selectedDate);
       } else {
