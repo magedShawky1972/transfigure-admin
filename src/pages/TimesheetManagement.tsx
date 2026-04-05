@@ -751,14 +751,14 @@ export default function TimesheetManagement() {
       }
 
       // Build WFH sessions list (each check-in is a separate session)
-      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null }[] = [];
+      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null; checkinId: string; manager_note?: string | null; manager_note_by?: string | null }[] = [];
       const wfhDaysForApproval = new Set<string>(); // still used to clear deductions for ZK rows on WFH days
       (wfhData || []).forEach((wfh: any) => {
         const empId = userToEmployee.get(wfh.user_id);
         if (empId) {
           const key = `${empId}_${wfh.checkin_date}`;
           wfhDaysForApproval.add(key);
-          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time });
+          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time, checkinId: wfh.id, manager_note: wfh.manager_note, manager_note_by: wfh.manager_note_by });
         }
       });
 
