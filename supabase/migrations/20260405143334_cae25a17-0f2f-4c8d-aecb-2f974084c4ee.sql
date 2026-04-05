@@ -1,0 +1,1 @@
+ALTER TABLE public.wfh_checkins ADD COLUMN IF NOT EXISTS manager_note TEXT, ADD COLUMN IF NOT EXISTS manager_note_by TEXT, ADD COLUMN IF NOT EXISTS manager_note_at TIMESTAMPTZ;

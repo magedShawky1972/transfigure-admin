@@ -436,10 +436,33 @@ export default function TimesheetManagement() {
   };
 
   const saveManagerNote = async () => {
-    if (!managerNoteTimesheetId || managerNoteTimesheetId.startsWith("wfh-virtual-")) {
-      toast.error(language === "ar" ? "لا يمكن إضافة ملاحظة لسجل افتراضي" : "Cannot add note to virtual row");
+    const isVirtual = managerNoteTimesheetId.startsWith("wfh-virtual-");
+    if (!managerNoteTimesheetId) {
       setManagerNoteDialogOpen(false);
       return;
+    }
+    // For virtual WFH rows, find the underlying wfh_checkins record and save note there
+    if (isVirtual) {
+      // Extract the wfh checkin id from the virtual id format "wfh-virtual-{checkinId}"
+      const checkinId = managerNoteTimesheetId.replace("wfh-virtual-", "");
+      try {
+        const { error } = await supabase.from("wfh_checkins").update({
+          manager_note: managerNoteText || null,
+          manager_note_by: currentUserName || null,
+          manager_note_at: new Date().toISOString(),
+        } as any).eq("id", checkinId);
+        if (error) throw error;
+        setTimesheets((prev) => prev.map((ts) => ts.id === managerNoteTimesheetId
+          ? { ...ts, manager_note: managerNoteText, manager_note_by: currentUserName, manager_note_at: new Date().toISOString() } as any
+          : ts
+        ));
+        toast.success(language === "ar" ? "تم حفظ الملاحظة" : "Note saved");
+        setManagerNoteDialogOpen(false);
+        return;
+      } catch (err: any) {
+        toast.error(err.message);
+        return;
+      }
     }
     try {
       const { error } = await supabase.from("timesheets").update({
@@ -698,7 +721,7 @@ export default function TimesheetManagement() {
 
       let wfhQuery = supabase
         .from("wfh_checkins")
-        .select("user_id, checkin_date, checkin_time, checkout_time");
+        .select("id, user_id, checkin_date, checkin_time, checkout_time, manager_note, manager_note_by");
       if (filterMode === "date") {
         wfhQuery = wfhQuery.eq("checkin_date", selectedDate);
       } else {
@@ -728,14 +751,14 @@ export default function TimesheetManagement() {
       }
 
       // Build WFH sessions list (each check-in is a separate session)
-      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null }[] = [];
+      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null; checkinId: string; manager_note?: string | null; manager_note_by?: string | null }[] = [];
       const wfhDaysForApproval = new Set<string>(); // still used to clear deductions for ZK rows on WFH days
       (wfhData || []).forEach((wfh: any) => {
         const empId = userToEmployee.get(wfh.user_id);
         if (empId) {
           const key = `${empId}_${wfh.checkin_date}`;
           wfhDaysForApproval.add(key);
-          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time });
+          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time, checkinId: wfh.id, manager_note: wfh.manager_note, manager_note_by: wfh.manager_note_by });
         }
       });
 
@@ -876,7 +899,7 @@ export default function TimesheetManagement() {
           }
 
           virtualWfhRows.push({
-            id: `wfh-virtual-${session.empId}_${session.date}_${idx}`,
+            id: `wfh-virtual-${session.checkinId}`,
             employee_id: session.empId,
             work_date: session.date,
             scheduled_start: scheduledStart,
@@ -908,6 +931,8 @@ export default function TimesheetManagement() {
             has_approved_early_leave: false,
             is_virtual_wfh: true,
             is_company_wfh_day: isCompanyWfhDay,
+            manager_note: session.manager_note || null,
+            manager_note_by: session.manager_note_by || null,
           });
         }
       });
@@ -1870,7 +1895,6 @@ export default function TimesheetManagement() {
                             </button>
                           ) : (
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManagerNoteDialog(ts)}
-                              disabled={(ts as any).is_virtual_wfh}
                             >
                               <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
                             </Button>
