@@ -450,7 +450,7 @@ export default function TimesheetManagement() {
           manager_note: managerNoteText || null,
           manager_note_by: currentUserName || null,
           manager_note_at: new Date().toISOString(),
-        }).eq("id", checkinId);
+        } as any).eq("id", checkinId);
         if (error) throw error;
         setTimesheets((prev) => prev.map((ts) => ts.id === managerNoteTimesheetId
           ? { ...ts, manager_note: managerNoteText, manager_note_by: currentUserName, manager_note_at: new Date().toISOString() } as any
