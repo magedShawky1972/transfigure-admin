@@ -899,7 +899,7 @@ export default function TimesheetManagement() {
           }
 
           virtualWfhRows.push({
-            id: `wfh-virtual-${session.empId}_${session.date}_${idx}`,
+            id: `wfh-virtual-${session.checkinId}`,
             employee_id: session.empId,
             work_date: session.date,
             scheduled_start: scheduledStart,
