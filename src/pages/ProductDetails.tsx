@@ -543,6 +543,31 @@ const ProductDetails = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label htmlFor="productName" className={isRTL ? 'text-right block' : ''}>{isRTL ? "اسم المنتج" : "Product Name"} *</Label>
+                    <Input
+                      id="productName"
+                      className={isRTL ? 'text-right' : ''}
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value)}
+                      placeholder={isRTL ? "أدخل اسم المنتج" : "Enter product name"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status" className={isRTL ? 'text-right block' : ''}>{isRTL ? "الحالة" : "Status"}</Label>
+                    <Select value={status} onValueChange={setStatus}>
+                      <SelectTrigger id="status" className={isRTL ? 'justify-end text-right' : ''}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">{isRTL ? "نشط" : "Active"}</SelectItem>
+                        <SelectItem value="inactive">{isRTL ? "غير نشط" : "Inactive"}</SelectItem>
+                        <SelectItem value="draft">{isRTL ? "مسودة" : "Draft"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="productId" className={isRTL ? 'text-right block' : ''}>{t("productSetup.productId")}</Label>
                     <Input
                       id="productId"
