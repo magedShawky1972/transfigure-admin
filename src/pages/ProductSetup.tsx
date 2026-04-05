@@ -305,7 +305,9 @@ const ProductSetup = () => {
   };
 
   const filteredProducts = products.filter((product) => {
-    const nameMatch = !filterName || product.product_name.toLowerCase().includes(filterName.toLowerCase());
+    const normalizedName = product.product_name.toLowerCase().replace(/\s+/g, ' ');
+    const normalizedFilter = filterName.toLowerCase().replace(/\s+/g, ' ');
+    const nameMatch = !filterName || normalizedName.includes(normalizedFilter) || (product.sku && product.sku.toLowerCase().includes(normalizedFilter));
     const statusMatch = filterStatus === "all" || product.status === filterStatus;
     const brandMatch = filterBrand === "all" || product.brand_name === filterBrand;
     const brandTypeMatch = filterBrandType === "all" || product.brand_type === filterBrandType;
