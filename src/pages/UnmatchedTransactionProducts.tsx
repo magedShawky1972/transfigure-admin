@@ -319,7 +319,14 @@ const UnmatchedTransactionProducts = () => {
                     (filtered as UnmatchedProduct[]).map((item, idx) => (
                       <TableRow key={item.product_id}>
                         <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell className="font-mono">{item.product_id}</TableCell>
+                        <TableCell className="font-mono">
+                          <button
+                            className="text-primary underline hover:text-primary/80 cursor-pointer"
+                            onClick={() => handleProductIdClick(item.product_id)}
+                          >
+                            {item.product_id}
+                          </button>
+                        </TableCell>
                         <TableCell>{item.product_name}</TableCell>
                         <TableCell>{item.brand_name}</TableCell>
                         <TableCell className="font-mono">{item.brand_code}</TableCell>
