@@ -239,7 +239,7 @@ const SalesOrderDetailReport = () => {
         paymentMap.get(p.order_number)!.push(p);
       });
 
-      const filteredOrderNumbers = filterPaymentMethod
+      const filteredOrderNumbers = (filterPaymentMethod || filterPaymentReference)
         ? new Set(orderNumbers.filter((on) => paymentMap.has(on)))
         : new Set(orderNumbers);
 
