@@ -6,7 +6,10 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, RefreshCw, Printer, Download, Calendar, Filter } from "lucide-react";
+import { ArrowLeft, RefreshCw, Printer, Download, Calendar, Filter, ChevronsUpDown, Check } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,6 +58,7 @@ const SalesOrderDetailReport = () => {
   const [filterProductSku, setFilterProductSku] = useState("");
   const [filterProduct, setFilterProduct] = useState("");
   const [filterBrand, setFilterBrand] = useState("");
+  const [brandOpen, setBrandOpen] = useState(false);
   const [reportData, setReportData] = useState<SalesOrderDetail[]>([]);
   const [productOptions, setProductOptions] = useState<{ id: string; name: string }[]>([]);
   const [brandOptions, setBrandOptions] = useState<{ id: string; name: string }[]>([]);
@@ -483,17 +487,46 @@ const SalesOrderDetailReport = () => {
             </div>
             <div className="space-y-2">
               <Label>{language === "ar" ? "الماركة" : "Brand"}</Label>
-              <Select value={filterBrand} onValueChange={setFilterBrand}>
-                <SelectTrigger className="w-44 bg-background">
-                  <SelectValue placeholder={language === "ar" ? "الكل" : "All"} />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50 max-h-60">
-                  <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
-                  {brandOptions.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={brandOpen} onOpenChange={setBrandOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={brandOpen}
+                    className="w-44 justify-between bg-background"
+                  >
+                    {filterBrand && filterBrand !== "all"
+                      ? brandOptions.find((b) => b.name === filterBrand)?.name || filterBrand
+                      : language === "ar" ? "الكل" : "All"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-52 p-0 z-50">
+                  <Command>
+                    <CommandInput placeholder={language === "ar" ? "بحث الماركة..." : "Search brand..."} />
+                    <CommandList>
+                      <CommandEmpty>{language === "ar" ? "لا توجد نتائج" : "No brand found"}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          onSelect={() => { setFilterBrand("all"); setBrandOpen(false); }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", (!filterBrand || filterBrand === "all") ? "opacity-100" : "opacity-0")} />
+                          {language === "ar" ? "الكل" : "All"}
+                        </CommandItem>
+                        {brandOptions.map((b) => (
+                          <CommandItem
+                            key={b.id}
+                            onSelect={() => { setFilterBrand(b.name); setBrandOpen(false); }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", filterBrand === b.name ? "opacity-100" : "opacity-0")} />
+                            {b.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>{language === "ar" ? "طريقة الدفع" : "Payment Method"}</Label>
