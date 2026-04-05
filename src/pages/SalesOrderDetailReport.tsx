@@ -78,6 +78,7 @@ const SalesOrderDetailReport = () => {
   const [productOptions, setProductOptions] = useState<{ id: string; name: string }[]>([]);
   const [brandOptions, setBrandOptions] = useState<{ id: string; name: string }[]>([]);
   const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
+  const [timeZoneMode, setTimeZoneMode] = useState<"ksa" | "utc">("ksa");
 
   // Load product and brand options for dropdowns
   useEffect(() => {
@@ -252,7 +253,7 @@ const SalesOrderDetailReport = () => {
           results.push({
             order_number: line.order_number,
             customer_phone: header.customer_phone || "",
-            order_date: header.created_at ? new Date(header.created_at).toLocaleString("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : "",
+            order_date: header.created_at ? new Date(header.created_at).toLocaleString("en-CA", { timeZone: timeZoneMode === "ksa" ? "Asia/Riyadh" : "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : "",
             player_id: header.player_id || "",
             transaction_type: header.transaction_type || "",
             register_user_id: header.register_user_id || "",
@@ -602,6 +603,18 @@ const SalesOrderDetailReport = () => {
                 onChange={(e) => setFilterProductSku(e.target.value)}
                 className="w-36"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "التوقيت" : "Timezone"}</Label>
+              <Select value={timeZoneMode} onValueChange={(v) => setTimeZoneMode(v as "ksa" | "utc")}>
+                <SelectTrigger className="w-36 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="ksa">{language === "ar" ? "توقيت السعودية" : "KSA (UTC+3)"}</SelectItem>
+                  <SelectItem value="utc">UTC</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={fetchReport} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
