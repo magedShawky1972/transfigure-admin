@@ -73,6 +73,7 @@ const SalesOrderDetailReport = () => {
   const [filterProductSku, setFilterProductSku] = useState("");
   const [filterProduct, setFilterProduct] = useState("");
   const [filterBrand, setFilterBrand] = useState("");
+  const [filterPaymentReference, setFilterPaymentReference] = useState("");
   const [brandOpen, setBrandOpen] = useState(false);
   const [reportData, setReportData] = useState<SalesOrderDetail[]>([]);
   const [productOptions, setProductOptions] = useState<{ id: string; name: string }[]>([]);
@@ -196,6 +197,7 @@ const SalesOrderDetailReport = () => {
             .select("order_number, payment_method, payment_brand, payment_amount, payment_reference, payment_card_number, bank_transaction_id, payment_location")
             .in("order_number", chunk);
           if (filterPaymentMethod) payQuery = payQuery.ilike("payment_method", `%${filterPaymentMethod}%`);
+          if (filterPaymentReference) payQuery = payQuery.ilike("payment_reference", `%${filterPaymentReference}%`);
           const payments = await fetchAllPages(payQuery, batchSize);
           allPayments = allPayments.concat(payments);
         }
@@ -237,7 +239,7 @@ const SalesOrderDetailReport = () => {
         paymentMap.get(p.order_number)!.push(p);
       });
 
-      const filteredOrderNumbers = filterPaymentMethod
+      const filteredOrderNumbers = (filterPaymentMethod || filterPaymentReference)
         ? new Set(orderNumbers.filter((on) => paymentMap.has(on)))
         : new Set(orderNumbers);
 
@@ -585,6 +587,15 @@ const SalesOrderDetailReport = () => {
                 placeholder={language === "ar" ? "مثال: VISA" : "e.g. VISA"}
                 value={filterPaymentMethod}
                 onChange={(e) => setFilterPaymentMethod(e.target.value)}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "مرجع الدفع" : "Payment Reference"}</Label>
+              <Input
+                placeholder={language === "ar" ? "مرجع الدفع" : "Payment Ref"}
+                value={filterPaymentReference}
+                onChange={(e) => setFilterPaymentReference(e.target.value)}
                 className="w-36"
               />
             </div>
