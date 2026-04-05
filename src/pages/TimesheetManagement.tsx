@@ -1757,6 +1757,7 @@ export default function TimesheetManagement() {
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "الحالة" : "Status"} {getSortIcon("status")}</span>
                   </TableHead>
                   <TableHead className="text-center">{language === "ar" ? "من المنزل" : "WFH"}</TableHead>
+                  <TableHead>{language === "ar" ? "ملاحظة المدير" : "Manager Note"}</TableHead>
                   <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
