@@ -1455,7 +1455,7 @@ const ProductDetails = () => {
             </Card>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
