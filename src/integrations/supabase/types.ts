@@ -9279,6 +9279,9 @@ export type Database = {
           id: string
           is_absent: boolean | null
           late_minutes: number | null
+          manager_note: string | null
+          manager_note_at: string | null
+          manager_note_by: string | null
           notes: string | null
           overtime_amount: number | null
           overtime_minutes: number | null
@@ -9310,6 +9313,9 @@ export type Database = {
           id?: string
           is_absent?: boolean | null
           late_minutes?: number | null
+          manager_note?: string | null
+          manager_note_at?: string | null
+          manager_note_by?: string | null
           notes?: string | null
           overtime_amount?: number | null
           overtime_minutes?: number | null
@@ -9341,6 +9347,9 @@ export type Database = {
           id?: string
           is_absent?: boolean | null
           late_minutes?: number | null
+          manager_note?: string | null
+          manager_note_at?: string | null
+          manager_note_by?: string | null
           notes?: string | null
           overtime_amount?: number | null
           overtime_minutes?: number | null
