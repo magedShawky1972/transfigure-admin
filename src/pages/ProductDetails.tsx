@@ -408,7 +408,7 @@ const ProductDetails = () => {
 
       if (error) throw error;
 
-      if (!updated) {
+      if (!updated || updated.length === 0) {
         throw new Error(language === "ar" ? "لم يتم حفظ المنتج. تأكد من الصلاحيات." : "Product was not saved. Please check permissions.");
       }
 
