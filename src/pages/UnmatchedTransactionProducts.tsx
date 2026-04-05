@@ -70,117 +70,35 @@ const UnmatchedTransactionProducts = () => {
     const fromStr = format(dateFrom!, "yyyy-MM-dd");
     const toStr = format(dateTo!, "yyyy-MM-dd");
 
-    // Fetch transactions in date range in batches
-    let allTx: any[] = [];
-    let from = 0;
-    const batchSize = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data: txBatch, error } = await supabase
-        .from("purpletransaction")
-        .select("product_id, product_name, brand_name, brand_code")
-        .not("product_id", "is", null)
-        .gte("created_at_date", fromStr)
-        .lte("created_at_date", toStr)
-        .range(from, from + batchSize - 1);
-      if (error) throw error;
-      if (txBatch && txBatch.length > 0) {
-        allTx = [...allTx, ...txBatch];
-        hasMore = txBatch.length === batchSize;
-        from += batchSize;
-      } else {
-        hasMore = false;
-      }
-    }
-
-    const { data: products, error: pError } = await supabase
-      .from("products")
-      .select("product_id");
-    if (pError) throw pError;
-
-    const productIdSet = new Set(products?.map(p => p.product_id) || []);
-    const unmatchedMap = new Map<string, UnmatchedProduct>();
-
-    allTx.forEach(tx => {
-      if (!tx.product_id || productIdSet.has(tx.product_id)) return;
-      const existing = unmatchedMap.get(tx.product_id);
-      if (existing) {
-        existing.transaction_count++;
-      } else {
-        unmatchedMap.set(tx.product_id, {
-          product_id: tx.product_id,
-          product_name: tx.product_name || "",
-          brand_name: tx.brand_name || "",
-          brand_code: tx.brand_code || "",
-          transaction_count: 1,
-        });
-      }
+    const { data: result, error } = await supabase.rpc("get_unmatched_transaction_products", {
+      p_date_from: fromStr,
+      p_date_to: toStr,
     });
 
-    setData(Array.from(unmatchedMap.values()).sort((a, b) => b.transaction_count - a.transaction_count));
+    if (error) throw error;
+    setData(result || []);
   };
 
   const fetchNoTransactions = async () => {
     const fromStr = format(dateFrom!, "yyyy-MM-dd");
     const toStr = format(dateTo!, "yyyy-MM-dd");
 
-    // Get distinct product_ids from transactions in date range
-    const txIdSet = new Set<string>();
-    let from = 0;
-    const batchSize = 1000;
-    let hasMore = true;
+    const { data: result, error } = await supabase.rpc("get_products_without_transactions", {
+      p_date_from: fromStr,
+      p_date_to: toStr,
+    });
 
-    while (hasMore) {
-      const { data: txBatch, error } = await supabase
-        .from("purpletransaction")
-        .select("product_id")
-        .not("product_id", "is", null)
-        .gte("created_at_date", fromStr)
-        .lte("created_at_date", toStr)
-        .range(from, from + batchSize - 1);
-      if (error) throw error;
-      if (txBatch && txBatch.length > 0) {
-        txBatch.forEach(t => { if (t.product_id) txIdSet.add(t.product_id); });
-        hasMore = txBatch.length === batchSize;
-        from += batchSize;
-      } else {
-        hasMore = false;
-      }
-    }
-
-    // Get all products in batches
-    let allProducts: OrphanProduct[] = [];
-    from = 0;
-    hasMore = true;
-
-    while (hasMore) {
-      const { data: pBatch, error } = await supabase
-        .from("products")
-        .select("product_id, product_name, brand_name, brand_code, sku, status")
-        .range(from, from + batchSize - 1);
-      if (error) throw error;
-      if (pBatch && pBatch.length > 0) {
-        pBatch.forEach(p => {
-          if (!p.product_id || !txIdSet.has(p.product_id)) {
-            allProducts.push({
-              product_id: p.product_id || "",
-              product_name: p.product_name || "",
-              brand_name: p.brand_name || "",
-              brand_code: p.brand_code || "",
-              sku: p.sku || "",
-              status: p.status || "",
-            });
-          }
-        });
-        hasMore = pBatch.length === batchSize;
-        from += batchSize;
-      } else {
-        hasMore = false;
-      }
-    }
-
-    setOrphanData(allProducts);
+    if (error) throw error;
+    setOrphanData(
+      (result || []).map((p: any) => ({
+        product_id: p.product_id || "",
+        product_name: p.product_name || "",
+        brand_name: p.brand_name || "",
+        brand_code: p.brand_code || "",
+        sku: p.sku || "",
+        status: p.status || "",
+      }))
+    );
   };
 
   const filtered = viewMode === "unmatched"

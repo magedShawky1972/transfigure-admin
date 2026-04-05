@@ -10887,6 +10887,17 @@ export type Database = {
           table_name: string
         }[]
       }
+      get_products_without_transactions: {
+        Args: { p_date_from: string; p_date_to: string }
+        Returns: {
+          brand_code: string
+          brand_name: string
+          product_id: string
+          product_name: string
+          sku: string
+          status: string
+        }[]
+      }
       get_rls_policies_info: {
         Args: never
         Returns: {
@@ -10929,6 +10940,16 @@ export type Database = {
           event_manipulation: string
           event_object_table: string
           trigger_name: string
+        }[]
+      }
+      get_unmatched_transaction_products: {
+        Args: { p_date_from: string; p_date_to: string }
+        Returns: {
+          brand_code: string
+          brand_name: string
+          product_id: string
+          product_name: string
+          transaction_count: number
         }[]
       }
       get_user_defined_types_info: {
