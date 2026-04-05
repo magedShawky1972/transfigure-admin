@@ -197,6 +197,7 @@ const SalesOrderDetailReport = () => {
             .select("order_number, payment_method, payment_brand, payment_amount, payment_reference, payment_card_number, bank_transaction_id, payment_location")
             .in("order_number", chunk);
           if (filterPaymentMethod) payQuery = payQuery.ilike("payment_method", `%${filterPaymentMethod}%`);
+          if (filterPaymentReference) payQuery = payQuery.ilike("payment_reference", `%${filterPaymentReference}%`);
           const payments = await fetchAllPages(payQuery, batchSize);
           allPayments = allPayments.concat(payments);
         }
