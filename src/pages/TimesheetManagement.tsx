@@ -1860,6 +1860,25 @@ export default function TimesheetManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          {(ts as any).manager_note ? (
+                            <button
+                              onClick={() => openManagerNoteDialog(ts)}
+                              className="text-xs max-w-[120px] truncate text-primary hover:underline cursor-pointer"
+                              title={(ts as any).manager_note}
+                            >
+                              {(ts as any).manager_note}
+                            </button>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManagerNoteDialog(ts)}
+                              disabled={(ts as any).is_virtual_wfh}
+                            >
+                              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(ts)} disabled={!canEditTimesheet(ts)}>
                             <Pencil className={`h-4 w-4 ${canEditTimesheet(ts) ? "text-muted-foreground" : "text-muted-foreground/30"}`} />
                           </Button>
