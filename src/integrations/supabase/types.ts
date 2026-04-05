@@ -5917,6 +5917,7 @@ export type Database = {
           created_at: string
           created_at_date: string | null
           created_at_date_int: number | null
+          created_at_date_int_utc: number | null
           customer_ip: string | null
           customer_name: string | null
           customer_phone: string | null
@@ -5968,6 +5969,7 @@ export type Database = {
           created_at?: string
           created_at_date?: string | null
           created_at_date_int?: number | null
+          created_at_date_int_utc?: number | null
           customer_ip?: string | null
           customer_name?: string | null
           customer_phone?: string | null
@@ -6019,6 +6021,7 @@ export type Database = {
           created_at?: string
           created_at_date?: string | null
           created_at_date_int?: number | null
+          created_at_date_int_utc?: number | null
           customer_ip?: string | null
           customer_name?: string | null
           customer_phone?: string | null
