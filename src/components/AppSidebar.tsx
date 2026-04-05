@@ -148,6 +148,7 @@ export function AppSidebar() {
     "/job-setup": "jobSetup",
     "/zk-attendance-logs": "zkAttendanceLogs",
     "/hr-vacation-calendar": "hrVacationCalendar",
+    "/company-wfh-calendar": "companyWfhCalendar",
     "/bank-setup": "bankSetup",
     "/treasury-setup": "treasurySetup",
     "/expense-category-setup": "expenseCategorySetup",
