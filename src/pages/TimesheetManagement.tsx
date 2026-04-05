@@ -1895,7 +1895,6 @@ export default function TimesheetManagement() {
                             </button>
                           ) : (
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManagerNoteDialog(ts)}
-                              disabled={(ts as any).is_virtual_wfh}
                             >
                               <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
                             </Button>
