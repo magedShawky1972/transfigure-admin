@@ -351,8 +351,9 @@ const ProductDetails = () => {
       const { error } = await supabase
         .from("products")
         .update({
+          product_name: productName,
           product_id: productId,
-          sku,
+          status,
           description,
           category,
           barcode,
