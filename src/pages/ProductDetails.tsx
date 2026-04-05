@@ -348,57 +348,67 @@ const ProductDetails = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      const { error, data: updated } = await supabase
+      
+      // Debug: log current user and role
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("[ProductDetails] Save triggered by user:", user?.id, user?.email);
+      
+      const updatePayload = {
+        product_name: productName,
+        product_id: productId,
+        sku: sku || null,
+        status,
+        description,
+        category,
+        barcode,
+        weight: weight ? parseFloat(weight) : null,
+        supplier,
+        notes,
+        leadtime: leadtime ? parseFloat(leadtime) : 0,
+        safety_stock: safetyStock ? parseFloat(safetyStock) : 0,
+        abc_analysis: abcAnalysis,
+        brand_name: brandName || null,
+        brand_code: brandCode || null,
+        brand_type: brandType || null,
+        stock_quantity: quantity ? parseFloat(quantity) : 0,
+        reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
+        minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
+        maximum_order_quantity: maxOrderQty ? parseFloat(maxOrderQty) : 10,
+        product_cost: costPrice,
+        product_price: retailPrice,
+        mobile_enabled: mobileEnabled,
+        non_stock: nonStock,
+        allow_purchase: allowPurchase,
+        is_main_product: isMainProduct,
+        coins_number: coinsNumber ? parseFloat(coinsNumber) : 0,
+        min_coins: minCoins ? parseFloat(minCoins) : 0,
+        max_coins: maxCoins ? parseFloat(maxCoins) : 0,
+        tax_type: taxType,
+        free_coins: freeCoins as any,
+        options: options as any,
+        customer_group_prices: customerGroupPrices as any,
+        discounts: discounts as any,
+        meta_title_ar: metaTitleAr,
+        meta_keywords_ar: metaKeywordsAr,
+        meta_description_ar: metaDescriptionAr,
+        meta_title_en: metaTitleEn,
+        meta_keywords_en: metaKeywordsEn,
+        meta_description_en: metaDescriptionEn,
+      };
+      
+      console.log("[ProductDetails] Updating product id:", id, "sku:", sku);
+      
+      const { error, data: updated, status: httpStatus, statusText } = await supabase
         .from("products")
-        .update({
-          product_name: productName,
-          product_id: productId,
-          sku: sku || null,
-          status,
-          description,
-          category,
-          barcode,
-          weight: weight ? parseFloat(weight) : null,
-          supplier,
-          notes,
-          leadtime: leadtime ? parseFloat(leadtime) : 0,
-          safety_stock: safetyStock ? parseFloat(safetyStock) : 0,
-          abc_analysis: abcAnalysis,
-          brand_name: brandName || null,
-          brand_code: brandCode || null,
-          brand_type: brandType || null,
-          stock_quantity: quantity ? parseFloat(quantity) : 0,
-          reorder_point: notifyQty ? parseFloat(notifyQty) : 1,
-          minimum_order_quantity: minOrderQty ? parseFloat(minOrderQty) : 1,
-          maximum_order_quantity: maxOrderQty ? parseFloat(maxOrderQty) : 10,
-          product_cost: costPrice,
-          product_price: retailPrice,
-          mobile_enabled: mobileEnabled,
-          non_stock: nonStock,
-          allow_purchase: allowPurchase,
-          is_main_product: isMainProduct,
-          coins_number: coinsNumber ? parseFloat(coinsNumber) : 0,
-          min_coins: minCoins ? parseFloat(minCoins) : 0,
-          max_coins: maxCoins ? parseFloat(maxCoins) : 0,
-          tax_type: taxType,
-          free_coins: freeCoins as any,
-          options: options as any,
-          customer_group_prices: customerGroupPrices as any,
-          discounts: discounts as any,
-          meta_title_ar: metaTitleAr,
-          meta_keywords_ar: metaKeywordsAr,
-          meta_description_ar: metaDescriptionAr,
-          meta_title_en: metaTitleEn,
-          meta_keywords_en: metaKeywordsEn,
-          meta_description_en: metaDescriptionEn,
-        })
+        .update(updatePayload)
         .eq("id", id)
-        .select("id, sku")
-        .single();
+        .select("id, sku");
+
+      console.log("[ProductDetails] Update result:", { error, updated, httpStatus, statusText });
 
       if (error) throw error;
 
-      if (!updated) {
+      if (!updated || updated.length === 0) {
         throw new Error(language === "ar" ? "لم يتم حفظ المنتج. تأكد من الصلاحيات." : "Product was not saved. Please check permissions.");
       }
 
