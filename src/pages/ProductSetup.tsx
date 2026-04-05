@@ -72,6 +72,7 @@ interface Product {
   created_at: string;
   updated_at: string;
   sku?: string | null;
+  creation_source?: string | null;
   description?: string | null;
   category?: string | null;
   stock_quantity?: number | null;
@@ -1324,6 +1325,15 @@ const ProductSetup = () => {
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("creation_source")}
+                  >
+                    <div className="flex items-center">
+                      Source
+                      <SortIcon column="creation_source" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
                     onClick={() => handleSort("created_at")}
                   >
                     <div className="flex items-center">
@@ -1372,6 +1382,17 @@ const ProductSetup = () => {
                           : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                       }`}>
                         {product.odoo_sync_status || "not_synced"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        product.creation_source === "purple" 
+                          ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                          : product.creation_source === "asus"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                      }`}>
+                        {product.creation_source || "manual"}
                       </span>
                     </TableCell>
                     <TableCell>{format(new Date(product.created_at), "MMM dd, yyyy")}</TableCell>

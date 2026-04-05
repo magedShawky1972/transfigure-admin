@@ -5404,6 +5404,7 @@ export type Database = {
           category: string | null
           coins_number: number | null
           created_at: string
+          creation_source: string | null
           customer_group_prices: Json | null
           description: string | null
           discounts: Json | null
@@ -5452,6 +5453,7 @@ export type Database = {
           category?: string | null
           coins_number?: number | null
           created_at?: string
+          creation_source?: string | null
           customer_group_prices?: Json | null
           description?: string | null
           discounts?: Json | null
@@ -5500,6 +5502,7 @@ export type Database = {
           category?: string | null
           coins_number?: number | null
           created_at?: string
+          creation_source?: string | null
           customer_group_prices?: Json | null
           description?: string | null
           discounts?: Json | null
