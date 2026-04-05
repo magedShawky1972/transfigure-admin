@@ -931,6 +931,8 @@ export default function TimesheetManagement() {
             has_approved_early_leave: false,
             is_virtual_wfh: true,
             is_company_wfh_day: isCompanyWfhDay,
+            manager_note: session.manager_note || null,
+            manager_note_by: session.manager_note_by || null,
           });
         }
       });
