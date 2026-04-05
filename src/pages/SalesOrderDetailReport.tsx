@@ -58,6 +58,7 @@ const SalesOrderDetailReport = () => {
   const [filterProductSku, setFilterProductSku] = useState("");
   const [filterProduct, setFilterProduct] = useState("");
   const [filterBrand, setFilterBrand] = useState("");
+  const [brandOpen, setBrandOpen] = useState(false);
   const [reportData, setReportData] = useState<SalesOrderDetail[]>([]);
   const [productOptions, setProductOptions] = useState<{ id: string; name: string }[]>([]);
   const [brandOptions, setBrandOptions] = useState<{ id: string; name: string }[]>([]);
