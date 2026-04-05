@@ -10366,6 +10366,9 @@ export type Database = {
           ip_address: string | null
           location_lat: number | null
           location_lng: number | null
+          manager_note: string | null
+          manager_note_at: string | null
+          manager_note_by: string | null
           notes: string | null
           status: string
           updated_at: string
@@ -10381,6 +10384,9 @@ export type Database = {
           ip_address?: string | null
           location_lat?: number | null
           location_lng?: number | null
+          manager_note?: string | null
+          manager_note_at?: string | null
+          manager_note_by?: string | null
           notes?: string | null
           status?: string
           updated_at?: string
@@ -10396,6 +10402,9 @@ export type Database = {
           ip_address?: string | null
           location_lat?: number | null
           location_lng?: number | null
+          manager_note?: string | null
+          manager_note_at?: string | null
+          manager_note_by?: string | null
           notes?: string | null
           status?: string
           updated_at?: string
