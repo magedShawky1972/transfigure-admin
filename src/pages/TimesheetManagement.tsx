@@ -436,10 +436,33 @@ export default function TimesheetManagement() {
   };
 
   const saveManagerNote = async () => {
-    if (!managerNoteTimesheetId || managerNoteTimesheetId.startsWith("wfh-virtual-")) {
-      toast.error(language === "ar" ? "لا يمكن إضافة ملاحظة لسجل افتراضي" : "Cannot add note to virtual row");
+    const isVirtual = managerNoteTimesheetId.startsWith("wfh-virtual-");
+    if (!managerNoteTimesheetId) {
       setManagerNoteDialogOpen(false);
       return;
+    }
+    // For virtual WFH rows, find the underlying wfh_checkins record and save note there
+    if (isVirtual) {
+      // Extract the wfh checkin id from the virtual id format "wfh-virtual-{checkinId}"
+      const checkinId = managerNoteTimesheetId.replace("wfh-virtual-", "");
+      try {
+        const { error } = await supabase.from("wfh_checkins").update({
+          manager_note: managerNoteText || null,
+          manager_note_by: currentUserName || null,
+          manager_note_at: new Date().toISOString(),
+        }).eq("id", checkinId);
+        if (error) throw error;
+        setTimesheets((prev) => prev.map((ts) => ts.id === managerNoteTimesheetId
+          ? { ...ts, manager_note: managerNoteText, manager_note_by: currentUserName, manager_note_at: new Date().toISOString() } as any
+          : ts
+        ));
+        toast.success(language === "ar" ? "تم حفظ الملاحظة" : "Note saved");
+        setManagerNoteDialogOpen(false);
+        return;
+      } catch (err: any) {
+        toast.error(err.message);
+        return;
+      }
     }
     try {
       const { error } = await supabase.from("timesheets").update({
