@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,13 +6,15 @@ import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, RefreshCw, Printer, Download, Calendar, Filter, ChevronsUpDown, Check } from "lucide-react";
+import { ArrowLeft, RefreshCw, Printer, Download, Filter, ChevronsUpDown, Check, ArrowUp, ArrowDown, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import * as XLSX from "xlsx";
 
 interface SalesOrderDetail {
@@ -44,11 +46,24 @@ interface SalesOrderDetail {
   payment_location: string;
 }
 
+interface SortConfig {
+  key: string;
+  direction: "asc" | "desc";
+}
+
+const numericKeys = new Set([
+  "point", "point_value", "line_number", "line_status", "product_id",
+  "quantity", "unit_price", "total", "coins_number", "total_cost",
+  "payment_amount",
+]);
+
 const SalesOrderDetailReport = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStep, setLoadingStep] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [filterOrderNumber, setFilterOrderNumber] = useState("");
@@ -62,6 +77,7 @@ const SalesOrderDetailReport = () => {
   const [reportData, setReportData] = useState<SalesOrderDetail[]>([]);
   const [productOptions, setProductOptions] = useState<{ id: string; name: string }[]>([]);
   const [brandOptions, setBrandOptions] = useState<{ id: string; name: string }[]>([]);
+  const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
 
   // Load product and brand options for dropdowns
   useEffect(() => {
@@ -79,12 +95,29 @@ const SalesOrderDetailReport = () => {
   const formatNumber = (value: number) =>
     new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
-  // The sales tables store created_at as KSA time (already +3h offset) labeled as UTC
-  // So to filter for a KSA date, use the date directly without timezone conversion
   const getKSADayBoundaries = (dateStr: string) => ({
     start: dateStr + "T00:00:00Z",
     end: dateStr + "T23:59:59.999Z",
   });
+
+  // Helper to fetch all pages of a query
+  const fetchAllPages = async (queryBuilder: any, batchSize = 1000): Promise<any[]> => {
+    let all: any[] = [];
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data, error } = await queryBuilder.range(offset, offset + batchSize - 1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        all = all.concat(data);
+        offset += batchSize;
+        hasMore = data.length === batchSize;
+      } else {
+        hasMore = false;
+      }
+    }
+    return all;
+  };
 
   const fetchReport = async () => {
     if (!fromDate || !toDate) {
@@ -97,44 +130,25 @@ const SalesOrderDetailReport = () => {
     }
 
     setLoading(true);
+    setLoadingProgress(0);
+    setLoadingStep(language === "ar" ? "تحميل الطلبات..." : "Loading orders...");
     try {
-      // Calculate KSA day boundaries for from/to dates
       const fromBounds = getKSADayBoundaries(fromDate);
       const toBounds = getKSADayBoundaries(toDate);
 
-      // Fetch headers filtered by created_at (stored as KSA time)
+      // Step 1: Fetch headers
       let headerQuery = supabase
         .from("sales_order_header")
         .select("order_number, customer_phone, order_date, player_id, transaction_type, register_user_id, created_at")
         .gte("created_at", fromBounds.start)
         .lte("created_at", toBounds.end);
 
-      if (filterSalesPerson) {
-        headerQuery = headerQuery.ilike("register_user_id", `%${filterSalesPerson}%`);
-      }
-      if (filterOrderNumber) {
-        headerQuery = headerQuery.ilike("order_number", `%${filterOrderNumber}%`);
-      }
-      if (filterCustomerPhone) {
-        headerQuery = headerQuery.ilike("customer_phone", `%${filterCustomerPhone}%`);
-      }
+      if (filterSalesPerson) headerQuery = headerQuery.ilike("register_user_id", `%${filterSalesPerson}%`);
+      if (filterOrderNumber) headerQuery = headerQuery.ilike("order_number", `%${filterOrderNumber}%`);
+      if (filterCustomerPhone) headerQuery = headerQuery.ilike("customer_phone", `%${filterCustomerPhone}%`);
 
-      let allHeaders: any[] = [];
-      let offset = 0;
-      const batchSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error } = await headerQuery.range(offset, offset + batchSize - 1);
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allHeaders = [...allHeaders, ...data];
-          offset += batchSize;
-          hasMore = data.length === batchSize;
-        } else {
-          hasMore = false;
-        }
-      }
+      const allHeaders = await fetchAllPages(headerQuery);
+      setLoadingProgress(20);
 
       if (allHeaders.length === 0) {
         setReportData([]);
@@ -149,109 +163,91 @@ const SalesOrderDetailReport = () => {
       const orderNumbers = allHeaders.map((h) => h.order_number);
       const headerMap = new Map(allHeaders.map((h) => [h.order_number, h]));
 
-      // Fetch lines in batches of order_numbers (max 500 per IN query)
+      // Step 2: Fetch lines AND payments in PARALLEL (major perf improvement)
+      setLoadingStep(language === "ar" ? "تحميل التفاصيل والمدفوعات..." : "Loading details & payments...");
       const chunkSize = 500;
-      let allLines: any[] = [];
-      for (let i = 0; i < orderNumbers.length; i += chunkSize) {
-        const chunk = orderNumbers.slice(i, i + chunkSize);
-        let lineQuery = supabase
-          .from("sales_order_line")
-          .select("order_number, line_number, line_status, product_sku, product_id, quantity, unit_price, total, coins_number, total_cost, point");
+      const batchSize = 1000;
 
-        lineQuery = lineQuery.in("order_number", chunk);
-
-        if (filterProductSku) {
-          lineQuery = lineQuery.ilike("product_sku", `%${filterProductSku}%`);
+      const fetchLinesPromise = async () => {
+        let allLines: any[] = [];
+        for (let i = 0; i < orderNumbers.length; i += chunkSize) {
+          const chunk = orderNumbers.slice(i, i + chunkSize);
+          let lineQuery = supabase
+            .from("sales_order_line")
+            .select("order_number, line_number, line_status, product_sku, product_id, quantity, unit_price, total, coins_number, total_cost, point")
+            .in("order_number", chunk);
+          if (filterProductSku) lineQuery = lineQuery.ilike("product_sku", `%${filterProductSku}%`);
+          if (filterProduct && filterProduct !== "all") lineQuery = lineQuery.eq("product_id", Number(filterProduct));
+          const lines = await fetchAllPages(lineQuery, batchSize);
+          allLines = allLines.concat(lines);
         }
-        if (filterProduct && filterProduct !== "all") {
-          lineQuery = lineQuery.eq("product_id", Number(filterProduct));
+        return allLines;
+      };
+
+      const fetchPaymentsPromise = async () => {
+        let allPayments: any[] = [];
+        for (let i = 0; i < orderNumbers.length; i += chunkSize) {
+          const chunk = orderNumbers.slice(i, i + chunkSize);
+          let payQuery = supabase
+            .from("payment_transactions")
+            .select("order_number, payment_method, payment_brand, payment_amount, payment_reference, payment_card_number, bank_transaction_id, payment_location")
+            .in("order_number", chunk);
+          if (filterPaymentMethod) payQuery = payQuery.ilike("payment_method", `%${filterPaymentMethod}%`);
+          const payments = await fetchAllPages(payQuery, batchSize);
+          allPayments = allPayments.concat(payments);
         }
+        return allPayments;
+      };
 
-        let lineOffset = 0;
-        let lineHasMore = true;
-        while (lineHasMore) {
-          const { data, error } = await lineQuery.range(lineOffset, lineOffset + batchSize - 1);
-          if (error) throw error;
-          if (data && data.length > 0) {
-            allLines = [...allLines, ...data];
-            lineOffset += batchSize;
-            lineHasMore = data.length === batchSize;
-          } else {
-            lineHasMore = false;
-          }
-        }
-      }
+      // Run lines and payments fetch in parallel
+      const [allLines, allPayments] = await Promise.all([fetchLinesPromise(), fetchPaymentsPromise()]);
+      setLoadingProgress(60);
 
-      // Fetch payments
-      let allPayments: any[] = [];
-      for (let i = 0; i < orderNumbers.length; i += chunkSize) {
-        const chunk = orderNumbers.slice(i, i + chunkSize);
-        let payQuery = supabase
-          .from("payment_transactions")
-          .select("order_number, payment_method, payment_brand, payment_amount, payment_reference, payment_card_number, bank_transaction_id, payment_location");
-
-        payQuery = payQuery.in("order_number", chunk);
-
-        if (filterPaymentMethod) {
-          payQuery = payQuery.ilike("payment_method", `%${filterPaymentMethod}%`);
-        }
-
-        let payOffset = 0;
-        let payHasMore = true;
-        while (payHasMore) {
-          const { data, error } = await payQuery.range(payOffset, payOffset + batchSize - 1);
-          if (error) throw error;
-          if (data && data.length > 0) {
-            allPayments = [...allPayments, ...data];
-            payOffset += batchSize;
-            payHasMore = data.length === batchSize;
-          } else {
-            payHasMore = false;
-          }
-        }
-      }
-
-      // Fetch products for product_name and brand_name
+      // Step 3: Fetch products for names
+      setLoadingStep(language === "ar" ? "تحميل بيانات المنتجات..." : "Loading product data...");
       const allProductIds = [...new Set(allLines.map((l: any) => Number(l.product_id)).filter(Boolean))];
       const productMap = new Map<number, { product_name: string; brand_name: string }>();
+      
+      // Fetch products in parallel chunks
+      const productPromises = [];
       for (let i = 0; i < allProductIds.length; i += chunkSize) {
         const chunk = allProductIds.slice(i, i + chunkSize);
-        const { data: prodData } = await supabase
-          .from("products")
-          .select("product_id, product_name, brand_name")
-          .in("product_id", chunk.map(String));
+        productPromises.push(
+          supabase.from("products").select("product_id, product_name, brand_name").in("product_id", chunk.map(String))
+        );
+      }
+      const productResults = await Promise.all(productPromises);
+      productResults.forEach(({ data: prodData }) => {
         if (prodData) {
           prodData.forEach((p: any) => {
             productMap.set(Number(p.product_id), { product_name: p.product_name || "", brand_name: p.brand_name || "" });
           });
         }
-      }
+      });
+      setLoadingProgress(80);
 
-      // Build payment map (order_number -> payments[])
+      // Step 4: Build results
+      setLoadingStep(language === "ar" ? "تجميع النتائج..." : "Building results...");
       const paymentMap = new Map<string, any[]>();
       allPayments.forEach((p) => {
         if (!paymentMap.has(p.order_number)) paymentMap.set(p.order_number, []);
         paymentMap.get(p.order_number)!.push(p);
       });
 
-      // If payment method filter was applied, only keep orders that have matching payments
       const filteredOrderNumbers = filterPaymentMethod
-        ? orderNumbers.filter((on) => paymentMap.has(on))
-        : orderNumbers;
+        ? new Set(orderNumbers.filter((on) => paymentMap.has(on)))
+        : new Set(orderNumbers);
 
-      // Join: for each line, combine with header + first matching payment
       const results: SalesOrderDetail[] = [];
       allLines.forEach((line) => {
-        if (!filteredOrderNumbers.includes(line.order_number)) return;
+        if (!filteredOrderNumbers.has(line.order_number)) return;
         const header = headerMap.get(line.order_number);
         if (!header) return;
 
         const prod = productMap.get(Number(line.product_id)) || { product_name: "", brand_name: "" };
-        // Skip if brand filter is active and doesn't match
         if (filterBrand && filterBrand !== "all" && prod.brand_name !== filterBrand) return;
         const payments = paymentMap.get(line.order_number) || [{ payment_method: "", payment_brand: "", payment_amount: 0, payment_reference: "", payment_card_number: "", bank_transaction_id: "", payment_location: "" }];
 
-        // Create one row per line per payment
         payments.forEach((pay) => {
           results.push({
             order_number: line.order_number,
@@ -284,10 +280,10 @@ const SalesOrderDetailReport = () => {
         });
       });
 
-      // Sort by order_date then order_number
       results.sort((a, b) => a.order_date.localeCompare(b.order_date) || a.order_number.localeCompare(b.order_number));
-
+      setLoadingProgress(100);
       setReportData(results);
+      setSortConfigs([]);
       toast({
         title: language === "ar" ? "تم" : "Success",
         description: language === "ar" ? `تم تحميل ${results.length} سجل` : `Loaded ${results.length} records`,
@@ -300,12 +296,61 @@ const SalesOrderDetailReport = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingProgress(0);
+      setLoadingStep("");
     }
   };
 
+  // Multi-column sort
+  const handleSort = useCallback((key: string, event: React.MouseEvent) => {
+    setSortConfigs((prev) => {
+      const existingIdx = prev.findIndex((s) => s.key === key);
+      if (event.shiftKey) {
+        // Shift+click: add/toggle column in multi-sort
+        if (existingIdx >= 0) {
+          const existing = prev[existingIdx];
+          if (existing.direction === "desc") {
+            // Remove from sort
+            return prev.filter((_, i) => i !== existingIdx);
+          }
+          // Toggle direction
+          return prev.map((s, i) => i === existingIdx ? { ...s, direction: "desc" } : s);
+        }
+        return [...prev, { key, direction: "asc" }];
+      } else {
+        // Regular click: single sort or toggle
+        if (existingIdx >= 0 && prev.length === 1) {
+          if (prev[0].direction === "desc") return [];
+          return [{ key, direction: "desc" }];
+        }
+        return [{ key, direction: "asc" }];
+      }
+    });
+  }, []);
+
+  const clearSort = useCallback(() => setSortConfigs([]), []);
+
+  const sortedData = useMemo(() => {
+    if (sortConfigs.length === 0) return reportData;
+    return [...reportData].sort((a, b) => {
+      for (const { key, direction } of sortConfigs) {
+        const aVal = a[key as keyof SalesOrderDetail];
+        const bVal = b[key as keyof SalesOrderDetail];
+        let cmp = 0;
+        if (numericKeys.has(key)) {
+          cmp = (Number(aVal) || 0) - (Number(bVal) || 0);
+        } else {
+          cmp = String(aVal ?? "").localeCompare(String(bVal ?? ""));
+        }
+        if (cmp !== 0) return direction === "asc" ? cmp : -cmp;
+      }
+      return 0;
+    });
+  }, [reportData, sortConfigs]);
+
   const handleExport = () => {
-    if (reportData.length === 0) return;
-    const exportData = reportData.map((row) => ({
+    if (sortedData.length === 0) return;
+    const exportData = sortedData.map((row) => ({
       "Order Number": row.order_number,
       "Customer Phone": row.customer_phone,
       "Order Date": row.order_date,
@@ -389,6 +434,9 @@ const SalesOrderDetailReport = () => {
     }
     return String(value ?? "");
   };
+
+  const getSortIndex = (key: string) => sortConfigs.findIndex((s) => s.key === key);
+  const getSortDirection = (key: string) => sortConfigs.find((s) => s.key === key)?.direction;
 
   return (
     <div className="space-y-6">
@@ -563,6 +611,21 @@ const SalesOrderDetailReport = () => {
         </CardContent>
       </Card>
 
+      {/* Loading Progress */}
+      {loading && (
+        <Card className="no-print">
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{loadingStep}</span>
+                <span className="font-mono">{loadingProgress}%</span>
+              </div>
+              <Progress value={loadingProgress} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Total Cards */}
       {reportData.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
@@ -593,6 +656,30 @@ const SalesOrderDetailReport = () => {
         </div>
       )}
 
+      {/* Active Sort Indicators */}
+      {sortConfigs.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap no-print">
+          <span className="text-sm text-muted-foreground">{language === "ar" ? "الترتيب:" : "Sort:"}</span>
+          {sortConfigs.map((sc, idx) => {
+            const col = columns.find((c) => c.key === sc.key);
+            return (
+              <Badge key={sc.key} variant="secondary" className="flex items-center gap-1">
+                <span>{idx + 1}.</span>
+                <span>{col?.label || sc.key}</span>
+                {sc.direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+              </Badge>
+            );
+          })}
+          <Button variant="ghost" size="sm" onClick={clearSort} className="h-6 px-2">
+            <X className="h-3 w-3 mr-1" />
+            {language === "ar" ? "مسح" : "Clear"}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            ({language === "ar" ? "Shift+click لترتيب متعدد" : "Shift+click for multi-sort"})
+          </span>
+        </div>
+      )}
+
       {/* Report */}
       <div className="print-area">
         <div className="hidden print:block mb-4">
@@ -607,6 +694,11 @@ const SalesOrderDetailReport = () => {
             <CardHeader className="no-print">
               <CardTitle className="text-sm text-muted-foreground">
                 {language === "ar" ? `${reportData.length} سجل` : `${reportData.length} records`}
+                {sortConfigs.length === 0 && (
+                  <span className="ml-2 text-xs">
+                    ({language === "ar" ? "اضغط على العنوان للترتيب" : "Click header to sort"})
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -614,15 +706,30 @@ const SalesOrderDetailReport = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {columns.map((col) => (
-                        <TableHead key={col.key} className="text-center whitespace-nowrap text-xs">
-                          {col.label}
-                        </TableHead>
-                      ))}
+                      {columns.map((col) => {
+                        const sortIdx = getSortIndex(col.key);
+                        const sortDir = getSortDirection(col.key);
+                        return (
+                          <TableHead
+                            key={col.key}
+                            className="text-center whitespace-nowrap text-xs cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                            onClick={(e) => handleSort(col.key, e)}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              {col.label}
+                              {sortDir === "asc" && <ArrowUp className="h-3 w-3 text-primary" />}
+                              {sortDir === "desc" && <ArrowDown className="h-3 w-3 text-primary" />}
+                              {sortIdx >= 0 && sortConfigs.length > 1 && (
+                                <span className="text-[10px] font-bold text-primary">{sortIdx + 1}</span>
+                              )}
+                            </div>
+                          </TableHead>
+                        );
+                      })}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reportData.map((row, idx) => (
+                    {sortedData.map((row, idx) => (
                       <TableRow key={idx}>
                         {columns.map((col) => (
                           <TableCell key={col.key} className="text-center whitespace-nowrap text-xs font-mono">
