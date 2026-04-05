@@ -162,8 +162,12 @@ export default function TimesheetManagement() {
   const [isNawaf, setIsNawaf] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [monthLocked, setMonthLocked] = useState(false);
-  const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set()); // employee_ids with edit permission
+  const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
   const [lockLoading, setLockLoading] = useState(false);
+  const [managerNoteDialogOpen, setManagerNoteDialogOpen] = useState(false);
+  const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
+  const [managerNoteText, setManagerNoteText] = useState("");
+  const [currentUserName, setCurrentUserName] = useState("");
 
   const handleSort = (key: SortKey, ctrlKey: boolean) => {
     setSortCriteria((prev) => {
