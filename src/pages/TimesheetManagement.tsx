@@ -2202,6 +2202,30 @@ export default function TimesheetManagement() {
             : `${language === "ar" ? "الشهر" : "Month"}: ${selectedMonth}`
         }
       />
+      {/* Manager Note Dialog */}
+      <Dialog open={managerNoteDialogOpen} onOpenChange={setManagerNoteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "ملاحظة المدير" : "Manager Note"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Textarea
+              value={managerNoteText}
+              onChange={(e) => setManagerNoteText(e.target.value)}
+              placeholder={language === "ar" ? "أضف ملاحظتك هنا..." : "Add your note here..."}
+              rows={4}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setManagerNoteDialogOpen(false)}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={saveManagerNote}>
+                {language === "ar" ? "حفظ" : "Save"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
