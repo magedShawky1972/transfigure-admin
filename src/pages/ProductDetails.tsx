@@ -348,11 +348,12 @@ const ProductDetails = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      const { error } = await supabase
+      const { error, data: updated } = await supabase
         .from("products")
         .update({
           product_name: productName,
           product_id: productId,
+          sku: sku || null,
           status,
           description,
           category,
@@ -391,9 +392,15 @@ const ProductDetails = () => {
           meta_keywords_en: metaKeywordsEn,
           meta_description_en: metaDescriptionEn,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .select("id, sku")
+        .single();
 
       if (error) throw error;
+
+      if (!updated) {
+        throw new Error(language === "ar" ? "لم يتم حفظ المنتج. تأكد من الصلاحيات." : "Product was not saved. Please check permissions.");
+      }
 
       toast({
         title: t("common.success"),
