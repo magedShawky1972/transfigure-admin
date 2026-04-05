@@ -1111,6 +1111,7 @@ const ProductSetup = () => {
               placeholder={t("productSetup.filterByName")}
               value={filterName}
               onChange={(e) => setFilterName(e.target.value)}
+              className="truncate"
             />
             <Select value={filterBrand} onValueChange={setFilterBrand}>
               <SelectTrigger>
