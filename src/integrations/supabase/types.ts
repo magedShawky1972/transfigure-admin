@@ -6643,6 +6643,7 @@ export type Database = {
           media: string | null
           order_date: string
           order_date_int: number | null
+          order_date_int_utc: number | null
           order_number: string
           payment_term: string | null
           player_id: string | null
@@ -6669,6 +6670,7 @@ export type Database = {
           media?: string | null
           order_date: string
           order_date_int?: number | null
+          order_date_int_utc?: number | null
           order_number: string
           payment_term?: string | null
           player_id?: string | null
@@ -6695,6 +6697,7 @@ export type Database = {
           media?: string | null
           order_date?: string
           order_date_int?: number | null
+          order_date_int_utc?: number | null
           order_number?: string
           payment_term?: string | null
           player_id?: string | null
