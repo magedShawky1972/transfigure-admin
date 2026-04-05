@@ -429,6 +429,36 @@ export default function TimesheetManagement() {
     return editPermissions.has(ts.employee_id);
   };
 
+  const openManagerNoteDialog = (ts: Timesheet) => {
+    setManagerNoteTimesheetId(ts.id);
+    setManagerNoteText((ts as any).manager_note || "");
+    setManagerNoteDialogOpen(true);
+  };
+
+  const saveManagerNote = async () => {
+    if (!managerNoteTimesheetId || managerNoteTimesheetId.startsWith("wfh-virtual-")) {
+      toast.error(language === "ar" ? "لا يمكن إضافة ملاحظة لسجل افتراضي" : "Cannot add note to virtual row");
+      setManagerNoteDialogOpen(false);
+      return;
+    }
+    try {
+      const { error } = await supabase.from("timesheets").update({
+        manager_note: managerNoteText || null,
+        manager_note_by: currentUserName || null,
+        manager_note_at: new Date().toISOString(),
+      }).eq("id", managerNoteTimesheetId);
+      if (error) throw error;
+      setTimesheets((prev) => prev.map((ts) => ts.id === managerNoteTimesheetId
+        ? { ...ts, manager_note: managerNoteText, manager_note_by: currentUserName, manager_note_at: new Date().toISOString() } as any
+        : ts
+      ));
+      toast.success(language === "ar" ? "تم حفظ الملاحظة" : "Note saved");
+      setManagerNoteDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const fetchFrequentlyLateEmployees = async () => {
     try {
       // Fetch timesheets with late minutes > 0 from the current month only
