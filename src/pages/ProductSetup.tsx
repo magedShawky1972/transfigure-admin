@@ -1325,6 +1325,15 @@ const ProductSetup = () => {
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("creation_source")}
+                  >
+                    <div className="flex items-center">
+                      Source
+                      <SortIcon column="creation_source" />
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
                     onClick={() => handleSort("created_at")}
                   >
                     <div className="flex items-center">
