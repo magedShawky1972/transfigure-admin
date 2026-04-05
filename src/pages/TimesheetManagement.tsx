@@ -318,6 +318,8 @@ export default function TimesheetManagement() {
       if (user) {
         setCurrentUserId(user.id);
         setIsNawaf(user.id === NAWAF_USER_ID);
+        const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user.id).single();
+        if (profile) setCurrentUserName(profile.user_name || user.email || "");
       }
     } catch (error) {
       console.error("Error checking user:", error);
