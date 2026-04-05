@@ -391,6 +391,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
         { title: language === 'ar' ? "القرارات الإدارية" : "Administrative Decisions", url: "/acknowledgment-documents", icon: ClipboardCheck },
         { title: language === 'ar' ? "تسجيل حضور من المنزل" : "WFH Check-In", url: "/wfh-checkin", icon: Home },
+        { title: language === 'ar' ? "تقويم العمل من المنزل" : "WFH Calendar", url: "/company-wfh-calendar", icon: CalendarDays },
       ]
     },
     {
