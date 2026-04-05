@@ -668,7 +668,28 @@ export default function TimesheetManagement() {
       } else {
         wfhQuery = wfhQuery.gte("checkin_date", vacDateFrom).lte("checkin_date", vacDateTo);
       }
-      const { data: wfhData } = await wfhQuery;
+
+      // Fetch company WFH days (specific + recurring) in parallel with WFH check-ins
+      const [{ data: wfhData }, { data: companyWfhSpecific }, { data: companyWfhRecurring }] = await Promise.all([
+        wfhQuery,
+        supabase.from("company_wfh_days").select("wfh_date").gte("wfh_date", vacDateFrom).lte("wfh_date", vacDateTo),
+        supabase.from("company_wfh_recurring").select("day_of_week").eq("is_active", true),
+      ]);
+
+      // Build set of company WFH dates
+      const companyWfhDateSet = new Set<string>();
+      (companyWfhSpecific || []).forEach((d: any) => companyWfhDateSet.add(d.wfh_date));
+      const activeRecurringDows = (companyWfhRecurring || []).map((r: any) => r.day_of_week as number);
+      // Add recurring dates within range
+      if (activeRecurringDows.length > 0) {
+        const rangeStart = new Date(vacDateFrom + "T00:00:00");
+        const rangeEnd = new Date(vacDateTo + "T00:00:00");
+        for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+          if (activeRecurringDows.includes(d.getDay())) {
+            companyWfhDateSet.add(d.toISOString().split("T")[0]);
+          }
+        }
+      }
 
       // Build WFH sessions list (each check-in is a separate session)
       const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null }[] = [];
