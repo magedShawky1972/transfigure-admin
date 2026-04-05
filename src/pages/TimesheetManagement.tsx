@@ -668,7 +668,28 @@ export default function TimesheetManagement() {
       } else {
         wfhQuery = wfhQuery.gte("checkin_date", vacDateFrom).lte("checkin_date", vacDateTo);
       }
-      const { data: wfhData } = await wfhQuery;
+
+      // Fetch company WFH days (specific + recurring) in parallel with WFH check-ins
+      const [{ data: wfhData }, { data: companyWfhSpecific }, { data: companyWfhRecurring }] = await Promise.all([
+        wfhQuery,
+        supabase.from("company_wfh_days").select("wfh_date").gte("wfh_date", vacDateFrom).lte("wfh_date", vacDateTo),
+        supabase.from("company_wfh_recurring").select("day_of_week").eq("is_active", true),
+      ]);
+
+      // Build set of company WFH dates
+      const companyWfhDateSet = new Set<string>();
+      (companyWfhSpecific || []).forEach((d: any) => companyWfhDateSet.add(d.wfh_date));
+      const activeRecurringDows = (companyWfhRecurring || []).map((r: any) => r.day_of_week as number);
+      // Add recurring dates within range
+      if (activeRecurringDows.length > 0) {
+        const rangeStart = new Date(vacDateFrom + "T00:00:00");
+        const rangeEnd = new Date(vacDateTo + "T00:00:00");
+        for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+          if (activeRecurringDows.includes(d.getDay())) {
+            companyWfhDateSet.add(d.toISOString().split("T")[0]);
+          }
+        }
+      }
 
       // Build WFH sessions list (each check-in is a separate session)
       const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null }[] = [];
@@ -739,7 +760,8 @@ export default function TimesheetManagement() {
       const existingTimesheetKeys = new Set((data || []).map((ts: any) => `${ts.employee_id}_${ts.work_date}`));
 
       // Create virtual WFH rows for ALL WFH sessions (even if ZK record exists for same day)
-      // If employee already has a ZK record for the same day, WFH work minutes count as overtime
+      // If it's a company WFH day → calculate delay based on WFH check-in vs scheduled start
+      // If NOT a company WFH day but has ZK record → WFH work minutes count as overtime
       const virtualWfhRows: any[] = [];
       wfhSessions.forEach((session, idx) => {
         const emp = (employeesRes.data || []).find((e: any) => e.id === session.empId);
@@ -748,37 +770,95 @@ export default function TimesheetManagement() {
             ? Math.max(0, differenceInMinutes(new Date(session.checkout_time), new Date(session.checkin_time)))
             : 0;
           const hasZkRecord = existingTimesheetKeys.has(`${session.empId}_${session.date}`);
-          
-          // Calculate overtime amount if employee has a ZK record (WFH is extra hours)
+          const isCompanyWfhDay = companyWfhDateSet.has(session.date);
+
+          let lateMinutes = 0;
+          let earlyLeaveMinutes = 0;
+          let overtimeMinutes = 0;
           let overtimeAmount = 0;
-          if (hasZkRecord && workMinutes > 0 && emp.basic_salary) {
-            const dailySalary = emp.basic_salary / 30;
-            const hourlyRate = dailySalary / 8;
-            const overtimeRule = deductionRules.find((r) => r.is_overtime);
-            const multiplier = overtimeRule?.overtime_multiplier || 1.5;
-            overtimeAmount = hourlyRate * (workMinutes / 60) * multiplier;
+          let deductionAmount = 0;
+          let deductionRuleId: string | null = null;
+          let scheduledStart: string | null = null;
+          let scheduledEnd: string | null = null;
+          let notes: string | null = null;
+
+          if (isCompanyWfhDay) {
+            // Company WFH day: calculate delay based on WFH check-in vs employee schedule
+            const attType = emp.attendance_types;
+            const fixedStart = attType?.fixed_start_time || emp.fixed_shift_start;
+            const fixedEnd = attType?.fixed_end_time || emp.fixed_shift_end;
+            const allowLate = attType?.allow_late_minutes || 0;
+            const allowEarlyExit = attType?.allow_early_exit_minutes || 0;
+
+            if (fixedStart) scheduledStart = fixedStart;
+            if (fixedEnd) scheduledEnd = fixedEnd;
+
+            if (session.checkin_time && fixedStart) {
+              const schedStart = parseISO(`${session.date}T${fixedStart}`);
+              const actualStart = new Date(session.checkin_time);
+              const lateDiff = differenceInMinutes(actualStart, schedStart);
+              if (lateDiff > allowLate) {
+                lateMinutes = lateDiff;
+              }
+            }
+
+            if (session.checkout_time && fixedEnd) {
+              const schedEnd = parseISO(`${session.date}T${fixedEnd}`);
+              const actualEnd = new Date(session.checkout_time);
+              const earlyDiff = differenceInMinutes(schedEnd, actualEnd);
+              if (earlyDiff > allowEarlyExit) {
+                earlyLeaveMinutes = earlyDiff;
+              }
+            }
+
+            // Calculate deduction for late/early on company WFH day
+            if ((lateMinutes > 0 || earlyLeaveMinutes > 0) && emp.basic_salary) {
+              const totalLateMinutes = lateMinutes + earlyLeaveMinutes;
+              const matchingRule = deductionRules
+                .filter((r: any) => r.rule_type === "late" && !r.is_overtime)
+                .sort((a: any, b: any) => (b.min_minutes || 0) - (a.min_minutes || 0))
+                .find((r: any) => totalLateMinutes >= (r.min_minutes || 0));
+              if (matchingRule) {
+                const dailySalary = emp.basic_salary / 30;
+                deductionAmount = dailySalary * matchingRule.deduction_value;
+                deductionRuleId = matchingRule.id;
+              }
+            }
+
+            notes = language === "ar" ? "يوم عمل من المنزل (شركة)" : "Company WFH Day";
+          } else if (hasZkRecord) {
+            // Not a company WFH day but has ZK record: overtime
+            overtimeMinutes = workMinutes;
+            if (workMinutes > 0 && emp.basic_salary) {
+              const dailySalary = emp.basic_salary / 30;
+              const hourlyRate = dailySalary / 8;
+              const overtimeRule = deductionRules.find((r: any) => r.is_overtime);
+              const multiplier = overtimeRule?.overtime_multiplier || 1.5;
+              overtimeAmount = hourlyRate * (workMinutes / 60) * multiplier;
+            }
+            notes = language === "ar" ? "ساعات إضافية من المنزل" : "WFH Extra Hours";
           }
 
           virtualWfhRows.push({
             id: `wfh-virtual-${session.empId}_${session.date}_${idx}`,
             employee_id: session.empId,
             work_date: session.date,
-            scheduled_start: null,
-            scheduled_end: null,
+            scheduled_start: scheduledStart,
+            scheduled_end: scheduledEnd,
             actual_start: session.checkin_time || null,
             actual_end: session.checkout_time || null,
             break_duration_minutes: 0,
             status: "present",
             is_absent: false,
             absence_reason: null,
-            late_minutes: 0,
-            early_leave_minutes: 0,
-            overtime_minutes: hasZkRecord ? workMinutes : 0,
+            late_minutes: lateMinutes,
+            early_leave_minutes: earlyLeaveMinutes,
+            overtime_minutes: overtimeMinutes,
             total_work_minutes: workMinutes,
-            deduction_amount: 0,
-            deduction_rule_id: null,
+            deduction_amount: deductionAmount,
+            deduction_rule_id: deductionRuleId,
             overtime_amount: overtimeAmount,
-            notes: hasZkRecord ? (language === "ar" ? "ساعات إضافية من المنزل" : "WFH Extra Hours") : null,
+            notes,
             employees: {
               employee_number: emp.employee_number,
               first_name: emp.first_name,
@@ -791,6 +871,7 @@ export default function TimesheetManagement() {
             has_approved_delay: false,
             has_approved_early_leave: false,
             is_virtual_wfh: true,
+            is_company_wfh_day: isCompanyWfhDay,
           });
         }
       });

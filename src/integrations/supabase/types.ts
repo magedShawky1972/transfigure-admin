@@ -1944,6 +1944,57 @@ export type Database = {
         }
         Relationships: []
       }
+      company_wfh_days: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          wfh_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          wfh_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          wfh_date?: string
+        }
+        Relationships: []
+      }
+      company_wfh_recurring: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          day_of_week: number
+          description: string | null
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          day_of_week: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
       cost_centers: {
         Row: {
           cost_center_code: string

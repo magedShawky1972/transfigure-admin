@@ -49,7 +49,8 @@ import {
   Bot,
   Home,
   Headset,
-  BookOpen
+  BookOpen,
+  CalendarDays
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -147,6 +148,7 @@ export function AppSidebar() {
     "/job-setup": "jobSetup",
     "/zk-attendance-logs": "zkAttendanceLogs",
     "/hr-vacation-calendar": "hrVacationCalendar",
+    "/company-wfh-calendar": "companyWfhCalendar",
     "/bank-setup": "bankSetup",
     "/treasury-setup": "treasurySetup",
     "/expense-category-setup": "expenseCategorySetup",
@@ -391,6 +393,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "إدارة الأقسام" : "Department Management", url: "/department-management", icon: Settings },
         { title: language === 'ar' ? "القرارات الإدارية" : "Administrative Decisions", url: "/acknowledgment-documents", icon: ClipboardCheck },
         { title: language === 'ar' ? "تسجيل حضور من المنزل" : "WFH Check-In", url: "/wfh-checkin", icon: Home },
+        { title: language === 'ar' ? "تقويم العمل من المنزل" : "WFH Calendar", url: "/company-wfh-calendar", icon: CalendarDays },
       ]
     },
     {
