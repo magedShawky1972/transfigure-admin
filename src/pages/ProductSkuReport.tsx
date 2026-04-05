@@ -199,12 +199,22 @@ const ProductSkuReport = () => {
   const saveSku = async (productId: string) => {
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error, data: updated } = await supabase
         .from("products")
         .update({ sku: editValue.trim() || null })
-        .eq("id", productId);
+        .eq("id", productId)
+        .select("id, sku");
 
       if (error) throw error;
+
+      if (!updated || updated.length === 0) {
+        toast({
+          title: language === "ar" ? "خطأ في الصلاحيات" : "Permission Denied",
+          description: language === "ar" ? "ليس لديك صلاحية تعديل المنتجات. تواصل مع المسؤول." : "You don't have permission to update products. Contact your admin.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setProducts(prev =>
         prev.map(p => p.id === productId ? { ...p, sku: editValue.trim() || null } : p)
