@@ -1,0 +1,1 @@
+ALTER TABLE public.products ADD COLUMN creation_source TEXT DEFAULT 'manual';
