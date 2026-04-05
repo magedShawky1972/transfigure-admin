@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Download, Search, Printer, ArrowLeft, ArrowRightLeft, CalendarIcon } from "lucide-react";
+import { Download, Search, Printer, ArrowLeft, ArrowRightLeft, CalendarIcon, Loader2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -45,6 +46,55 @@ const UnmatchedTransactionProducts = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("unmatched");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  // Orders popup state
+  const [ordersDialogOpen, setOrdersDialogOpen] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+
+  const handleProductIdClick = async (productId: string) => {
+    if (!dateFrom || !dateTo) return;
+    setSelectedProductId(productId);
+    setOrdersDialogOpen(true);
+    setOrdersLoading(true);
+    try {
+      const fromStr = format(dateFrom, "yyyy-MM-dd");
+      const toStr = format(dateTo, "yyyy-MM-dd");
+      
+      let allOrders: string[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("purpletransaction")
+          .select("order_number")
+          .eq("product_id", productId)
+          .gte("created_at_date", fromStr)
+          .lte("created_at_date", toStr)
+          .not("order_number", "is", null)
+          .range(from, from + batchSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          data.forEach(d => { if (d.order_number) allOrders.push(d.order_number); });
+          hasMore = data.length === batchSize;
+          from += batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Deduplicate
+      setOrderNumbers([...new Set(allOrders)]);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      toast.error(isRTL ? "خطأ في تحميل الطلبات" : "Error loading orders");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!dateFrom || !dateTo) {
@@ -269,7 +319,14 @@ const UnmatchedTransactionProducts = () => {
                     (filtered as UnmatchedProduct[]).map((item, idx) => (
                       <TableRow key={item.product_id}>
                         <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell className="font-mono">{item.product_id}</TableCell>
+                        <TableCell className="font-mono">
+                          <button
+                            className="text-primary underline hover:text-primary/80 cursor-pointer"
+                            onClick={() => handleProductIdClick(item.product_id)}
+                          >
+                            {item.product_id}
+                          </button>
+                        </TableCell>
                         <TableCell>{item.product_name}</TableCell>
                         <TableCell>{item.brand_name}</TableCell>
                         <TableCell className="font-mono">{item.brand_code}</TableCell>
@@ -320,6 +377,50 @@ const UnmatchedTransactionProducts = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Orders Dialog */}
+      <Dialog open={ordersDialogOpen} onOpenChange={setOrdersDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              {isRTL ? `طلبات المنتج: ${selectedProductId}` : `Orders for Product: ${selectedProductId}`}
+            </DialogTitle>
+          </DialogHeader>
+          {ordersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : orderNumbers.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              {isRTL ? "لا توجد طلبات" : "No orders found"}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {isRTL ? `إجمالي: ${orderNumbers.length} طلب` : `Total: ${orderNumbers.length} orders`}
+              </p>
+              <div className="overflow-auto max-h-[50vh] border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>{isRTL ? "رقم الطلب" : "Order Number"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orderNumbers.map((order, idx) => (
+                      <TableRow key={order}>
+                        <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell className="font-mono">{order}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
