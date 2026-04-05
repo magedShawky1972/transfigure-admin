@@ -47,6 +47,55 @@ const UnmatchedTransactionProducts = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
+  // Orders popup state
+  const [ordersDialogOpen, setOrdersDialogOpen] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+
+  const handleProductIdClick = async (productId: string) => {
+    if (!dateFrom || !dateTo) return;
+    setSelectedProductId(productId);
+    setOrdersDialogOpen(true);
+    setOrdersLoading(true);
+    try {
+      const fromStr = format(dateFrom, "yyyy-MM-dd");
+      const toStr = format(dateTo, "yyyy-MM-dd");
+      
+      let allOrders: string[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("purpletransaction")
+          .select("order_number")
+          .eq("product_id", productId)
+          .gte("created_at_date", fromStr)
+          .lte("created_at_date", toStr)
+          .not("order_number", "is", null)
+          .range(from, from + batchSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          data.forEach(d => { if (d.order_number) allOrders.push(d.order_number); });
+          hasMore = data.length === batchSize;
+          from += batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Deduplicate
+      setOrderNumbers([...new Set(allOrders)]);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      toast.error(isRTL ? "خطأ في تحميل الطلبات" : "Error loading orders");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
   const fetchData = async () => {
     if (!dateFrom || !dateTo) {
       toast.error(isRTL ? "يرجى تحديد نطاق التاريخ" : "Please select a date range");
