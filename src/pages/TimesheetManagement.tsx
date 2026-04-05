@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2 } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2, MessageSquare } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import { getPrintLogoUrl } from "@/lib/printLogo";
 import { format, parseISO, differenceInMinutes } from "date-fns";
@@ -162,8 +162,12 @@ export default function TimesheetManagement() {
   const [isNawaf, setIsNawaf] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [monthLocked, setMonthLocked] = useState(false);
-  const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set()); // employee_ids with edit permission
+  const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
   const [lockLoading, setLockLoading] = useState(false);
+  const [managerNoteDialogOpen, setManagerNoteDialogOpen] = useState(false);
+  const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
+  const [managerNoteText, setManagerNoteText] = useState("");
+  const [currentUserName, setCurrentUserName] = useState("");
 
   const handleSort = (key: SortKey, ctrlKey: boolean) => {
     setSortCriteria((prev) => {
@@ -314,6 +318,8 @@ export default function TimesheetManagement() {
       if (user) {
         setCurrentUserId(user.id);
         setIsNawaf(user.id === NAWAF_USER_ID);
+        const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user.id).single();
+        if (profile) setCurrentUserName(profile.user_name || user.email || "");
       }
     } catch (error) {
       console.error("Error checking user:", error);
@@ -421,6 +427,36 @@ export default function TimesheetManagement() {
     if (isNawaf) return true;
     // Other users can only edit if Nawaf explicitly granted them permission
     return editPermissions.has(ts.employee_id);
+  };
+
+  const openManagerNoteDialog = (ts: Timesheet) => {
+    setManagerNoteTimesheetId(ts.id);
+    setManagerNoteText((ts as any).manager_note || "");
+    setManagerNoteDialogOpen(true);
+  };
+
+  const saveManagerNote = async () => {
+    if (!managerNoteTimesheetId || managerNoteTimesheetId.startsWith("wfh-virtual-")) {
+      toast.error(language === "ar" ? "لا يمكن إضافة ملاحظة لسجل افتراضي" : "Cannot add note to virtual row");
+      setManagerNoteDialogOpen(false);
+      return;
+    }
+    try {
+      const { error } = await supabase.from("timesheets").update({
+        manager_note: managerNoteText || null,
+        manager_note_by: currentUserName || null,
+        manager_note_at: new Date().toISOString(),
+      }).eq("id", managerNoteTimesheetId);
+      if (error) throw error;
+      setTimesheets((prev) => prev.map((ts) => ts.id === managerNoteTimesheetId
+        ? { ...ts, manager_note: managerNoteText, manager_note_by: currentUserName, manager_note_at: new Date().toISOString() } as any
+        : ts
+      ));
+      toast.success(language === "ar" ? "تم حفظ الملاحظة" : "Note saved");
+      setManagerNoteDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   const fetchFrequentlyLateEmployees = async () => {
@@ -1721,19 +1757,20 @@ export default function TimesheetManagement() {
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "الحالة" : "Status"} {getSortIcon("status")}</span>
                   </TableHead>
                   <TableHead className="text-center">{language === "ar" ? "من المنزل" : "WFH"}</TableHead>
+                  <TableHead>{language === "ar" ? "ملاحظة المدير" : "Manager Note"}</TableHead>
                   <TableHead>{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 14 : 13} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 15 : 14} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 14 : 13} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 15 : 14} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
@@ -1820,6 +1857,25 @@ export default function TimesheetManagement() {
                             {language === "ar" ? "من المنزل" : "WFH"}
                           </Badge>
                         ) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {(ts as any).manager_note ? (
+                            <button
+                              onClick={() => openManagerNoteDialog(ts)}
+                              className="text-xs max-w-[120px] truncate text-primary hover:underline cursor-pointer"
+                              title={(ts as any).manager_note}
+                            >
+                              {(ts as any).manager_note}
+                            </button>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openManagerNoteDialog(ts)}
+                              disabled={(ts as any).is_virtual_wfh}
+                            >
+                              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -2146,6 +2202,30 @@ export default function TimesheetManagement() {
             : `${language === "ar" ? "الشهر" : "Month"}: ${selectedMonth}`
         }
       />
+      {/* Manager Note Dialog */}
+      <Dialog open={managerNoteDialogOpen} onOpenChange={setManagerNoteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "ملاحظة المدير" : "Manager Note"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Textarea
+              value={managerNoteText}
+              onChange={(e) => setManagerNoteText(e.target.value)}
+              placeholder={language === "ar" ? "أضف ملاحظتك هنا..." : "Add your note here..."}
+              rows={4}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setManagerNoteDialogOpen(false)}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={saveManagerNote}>
+                {language === "ar" ? "حفظ" : "Save"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
