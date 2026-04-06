@@ -234,37 +234,33 @@ const TaskDashboard = () => {
     return <Badge variant="outline" className={v.className}>{v.label}</Badge>;
   };
 
-  const fetchAllPaginated = async (table: string, selectFields: string, filters?: (q: any) => any) => {
-    const PAGE_SIZE = 1000;
-    let allData: any[] = [];
-    let from = 0;
-    let hasMore = true;
-    while (hasMore) {
-      let query = supabase.from(table).select(selectFields).range(from, from + PAGE_SIZE - 1);
-      if (filters) query = filters(query);
-      const { data, error } = await query;
-      if (error) throw error;
-      const batch = data || [];
-      allData = allData.concat(batch);
-      if (batch.length < PAGE_SIZE) {
-        hasMore = false;
-      } else {
-        from += PAGE_SIZE;
-      }
-    }
-    return allData;
-  };
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
-      const [tasks, projectsRes, depsRes] = await Promise.all([
-        fetchAllPaginated('tasks', 'id, status, department_id, project_id'),
+      // Paginated fetch for tasks to bypass 1000-row limit
+      const PAGE_SIZE = 1000;
+      let allTasks: any[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('id, status, department_id, project_id')
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        const batch = data || [];
+        allTasks = allTasks.concat(batch);
+        hasMore = batch.length === PAGE_SIZE;
+        from += PAGE_SIZE;
+      }
+
+      const [projectsRes, depsRes] = await Promise.all([
         supabase.from('projects').select('id, name, department_id, departments(department_name)'),
         supabase.from('departments').select('id, department_name').eq('is_active', true)
       ]);
 
+      const tasks = allTasks;
       const projects = projectsRes.data || [];
       const departments = depsRes.data || [];
 
