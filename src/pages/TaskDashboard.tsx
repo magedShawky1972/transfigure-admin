@@ -157,29 +157,38 @@ const TaskDashboard = () => {
     setLoadingDrilldown(true);
     
     try {
-      let query = supabase
-        .from('tasks')
-        .select(`
-          id, 
-          title, 
-          status, 
-          priority,
-          created_at,
-          assigned_to,
-          departments(department_name),
-          projects(name)
-        `)
-        .eq('department_id', departmentId);
-      
-      if (type === 'completed') {
-        query = query.eq('status', 'done');
-      } else if (type === 'unfinished') {
-        query = query.neq('status', 'done');
+      // Paginated fetch for drilldown tasks
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        let query = supabase
+          .from('tasks')
+          .select(`
+            id, title, status, priority, created_at, assigned_to,
+            departments(department_name),
+            projects(name)
+          `)
+          .eq('department_id', departmentId)
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+        
+        if (type === 'completed') {
+          query = query.eq('status', 'done');
+        } else if (type === 'unfinished') {
+          query = query.neq('status', 'done');
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        const batch = data || [];
+        allData = allData.concat(batch);
+        hasMore = batch.length === PAGE_SIZE;
+        from += PAGE_SIZE;
       }
       
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) throw error;
+      const data = allData;
       
       // Fetch user names for assigned_to
       const assignedToIds = (data || []).map(t => t.assigned_to).filter(Boolean);
@@ -238,13 +247,29 @@ const TaskDashboard = () => {
     try {
       setLoading(true);
 
-      const [tasksRes, projectsRes, depsRes] = await Promise.all([
-        supabase.from('tasks').select('id, status, department_id, project_id'),
+      // Paginated fetch for tasks to bypass 1000-row limit
+      const PAGE_SIZE = 1000;
+      let allTasks: any[] = [];
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('id, status, department_id, project_id')
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        const batch = data || [];
+        allTasks = allTasks.concat(batch);
+        hasMore = batch.length === PAGE_SIZE;
+        from += PAGE_SIZE;
+      }
+
+      const [projectsRes, depsRes] = await Promise.all([
         supabase.from('projects').select('id, name, department_id, departments(department_name)'),
         supabase.from('departments').select('id, department_name').eq('is_active', true)
       ]);
 
-      const tasks = tasksRes.data || [];
+      const tasks = allTasks;
       const projects = projectsRes.data || [];
       const departments = depsRes.data || [];
 
