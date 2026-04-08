@@ -31,6 +31,7 @@ interface ScenarioInputs {
   profitPercentage: number;
   cashBackPercent: number;
   rate: number;
+  transactionRate: number;
   amountToTransfer: number;
   numberOfTransactions: number;
 }
