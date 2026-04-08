@@ -59,6 +59,7 @@ const MENU_GROUPS = [
       { key: "emailManager", labelAr: "مدير البريد", labelEn: "Email Manager" },
       { key: "projectsTasks", labelAr: "المشاريع والمهام", labelEn: "Projects & Tasks" },
       { key: "salesOrderEntry", labelAr: "إدخال أمر البيع", labelEn: "Sales Order Entry" },
+      { key: "pricingScenario", labelAr: "سيناريو التسعير", labelEn: "Pricing Scenario" },
     ],
   },
   {
@@ -144,7 +145,6 @@ const MENU_GROUPS = [
       { key: "supplierAdvancePayment", labelAr: "دفعات مقدمة للموردين", labelEn: "Supplier Advance Payment" },
       { key: "coinsSheets", labelAr: "شيتات الكوينز", labelEn: "Coins Sheets" },
       { key: "salesSheets", labelAr: "شيت المبيعات", labelEn: "Sales Sheets" },
-      { key: "pricingScenario", labelAr: "سيناريو التسعير", labelEn: "Pricing Scenario" },
     ],
   },
   {
