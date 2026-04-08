@@ -568,6 +568,20 @@ const PricingScenario = () => {
               <p className="text-sm text-muted-foreground">{isRTL ? "إجمالي ربح التحويل" : "Total Transfer Profit"}</p>
               <p className={`text-lg font-bold ${totalTransferProfit >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{fmtNum(totalTransferProfit)} SAR</p>
             </div>
+            <div className="p-3 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700">
+              <p className="text-sm text-muted-foreground">{isRTL ? "متوسط سعر 1 كوين (MADA)" : "Avg Price for 1 Coin (MADA)"}</p>
+              <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
+                {(() => {
+                  const madaMethod = paymentMethods.find(m => m.payment_method.toLowerCase().includes("mada"));
+                  if (!madaMethod || inputs.sales1UsdCoins <= 0 || inputs.rate <= 0) return "—";
+                  const results = calculateForMethod(madaMethod);
+                  const validRows = results.filter(r => r.coins > 0 && !excludedCoins.has(r.coins));
+                  if (validRows.length === 0) return "—";
+                  const avgPricePerCoin = validRows.reduce((sum, r) => sum + (r.sarPrice / r.coins), 0) / validRows.length;
+                  return fmtNum(avgPricePerCoin, 6) + " SAR";
+                })()}
+              </p>
+            </div>
           </div>
 
           <div className="mt-6">
