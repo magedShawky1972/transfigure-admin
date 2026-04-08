@@ -168,11 +168,12 @@ const PricingScenario = () => {
   // ========== Export CSV ==========
   const exportToCSV = () => {
     if (selectedMethods.length === 0) return;
-    const headers = ["Payment Brand", "Coins", "Price USD", "SAR Price", "Payment Commission", "Fixed Value", "VAT", "Cash Back", "Net", "Cost SAR", "Cost USD"];
+    const headers = ["Payment Brand", "Coins", "Price USD", "SAR Price", "Payment Commission", "Fixed Value", "VAT", "Cash Back", "Net", "Profit %", "Cost SAR", "Cost USD"];
     const rows: string[] = [headers.join(",")];
     selectedMethods.forEach((method) => {
       calculateForMethod(method).forEach((r) => {
-        rows.push([method.payment_method, r.coins, r.priceUsd.toFixed(6), r.sarPrice.toFixed(4), r.paymentCommission.toFixed(4), r.fixedValue, r.vat.toFixed(6), r.cashBack.toFixed(6), r.net.toFixed(2), r.costSar.toFixed(4), r.costUsd.toFixed(6)].join(","));
+        const profitPct = r.sarPrice > 0 ? (r.net / r.sarPrice) * 100 : 0;
+        rows.push([method.payment_method, r.coins, r.priceUsd.toFixed(6), r.sarPrice.toFixed(4), r.paymentCommission.toFixed(4), r.fixedValue, r.vat.toFixed(6), r.cashBack.toFixed(6), r.net.toFixed(2), profitPct.toFixed(2), r.costSar.toFixed(4), r.costUsd.toFixed(6)].join(","));
       });
     });
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
@@ -194,8 +195,8 @@ const PricingScenario = () => {
         ["Brand", inputs.brandName, "", "Avg Profit %", avgProfit.toFixed(4)],
         ["Fee", `${method.gateway_fee}% + ${method.fixed_value}`, "VAT", `${method.vat_fee}%`],
         [],
-        ["Coins", "Price USD", "SAR Price", "Payment Commission", "Fixed Value", "VAT", "Cash Back", "Cost SAR", "Cost USD", "Net"],
-        ...results.map((r) => [r.coins, r.priceUsd, r.sarPrice, r.paymentCommission, r.fixedValue, r.vat, r.cashBack, r.costSar, r.costUsd, r.net]),
+        ["Coins", "Price USD", "SAR Price", "Payment Commission", "Fixed Value", "VAT", "Cash Back", "Cost SAR", "Cost USD", "Net", "Profit %"],
+        ...results.map((r) => { const pp = r.sarPrice > 0 ? (r.net / r.sarPrice) * 100 : 0; return [r.coins, r.priceUsd, r.sarPrice, r.paymentCommission, r.fixedValue, r.vat, r.cashBack, r.costSar, r.costUsd, r.net, parseFloat(pp.toFixed(2))]; }),
       ];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const sheetName = method.payment_method.substring(0, 31);
@@ -231,10 +232,11 @@ const PricingScenario = () => {
                 <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Cost SAR</th>
                 <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Cost USD</th>
                 <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Net</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Profit %</th>
               </tr>
             </thead>
             <tbody>
-              ${results.map((r, i) => `
+              ${results.map((r, i) => { const pp = r.sarPrice > 0 ? (r.net / r.sarPrice) * 100 : 0; return `
                 <tr style="background:${r.net < 0 ? "#ffe0e0" : i % 2 === 0 ? "#f9f9f9" : "#fff"};">
                   <td style="padding:3px 6px;text-align:right;border:1px solid #ddd;font-weight:bold;">${r.coins.toLocaleString()}</td>
                   <td style="padding:3px 6px;text-align:right;border:1px solid #ddd;">${r.priceUsd.toFixed(6)}</td>
@@ -246,8 +248,9 @@ const PricingScenario = () => {
                   <td style="padding:3px 6px;text-align:right;border:1px solid #ddd;">${r.costSar.toFixed(4)}</td>
                   <td style="padding:3px 6px;text-align:right;border:1px solid #ddd;">${r.costUsd.toFixed(6)}</td>
                   <td style="padding:3px 6px;text-align:right;border:1px solid #ddd;font-weight:bold;color:${r.net < 0 ? "red" : r.net > 0 ? "green" : "black"};">${r.net.toFixed(2)}</td>
+                  <td style="padding:3px 6px;text-align:right;border:1px solid #ddd;font-weight:bold;color:${pp < 0 ? "red" : pp > 0 ? "green" : "black"};">${pp.toFixed(2)}%</td>
                 </tr>
-              `).join("")}
+              `; }).join("")}
             </tbody>
           </table>
         </div>
@@ -524,10 +527,13 @@ const PricingScenario = () => {
                           <TableHead className="text-right">{isRTL ? "التكلفة بالريال" : "Cost SAR"}</TableHead>
                           <TableHead className="text-right">{isRTL ? "التكلفة بالدولار" : "Cost USD"}</TableHead>
                           <TableHead className="text-right font-bold">{isRTL ? "الصافي" : "Net"}</TableHead>
+                          <TableHead className="text-right font-bold">{isRTL ? "نسبة الربح %" : "Profit %"}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {results.map((r) => (
+                        {results.map((r) => {
+                          const profitPct = r.sarPrice > 0 ? (r.net / r.sarPrice) * 100 : 0;
+                          return (
                           <TableRow key={r.coins} className={r.net < 0 ? "bg-destructive/10" : ""}>
                             <TableCell className="text-right font-medium">{r.coins.toLocaleString()}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.priceUsd, 6)}</TableCell>
@@ -541,8 +547,12 @@ const PricingScenario = () => {
                             <TableCell className={`text-right font-bold ${r.net < 0 ? "text-destructive" : r.net > 0 ? "text-green-600" : ""}`}>
                               {fmtNum(r.net)}
                             </TableCell>
+                            <TableCell className={`text-right font-bold ${profitPct < 0 ? "text-destructive" : profitPct > 0 ? "text-green-600" : ""}`}>
+                              {fmtNum(profitPct)}%
+                            </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
