@@ -117,8 +117,17 @@ const PricingScenario = () => {
         setCurrentUser({ id: user.id, name: profile?.user_name || user.email || "" });
       }
     };
+    const fetchBrands = async () => {
+      const { data } = await supabase
+        .from("brands")
+        .select("id, brand_name")
+        .eq("status", "active")
+        .order("brand_name");
+      if (data) setBrands(data);
+    };
     fetchMethods();
     fetchUser();
+    fetchBrands();
   }, []);
 
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
