@@ -475,14 +475,14 @@ const PricingScenario = () => {
           </div>
 
           {/* Calculated summary */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="p-3 rounded-md bg-muted">
+              <p className="text-sm text-muted-foreground">{isRTL ? "مبلغ التحويل بالريال" : "Amount To Transfer (SAR)"}</p>
+              <p className="text-lg font-bold">{fmtNum(amountTransferSAR)}</p>
+            </div>
             <div className="p-3 rounded-md bg-muted">
               <p className="text-sm text-muted-foreground">{isRTL ? "إجمالي الكوينز المحولة" : "Total Transfer Coins"}</p>
               <p className="text-lg font-bold">{fmtNum(totalTransferCoins, 0)}</p>
-            </div>
-            <div className="p-3 rounded-md bg-muted">
-              <p className="text-sm text-muted-foreground">{isRTL ? "مبلغ التحويل بالريال" : "Amount Transfer SAR"}</p>
-              <p className="text-lg font-bold">{fmtNum(amountTransferSAR)}</p>
             </div>
             <div className="p-3 rounded-md bg-muted">
               <p className="text-sm text-muted-foreground">{isRTL ? "كوينز لكل معاملة" : "Coins Per Transaction"}</p>
