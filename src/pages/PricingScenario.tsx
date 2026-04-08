@@ -155,6 +155,11 @@ const PricingScenario = () => {
     return profitPerTx * numberOfTransactions;
   }, [inputs, totalTransferCoins, paymentMethods]);
 
+  const totalTransferProfitPercent = useMemo(() => {
+    if (amountTransferSAR <= 0) return 0;
+    return (totalTransferProfit / amountTransferSAR) * 100;
+  }, [totalTransferProfit, amountTransferSAR]);
+
   const selectedMethods = useMemo(
     () => paymentMethods.filter((m) => selectedMethodIds.includes(m.id)),
     [paymentMethods, selectedMethodIds]
@@ -574,6 +579,10 @@ const PricingScenario = () => {
             <div className={`p-3 rounded-md ${totalTransferProfit >= 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"}`}>
               <p className="text-sm text-muted-foreground">{isRTL ? "إجمالي ربح التحويل" : "Total Transfer Profit"}</p>
               <p className={`text-lg font-bold ${totalTransferProfit >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{fmtNum(totalTransferProfit)} SAR</p>
+            </div>
+            <div className={`p-3 rounded-md ${totalTransferProfitPercent >= 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"}`}>
+              <p className="text-sm text-muted-foreground">{isRTL ? "نسبة ربح التحويل %" : "Transfer Profit %"}</p>
+              <p className={`text-lg font-bold ${totalTransferProfitPercent >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{fmtNum(totalTransferProfitPercent, 2)}%</p>
             </div>
             <div className="p-3 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700">
               <p className="text-sm text-muted-foreground">{isRTL ? "متوسط سعر 1 كوين (MADA)" : "Avg Price for 1 Coin (MADA)"}</p>
