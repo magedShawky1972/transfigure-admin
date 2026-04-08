@@ -88,14 +88,20 @@ const PricingScenario = () => {
     [paymentMethods, selectedMethodIds]
   );
 
-  // Auto-update Profit Percentage when results are shown
+  // Auto-update Profit Percentage from the first visible pricing table
   useEffect(() => {
     if (!showResults || selectedMethods.length === 0) return;
-    const allAvgs = selectedMethods.map((m) => getAvgProfitPercent(calculateForMethod(m)));
-    const overallAvg = allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length;
-    setInputs((prev) => ({ ...prev, profitPercentage: parseFloat(overallAvg.toFixed(4)) }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showResults]);
+
+    const firstMethod = selectedMethods[0];
+    const avgProfit = getAvgProfitPercent(calculateForMethod(firstMethod));
+    const roundedAvgProfit = parseFloat(avgProfit.toFixed(2));
+
+    setInputs((prev) =>
+      prev.profitPercentage === roundedAvgProfit
+        ? prev
+        : { ...prev, profitPercentage: roundedAvgProfit }
+    );
+  }, [showResults, selectedMethods, inputs.sales1UsdCoins, inputs.cost1UsdCoins, inputs.rate, inputs.cashBackPercent]);
 
   const calculateForMethod = (method: PaymentMethod): ResultRow[] => {
     const { sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
