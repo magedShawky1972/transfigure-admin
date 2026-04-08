@@ -88,6 +88,15 @@ const PricingScenario = () => {
     [paymentMethods, selectedMethodIds]
   );
 
+  // Auto-update Profit Percentage when results are shown
+  useEffect(() => {
+    if (!showResults || selectedMethods.length === 0) return;
+    const allAvgs = selectedMethods.map((m) => getAvgProfitPercent(calculateForMethod(m)));
+    const overallAvg = allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length;
+    setInputs((prev) => ({ ...prev, profitPercentage: parseFloat(overallAvg.toFixed(4)) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showResults]);
+
   const calculateForMethod = (method: PaymentMethod): ResultRow[] => {
     const { sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
     const gatewayRate = (method.gateway_fee || 0) / 100;
@@ -250,14 +259,7 @@ const PricingScenario = () => {
 
           <div className="mt-6">
             <Button
-              onClick={() => {
-                // Calculate average profit % across all selected methods
-                const methods = paymentMethods.filter((m) => selectedMethodIds.includes(m.id));
-                const allAvgs = methods.map((m) => getAvgProfitPercent(calculateForMethod(m)));
-                const overallAvg = allAvgs.length > 0 ? allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length : 0;
-                setInputs((prev) => ({ ...prev, profitPercentage: parseFloat(overallAvg.toFixed(4)) }));
-                setShowResults(true);
-              }}
+              onClick={() => setShowResults(true)}
               className="gap-2"
               disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}
             >
