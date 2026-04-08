@@ -147,6 +147,7 @@ import MissingShiftImages from "./pages/MissingShiftImages";
 import SalesOrderEntry from "./pages/SalesOrderEntry";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
 import AutoUpload from "./pages/AutoUpload";
+import PricingScenario from "./pages/PricingScenario";
 import WFHCheckIn from "./pages/WFHCheckIn";
 import CompanyWFHCalendar from "./pages/CompanyWFHCalendar";
 import SupplierAdvancePayment from "./pages/SupplierAdvancePayment";
@@ -327,6 +328,7 @@ const App = () => (
               <Route path="/api-transaction-mapping" element={<ApiTransactionMapping />} />
               <Route path="/crm-integration-doc" element={<CRMIntegrationDoc />} />
               <Route path="/crm-session" element={<CRMSession />} />
+              <Route path="/pricing-scenario" element={<PricingScenario />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
