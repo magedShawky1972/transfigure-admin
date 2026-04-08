@@ -48,15 +48,15 @@ const PricingScenario = () => {
 
   const [inputs, setInputs] = useState<ScenarioInputs>({
     brandName: "",
-    cost1UsdCoins: 9400,
-    sales1UsdCoins: 9000,
+    cost1UsdCoins: 0,
+    sales1UsdCoins: 0,
     profitPercentage: 0,
-    cashBackPercent: 0.5,
-    rate: 3.81,
-    amountToTransfer: 5000,
-    visaPercent: 2.25,
-    fixedValue: 1,
-    vatPercent: 15,
+    cashBackPercent: 0,
+    rate: 0,
+    amountToTransfer: 0,
+    visaPercent: 0,
+    fixedValue: 0,
+    vatPercent: 0,
   });
 
   const [showResults, setShowResults] = useState(false);
