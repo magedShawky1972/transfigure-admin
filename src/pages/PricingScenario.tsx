@@ -30,6 +30,7 @@ interface ScenarioInputs {
   cashBackPercent: number;
   rate: number;
   amountToTransfer: number;
+  numberOfTransactions: number;
 }
 
 interface ResultRow {
@@ -74,6 +75,7 @@ const PricingScenario = () => {
     cashBackPercent: 0,
     rate: 0,
     amountToTransfer: 0,
+    numberOfTransactions: 1,
   });
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -110,6 +112,20 @@ const PricingScenario = () => {
 
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
   const amountTransferSAR = inputs.amountToTransfer * inputs.rate;
+
+  // Total Transfer Profit calculation
+  const totalTransferProfit = useMemo(() => {
+    const { numberOfTransactions, sales1UsdCoins, cost1UsdCoins, rate } = inputs;
+    if (numberOfTransactions <= 0 || totalTransferCoins <= 0 || sales1UsdCoins <= 0 || cost1UsdCoins <= 0) return 0;
+    const coinsPerTx = totalTransferCoins / numberOfTransactions;
+    const sarPricePerCoin = (1 / sales1UsdCoins) * rate;
+    const costSarPerCoin = (1 / cost1UsdCoins) * rate;
+    const revenuePerTx = coinsPerTx * sarPricePerCoin;
+    const gatewayFeePerTx = (revenuePerTx * 0.008 + 1) * 1.15; // 0.8% gateway + 1 SAR fixed, with 15% VAT
+    const costPerTx = coinsPerTx * costSarPerCoin;
+    const profitPerTx = revenuePerTx - gatewayFeePerTx - costPerTx;
+    return profitPerTx * numberOfTransactions;
+  }, [inputs, totalTransferCoins]);
 
   const selectedMethods = useMemo(
     () => paymentMethods.filter((m) => selectedMethodIds.includes(m.id)),
@@ -430,6 +446,10 @@ const PricingScenario = () => {
               <Label>{isRTL ? "مبلغ التحويل (دولار)" : "Amount To Transfer (USD)"}</Label>
               <Input type="number" step="1" value={inputs.amountToTransfer || ""} onChange={(e) => updateInput("amountToTransfer", parseFloat(e.target.value) || 0)} />
             </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "عدد المعاملات المتوقعة" : "Number of Transactions Expected"}</Label>
+              <Input type="number" step="1" min="1" value={inputs.numberOfTransactions || ""} onChange={(e) => updateInput("numberOfTransactions", parseInt(e.target.value) || 1)} />
+            </div>
           </div>
 
           {/* Payment Methods Selection */}
@@ -455,7 +475,7 @@ const PricingScenario = () => {
           </div>
 
           {/* Calculated summary */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-3 rounded-md bg-muted">
               <p className="text-sm text-muted-foreground">{isRTL ? "إجمالي الكوينز المحولة" : "Total Transfer Coins"}</p>
               <p className="text-lg font-bold">{fmtNum(totalTransferCoins, 0)}</p>
@@ -463,6 +483,14 @@ const PricingScenario = () => {
             <div className="p-3 rounded-md bg-muted">
               <p className="text-sm text-muted-foreground">{isRTL ? "مبلغ التحويل بالريال" : "Amount Transfer SAR"}</p>
               <p className="text-lg font-bold">{fmtNum(amountTransferSAR)}</p>
+            </div>
+            <div className="p-3 rounded-md bg-muted">
+              <p className="text-sm text-muted-foreground">{isRTL ? "كوينز لكل معاملة" : "Coins Per Transaction"}</p>
+              <p className="text-lg font-bold">{inputs.numberOfTransactions > 0 ? fmtNum(totalTransferCoins / inputs.numberOfTransactions, 0) : "—"}</p>
+            </div>
+            <div className={`p-3 rounded-md ${totalTransferProfit >= 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"}`}>
+              <p className="text-sm text-muted-foreground">{isRTL ? "إجمالي ربح التحويل" : "Total Transfer Profit"}</p>
+              <p className={`text-lg font-bold ${totalTransferProfit >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{fmtNum(totalTransferProfit)} SAR</p>
             </div>
           </div>
 
