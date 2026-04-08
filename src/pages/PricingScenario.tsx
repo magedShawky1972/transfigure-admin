@@ -133,12 +133,13 @@ const PricingScenario = () => {
     fetchBrands();
   }, []);
 
+  const txRate = inputs.transactionRate || inputs.rate;
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
-  const amountTransferSAR = inputs.amountToTransfer * inputs.rate;
+  const amountTransferSAR = inputs.amountToTransfer * txRate;
 
   // Total Transfer Profit calculation
   const totalTransferProfit = useMemo(() => {
-    const { numberOfTransactions, sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
+    const { numberOfTransactions, sales1UsdCoins, cost1UsdCoins, cashBackPercent } = inputs;
     if (numberOfTransactions <= 0 || totalTransferCoins <= 0 || sales1UsdCoins <= 0 || cost1UsdCoins <= 0) return 0;
     const madaMethod = paymentMethods.find(m => m.payment_method.toLowerCase().includes("mada"));
     const gatewayRate = madaMethod ? madaMethod.gateway_fee / 100 : 0.008;
@@ -146,8 +147,8 @@ const PricingScenario = () => {
     const vatRate = madaMethod ? madaMethod.vat_fee / 100 : 0.15;
     const cashBackRate = (cashBackPercent || 0) / 100;
     const coinsPerTx = totalTransferCoins / numberOfTransactions;
-    const sarPricePerCoin = (1 / sales1UsdCoins) * rate;
-    const costSarPerCoin = (1 / cost1UsdCoins) * rate;
+    const sarPricePerCoin = (1 / sales1UsdCoins) * txRate;
+    const costSarPerCoin = (1 / cost1UsdCoins) * txRate;
     const revenuePerTx = coinsPerTx * sarPricePerCoin;
     const costPerTx = coinsPerTx * costSarPerCoin;
     const commissionPerTx = revenuePerTx * gatewayRate;
@@ -155,7 +156,7 @@ const PricingScenario = () => {
     const cashBackPerTx = revenuePerTx * cashBackRate;
     const profitPerTx = revenuePerTx - costPerTx - commissionPerTx - fixedVal - vatPerTx - cashBackPerTx;
     return profitPerTx * numberOfTransactions;
-  }, [inputs, totalTransferCoins, paymentMethods]);
+  }, [inputs, totalTransferCoins, paymentMethods, txRate]);
 
   const totalTransferProfitPercent = useMemo(() => {
     if (amountTransferSAR <= 0) return 0;
