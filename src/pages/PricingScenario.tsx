@@ -119,12 +119,12 @@ const PricingScenario = () => {
   useEffect(() => {
     if (!showResults || selectedMethods.length === 0) return;
     const firstMethod = selectedMethods[0];
-    const avgProfit = getAvgProfitPercent(calculateForMethod(firstMethod));
+    const avgProfit = getAvgProfitPercent(calculateForMethod(firstMethod), excludedCoins);
     const roundedAvgProfit = parseFloat(avgProfit.toFixed(2));
     setInputs((prev) =>
       prev.profitPercentage === roundedAvgProfit ? prev : { ...prev, profitPercentage: roundedAvgProfit }
     );
-  }, [showResults, selectedMethods, inputs.sales1UsdCoins, inputs.cost1UsdCoins, inputs.rate, inputs.cashBackPercent]);
+  }, [showResults, selectedMethods, inputs.sales1UsdCoins, inputs.cost1UsdCoins, inputs.rate, inputs.cashBackPercent, excludedCoins]);
 
   const calculateForMethod = (method: PaymentMethod): ResultRow[] => {
     const { sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
@@ -146,8 +146,8 @@ const PricingScenario = () => {
     });
   };
 
-  const getAvgProfitPercent = (results: ResultRow[]): number => {
-    const validRows = results.filter((r) => r.sarPrice > 0);
+  const getAvgProfitPercent = (results: ResultRow[], excluded: Set<number> = new Set()): number => {
+    const validRows = results.filter((r) => r.sarPrice > 0 && !excluded.has(r.coins));
     if (validRows.length === 0) return 0;
     const totalPercent = validRows.reduce((sum, r) => sum + (r.net / r.sarPrice) * 100, 0);
     return totalPercent / validRows.length;
@@ -498,7 +498,14 @@ const PricingScenario = () => {
 
           {selectedMethods.map((method) => {
             const results = calculateForMethod(method);
-            const avgProfit = getAvgProfitPercent(results);
+            const avgProfit = getAvgProfitPercent(results, excludedCoins);
+            const toggleCoinInAvg = (coins: number) => {
+              setExcludedCoins((prev) => {
+                const next = new Set(prev);
+                if (next.has(coins)) next.delete(coins); else next.add(coins);
+                return next;
+              });
+            };
             return (
               <Card key={method.id}>
                 <CardHeader>
@@ -518,6 +525,7 @@ const PricingScenario = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="text-center w-[50px]">{isRTL ? "تضمين" : "Avg"}</TableHead>
                           <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
                           <TableHead className="text-right">{isRTL ? "السعر بالدولار" : "Price USD"}</TableHead>
                           <TableHead className="text-right">{isRTL ? "السعر بالريال" : "SAR Price"}</TableHead>
@@ -534,8 +542,12 @@ const PricingScenario = () => {
                       <TableBody>
                         {results.map((r) => {
                           const profitPct = r.sarPrice > 0 ? (r.net / r.sarPrice) * 100 : 0;
+                          const isIncluded = !excludedCoins.has(r.coins);
                           return (
-                          <TableRow key={r.coins} className={r.net < 0 ? "bg-destructive/10" : ""}>
+                          <TableRow key={r.coins} className={`${r.net < 0 ? "bg-destructive/10" : ""} ${!isIncluded ? "opacity-50" : ""}`}>
+                            <TableCell className="text-center">
+                              <Checkbox checked={isIncluded} onCheckedChange={() => toggleCoinInAvg(r.coins)} />
+                            </TableCell>
                             <TableCell className="text-right font-medium">{r.coins.toLocaleString()}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.priceUsd, 6)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.sarPrice, 4)}</TableCell>
