@@ -5444,6 +5444,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_scenarios: {
+        Row: {
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          description: string
+          id: string
+          inputs: Json
+          selected_payment_method_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          description: string
+          id?: string
+          inputs: Json
+          selected_payment_method_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          description?: string
+          id?: string
+          inputs?: Json
+          selected_payment_method_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           abc_analysis: string | null
