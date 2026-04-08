@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -469,20 +470,33 @@ const PricingScenario = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>{isRTL ? "اسم العلامة التجارية" : "Brand Name"}</Label>
-              <Select value={selectedBrandId} onValueChange={(val) => {
-                setSelectedBrandId(val);
-                const brand = brands.find(b => b.id === val);
-                updateInput("brandName", brand?.brand_name || "");
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isRTL ? "اختر العلامة التجارية" : "Select brand"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {brands.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {selectedBrandId ? brands.find(b => b.id === selectedBrandId)?.brand_name : (isRTL ? "اختر العلامة التجارية" : "Select brand")}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={isRTL ? "ابحث عن علامة تجارية..." : "Search brand..."} />
+                    <CommandList>
+                      <CommandEmpty>{isRTL ? "لا توجد نتائج" : "No brand found"}</CommandEmpty>
+                      <CommandGroup>
+                        {brands.map((b) => (
+                          <CommandItem key={b.id} value={b.brand_name} onSelect={() => {
+                            setSelectedBrandId(b.id);
+                            updateInput("brandName", b.brand_name);
+                          }}>
+                            <Check className={`mr-2 h-4 w-4 ${selectedBrandId === b.id ? "opacity-100" : "opacity-0"}`} />
+                            {b.brand_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "التكلفة 1 دولار = كوينز" : "Cost 1USD = Coins"}</Label>
