@@ -352,6 +352,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "مدير البريد" : "Email Manager", url: "/email-manager", icon: Mail },
         { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
         { title: language === 'ar' ? "إدخال أمر البيع" : "Sales Order Entry", url: "/sales-order-entry", icon: Receipt },
+        { title: language === 'ar' ? 'سيناريو التسعير' : 'Pricing Scenario', url: "/pricing-scenario", icon: Calculator },
       ]
     },
     {
@@ -429,7 +430,6 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'دفعات مقدمة للموردين' : 'Supplier Advance Payment', url: "/supplier-advance-payment", icon: DollarSign },
         { title: language === 'ar' ? 'شيتات الكوينز' : 'Coins Sheets', url: "/coins-sheets", icon: ScrollText },
         { title: language === 'ar' ? 'شيت المبيعات' : 'Sales Sheets', url: "/sales-sheets", icon: ScrollText },
-        { title: language === 'ar' ? 'سيناريو التسعير' : 'Pricing Scenario', url: "/pricing-scenario", icon: Calculator },
       ]
     },
     {
