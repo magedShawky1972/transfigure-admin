@@ -320,7 +320,7 @@ const PricingScenario = () => {
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Cash Back %</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.cashBackPercent}%</td>
             <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Profit %</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.profitPercentage}%</td></tr>
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Amount To Transfer (USD)</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.amountToTransfer}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Amount Transfer SAR</td><td style="padding:4px 8px;border:1px solid #ddd;">${fmtNum(amountTransferSAR)}</td></tr>
+            <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Total Purchase Amount</td><td style="padding:4px 8px;border:1px solid #ddd;">${fmtNum(amountTransferSAR)}</td></tr>
       </table>
     `;
 
@@ -573,7 +573,7 @@ const PricingScenario = () => {
           {/* Calculated summary */}
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="p-3 rounded-md bg-muted">
-              <p className="text-sm text-muted-foreground">{isRTL ? "مبلغ التحويل بالريال" : "Amount To Transfer (SAR)"}</p>
+              <p className="text-sm text-muted-foreground">{isRTL ? "أجمالي مبلغ الشراء" : "Total Purchase Amount"}</p>
               <p className="text-lg font-bold">{fmtNum(amountTransferSAR)}</p>
             </div>
             <div className="p-3 rounded-md bg-muted">
