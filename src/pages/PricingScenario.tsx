@@ -80,7 +80,7 @@ const PricingScenario = () => {
       const paymentCommission = sarPrice * visaRate;
       const vat = (fixedValue + paymentCommission) * vatRate;
       const cashBack = cashBackRate * sarPrice;
-      const net = sarPrice - vat - cashBack - costSar;
+      const net = sarPrice - costSar - paymentCommission - fixedValue - vat - cashBack;
 
       return { coins, priceUsd, sarPrice, paymentCommission, fixedValue, vat, cashBack, net, costSar, costUsd };
     });
