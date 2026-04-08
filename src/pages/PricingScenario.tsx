@@ -312,7 +312,8 @@ const PricingScenario = () => {
     const summaryHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Brand Name</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.brandName}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Exchange Rate</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.rate}</td></tr>
+             <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Pricing Exchange Rate</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.rate}</td></tr>
+        <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Transaction Exchange Rate</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.transactionRate}</td>
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Cost 1USD = Coins</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.cost1UsdCoins}</td>
             <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Sales 1USD = Coins</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.sales1UsdCoins}</td></tr>
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Cash Back %</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.cashBackPercent}%</td>
