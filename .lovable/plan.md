@@ -1,48 +1,32 @@
 
 
-## Current "Total Transfer Profit" Calculation
+## Problem
 
-The existing formula (lines 138-149) uses **hardcoded** gateway fees (0.8% + 1 SAR fixed + 15% VAT) rather than the actual MADA payment method values from the database. Here's the current logic:
-
-```text
-coinsPerTx      = totalTransferCoins / numberOfTransactions
-revenuePerTx    = coinsPerTx × (1/sales1UsdCoins) × rate
-gatewayFeePerTx = (revenuePerTx × 0.008 + 1) × 1.15   ← HARDCODED
-costPerTx       = coinsPerTx × (1/cost1UsdCoins) × rate
-profitPerTx     = revenuePerTx - gatewayFeePerTx - costPerTx
-Total           = profitPerTx × numberOfTransactions
-```
-
-## Proposed Fix: Use Actual MADA Payment Method Fees
-
-Replace the hardcoded values with the real MADA method's `gateway_fee`, `fixed_value`, and `vat_fee` from the `payment_methods` table — the same values already used in `calculateForMethod()`.
-
-### Updated Formula
+Currently, `totalTransferProfit` uses `txRate` (Transaction Exchange Rate) for **both** revenue and cost:
 
 ```text
-madaMethod      = paymentMethods.find(m => name includes "mada")
-gatewayRate     = madaMethod.gateway_fee / 100
-fixedVal        = madaMethod.fixed_value
-vatRate         = madaMethod.vat_fee / 100
-cashBackRate    = inputs.cashBackPercent / 100
-
-coinsPerTx      = totalTransferCoins / numberOfTransactions
-revenuePerTx    = coinsPerTx × (1/sales1UsdCoins) × rate
-costPerTx       = coinsPerTx × (1/cost1UsdCoins) × rate
-commissionPerTx = revenuePerTx × gatewayRate
-vatPerTx        = (fixedVal + commissionPerTx) × vatRate
-cashBackPerTx   = revenuePerTx × cashBackRate
-profitPerTx     = revenuePerTx - costPerTx - commissionPerTx - fixedVal - vatPerTx - cashBackPerTx
-Total           = profitPerTx × numberOfTransactions
+sarPricePerCoin = (1 / sales1UsdCoins) × txRate   ← WRONG
+costSarPerCoin  = (1 / cost1UsdCoins)  × txRate
 ```
 
-This mirrors exactly how `calculateForMethod()` computes Net per row, but applied at the transfer level.
+But the business logic is:
+- **Revenue** is based on the **Pricing Exchange Rate** (the price we charge customers, already locked in)
+- **Cost** is based on the **Transaction Exchange Rate** (the actual rate when we transfer USD to the vendor)
 
-### File Change
+So when `txRate` is lower than `inputs.rate`, we pay less to the vendor while selling at the higher price — profit should **increase**, not decrease.
 
-**`src/pages/PricingScenario.tsx`** — Update the `totalTransferProfit` useMemo (lines 138-149) to:
-1. Find the MADA payment method from `paymentMethods` array
-2. Use its `gateway_fee`, `fixed_value`, `vat_fee` instead of hardcoded values
-3. Include `cashBackPercent` in the deduction (currently missing)
-4. Add `paymentMethods` to the dependency array
+## Fix
+
+**File: `src/pages/PricingScenario.tsx`** — lines 150-151
+
+Change revenue to use `inputs.rate` (Pricing Exchange Rate) and keep cost using `txRate` (Transaction Exchange Rate):
+
+```text
+sarPricePerCoin = (1 / sales1UsdCoins) × inputs.rate   // Pricing Rate (selling price)
+costSarPerCoin  = (1 / cost1UsdCoins)  × txRate         // Transaction Rate (actual cost)
+```
+
+Also update `amountTransferSAR` (line 138) — this represents the **Total Purchase Amount** (what we pay the vendor), so it should stay using `txRate`, which is already correct.
+
+This is a one-line change on line 150.
 
