@@ -582,6 +582,20 @@ const PricingScenario = () => {
                 })()}
               </p>
             </div>
+            <div className="p-3 rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700">
+              <p className="text-sm text-muted-foreground">{isRTL ? "متوسط تكلفة 1 كوين (MADA)" : "Avg Cost for 1 Coin (MADA)"}</p>
+              <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
+                {(() => {
+                  const madaMethod = paymentMethods.find(m => m.payment_method.toLowerCase().includes("mada"));
+                  if (!madaMethod || inputs.cost1UsdCoins <= 0 || inputs.rate <= 0) return "—";
+                  const results = calculateForMethod(madaMethod);
+                  const validRows = results.filter(r => r.coins > 0 && !excludedCoins.has(r.coins));
+                  if (validRows.length === 0) return "—";
+                  const avgCostPerCoin = validRows.reduce((sum, r) => sum + (r.costSar / r.coins), 0) / validRows.length;
+                  return fmtNum(avgCostPerCoin, 6) + " SAR";
+                })()}
+              </p>
+            </div>
           </div>
 
           <div className="mt-6">
