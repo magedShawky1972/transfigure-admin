@@ -529,8 +529,12 @@ const PricingScenario = () => {
               <Input type="number" step="0.01" value={inputs.cashBackPercent || ""} onChange={(e) => updateInput("cashBackPercent", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="space-y-2">
-              <Label>{isRTL ? "سعر الصرف (Rate)" : "Exchange Rate"}</Label>
+              <Label>{isRTL ? "سعر صرف التسعير" : "Pricing Exchange Rate"}</Label>
               <Input type="number" step="0.01" value={inputs.rate || ""} onChange={(e) => updateInput("rate", parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "سعر صرف المعاملة" : "Transaction Exchange Rate"}</Label>
+              <Input type="number" step="0.01" value={inputs.transactionRate || ""} onChange={(e) => updateInput("transactionRate", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "مبلغ التحويل (دولار)" : "Amount To Transfer (USD)"}</Label>
