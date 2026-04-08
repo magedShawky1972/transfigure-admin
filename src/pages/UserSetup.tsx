@@ -1802,6 +1802,18 @@ const UserSetup = () => {
                     ) : (
                       <FileKey className="h-4 w-4" />
                     )}
+                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSecurityPrintProfile(profile);
+                      setSecurityPrintOpen(true);
+                    }}
+                    title={language === 'ar' ? 'طباعة صلاحيات الوصول' : 'Print Security Access'}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    <Printer className="h-4 w-4" />
                   </Button>
                 </>
               )}
