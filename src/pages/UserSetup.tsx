@@ -32,8 +32,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2, FileKey, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2, FileKey, Loader2, Printer } from "lucide-react";
 import AvatarSelector from "@/components/AvatarSelector";
+import UserSecurityAccessPrint from "@/components/UserSecurityAccessPrint";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -360,6 +361,8 @@ const UserSetup = () => {
   const [verifyingForUserId, setVerifyingForUserId] = useState<string | null>(null);
   const [visibleEmailPasswords, setVisibleEmailPasswords] = useState<Set<string>>(new Set());
   const [generatingCertificate, setGeneratingCertificate] = useState<string | null>(null);
+  const [securityPrintOpen, setSecurityPrintOpen] = useState(false);
+  const [securityPrintProfile, setSecurityPrintProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     fetchProfiles();
@@ -1799,6 +1802,18 @@ const UserSetup = () => {
                     ) : (
                       <FileKey className="h-4 w-4" />
                     )}
+                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSecurityPrintProfile(profile);
+                      setSecurityPrintOpen(true);
+                    }}
+                    title={language === 'ar' ? 'طباعة صلاحيات الوصول' : 'Print Security Access'}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    <Printer className="h-4 w-4" />
                   </Button>
                 </>
               )}
@@ -2090,6 +2105,17 @@ const UserSetup = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {securityPrintProfile && (
+        <UserSecurityAccessPrint
+          open={securityPrintOpen}
+          onOpenChange={setSecurityPrintOpen}
+          userId={securityPrintProfile.user_id}
+          userName={securityPrintProfile.user_name}
+          userEmail={securityPrintProfile.email}
+          jobPositionName={securityPrintProfile.job_position_name}
+          departmentName={securityPrintProfile.default_department_name}
+        />
+      )}
     </div>
   );
 };
