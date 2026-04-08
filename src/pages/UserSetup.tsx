@@ -361,6 +361,8 @@ const UserSetup = () => {
   const [verifyingForUserId, setVerifyingForUserId] = useState<string | null>(null);
   const [visibleEmailPasswords, setVisibleEmailPasswords] = useState<Set<string>>(new Set());
   const [generatingCertificate, setGeneratingCertificate] = useState<string | null>(null);
+  const [securityPrintOpen, setSecurityPrintOpen] = useState(false);
+  const [securityPrintProfile, setSecurityPrintProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     fetchProfiles();
