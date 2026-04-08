@@ -109,6 +109,13 @@ const PricingScenario = () => {
     });
   };
 
+  const getAvgProfitPercent = (results: ResultRow[]): number => {
+    const validRows = results.filter((r) => r.sarPrice > 0);
+    if (validRows.length === 0) return 0;
+    const totalPercent = validRows.reduce((sum, r) => sum + (r.net / r.sarPrice) * 100, 0);
+    return totalPercent / validRows.length;
+  };
+
   const toggleMethod = (id: string) => {
     setSelectedMethodIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
