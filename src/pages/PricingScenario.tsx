@@ -54,6 +54,13 @@ interface SavedScenario {
   selected_payment_method_ids: string[];
   created_by_name: string | null;
   created_at: string;
+  is_active: boolean;
+  brand_id: string | null;
+}
+
+interface Brand {
+  id: string;
+  brand_name: string;
 }
 
 const DEFAULT_COINS_TIERS = [
