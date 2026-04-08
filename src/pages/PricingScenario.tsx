@@ -147,7 +147,7 @@ const PricingScenario = () => {
     const vatRate = madaMethod ? madaMethod.vat_fee / 100 : 0.15;
     const cashBackRate = (cashBackPercent || 0) / 100;
     const coinsPerTx = totalTransferCoins / numberOfTransactions;
-    const sarPricePerCoin = (1 / sales1UsdCoins) * txRate;
+    const sarPricePerCoin = (1 / sales1UsdCoins) * inputs.rate;
     const costSarPerCoin = (1 / cost1UsdCoins) * txRate;
     const revenuePerTx = coinsPerTx * sarPricePerCoin;
     const costPerTx = coinsPerTx * costSarPerCoin;
