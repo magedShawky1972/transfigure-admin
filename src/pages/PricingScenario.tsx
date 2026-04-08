@@ -282,16 +282,20 @@ const PricingScenario = () => {
 
           {selectedMethods.map((method) => {
             const results = calculateForMethod(method);
+            const avgProfit = getAvgProfitPercent(results);
             return (
               <Card key={method.id}>
                 <CardHeader>
-                  <CardTitle className="text-xl">
+                  <CardTitle className="text-xl flex items-center gap-3 flex-wrap">
                     {method.payment_method}
                     {inputs.brandName && (
-                      <span className="text-muted-foreground text-base font-normal ms-2">
+                      <span className="text-muted-foreground text-base font-normal">
                         — {inputs.brandName}
                       </span>
                     )}
+                    <span className={`text-sm font-semibold px-2 py-1 rounded ${avgProfit < 0 ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-600"}`}>
+                      {isRTL ? "متوسط الربح" : "Avg Profit"}: {avgProfit.toFixed(4)}%
+                    </span>
                   </CardTitle>
                   <CardDescription>
                     {isRTL ? "العمولة" : "Fee"}: {method.gateway_fee}% + {method.fixed_value} {isRTL ? "ثابت" : "fixed"} | {isRTL ? "الضريبة" : "VAT"}: {method.vat_fee}%
