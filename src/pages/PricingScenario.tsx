@@ -30,6 +30,7 @@ interface ScenarioInputs {
   cashBackPercent: number;
   rate: number;
   amountToTransfer: number;
+  numberOfTransactions: number;
 }
 
 interface ResultRow {
@@ -74,6 +75,7 @@ const PricingScenario = () => {
     cashBackPercent: 0,
     rate: 0,
     amountToTransfer: 0,
+    numberOfTransactions: 1,
   });
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -110,6 +112,20 @@ const PricingScenario = () => {
 
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
   const amountTransferSAR = inputs.amountToTransfer * inputs.rate;
+
+  // Total Transfer Profit calculation
+  const totalTransferProfit = useMemo(() => {
+    const { numberOfTransactions, sales1UsdCoins, cost1UsdCoins, rate } = inputs;
+    if (numberOfTransactions <= 0 || totalTransferCoins <= 0 || sales1UsdCoins <= 0 || cost1UsdCoins <= 0) return 0;
+    const coinsPerTx = totalTransferCoins / numberOfTransactions;
+    const sarPricePerCoin = (1 / sales1UsdCoins) * rate;
+    const costSarPerCoin = (1 / cost1UsdCoins) * rate;
+    const revenuePerTx = coinsPerTx * sarPricePerCoin;
+    const gatewayFeePerTx = (revenuePerTx * 0.008 + 1) * 1.15; // 0.8% gateway + 1 SAR fixed, with 15% VAT
+    const costPerTx = coinsPerTx * costSarPerCoin;
+    const profitPerTx = revenuePerTx - gatewayFeePerTx - costPerTx;
+    return profitPerTx * numberOfTransactions;
+  }, [inputs, totalTransferCoins]);
 
   const selectedMethods = useMemo(
     () => paymentMethods.filter((m) => selectedMethodIds.includes(m.id)),
