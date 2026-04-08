@@ -109,6 +109,13 @@ const PricingScenario = () => {
     });
   };
 
+  const getAvgProfitPercent = (results: ResultRow[]): number => {
+    const validRows = results.filter((r) => r.sarPrice > 0);
+    if (validRows.length === 0) return 0;
+    const totalPercent = validRows.reduce((sum, r) => sum + (r.net / r.sarPrice) * 100, 0);
+    return totalPercent / validRows.length;
+  };
+
   const toggleMethod = (id: string) => {
     setSelectedMethodIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -243,7 +250,13 @@ const PricingScenario = () => {
 
           <div className="mt-6">
             <Button
-              onClick={() => setShowResults(true)}
+              onClick={() => {
+                setShowResults(true);
+                // Calculate average profit % across all selected methods
+                const allAvgs = selectedMethods.map((m) => getAvgProfitPercent(calculateForMethod(m)));
+                const overallAvg = allAvgs.length > 0 ? allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length : 0;
+                setInputs((prev) => ({ ...prev, profitPercentage: parseFloat(overallAvg.toFixed(4)) }));
+              }}
               className="gap-2"
               disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}
             >
@@ -269,16 +282,20 @@ const PricingScenario = () => {
 
           {selectedMethods.map((method) => {
             const results = calculateForMethod(method);
+            const avgProfit = getAvgProfitPercent(results);
             return (
               <Card key={method.id}>
                 <CardHeader>
-                  <CardTitle className="text-xl">
+                  <CardTitle className="text-xl flex items-center gap-3 flex-wrap">
                     {method.payment_method}
                     {inputs.brandName && (
-                      <span className="text-muted-foreground text-base font-normal ms-2">
+                      <span className="text-muted-foreground text-base font-normal">
                         — {inputs.brandName}
                       </span>
                     )}
+                    <span className={`text-sm font-semibold px-2 py-1 rounded ${avgProfit < 0 ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-600"}`}>
+                      {isRTL ? "متوسط الربح" : "Avg Profit"}: {avgProfit.toFixed(4)}%
+                    </span>
                   </CardTitle>
                   <CardDescription>
                     {isRTL ? "العمولة" : "Fee"}: {method.gateway_fee}% + {method.fixed_value} {isRTL ? "ثابت" : "fixed"} | {isRTL ? "الضريبة" : "VAT"}: {method.vat_fee}%
