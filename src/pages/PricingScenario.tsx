@@ -155,6 +155,11 @@ const PricingScenario = () => {
     return profitPerTx * numberOfTransactions;
   }, [inputs, totalTransferCoins, paymentMethods]);
 
+  const totalTransferProfitPercent = useMemo(() => {
+    if (amountTransferSAR <= 0) return 0;
+    return (totalTransferProfit / amountTransferSAR) * 100;
+  }, [totalTransferProfit, amountTransferSAR]);
+
   const selectedMethods = useMemo(
     () => paymentMethods.filter((m) => selectedMethodIds.includes(m.id)),
     [paymentMethods, selectedMethodIds]
