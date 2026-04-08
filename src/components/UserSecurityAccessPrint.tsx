@@ -144,6 +144,7 @@ const MENU_GROUPS = [
       { key: "supplierAdvancePayment", labelAr: "دفعات مقدمة للموردين", labelEn: "Supplier Advance Payment" },
       { key: "coinsSheets", labelAr: "شيتات الكوينز", labelEn: "Coins Sheets" },
       { key: "salesSheets", labelAr: "شيت المبيعات", labelEn: "Sales Sheets" },
+      { key: "pricingScenario", labelAr: "سيناريو التسعير", labelEn: "Pricing Scenario" },
     ],
   },
   {

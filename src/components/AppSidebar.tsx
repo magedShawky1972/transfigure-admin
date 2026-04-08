@@ -173,6 +173,7 @@ export function AppSidebar() {
     "/supplier-advance-payment": "supplierAdvancePayment",
     "/coins-sheets": "coinsSheets",
     "/sales-sheets": "salesSheets",
+    "/pricing-scenario": "pricingScenario",
     "/missing-shift-images": "missingShiftImages",
     "/employee-self-requests": "employeeRequests",
     "/employee-request-approvals": "employeeRequestApprovals",
@@ -428,6 +429,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'دفعات مقدمة للموردين' : 'Supplier Advance Payment', url: "/supplier-advance-payment", icon: DollarSign },
         { title: language === 'ar' ? 'شيتات الكوينز' : 'Coins Sheets', url: "/coins-sheets", icon: ScrollText },
         { title: language === 'ar' ? 'شيت المبيعات' : 'Sales Sheets', url: "/sales-sheets", icon: ScrollText },
+        { title: language === 'ar' ? 'سيناريو التسعير' : 'Pricing Scenario', url: "/pricing-scenario", icon: Calculator },
       ]
     },
     {
