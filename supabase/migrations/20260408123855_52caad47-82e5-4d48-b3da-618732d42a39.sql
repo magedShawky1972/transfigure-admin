@@ -1,0 +1,2 @@
+ALTER TABLE public.pricing_scenarios ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT false;
+ALTER TABLE public.pricing_scenarios ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES public.brands(id) ON DELETE SET NULL;

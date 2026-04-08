@@ -5446,36 +5446,50 @@ export type Database = {
       }
       pricing_scenarios: {
         Row: {
+          brand_id: string | null
           created_at: string
           created_by: string
           created_by_name: string | null
           description: string
           id: string
           inputs: Json
+          is_active: boolean
           selected_payment_method_ids: string[]
           updated_at: string
         }
         Insert: {
+          brand_id?: string | null
           created_at?: string
           created_by: string
           created_by_name?: string | null
           description: string
           id?: string
           inputs: Json
+          is_active?: boolean
           selected_payment_method_ids?: string[]
           updated_at?: string
         }
         Update: {
+          brand_id?: string | null
           created_at?: string
           created_by?: string
           created_by_name?: string | null
           description?: string
           id?: string
           inputs?: Json
+          is_active?: boolean
           selected_payment_method_ids?: string[]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pricing_scenarios_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
