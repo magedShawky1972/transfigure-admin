@@ -122,6 +122,7 @@ interface UserPermission {
         { key: "emailManager", label: "مدير البريد", labelEn: "Email Manager" },
         { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
         { key: "salesOrderEntry", label: "إدخال أمر البيع", labelEn: "Sales Order Entry" },
+        { key: "pricingScenario", label: "سيناريو التسعير", labelEn: "Pricing Scenario" },
       ]
     },
     {
@@ -207,7 +208,6 @@ interface UserPermission {
         { key: "supplierAdvancePayment", label: "دفعات مقدمة للموردين", labelEn: "Supplier Advance Payment" },
         { key: "coinsSheets", label: "شيتات الكوينز", labelEn: "Coins Sheets" },
         { key: "salesSheets", label: "شيت المبيعات", labelEn: "Sales Sheets" },
-        { key: "pricingScenario", label: "سيناريو التسعير", labelEn: "Pricing Scenario" },
       ]
     },
     {
