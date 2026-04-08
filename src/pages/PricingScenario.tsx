@@ -84,6 +84,7 @@ const PricingScenario = () => {
     profitPercentage: 0,
     cashBackPercent: 0,
     rate: 0,
+    transactionRate: 0,
     amountToTransfer: 0,
     numberOfTransactions: 1,
   });
@@ -463,7 +464,7 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); }} className="gap-2">
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>
