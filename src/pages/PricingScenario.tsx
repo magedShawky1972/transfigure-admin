@@ -251,11 +251,12 @@ const PricingScenario = () => {
           <div className="mt-6">
             <Button
               onClick={() => {
-                setShowResults(true);
                 // Calculate average profit % across all selected methods
-                const allAvgs = selectedMethods.map((m) => getAvgProfitPercent(calculateForMethod(m)));
+                const methods = paymentMethods.filter((m) => selectedMethodIds.includes(m.id));
+                const allAvgs = methods.map((m) => getAvgProfitPercent(calculateForMethod(m)));
                 const overallAvg = allAvgs.length > 0 ? allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length : 0;
                 setInputs((prev) => ({ ...prev, profitPercentage: parseFloat(overallAvg.toFixed(4)) }));
+                setShowResults(true);
               }}
               className="gap-2"
               disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}
