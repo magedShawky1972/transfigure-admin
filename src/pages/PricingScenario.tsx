@@ -703,9 +703,17 @@ const PricingScenario = () => {
               <p className="text-muted-foreground text-center py-8">{isRTL ? "لا توجد سيناريوهات محفوظة" : "No saved scenarios"}</p>
             ) : (
               savedScenarios.map((s) => (
-                <div key={s.id} className="flex items-center justify-between p-3 rounded-md border hover:bg-muted/50 transition-colors">
+                <div key={s.id} className={`flex items-center justify-between p-3 rounded-md border hover:bg-muted/50 transition-colors ${s.is_active ? "border-green-500 bg-green-50 dark:bg-green-900/20" : ""}`}>
                   <div className="cursor-pointer flex-1" onClick={() => applyScenario(s)}>
-                    <p className="font-medium">{s.description}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{s.description}</p>
+                      {s.is_active && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-300">
+                          <Star className="h-3 w-3" />
+                          {isRTL ? "نشط" : "Active"}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {s.created_by_name} • {format(new Date(s.created_at), "yyyy-MM-dd HH:mm")}
                     </p>
