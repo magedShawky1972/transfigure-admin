@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX idx_brands_sku_start_with_unique ON public.brands (LOWER(sku_start_with)) WHERE sku_start_with IS NOT NULL AND sku_start_with != '';
