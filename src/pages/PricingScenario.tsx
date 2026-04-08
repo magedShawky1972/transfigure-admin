@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -53,6 +54,13 @@ interface SavedScenario {
   selected_payment_method_ids: string[];
   created_by_name: string | null;
   created_at: string;
+  is_active: boolean;
+  brand_id: string | null;
+}
+
+interface Brand {
+  id: string;
+  brand_name: string;
 }
 
 const DEFAULT_COINS_TIERS = [
@@ -89,6 +97,9 @@ const PricingScenario = () => {
   const [scenarioDescription, setScenarioDescription] = useState("");
   const [savedScenarios, setSavedScenarios] = useState<SavedScenario[]>([]);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [selectedBrandId, setSelectedBrandId] = useState<string>("");
+  const [currentScenarioId, setCurrentScenarioId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMethods = async () => {
@@ -106,8 +117,17 @@ const PricingScenario = () => {
         setCurrentUser({ id: user.id, name: profile?.user_name || user.email || "" });
       }
     };
+    const fetchBrands = async () => {
+      const { data } = await supabase
+        .from("brands")
+        .select("id, brand_name")
+        .eq("status", "active")
+        .order("brand_name");
+      if (data) setBrands(data);
+    };
     fetchMethods();
     fetchUser();
+    fetchBrands();
   }, []);
 
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
@@ -340,19 +360,38 @@ const PricingScenario = () => {
       toast.error(isRTL ? "يجب تسجيل الدخول" : "Must be logged in");
       return;
     }
-    const { error } = await supabase.from("pricing_scenarios").insert({
+    const { data: inserted, error } = await supabase.from("pricing_scenarios").insert({
       description: scenarioDescription.trim(),
       inputs: inputs as any,
       selected_payment_method_ids: selectedMethodIds,
       created_by: currentUser.id,
       created_by_name: currentUser.name,
-    });
+      brand_id: selectedBrandId || null,
+    }).select("id").single();
     if (error) {
       toast.error(error.message);
     } else {
       toast.success(isRTL ? "تم حفظ السيناريو" : "Scenario saved successfully");
+      if (inserted) setCurrentScenarioId(inserted.id);
       setSaveDialogOpen(false);
       setScenarioDescription("");
+    }
+  };
+
+  // ========== Confirm as Active ==========
+  const confirmAsActive = async () => {
+    if (!currentScenarioId) {
+      toast.error(isRTL ? "يرجى حفظ أو تحميل سيناريو أولاً" : "Please save or load a scenario first");
+      return;
+    }
+    // Deactivate all scenarios first
+    await supabase.from("pricing_scenarios").update({ is_active: false } as any).neq("id", "00000000-0000-0000-0000-000000000000");
+    // Set current as active
+    const { error } = await supabase.from("pricing_scenarios").update({ is_active: true } as any).eq("id", currentScenarioId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(isRTL ? "تم تعيين السيناريو كنشط" : "Scenario confirmed as active");
     }
   };
 
@@ -360,7 +399,7 @@ const PricingScenario = () => {
   const loadScenarios = async () => {
     const { data } = await supabase
       .from("pricing_scenarios")
-      .select("id, description, inputs, selected_payment_method_ids, created_by_name, created_at")
+      .select("id, description, inputs, selected_payment_method_ids, created_by_name, created_at, is_active, brand_id")
       .order("created_at", { ascending: false });
     if (data) setSavedScenarios(data as any);
     setLoadDialogOpen(true);
@@ -369,6 +408,8 @@ const PricingScenario = () => {
   const applyScenario = (scenario: SavedScenario) => {
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
+    setSelectedBrandId(scenario.brand_id || "");
+    setCurrentScenarioId(scenario.id);
     setShowResults(false);
     setLoadDialogOpen(false);
     toast.success(isRTL ? `تم تحميل: ${scenario.description}` : `Loaded: ${scenario.description}`);
@@ -404,7 +445,11 @@ const PricingScenario = () => {
             <FolderOpen className="h-4 w-4" />
             {isRTL ? "تحميل" : "Load"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); }} className="gap-2">
+          <Button variant="default" onClick={confirmAsActive} disabled={!currentScenarioId} className="gap-2 bg-green-600 hover:bg-green-700">
+            <CheckCircle className="h-4 w-4" />
+            {isRTL ? "تأكيد كنشط" : "Confirm Active"}
+          </Button>
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>
@@ -424,7 +469,20 @@ const PricingScenario = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>{isRTL ? "اسم العلامة التجارية" : "Brand Name"}</Label>
-              <Input value={inputs.brandName} onChange={(e) => updateInput("brandName", e.target.value)} placeholder={isRTL ? "أدخل اسم العلامة" : "Enter brand name"} />
+              <Select value={selectedBrandId} onValueChange={(val) => {
+                setSelectedBrandId(val);
+                const brand = brands.find(b => b.id === val);
+                updateInput("brandName", brand?.brand_name || "");
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isRTL ? "اختر العلامة التجارية" : "Select brand"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "التكلفة 1 دولار = كوينز" : "Cost 1USD = Coins"}</Label>
@@ -645,9 +703,17 @@ const PricingScenario = () => {
               <p className="text-muted-foreground text-center py-8">{isRTL ? "لا توجد سيناريوهات محفوظة" : "No saved scenarios"}</p>
             ) : (
               savedScenarios.map((s) => (
-                <div key={s.id} className="flex items-center justify-between p-3 rounded-md border hover:bg-muted/50 transition-colors">
+                <div key={s.id} className={`flex items-center justify-between p-3 rounded-md border hover:bg-muted/50 transition-colors ${s.is_active ? "border-green-500 bg-green-50 dark:bg-green-900/20" : ""}`}>
                   <div className="cursor-pointer flex-1" onClick={() => applyScenario(s)}>
-                    <p className="font-medium">{s.description}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{s.description}</p>
+                      {s.is_active && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-300">
+                          <Star className="h-3 w-3" />
+                          {isRTL ? "نشط" : "Active"}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {s.created_by_name} • {format(new Date(s.created_at), "yyyy-MM-dd HH:mm")}
                     </p>
