@@ -2105,6 +2105,17 @@ const UserSetup = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {securityPrintProfile && (
+        <UserSecurityAccessPrint
+          open={securityPrintOpen}
+          onOpenChange={setSecurityPrintOpen}
+          userId={securityPrintProfile.user_id}
+          userName={securityPrintProfile.user_name}
+          userEmail={securityPrintProfile.email}
+          jobPositionName={securityPrintProfile.job_position_name}
+          departmentName={securityPrintProfile.default_department_name}
+        />
+      )}
     </div>
   );
 };
