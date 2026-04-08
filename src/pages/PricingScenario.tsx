@@ -469,7 +469,20 @@ const PricingScenario = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>{isRTL ? "اسم العلامة التجارية" : "Brand Name"}</Label>
-              <Input value={inputs.brandName} onChange={(e) => updateInput("brandName", e.target.value)} placeholder={isRTL ? "أدخل اسم العلامة" : "Enter brand name"} />
+              <Select value={selectedBrandId} onValueChange={(val) => {
+                setSelectedBrandId(val);
+                const brand = brands.find(b => b.id === val);
+                updateInput("brandName", brand?.brand_name || "");
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isRTL ? "اختر العلامة التجارية" : "Select brand"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "التكلفة 1 دولار = كوينز" : "Cost 1USD = Coins"}</Label>
