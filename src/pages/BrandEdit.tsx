@@ -41,6 +41,7 @@ const BrandEdit = () => {
   const [initialBrandTypeId, setInitialBrandTypeId] = useState<string | null>(null);
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
   const [currentSkuPrefixes, setCurrentSkuPrefixes] = useState<string>("");
+  const [skuTaken, setSkuTaken] = useState(false);
   const [formData, setFormData] = useState({
     brand_name: "",
     brand_code: "",
@@ -708,14 +709,34 @@ const BrandEdit = () => {
               <Input
                 id="sku_start_with"
                 value={formData.sku_start_with}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 2);
                   setFormData({ ...formData, sku_start_with: val });
+                  setSkuTaken(false);
+                  if (val) {
+                    const query = supabase
+                      .from("brands")
+                      .select("id, brand_name")
+                      .ilike("sku_start_with", val);
+                    if (brandId) query.neq("id", brandId);
+                    const { data } = await query;
+                    if (data && data.length > 0) {
+                      setSkuTaken(true);
+                      toast({
+                        title: "SKU Prefix Taken",
+                        description: `"${val}" is already used by: ${data[0].brand_name}`,
+                        variant: "destructive",
+                      });
+                    }
+                  }
                 }}
                 placeholder="e.g. IT, GO, SA"
                 maxLength={2}
+                className={skuTaken ? "border-destructive ring-destructive" : ""}
               />
-              <p className="text-xs text-muted-foreground">Max 2 characters, must be unique across all brands</p>
+              <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {skuTaken ? "This SKU prefix is already taken by another brand" : "Max 2 characters, must be unique across all brands"}
+              </p>
             </div>
 
             {brandId && (
