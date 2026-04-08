@@ -79,6 +79,7 @@ const PricingScenario = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethodIds, setSelectedMethodIds] = useState<string[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
 
   // Save/Load state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
