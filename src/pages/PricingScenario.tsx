@@ -360,19 +360,38 @@ const PricingScenario = () => {
       toast.error(isRTL ? "يجب تسجيل الدخول" : "Must be logged in");
       return;
     }
-    const { error } = await supabase.from("pricing_scenarios").insert({
+    const { data: inserted, error } = await supabase.from("pricing_scenarios").insert({
       description: scenarioDescription.trim(),
       inputs: inputs as any,
       selected_payment_method_ids: selectedMethodIds,
       created_by: currentUser.id,
       created_by_name: currentUser.name,
-    });
+      brand_id: selectedBrandId || null,
+    }).select("id").single();
     if (error) {
       toast.error(error.message);
     } else {
       toast.success(isRTL ? "تم حفظ السيناريو" : "Scenario saved successfully");
+      if (inserted) setCurrentScenarioId(inserted.id);
       setSaveDialogOpen(false);
       setScenarioDescription("");
+    }
+  };
+
+  // ========== Confirm as Active ==========
+  const confirmAsActive = async () => {
+    if (!currentScenarioId) {
+      toast.error(isRTL ? "يرجى حفظ أو تحميل سيناريو أولاً" : "Please save or load a scenario first");
+      return;
+    }
+    // Deactivate all scenarios first
+    await supabase.from("pricing_scenarios").update({ is_active: false } as any).neq("id", "00000000-0000-0000-0000-000000000000");
+    // Set current as active
+    const { error } = await supabase.from("pricing_scenarios").update({ is_active: true } as any).eq("id", currentScenarioId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(isRTL ? "تم تعيين السيناريو كنشط" : "Scenario confirmed as active");
     }
   };
 
@@ -380,7 +399,7 @@ const PricingScenario = () => {
   const loadScenarios = async () => {
     const { data } = await supabase
       .from("pricing_scenarios")
-      .select("id, description, inputs, selected_payment_method_ids, created_by_name, created_at")
+      .select("id, description, inputs, selected_payment_method_ids, created_by_name, created_at, is_active, brand_id")
       .order("created_at", { ascending: false });
     if (data) setSavedScenarios(data as any);
     setLoadDialogOpen(true);
@@ -389,6 +408,8 @@ const PricingScenario = () => {
   const applyScenario = (scenario: SavedScenario) => {
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
+    setSelectedBrandId(scenario.brand_id || "");
+    setCurrentScenarioId(scenario.id);
     setShowResults(false);
     setLoadDialogOpen(false);
     toast.success(isRTL ? `تم تحميل: ${scenario.description}` : `Loaded: ${scenario.description}`);
