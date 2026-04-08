@@ -31,6 +31,7 @@ interface ScenarioInputs {
   profitPercentage: number;
   cashBackPercent: number;
   rate: number;
+  transactionRate: number;
   amountToTransfer: number;
   numberOfTransactions: number;
 }
@@ -83,6 +84,7 @@ const PricingScenario = () => {
     profitPercentage: 0,
     cashBackPercent: 0,
     rate: 0,
+    transactionRate: 0,
     amountToTransfer: 0,
     numberOfTransactions: 1,
   });
@@ -310,7 +312,8 @@ const PricingScenario = () => {
     const summaryHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Brand Name</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.brandName}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Exchange Rate</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.rate}</td></tr>
+             <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Pricing Exchange Rate</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.rate}</td></tr>
+        <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Transaction Exchange Rate</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.transactionRate}</td>
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Cost 1USD = Coins</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.cost1UsdCoins}</td>
             <td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Sales 1USD = Coins</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.sales1UsdCoins}</td></tr>
         <tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold;">Cash Back %</td><td style="padding:4px 8px;border:1px solid #ddd;">${inputs.cashBackPercent}%</td>
@@ -462,7 +465,7 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); }} className="gap-2">
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>
@@ -527,8 +530,12 @@ const PricingScenario = () => {
               <Input type="number" step="0.01" value={inputs.cashBackPercent || ""} onChange={(e) => updateInput("cashBackPercent", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="space-y-2">
-              <Label>{isRTL ? "سعر الصرف (Rate)" : "Exchange Rate"}</Label>
+              <Label>{isRTL ? "سعر صرف التسعير" : "Pricing Exchange Rate"}</Label>
               <Input type="number" step="0.01" value={inputs.rate || ""} onChange={(e) => updateInput("rate", parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "سعر صرف المعاملة" : "Transaction Exchange Rate"}</Label>
+              <Input type="number" step="0.01" value={inputs.transactionRate || ""} onChange={(e) => updateInput("transactionRate", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="space-y-2">
               <Label>{isRTL ? "مبلغ التحويل (دولار)" : "Amount To Transfer (USD)"}</Label>
