@@ -708,11 +708,14 @@ const BrandEdit = () => {
               <Input
                 id="sku_start_with"
                 value={formData.sku_start_with}
-                onChange={(e) =>
-                  setFormData({ ...formData, sku_start_with: e.target.value })
-                }
-                placeholder="e.g. ITN, GOG, SAM"
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 2);
+                  setFormData({ ...formData, sku_start_with: val });
+                }}
+                placeholder="e.g. IT, GO, SA"
+                maxLength={2}
               />
+              <p className="text-xs text-muted-foreground">Max 2 characters, must be unique across all brands</p>
             </div>
 
             {brandId && (
