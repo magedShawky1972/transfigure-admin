@@ -457,7 +457,7 @@ const PricingScenario = () => {
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
     setIsCurrentActive(scenario.is_active);
-    setShowResults(false);
+    setShowResults((scenario.selected_payment_method_ids?.length || 0) > 0);
     setLoadDialogOpen(false);
     toast.success(isRTL ? `تم تحميل: ${scenario.description}` : `Loaded: ${scenario.description}`);
   };
