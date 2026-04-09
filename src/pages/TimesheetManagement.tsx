@@ -1781,6 +1781,7 @@ export default function TimesheetManagement() {
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "نوع الخصم" : "Deduction Type"} {getSortIcon("deduction")}</span>
                   </TableHead>
                   <TableHead>{language === "ar" ? "الوقت المعدّل" : "Changed Time"}</TableHead>
+                  <TableHead>{language === "ar" ? "قيمة الخصم" : "Deduction Value"}</TableHead>
                   <TableHead className="text-center">{language === "ar" ? "البريد" : "Mail Sent"}</TableHead>
                   <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("status", e.ctrlKey || e.metaKey)}>
                     <span className="inline-flex items-center gap-1">{language === "ar" ? "الحالة" : "Status"} {getSortIcon("status")}</span>
@@ -1793,13 +1794,13 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 15 : 14} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 16 : 15} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 15 : 14} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 16 : 15} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
