@@ -397,6 +397,7 @@ const PricingScenario = () => {
     const scenarioInputs = {
       ...inputs,
       excludedCoins: normalizedExcludedCoins,
+      customCoinsTiers: customCoinsTiers,
     };
 
     if (mode === "overwrite" && currentScenarioId) {
