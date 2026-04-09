@@ -1243,6 +1243,75 @@ const PricingScenario = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Update Product Prices Progress Dialog */}
+      <Dialog open={updatePriceDialogOpen} onOpenChange={(open) => { if (updatePriceStatus.done) setUpdatePriceDialogOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "تحديث أسعار المنتجات" : "Updating Product Prices"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-3">
+              {!updatePriceStatus.done ? (
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              ) : updatePriceStatus.error ? (
+                <span className="text-destructive text-lg">✕</span>
+              ) : (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              )}
+              <span className="font-medium">
+                {updatePriceStatus.done
+                  ? (updatePriceStatus.error
+                    ? (isRTL ? "حدث خطأ" : "Error occurred")
+                    : (isRTL ? "اكتمل التحديث" : "Update completed"))
+                  : (isRTL ? "جاري التحديث..." : "Updating...")}
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full bg-muted rounded-full h-3">
+              <div
+                className="bg-primary h-3 rounded-full transition-all duration-300"
+                style={{ width: updatePriceStatus.total > 0 ? `${(updatePriceStatus.current / updatePriceStatus.total) * 100}%` : "0%" }}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              {updatePriceStatus.current} / {updatePriceStatus.total}
+            </p>
+
+            {/* Current coins */}
+            {!updatePriceStatus.done && updatePriceStatus.currentCoins > 0 && (
+              <div className="p-3 rounded-md bg-muted text-center">
+                <p className="text-sm text-muted-foreground">{isRTL ? "الكوينز الحالي" : "Current Coins"}</p>
+                <p className="text-lg font-bold">{updatePriceStatus.currentCoins.toLocaleString()}</p>
+              </div>
+            )}
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-md bg-green-100 dark:bg-green-900/30 text-center">
+                <p className="text-sm text-muted-foreground">{isRTL ? "تم التحديث" : "Updated"}</p>
+                <p className="text-lg font-bold text-green-700 dark:text-green-400">{updatePriceStatus.updated}</p>
+              </div>
+              <div className="p-3 rounded-md bg-muted text-center">
+                <p className="text-sm text-muted-foreground">{isRTL ? "تم التخطي" : "Skipped"}</p>
+                <p className="text-lg font-bold">{updatePriceStatus.skipped}</p>
+              </div>
+            </div>
+
+            {updatePriceStatus.error && (
+              <p className="text-sm text-destructive">{updatePriceStatus.error}</p>
+            )}
+          </div>
+          {updatePriceStatus.done && (
+            <DialogFooter>
+              <Button onClick={() => setUpdatePriceDialogOpen(false)}>
+                {isRTL ? "إغلاق" : "Close"}
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
