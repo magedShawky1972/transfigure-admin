@@ -27,6 +27,7 @@ interface OfficialHoliday {
   year: number | null;
   description: string | null;
   religion: string | null;
+  country: string | null;
   attendance_type_ids?: string[];
 }
 
