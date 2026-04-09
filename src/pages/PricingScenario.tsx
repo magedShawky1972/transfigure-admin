@@ -54,6 +54,7 @@ interface SavedScenario {
   description: string;
   inputs: ScenarioInputs;
   selected_payment_method_ids: string[];
+  excluded_coins: number[] | null;
   created_by_name: string | null;
   created_at: string;
   is_active: boolean;
@@ -106,6 +107,7 @@ const PricingScenario = () => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string>("");
   const [currentScenarioId, setCurrentScenarioId] = useState<string | null>(null);
+  const [isCurrentActive, setIsCurrentActive] = useState(false);
 
   useEffect(() => {
     const fetchMethods = async () => {
@@ -385,10 +387,11 @@ const PricingScenario = () => {
       description: scenarioDescription.trim(),
       inputs: inputs as any,
       selected_payment_method_ids: selectedMethodIds,
+      excluded_coins: Array.from(excludedCoins),
       created_by: currentUser.id,
       created_by_name: currentUser.name,
       brand_id: selectedBrandId || null,
-    }).select("id").single();
+    } as any).select("id").single();
     if (error) {
       toast.error(error.message);
     } else {
@@ -412,6 +415,7 @@ const PricingScenario = () => {
     if (error) {
       toast.error(error.message);
     } else {
+      setIsCurrentActive(true);
       toast.success(isRTL ? "تم تعيين السيناريو كنشط" : "Scenario confirmed as active");
     }
   };
@@ -420,7 +424,7 @@ const PricingScenario = () => {
   const loadScenarios = async () => {
     const { data } = await supabase
       .from("pricing_scenarios")
-      .select("id, description, inputs, selected_payment_method_ids, created_by_name, created_at, is_active, brand_id")
+      .select("id, description, inputs, selected_payment_method_ids, excluded_coins, created_by_name, created_at, is_active, brand_id")
       .order("created_at", { ascending: false });
     if (data) setSavedScenarios(data as any);
     setLoadDialogOpen(true);
@@ -429,8 +433,10 @@ const PricingScenario = () => {
   const applyScenario = (scenario: SavedScenario) => {
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
+    setExcludedCoins(new Set(scenario.excluded_coins || []));
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
+    setIsCurrentActive(scenario.is_active);
     setShowResults(false);
     setLoadDialogOpen(false);
     toast.success(isRTL ? `تم تحميل: ${scenario.description}` : `Loaded: ${scenario.description}`);
@@ -534,9 +540,17 @@ const PricingScenario = () => {
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-3xl font-bold mb-2">
-            {isRTL ? "سيناريو التسعير" : "Pricing Scenario"}
-          </h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold">
+              {isRTL ? "سيناريو التسعير" : "Pricing Scenario"}
+            </h1>
+            {isCurrentActive && currentScenarioId && (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-300 border border-green-300 dark:border-green-600">
+                <CheckCircle className="h-4 w-4" />
+                {isRTL ? "مؤكد - نشط" : "Confirmed - Active"}
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground">
             {isRTL ? "حاسبة تسعير الكوينز - أدخل البيانات واختر طرق الدفع ثم اضغط حساب" : "Coins pricing calculator - enter data, select payment methods, then click Calculate"}
           </p>
@@ -554,7 +568,7 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); }} className="gap-2">
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>

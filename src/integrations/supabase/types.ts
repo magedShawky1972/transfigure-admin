@@ -5451,6 +5451,7 @@ export type Database = {
           created_by: string
           created_by_name: string | null
           description: string
+          excluded_coins: number[] | null
           id: string
           inputs: Json
           is_active: boolean
@@ -5463,6 +5464,7 @@ export type Database = {
           created_by: string
           created_by_name?: string | null
           description: string
+          excluded_coins?: number[] | null
           id?: string
           inputs: Json
           is_active?: boolean
@@ -5475,6 +5477,7 @@ export type Database = {
           created_by?: string
           created_by_name?: string | null
           description?: string
+          excluded_coins?: number[] | null
           id?: string
           inputs?: Json
           is_active?: boolean
