@@ -97,6 +97,9 @@ const PricingScenario = () => {
   const [selectedMethodIds, setSelectedMethodIds] = useState<string[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
+  const [customCoinsTiers, setCustomCoinsTiers] = useState<number[]>([]);
+  const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
+  const [newCoinValue, setNewCoinValue] = useState("");
   const [generatingProducts, setGeneratingProducts] = useState(false);
   // Save/Load state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
