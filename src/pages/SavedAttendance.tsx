@@ -1736,7 +1736,7 @@ const SavedAttendance = () => {
 
         // Find vacation records (from official holidays)
         sortedRecords.forEach((record, index) => {
-          if (record.record_status === 'vacation' || isOfficialHoliday(record.attendance_date)) {
+          if (record.record_status === 'vacation' || isOfficialHoliday(record.attendance_date, employeeCode)) {
             // Check if employee was absent before this vacation/holiday
             let absentBefore = false;
             for (let i = index - 1; i >= 0; i--) {
