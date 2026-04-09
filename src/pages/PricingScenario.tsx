@@ -632,6 +632,68 @@ const PricingScenario = () => {
     }
   };
 
+  // ========== Update Product Prices ==========
+  const updateProductPrices = async () => {
+    if (selectedMethods.length === 0 || !selectedBrandId || !inputs.brandName) {
+      toast.error(isRTL ? "يرجى اختيار علامة تجارية وطريقة دفع" : "Please select a brand and payment method");
+      return;
+    }
+    const brand = brands.find(b => b.id === selectedBrandId);
+    const brandCode = brand?.brand_code || "";
+    if (!brandCode) {
+      toast.error(isRTL ? "لا يوجد كود براند" : "No brand code found");
+      return;
+    }
+
+    setUpdatingPrices(true);
+    try {
+      const method = selectedMethods[0];
+      const results = calculateForMethod(method);
+      const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
+
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (const row of filteredResults) {
+        const { data: existing } = await supabase
+          .from("products")
+          .select("id, product_price, product_cost")
+          .eq("brand_code", brandCode)
+          .eq("coins_number", row.coins);
+
+        if (!existing || existing.length === 0) {
+          skippedCount++;
+          continue;
+        }
+
+        for (const product of existing) {
+          const newPrice = row.sarPrice.toFixed(4);
+          const newCost = row.costSar.toFixed(4);
+          if (product.product_price === newPrice && product.product_cost === newCost) {
+            skippedCount++;
+            continue;
+          }
+          const { error } = await supabase
+            .from("products")
+            .update({ product_price: newPrice, product_cost: newCost })
+            .eq("id", product.id);
+          if (error) throw error;
+          updatedCount++;
+        }
+      }
+
+      toast.success(
+        isRTL
+          ? `تم تحديث ${updatedCount} منتج، تم تخطي ${skippedCount}`
+          : `${updatedCount} products updated, ${skippedCount} skipped`
+      );
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setUpdatingPrices(false);
+    }
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between flex-wrap gap-2">
