@@ -616,10 +616,6 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="outline" onClick={() => setAddCoinDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            {isRTL ? "إضافة فئة كوينز" : "Add Coin Category"}
-          </Button>
           <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
@@ -810,6 +806,10 @@ const PricingScenario = () => {
               <Button variant="outline" onClick={printPDF} className="gap-2">
                 <Printer className="h-4 w-4" />
                 {isRTL ? "طباعة PDF" : "Print PDF"}
+              </Button>
+              <Button variant="outline" onClick={() => setAddCoinDialogOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                {isRTL ? "إضافة فئة كوينز" : "Add Coin Category"}
               </Button>
               <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
                 {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
