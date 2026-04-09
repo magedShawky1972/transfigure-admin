@@ -200,7 +200,7 @@ const PricingScenario = () => {
     const vatRate = (method.vat_fee || 0) / 100;
     const cashBackRate = cashBackPercent / 100;
 
-    return DEFAULT_COINS_TIERS.map((coins) => {
+    return allCoinsTiers.map((coins) => {
       const priceUsd = coins / sales1UsdCoins;
       const sarPrice = priceUsd * rate;
       const costUsd = coins / cost1UsdCoins;
