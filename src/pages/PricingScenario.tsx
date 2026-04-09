@@ -503,6 +503,7 @@ const PricingScenario = () => {
             brand_name: inputs.brandName,
             brand_code: brand?.brand_code || null,
             coins_number: r.coins,
+            brand_type: brand?.brand_type?.type_name || null,
             status: "active",
             creation_source: "manual",
           };
