@@ -1466,6 +1466,10 @@ export default function TimesheetManagement() {
         return <Badge className="bg-yellow-400 text-red-600 font-bold">{language === "ar" ? "إجازة" : "Vacation"}</Badge>;
       case "holiday":
         return <Badge className="bg-purple-500 text-white font-bold">{language === "ar" ? "إجازة رسمية" : "Holiday"}</Badge>;
+      case "waiting_for_exit":
+        return <Badge className="bg-orange-100 text-orange-800 font-bold">{language === "ar" ? "بانتظار الخروج" : "Waiting for Exit"}</Badge>;
+      case "absent":
+        return <Badge variant="destructive">{language === "ar" ? "غائب" : "Absent"}</Badge>;
       default:
         return <Badge variant="secondary">{language === "ar" ? "معلق" : "Pending"}</Badge>;
     }
@@ -1693,10 +1697,10 @@ export default function TimesheetManagement() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {timesheets.filter((t) => t.status === "pending").length}
+                  <p className="text-2xl font-bold text-orange-600">
+                    {timesheets.filter((t) => t.status === "waiting_for_exit" || t.status === "pending").length}
                   </p>
-                  <p className="text-sm text-muted-foreground">{language === "ar" ? "معلق" : "Pending"}</p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "بانتظار الخروج" : "Waiting for Exit"}</p>
                 </div>
               </CardContent>
             </Card>
