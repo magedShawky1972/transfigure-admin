@@ -582,16 +582,16 @@ const PricingScenario = () => {
 
       let nextSeq = Math.max(0, ...existingNums) + 1;
 
-      // Check which products already exist by name to avoid duplicates
-      const productNames = filteredResults.map(r => `كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`);
-      const { data: existing } = await supabase
+      // Check which products already exist by brand_code + coins_number
+      const brandCode = brand?.brand_code || "";
+      const { data: existingByBrand } = await supabase
         .from("products")
-        .select("product_name")
-        .in("product_name", productNames);
-      const existingNames = new Set((existing || []).map(p => p.product_name));
+        .select("coins_number")
+        .eq("brand_code", brandCode);
+      const existingCoinsSet = new Set((existingByBrand || []).map(p => p.coins_number).filter(Boolean));
 
       const newProducts = filteredResults
-        .filter(r => !existingNames.has(`كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`))
+        .filter(r => !existingCoinsSet.has(r.coins))
         .map(r => {
           const sku = `${skuPrefix}-${String(nextSeq).padStart(4, "0")}`;
           nextSeq++;
@@ -602,7 +602,7 @@ const PricingScenario = () => {
             product_cost: r.costSar.toFixed(4),
             sku,
             brand_name: inputs.brandName,
-            brand_code: brand?.brand_code || null,
+            brand_code: brandCode || null,
             coins_number: r.coins,
             brand_type: brand?.brand_type?.type_name || null,
             status: "active",
@@ -690,9 +690,16 @@ const PricingScenario = () => {
                 {isRTL ? "اسم العلامة التجارية" : "Brand Name"}
                 {selectedBrandId && (() => {
                   const brand = brands.find(b => b.id === selectedBrandId);
-                  return brand?.sku_start_with ? (
-                    <span className="ml-2 text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">{brand.sku_start_with}</span>
-                  ) : null;
+                  return (
+                    <span className="ml-2 inline-flex gap-1">
+                      {brand?.brand_code && (
+                        <span className="text-xs font-mono bg-muted text-muted-foreground px-1.5 py-0.5 rounded">{brand.brand_code}</span>
+                      )}
+                      {brand?.sku_start_with && (
+                        <span className="text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">{brand.sku_start_with}</span>
+                      )}
+                    </span>
+                  );
                 })()}
               </Label>
               <Popover>
