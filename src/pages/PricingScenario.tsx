@@ -396,26 +396,30 @@ const PricingScenario = () => {
     const normalizedExcludedCoins = [...new Set(Array.from(excludedCoins)
       .map((coin) => Number(coin))
       .filter((coin) => Number.isFinite(coin)))].sort((a, b) => a - b);
+    const savedCoinsTiers = [...allCoinsTiers].sort((a, b) => a - b);
     const coinSelectionState = Object.fromEntries(
-      allCoinsTiers.map((coin) => [String(coin), !normalizedExcludedCoins.includes(coin)])
+      savedCoinsTiers.map((coin) => [String(coin), !normalizedExcludedCoins.includes(coin)])
     );
     const scenarioInputs = {
       ...inputs,
       excludedCoins: normalizedExcludedCoins,
       customCoinsTiers,
+      savedCoinsTiers,
       coinSelectionState,
     };
 
     if (mode === "overwrite" && currentScenarioId) {
-      const { error } = await supabase.from("pricing_scenarios").update({
+      const { data, error } = await supabase.from("pricing_scenarios").update({
         inputs: scenarioInputs as any,
         selected_payment_method_ids: selectedMethodIds,
         excluded_coins: normalizedExcludedCoins,
         brand_id: selectedBrandId || null,
         updated_at: new Date().toISOString(),
-      } as any).eq("id", currentScenarioId);
+      } as any).eq("id", currentScenarioId).select("id");
       if (error) {
         toast.error(error.message);
+      } else if (!data || data.length === 0) {
+        toast.error(isRTL ? "ليس لديك صلاحية لتحديث السيناريو" : "You do not have permission to update this scenario");
       } else {
         toast.success(isRTL ? "تم تحديث السيناريو" : "Scenario updated successfully");
         setSaveDialogOpen(false);
