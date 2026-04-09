@@ -886,6 +886,23 @@ const PricingScenario = () => {
                             <TableCell className={`text-right font-bold ${profitPct < 0 ? "text-destructive" : profitPct > 0 ? "text-green-600" : ""}`}>
                               {fmtNum(profitPct)}%
                             </TableCell>
+                            <TableCell className="text-center">
+                              <button
+                                onClick={() => {
+                                  if (customCoinsTiers.includes(r.coins)) {
+                                    setCustomCoinsTiers((prev) => prev.filter((t) => t !== r.coins));
+                                  }
+                                  setExcludedCoins((prev) => { const next = new Set(prev); next.add(r.coins); return next; });
+                                  if (!customCoinsTiers.includes(r.coins)) {
+                                    setExcludedCoins((prev) => { const next = new Set(prev); next.add(r.coins); return next; });
+                                  }
+                                }}
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                title={isRTL ? "حذف الفئة" : "Remove category"}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </TableCell>
                           </TableRow>
                           );
                         })}
