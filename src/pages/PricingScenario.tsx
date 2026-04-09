@@ -424,7 +424,7 @@ const PricingScenario = () => {
   const loadScenarios = async () => {
     const { data } = await supabase
       .from("pricing_scenarios")
-      .select("id, description, inputs, selected_payment_method_ids, created_by_name, created_at, is_active, brand_id")
+      .select("id, description, inputs, selected_payment_method_ids, excluded_coins, created_by_name, created_at, is_active, brand_id")
       .order("created_at", { ascending: false });
     if (data) setSavedScenarios(data as any);
     setLoadDialogOpen(true);
