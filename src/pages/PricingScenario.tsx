@@ -433,8 +433,10 @@ const PricingScenario = () => {
   const applyScenario = (scenario: SavedScenario) => {
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
+    setExcludedCoins(new Set(scenario.excluded_coins || []));
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
+    setIsCurrentActive(scenario.is_active);
     setShowResults(false);
     setLoadDialogOpen(false);
     toast.success(isRTL ? `تم تحميل: ${scenario.description}` : `Loaded: ${scenario.description}`);
