@@ -415,12 +415,27 @@ const PricingScenario = () => {
         excluded_coins: normalizedExcludedCoins,
         brand_id: selectedBrandId || null,
         updated_at: new Date().toISOString(),
-      } as any).eq("id", currentScenarioId).select("id");
+      } as any).eq("id", currentScenarioId).select("id, created_at, created_by_name, is_active");
       if (error) {
         toast.error(error.message);
       } else if (!data || data.length === 0) {
         toast.error(isRTL ? "ليس لديك صلاحية لتحديث السيناريو" : "You do not have permission to update this scenario");
       } else {
+        const updatedRow = data[0] as any;
+        setSavedScenarios((prev) => prev.map((scenario) =>
+          scenario.id === currentScenarioId
+            ? {
+                ...scenario,
+                inputs: scenarioInputs as any,
+                selected_payment_method_ids: selectedMethodIds,
+                excluded_coins: normalizedExcludedCoins,
+                brand_id: selectedBrandId || null,
+                created_at: updatedRow.created_at ?? scenario.created_at,
+                created_by_name: updatedRow.created_by_name ?? scenario.created_by_name,
+                is_active: updatedRow.is_active ?? scenario.is_active,
+              }
+            : scenario
+        ));
         toast.success(isRTL ? "تم تحديث السيناريو" : "Scenario updated successfully");
         setSaveDialogOpen(false);
       }
@@ -433,12 +448,25 @@ const PricingScenario = () => {
         created_by: currentUser.id,
         created_by_name: currentUser.name,
         brand_id: selectedBrandId || null,
-      } as any).select("id").single();
+      } as any).select("id, created_at, created_by_name, is_active").single();
       if (error) {
         toast.error(error.message);
       } else {
         toast.success(isRTL ? "تم حفظ السيناريو" : "Scenario saved successfully");
-        if (inserted) setCurrentScenarioId(inserted.id);
+        if (inserted) {
+          setCurrentScenarioId(inserted.id);
+          setSavedScenarios((prev) => [{
+            id: inserted.id,
+            description: scenarioDescription.trim(),
+            inputs: scenarioInputs as any,
+            selected_payment_method_ids: selectedMethodIds,
+            excluded_coins: normalizedExcludedCoins,
+            created_by_name: inserted.created_by_name ?? currentUser.name,
+            created_at: inserted.created_at ?? new Date().toISOString(),
+            is_active: inserted.is_active ?? false,
+            brand_id: selectedBrandId || null,
+          } as any, ...prev]);
+        }
         setSaveDialogOpen(false);
         setScenarioDescription("");
       }
