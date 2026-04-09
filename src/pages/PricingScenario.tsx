@@ -959,6 +959,9 @@ const PricingScenario = () => {
                   <CardTitle className="text-xl flex items-center gap-3 flex-wrap">
                     {method.payment_method}
                     {inputs.brandName && <span className="text-muted-foreground text-base font-normal">— {inputs.brandName}</span>}
+                    <span className="text-sm font-semibold px-2 py-1 rounded bg-muted text-muted-foreground">
+                      {isRTL ? "عدد الفئات" : "Categories"}: {results.filter(r => !excludedCoins.has(r.coins)).length} / {results.length}
+                    </span>
                     <span className={`text-sm font-semibold px-2 py-1 rounded ${avgProfit < 0 ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-600"}`}>
                       {isRTL ? "متوسط الربح" : "Avg Profit"}: {avgProfit.toFixed(4)}%
                     </span>
