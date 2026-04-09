@@ -359,7 +359,7 @@ Deno.serve(async (req) => {
           total_work_minutes: 0,
           deduction_amount: 0,
           overtime_amount: 0,
-          notes: `Official Holiday - ${holidayName}`,
+          notes: `Official Holiday - ${empHolidayName}`,
         };
 
         const { error: holidayError } = await supabase
