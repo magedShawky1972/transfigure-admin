@@ -557,7 +557,11 @@ const PricingScenario = () => {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => { setScenarioDescription(inputs.brandName ? `${inputs.brandName} Scenario` : ""); setSaveDialogOpen(true); }} className="gap-2">
+          <Button variant="outline" onClick={() => {
+            setScenarioDescription(inputs.brandName ? `${inputs.brandName} Scenario` : "");
+            setSaveMode(currentScenarioId ? null : "new");
+            setSaveDialogOpen(true);
+          }} className="gap-2">
             <Save className="h-4 w-4" />
             {isRTL ? "حفظ" : "Save"}
           </Button>
