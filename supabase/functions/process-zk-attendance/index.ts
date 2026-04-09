@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
       .from('employees')
-      .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, email, user_id, basic_salary, requires_attendance_signin')
+      .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, email, user_id, basic_salary, requires_attendance_signin, religion')
       .not('zk_employee_code', 'is', null)
       .eq('employment_status', 'active')
       .eq('requires_attendance_signin', true);
