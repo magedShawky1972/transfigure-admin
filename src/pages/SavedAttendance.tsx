@@ -1634,9 +1634,21 @@ const SavedAttendance = () => {
   };
 
   // Helper to check if a date is an official holiday
-  const isOfficialHoliday = (dateStr: string): boolean => {
+  const isOfficialHoliday = (dateStr: string, employeeCode?: string): boolean => {
     const targetDate = new Date(dateStr);
+    
+    // Get employee religion if employee code is provided
+    const emp = employeeCode ? employees.find(e => e.zk_employee_code === employeeCode) : null;
+    const employeeReligion = emp?.religion || null;
+    
     return officialHolidays.some(h => {
+      // Check if holiday is religion-specific
+      if (h.religion && h.religion !== 'all') {
+        if (!employeeReligion || employeeReligion !== h.religion) {
+          return false; // Skip this holiday if employee's religion doesn't match
+        }
+      }
+      
       const holidayDate = new Date(h.holiday_date);
       if (h.is_recurring) {
         return holidayDate.getMonth() === targetDate.getMonth() && 
