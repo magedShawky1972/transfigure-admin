@@ -1125,6 +1125,7 @@ const PricingScenario = () => {
                 return;
               }
               setCustomCoinsTiers((prev) => [...prev, val]);
+              setSavedCoinsTiers((prev) => [...new Set([...prev, val])].sort((a, b) => a - b));
               setNewCoinValue("");
               toast.success(isRTL ? `تم إضافة ${val.toLocaleString()} كوينز` : `Added ${val.toLocaleString()} coins`);
             }}>
