@@ -114,6 +114,7 @@ interface Employee {
   zk_employee_code: string | null;
   employee_number: string;
   attendance_type_id: string | null;
+  religion: string | null;
 }
 
 interface AttendanceType {
@@ -402,7 +403,7 @@ const SavedAttendance = () => {
     try {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id")
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, religion")
         .not("zk_employee_code", "is", null);
 
       if (error) throw error;
@@ -1633,9 +1634,21 @@ const SavedAttendance = () => {
   };
 
   // Helper to check if a date is an official holiday
-  const isOfficialHoliday = (dateStr: string): boolean => {
+  const isOfficialHoliday = (dateStr: string, employeeCode?: string): boolean => {
     const targetDate = new Date(dateStr);
+    
+    // Get employee religion if employee code is provided
+    const emp = employeeCode ? employees.find(e => e.zk_employee_code === employeeCode) : null;
+    const employeeReligion = emp?.religion || null;
+    
     return officialHolidays.some(h => {
+      // Check if holiday is religion-specific
+      if (h.religion && h.religion !== 'all') {
+        if (!employeeReligion || employeeReligion !== h.religion) {
+          return false; // Skip this holiday if employee's religion doesn't match
+        }
+      }
+      
       const holidayDate = new Date(h.holiday_date);
       if (h.is_recurring) {
         return holidayDate.getMonth() === targetDate.getMonth() && 
@@ -1723,7 +1736,7 @@ const SavedAttendance = () => {
 
         // Find vacation records (from official holidays)
         sortedRecords.forEach((record, index) => {
-          if (record.record_status === 'vacation' || isOfficialHoliday(record.attendance_date)) {
+          if (record.record_status === 'vacation' || isOfficialHoliday(record.attendance_date, employeeCode)) {
             // Check if employee was absent before this vacation/holiday
             let absentBefore = false;
             for (let i = index - 1; i >= 0; i--) {
@@ -1734,7 +1747,7 @@ const SavedAttendance = () => {
               
               // Only check immediate previous working day (skip weekends)
               if (dayDiff > 3) break;
-              if (isWeekend(prevRecord.attendance_date) || isOfficialHoliday(prevRecord.attendance_date)) continue;
+              if (isWeekend(prevRecord.attendance_date) || isOfficialHoliday(prevRecord.attendance_date, employeeCode)) continue;
               
               if (prevRecord.record_status === 'absent') {
                 absentBefore = true;
@@ -1752,7 +1765,7 @@ const SavedAttendance = () => {
               
               // Only check immediate next working day (skip weekends)
               if (dayDiff > 3) break;
-              if (isWeekend(nextRecord.attendance_date) || isOfficialHoliday(nextRecord.attendance_date)) continue;
+              if (isWeekend(nextRecord.attendance_date) || isOfficialHoliday(nextRecord.attendance_date, employeeCode)) continue;
               
               if (nextRecord.record_status === 'absent') {
                 absentAfter = true;
