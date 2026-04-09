@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw, Lightbulb } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -101,6 +101,15 @@ const PricingScenario = () => {
   const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>(DEFAULT_COINS_TIERS);
   const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
   const [newCoinValue, setNewCoinValue] = useState("");
+  const [suggestCoinsDialogOpen, setSuggestCoinsDialogOpen] = useState(false);
+  const [suggestSalePrice, setSuggestSalePrice] = useState("");
+  const suggestedCoins = useMemo(() => {
+    const price = parseFloat(suggestSalePrice);
+    if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
+    // sarPrice = (coins / sales1UsdCoins) * rate => coins = sarPrice * sales1UsdCoins / rate
+    const coins = (price * inputs.sales1UsdCoins) / inputs.rate;
+    return Math.round(coins);
+  }, [suggestSalePrice, inputs.sales1UsdCoins, inputs.rate]);
   const [generatingProducts, setGeneratingProducts] = useState(false);
   const [updatingPrices, setUpdatingPrices] = useState(false);
   const [updatePriceDialogOpen, setUpdatePriceDialogOpen] = useState(false);
@@ -962,6 +971,10 @@ const PricingScenario = () => {
               <Button variant="outline" onClick={() => setAddCoinDialogOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
                 {isRTL ? "إضافة فئة كوينز" : "Add Coin Category"}
+              </Button>
+              <Button variant="outline" onClick={() => { setSuggestSalePrice(""); setSuggestCoinsDialogOpen(true); }} className="gap-2">
+                <Lightbulb className="h-4 w-4" />
+                {isRTL ? "اقتراح عدد الكوينز" : "Suggest Coins"}
               </Button>
               <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
                 {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
