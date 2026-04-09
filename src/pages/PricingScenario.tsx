@@ -65,6 +65,7 @@ interface Brand {
   brand_name: string;
   brand_code: string | null;
   sku_start_with: string | null;
+  brand_type: { type_name: string } | null;
 }
 
 const DEFAULT_COINS_TIERS = [
@@ -125,7 +126,7 @@ const PricingScenario = () => {
     const fetchBrands = async () => {
       const { data } = await supabase
         .from("brands")
-        .select("id, brand_name, brand_code, sku_start_with")
+        .select("id, brand_name, brand_code, sku_start_with, brand_type:brand_type(type_name)")
         .eq("status", "active")
         .eq("abc_analysis", "A")
         .order("brand_name");
@@ -502,6 +503,7 @@ const PricingScenario = () => {
             brand_name: inputs.brandName,
             brand_code: brand?.brand_code || null,
             coins_number: r.coins,
+            brand_type: brand?.brand_type?.type_name || null,
             status: "active",
             creation_source: "manual",
           };
