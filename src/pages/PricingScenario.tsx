@@ -65,6 +65,7 @@ interface Brand {
   brand_name: string;
   brand_code: string | null;
   sku_start_with: string | null;
+  brand_type: { type_name: string } | null;
 }
 
 const DEFAULT_COINS_TIERS = [
