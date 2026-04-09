@@ -98,6 +98,7 @@ const PricingScenario = () => {
   const [showResults, setShowResults] = useState(false);
   const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
   const [customCoinsTiers, setCustomCoinsTiers] = useState<number[]>([]);
+  const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>(DEFAULT_COINS_TIERS);
   const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
   const [newCoinValue, setNewCoinValue] = useState("");
   const [generatingProducts, setGeneratingProducts] = useState(false);
@@ -174,9 +175,9 @@ const PricingScenario = () => {
   }, [totalTransferProfit, amountTransferSAR]);
 
   const allCoinsTiers = useMemo(() => {
-    const merged = [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
+    const merged = savedCoinsTiers.length > 0 ? savedCoinsTiers : [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
     return [...new Set(merged)].sort((a, b) => a - b);
-  }, [customCoinsTiers]);
+  }, [savedCoinsTiers, customCoinsTiers]);
 
   const selectedMethods = useMemo(
     () => paymentMethods.filter((m) => selectedMethodIds.includes(m.id)),
@@ -525,6 +526,7 @@ const PricingScenario = () => {
 
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
+    setSavedCoinsTiers([...savedCoinsTiers].sort((a, b) => a - b));
     setCustomCoinsTiers(restoredCustomTiers);
     setExcludedCoins(new Set(normalizedExcludedCoins));
     setSelectedBrandId(scenario.brand_id || "");
@@ -665,7 +667,7 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); }} className="gap-2">
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSavedCoinsTiers(DEFAULT_COINS_TIERS); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>
@@ -938,6 +940,7 @@ const PricingScenario = () => {
                             <TableCell className="text-center">
                               <button
                                 onClick={() => {
+                                  setSavedCoinsTiers((prev) => prev.filter((coin) => coin !== r.coins));
                                   setCustomCoinsTiers((prev) => prev.filter((t) => t !== r.coins));
                                   setExcludedCoins((prev) => {
                                     const next = new Set(prev);
@@ -947,7 +950,6 @@ const PricingScenario = () => {
                                 }}
                                 className="text-muted-foreground hover:text-destructive transition-colors"
                                 title={isRTL ? "حذف الفئة" : "Remove category"}
-                                disabled={!customCoinsTiers.includes(r.coins)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
