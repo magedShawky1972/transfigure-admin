@@ -477,10 +477,12 @@ const PricingScenario = () => {
     const savedCustomTiers = Array.isArray((scenario.inputs as any)?.customCoinsTiers)
       ? (scenario.inputs as any).customCoinsTiers.map(Number).filter(Number.isFinite)
       : [];
-    const scenarioCoins = [...new Set([...DEFAULT_COINS_TIERS, ...savedCustomTiers])].sort((a, b) => a - b);
+    const savedCoinsTiers = Array.isArray((scenario.inputs as any)?.savedCoinsTiers)
+      ? (scenario.inputs as any).savedCoinsTiers.map(Number).filter(Number.isFinite)
+      : [...new Set([...DEFAULT_COINS_TIERS, ...savedCustomTiers])];
     const selectionState = (scenario.inputs as any)?.coinSelectionState;
     const excludedFromSelectionState = selectionState && typeof selectionState === "object"
-      ? scenarioCoins.filter((coin) => selectionState[String(coin)] === false)
+      ? savedCoinsTiers.filter((coin) => selectionState[String(coin)] === false)
       : [];
     const excludedFromInputs = Array.isArray((scenario.inputs as any)?.excludedCoins)
       ? (scenario.inputs as any).excludedCoins
@@ -491,9 +493,11 @@ const PricingScenario = () => {
         .filter((coin: number) => Number.isFinite(coin))
     )].sort((a: number, b: number) => a - b);
 
+    const restoredCustomTiers = savedCoinsTiers.filter((coin) => !DEFAULT_COINS_TIERS.includes(coin));
+
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
-    setCustomCoinsTiers(savedCustomTiers);
+    setCustomCoinsTiers(restoredCustomTiers);
     setExcludedCoins(new Set(normalizedExcludedCoins));
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
@@ -906,16 +910,16 @@ const PricingScenario = () => {
                             <TableCell className="text-center">
                               <button
                                 onClick={() => {
-                                  if (customCoinsTiers.includes(r.coins)) {
-                                    setCustomCoinsTiers((prev) => prev.filter((t) => t !== r.coins));
-                                  }
-                                  setExcludedCoins((prev) => { const next = new Set(prev); next.add(r.coins); return next; });
-                                  if (!customCoinsTiers.includes(r.coins)) {
-                                    setExcludedCoins((prev) => { const next = new Set(prev); next.add(r.coins); return next; });
-                                  }
+                                  setCustomCoinsTiers((prev) => prev.filter((t) => t !== r.coins));
+                                  setExcludedCoins((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(r.coins);
+                                    return next;
+                                  });
                                 }}
                                 className="text-muted-foreground hover:text-destructive transition-colors"
                                 title={isRTL ? "حذف الفئة" : "Remove category"}
+                                disabled={!customCoinsTiers.includes(r.coins)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
