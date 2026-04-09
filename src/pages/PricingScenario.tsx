@@ -102,6 +102,7 @@ const PricingScenario = () => {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [scenarioDescription, setScenarioDescription] = useState("");
+  const [saveMode, setSaveMode] = useState<"new" | "overwrite" | "version" | null>(null);
   const [savedScenarios, setSavedScenarios] = useState<SavedScenario[]>([]);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -374,8 +375,8 @@ const PricingScenario = () => {
   };
 
   // ========== Save Scenario ==========
-  const saveScenario = async () => {
-    if (!scenarioDescription.trim()) {
+  const saveScenario = async (mode: "new" | "overwrite" | "version") => {
+    if ((mode === "new" || mode === "version") && !scenarioDescription.trim()) {
       toast.error(isRTL ? "يرجى إدخال وصف" : "Please enter a description");
       return;
     }
@@ -383,22 +384,41 @@ const PricingScenario = () => {
       toast.error(isRTL ? "يجب تسجيل الدخول" : "Must be logged in");
       return;
     }
-    const { data: inserted, error } = await supabase.from("pricing_scenarios").insert({
-      description: scenarioDescription.trim(),
-      inputs: inputs as any,
-      selected_payment_method_ids: selectedMethodIds,
-      excluded_coins: Array.from(excludedCoins),
-      created_by: currentUser.id,
-      created_by_name: currentUser.name,
-      brand_id: selectedBrandId || null,
-    } as any).select("id").single();
-    if (error) {
-      toast.error(error.message);
+
+    if (mode === "overwrite" && currentScenarioId) {
+      // Overwrite existing scenario
+      const { error } = await supabase.from("pricing_scenarios").update({
+        inputs: inputs as any,
+        selected_payment_method_ids: selectedMethodIds,
+        excluded_coins: Array.from(excludedCoins),
+        brand_id: selectedBrandId || null,
+        updated_at: new Date().toISOString(),
+      } as any).eq("id", currentScenarioId);
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success(isRTL ? "تم تحديث السيناريو" : "Scenario updated successfully");
+        setSaveDialogOpen(false);
+      }
     } else {
-      toast.success(isRTL ? "تم حفظ السيناريو" : "Scenario saved successfully");
-      if (inserted) setCurrentScenarioId(inserted.id);
-      setSaveDialogOpen(false);
-      setScenarioDescription("");
+      // Insert new (either brand new or version)
+      const { data: inserted, error } = await supabase.from("pricing_scenarios").insert({
+        description: scenarioDescription.trim(),
+        inputs: inputs as any,
+        selected_payment_method_ids: selectedMethodIds,
+        excluded_coins: Array.from(excludedCoins),
+        created_by: currentUser.id,
+        created_by_name: currentUser.name,
+        brand_id: selectedBrandId || null,
+      } as any).select("id").single();
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success(isRTL ? "تم حفظ السيناريو" : "Scenario saved successfully");
+        if (inserted) setCurrentScenarioId(inserted.id);
+        setSaveDialogOpen(false);
+        setScenarioDescription("");
+      }
     }
   };
 
@@ -556,7 +576,11 @@ const PricingScenario = () => {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => { setScenarioDescription(inputs.brandName ? `${inputs.brandName} Scenario` : ""); setSaveDialogOpen(true); }} className="gap-2">
+          <Button variant="outline" onClick={() => {
+            setScenarioDescription(inputs.brandName ? `${inputs.brandName} Scenario` : "");
+            setSaveMode(currentScenarioId ? null : "new");
+            setSaveDialogOpen(true);
+          }} className="gap-2">
             <Save className="h-4 w-4" />
             {isRTL ? "حفظ" : "Save"}
           </Button>
@@ -852,23 +876,68 @@ const PricingScenario = () => {
           <DialogHeader>
             <DialogTitle>{isRTL ? "حفظ السيناريو" : "Save Scenario"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{isRTL ? "وصف السيناريو" : "Scenario Description"}</Label>
-              <Input
-                value={scenarioDescription}
-                onChange={(e) => setScenarioDescription(e.target.value)}
-                placeholder={isRTL ? "مثال: سيناريو بيلا 1" : "e.g. Beela Scenario 1"}
-              />
+          {currentScenarioId && saveMode === null ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {isRTL ? "هذا السيناريو محمّل مسبقاً. كيف تريد الحفظ؟" : "This scenario is already loaded. How would you like to save?"}
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" className="justify-start gap-2 h-auto py-3" onClick={() => setSaveMode("overwrite")}>
+                  <Save className="h-4 w-4 shrink-0" />
+                  <div className="text-left">
+                    <p className="font-medium">{isRTL ? "الكتابة فوق الحالي" : "Overwrite Current"}</p>
+                    <p className="text-xs text-muted-foreground">{isRTL ? "تحديث السيناريو الحالي بالتغييرات الجديدة" : "Update the current scenario with new changes"}</p>
+                  </div>
+                </Button>
+                <Button variant="outline" className="justify-start gap-2 h-auto py-3" onClick={() => { setSaveMode("version"); setScenarioDescription(inputs.brandName ? `${inputs.brandName} Scenario v2` : ""); }}>
+                  <FolderOpen className="h-4 w-4 shrink-0" />
+                  <div className="text-left">
+                    <p className="font-medium">{isRTL ? "إنشاء نسخة جديدة" : "Create New Version"}</p>
+                    <p className="text-xs text-muted-foreground">{isRTL ? "حفظ كنسخة جديدة من نفس السيناريو" : "Save as a new version of the same scenario"}</p>
+                  </div>
+                </Button>
+                <Button variant="outline" className="justify-start gap-2 h-auto py-3" onClick={() => { setSaveMode("new"); setScenarioDescription(""); }}>
+                  <PackagePlus className="h-4 w-4 shrink-0" />
+                  <div className="text-left">
+                    <p className="font-medium">{isRTL ? "سيناريو جديد" : "New Scenario"}</p>
+                    <p className="text-xs text-muted-foreground">{isRTL ? "حفظ كسيناريو جديد بالكامل" : "Save as a completely new scenario"}</p>
+                  </div>
+                </Button>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>{isRTL ? "إلغاء" : "Cancel"}</Button>
-            <Button onClick={saveScenario} className="gap-2">
-              <Save className="h-4 w-4" />
-              {isRTL ? "حفظ" : "Save"}
-            </Button>
-          </DialogFooter>
+          ) : saveMode === "overwrite" ? (
+            <div className="space-y-4">
+              <p className="text-sm">
+                {isRTL ? "هل أنت متأكد من الكتابة فوق السيناريو الحالي؟" : "Are you sure you want to overwrite the current scenario?"}
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSaveMode(null)}>{isRTL ? "رجوع" : "Back"}</Button>
+                <Button onClick={() => saveScenario("overwrite")} className="gap-2">
+                  <Save className="h-4 w-4" />
+                  {isRTL ? "تحديث" : "Update"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{isRTL ? "وصف السيناريو" : "Scenario Description"}</Label>
+                <Input
+                  value={scenarioDescription}
+                  onChange={(e) => setScenarioDescription(e.target.value)}
+                  placeholder={isRTL ? "مثال: سيناريو بيلا 1" : "e.g. Beela Scenario 1"}
+                />
+              </div>
+              <DialogFooter>
+                {currentScenarioId && <Button variant="outline" onClick={() => setSaveMode(null)}>{isRTL ? "رجوع" : "Back"}</Button>}
+                <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>{isRTL ? "إلغاء" : "Cancel"}</Button>
+                <Button onClick={() => saveScenario(saveMode || "new")} className="gap-2">
+                  <Save className="h-4 w-4" />
+                  {isRTL ? "حفظ" : "Save"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
