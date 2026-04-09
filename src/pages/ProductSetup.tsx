@@ -1616,13 +1616,13 @@ const ProductSetup = () => {
 
       {/* Edit/Add Dialog */}
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? t("productSetup.editProduct") : t("productSetup.addNew")}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="product_id">{t("productSetup.productId")}</Label>
               <Input
@@ -1659,7 +1659,6 @@ const ProductSetup = () => {
                         .single();
                       let prefix = (brandData as any)?.sku_start_with;
                       if (!prefix) {
-                        // Fallback: use brand name's first 2 uppercase characters
                         const brandName = formData.brand_name || formData.brand_code || "";
                         prefix = brandName.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase();
                         if (!prefix) {
@@ -1781,7 +1780,7 @@ const ProductSetup = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 pt-6">
               <Checkbox
                 id="allow_purchase"
                 checked={formData.allow_purchase}
@@ -1789,7 +1788,7 @@ const ProductSetup = () => {
               />
               <Label htmlFor="allow_purchase">Allow Purchase</Label>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="col-span-2 flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
                 {t("productSetup.cancel")}
               </Button>
