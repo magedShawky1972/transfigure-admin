@@ -936,6 +936,10 @@ const PricingScenario = () => {
                 {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
                 {isRTL ? "إنشاء المنتجات و SKU" : "Generate Products & SKU"}
               </Button>
+              <Button variant="secondary" onClick={updateProductPrices} disabled={updatingPrices || !selectedBrandId} className="gap-2">
+                {updatingPrices ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {isRTL ? "تحديث أسعار المنتجات" : "Update Product Prices"}
+              </Button>
             </div>
           </div>
 
