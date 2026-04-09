@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw, Lightbulb } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -101,6 +101,15 @@ const PricingScenario = () => {
   const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>(DEFAULT_COINS_TIERS);
   const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
   const [newCoinValue, setNewCoinValue] = useState("");
+  const [suggestCoinsDialogOpen, setSuggestCoinsDialogOpen] = useState(false);
+  const [suggestSalePrice, setSuggestSalePrice] = useState("");
+  const suggestedCoins = useMemo(() => {
+    const price = parseFloat(suggestSalePrice);
+    if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
+    // sarPrice = (coins / sales1UsdCoins) * rate => coins = sarPrice * sales1UsdCoins / rate
+    const coins = (price * inputs.sales1UsdCoins) / inputs.rate;
+    return Math.round(coins);
+  }, [suggestSalePrice, inputs.sales1UsdCoins, inputs.rate]);
   const [generatingProducts, setGeneratingProducts] = useState(false);
   const [updatingPrices, setUpdatingPrices] = useState(false);
   const [updatePriceDialogOpen, setUpdatePriceDialogOpen] = useState(false);
@@ -963,6 +972,10 @@ const PricingScenario = () => {
                 <Plus className="h-4 w-4" />
                 {isRTL ? "إضافة فئة كوينز" : "Add Coin Category"}
               </Button>
+              <Button variant="outline" onClick={() => { setSuggestSalePrice(""); setSuggestCoinsDialogOpen(true); }} className="gap-2">
+                <Lightbulb className="h-4 w-4" />
+                {isRTL ? "اقتراح عدد الكوينز" : "Suggest Coins"}
+              </Button>
               <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
                 {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
                 {isRTL ? "إنشاء المنتجات و SKU" : "Generate Products & SKU"}
@@ -1244,7 +1257,59 @@ const PricingScenario = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Update Product Prices Progress Dialog */}
+      {/* Suggest Coins by Sale Price Dialog */}
+      <Dialog open={suggestCoinsDialogOpen} onOpenChange={setSuggestCoinsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "اقتراح عدد الكوينز حسب سعر البيع" : "Suggest Coins by Sale Price"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{isRTL ? "سعر البيع بالريال (SAR)" : "Sale Price (SAR)"}</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={suggestSalePrice}
+                onChange={(e) => setSuggestSalePrice(e.target.value)}
+                placeholder={isRTL ? "أدخل سعر البيع المطلوب" : "Enter desired sale price"}
+              />
+            </div>
+            {suggestedCoins !== null && suggestedCoins > 0 && (
+              <div className="p-4 rounded-lg bg-muted space-y-2">
+                <p className="text-sm text-muted-foreground">{isRTL ? "عدد الكوينز المقترح" : "Suggested Coins"}</p>
+                <p className="text-3xl font-bold text-primary">{suggestedCoins.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">
+                  {isRTL ? `بناءً على سعر 1$ = ${inputs.sales1UsdCoins} كوينز وسعر الصرف ${inputs.rate}` : `Based on 1 USD = ${inputs.sales1UsdCoins} coins and rate ${inputs.rate}`}
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuggestCoinsDialogOpen(false)}>
+              {isRTL ? "إغلاق" : "Close"}
+            </Button>
+            <Button
+              disabled={!suggestedCoins || suggestedCoins <= 0}
+              onClick={() => {
+                if (!suggestedCoins || suggestedCoins <= 0) return;
+                if (allCoinsTiers.includes(suggestedCoins)) {
+                  toast.info(isRTL ? "هذه الفئة موجودة بالفعل" : "This coin tier already exists");
+                } else {
+                  setCustomCoinsTiers((prev) => [...prev, suggestedCoins]);
+                  setSavedCoinsTiers((prev) => [...new Set([...prev, suggestedCoins])].sort((a, b) => a - b));
+                  toast.success(isRTL ? `تم إضافة ${suggestedCoins.toLocaleString()} كوينز` : `Added ${suggestedCoins.toLocaleString()} coins`);
+                }
+                setSuggestCoinsDialogOpen(false);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {isRTL ? "إضافة للجدول" : "Add to Table"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={updatePriceDialogOpen} onOpenChange={(open) => { if (updatePriceStatus.done) setUpdatePriceDialogOpen(open); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
