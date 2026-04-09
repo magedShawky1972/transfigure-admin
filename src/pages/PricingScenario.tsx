@@ -1257,7 +1257,59 @@ const PricingScenario = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Update Product Prices Progress Dialog */}
+      {/* Suggest Coins by Sale Price Dialog */}
+      <Dialog open={suggestCoinsDialogOpen} onOpenChange={setSuggestCoinsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "اقتراح عدد الكوينز حسب سعر البيع" : "Suggest Coins by Sale Price"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{isRTL ? "سعر البيع بالريال (SAR)" : "Sale Price (SAR)"}</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={suggestSalePrice}
+                onChange={(e) => setSuggestSalePrice(e.target.value)}
+                placeholder={isRTL ? "أدخل سعر البيع المطلوب" : "Enter desired sale price"}
+              />
+            </div>
+            {suggestedCoins !== null && suggestedCoins > 0 && (
+              <div className="p-4 rounded-lg bg-muted space-y-2">
+                <p className="text-sm text-muted-foreground">{isRTL ? "عدد الكوينز المقترح" : "Suggested Coins"}</p>
+                <p className="text-3xl font-bold text-primary">{suggestedCoins.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">
+                  {isRTL ? `بناءً على سعر 1$ = ${inputs.sales1UsdCoins} كوينز وسعر الصرف ${inputs.rate}` : `Based on 1 USD = ${inputs.sales1UsdCoins} coins and rate ${inputs.rate}`}
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuggestCoinsDialogOpen(false)}>
+              {isRTL ? "إغلاق" : "Close"}
+            </Button>
+            <Button
+              disabled={!suggestedCoins || suggestedCoins <= 0}
+              onClick={() => {
+                if (!suggestedCoins || suggestedCoins <= 0) return;
+                if (allCoinsTiers.includes(suggestedCoins)) {
+                  toast.info(isRTL ? "هذه الفئة موجودة بالفعل" : "This coin tier already exists");
+                } else {
+                  setCustomCoinsTiers((prev) => [...prev, suggestedCoins]);
+                  setSavedCoinsTiers((prev) => [...new Set([...prev, suggestedCoins])].sort((a, b) => a - b));
+                  toast.success(isRTL ? `تم إضافة ${suggestedCoins.toLocaleString()} كوينز` : `Added ${suggestedCoins.toLocaleString()} coins`);
+                }
+                setSuggestCoinsDialogOpen(false);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              {isRTL ? "إضافة للجدول" : "Add to Table"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={updatePriceDialogOpen} onOpenChange={(open) => { if (updatePriceStatus.done) setUpdatePriceDialogOpen(open); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
