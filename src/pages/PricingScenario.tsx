@@ -173,6 +173,11 @@ const PricingScenario = () => {
     return (totalTransferProfit / amountTransferSAR) * 100;
   }, [totalTransferProfit, amountTransferSAR]);
 
+  const allCoinsTiers = useMemo(() => {
+    const merged = [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
+    return [...new Set(merged)].sort((a, b) => a - b);
+  }, [customCoinsTiers]);
+
   const selectedMethods = useMemo(
     () => paymentMethods.filter((m) => selectedMethodIds.includes(m.id)),
     [paymentMethods, selectedMethodIds]
