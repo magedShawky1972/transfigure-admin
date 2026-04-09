@@ -474,6 +474,10 @@ const PricingScenario = () => {
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
     setExcludedCoins(new Set(normalizedExcludedCoins));
+    const savedCustomTiers = Array.isArray((scenario.inputs as any)?.customCoinsTiers)
+      ? (scenario.inputs as any).customCoinsTiers.map(Number).filter(Number.isFinite)
+      : [];
+    setCustomCoinsTiers(savedCustomTiers);
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
     setIsCurrentActive(scenario.is_active);
