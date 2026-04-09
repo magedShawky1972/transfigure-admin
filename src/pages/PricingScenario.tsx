@@ -663,16 +663,22 @@ const PricingScenario = () => {
       return;
     }
 
-    setUpdatingPrices(true);
-    try {
-      const method = selectedMethods[0];
-      const results = calculateForMethod(method);
-      const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
+    const method = selectedMethods[0];
+    const results = calculateForMethod(method);
+    const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
 
+    setUpdatePriceStatus({ current: 0, total: filteredResults.length, currentCoins: 0, updated: 0, skipped: 0, error: null, done: false });
+    setUpdatePriceDialogOpen(true);
+    setUpdatingPrices(true);
+
+    try {
       let updatedCount = 0;
       let skippedCount = 0;
 
-      for (const row of filteredResults) {
+      for (let i = 0; i < filteredResults.length; i++) {
+        const row = filteredResults[i];
+        setUpdatePriceStatus(prev => ({ ...prev, current: i + 1, currentCoins: row.coins }));
+
         const { data: existing } = await supabase
           .from("products")
           .select("id, product_price, product_cost")
@@ -681,6 +687,7 @@ const PricingScenario = () => {
 
         if (!existing || existing.length === 0) {
           skippedCount++;
+          setUpdatePriceStatus(prev => ({ ...prev, skipped: skippedCount }));
           continue;
         }
 
@@ -689,6 +696,7 @@ const PricingScenario = () => {
           const newCost = row.costSar.toFixed(4);
           if (product.product_price === newPrice && product.product_cost === newCost) {
             skippedCount++;
+            setUpdatePriceStatus(prev => ({ ...prev, skipped: skippedCount }));
             continue;
           }
           const { error } = await supabase
@@ -697,16 +705,13 @@ const PricingScenario = () => {
             .eq("id", product.id);
           if (error) throw error;
           updatedCount++;
+          setUpdatePriceStatus(prev => ({ ...prev, updated: updatedCount }));
         }
       }
 
-      toast.success(
-        isRTL
-          ? `تم تحديث ${updatedCount} منتج، تم تخطي ${skippedCount}`
-          : `${updatedCount} products updated, ${skippedCount} skipped`
-      );
+      setUpdatePriceStatus(prev => ({ ...prev, done: true }));
     } catch (error: any) {
-      toast.error(error.message);
+      setUpdatePriceStatus(prev => ({ ...prev, error: error.message, done: true }));
     } finally {
       setUpdatingPrices(false);
     }
