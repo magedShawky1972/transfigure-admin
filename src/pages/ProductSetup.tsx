@@ -1797,6 +1797,7 @@ const ProductSetup = () => {
               </Button>
             </div>
           </form>
+        </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
