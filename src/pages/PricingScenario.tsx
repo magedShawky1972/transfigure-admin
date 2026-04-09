@@ -63,6 +63,7 @@ interface SavedScenario {
 interface Brand {
   id: string;
   brand_name: string;
+  sku_start_with: string | null;
 }
 
 const DEFAULT_COINS_TIERS = [
@@ -123,8 +124,9 @@ const PricingScenario = () => {
     const fetchBrands = async () => {
       const { data } = await supabase
         .from("brands")
-        .select("id, brand_name")
+        .select("id, brand_name, sku_start_with")
         .eq("status", "active")
+        .eq("abc_analysis", "A")
         .order("brand_name");
       if (data) setBrands(data);
     };
@@ -485,7 +487,15 @@ const PricingScenario = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>{isRTL ? "اسم العلامة التجارية" : "Brand Name"}</Label>
+              <Label>
+                {isRTL ? "اسم العلامة التجارية" : "Brand Name"}
+                {selectedBrandId && (() => {
+                  const brand = brands.find(b => b.id === selectedBrandId);
+                  return brand?.sku_start_with ? (
+                    <span className="ml-2 text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">{brand.sku_start_with}</span>
+                  ) : null;
+                })()}
+              </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
