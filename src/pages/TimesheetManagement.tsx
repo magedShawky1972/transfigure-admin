@@ -1794,13 +1794,13 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 15 : 14} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 16 : 15} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 15 : 14} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 16 : 15} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
