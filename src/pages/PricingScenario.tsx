@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus } from "lucide-react";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -102,6 +102,7 @@ const PricingScenario = () => {
   const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
   const [newCoinValue, setNewCoinValue] = useState("");
   const [generatingProducts, setGeneratingProducts] = useState(false);
+  const [updatingPrices, setUpdatingPrices] = useState(false);
   // Save/Load state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
@@ -631,6 +632,68 @@ const PricingScenario = () => {
     }
   };
 
+  // ========== Update Product Prices ==========
+  const updateProductPrices = async () => {
+    if (selectedMethods.length === 0 || !selectedBrandId || !inputs.brandName) {
+      toast.error(isRTL ? "يرجى اختيار علامة تجارية وطريقة دفع" : "Please select a brand and payment method");
+      return;
+    }
+    const brand = brands.find(b => b.id === selectedBrandId);
+    const brandCode = brand?.brand_code || "";
+    if (!brandCode) {
+      toast.error(isRTL ? "لا يوجد كود براند" : "No brand code found");
+      return;
+    }
+
+    setUpdatingPrices(true);
+    try {
+      const method = selectedMethods[0];
+      const results = calculateForMethod(method);
+      const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
+
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (const row of filteredResults) {
+        const { data: existing } = await supabase
+          .from("products")
+          .select("id, product_price, product_cost")
+          .eq("brand_code", brandCode)
+          .eq("coins_number", row.coins);
+
+        if (!existing || existing.length === 0) {
+          skippedCount++;
+          continue;
+        }
+
+        for (const product of existing) {
+          const newPrice = row.sarPrice.toFixed(4);
+          const newCost = row.costSar.toFixed(4);
+          if (product.product_price === newPrice && product.product_cost === newCost) {
+            skippedCount++;
+            continue;
+          }
+          const { error } = await supabase
+            .from("products")
+            .update({ product_price: newPrice, product_cost: newCost })
+            .eq("id", product.id);
+          if (error) throw error;
+          updatedCount++;
+        }
+      }
+
+      toast.success(
+        isRTL
+          ? `تم تحديث ${updatedCount} منتج، تم تخطي ${skippedCount}`
+          : `${updatedCount} products updated, ${skippedCount} skipped`
+      );
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setUpdatingPrices(false);
+    }
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -872,6 +935,10 @@ const PricingScenario = () => {
               <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
                 {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
                 {isRTL ? "إنشاء المنتجات و SKU" : "Generate Products & SKU"}
+              </Button>
+              <Button variant="secondary" onClick={updateProductPrices} disabled={updatingPrices || !selectedBrandId} className="gap-2">
+                {updatingPrices ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {isRTL ? "تحديث أسعار المنتجات" : "Update Product Prices"}
               </Button>
             </div>
           </div>
