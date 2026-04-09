@@ -481,11 +481,11 @@ const PricingScenario = () => {
     const excludedFromInputs = Array.isArray((scenario.inputs as any)?.excludedCoins)
       ? (scenario.inputs as any).excludedCoins
       : [];
-    const normalizedExcludedCoins = [...new Set(
+    const normalizedExcludedCoins: number[] = [...new Set<number>(
       (excludedFromSelectionState.length ? excludedFromSelectionState : (scenario.excluded_coins?.length ? scenario.excluded_coins : excludedFromInputs))
         .map((coin: unknown) => Number(coin))
         .filter((coin: number) => Number.isFinite(coin))
-    )].sort((a, b) => a - b);
+    )].sort((a: number, b: number) => a - b);
 
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
