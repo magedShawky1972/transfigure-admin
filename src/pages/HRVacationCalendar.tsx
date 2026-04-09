@@ -817,6 +817,25 @@ const HRVacationCalendar = () => {
                   : "Select 'All' if this holiday applies to everyone, or specify a religion"}
               </p>
             </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الدولة" : "Country"}</Label>
+              <Select
+                value={formData.country}
+                onValueChange={(value) => setFormData({ ...formData, country: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+                  <SelectItem value="egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                  <SelectItem value="ksa">{language === "ar" ? "السعودية" : "KSA"}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {language === "ar" 
+                  ? "اختر 'الكل' إذا كانت الإجازة لجميع الدول، أو حدد دولة معينة"
+                  : "Select 'All' if this holiday applies to all countries, or specify a country"}
             <div className="flex items-center justify-between">
               <Label>{language === "ar" ? "إجازة سنوية متكررة" : "Recurring Yearly"}</Label>
               <Switch
