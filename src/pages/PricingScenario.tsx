@@ -385,12 +385,17 @@ const PricingScenario = () => {
       return;
     }
 
+    const normalizedExcludedCoins = Array.from(excludedCoins).map((coin) => Number(coin)).filter((coin) => Number.isFinite(coin));
+    const scenarioInputs = {
+      ...inputs,
+      excludedCoins: normalizedExcludedCoins,
+    };
+
     if (mode === "overwrite" && currentScenarioId) {
-      // Overwrite existing scenario
       const { error } = await supabase.from("pricing_scenarios").update({
-        inputs: inputs as any,
+        inputs: scenarioInputs as any,
         selected_payment_method_ids: selectedMethodIds,
-        excluded_coins: Array.from(excludedCoins),
+        excluded_coins: normalizedExcludedCoins,
         brand_id: selectedBrandId || null,
         updated_at: new Date().toISOString(),
       } as any).eq("id", currentScenarioId);
@@ -401,12 +406,11 @@ const PricingScenario = () => {
         setSaveDialogOpen(false);
       }
     } else {
-      // Insert new (either brand new or version)
       const { data: inserted, error } = await supabase.from("pricing_scenarios").insert({
         description: scenarioDescription.trim(),
-        inputs: inputs as any,
+        inputs: scenarioInputs as any,
         selected_payment_method_ids: selectedMethodIds,
-        excluded_coins: Array.from(excludedCoins),
+        excluded_coins: normalizedExcludedCoins,
         created_by: currentUser.id,
         created_by_name: currentUser.name,
         brand_id: selectedBrandId || null,
@@ -451,9 +455,16 @@ const PricingScenario = () => {
   };
 
   const applyScenario = (scenario: SavedScenario) => {
+    const excludedFromInputs = Array.isArray((scenario.inputs as any)?.excludedCoins)
+      ? (scenario.inputs as any).excludedCoins
+      : [];
+    const normalizedExcludedCoins = (scenario.excluded_coins?.length ? scenario.excluded_coins : excludedFromInputs)
+      .map((coin: unknown) => Number(coin))
+      .filter((coin: number) => Number.isFinite(coin));
+
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
-    setExcludedCoins(new Set(scenario.excluded_coins || []));
+    setExcludedCoins(new Set(normalizedExcludedCoins));
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
     setIsCurrentActive(scenario.is_active);
