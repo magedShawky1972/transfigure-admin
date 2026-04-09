@@ -103,6 +103,8 @@ const PricingScenario = () => {
   const [newCoinValue, setNewCoinValue] = useState("");
   const [generatingProducts, setGeneratingProducts] = useState(false);
   const [updatingPrices, setUpdatingPrices] = useState(false);
+  const [updatePriceDialogOpen, setUpdatePriceDialogOpen] = useState(false);
+  const [updatePriceStatus, setUpdatePriceStatus] = useState<{ current: number; total: number; currentCoins: number; updated: number; skipped: number; error: string | null; done: boolean }>({ current: 0, total: 0, currentCoins: 0, updated: 0, skipped: 0, error: null, done: false });
   // Save/Load state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
