@@ -175,6 +175,12 @@ const PricingScenario = () => {
     return (totalTransferProfit / amountTransferSAR) * 100;
   }, [totalTransferProfit, amountTransferSAR]);
 
+  const totalTransferProfitPercentByTxRate = useMemo(() => {
+    const amountByPricingRate = inputs.amountToTransfer * inputs.rate;
+    if (amountByPricingRate <= 0) return 0;
+    return (totalTransferProfit / amountByPricingRate) * 100;
+  }, [totalTransferProfit, inputs.amountToTransfer, inputs.rate]);
+
   const allCoinsTiers = useMemo(() => {
     const merged = savedCoinsTiers.length > 0 ? savedCoinsTiers : [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
     return [...new Set(merged)].sort((a, b) => a - b);
