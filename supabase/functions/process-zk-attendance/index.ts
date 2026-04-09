@@ -332,7 +332,10 @@ Deno.serve(async (req) => {
       );
       
       if (isOfficialHoliday) {
-        console.log(`${employee.first_name} ${employee.last_name} - skipping official holiday (${holidayName})`);
+        const empHolidayName = employeeHolidays.length > 0 
+          ? (employeeHolidays[0].holiday_name_ar || employeeHolidays[0].holiday_name)
+          : holidayName;
+        console.log(`${employee.first_name} ${employee.last_name} - skipping official holiday (${empHolidayName})`);
         
         // Create holiday timesheet record
         const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
