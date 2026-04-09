@@ -375,8 +375,8 @@ const PricingScenario = () => {
   };
 
   // ========== Save Scenario ==========
-  const saveScenario = async () => {
-    if (!scenarioDescription.trim()) {
+  const saveScenario = async (mode: "new" | "overwrite" | "version") => {
+    if ((mode === "new" || mode === "version") && !scenarioDescription.trim()) {
       toast.error(isRTL ? "يرجى إدخال وصف" : "Please enter a description");
       return;
     }
@@ -384,22 +384,41 @@ const PricingScenario = () => {
       toast.error(isRTL ? "يجب تسجيل الدخول" : "Must be logged in");
       return;
     }
-    const { data: inserted, error } = await supabase.from("pricing_scenarios").insert({
-      description: scenarioDescription.trim(),
-      inputs: inputs as any,
-      selected_payment_method_ids: selectedMethodIds,
-      excluded_coins: Array.from(excludedCoins),
-      created_by: currentUser.id,
-      created_by_name: currentUser.name,
-      brand_id: selectedBrandId || null,
-    } as any).select("id").single();
-    if (error) {
-      toast.error(error.message);
+
+    if (mode === "overwrite" && currentScenarioId) {
+      // Overwrite existing scenario
+      const { error } = await supabase.from("pricing_scenarios").update({
+        inputs: inputs as any,
+        selected_payment_method_ids: selectedMethodIds,
+        excluded_coins: Array.from(excludedCoins),
+        brand_id: selectedBrandId || null,
+        updated_at: new Date().toISOString(),
+      } as any).eq("id", currentScenarioId);
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success(isRTL ? "تم تحديث السيناريو" : "Scenario updated successfully");
+        setSaveDialogOpen(false);
+      }
     } else {
-      toast.success(isRTL ? "تم حفظ السيناريو" : "Scenario saved successfully");
-      if (inserted) setCurrentScenarioId(inserted.id);
-      setSaveDialogOpen(false);
-      setScenarioDescription("");
+      // Insert new (either brand new or version)
+      const { data: inserted, error } = await supabase.from("pricing_scenarios").insert({
+        description: scenarioDescription.trim(),
+        inputs: inputs as any,
+        selected_payment_method_ids: selectedMethodIds,
+        excluded_coins: Array.from(excludedCoins),
+        created_by: currentUser.id,
+        created_by_name: currentUser.name,
+        brand_id: selectedBrandId || null,
+      } as any).select("id").single();
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success(isRTL ? "تم حفظ السيناريو" : "Scenario saved successfully");
+        if (inserted) setCurrentScenarioId(inserted.id);
+        setSaveDialogOpen(false);
+        setScenarioDescription("");
+      }
     }
   };
 
