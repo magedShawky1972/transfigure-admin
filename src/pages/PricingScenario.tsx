@@ -1004,6 +1004,67 @@ const PricingScenario = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Coin Category Dialog */}
+      <Dialog open={addCoinDialogOpen} onOpenChange={setAddCoinDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "إضافة فئة كوينز جديدة" : "Add New Coin Category"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{isRTL ? "قيمة الكوينز" : "Coin Value"}</Label>
+              <Input
+                type="number"
+                min="1"
+                value={newCoinValue}
+                onChange={(e) => setNewCoinValue(e.target.value)}
+                placeholder={isRTL ? "مثال: 50000" : "e.g. 50000"}
+              />
+            </div>
+            {customCoinsTiers.length > 0 && (
+              <div>
+                <Label className="text-sm text-muted-foreground">{isRTL ? "الفئات المضافة" : "Added Categories"}</Label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {customCoinsTiers.map((tier) => (
+                    <span key={tier} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-sm">
+                      {tier.toLocaleString()}
+                      <button
+                        onClick={() => setCustomCoinsTiers((prev) => prev.filter((t) => t !== tier))}
+                        className="text-muted-foreground hover:text-destructive ml-1"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddCoinDialogOpen(false)}>
+              {isRTL ? "إغلاق" : "Close"}
+            </Button>
+            <Button onClick={() => {
+              const val = parseInt(newCoinValue);
+              if (!val || val <= 0) {
+                toast.error(isRTL ? "أدخل قيمة صحيحة" : "Enter a valid value");
+                return;
+              }
+              if (allCoinsTiers.includes(val)) {
+                toast.error(isRTL ? "هذه الفئة موجودة بالفعل" : "This category already exists");
+                return;
+              }
+              setCustomCoinsTiers((prev) => [...prev, val]);
+              setNewCoinValue("");
+              toast.success(isRTL ? `تم إضافة ${val.toLocaleString()} كوينز` : `Added ${val.toLocaleString()} coins`);
+            }}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isRTL ? "إضافة" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
