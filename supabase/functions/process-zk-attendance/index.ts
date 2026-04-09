@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
     
     const { data: officialHolidays, error: holidayError } = await supabase
       .from('official_holidays')
-      .select('id, holiday_name, holiday_name_ar, holiday_date, is_recurring, country')
+      .select('id, holiday_name, holiday_name_ar, holiday_date, is_recurring, country, religion')
       .or(`holiday_date.eq.${targetDate},is_recurring.eq.true`);
 
     if (holidayError) {
@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
       .from('employees')
-      .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, email, user_id, basic_salary, requires_attendance_signin')
+      .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, email, user_id, basic_salary, requires_attendance_signin, religion')
       .not('zk_employee_code', 'is', null)
       .eq('employment_status', 'active')
       .eq('requires_attendance_signin', true);
@@ -318,13 +318,24 @@ Deno.serve(async (req) => {
       }
 
       // Check if today is an official holiday for this employee
-      const isOfficialHoliday = matchingHolidays.length > 0 && (
+      // Filter holidays by religion: religion-specific holidays only apply to matching employees
+      const employeeHolidays = matchingHolidays.filter(h => {
+        if ((h as any).religion && (h as any).religion !== 'all') {
+          return (employee as any).religion === (h as any).religion;
+        }
+        return true; // 'all' or null religion applies to everyone
+      });
+      
+      const isOfficialHoliday = employeeHolidays.length > 0 && (
         isUniversalHoliday || 
         (employee.attendance_type_id && holidayAttendanceTypeIds.has(employee.attendance_type_id))
       );
       
       if (isOfficialHoliday) {
-        console.log(`${employee.first_name} ${employee.last_name} - skipping official holiday (${holidayName})`);
+        const empHolidayName = employeeHolidays.length > 0 
+          ? (employeeHolidays[0].holiday_name_ar || employeeHolidays[0].holiday_name)
+          : holidayName;
+        console.log(`${employee.first_name} ${employee.last_name} - skipping official holiday (${empHolidayName})`);
         
         // Create holiday timesheet record
         const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
@@ -348,7 +359,7 @@ Deno.serve(async (req) => {
           total_work_minutes: 0,
           deduction_amount: 0,
           overtime_amount: 0,
-          notes: `Official Holiday - ${holidayName}`,
+          notes: `Official Holiday - ${empHolidayName}`,
         };
 
         const { error: holidayError } = await supabase
