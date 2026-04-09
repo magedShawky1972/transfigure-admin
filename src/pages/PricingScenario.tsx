@@ -420,7 +420,7 @@ const PricingScenario = () => {
       if (error) {
         toast.error(error.message);
       } else if (!data || data.length === 0) {
-        toast.error(isRTL ? "ليس لديك صلاحية لتحديث السيناريو" : "You do not have permission to update this scenario");
+        toast.error(isRTL ? "لا يمكن تحديث هذا السيناريو. استخدم New Version أو New Scenario إذا لم تكن المالك." : "You cannot overwrite this scenario. Use New Version or New Scenario if you are not the owner.");
       } else {
         const updatedRow = data[0] as any;
         setSavedScenarios((prev) => prev.map((scenario) =>
