@@ -387,10 +387,11 @@ const PricingScenario = () => {
       description: scenarioDescription.trim(),
       inputs: inputs as any,
       selected_payment_method_ids: selectedMethodIds,
+      excluded_coins: Array.from(excludedCoins),
       created_by: currentUser.id,
       created_by_name: currentUser.name,
       brand_id: selectedBrandId || null,
-    }).select("id").single();
+    } as any).select("id").single();
     if (error) {
       toast.error(error.message);
     } else {
