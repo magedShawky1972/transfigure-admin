@@ -859,6 +859,7 @@ const PricingScenario = () => {
                           <TableHead className="text-right">{isRTL ? "التكلفة بالدولار" : "Cost USD"}</TableHead>
                           <TableHead className="text-right font-bold">{isRTL ? "الصافي" : "Net"}</TableHead>
                           <TableHead className="text-right font-bold">{isRTL ? "نسبة الربح %" : "Profit %"}</TableHead>
+                          <TableHead className="text-center w-[40px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
