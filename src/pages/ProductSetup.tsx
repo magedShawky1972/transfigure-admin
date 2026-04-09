@@ -90,6 +90,7 @@ interface Brand {
   brand_name: string;
   brand_code: string | null;
   brand_type_id: string | null;
+  abc_analysis: string | null;
   brand_type?: {
     type_name: string;
   };
@@ -216,6 +217,7 @@ const ProductSetup = () => {
           brand_name,
           brand_code,
           brand_type_id,
+          abc_analysis,
           brand_type:brand_type_id (
             type_name
           )
@@ -1168,6 +1170,26 @@ const ProductSetup = () => {
                   {language === "ar" ? "لديه معاملات" : "Has Transactions"}
                 </Label>
               </div>
+              {filterBrand !== "all" && brands.find(b => b.brand_name === filterBrand)?.abc_analysis === "A" && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="sortByCoinsNumber"
+                    checked={sortColumn === "coins_number"}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSortColumn("coins_number");
+                        setSortDirection("asc");
+                      } else {
+                        setSortColumn("");
+                        setSortDirection("asc");
+                      }
+                    }}
+                  />
+                  <Label htmlFor="sortByCoinsNumber" className="text-sm cursor-pointer">
+                    {language === "ar" ? "ترتيب حسب رقم الكوينز" : "Sort by Coins Number"}
+                  </Label>
+                </div>
+              )}
             </div>
             <div className="text-sm text-muted-foreground">
               Showing {sortedProducts.length} of {products.length} products
