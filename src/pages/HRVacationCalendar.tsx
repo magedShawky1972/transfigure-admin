@@ -27,6 +27,7 @@ interface OfficialHoliday {
   year: number | null;
   description: string | null;
   religion: string | null;
+  country: string | null;
   attendance_type_ids?: string[];
 }
 
@@ -79,6 +80,7 @@ const HRVacationCalendar = () => {
     is_recurring: false,
     description: "",
     religion: "all",
+    country: "all",
     selected_attendance_types: [] as string[]
   });
 
@@ -237,6 +239,7 @@ const HRVacationCalendar = () => {
       is_recurring: false,
       description: "",
       religion: "all",
+      country: "all",
       selected_attendance_types: []
     });
     setDialogOpen(true);
@@ -252,6 +255,7 @@ const HRVacationCalendar = () => {
       is_recurring: holiday.is_recurring,
       description: holiday.description || "",
       religion: holiday.religion || "all",
+      country: holiday.country || "all",
       selected_attendance_types: holiday.attendance_type_ids || []
     });
     setDialogOpen(true);
@@ -284,7 +288,8 @@ const HRVacationCalendar = () => {
           is_recurring: formData.is_recurring,
           year: formData.is_recurring ? null : getYear(new Date(formData.holiday_date_from)),
           description: formData.description || null,
-          religion: formData.religion || "all"
+          religion: formData.religion || "all",
+          country: formData.country || "all"
         };
 
         const { error } = await supabase
@@ -329,7 +334,8 @@ const HRVacationCalendar = () => {
             is_recurring: formData.is_recurring,
             year: formData.is_recurring ? null : getYear(day),
             description: formData.description || null,
-            religion: formData.religion || "all"
+            religion: formData.religion || "all",
+            country: formData.country || "all"
           };
 
           const { data: newHoliday, error } = await supabase
@@ -809,6 +815,27 @@ const HRVacationCalendar = () => {
                 {language === "ar" 
                   ? "اختر 'الكل' إذا كانت الإجازة لجميع الموظفين، أو حدد ديانة معينة"
                   : "Select 'All' if this holiday applies to everyone, or specify a religion"}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الدولة" : "Country"}</Label>
+              <Select
+                value={formData.country}
+                onValueChange={(value) => setFormData({ ...formData, country: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={language === "ar" ? "اختر" : "Select"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+                  <SelectItem value="egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                  <SelectItem value="ksa">{language === "ar" ? "السعودية" : "KSA"}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {language === "ar" 
+                  ? "اختر 'الكل' إذا كانت الإجازة لجميع الدول، أو حدد دولة معينة"
+                  : "Select 'All' if this holiday applies to all countries, or specify a country"}
               </p>
             </div>
             <div className="flex items-center justify-between">
