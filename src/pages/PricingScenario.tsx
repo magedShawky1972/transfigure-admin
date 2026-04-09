@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2 } from "lucide-react";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -97,6 +97,9 @@ const PricingScenario = () => {
   const [selectedMethodIds, setSelectedMethodIds] = useState<string[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
+  const [customCoinsTiers, setCustomCoinsTiers] = useState<number[]>([]);
+  const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
+  const [newCoinValue, setNewCoinValue] = useState("");
   const [generatingProducts, setGeneratingProducts] = useState(false);
   // Save/Load state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -170,6 +173,11 @@ const PricingScenario = () => {
     return (totalTransferProfit / amountTransferSAR) * 100;
   }, [totalTransferProfit, amountTransferSAR]);
 
+  const allCoinsTiers = useMemo(() => {
+    const merged = [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
+    return [...new Set(merged)].sort((a, b) => a - b);
+  }, [customCoinsTiers]);
+
   const selectedMethods = useMemo(
     () => paymentMethods.filter((m) => selectedMethodIds.includes(m.id)),
     [paymentMethods, selectedMethodIds]
@@ -192,7 +200,7 @@ const PricingScenario = () => {
     const vatRate = (method.vat_fee || 0) / 100;
     const cashBackRate = cashBackPercent / 100;
 
-    return DEFAULT_COINS_TIERS.map((coins) => {
+    return allCoinsTiers.map((coins) => {
       const priceUsd = coins / sales1UsdCoins;
       const sarPrice = priceUsd * rate;
       const costUsd = coins / cost1UsdCoins;
@@ -389,6 +397,7 @@ const PricingScenario = () => {
     const scenarioInputs = {
       ...inputs,
       excludedCoins: normalizedExcludedCoins,
+      customCoinsTiers: customCoinsTiers,
     };
 
     if (mode === "overwrite" && currentScenarioId) {
@@ -465,6 +474,10 @@ const PricingScenario = () => {
     setInputs(scenario.inputs);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
     setExcludedCoins(new Set(normalizedExcludedCoins));
+    const savedCustomTiers = Array.isArray((scenario.inputs as any)?.customCoinsTiers)
+      ? (scenario.inputs as any).customCoinsTiers.map(Number).filter(Number.isFinite)
+      : [];
+    setCustomCoinsTiers(savedCustomTiers);
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
     setIsCurrentActive(scenario.is_active);
@@ -603,7 +616,11 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); }} className="gap-2">
+          <Button variant="outline" onClick={() => setAddCoinDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            {isRTL ? "إضافة فئة كوينز" : "Add Coin Category"}
+          </Button>
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>
@@ -985,6 +1002,67 @@ const PricingScenario = () => {
               ))
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Coin Category Dialog */}
+      <Dialog open={addCoinDialogOpen} onOpenChange={setAddCoinDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "إضافة فئة كوينز جديدة" : "Add New Coin Category"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{isRTL ? "قيمة الكوينز" : "Coin Value"}</Label>
+              <Input
+                type="number"
+                min="1"
+                value={newCoinValue}
+                onChange={(e) => setNewCoinValue(e.target.value)}
+                placeholder={isRTL ? "مثال: 50000" : "e.g. 50000"}
+              />
+            </div>
+            {customCoinsTiers.length > 0 && (
+              <div>
+                <Label className="text-sm text-muted-foreground">{isRTL ? "الفئات المضافة" : "Added Categories"}</Label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {customCoinsTiers.map((tier) => (
+                    <span key={tier} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-sm">
+                      {tier.toLocaleString()}
+                      <button
+                        onClick={() => setCustomCoinsTiers((prev) => prev.filter((t) => t !== tier))}
+                        className="text-muted-foreground hover:text-destructive ml-1"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddCoinDialogOpen(false)}>
+              {isRTL ? "إغلاق" : "Close"}
+            </Button>
+            <Button onClick={() => {
+              const val = parseInt(newCoinValue);
+              if (!val || val <= 0) {
+                toast.error(isRTL ? "أدخل قيمة صحيحة" : "Enter a valid value");
+                return;
+              }
+              if (allCoinsTiers.includes(val)) {
+                toast.error(isRTL ? "هذه الفئة موجودة بالفعل" : "This category already exists");
+                return;
+              }
+              setCustomCoinsTiers((prev) => [...prev, val]);
+              setNewCoinValue("");
+              toast.success(isRTL ? `تم إضافة ${val.toLocaleString()} كوينز` : `Added ${val.toLocaleString()} coins`);
+            }}>
+              <Plus className="h-4 w-4 mr-1" />
+              {isRTL ? "إضافة" : "Add"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
