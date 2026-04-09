@@ -149,8 +149,8 @@ const PricingScenario = () => {
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
   const amountTransferSAR = inputs.amountToTransfer * txRate;
 
-  // Total Transfer Profit calculation
-  const totalTransferProfit = useMemo(() => {
+  // Helper to calculate transfer profit with a given cost rate
+  const calcTransferProfit = (costRate: number) => {
     const { numberOfTransactions, sales1UsdCoins, cost1UsdCoins, cashBackPercent } = inputs;
     if (numberOfTransactions <= 0 || totalTransferCoins <= 0 || sales1UsdCoins <= 0 || cost1UsdCoins <= 0) return 0;
     const madaMethod = paymentMethods.find(m => m.payment_method.toLowerCase().includes("mada"));
@@ -160,7 +160,7 @@ const PricingScenario = () => {
     const cashBackRate = (cashBackPercent || 0) / 100;
     const coinsPerTx = totalTransferCoins / numberOfTransactions;
     const sarPricePerCoin = (1 / sales1UsdCoins) * inputs.rate;
-    const costSarPerCoin = (1 / cost1UsdCoins) * txRate;
+    const costSarPerCoin = (1 / cost1UsdCoins) * costRate;
     const revenuePerTx = coinsPerTx * sarPricePerCoin;
     const costPerTx = coinsPerTx * costSarPerCoin;
     const commissionPerTx = revenuePerTx * gatewayRate;
@@ -168,18 +168,28 @@ const PricingScenario = () => {
     const cashBackPerTx = revenuePerTx * cashBackRate;
     const profitPerTx = revenuePerTx - costPerTx - commissionPerTx - fixedVal - vatPerTx - cashBackPerTx;
     return profitPerTx * numberOfTransactions;
+  };
+
+  // Transfer Profit using Pricing Rate only (does NOT change with Transaction Rate)
+  const totalTransferProfit = useMemo(() => {
+    return calcTransferProfit(inputs.rate);
+  }, [inputs, totalTransferCoins, paymentMethods]);
+
+  // Transfer Profit using Transaction Rate (changes with Transaction Rate)
+  const totalTransferProfitByTxRate = useMemo(() => {
+    return calcTransferProfit(txRate);
   }, [inputs, totalTransferCoins, paymentMethods, txRate]);
 
   const totalTransferProfitPercent = useMemo(() => {
-    if (amountTransferSAR <= 0) return 0;
-    return (totalTransferProfit / amountTransferSAR) * 100;
-  }, [totalTransferProfit, amountTransferSAR]);
-
-  const totalTransferProfitPercentByTxRate = useMemo(() => {
     const amountByPricingRate = inputs.amountToTransfer * inputs.rate;
     if (amountByPricingRate <= 0) return 0;
     return (totalTransferProfit / amountByPricingRate) * 100;
   }, [totalTransferProfit, inputs.amountToTransfer, inputs.rate]);
+
+  const totalTransferProfitPercentByTxRate = useMemo(() => {
+    if (amountTransferSAR <= 0) return 0;
+    return (totalTransferProfitByTxRate / amountTransferSAR) * 100;
+  }, [totalTransferProfitByTxRate, amountTransferSAR]);
 
   const allCoinsTiers = useMemo(() => {
     const merged = savedCoinsTiers.length > 0 ? savedCoinsTiers : [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
