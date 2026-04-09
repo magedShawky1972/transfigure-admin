@@ -318,7 +318,15 @@ Deno.serve(async (req) => {
       }
 
       // Check if today is an official holiday for this employee
-      const isOfficialHoliday = matchingHolidays.length > 0 && (
+      // Filter holidays by religion: religion-specific holidays only apply to matching employees
+      const employeeHolidays = matchingHolidays.filter(h => {
+        if ((h as any).religion && (h as any).religion !== 'all') {
+          return (employee as any).religion === (h as any).religion;
+        }
+        return true; // 'all' or null religion applies to everyone
+      });
+      
+      const isOfficialHoliday = employeeHolidays.length > 0 && (
         isUniversalHoliday || 
         (employee.attendance_type_id && holidayAttendanceTypeIds.has(employee.attendance_type_id))
       );
