@@ -403,7 +403,7 @@ const SavedAttendance = () => {
     try {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id")
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, religion")
         .not("zk_employee_code", "is", null);
 
       if (error) throw error;
