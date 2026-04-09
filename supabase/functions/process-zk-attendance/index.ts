@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
     
     const { data: officialHolidays, error: holidayError } = await supabase
       .from('official_holidays')
-      .select('id, holiday_name, holiday_name_ar, holiday_date, is_recurring, country')
+      .select('id, holiday_name, holiday_name_ar, holiday_date, is_recurring, country, religion')
       .or(`holiday_date.eq.${targetDate},is_recurring.eq.true`);
 
     if (holidayError) {
