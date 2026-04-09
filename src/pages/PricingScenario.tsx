@@ -742,6 +742,10 @@ const PricingScenario = () => {
                 <Printer className="h-4 w-4" />
                 {isRTL ? "طباعة PDF" : "Print PDF"}
               </Button>
+              <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
+                {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
+                {isRTL ? "إنشاء المنتجات و SKU" : "Generate Products & SKU"}
+              </Button>
             </div>
           </div>
 
