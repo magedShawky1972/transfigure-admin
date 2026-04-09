@@ -500,7 +500,7 @@ const PricingScenario = () => {
             product_cost: r.costSar.toFixed(4),
             sku,
             brand_name: inputs.brandName,
-            brand_code: brand?.id || null,
+            brand_code: brand?.brand_code || null,
             coins_number: r.coins,
             status: "active",
             creation_source: "manual",
