@@ -1924,7 +1924,7 @@ export default function TimesheetManagement() {
                                 : <Lock className="h-4 w-4 text-amber-500" />}
                             </Button>
                           )}
-                          {ts.status === "pending" && canEditTimesheet(ts) && (
+                          {(ts.status === "pending" || ts.status === "waiting_for_exit") && canEditTimesheet(ts) && (
                             <>
                               <Button variant="ghost" size="icon" onClick={() => handleApprove(ts.id)}>
                                 <CheckCircle className="h-4 w-4 text-green-600" />
