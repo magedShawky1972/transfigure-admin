@@ -83,6 +83,7 @@ interface Product {
   supplier?: string | null;
   notes?: string | null;
   non_stock?: boolean;
+  coins_number?: number | null;
 }
 
 interface Brand {
