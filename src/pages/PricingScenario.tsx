@@ -126,7 +126,7 @@ const PricingScenario = () => {
     const fetchBrands = async () => {
       const { data } = await supabase
         .from("brands")
-        .select("id, brand_name, brand_code, sku_start_with")
+        .select("id, brand_name, brand_code, sku_start_with, brand_type:brand_type(type_name)")
         .eq("status", "active")
         .eq("abc_analysis", "A")
         .order("brand_name");
