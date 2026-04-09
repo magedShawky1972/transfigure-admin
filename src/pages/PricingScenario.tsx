@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check } from "lucide-react";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -63,6 +63,7 @@ interface SavedScenario {
 interface Brand {
   id: string;
   brand_name: string;
+  brand_code: string | null;
   sku_start_with: string | null;
 }
 
@@ -94,7 +95,7 @@ const PricingScenario = () => {
   const [selectedMethodIds, setSelectedMethodIds] = useState<string[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
-
+  const [generatingProducts, setGeneratingProducts] = useState(false);
   // Save/Load state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
@@ -124,7 +125,7 @@ const PricingScenario = () => {
     const fetchBrands = async () => {
       const { data } = await supabase
         .from("brands")
-        .select("id, brand_name, sku_start_with")
+        .select("id, brand_name, brand_code, sku_start_with")
         .eq("status", "active")
         .eq("abc_analysis", "A")
         .order("brand_name");
@@ -444,6 +445,89 @@ const PricingScenario = () => {
     }
   };
 
+  // ========== Generate Products & SKU ==========
+  const generateProducts = async () => {
+    if (selectedMethods.length === 0 || !selectedBrandId || !inputs.brandName) {
+      toast.error(isRTL ? "يرجى اختيار علامة تجارية وطريقة دفع" : "Please select a brand and payment method");
+      return;
+    }
+
+    const brand = brands.find(b => b.id === selectedBrandId);
+    const skuPrefix = brand?.sku_start_with;
+    if (!skuPrefix) {
+      toast.error(isRTL ? "لا يوجد بادئة SKU لهذا البراند" : "No SKU prefix found for this brand");
+      return;
+    }
+
+    setGeneratingProducts(true);
+    try {
+      const method = selectedMethods[0];
+      const results = calculateForMethod(method);
+      const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
+
+      // Get max existing sequence for this prefix
+      const { data: existingProducts } = await supabase
+        .from("products")
+        .select("sku")
+        .like("sku", `${skuPrefix}-%`);
+
+      const existingNums = (existingProducts || [])
+        .map(p => {
+          const match = p.sku?.match(new RegExp(`^${skuPrefix}-(\\d+)$`));
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(Boolean);
+
+      let nextSeq = Math.max(0, ...existingNums) + 1;
+
+      // Check which products already exist by name to avoid duplicates
+      const productNames = filteredResults.map(r => `كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`);
+      const { data: existing } = await supabase
+        .from("products")
+        .select("product_name")
+        .in("product_name", productNames);
+      const existingNames = new Set((existing || []).map(p => p.product_name));
+
+      const newProducts = filteredResults
+        .filter(r => !existingNames.has(`كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`))
+        .map(r => {
+          const sku = `${skuPrefix}-${String(nextSeq).padStart(4, "0")}`;
+          nextSeq++;
+          return {
+            product_name: `كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`,
+            product_id: `كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`,
+            product_price: r.sarPrice.toFixed(4),
+            product_cost: r.costSar.toFixed(4),
+            sku,
+            brand_name: inputs.brandName,
+            brand_code: brand?.brand_code || null,
+            coins_number: r.coins,
+            status: "active",
+            creation_source: "manual",
+          };
+        });
+
+      if (newProducts.length === 0) {
+        toast.info(isRTL ? "جميع المنتجات موجودة بالفعل" : "All products already exist");
+        setGeneratingProducts(false);
+        return;
+      }
+
+      const { error } = await supabase.from("products").insert(newProducts);
+      if (error) throw error;
+
+      toast.success(
+        isRTL
+          ? `تم إنشاء ${newProducts.length} منتج بنجاح`
+          : `${newProducts.length} products created successfully`
+      );
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setGeneratingProducts(false);
+    }
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -658,6 +742,10 @@ const PricingScenario = () => {
               <Button variant="outline" onClick={printPDF} className="gap-2">
                 <Printer className="h-4 w-4" />
                 {isRTL ? "طباعة PDF" : "Print PDF"}
+              </Button>
+              <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
+                {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
+                {isRTL ? "إنشاء المنتجات و SKU" : "Generate Products & SKU"}
               </Button>
             </div>
           </div>
