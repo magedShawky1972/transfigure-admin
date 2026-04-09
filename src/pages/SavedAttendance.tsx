@@ -114,6 +114,7 @@ interface Employee {
   zk_employee_code: string | null;
   employee_number: string;
   attendance_type_id: string | null;
+  religion: string | null;
 }
 
 interface AttendanceType {
