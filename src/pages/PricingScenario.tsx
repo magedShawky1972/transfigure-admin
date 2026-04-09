@@ -107,6 +107,7 @@ const PricingScenario = () => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string>("");
   const [currentScenarioId, setCurrentScenarioId] = useState<string | null>(null);
+  const [isCurrentActive, setIsCurrentActive] = useState(false);
 
   useEffect(() => {
     const fetchMethods = async () => {
