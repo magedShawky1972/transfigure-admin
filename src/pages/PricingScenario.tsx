@@ -103,6 +103,8 @@ const PricingScenario = () => {
   const [newCoinValue, setNewCoinValue] = useState("");
   const [generatingProducts, setGeneratingProducts] = useState(false);
   const [updatingPrices, setUpdatingPrices] = useState(false);
+  const [updatePriceDialogOpen, setUpdatePriceDialogOpen] = useState(false);
+  const [updatePriceStatus, setUpdatePriceStatus] = useState<{ current: number; total: number; currentCoins: number; updated: number; skipped: number; error: string | null; done: boolean }>({ current: 0, total: 0, currentCoins: 0, updated: 0, skipped: 0, error: null, done: false });
   // Save/Load state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
@@ -661,16 +663,22 @@ const PricingScenario = () => {
       return;
     }
 
-    setUpdatingPrices(true);
-    try {
-      const method = selectedMethods[0];
-      const results = calculateForMethod(method);
-      const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
+    const method = selectedMethods[0];
+    const results = calculateForMethod(method);
+    const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
 
+    setUpdatePriceStatus({ current: 0, total: filteredResults.length, currentCoins: 0, updated: 0, skipped: 0, error: null, done: false });
+    setUpdatePriceDialogOpen(true);
+    setUpdatingPrices(true);
+
+    try {
       let updatedCount = 0;
       let skippedCount = 0;
 
-      for (const row of filteredResults) {
+      for (let i = 0; i < filteredResults.length; i++) {
+        const row = filteredResults[i];
+        setUpdatePriceStatus(prev => ({ ...prev, current: i + 1, currentCoins: row.coins }));
+
         const { data: existing } = await supabase
           .from("products")
           .select("id, product_price, product_cost")
@@ -679,6 +687,7 @@ const PricingScenario = () => {
 
         if (!existing || existing.length === 0) {
           skippedCount++;
+          setUpdatePriceStatus(prev => ({ ...prev, skipped: skippedCount }));
           continue;
         }
 
@@ -687,6 +696,7 @@ const PricingScenario = () => {
           const newCost = row.costSar.toFixed(4);
           if (product.product_price === newPrice && product.product_cost === newCost) {
             skippedCount++;
+            setUpdatePriceStatus(prev => ({ ...prev, skipped: skippedCount }));
             continue;
           }
           const { error } = await supabase
@@ -695,16 +705,13 @@ const PricingScenario = () => {
             .eq("id", product.id);
           if (error) throw error;
           updatedCount++;
+          setUpdatePriceStatus(prev => ({ ...prev, updated: updatedCount }));
         }
       }
 
-      toast.success(
-        isRTL
-          ? `تم تحديث ${updatedCount} منتج، تم تخطي ${skippedCount}`
-          : `${updatedCount} products updated, ${skippedCount} skipped`
-      );
+      setUpdatePriceStatus(prev => ({ ...prev, done: true }));
     } catch (error: any) {
-      toast.error(error.message);
+      setUpdatePriceStatus(prev => ({ ...prev, error: error.message, done: true }));
     } finally {
       setUpdatingPrices(false);
     }
@@ -1234,6 +1241,75 @@ const PricingScenario = () => {
               {isRTL ? "إضافة" : "Add"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Product Prices Progress Dialog */}
+      <Dialog open={updatePriceDialogOpen} onOpenChange={(open) => { if (updatePriceStatus.done) setUpdatePriceDialogOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "تحديث أسعار المنتجات" : "Updating Product Prices"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-3">
+              {!updatePriceStatus.done ? (
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              ) : updatePriceStatus.error ? (
+                <span className="text-destructive text-lg">✕</span>
+              ) : (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              )}
+              <span className="font-medium">
+                {updatePriceStatus.done
+                  ? (updatePriceStatus.error
+                    ? (isRTL ? "حدث خطأ" : "Error occurred")
+                    : (isRTL ? "اكتمل التحديث" : "Update completed"))
+                  : (isRTL ? "جاري التحديث..." : "Updating...")}
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full bg-muted rounded-full h-3">
+              <div
+                className="bg-primary h-3 rounded-full transition-all duration-300"
+                style={{ width: updatePriceStatus.total > 0 ? `${(updatePriceStatus.current / updatePriceStatus.total) * 100}%` : "0%" }}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              {updatePriceStatus.current} / {updatePriceStatus.total}
+            </p>
+
+            {/* Current coins */}
+            {!updatePriceStatus.done && updatePriceStatus.currentCoins > 0 && (
+              <div className="p-3 rounded-md bg-muted text-center">
+                <p className="text-sm text-muted-foreground">{isRTL ? "الكوينز الحالي" : "Current Coins"}</p>
+                <p className="text-lg font-bold">{updatePriceStatus.currentCoins.toLocaleString()}</p>
+              </div>
+            )}
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-md bg-green-100 dark:bg-green-900/30 text-center">
+                <p className="text-sm text-muted-foreground">{isRTL ? "تم التحديث" : "Updated"}</p>
+                <p className="text-lg font-bold text-green-700 dark:text-green-400">{updatePriceStatus.updated}</p>
+              </div>
+              <div className="p-3 rounded-md bg-muted text-center">
+                <p className="text-sm text-muted-foreground">{isRTL ? "تم التخطي" : "Skipped"}</p>
+                <p className="text-lg font-bold">{updatePriceStatus.skipped}</p>
+              </div>
+            </div>
+
+            {updatePriceStatus.error && (
+              <p className="text-sm text-destructive">{updatePriceStatus.error}</p>
+            )}
+          </div>
+          {updatePriceStatus.done && (
+            <DialogFooter>
+              <Button onClick={() => setUpdatePriceDialogOpen(false)}>
+                {isRTL ? "إغلاق" : "Close"}
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>
