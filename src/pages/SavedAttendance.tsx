@@ -1747,7 +1747,7 @@ const SavedAttendance = () => {
               
               // Only check immediate previous working day (skip weekends)
               if (dayDiff > 3) break;
-              if (isWeekend(prevRecord.attendance_date) || isOfficialHoliday(prevRecord.attendance_date)) continue;
+              if (isWeekend(prevRecord.attendance_date) || isOfficialHoliday(prevRecord.attendance_date, employeeCode)) continue;
               
               if (prevRecord.record_status === 'absent') {
                 absentBefore = true;
@@ -1765,7 +1765,7 @@ const SavedAttendance = () => {
               
               // Only check immediate next working day (skip weekends)
               if (dayDiff > 3) break;
-              if (isWeekend(nextRecord.attendance_date) || isOfficialHoliday(nextRecord.attendance_date)) continue;
+              if (isWeekend(nextRecord.attendance_date) || isOfficialHoliday(nextRecord.attendance_date, employeeCode)) continue;
               
               if (nextRecord.record_status === 'absent') {
                 absentAfter = true;
