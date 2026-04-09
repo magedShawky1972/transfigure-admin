@@ -540,9 +540,17 @@ const PricingScenario = () => {
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-3xl font-bold mb-2">
-            {isRTL ? "سيناريو التسعير" : "Pricing Scenario"}
-          </h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold">
+              {isRTL ? "سيناريو التسعير" : "Pricing Scenario"}
+            </h1>
+            {isCurrentActive && currentScenarioId && (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-300 border border-green-300 dark:border-green-600">
+                <CheckCircle className="h-4 w-4" />
+                {isRTL ? "مؤكد - نشط" : "Confirmed - Active"}
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground">
             {isRTL ? "حاسبة تسعير الكوينز - أدخل البيانات واختر طرق الدفع ثم اضغط حساب" : "Coins pricing calculator - enter data, select payment methods, then click Calculate"}
           </p>
