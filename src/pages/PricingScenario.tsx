@@ -877,6 +877,10 @@ const PricingScenario = () => {
               <p className="text-sm text-muted-foreground">{isRTL ? "نسبة ربح التحويل %" : "Transfer Profit %"}</p>
               <p className={`text-lg font-bold ${totalTransferProfitPercent >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{fmtNum(totalTransferProfitPercent, 2)}%</p>
             </div>
+            <div className={`p-3 rounded-md ${totalTransferProfitPercentByTxRate >= 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"} border border-green-300 dark:border-green-700`}>
+              <p className="text-sm text-muted-foreground">{isRTL ? "نسبة ربح التحويل بسعر المعاملة %" : "Transfer Profit By Tx Rate %"}</p>
+              <p className={`text-lg font-bold ${totalTransferProfitPercentByTxRate >= 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{fmtNum(totalTransferProfitPercentByTxRate, 2)}%</p>
+            </div>
             <div className="p-3 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700">
               <p className="text-sm text-muted-foreground">{isRTL ? "متوسط سعر 1 كوين (MADA)" : "Avg Price for 1 Coin (MADA)"}</p>
               <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
