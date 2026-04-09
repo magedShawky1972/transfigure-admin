@@ -54,6 +54,7 @@ interface SavedScenario {
   description: string;
   inputs: ScenarioInputs;
   selected_payment_method_ids: string[];
+  excluded_coins: number[] | null;
   created_by_name: string | null;
   created_at: string;
   is_active: boolean;
