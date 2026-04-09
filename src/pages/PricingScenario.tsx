@@ -393,11 +393,17 @@ const PricingScenario = () => {
       return;
     }
 
-    const normalizedExcludedCoins = Array.from(excludedCoins).map((coin) => Number(coin)).filter((coin) => Number.isFinite(coin));
+    const normalizedExcludedCoins = [...new Set(Array.from(excludedCoins)
+      .map((coin) => Number(coin))
+      .filter((coin) => Number.isFinite(coin)))].sort((a, b) => a - b);
+    const coinSelectionState = Object.fromEntries(
+      allCoinsTiers.map((coin) => [String(coin), !normalizedExcludedCoins.includes(coin)])
+    );
     const scenarioInputs = {
       ...inputs,
       excludedCoins: normalizedExcludedCoins,
-      customCoinsTiers: customCoinsTiers,
+      customCoinsTiers,
+      coinSelectionState,
     };
 
     if (mode === "overwrite" && currentScenarioId) {
