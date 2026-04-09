@@ -836,6 +836,8 @@ const HRVacationCalendar = () => {
                 {language === "ar" 
                   ? "اختر 'الكل' إذا كانت الإجازة لجميع الدول، أو حدد دولة معينة"
                   : "Select 'All' if this holiday applies to all countries, or specify a country"}
+              </p>
+            </div>
             <div className="flex items-center justify-between">
               <Label>{language === "ar" ? "إجازة سنوية متكررة" : "Recurring Yearly"}</Label>
               <Switch
