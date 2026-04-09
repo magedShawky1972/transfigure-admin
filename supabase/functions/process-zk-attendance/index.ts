@@ -550,6 +550,16 @@ Deno.serve(async (req) => {
         overtimeMinutes = netOvertime > 0 ? netOvertime : 0;
       }
       
+      // Determine status: morning = waiting_for_exit, evening = auto-approve, absent if no check-in
+      let timesheetStatus = 'waiting_for_exit';
+      if (processType === 'evening') {
+        if (!inTime) {
+          timesheetStatus = 'absent';
+        } else {
+          timesheetStatus = 'approved'; // Auto-approve after exit time loaded
+        }
+      }
+
       const timesheetRecord = {
         employee_id: employee.id,
         work_date: targetDate,
@@ -558,7 +568,7 @@ Deno.serve(async (req) => {
         actual_start: inTime,
         actual_end: processType === 'evening' ? outTime : null,
         break_duration_minutes: 0,
-        status: hasIssues ? 'pending' : 'pending',
+        status: timesheetStatus,
         is_absent: !inTime && processType === 'evening',
         absence_reason: !inTime && processType === 'evening' ? 'No check-in recorded' : null,
         late_minutes: lateMinutes,
