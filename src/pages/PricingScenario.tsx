@@ -470,20 +470,27 @@ const PricingScenario = () => {
   };
 
   const applyScenario = (scenario: SavedScenario) => {
-    const excludedFromInputs = Array.isArray((scenario.inputs as any)?.excludedCoins)
-      ? (scenario.inputs as any).excludedCoins
-      : [];
-    const normalizedExcludedCoins = (scenario.excluded_coins?.length ? scenario.excluded_coins : excludedFromInputs)
-      .map((coin: unknown) => Number(coin))
-      .filter((coin: number) => Number.isFinite(coin));
-
-    setInputs(scenario.inputs);
-    setSelectedMethodIds(scenario.selected_payment_method_ids);
-    setExcludedCoins(new Set(normalizedExcludedCoins));
     const savedCustomTiers = Array.isArray((scenario.inputs as any)?.customCoinsTiers)
       ? (scenario.inputs as any).customCoinsTiers.map(Number).filter(Number.isFinite)
       : [];
+    const scenarioCoins = [...new Set([...DEFAULT_COINS_TIERS, ...savedCustomTiers])].sort((a, b) => a - b);
+    const selectionState = (scenario.inputs as any)?.coinSelectionState;
+    const excludedFromSelectionState = selectionState && typeof selectionState === "object"
+      ? scenarioCoins.filter((coin) => selectionState[String(coin)] === false)
+      : [];
+    const excludedFromInputs = Array.isArray((scenario.inputs as any)?.excludedCoins)
+      ? (scenario.inputs as any).excludedCoins
+      : [];
+    const normalizedExcludedCoins = [...new Set(
+      (excludedFromSelectionState.length ? excludedFromSelectionState : (scenario.excluded_coins?.length ? scenario.excluded_coins : excludedFromInputs))
+        .map((coin: unknown) => Number(coin))
+        .filter((coin: number) => Number.isFinite(coin))
+    )].sort((a, b) => a - b);
+
+    setInputs(scenario.inputs);
+    setSelectedMethodIds(scenario.selected_payment_method_ids);
     setCustomCoinsTiers(savedCustomTiers);
+    setExcludedCoins(new Set(normalizedExcludedCoins));
     setSelectedBrandId(scenario.brand_id || "");
     setCurrentScenarioId(scenario.id);
     setIsCurrentActive(scenario.is_active);
