@@ -415,6 +415,7 @@ const PricingScenario = () => {
     if (error) {
       toast.error(error.message);
     } else {
+      setIsCurrentActive(true);
       toast.success(isRTL ? "تم تعيين السيناريو كنشط" : "Scenario confirmed as active");
     }
   };
