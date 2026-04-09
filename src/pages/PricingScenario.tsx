@@ -444,6 +444,89 @@ const PricingScenario = () => {
     }
   };
 
+  // ========== Generate Products & SKU ==========
+  const generateProducts = async () => {
+    if (selectedMethods.length === 0 || !selectedBrandId || !inputs.brandName) {
+      toast.error(isRTL ? "يرجى اختيار علامة تجارية وطريقة دفع" : "Please select a brand and payment method");
+      return;
+    }
+
+    const brand = brands.find(b => b.id === selectedBrandId);
+    const skuPrefix = brand?.sku_start_with;
+    if (!skuPrefix) {
+      toast.error(isRTL ? "لا يوجد بادئة SKU لهذا البراند" : "No SKU prefix found for this brand");
+      return;
+    }
+
+    setGeneratingProducts(true);
+    try {
+      const method = selectedMethods[0];
+      const results = calculateForMethod(method);
+      const filteredResults = results.filter(r => !excludedCoins.has(r.coins) && r.coins > 0);
+
+      // Get max existing sequence for this prefix
+      const { data: existingProducts } = await supabase
+        .from("products")
+        .select("sku")
+        .like("sku", `${skuPrefix}-%`);
+
+      const existingNums = (existingProducts || [])
+        .map(p => {
+          const match = p.sku?.match(new RegExp(`^${skuPrefix}-(\\d+)$`));
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(Boolean);
+
+      let nextSeq = Math.max(0, ...existingNums) + 1;
+
+      // Check which products already exist by name to avoid duplicates
+      const productNames = filteredResults.map(r => `كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`);
+      const { data: existing } = await supabase
+        .from("products")
+        .select("product_name")
+        .in("product_name", productNames);
+      const existingNames = new Set((existing || []).map(p => p.product_name));
+
+      const newProducts = filteredResults
+        .filter(r => !existingNames.has(`كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`))
+        .map(r => {
+          const sku = `${skuPrefix}-${String(nextSeq).padStart(4, "0")}`;
+          nextSeq++;
+          return {
+            product_name: `كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`,
+            product_id: `كوينز ${r.coins.toLocaleString()} ${inputs.brandName}`,
+            product_price: r.sarPrice.toFixed(4),
+            product_cost: r.costSar.toFixed(4),
+            sku,
+            brand_name: inputs.brandName,
+            brand_code: brand?.id || null,
+            coins_number: r.coins,
+            status: "active",
+            creation_source: "manual",
+          };
+        });
+
+      if (newProducts.length === 0) {
+        toast.info(isRTL ? "جميع المنتجات موجودة بالفعل" : "All products already exist");
+        setGeneratingProducts(false);
+        return;
+      }
+
+      const { error } = await supabase.from("products").insert(newProducts);
+      if (error) throw error;
+
+      toast.success(
+        isRTL
+          ? `تم إنشاء ${newProducts.length} منتج بنجاح`
+          : `${newProducts.length} products created successfully`
+      );
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setGeneratingProducts(false);
+    }
+  };
+
   return (
     <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
       <div className="flex items-center justify-between flex-wrap gap-2">
