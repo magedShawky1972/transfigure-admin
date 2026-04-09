@@ -63,6 +63,7 @@ interface SavedScenario {
 interface Brand {
   id: string;
   brand_name: string;
+  brand_code: string | null;
   sku_start_with: string | null;
 }
 
