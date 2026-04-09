@@ -102,6 +102,7 @@ const PricingScenario = () => {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [scenarioDescription, setScenarioDescription] = useState("");
+  const [saveMode, setSaveMode] = useState<"new" | "overwrite" | "version" | null>(null);
   const [savedScenarios, setSavedScenarios] = useState<SavedScenario[]>([]);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
