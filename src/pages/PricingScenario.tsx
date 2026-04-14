@@ -1454,12 +1454,13 @@ const PricingScenario = () => {
       <Dialog open={coinTierSetupOpen} onOpenChange={setCoinTierSetupOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{isRTL ? "إعداد فئات الكوينز للبراند" : "Setup Coin Categories for Brand"}</DialogTitle>
+            <DialogTitle>{isRTL ? "إعداد فئات الكوينز للبراند" : "Coin Categories for Brand"}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            {isRTL
-              ? `لا توجد فئات كوينز محفوظة لـ "${inputs.brandName}". أضف الفئات المطلوبة ثم اضغط حفظ ومتابعة.`
-              : `No coin tiers saved for "${inputs.brandName}". Add the required tiers then click Save & Continue.`}
+            {brandTiersLoaded === selectedBrandId
+              ? (isRTL ? `إدارة فئات الكوينز لـ "${inputs.brandName}".` : `Manage coin tiers for "${inputs.brandName}".`)
+              : (isRTL ? `لا توجد فئات كوينز محفوظة لـ "${inputs.brandName}". أضف الفئات المطلوبة ثم اضغط حفظ ومتابعة.` : `No coin tiers saved for "${inputs.brandName}". Add the required tiers then click Save & Continue.`)
+            }
           </p>
           <div className="space-y-4">
             <div className="flex gap-2">
