@@ -562,6 +562,17 @@ const SystemRestore = () => {
         }
       }
 
+      // Missing Columns (ALTER TABLE ADD COLUMN)
+      if (comparisonResults.missingColumns?.length) {
+        lines.push('\n-- ======= MISSING COLUMNS =======');
+        for (const col of comparisonResults.missingColumns) {
+          const colType = mapColumnToSqlType(col);
+          const nullable = col.isNullable === 'NO' ? '' : '';  // New columns should be nullable to avoid breaking existing data
+          const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
+          lines.push(`ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};\n`);
+        }
+      }
+
       // Foreign keys
       if (comparisonResults.missingTables.length) {
         const fks = await fetchAllRpcRows('get_foreign_keys_info');
