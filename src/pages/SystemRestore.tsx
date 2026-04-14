@@ -2234,15 +2234,35 @@ const SystemRestore = () => {
 
             try {
               while (true) {
-                const { data: sqlResult, error: sqlErr } = await supabase.functions.invoke('migrate-to-external', {
-                  body: { action: 'export_table_as_sql', tableName: table.name, offset, limit: batchSize, conflictStrategy }
-                });
-
-                if (sqlErr || !sqlResult?.success) {
-                  throw new Error(sqlErr?.message || sqlResult?.error || 'Export failed');
+                let sqlResult: any = null;
+                let lastErr: any = null;
+                for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                  try {
+                    const { data, error: sqlErr } = await supabase.functions.invoke('migrate-to-external', {
+                      body: { action: 'export_table_as_sql', tableName: table.name, offset, limit: batchSize, conflictStrategy }
+                    });
+                    if (sqlErr || !data?.success) {
+                      lastErr = new Error(sqlErr?.message || data?.error || 'Export failed');
+                      if (attempt < maxRetries) {
+                        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                        continue;
+                      }
+                      throw lastErr;
+                    }
+                    sqlResult = data;
+                    retryCount = 0;
+                    break;
+                  } catch (e: any) {
+                    lastErr = e;
+                    if (attempt < maxRetries) {
+                      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                      continue;
+                    }
+                    throw new Error(`Failed after ${maxRetries + 1} attempts: ${e.message}`);
+                  }
                 }
 
-                if (!sqlResult.sql || sqlResult.rowCount === 0) break;
+                if (!sqlResult?.sql || sqlResult.rowCount === 0) break;
 
                 // Execute on external DB - disable FK checks for the batch
                 const sqlWithFkDisabled = `SET session_replication_role = 'replica'; ${sqlResult.sql} SET session_replication_role = 'origin';`;
