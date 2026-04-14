@@ -1035,10 +1035,6 @@ const PricingScenario = () => {
               <Input type="number" step="0.01" value={inputs.rate || ""} onChange={(e) => updateInput("rate", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="space-y-2">
-              <Label>{isRTL ? "سعر صرف المعاملة" : "Transaction Exchange Rate"}</Label>
-              <Input type="number" step="0.01" value={inputs.transactionRate || ""} onChange={(e) => updateInput("transactionRate", parseFloat(e.target.value) || 0)} />
-            </div>
-            <div className="space-y-2">
               <Label>{isRTL ? "مبلغ التحويل (دولار)" : "Amount To Transfer (USD)"}</Label>
               <Input type="number" step="1" value={inputs.amountToTransfer || ""} onChange={(e) => updateInput("amountToTransfer", parseFloat(e.target.value) || 0)} />
             </div>
@@ -1199,15 +1195,6 @@ const PricingScenario = () => {
               className="w-24"
             />
             <div className="w-px h-6 bg-border mx-2" />
-            <Label className="whitespace-nowrap text-sm font-medium">{isRTL ? "سعر تحويل مبيعات USD" : "Sales USD Conversion Rate"}</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={salesUsdRate || ""}
-              onChange={(e) => setSalesUsdRate(parseFloat(e.target.value) || 0)}
-              placeholder={`${inputs.rate || 0}`}
-              className="w-28"
-            />
             <div className="w-px h-6 bg-border mx-2" />
             <Label className="whitespace-nowrap text-sm font-medium">{isRTL ? "سعر 1000 كوين بالريال" : "Sales 1000 Coin SAR"}</Label>
             <Input
