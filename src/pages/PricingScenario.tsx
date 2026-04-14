@@ -466,13 +466,14 @@ const PricingScenario = () => {
     const wb = XLSX.utils.book_new();
     selectedMethods.forEach((method) => {
       const results = calculateForMethod(method);
-      const avgProfit = getAvgProfitPercent(results);
+      const checkedResults = results.filter(r => !excludedCoins.has(r.coins));
+      const avgProfit = getAvgProfitPercent(results, excludedCoins);
       const wsData = [
         ["Brand", inputs.brandName, "", "Avg Profit %", avgProfit.toFixed(4)],
         ["Fee", `${method.gateway_fee}% + ${method.fixed_value}`, "VAT", `${method.vat_fee}%`],
         [],
         ["Coins", "Price USD", "SAR Price", "Payment Commission", "Fixed Value", "VAT", "Cash Back", "Cost SAR", "Cost USD", "Net", "Profit %"],
-        ...results.map((r) => { const pp = r.sarPrice > 0 ? (r.net / r.sarPrice) * 100 : 0; return [r.coins, r.priceUsd, r.sarPrice, r.paymentCommission, r.fixedValue, r.vat, r.cashBack, r.costSar, r.costUsd, r.net, parseFloat(pp.toFixed(2))]; }),
+        ...checkedResults.map((r) => { const pp = r.sarPrice > 0 ? (r.net / r.sarPrice) * 100 : 0; return [r.coins, r.priceUsd, r.sarPrice, r.paymentCommission, r.fixedValue, r.vat, r.cashBack, r.costSar, r.costUsd, r.net, parseFloat(pp.toFixed(2))]; }),
       ];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const sheetName = method.payment_method.substring(0, 31);
