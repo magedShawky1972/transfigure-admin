@@ -1035,8 +1035,8 @@ const OrderPaymentReport = () => {
     if (order.order_number) {
       // Has order number - pass transactionid and payment_reference for direct lookup
       handleOrderClick(order.order_number, order.transactionid, order.payment_reference);
-    } else if (order.result === 'NOK' && order.transactionid) {
-      // NOK transaction without order - show Hyberpay details
+    } else if (order.transactionid) {
+      // Transaction without order (ACK or NOK) - show Hyberpay details
       handleNokTransactionClick(order.transactionid);
     }
   };
@@ -1506,7 +1506,7 @@ const OrderPaymentReport = () => {
                   filteredAndSortedOrders.map((order) => (
                     <TableRow 
                       key={order.transactionid}
-                      className={`hover:bg-muted/50 ${order.order_number || order.result === 'NOK' ? 'cursor-pointer' : ''}`}
+                      className={`hover:bg-muted/50 ${order.order_number || order.transactionid ? 'cursor-pointer' : ''}`}
                       onClick={() => handleRowClick(order)}
                     >
                       <TableCell className="font-medium text-xs">{order.transactionid}</TableCell>
