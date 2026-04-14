@@ -2136,6 +2136,15 @@ const SystemRestore = () => {
             const batchSize = 2000;
             let totalMigrated = 0;
 
+            // Get existing row count on external DB before migration
+            let existingRowsBefore = 0;
+            try {
+              const countResult = await callExternalProxy('exec_sql', { sql: `SELECT count(*)::int as cnt FROM public."${table.name}"` });
+              if (countResult?.data?.cnt !== undefined) {
+                existingRowsBefore = countResult.data.cnt;
+              }
+            } catch { /* ignore, will default to 0 */ }
+
             try {
               while (true) {
                 const { data: sqlResult, error: sqlErr } = await supabase.functions.invoke('migrate-to-external', {
@@ -2190,7 +2199,23 @@ const SystemRestore = () => {
                 await new Promise(r => setTimeout(r, 10));
               }
 
-              setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'done', migratedRows: totalMigrated } : t));
+              // Get row count after migration to determine new vs updated
+              let existingRowsAfter = existingRowsBefore + totalMigrated;
+              try {
+                const countResult = await callExternalProxy('exec_sql', { sql: `SELECT count(*)::int as cnt FROM public."${table.name}"` });
+                if (countResult?.data?.cnt !== undefined) {
+                  existingRowsAfter = countResult.data.cnt;
+                }
+              } catch { /* ignore */ }
+              
+              const newRows = existingRowsAfter - existingRowsBefore;
+              const updatedRows = totalMigrated - newRows;
+
+              setMigrationTables(prev => prev.map((t, idx) => idx === i ? { 
+                ...t, status: 'done', migratedRows: totalMigrated,
+                newRows: Math.max(0, newRows),
+                updatedRows: Math.max(0, updatedRows),
+              } : t));
             } catch (err: any) {
               errors.push(`Table ${table.name}: ${err.message}`);
               setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'error', errorMessage: err.message, migratedRows: totalMigrated } : t));
