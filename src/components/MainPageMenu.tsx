@@ -138,7 +138,7 @@ const menuGroups: MenuGroup[] = [
       { title: "API Documentation", titleAr: "توثيق API", url: "/api-documentation", icon: FileText },
       { title: "Transactions", titleAr: "المعاملات", url: "/transactions", icon: Table2 },
       { title: "Pivot Table", titleAr: "الجدول المحوري", url: "/pivot-table", icon: Grid3x3 },
-    ]
+      { title: "Payment Gateway", titleAr: "توحيد بوابة الدفع", url: "/reports/payment-gateway-consolidation", icon: CreditCard },
   },
   {
     label: "Entry",
