@@ -258,6 +258,18 @@ const SystemRestore = () => {
   const [showScriptDialog, setShowScriptDialog] = useState(false);
   const [generatedScript, setGeneratedScript] = useState('');
   const [generatingScript, setGeneratingScript] = useState(false);
+  interface MissingColumnInfo {
+    tableName: string;
+    columnName: string;
+    dataType: string;
+    columnDefault: string | null;
+    isNullable: string;
+    udtName: string;
+    characterMaxLength: number | null;
+    numericPrecision: number | null;
+    numericScale: number | null;
+  }
+
   const [comparisonResults, setComparisonResults] = useState<{
     localTables: string[];
     externalTables: string[];
@@ -279,6 +291,7 @@ const SystemRestore = () => {
     localBuckets: { id: string; name: string; public: boolean }[];
     externalBuckets: string[];
     missingBuckets: { id: string; name: string; public: boolean; file_size_limit?: number; allowed_mime_types?: string[] }[];
+    missingColumns: MissingColumnInfo[];
   } | null>(null);
 
   const structureInputRef = useRef<HTMLInputElement>(null);
@@ -549,6 +562,22 @@ const SystemRestore = () => {
         }
       }
 
+      // Missing Columns (ALTER TABLE ADD COLUMN)
+      if (comparisonResults.missingColumns?.length) {
+        lines.push('\n-- ======= MISSING COLUMNS =======');
+        for (const col of comparisonResults.missingColumns) {
+          // Convert camelCase to snake_case for mapColumnToSqlType compatibility
+          const colForMapper = { 
+            udt_name: col.udtName, data_type: col.dataType,
+            character_maximum_length: col.characterMaxLength,
+            numeric_precision: col.numericPrecision, numeric_scale: col.numericScale
+          };
+          const colType = mapColumnToSqlType(colForMapper);
+          const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
+          lines.push(`ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};\n`);
+        }
+      }
+
       // Foreign keys
       if (comparisonResults.missingTables.length) {
         const fks = await fetchAllRpcRows('get_foreign_keys_info');
@@ -665,7 +694,7 @@ const SystemRestore = () => {
     const errors: string[] = [];
     const failedItems: FailedItem[] = [];
     
-    const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0);
+    const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0) + (comparisonResults.missingColumns?.length || 0);
     let currentStep = 0;
     
     setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
@@ -986,7 +1015,25 @@ const SystemRestore = () => {
       }
     }
 
-    // 6. Reload PostgREST schema cache
+    // 6. Apply missing columns (ALTER TABLE ADD COLUMN)
+    if (comparisonResults.missingColumns && comparisonResults.missingColumns.length > 0) {
+      for (const col of comparisonResults.missingColumns) {
+        if (!(await checkControl())) break;
+        const colForMapper = { 
+          udt_name: col.udtName, data_type: col.dataType,
+          character_maximum_length: col.characterMaxLength,
+          numeric_precision: col.numericPrecision, numeric_scale: col.numericScale
+        };
+        const colType = mapColumnToSqlType(colForMapper);
+        const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
+        const sql = `ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};`;
+        currentStep++;
+        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Column: ${col.tableName}.${col.columnName}` });
+        await execWithCapture('Column', `${col.tableName}.${col.columnName}`, sql);
+      }
+    }
+
+    // 7. Reload PostgREST schema cache
     try {
       await callExternalProxy('exec_sql', { sql: `NOTIFY pgrst, 'reload schema'` });
     } catch {}
@@ -1114,9 +1161,45 @@ const SystemRestore = () => {
         missingBuckets = localBuckets.filter(b => !extBucketsSet.has(b.name));
       } catch (err) {
         console.warn('Storage bucket comparison failed:', err);
+       }
+
+      // Compare columns for tables that exist in both databases
+      let missingColumns: MissingColumnInfo[] = [];
+      const commonTables = localTables.filter((t: string) => extTablesSet.has(t) && !missingTables.includes(t));
+      if (commonTables.length > 0) {
+        try {
+          // Get external columns
+          const extColsRes = await callExternalProxy('exec_sql', {
+            sql: `SELECT table_name, column_name, data_type, column_default, is_nullable, udt_name, character_maximum_length::int, numeric_precision::int, numeric_scale::int FROM information_schema.columns WHERE table_schema = 'public' ORDER BY table_name, ordinal_position`
+          });
+          
+          if (extColsRes.success && Array.isArray(extColsRes.data)) {
+            // Build a set of external columns: "table.column"
+            const extColSet = new Set(extColsRes.data.map((c: any) => `${c.table_name}.${c.column_name}`));
+            
+            // Check each local column for common tables
+            for (const col of localColsData) {
+              if (commonTables.includes(col.table_name) && !extColSet.has(`${col.table_name}.${col.column_name}`)) {
+                missingColumns.push({
+                  tableName: col.table_name,
+                  columnName: col.column_name,
+                  dataType: col.data_type,
+                  columnDefault: col.column_default,
+                  isNullable: col.is_nullable,
+                  udtName: col.udt_name,
+                  characterMaxLength: col.character_maximum_length,
+                  numericPrecision: col.numeric_precision,
+                  numericScale: col.numeric_scale,
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Column comparison failed:', err);
+        }
       }
 
-      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0 || missingBuckets.length > 0;
+      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0 || missingBuckets.length > 0 || missingColumns.length > 0;
 
       const matchedMigrations = localMigrations.map(m => m.version);
       const unmatchedMigrations: string[] = [];
@@ -1129,6 +1212,7 @@ const SystemRestore = () => {
         localTypes, externalTypes, missingTypes,
         matchedMigrations, unmatchedMigrations,
         localBuckets, externalBuckets, missingBuckets,
+        missingColumns,
       });
 
       await saveMigrationLog(matchedMigrations);
@@ -1136,8 +1220,8 @@ const SystemRestore = () => {
 
       if (hasMissing) {
         toast.warning(isRTL
-          ? `تم العثور على ${missingTypes.length} أنواع و ${missingTables.length} جداول و ${missingFunctions.length} دوال و ${missingTriggers.length} مشغلات مفقودة`
-          : `Found ${missingTypes.length} types, ${missingTables.length} tables, ${missingFunctions.length} functions, ${missingTriggers.length} triggers missing`);
+          ? `تم العثور على ${missingTypes.length} أنواع و ${missingTables.length} جداول و ${missingColumns.length} أعمدة و ${missingFunctions.length} دوال و ${missingTriggers.length} مشغلات مفقودة`
+          : `Found ${missingTypes.length} types, ${missingTables.length} tables, ${missingColumns.length} columns, ${missingFunctions.length} functions, ${missingTriggers.length} triggers missing`);
       } else {
         toast.success(isRTL ? 'جميع الكائنات متطابقة' : 'All objects match between local and external DB');
       }
@@ -4075,7 +4159,19 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-4 pr-4">
                 {/* Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+                  {/* Missing Columns summary card */}
+                  {(comparisonResults.missingColumns?.length || 0) > 0 && (
+                    <div className="border border-amber-500/30 rounded-lg p-3 text-center col-span-2 md:col-span-7">
+                      <div className="flex items-center justify-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <span className="text-sm font-medium text-amber-600">
+                          {comparisonResults.missingColumns.length} {isRTL ? 'أعمدة مفقودة في' : 'missing columns in'}{' '}
+                          {[...new Set(comparisonResults.missingColumns.map(c => c.tableName))].length} {isRTL ? 'جداول' : 'tables'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="border rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-foreground">{comparisonResults.localTypes?.length || 0}</div>
                     <div className="text-xs text-muted-foreground">{isRTL ? 'أنواع محلية' : 'Local Types'}</div>
@@ -4165,7 +4261,37 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                   </div>
                 )}
 
-                {/* Missing Functions */}
+                {/* Missing Columns */}
+                {(comparisonResults.missingColumns?.length || 0) > 0 && (
+                  <div className="border border-amber-500/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-amber-600 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      {isRTL ? 'أعمدة مفقودة في جداول موجودة' : 'Missing Columns in Existing Tables'}
+                      <Badge variant="secondary" className="text-xs">{comparisonResults.missingColumns.length}</Badge>
+                    </p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {Object.entries(
+                        comparisonResults.missingColumns.reduce((acc, col) => {
+                          if (!acc[col.tableName]) acc[col.tableName] = [];
+                          acc[col.tableName].push(col);
+                          return acc;
+                        }, {} as Record<string, MissingColumnInfo[]>)
+                      ).map(([table, cols]) => (
+                        <div key={table} className="border border-border/50 rounded p-2">
+                          <p className="text-xs font-mono font-medium mb-1">{table}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {cols.map(c => (
+                              <Badge key={c.columnName} variant="outline" className="text-[10px] font-mono border-amber-500/50 text-amber-600">
+                                {c.columnName} ({c.udtName})
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {comparisonResults.missingFunctions.length > 0 && (
                   <div className="border border-destructive/30 rounded-lg p-3">
                     <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
@@ -4250,7 +4376,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
 
                 {/* All matched */}
                 {comparisonResults.missingTables.length === 0 && comparisonResults.missingFunctions.length === 0 && 
-                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (comparisonResults.missingTypes?.length || 0) === 0 && (comparisonResults.missingBuckets?.length || 0) === 0 && (
+                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (comparisonResults.missingTypes?.length || 0) === 0 && (comparisonResults.missingBuckets?.length || 0) === 0 && (comparisonResults.missingColumns?.length || 0) === 0 && (
                   <div className="border border-green-500/30 rounded-lg p-4 text-center">
                     <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
                     <p className="text-sm font-medium text-green-600">
@@ -4266,7 +4392,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
-            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0 || (comparisonResults.missingBuckets?.length || 0) > 0) && (
+            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0 || (comparisonResults.missingBuckets?.length || 0) > 0 || (comparisonResults.missingColumns?.length || 0) > 0) && (
               <>
                 <Button variant="secondary" onClick={generateMissingObjectsScript} disabled={generatingScript}>
                   <FileText className="h-3 w-3 mr-1" />
@@ -4275,8 +4401,8 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 <Button onClick={applyMissingObjects} disabled={applyingMissingObjects}>
                   <Play className="h-3 w-3 mr-1" />
                   {isRTL 
-                    ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0)} كائن مفقود` 
-                    : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0)} Missing Objects`}
+                    ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0) + (comparisonResults.missingColumns?.length || 0)} كائن مفقود` 
+                    : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0) + (comparisonResults.missingColumns?.length || 0)} Missing Objects`}
                 </Button>
               </>
             )}
