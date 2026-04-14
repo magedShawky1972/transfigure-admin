@@ -4376,7 +4376,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
 
                 {/* All matched */}
                 {comparisonResults.missingTables.length === 0 && comparisonResults.missingFunctions.length === 0 && 
-                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (comparisonResults.missingTypes?.length || 0) === 0 && (comparisonResults.missingBuckets?.length || 0) === 0 && (
+                 comparisonResults.missingTriggers.length === 0 && comparisonResults.missingViews.length === 0 && (comparisonResults.missingTypes?.length || 0) === 0 && (comparisonResults.missingBuckets?.length || 0) === 0 && (comparisonResults.missingColumns?.length || 0) === 0 && (
                   <div className="border border-green-500/30 rounded-lg p-4 text-center">
                     <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
                     <p className="text-sm font-medium text-green-600">
@@ -4392,7 +4392,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <Button variant="outline" onClick={() => setShowComparisonDialog(false)}>
               {isRTL ? 'إغلاق' : 'Close'}
             </Button>
-            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0 || (comparisonResults.missingBuckets?.length || 0) > 0) && (
+            {comparisonResults && (comparisonResults.missingTables.length > 0 || comparisonResults.missingFunctions.length > 0 || comparisonResults.missingTriggers.length > 0 || comparisonResults.missingViews.length > 0 || (comparisonResults.missingTypes?.length || 0) > 0 || (comparisonResults.missingBuckets?.length || 0) > 0 || (comparisonResults.missingColumns?.length || 0) > 0) && (
               <>
                 <Button variant="secondary" onClick={generateMissingObjectsScript} disabled={generatingScript}>
                   <FileText className="h-3 w-3 mr-1" />
@@ -4401,8 +4401,8 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 <Button onClick={applyMissingObjects} disabled={applyingMissingObjects}>
                   <Play className="h-3 w-3 mr-1" />
                   {isRTL 
-                    ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0)} كائن مفقود` 
-                    : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0)} Missing Objects`}
+                    ? `تطبيق ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0) + (comparisonResults.missingColumns?.length || 0)} كائن مفقود` 
+                    : `Apply ${(comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0) + (comparisonResults.missingColumns?.length || 0)} Missing Objects`}
                 </Button>
               </>
             )}
