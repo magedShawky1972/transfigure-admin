@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -3331,7 +3331,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                   {isRTL ? 'جاري الترحيل...' : 'Migrating...'}
                 </>
               ) : (
-                <>
+                          <>
                   <ArrowRightLeft className="h-4 w-4 mr-2" />
                   {isRTL ? 'بدء الترحيل' : 'Start Migration'}
                 </>
@@ -3431,11 +3431,12 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                         {migrationTables.map((item, idx) => {
                           const progressPct = item.rowCount > 0 ? Math.min(100, Math.round((item.migratedRows / item.rowCount) * 100)) : (item.status === 'done' ? 100 : 0);
                           return (
-                            <TableRow key={idx} className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
+                            <React.Fragment key={idx}>
+                            <TableRow className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
                               <TableCell className="py-2">
                                 <div className="space-y-1.5">
                                   <div className="font-mono text-xs">{item.name}</div>
-                                  {(item.status === 'migrating' || item.status === 'done') && (
+                                  {(item.status === 'migrating' || item.status === 'done' || (item.status === 'error' && item.migratedRows > 0)) && (
                                     <Progress value={progressPct} className="h-1.5" />
                                   )}
                                 </div>
@@ -3473,6 +3474,16 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                                 </div>
                               </TableCell>
                             </TableRow>
+                            {item.status === 'error' && item.errorMessage && (
+                              <TableRow key={`${idx}-err`}>
+                                <TableCell colSpan={3} className="py-1 px-4">
+                                  <p className="text-[11px] text-destructive truncate" title={item.errorMessage}>
+                                    ⚠ {item.errorMessage}
+                                  </p>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
                           );
                         })}
                       </TableBody>
