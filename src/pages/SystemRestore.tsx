@@ -3428,27 +3428,53 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {migrationTables.map((item, idx) => (
-                          <TableRow key={idx} className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
-                            <TableCell className="font-mono text-xs">{item.name}</TableCell>
-                            <TableCell className="text-center text-xs">
-                              {item.migratedRows}/{item.rowCount}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                {getStatusIcon(item.status)}
-                                <Badge variant={
-                                  item.status === 'done' ? 'default' :
-                                  item.status === 'error' ? 'destructive' :
-                                  item.status === 'migrating' ? 'secondary' :
-                                  'outline'
-                                } className="text-xs">
-                                  {item.status}
-                                </Badge>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {migrationTables.map((item, idx) => {
+                          const progressPct = item.rowCount > 0 ? Math.min(100, Math.round((item.migratedRows / item.rowCount) * 100)) : (item.status === 'done' ? 100 : 0);
+                          return (
+                            <TableRow key={idx} className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
+                              <TableCell className="py-2">
+                                <div className="space-y-1.5">
+                                  <div className="font-mono text-xs">{item.name}</div>
+                                  {(item.status === 'migrating' || item.status === 'done') && (
+                                    <Progress value={progressPct} className="h-1.5" />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center text-xs">
+                                <div className="space-y-0.5">
+                                  <div>{item.migratedRows.toLocaleString()}/{item.rowCount.toLocaleString()}</div>
+                                  {item.status === 'done' && (item.newRows > 0 || item.updatedRows > 0) && (
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {item.newRows > 0 && (
+                                        <Badge variant="outline" className="text-[10px] py-0 bg-green-500/10 text-green-600">
+                                          +{item.newRows.toLocaleString()} {isRTL ? 'جديد' : 'new'}
+                                        </Badge>
+                                      )}
+                                      {item.updatedRows > 0 && (
+                                        <Badge variant="outline" className="text-[10px] py-0 bg-blue-500/10 text-blue-600">
+                                          ↻{item.updatedRows.toLocaleString()} {isRTL ? 'تحديث' : 'updated'}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {getStatusIcon(item.status)}
+                                  <Badge variant={
+                                    item.status === 'done' ? 'default' :
+                                    item.status === 'error' ? 'destructive' :
+                                    item.status === 'migrating' ? 'secondary' :
+                                    'outline'
+                                  } className="text-xs">
+                                    {item.status === 'migrating' ? `${progressPct}%` : item.status}
+                                  </Badge>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
