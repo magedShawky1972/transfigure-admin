@@ -1186,8 +1186,8 @@ const SystemRestore = () => {
 
       if (hasMissing) {
         toast.warning(isRTL
-          ? `تم العثور على ${missingTypes.length} أنواع و ${missingTables.length} جداول و ${missingFunctions.length} دوال و ${missingTriggers.length} مشغلات مفقودة`
-          : `Found ${missingTypes.length} types, ${missingTables.length} tables, ${missingFunctions.length} functions, ${missingTriggers.length} triggers missing`);
+          ? `تم العثور على ${missingTypes.length} أنواع و ${missingTables.length} جداول و ${missingColumns.length} أعمدة و ${missingFunctions.length} دوال و ${missingTriggers.length} مشغلات مفقودة`
+          : `Found ${missingTypes.length} types, ${missingTables.length} tables, ${missingColumns.length} columns, ${missingFunctions.length} functions, ${missingTriggers.length} triggers missing`);
       } else {
         toast.success(isRTL ? 'جميع الكائنات متطابقة' : 'All objects match between local and external DB');
       }
