@@ -129,7 +129,7 @@ const PaymentGatewayConsolidation = () => {
       const hpMap = new Map<string, HyperpayRow>();
       const bankMap = new Map<string, BankCardRow>();
 
-      (hpRaw || []).forEach((r: any) => {
+      allHpRaw.forEach((r: any) => {
         const brand = r.brand || "OTHER";
         const result = r.result || "UNKNOWN";
         const debit = parseFloat(r.credit) || parseFloat(r.debit) || 0;
