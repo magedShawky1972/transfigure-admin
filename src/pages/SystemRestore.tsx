@@ -3473,6 +3473,16 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                                 </div>
                               </TableCell>
                             </TableRow>
+                            {item.status === 'error' && item.errorMessage && (
+                              <TableRow key={`${idx}-err`}>
+                                <TableCell colSpan={3} className="py-1 px-4">
+                                  <p className="text-[11px] text-destructive truncate" title={item.errorMessage}>
+                                    ⚠ {item.errorMessage}
+                                  </p>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </>
                           );
                         })}
                       </TableBody>
