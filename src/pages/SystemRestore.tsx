@@ -4125,7 +4125,19 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-4 pr-4">
                 {/* Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+                  {/* Missing Columns summary card */}
+                  {(comparisonResults.missingColumns?.length || 0) > 0 && (
+                    <div className="border border-amber-500/30 rounded-lg p-3 text-center col-span-2 md:col-span-7">
+                      <div className="flex items-center justify-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <span className="text-sm font-medium text-amber-600">
+                          {comparisonResults.missingColumns.length} {isRTL ? 'أعمدة مفقودة في' : 'missing columns in'}{' '}
+                          {[...new Set(comparisonResults.missingColumns.map(c => c.tableName))].length} {isRTL ? 'جداول' : 'tables'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="border rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-foreground">{comparisonResults.localTypes?.length || 0}</div>
                     <div className="text-xs text-muted-foreground">{isRTL ? 'أنواع محلية' : 'Local Types'}</div>
