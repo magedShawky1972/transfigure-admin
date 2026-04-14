@@ -258,6 +258,18 @@ const SystemRestore = () => {
   const [showScriptDialog, setShowScriptDialog] = useState(false);
   const [generatedScript, setGeneratedScript] = useState('');
   const [generatingScript, setGeneratingScript] = useState(false);
+  interface MissingColumnInfo {
+    tableName: string;
+    columnName: string;
+    dataType: string;
+    columnDefault: string | null;
+    isNullable: string;
+    udtName: string;
+    characterMaxLength: number | null;
+    numericPrecision: number | null;
+    numericScale: number | null;
+  }
+
   const [comparisonResults, setComparisonResults] = useState<{
     localTables: string[];
     externalTables: string[];
@@ -279,6 +291,7 @@ const SystemRestore = () => {
     localBuckets: { id: string; name: string; public: boolean }[];
     externalBuckets: string[];
     missingBuckets: { id: string; name: string; public: boolean; file_size_limit?: number; allowed_mime_types?: string[] }[];
+    missingColumns: MissingColumnInfo[];
   } | null>(null);
 
   const structureInputRef = useRef<HTMLInputElement>(null);
