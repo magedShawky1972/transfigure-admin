@@ -1015,7 +1015,25 @@ const SystemRestore = () => {
       }
     }
 
-    // 6. Reload PostgREST schema cache
+    // 6. Apply missing columns (ALTER TABLE ADD COLUMN)
+    if (comparisonResults.missingColumns && comparisonResults.missingColumns.length > 0) {
+      for (const col of comparisonResults.missingColumns) {
+        if (!(await checkControl())) break;
+        const colForMapper = { 
+          udt_name: col.udtName, data_type: col.dataType,
+          character_maximum_length: col.characterMaxLength,
+          numeric_precision: col.numericPrecision, numeric_scale: col.numericScale
+        };
+        const colType = mapColumnToSqlType(colForMapper);
+        const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
+        const sql = `ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};`;
+        currentStep++;
+        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Column: ${col.tableName}.${col.columnName}` });
+        await execWithCapture('Column', `${col.tableName}.${col.columnName}`, sql);
+      }
+    }
+
+    // 7. Reload PostgREST schema cache
     try {
       await callExternalProxy('exec_sql', { sql: `NOTIFY pgrst, 'reload schema'` });
     } catch {}
