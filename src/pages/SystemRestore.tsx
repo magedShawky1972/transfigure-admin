@@ -566,8 +566,13 @@ const SystemRestore = () => {
       if (comparisonResults.missingColumns?.length) {
         lines.push('\n-- ======= MISSING COLUMNS =======');
         for (const col of comparisonResults.missingColumns) {
-          const colType = mapColumnToSqlType(col);
-          const nullable = col.isNullable === 'NO' ? '' : '';  // New columns should be nullable to avoid breaking existing data
+          // Convert camelCase to snake_case for mapColumnToSqlType compatibility
+          const colForMapper = { 
+            udt_name: col.udtName, data_type: col.dataType,
+            character_maximum_length: col.characterMaxLength,
+            numeric_precision: col.numericPrecision, numeric_scale: col.numericScale
+          };
+          const colType = mapColumnToSqlType(colForMapper);
           const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
           lines.push(`ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};\n`);
         }
