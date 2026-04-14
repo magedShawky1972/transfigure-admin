@@ -250,13 +250,36 @@ const PricingScenario = () => {
         return { net, profitPct };
       };
 
-      // Generate candidate coins and pick profitable ones with good spacing
+      // Generate candidate coins based on step mode
       const bestTiers: number[] = [];
-      // Always include boundaries
       const candidates: number[] = [];
-      for (let c = min; c <= max; c++) {
-        const { profitPct } = calcProfit(c);
-        if (profitPct > 0) candidates.push(c);
+      const getStep = (value: number): number => {
+        if (wizardStepMode === "any") return 1;
+        if (wizardStepMode === "whole_fraction") {
+          if (value < 100) return 50;
+          if (value < 1000) return 50;
+          return 500;
+        }
+        // whole
+        if (value < 100) return 100;
+        if (value < 1000) return 100;
+        return 1000;
+      };
+      
+      // Always check coin=1 if in range
+      if (min <= 1 && 1 <= max) {
+        const { profitPct } = calcProfit(1);
+        if (profitPct > 0) candidates.push(1);
+      }
+      
+      const startVal = wizardStepMode === "any" ? min : Math.ceil(min / getStep(min)) * getStep(min);
+      for (let c = startVal; c <= max; ) {
+        if (c > 1 || !candidates.includes(1)) {
+          const { profitPct } = calcProfit(c);
+          if (profitPct > 0) candidates.push(c);
+        }
+        const step = getStep(c);
+        c += step;
       }
 
       if (candidates.length === 0) {
@@ -1694,6 +1717,19 @@ const PricingScenario = () => {
                 <Label>{isRTL ? "الحد الأقصى" : "Maximum"}</Label>
                 <Input type="number" min={1} value={wizardMax} onChange={(e) => setWizardMax(e.target.value)} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{isRTL ? "نوع الأرقام" : "Number Type"}</Label>
+              <Select value={wizardStepMode} onValueChange={(v) => setWizardStepMode(v as "whole" | "whole_fraction" | "any")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="whole">{isRTL ? "أرقام كاملة (100, 1000, 2000...)" : "Whole Numbers (100, 1000, 2000...)"}</SelectItem>
+                  <SelectItem value="whole_fraction">{isRTL ? "أرقام كاملة مع كسر كبير (50, 150, 1500...)" : "Whole + Big Fraction (50, 150, 1500...)"}</SelectItem>
+                  <SelectItem value="any">{isRTL ? "السماح بالكسور (1, 1230, 1675...)" : "Allow Fractions (1, 1230, 1675...)"}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
