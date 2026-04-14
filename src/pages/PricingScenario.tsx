@@ -113,6 +113,7 @@ const PricingScenario = () => {
   const [wizardMin, setWizardMin] = useState<string>("1");
   const [wizardMax, setWizardMax] = useState<string>("50000");
   const [wizardBuilding, setWizardBuilding] = useState(false);
+  const [wizardStepMode, setWizardStepMode] = useState<"whole" | "whole_fraction" | "any">("whole");
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
     if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
