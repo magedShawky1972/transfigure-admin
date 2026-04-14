@@ -1099,10 +1099,14 @@ const PricingScenario = () => {
             </div>
           </div>
 
-          <div className="mt-6">
+          <div className="mt-6 flex gap-2">
             <Button onClick={handleCalculate} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
               <ArrowRight className="h-4 w-4" />
               {isRTL ? "حساب جدول الأسعار" : "Calculate Pricing Table"}
+            </Button>
+            <Button variant="outline" onClick={() => setWizardOpen(true)} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
+              <Wand2 className="h-4 w-4" />
+              {isRTL ? "بناء تلقائي للفئات المربحة" : "Auto Build Profitable Tiers"}
             </Button>
           </div>
         </CardContent>
