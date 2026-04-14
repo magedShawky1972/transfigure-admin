@@ -108,6 +108,7 @@ const PricingScenario = () => {
   const [newTierSetupValue, setNewTierSetupValue] = useState("");
   const [brandTiersLoaded, setBrandTiersLoaded] = useState<string | null>(null);
   const [savingBrandTiers, setSavingBrandTiers] = useState(false);
+  const [roundNumber, setRoundNumber] = useState<number>(4);
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
     if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
@@ -291,9 +292,11 @@ const PricingScenario = () => {
 
     return allCoinsTiers.map((coins) => {
       const priceUsd = coins / sales1UsdCoins;
-      const sarPrice = priceUsd * rate;
+      const sarPriceRaw = priceUsd * rate;
+      const sarPrice = parseFloat(sarPriceRaw.toFixed(roundNumber));
       const costUsd = coins / cost1UsdCoins;
-      const costSar = costUsd * rate;
+      const costSarRaw = costUsd * rate;
+      const costSar = parseFloat(costSarRaw.toFixed(roundNumber));
       const paymentCommission = sarPrice * gatewayRate;
       const vat = (fixedVal + paymentCommission) * vatRate;
       const cashBack = cashBackRate * sarPrice;
@@ -1057,6 +1060,18 @@ const PricingScenario = () => {
                 {isRTL ? "تحديث أسعار المنتجات" : "Update Product Prices"}
               </Button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 mb-4">
+            <Label className="whitespace-nowrap text-sm font-medium">{isRTL ? "عدد الخانات العشرية" : "Round Decimals"}</Label>
+            <Input
+              type="number"
+              min={0}
+              max={10}
+              value={roundNumber}
+              onChange={(e) => setRoundNumber(parseInt(e.target.value) || 0)}
+              className="w-24"
+            />
           </div>
 
           {selectedMethods.map((method) => {
