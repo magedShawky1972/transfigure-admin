@@ -4227,7 +4227,37 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                   </div>
                 )}
 
-                {/* Missing Functions */}
+                {/* Missing Columns */}
+                {(comparisonResults.missingColumns?.length || 0) > 0 && (
+                  <div className="border border-amber-500/30 rounded-lg p-3">
+                    <p className="text-sm font-medium text-amber-600 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      {isRTL ? 'أعمدة مفقودة في جداول موجودة' : 'Missing Columns in Existing Tables'}
+                      <Badge variant="secondary" className="text-xs">{comparisonResults.missingColumns.length}</Badge>
+                    </p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {Object.entries(
+                        comparisonResults.missingColumns.reduce((acc, col) => {
+                          if (!acc[col.tableName]) acc[col.tableName] = [];
+                          acc[col.tableName].push(col);
+                          return acc;
+                        }, {} as Record<string, MissingColumnInfo[]>)
+                      ).map(([table, cols]) => (
+                        <div key={table} className="border border-border/50 rounded p-2">
+                          <p className="text-xs font-mono font-medium mb-1">{table}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {cols.map(c => (
+                              <Badge key={c.columnName} variant="outline" className="text-[10px] font-mono border-amber-500/50 text-amber-600">
+                                {c.columnName} ({c.udtName})
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {comparisonResults.missingFunctions.length > 0 && (
                   <div className="border border-destructive/30 rounded-lg p-3">
                     <p className="text-sm font-medium text-destructive mb-2 flex items-center gap-2">
