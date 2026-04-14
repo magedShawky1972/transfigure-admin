@@ -611,6 +611,8 @@ const PricingScenario = () => {
     const scenarioInputs = {
       ...inputs,
       salesUsdRate,
+      sales1CoinSar,
+      sales1000CoinSar,
       excludedCoins: normalizedExcludedCoins,
       customCoinsTiers,
       savedCoinsTiers,
@@ -734,6 +736,8 @@ const PricingScenario = () => {
 
     setInputs(scenario.inputs);
     setSalesUsdRate((scenario.inputs as any)?.salesUsdRate || 0);
+    setSales1CoinSar((scenario.inputs as any)?.sales1CoinSar || 0);
+    setSales1000CoinSar((scenario.inputs as any)?.sales1000CoinSar || 0);
     setSelectedMethodIds(scenario.selected_payment_method_ids);
     setSavedCoinsTiers([...savedCoinsTiers].sort((a, b) => a - b));
     setCustomCoinsTiers(restoredCustomTiers);
@@ -944,7 +948,7 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSavedCoinsTiers([]); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); setBrandTiersLoaded(null); setSalesUsdRate(0); }} className="gap-2">
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSavedCoinsTiers([]); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); setBrandTiersLoaded(null); setSalesUsdRate(0); setSales1CoinSar(0); setSales1000CoinSar(0); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>
