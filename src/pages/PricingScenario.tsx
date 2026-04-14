@@ -118,11 +118,12 @@ const PricingScenario = () => {
   const [wizardStepMode, setWizardStepMode] = useState<"whole" | "whole_fraction" | "any">("whole");
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
-    if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
+    const effRate = salesUsdRate > 0 ? salesUsdRate : inputs.rate;
+    if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !effRate || effRate <= 0) return null;
     // sarPrice = (coins / sales1UsdCoins) * rate => coins = sarPrice * sales1UsdCoins / rate
-    const coins = (price * inputs.sales1UsdCoins) / inputs.rate;
+    const coins = (price * inputs.sales1UsdCoins) / effRate;
     return Math.round(coins);
-  }, [suggestSalePrice, inputs.sales1UsdCoins, inputs.rate]);
+  }, [suggestSalePrice, inputs.sales1UsdCoins, inputs.rate, salesUsdRate]);
   const [generatingProducts, setGeneratingProducts] = useState(false);
   const [updatingPrices, setUpdatingPrices] = useState(false);
   const [updatePriceDialogOpen, setUpdatePriceDialogOpen] = useState(false);
