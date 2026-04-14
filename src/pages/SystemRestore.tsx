@@ -2120,6 +2120,8 @@ const SystemRestore = () => {
             rowCount: t.rowCount || 0,
             status: 'pending' as const,
             migratedRows: 0,
+            updatedRows: 0,
+            newRows: 0,
           }));
           setMigrationTables(tables);
           await new Promise(r => setTimeout(r, 50));
