@@ -108,14 +108,22 @@ const PaymentGatewayConsolidation = () => {
       });
       setSalesData(Array.from(salesMap.values()).sort((a, b) => b.total - a.total));
 
-      // 2) Hyberpay statement
-      const { data: hpRaw, error: e2 } = await supabase
-        .from("hyberpaystatement")
-        .select("brand, result, debit, credit, clearinginstitutename")
-        .gte("request_date", dateFrom)
-        .lte("request_date", dateTo);
-
-      if (e2) throw e2;
+      // 2) Hyberpay statement - paginated
+      let allHpRaw: any[] = [];
+      let hpOffset = 0;
+      while (true) {
+        const { data, error: e2 } = await supabase
+          .from("hyberpaystatement")
+          .select("brand, result, debit, credit, clearinginstitutename")
+          .gte("request_date", dateFrom)
+          .lte("request_date", dateTo)
+          .range(hpOffset, hpOffset + pageSize - 1);
+        if (e2) throw e2;
+        const batch = data || [];
+        allHpRaw = allHpRaw.concat(batch);
+        if (batch.length < pageSize) break;
+        hpOffset += pageSize;
+      }
 
       // aggregate hyperpay by brand+result
       const hpMap = new Map<string, HyperpayRow>();
