@@ -220,6 +220,93 @@ const PricingScenario = () => {
     }
   };
 
+  const handleWizardBuild = async () => {
+    const min = parseInt(wizardMin) || 1;
+    const max = parseInt(wizardMax) || 50000;
+    if (min >= max || inputs.sales1UsdCoins <= 0 || inputs.cost1UsdCoins <= 0 || inputs.rate <= 0 || selectedMethods.length === 0) {
+      toast.error(isRTL ? "تحقق من القيم المدخلة" : "Check input values");
+      return;
+    }
+    setWizardBuilding(true);
+    try {
+      const method = selectedMethods[0]; // Use first selected method (e.g. MADA)
+      const { sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
+      const gatewayRate = (method.gateway_fee || 0) / 100;
+      const fixedVal = method.fixed_value || 0;
+      const vatRate = (method.vat_fee || 0) / 100;
+      const cashBackRate = (cashBackPercent || 0) / 100;
+
+      const calcProfit = (coins: number) => {
+        const priceUsd = coins / sales1UsdCoins;
+        const sarPrice = parseFloat((priceUsd * rate).toFixed(roundNumber));
+        const costUsd = coins / cost1UsdCoins;
+        const costSar = parseFloat((costUsd * rate).toFixed(roundNumber));
+        const commission = sarPrice * gatewayRate;
+        const vat = (fixedVal + commission) * vatRate;
+        const cashBack = cashBackRate * sarPrice;
+        const net = sarPrice - costSar - commission - fixedVal - vat - cashBack;
+        const profitPct = sarPrice > 0 ? (net / sarPrice) * 100 : 0;
+        return { net, profitPct };
+      };
+
+      // Generate candidate coins and pick profitable ones with good spacing
+      const bestTiers: number[] = [];
+      // Always include boundaries
+      const candidates: number[] = [];
+      for (let c = min; c <= max; c++) {
+        const { profitPct } = calcProfit(c);
+        if (profitPct > 0) candidates.push(c);
+      }
+
+      if (candidates.length === 0) {
+        toast.error(isRTL ? "لا توجد فئات مربحة في هذا النطاق" : "No profitable tiers in this range");
+        setWizardBuilding(false);
+        return;
+      }
+
+      // Pick best: group by profit brackets and select the highest profit per bracket
+      // Strategy: select coins with highest profit %, ensuring good distribution
+      const sorted = candidates
+        .map(c => ({ coins: c, ...calcProfit(c) }))
+        .sort((a, b) => b.profitPct - a.profitPct);
+
+      // Take top profitable, then ensure spacing
+      const selected = new Set<number>();
+      // Always include 1 if profitable
+      if (candidates.includes(1)) selected.add(1);
+      
+      // Pick top coins with minimum spacing logic
+      const minSpacing = Math.max(1, Math.floor((max - min) / 100));
+      for (const item of sorted) {
+        if (selected.size >= 50) break; // Cap at 50 tiers
+        let tooClose = false;
+        for (const existing of selected) {
+          if (Math.abs(item.coins - existing) < minSpacing) { tooClose = true; break; }
+        }
+        if (!tooClose) selected.add(item.coins);
+      }
+
+      const finalTiers = Array.from(selected).sort((a, b) => a - b);
+      
+      // Save to brand if selected
+      if (selectedBrandId) {
+        await supabase.from("brand_coin_tiers").delete().eq("brand_id", selectedBrandId);
+        const rows = finalTiers.map((v, i) => ({ brand_id: selectedBrandId, coin_value: v, sort_order: i }));
+        await supabase.from("brand_coin_tiers").insert(rows);
+        setSavedCoinsTiers(finalTiers);
+        setCustomCoinsTiers([]);
+        setBrandTiersLoaded(selectedBrandId);
+      } else {
+        setSavedCoinsTiers(finalTiers);
+      }
+      
+      setWizardOpen(false);
+      setShowResults(true);
+      toast.success(isRTL ? `تم إنشاء ${finalTiers.length} فئة كوينز مربحة` : `Generated ${finalTiers.length} profitable coin tiers`);
+    } finally {
+      setWizardBuilding(false);
+    }
+  };
 
   const txRate = inputs.transactionRate || inputs.rate;
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
