@@ -596,7 +596,7 @@ const PricingScenario = () => {
       : [];
     const savedCoinsTiers = Array.isArray((scenario.inputs as any)?.savedCoinsTiers)
       ? (scenario.inputs as any).savedCoinsTiers.map(Number).filter(Number.isFinite)
-      : [...new Set([...DEFAULT_COINS_TIERS, ...savedCustomTiers])];
+      : [...new Set([...savedCustomTiers])];
     const selectionState = (scenario.inputs as any)?.coinSelectionState;
     const excludedFromSelectionState = selectionState && typeof selectionState === "object"
       ? savedCoinsTiers.filter((coin) => selectionState[String(coin)] === false)
