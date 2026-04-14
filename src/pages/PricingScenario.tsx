@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw, Lightbulb } from "lucide-react";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw, Lightbulb, Settings2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -98,11 +98,16 @@ const PricingScenario = () => {
   const [showResults, setShowResults] = useState(false);
   const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
   const [customCoinsTiers, setCustomCoinsTiers] = useState<number[]>([]);
-  const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>(DEFAULT_COINS_TIERS);
+  const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>([]);
   const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
   const [newCoinValue, setNewCoinValue] = useState("");
   const [suggestCoinsDialogOpen, setSuggestCoinsDialogOpen] = useState(false);
   const [suggestSalePrice, setSuggestSalePrice] = useState("");
+  const [coinTierSetupOpen, setCoinTierSetupOpen] = useState(false);
+  const [coinTierSetupList, setCoinTierSetupList] = useState<number[]>([1, 100, 1000]);
+  const [newTierSetupValue, setNewTierSetupValue] = useState("");
+  const [brandTiersLoaded, setBrandTiersLoaded] = useState<string | null>(null);
+  const [savingBrandTiers, setSavingBrandTiers] = useState(false);
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
     if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
@@ -156,6 +161,61 @@ const PricingScenario = () => {
     fetchBrands();
   }, []);
 
+  // Load brand coin tiers from DB
+  const loadBrandCoinTiers = async (brandId: string): Promise<number[]> => {
+    const { data } = await supabase
+      .from("brand_coin_tiers")
+      .select("coin_value")
+      .eq("brand_id", brandId)
+      .order("sort_order");
+    return (data || []).map((r: any) => r.coin_value);
+  };
+
+  // Save brand coin tiers to DB
+  const saveBrandCoinTiers = async (brandId: string, tiers: number[]) => {
+    setSavingBrandTiers(true);
+    try {
+      // Delete existing tiers for this brand
+      await supabase.from("brand_coin_tiers").delete().eq("brand_id", brandId);
+      // Insert new tiers
+      const rows = tiers.map((coin, i) => ({ brand_id: brandId, coin_value: coin, sort_order: i }));
+      const { error } = await supabase.from("brand_coin_tiers").insert(rows);
+      if (error) throw error;
+      toast.success(isRTL ? "تم حفظ فئات الكوينز للبراند" : "Brand coin tiers saved");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingBrandTiers(false);
+    }
+  };
+
+  // Handle Calculate button - check brand tiers first
+  const handleCalculate = async () => {
+    if (!selectedBrandId) {
+      setShowResults(true);
+      return;
+    }
+    // If tiers already loaded for this brand, just show results
+    if (brandTiersLoaded === selectedBrandId && savedCoinsTiers.length > 0) {
+      setShowResults(true);
+      return;
+    }
+    // Check DB for saved tiers
+    const tiers = await loadBrandCoinTiers(selectedBrandId);
+    if (tiers.length > 0) {
+      setSavedCoinsTiers(tiers);
+      setCustomCoinsTiers([]);
+      setBrandTiersLoaded(selectedBrandId);
+      setShowResults(true);
+    } else {
+      // First time - show setup popup with defaults 1, 100, 1000
+      setCoinTierSetupList([1, 100, 1000]);
+      setNewTierSetupValue("");
+      setCoinTierSetupOpen(true);
+    }
+  };
+
+
   const txRate = inputs.transactionRate || inputs.rate;
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
   const amountTransferSAR = inputs.amountToTransfer * txRate;
@@ -203,7 +263,7 @@ const PricingScenario = () => {
   }, [totalTransferProfitByTxRate, amountTransferSAR]);
 
   const allCoinsTiers = useMemo(() => {
-    const merged = savedCoinsTiers.length > 0 ? savedCoinsTiers : [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
+    const merged = savedCoinsTiers.length > 0 ? savedCoinsTiers : [...customCoinsTiers];
     return [...new Set(merged)].sort((a, b) => a - b);
   }, [savedCoinsTiers, customCoinsTiers]);
 
@@ -536,7 +596,7 @@ const PricingScenario = () => {
       : [];
     const savedCoinsTiers = Array.isArray((scenario.inputs as any)?.savedCoinsTiers)
       ? (scenario.inputs as any).savedCoinsTiers.map(Number).filter(Number.isFinite)
-      : [...new Set([...DEFAULT_COINS_TIERS, ...savedCustomTiers])];
+      : [...new Set([...savedCustomTiers])];
     const selectionState = (scenario.inputs as any)?.coinSelectionState;
     const excludedFromSelectionState = selectionState && typeof selectionState === "object"
       ? savedCoinsTiers.filter((coin) => selectionState[String(coin)] === false)
@@ -558,6 +618,7 @@ const PricingScenario = () => {
     setCustomCoinsTiers(restoredCustomTiers);
     setExcludedCoins(new Set(normalizedExcludedCoins));
     setSelectedBrandId(scenario.brand_id || "");
+    setBrandTiersLoaded(scenario.brand_id || null);
     setCurrentScenarioId(scenario.id);
     setIsCurrentActive(scenario.is_active);
     setShowResults((scenario.selected_payment_method_ids?.length || 0) > 0);
@@ -762,7 +823,7 @@ const PricingScenario = () => {
             <CheckCircle className="h-4 w-4" />
             {isRTL ? "تأكيد كنشط" : "Confirm Active"}
           </Button>
-          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSavedCoinsTiers(DEFAULT_COINS_TIERS); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); }} className="gap-2">
+          <Button variant="destructive" onClick={() => { setInputs({ brandName: "", cost1UsdCoins: 0, sales1UsdCoins: 0, profitPercentage: 0, cashBackPercent: 0, rate: 0, transactionRate: 0, amountToTransfer: 0, numberOfTransactions: 1 }); setSelectedMethodIds([]); setShowResults(false); setExcludedCoins(new Set()); setCustomCoinsTiers([]); setSavedCoinsTiers([]); setSelectedBrandId(""); setCurrentScenarioId(null); setIsCurrentActive(false); setBrandTiersLoaded(null); }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             {isRTL ? "إعادة تعيين" : "Restart"}
           </Button>
@@ -814,6 +875,9 @@ const PricingScenario = () => {
                           <CommandItem key={b.id} value={b.brand_name} onSelect={() => {
                             setSelectedBrandId(b.id);
                             updateInput("brandName", b.brand_name);
+                            setBrandTiersLoaded(null);
+                            setSavedCoinsTiers([]);
+                            setShowResults(false);
                           }}>
                             <Check className={`mr-2 h-4 w-4 ${selectedBrandId === b.id ? "opacity-100" : "opacity-0"}`} />
                             {b.brand_name}
@@ -942,7 +1006,7 @@ const PricingScenario = () => {
           </div>
 
           <div className="mt-6">
-            <Button onClick={() => setShowResults(true)} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
+            <Button onClick={handleCalculate} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
               <ArrowRight className="h-4 w-4" />
               {isRTL ? "حساب جدول الأسعار" : "Calculate Pricing Table"}
             </Button>
@@ -975,6 +1039,14 @@ const PricingScenario = () => {
               <Button variant="outline" onClick={() => { setSuggestSalePrice(""); setSuggestCoinsDialogOpen(true); }} className="gap-2">
                 <Lightbulb className="h-4 w-4" />
                 {isRTL ? "اقتراح عدد الكوينز" : "Suggest Coins"}
+              </Button>
+              <Button variant="outline" onClick={() => {
+                setCoinTierSetupList([...savedCoinsTiers]);
+                setNewTierSetupValue("");
+                setCoinTierSetupOpen(true);
+              }} className="gap-2" disabled={!selectedBrandId}>
+                <Settings2 className="h-4 w-4" />
+                {isRTL ? "إدارة فئات الكوينز" : "Manage Tiers"}
               </Button>
               <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
                 {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
@@ -1375,6 +1447,118 @@ const PricingScenario = () => {
               </Button>
             </DialogFooter>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Coin Tier Setup Dialog - shown on first calculate for a brand */}
+      <Dialog open={coinTierSetupOpen} onOpenChange={setCoinTierSetupOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "إعداد فئات الكوينز للبراند" : "Coin Categories for Brand"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {brandTiersLoaded === selectedBrandId
+              ? (isRTL ? `إدارة فئات الكوينز لـ "${inputs.brandName}".` : `Manage coin tiers for "${inputs.brandName}".`)
+              : (isRTL ? `لا توجد فئات كوينز محفوظة لـ "${inputs.brandName}". أضف الفئات المطلوبة ثم اضغط حفظ ومتابعة.` : `No coin tiers saved for "${inputs.brandName}". Add the required tiers then click Save & Continue.`)
+            }
+          </p>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min="1"
+                value={newTierSetupValue}
+                onChange={(e) => setNewTierSetupValue(e.target.value)}
+                placeholder={isRTL ? "أدخل قيمة الكوينز" : "Enter coin value"}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const val = parseInt(newTierSetupValue);
+                    if (val > 0 && !coinTierSetupList.includes(val)) {
+                      setCoinTierSetupList((prev) => [...prev, val].sort((a, b) => a - b));
+                      setNewTierSetupValue("");
+                    }
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const val = parseInt(newTierSetupValue);
+                  if (!val || val <= 0) {
+                    toast.error(isRTL ? "أدخل قيمة صحيحة" : "Enter a valid value");
+                    return;
+                  }
+                  if (coinTierSetupList.includes(val)) {
+                    toast.error(isRTL ? "موجودة بالفعل" : "Already exists");
+                    return;
+                  }
+                  setCoinTierSetupList((prev) => [...prev, val].sort((a, b) => a - b));
+                  setNewTierSetupValue("");
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-center w-[60px]">#</TableHead>
+                    <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
+                    <TableHead className="text-center w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coinTierSetupList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                        {isRTL ? "لا توجد فئات" : "No tiers added"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    coinTierSetupList.map((tier, i) => (
+                      <TableRow key={tier}>
+                        <TableCell className="text-center text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="text-right font-medium">{tier.toLocaleString()}</TableCell>
+                        <TableCell className="text-center">
+                          <button
+                            onClick={() => setCoinTierSetupList((prev) => prev.filter((t) => t !== tier))}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {isRTL ? `${coinTierSetupList.length} فئة` : `${coinTierSetupList.length} tiers`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCoinTierSetupOpen(false)}>
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              disabled={coinTierSetupList.length === 0 || savingBrandTiers}
+              onClick={async () => {
+                if (!selectedBrandId || coinTierSetupList.length === 0) return;
+                await saveBrandCoinTiers(selectedBrandId, coinTierSetupList);
+                setSavedCoinsTiers([...coinTierSetupList]);
+                setCustomCoinsTiers([]);
+                setBrandTiersLoaded(selectedBrandId);
+                setCoinTierSetupOpen(false);
+                setShowResults(true);
+              }}
+              className="gap-2"
+            >
+              {savingBrandTiers ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {isRTL ? "حفظ ومتابعة" : "Save & Continue"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

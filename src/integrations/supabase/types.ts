@@ -1071,6 +1071,38 @@ export type Database = {
           },
         ]
       }
+      brand_coin_tiers: {
+        Row: {
+          brand_id: string
+          coin_value: number
+          created_at: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          brand_id: string
+          coin_value: number
+          created_at?: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          brand_id?: string
+          coin_value?: number
+          created_at?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_coin_tiers_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_suppliers: {
         Row: {
           brand_id: string
