@@ -2129,7 +2129,7 @@ const SystemRestore = () => {
             setMigrationCurrentStep(isRTL ? `ترحيل جدول: ${table.name}` : `Migrating table: ${table.name}`);
             setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'migrating' } : t));
             let offset = 0;
-            const batchSize = 500;
+            const batchSize = 2000;
             let totalMigrated = 0;
 
             try {
