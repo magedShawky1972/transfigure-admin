@@ -2217,8 +2217,11 @@ const SystemRestore = () => {
             setMigrationCurrentStep(isRTL ? `ترحيل جدول: ${table.name}` : `Migrating table: ${table.name}`);
             setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'migrating' } : t));
             let offset = 0;
-            const batchSize = 2000;
+            // Use smaller batches for large tables to avoid edge function timeouts
+            const batchSize = table.rowCount > 50000 ? 500 : table.rowCount > 10000 ? 1000 : 2000;
             let totalMigrated = 0;
+            let retryCount = 0;
+            const maxRetries = 3;
 
             // Get existing row count on external DB before migration
             let existingRowsBefore = 0;
