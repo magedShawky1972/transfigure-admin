@@ -161,7 +161,61 @@ const PricingScenario = () => {
     fetchBrands();
   }, []);
 
-  const txRate = inputs.transactionRate || inputs.rate;
+  // Load brand coin tiers from DB
+  const loadBrandCoinTiers = async (brandId: string): Promise<number[]> => {
+    const { data } = await supabase
+      .from("brand_coin_tiers")
+      .select("coin_value")
+      .eq("brand_id", brandId)
+      .order("sort_order");
+    return (data || []).map((r: any) => r.coin_value);
+  };
+
+  // Save brand coin tiers to DB
+  const saveBrandCoinTiers = async (brandId: string, tiers: number[]) => {
+    setSavingBrandTiers(true);
+    try {
+      // Delete existing tiers for this brand
+      await supabase.from("brand_coin_tiers").delete().eq("brand_id", brandId);
+      // Insert new tiers
+      const rows = tiers.map((coin, i) => ({ brand_id: brandId, coin_value: coin, sort_order: i }));
+      const { error } = await supabase.from("brand_coin_tiers").insert(rows);
+      if (error) throw error;
+      toast.success(isRTL ? "تم حفظ فئات الكوينز للبراند" : "Brand coin tiers saved");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingBrandTiers(false);
+    }
+  };
+
+  // Handle Calculate button - check brand tiers first
+  const handleCalculate = async () => {
+    if (!selectedBrandId) {
+      setShowResults(true);
+      return;
+    }
+    // If tiers already loaded for this brand, just show results
+    if (brandTiersLoaded === selectedBrandId && savedCoinsTiers.length > 0) {
+      setShowResults(true);
+      return;
+    }
+    // Check DB for saved tiers
+    const tiers = await loadBrandCoinTiers(selectedBrandId);
+    if (tiers.length > 0) {
+      setSavedCoinsTiers(tiers);
+      setCustomCoinsTiers([]);
+      setBrandTiersLoaded(selectedBrandId);
+      setShowResults(true);
+    } else {
+      // First time - show setup popup with defaults 1, 100, 1000
+      setCoinTierSetupList([1, 100, 1000]);
+      setNewTierSetupValue("");
+      setCoinTierSetupOpen(true);
+    }
+  };
+
+
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
   const amountTransferSAR = inputs.amountToTransfer * txRate;
 
