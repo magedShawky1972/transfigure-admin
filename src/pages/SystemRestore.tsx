@@ -207,6 +207,8 @@ const SystemRestore = () => {
     rowCount: number;
     status: 'pending' | 'migrating' | 'done' | 'error';
     migratedRows: number;
+    updatedRows: number;
+    newRows: number;
     errorMessage?: string;
   }
   
