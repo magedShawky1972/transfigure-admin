@@ -111,7 +111,7 @@ const PaymentGatewayConsolidation = () => {
       // 2) Hyberpay statement
       const { data: hpRaw, error: e2 } = await supabase
         .from("hyberpaystatement")
-        .select("brand, result, debit, clearinginstitutename")
+        .select("brand, result, debit, credit, clearinginstitutename")
         .gte("request_date", dateFrom)
         .lte("request_date", dateTo);
 
@@ -124,7 +124,7 @@ const PaymentGatewayConsolidation = () => {
       (hpRaw || []).forEach((r: any) => {
         const brand = r.brand || "OTHER";
         const result = r.result || "UNKNOWN";
-        const debit = parseFloat(r.debit) || 0;
+        const debit = parseFloat(r.credit) || parseFloat(r.debit) || 0;
         const bank = r.clearinginstitutename || "Unknown Bank";
 
         // Hyperpay card aggregation
