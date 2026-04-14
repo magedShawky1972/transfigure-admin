@@ -98,11 +98,16 @@ const PricingScenario = () => {
   const [showResults, setShowResults] = useState(false);
   const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
   const [customCoinsTiers, setCustomCoinsTiers] = useState<number[]>([]);
-  const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>(DEFAULT_COINS_TIERS);
+  const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>([]);
   const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
   const [newCoinValue, setNewCoinValue] = useState("");
   const [suggestCoinsDialogOpen, setSuggestCoinsDialogOpen] = useState(false);
   const [suggestSalePrice, setSuggestSalePrice] = useState("");
+  const [coinTierSetupOpen, setCoinTierSetupOpen] = useState(false);
+  const [coinTierSetupList, setCoinTierSetupList] = useState<number[]>([1, 100, 1000]);
+  const [newTierSetupValue, setNewTierSetupValue] = useState("");
+  const [brandTiersLoaded, setBrandTiersLoaded] = useState<string | null>(null);
+  const [savingBrandTiers, setSavingBrandTiers] = useState(false);
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
     if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
