@@ -208,7 +208,7 @@ const PricingScenario = () => {
   }, [totalTransferProfitByTxRate, amountTransferSAR]);
 
   const allCoinsTiers = useMemo(() => {
-    const merged = savedCoinsTiers.length > 0 ? savedCoinsTiers : [...DEFAULT_COINS_TIERS, ...customCoinsTiers];
+    const merged = savedCoinsTiers.length > 0 ? savedCoinsTiers : [...customCoinsTiers];
     return [...new Set(merged)].sort((a, b) => a - b);
   }, [savedCoinsTiers, customCoinsTiers]);
 
