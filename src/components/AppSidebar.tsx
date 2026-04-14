@@ -50,7 +50,8 @@ import {
   Home,
   Headset,
   BookOpen,
-  CalendarDays
+  CalendarDays,
+  Landmark
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -187,6 +188,7 @@ export function AppSidebar() {
     "/knowledge-base": "knowledgeBase",
     "/api-transaction-mapping": "apiTransactionMapping",
     "/reports/payment-whatif": "paymentWhatIf",
+    "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
   };
 
   useEffect(() => {
@@ -323,6 +325,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "توثيق API" : "API Documentation", url: "/api-documentation", icon: FileText },
         { title: t("menu.transactions"), url: "/transactions", icon: Table2 },
         { title: t("menu.pivotTable"), url: "/pivot-table", icon: Grid3x3 },
+        { title: language === 'ar' ? "توحيد بوابة الدفع" : "Payment Gateway", url: "/reports/payment-gateway-consolidation", icon: Landmark },
       ]
     },
     {

@@ -161,6 +161,7 @@ import ApiTransactionMapping from "./pages/ApiTransactionMapping";
 import PaymentWhatIfScenario from "./pages/PaymentWhatIfScenario";
 import CRMIntegrationDoc from "./pages/CRMIntegrationDoc";
 import CRMSession from "./pages/CRMSession";
+import PaymentGatewayConsolidation from "./pages/PaymentGatewayConsolidation";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -329,6 +330,7 @@ const App = () => (
               <Route path="/crm-integration-doc" element={<CRMIntegrationDoc />} />
               <Route path="/crm-session" element={<CRMSession />} />
               <Route path="/pricing-scenario" element={<PricingScenario />} />
+              <Route path="/reports/payment-gateway-consolidation" element={<PaymentGatewayConsolidation />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
