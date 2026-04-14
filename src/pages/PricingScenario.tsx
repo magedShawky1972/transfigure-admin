@@ -217,6 +217,7 @@ const PricingScenario = () => {
 
 
   const txRate = inputs.transactionRate || inputs.rate;
+  const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
   const amountTransferSAR = inputs.amountToTransfer * txRate;
 
   // Helper to calculate transfer profit with a given cost rate
