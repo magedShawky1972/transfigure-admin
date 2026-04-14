@@ -1002,7 +1002,7 @@ const PricingScenario = () => {
           </div>
 
           <div className="mt-6">
-            <Button onClick={() => setShowResults(true)} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
+            <Button onClick={handleCalculate} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
               <ArrowRight className="h-4 w-4" />
               {isRTL ? "حساب جدول الأسعار" : "Calculate Pricing Table"}
             </Button>
