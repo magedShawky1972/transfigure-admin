@@ -3331,7 +3331,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                   {isRTL ? 'جاري الترحيل...' : 'Migrating...'}
                 </>
               ) : (
-                          </React.Fragment>
+                          <>
                   <ArrowRightLeft className="h-4 w-4 mr-2" />
                   {isRTL ? 'بدء الترحيل' : 'Start Migration'}
                 </>
@@ -3483,7 +3483,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                                 </TableCell>
                               </TableRow>
                             )}
-                          </>
+                          </React.Fragment>
                           );
                         })}
                       </TableBody>
