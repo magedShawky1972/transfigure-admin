@@ -49,6 +49,7 @@ const PaymentGatewayConsolidation = () => {
   const [dateFrom, setDateFrom] = useState(today());
   const [dateTo, setDateTo] = useState(today());
   const [loading, setLoading] = useState(false);
+  const [companyFilter, setCompanyFilter] = useState("all");
 
   // Data
   const [salesData, setSalesData] = useState<SalesRow[]>([]);
@@ -60,21 +61,36 @@ const PaymentGatewayConsolidation = () => {
     try {
       const fromInt = parseInt(dateFrom.replace(/-/g, ""), 10);
       const toInt = parseInt(dateTo.replace(/-/g, ""), 10);
+      const pageSize = 1000;
 
-      // 1) Sales from ordertotals (excluding point)
-      const { data: salesRaw, error: e1 } = await supabase
-        .from("ordertotals")
-        .select("payment_method, payment_brand, total, bank_fee")
-        .gte("order_date_int", fromInt)
-        .lte("order_date_int", toInt)
-        .neq("payment_method", "point");
+      // 1) Sales from purpletransaction (excluding point) - paginated
+      let allSalesRaw: any[] = [];
+      let offset = 0;
+      while (true) {
+        let q = supabase
+          .from("purpletransaction")
+          .select("payment_method, payment_brand, total, bank_fee")
+          .gte("created_at_date_int", fromInt)
+          .lte("created_at_date_int", toInt)
+          .eq("is_deleted", false);
+        
+        if (companyFilter !== "all") {
+          q = q.eq("company", companyFilter);
+        }
 
-      if (e1) throw e1;
+        const { data, error } = await q.range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        // Filter out point on client side (case-insensitive)
+        allSalesRaw = allSalesRaw.concat(batch.filter((r: any) => (r.payment_method || '').toLowerCase() !== 'point'));
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+      }
 
       // aggregate
       const salesMap = new Map<string, SalesRow>();
-      (salesRaw || []).forEach((r: any) => {
-        const key = `${r.payment_method || "unknown"}|${r.payment_brand || "unknown"}`;
+      allSalesRaw.forEach((r: any) => {
+        const key = `${(r.payment_method || "unknown").toUpperCase()}|${(r.payment_brand || "unknown").toUpperCase()}`;
         const existing = salesMap.get(key);
         if (existing) {
           existing.total += Number(r.total) || 0;
@@ -82,8 +98,8 @@ const PaymentGatewayConsolidation = () => {
           existing.bank_fee += Number(r.bank_fee) || 0;
         } else {
           salesMap.set(key, {
-            payment_method: r.payment_method || "unknown",
-            payment_brand: r.payment_brand || "unknown",
+            payment_method: (r.payment_method || "unknown").toUpperCase(),
+            payment_brand: (r.payment_brand || "unknown").toUpperCase(),
             total: Number(r.total) || 0,
             count: 1,
             bank_fee: Number(r.bank_fee) || 0,
