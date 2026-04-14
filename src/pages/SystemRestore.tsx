@@ -3431,7 +3431,8 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                         {migrationTables.map((item, idx) => {
                           const progressPct = item.rowCount > 0 ? Math.min(100, Math.round((item.migratedRows / item.rowCount) * 100)) : (item.status === 'done' ? 100 : 0);
                           return (
-                            <TableRow key={idx} className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
+                            <React.Fragment key={idx}>
+                            <TableRow className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
                               <TableCell className="py-2">
                                 <div className="space-y-1.5">
                                   <div className="font-mono text-xs">{item.name}</div>
