@@ -79,13 +79,25 @@ Deno.serve(async (req) => {
       case 'export_table_as_sql': {
         if (!tableName) throw new Error('Missing tableName');
         
-        // Get data using Supabase client (bypasses exec_sql issues)
-        const { data: rowData, error: rowErr } = await supabase
-          .from(tableName)
-          .select('*')
-          .range(offset, offset + limit - 1);
-        if (rowErr) throw rowErr;
-        const rows = Array.isArray(rowData) ? rowData : [];
+        // Paginate internally to bypass PostgREST 1000-row limit
+        const pageSize = 1000;
+        let allRows: any[] = [];
+        let internalOffset = offset;
+        const targetCount = limit;
+        
+        while (allRows.length < targetCount) {
+          const { data: rowData, error: rowErr } = await supabase
+            .from(tableName)
+            .select('*')
+            .range(internalOffset, internalOffset + pageSize - 1);
+          if (rowErr) throw rowErr;
+          const batch = Array.isArray(rowData) ? rowData : [];
+          allRows = allRows.concat(batch);
+          if (batch.length < pageSize) break;
+          internalOffset += pageSize;
+        }
+        
+        const rows = allRows.slice(0, targetCount);
         
         if (rows.length === 0) {
           return jsonResponse({ success: true, sql: '', rowCount: 0, tableName });
