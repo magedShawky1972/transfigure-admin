@@ -100,6 +100,7 @@ interface UserPermission {
         { key: "api_documentation", label: "توثيق API", labelEn: "API Documentation" },
         { key: "transactions", label: "المعاملات", labelEn: "Transactions" },
         { key: "pivotTable", label: "الجدول المحوري", labelEn: "Pivot Table" },
+        { key: "paymentGatewayConsolidation", label: "توحيد بوابة الدفع", labelEn: "Payment Gateway Consolidation" },
       ]
     },
     {

@@ -98,7 +98,8 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/coins-workflow-setup": "coinsWorkflowSetup",
   "/coins-purchase-followup": "coinsPurchaseFollowUp",
   "/coins-transaction-guide": "coinsTransactionGuide",
-  "/shift-attendance-report": "shiftAttendanceReport",
+   "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
+   "/shift-attendance-report": "shiftAttendanceReport",
   "/missing-shift-images": "missingShiftImages",
   "/project-setup": "projectSetup",
   "/employee-self-requests": "employeeRequests",
@@ -137,6 +138,7 @@ const menuGroups: MenuGroup[] = [
       { title: "API Documentation", titleAr: "توثيق API", url: "/api-documentation", icon: FileText },
       { title: "Transactions", titleAr: "المعاملات", url: "/transactions", icon: Table2 },
       { title: "Pivot Table", titleAr: "الجدول المحوري", url: "/pivot-table", icon: Grid3x3 },
+      { title: "Payment Gateway", titleAr: "توحيد بوابة الدفع", url: "/reports/payment-gateway-consolidation", icon: CreditCard },
     ]
   },
   {
