@@ -3436,7 +3436,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                               <TableCell className="py-2">
                                 <div className="space-y-1.5">
                                   <div className="font-mono text-xs">{item.name}</div>
-                                  {(item.status === 'migrating' || item.status === 'done') && (
+                                  {(item.status === 'migrating' || item.status === 'done' || (item.status === 'error' && item.migratedRows > 0)) && (
                                     <Progress value={progressPct} className="h-1.5" />
                                   )}
                                 </div>
