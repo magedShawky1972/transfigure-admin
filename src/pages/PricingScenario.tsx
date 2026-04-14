@@ -1437,6 +1437,117 @@ const PricingScenario = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Coin Tier Setup Dialog - shown on first calculate for a brand */}
+      <Dialog open={coinTierSetupOpen} onOpenChange={setCoinTierSetupOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "إعداد فئات الكوينز للبراند" : "Setup Coin Categories for Brand"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {isRTL
+              ? `لا توجد فئات كوينز محفوظة لـ "${inputs.brandName}". أضف الفئات المطلوبة ثم اضغط حفظ ومتابعة.`
+              : `No coin tiers saved for "${inputs.brandName}". Add the required tiers then click Save & Continue.`}
+          </p>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min="1"
+                value={newTierSetupValue}
+                onChange={(e) => setNewTierSetupValue(e.target.value)}
+                placeholder={isRTL ? "أدخل قيمة الكوينز" : "Enter coin value"}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const val = parseInt(newTierSetupValue);
+                    if (val > 0 && !coinTierSetupList.includes(val)) {
+                      setCoinTierSetupList((prev) => [...prev, val].sort((a, b) => a - b));
+                      setNewTierSetupValue("");
+                    }
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const val = parseInt(newTierSetupValue);
+                  if (!val || val <= 0) {
+                    toast.error(isRTL ? "أدخل قيمة صحيحة" : "Enter a valid value");
+                    return;
+                  }
+                  if (coinTierSetupList.includes(val)) {
+                    toast.error(isRTL ? "موجودة بالفعل" : "Already exists");
+                    return;
+                  }
+                  setCoinTierSetupList((prev) => [...prev, val].sort((a, b) => a - b));
+                  setNewTierSetupValue("");
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-center w-[60px]">#</TableHead>
+                    <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
+                    <TableHead className="text-center w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coinTierSetupList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                        {isRTL ? "لا توجد فئات" : "No tiers added"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    coinTierSetupList.map((tier, i) => (
+                      <TableRow key={tier}>
+                        <TableCell className="text-center text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="text-right font-medium">{tier.toLocaleString()}</TableCell>
+                        <TableCell className="text-center">
+                          <button
+                            onClick={() => setCoinTierSetupList((prev) => prev.filter((t) => t !== tier))}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {isRTL ? `${coinTierSetupList.length} فئة` : `${coinTierSetupList.length} tiers`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCoinTierSetupOpen(false)}>
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              disabled={coinTierSetupList.length === 0 || savingBrandTiers}
+              onClick={async () => {
+                if (!selectedBrandId || coinTierSetupList.length === 0) return;
+                await saveBrandCoinTiers(selectedBrandId, coinTierSetupList);
+                setSavedCoinsTiers([...coinTierSetupList]);
+                setCustomCoinsTiers([]);
+                setBrandTiersLoaded(selectedBrandId);
+                setCoinTierSetupOpen(false);
+                setShowResults(true);
+              }}
+              className="gap-2"
+            >
+              {savingBrandTiers ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {isRTL ? "حفظ ومتابعة" : "Save & Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
