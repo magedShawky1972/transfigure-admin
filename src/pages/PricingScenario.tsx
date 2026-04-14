@@ -618,6 +618,7 @@ const PricingScenario = () => {
     setCustomCoinsTiers(restoredCustomTiers);
     setExcludedCoins(new Set(normalizedExcludedCoins));
     setSelectedBrandId(scenario.brand_id || "");
+    setBrandTiersLoaded(scenario.brand_id || null);
     setCurrentScenarioId(scenario.id);
     setIsCurrentActive(scenario.is_active);
     setShowResults((scenario.selected_payment_method_ids?.length || 0) > 0);
