@@ -1127,9 +1127,45 @@ const SystemRestore = () => {
         missingBuckets = localBuckets.filter(b => !extBucketsSet.has(b.name));
       } catch (err) {
         console.warn('Storage bucket comparison failed:', err);
+       }
+
+      // Compare columns for tables that exist in both databases
+      let missingColumns: MissingColumnInfo[] = [];
+      const commonTables = localTables.filter((t: string) => extTablesSet.has(t) && !missingTables.includes(t));
+      if (commonTables.length > 0) {
+        try {
+          // Get external columns
+          const extColsRes = await callExternalProxy('exec_sql', {
+            sql: `SELECT table_name, column_name, data_type, column_default, is_nullable, udt_name, character_maximum_length::int, numeric_precision::int, numeric_scale::int FROM information_schema.columns WHERE table_schema = 'public' ORDER BY table_name, ordinal_position`
+          });
+          
+          if (extColsRes.success && Array.isArray(extColsRes.data)) {
+            // Build a set of external columns: "table.column"
+            const extColSet = new Set(extColsRes.data.map((c: any) => `${c.table_name}.${c.column_name}`));
+            
+            // Check each local column for common tables
+            for (const col of localColsData) {
+              if (commonTables.includes(col.table_name) && !extColSet.has(`${col.table_name}.${col.column_name}`)) {
+                missingColumns.push({
+                  tableName: col.table_name,
+                  columnName: col.column_name,
+                  dataType: col.data_type,
+                  columnDefault: col.column_default,
+                  isNullable: col.is_nullable,
+                  udtName: col.udt_name,
+                  characterMaxLength: col.character_maximum_length,
+                  numericPrecision: col.numeric_precision,
+                  numericScale: col.numeric_scale,
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Column comparison failed:', err);
+        }
       }
 
-      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0 || missingBuckets.length > 0;
+      const hasMissing = missingTables.length > 0 || missingFunctions.length > 0 || missingTriggers.length > 0 || missingViews.length > 0 || missingTypes.length > 0 || missingBuckets.length > 0 || missingColumns.length > 0;
 
       const matchedMigrations = localMigrations.map(m => m.version);
       const unmatchedMigrations: string[] = [];
@@ -1142,6 +1178,7 @@ const SystemRestore = () => {
         localTypes, externalTypes, missingTypes,
         matchedMigrations, unmatchedMigrations,
         localBuckets, externalBuckets, missingBuckets,
+        missingColumns,
       });
 
       await saveMigrationLog(matchedMigrations);
