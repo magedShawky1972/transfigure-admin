@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw, Lightbulb, Settings2 } from "lucide-react";
+import { Calculator, Download, ArrowRight, FileSpreadsheet, Printer, Save, FolderOpen, Trash2, RotateCcw, CheckCircle, Star, ChevronsUpDown, Check, PackagePlus, Loader2, Plus, RefreshCw, Lightbulb, Settings2, Wand2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -109,6 +109,10 @@ const PricingScenario = () => {
   const [brandTiersLoaded, setBrandTiersLoaded] = useState<string | null>(null);
   const [savingBrandTiers, setSavingBrandTiers] = useState(false);
   const [roundNumber, setRoundNumber] = useState<number>(4);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardMin, setWizardMin] = useState<string>("1");
+  const [wizardMax, setWizardMax] = useState<string>("50000");
+  const [wizardBuilding, setWizardBuilding] = useState(false);
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
     if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
@@ -216,6 +220,93 @@ const PricingScenario = () => {
     }
   };
 
+  const handleWizardBuild = async () => {
+    const min = parseInt(wizardMin) || 1;
+    const max = parseInt(wizardMax) || 50000;
+    if (min >= max || inputs.sales1UsdCoins <= 0 || inputs.cost1UsdCoins <= 0 || inputs.rate <= 0 || selectedMethods.length === 0) {
+      toast.error(isRTL ? "تحقق من القيم المدخلة" : "Check input values");
+      return;
+    }
+    setWizardBuilding(true);
+    try {
+      const method = selectedMethods[0]; // Use first selected method (e.g. MADA)
+      const { sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
+      const gatewayRate = (method.gateway_fee || 0) / 100;
+      const fixedVal = method.fixed_value || 0;
+      const vatRate = (method.vat_fee || 0) / 100;
+      const cashBackRate = (cashBackPercent || 0) / 100;
+
+      const calcProfit = (coins: number) => {
+        const priceUsd = coins / sales1UsdCoins;
+        const sarPrice = parseFloat((priceUsd * rate).toFixed(roundNumber));
+        const costUsd = coins / cost1UsdCoins;
+        const costSar = parseFloat((costUsd * rate).toFixed(roundNumber));
+        const commission = sarPrice * gatewayRate;
+        const vat = (fixedVal + commission) * vatRate;
+        const cashBack = cashBackRate * sarPrice;
+        const net = sarPrice - costSar - commission - fixedVal - vat - cashBack;
+        const profitPct = sarPrice > 0 ? (net / sarPrice) * 100 : 0;
+        return { net, profitPct };
+      };
+
+      // Generate candidate coins and pick profitable ones with good spacing
+      const bestTiers: number[] = [];
+      // Always include boundaries
+      const candidates: number[] = [];
+      for (let c = min; c <= max; c++) {
+        const { profitPct } = calcProfit(c);
+        if (profitPct > 0) candidates.push(c);
+      }
+
+      if (candidates.length === 0) {
+        toast.error(isRTL ? "لا توجد فئات مربحة في هذا النطاق" : "No profitable tiers in this range");
+        setWizardBuilding(false);
+        return;
+      }
+
+      // Pick best: group by profit brackets and select the highest profit per bracket
+      // Strategy: select coins with highest profit %, ensuring good distribution
+      const sorted = candidates
+        .map(c => ({ coins: c, ...calcProfit(c) }))
+        .sort((a, b) => b.profitPct - a.profitPct);
+
+      // Take top profitable, then ensure spacing
+      const selected = new Set<number>();
+      // Always include 1 if profitable
+      if (candidates.includes(1)) selected.add(1);
+      
+      // Pick top coins with minimum spacing logic
+      const minSpacing = Math.max(1, Math.floor((max - min) / 100));
+      for (const item of sorted) {
+        if (selected.size >= 50) break; // Cap at 50 tiers
+        let tooClose = false;
+        for (const existing of selected) {
+          if (Math.abs(item.coins - existing) < minSpacing) { tooClose = true; break; }
+        }
+        if (!tooClose) selected.add(item.coins);
+      }
+
+      const finalTiers = Array.from(selected).sort((a, b) => a - b);
+      
+      // Save to brand if selected
+      if (selectedBrandId) {
+        await supabase.from("brand_coin_tiers").delete().eq("brand_id", selectedBrandId);
+        const rows = finalTiers.map((v, i) => ({ brand_id: selectedBrandId, coin_value: v, sort_order: i }));
+        await supabase.from("brand_coin_tiers").insert(rows);
+        setSavedCoinsTiers(finalTiers);
+        setCustomCoinsTiers([]);
+        setBrandTiersLoaded(selectedBrandId);
+      } else {
+        setSavedCoinsTiers(finalTiers);
+      }
+      
+      setWizardOpen(false);
+      setShowResults(true);
+      toast.success(isRTL ? `تم إنشاء ${finalTiers.length} فئة كوينز مربحة` : `Generated ${finalTiers.length} profitable coin tiers`);
+    } finally {
+      setWizardBuilding(false);
+    }
+  };
 
   const txRate = inputs.transactionRate || inputs.rate;
   const totalTransferCoins = inputs.amountToTransfer * inputs.cost1UsdCoins;
@@ -1008,10 +1099,14 @@ const PricingScenario = () => {
             </div>
           </div>
 
-          <div className="mt-6">
+          <div className="mt-6 flex gap-2">
             <Button onClick={handleCalculate} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
               <ArrowRight className="h-4 w-4" />
               {isRTL ? "حساب جدول الأسعار" : "Calculate Pricing Table"}
+            </Button>
+            <Button variant="outline" onClick={() => setWizardOpen(true)} className="gap-2" disabled={inputs.sales1UsdCoins === 0 || inputs.cost1UsdCoins === 0 || selectedMethodIds.length === 0}>
+              <Wand2 className="h-4 w-4" />
+              {isRTL ? "بناء تلقائي للفئات المربحة" : "Auto Build Profitable Tiers"}
             </Button>
           </div>
         </CardContent>
@@ -1572,6 +1667,39 @@ const PricingScenario = () => {
             >
               {savingBrandTiers ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {isRTL ? "حفظ ومتابعة" : "Save & Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Wizard Dialog */}
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "بناء تلقائي لفئات الكوينز المربحة" : "Auto Build Profitable Coin Tiers"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {isRTL
+                ? "سيتم تحليل جميع الفئات في النطاق المحدد واختيار الأكثر ربحية تلقائياً"
+                : "All coin values in the specified range will be analyzed and the most profitable tiers will be selected automatically"}
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isRTL ? "الحد الأدنى" : "Minimum"}</Label>
+                <Input type="number" min={1} value={wizardMin} onChange={(e) => setWizardMin(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>{isRTL ? "الحد الأقصى" : "Maximum"}</Label>
+                <Input type="number" min={1} value={wizardMax} onChange={(e) => setWizardMax(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWizardOpen(false)}>{isRTL ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={handleWizardBuild} disabled={wizardBuilding} className="gap-2">
+              {wizardBuilding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              {isRTL ? "بناء الجدول" : "Build Table"}
             </Button>
           </DialogFooter>
         </DialogContent>
