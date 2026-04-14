@@ -134,6 +134,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/crm-setup": "crmSetup",
   "/knowledge-base": "knowledgeBase",
   "/reports/payment-whatif": "paymentWhatIf",
+  "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {
