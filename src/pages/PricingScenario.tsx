@@ -1246,12 +1246,12 @@ const PricingScenario = () => {
                             </TableCell>
                             <TableCell className="text-right font-medium">{r.coins.toLocaleString()}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.priceUsd, 6)}</TableCell>
-                            <TableCell className="text-right">{fmtNum(r.sarPrice, 4)}</TableCell>
+                            <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">{fmtNum(r.sarPrice, 4)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.paymentCommission, 4)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.fixedValue)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.vat, 6)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.cashBack, 6)}</TableCell>
-                            <TableCell className="text-right">{fmtNum(r.costSar, 4)}</TableCell>
+                            <TableCell className="text-right font-semibold text-orange-600 dark:text-orange-400">{fmtNum(r.costSar, 4)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.costUsd, 6)}</TableCell>
                             <TableCell className={`text-right font-bold ${r.net < 0 ? "text-destructive" : r.net > 0 ? "text-green-600" : ""}`}>
                               {fmtNum(r.net)}
