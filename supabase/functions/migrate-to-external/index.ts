@@ -94,12 +94,26 @@ Deno.serve(async (req) => {
         // Derive columns from the first row's keys
         const columnNames = Object.keys(rows[0]);
         const colNames = columnNames.map(c => `"${c}"`).join(', ');
-        const insertStatements: string[] = [];
         
         // Detect primary key column (prefer 'id', fallback to first column)
         const pkCol = columnNames.includes('id') ? 'id' : columnNames[0];
         
-        for (const row of rows) {
+        // Build conflict clause based on strategy
+        let onConflict = '';
+        if (conflictStrategy === 'update') {
+          const updateCols = columnNames
+            .filter(c => c !== pkCol)
+            .map(c => `"${c}" = EXCLUDED."${c}"`)
+            .join(', ');
+          onConflict = updateCols 
+            ? ` ON CONFLICT ("${pkCol}") DO UPDATE SET ${updateCols}`
+            : ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+        } else if (conflictStrategy === 'skip') {
+          onConflict = ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+        }
+
+        // Build multi-row VALUES for a single INSERT (much faster than individual INSERTs)
+        const valueRows = rows.map(row => {
           const values = columnNames.map(colName => {
             const val = row[colName];
             if (val === null || val === undefined) return 'NULL';
@@ -108,28 +122,20 @@ Deno.serve(async (req) => {
             if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
             return `'${String(val).replace(/'/g, "''")}'`;
           }).join(', ');
-          
-          // Build conflict clause based on strategy
-          let onConflict = '';
-          if (conflictStrategy === 'update') {
-            const updateCols = columnNames
-              .filter(c => c !== pkCol)
-              .map(c => `"${c}" = EXCLUDED."${c}"`)
-              .join(', ');
-            onConflict = updateCols 
-              ? ` ON CONFLICT ("${pkCol}") DO UPDATE SET ${updateCols}`
-              : ` ON CONFLICT ("${pkCol}") DO NOTHING`;
-          } else if (conflictStrategy === 'skip') {
-            onConflict = ` ON CONFLICT ("${pkCol}") DO NOTHING`;
-          }
-          // 'fail' strategy: no conflict clause, plain INSERT
-          
-          insertStatements.push(`INSERT INTO public."${tableName}" (${colNames}) VALUES (${values})${onConflict};`);
+          return `(${values})`;
+        });
+
+        // Chunk into multi-row inserts of 200 rows each to avoid overly large statements
+        const chunkSize = 200;
+        const sqlStatements: string[] = [];
+        for (let i = 0; i < valueRows.length; i += chunkSize) {
+          const chunk = valueRows.slice(i, i + chunkSize);
+          sqlStatements.push(`INSERT INTO public."${tableName}" (${colNames}) VALUES\n${chunk.join(',\n')}${onConflict};`);
         }
 
         return jsonResponse({ 
           success: true, 
-          sql: insertStatements.join('\n'), 
+          sql: sqlStatements.join('\n'), 
           rowCount: rows.length, 
           tableName 
         });
