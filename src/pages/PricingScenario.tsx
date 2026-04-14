@@ -111,6 +111,8 @@ const PricingScenario = () => {
   const [savingBrandTiers, setSavingBrandTiers] = useState(false);
   const [roundNumber, setRoundNumber] = useState<number>(4);
   const [salesUsdRate, setSalesUsdRate] = useState<number>(0);
+  const [sales1CoinSar, setSales1CoinSar] = useState<number>(0);
+  const [sales1000CoinSar, setSales1000CoinSar] = useState<number>(0);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardMin, setWizardMin] = useState<string>("1");
   const [wizardMax, setWizardMax] = useState<string>("50000");
@@ -243,7 +245,7 @@ const PricingScenario = () => {
 
       const calcProfit = (coins: number) => {
         const priceUsd = coins / sales1UsdCoins;
-        const sarPrice = parseFloat((priceUsd * effectiveSalesRate).toFixed(roundNumber));
+        const sarPrice = parseFloat((sales1CoinSar > 0 ? coins * sales1CoinSar : priceUsd * effectiveSalesRate).toFixed(roundNumber));
         const costUsd = coins / cost1UsdCoins;
         const costSar = parseFloat((costUsd * rate).toFixed(roundNumber));
         const commission = sarPrice * gatewayRate;
@@ -406,7 +408,7 @@ const PricingScenario = () => {
 
     return allCoinsTiers.map((coins) => {
       const priceUsd = coins / sales1UsdCoins;
-      const sarPriceRaw = priceUsd * effectiveSalesRate;
+      const sarPriceRaw = sales1CoinSar > 0 ? coins * sales1CoinSar : priceUsd * effectiveSalesRate;
       const sarPrice = parseFloat(sarPriceRaw.toFixed(roundNumber));
       const costUsd = coins / cost1UsdCoins;
       const costSarRaw = costUsd * rate;
@@ -1200,6 +1202,33 @@ const PricingScenario = () => {
               value={salesUsdRate || ""}
               onChange={(e) => setSalesUsdRate(parseFloat(e.target.value) || 0)}
               placeholder={`${inputs.rate || 0}`}
+              className="w-28"
+            />
+            <div className="w-px h-6 bg-border mx-2" />
+            <Label className="whitespace-nowrap text-sm font-medium">{isRTL ? "سعر 1000 كوين بالريال" : "Sales 1000 Coin SAR"}</Label>
+            <Input
+              type="number"
+              step="0.0001"
+              value={sales1000CoinSar || ""}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value) || 0;
+                setSales1000CoinSar(val);
+                setSales1CoinSar(val > 0 ? val / 1000 : 0);
+              }}
+              placeholder="0"
+              className="w-28"
+            />
+            <Label className="whitespace-nowrap text-sm font-medium">{isRTL ? "سعر 1 كوين بالريال" : "Sales 1 Coin SAR"}</Label>
+            <Input
+              type="number"
+              step="0.000001"
+              value={sales1CoinSar || ""}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value) || 0;
+                setSales1CoinSar(val);
+                setSales1000CoinSar(val > 0 ? val * 1000 : 0);
+              }}
+              placeholder="0"
               className="w-28"
             />
           </div>
