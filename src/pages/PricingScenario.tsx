@@ -1039,6 +1039,14 @@ const PricingScenario = () => {
                 <Lightbulb className="h-4 w-4" />
                 {isRTL ? "اقتراح عدد الكوينز" : "Suggest Coins"}
               </Button>
+              <Button variant="outline" onClick={() => {
+                setCoinTierSetupList([...savedCoinsTiers]);
+                setNewTierSetupValue("");
+                setCoinTierSetupOpen(true);
+              }} className="gap-2" disabled={!selectedBrandId}>
+                <Settings2 className="h-4 w-4" />
+                {isRTL ? "إدارة فئات الكوينز" : "Manage Tiers"}
+              </Button>
               <Button variant="default" onClick={generateProducts} disabled={generatingProducts || !selectedBrandId} className="gap-2">
                 {generatingProducts ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
                 {isRTL ? "إنشاء المنتجات و SKU" : "Generate Products & SKU"}
