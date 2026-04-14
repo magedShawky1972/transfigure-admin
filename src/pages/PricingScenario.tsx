@@ -1671,6 +1671,39 @@ const PricingScenario = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Wizard Dialog */}
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "بناء تلقائي لفئات الكوينز المربحة" : "Auto Build Profitable Coin Tiers"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              {isRTL
+                ? "سيتم تحليل جميع الفئات في النطاق المحدد واختيار الأكثر ربحية تلقائياً"
+                : "All coin values in the specified range will be analyzed and the most profitable tiers will be selected automatically"}
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{isRTL ? "الحد الأدنى" : "Minimum"}</Label>
+                <Input type="number" min={1} value={wizardMin} onChange={(e) => setWizardMin(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>{isRTL ? "الحد الأقصى" : "Maximum"}</Label>
+                <Input type="number" min={1} value={wizardMax} onChange={(e) => setWizardMax(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWizardOpen(false)}>{isRTL ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={handleWizardBuild} disabled={wizardBuilding} className="gap-2">
+              {wizardBuilding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              {isRTL ? "بناء الجدول" : "Build Table"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
