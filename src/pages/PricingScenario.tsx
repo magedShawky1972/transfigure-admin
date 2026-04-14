@@ -110,6 +110,7 @@ const PricingScenario = () => {
   const [brandTiersLoaded, setBrandTiersLoaded] = useState<string | null>(null);
   const [savingBrandTiers, setSavingBrandTiers] = useState(false);
   const [roundNumber, setRoundNumber] = useState<number>(4);
+  const [salesUsdRate, setSalesUsdRate] = useState<number>(0);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardMin, setWizardMin] = useState<string>("1");
   const [wizardMax, setWizardMax] = useState<string>("50000");
@@ -117,11 +118,12 @@ const PricingScenario = () => {
   const [wizardStepMode, setWizardStepMode] = useState<"whole" | "whole_fraction" | "any">("whole");
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
-    if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
+    const effRate = salesUsdRate > 0 ? salesUsdRate : inputs.rate;
+    if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !effRate || effRate <= 0) return null;
     // sarPrice = (coins / sales1UsdCoins) * rate => coins = sarPrice * sales1UsdCoins / rate
-    const coins = (price * inputs.sales1UsdCoins) / inputs.rate;
+    const coins = (price * inputs.sales1UsdCoins) / effRate;
     return Math.round(coins);
-  }, [suggestSalePrice, inputs.sales1UsdCoins, inputs.rate]);
+  }, [suggestSalePrice, inputs.sales1UsdCoins, inputs.rate, salesUsdRate]);
   const [generatingProducts, setGeneratingProducts] = useState(false);
   const [updatingPrices, setUpdatingPrices] = useState(false);
   const [updatePriceDialogOpen, setUpdatePriceDialogOpen] = useState(false);
@@ -233,6 +235,7 @@ const PricingScenario = () => {
     try {
       const method = selectedMethods[0]; // Use first selected method (e.g. MADA)
       const { sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
+      const effectiveSalesRate = salesUsdRate > 0 ? salesUsdRate : rate;
       const gatewayRate = (method.gateway_fee || 0) / 100;
       const fixedVal = method.fixed_value || 0;
       const vatRate = (method.vat_fee || 0) / 100;
@@ -240,7 +243,7 @@ const PricingScenario = () => {
 
       const calcProfit = (coins: number) => {
         const priceUsd = coins / sales1UsdCoins;
-        const sarPrice = parseFloat((priceUsd * rate).toFixed(roundNumber));
+        const sarPrice = parseFloat((priceUsd * effectiveSalesRate).toFixed(roundNumber));
         const costUsd = coins / cost1UsdCoins;
         const costSar = parseFloat((costUsd * rate).toFixed(roundNumber));
         const commission = sarPrice * gatewayRate;
@@ -395,6 +398,7 @@ const PricingScenario = () => {
 
   const calculateForMethod = (method: PaymentMethod): ResultRow[] => {
     const { sales1UsdCoins, cost1UsdCoins, rate, cashBackPercent } = inputs;
+    const effectiveSalesRate = salesUsdRate > 0 ? salesUsdRate : rate;
     const gatewayRate = (method.gateway_fee || 0) / 100;
     const fixedVal = method.fixed_value || 0;
     const vatRate = (method.vat_fee || 0) / 100;
@@ -402,7 +406,7 @@ const PricingScenario = () => {
 
     return allCoinsTiers.map((coins) => {
       const priceUsd = coins / sales1UsdCoins;
-      const sarPriceRaw = priceUsd * rate;
+      const sarPriceRaw = priceUsd * effectiveSalesRate;
       const sarPrice = parseFloat(sarPriceRaw.toFixed(roundNumber));
       const costUsd = coins / cost1UsdCoins;
       const costSarRaw = costUsd * rate;
@@ -1176,7 +1180,7 @@ const PricingScenario = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
             <Label className="whitespace-nowrap text-sm font-medium">{isRTL ? "عدد الخانات العشرية" : "Round Decimals"}</Label>
             <Input
               type="number"
@@ -1185,6 +1189,16 @@ const PricingScenario = () => {
               value={roundNumber}
               onChange={(e) => setRoundNumber(parseInt(e.target.value) || 0)}
               className="w-24"
+            />
+            <div className="w-px h-6 bg-border mx-2" />
+            <Label className="whitespace-nowrap text-sm font-medium">{isRTL ? "سعر تحويل مبيعات USD" : "Sales USD Conversion Rate"}</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={salesUsdRate || ""}
+              onChange={(e) => setSalesUsdRate(parseFloat(e.target.value) || 0)}
+              placeholder={`${inputs.rate || 0}`}
+              className="w-28"
             />
           </div>
 
