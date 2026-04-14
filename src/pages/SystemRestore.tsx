@@ -694,7 +694,7 @@ const SystemRestore = () => {
     const errors: string[] = [];
     const failedItems: FailedItem[] = [];
     
-    const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0);
+    const totalSteps = (comparisonResults.missingTypes?.length || 0) + comparisonResults.missingTables.length + comparisonResults.missingFunctions.length + comparisonResults.missingTriggers.length + (comparisonResults.missingBuckets?.length || 0) + (comparisonResults.missingColumns?.length || 0);
     let currentStep = 0;
     
     setMigrationSyncProgress({ current: 0, total: totalSteps, currentFile: '' });
