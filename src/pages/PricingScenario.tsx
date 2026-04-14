@@ -289,26 +289,20 @@ const PricingScenario = () => {
         return;
       }
 
-      // Pick best: group by profit brackets and select the highest profit per bracket
-      // Strategy: select coins with highest profit %, ensuring good distribution
-      const sorted = candidates
-        .map(c => ({ coins: c, ...calcProfit(c) }))
-        .sort((a, b) => b.profitPct - a.profitPct);
-
-      // Take top profitable, then ensure spacing
+      // Distribute evenly across the full range by dividing into buckets
+      const maxTiers = 50;
+      const bucketSize = Math.max(1, Math.ceil(candidates.length / maxTiers));
       const selected = new Set<number>();
+      
       // Always include 1 if profitable
       if (candidates.includes(1)) selected.add(1);
       
-      // Pick top coins with minimum spacing logic
-      const minSpacing = Math.max(1, Math.floor((max - min) / 100));
-      for (const item of sorted) {
-        if (selected.size >= 50) break; // Cap at 50 tiers
-        let tooClose = false;
-        for (const existing of selected) {
-          if (Math.abs(item.coins - existing) < minSpacing) { tooClose = true; break; }
-        }
-        if (!tooClose) selected.add(item.coins);
+      // Split candidates into buckets, pick the most profitable from each bucket
+      const withProfit = candidates.map(c => ({ coins: c, ...calcProfit(c) }));
+      for (let i = 0; i < withProfit.length; i += bucketSize) {
+        const bucket = withProfit.slice(i, i + bucketSize);
+        const best = bucket.reduce((a, b) => a.profitPct > b.profitPct ? a : b);
+        selected.add(best.coins);
       }
 
       const finalTiers = Array.from(selected).sort((a, b) => a - b);
