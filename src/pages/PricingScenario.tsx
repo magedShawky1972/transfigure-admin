@@ -433,7 +433,7 @@ const PricingScenario = () => {
   };
 
   const fmtNum = (v: number, decimals = 2) =>
-    v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: decimals });
 
   // ========== Export CSV ==========
   const exportToCSV = () => {
