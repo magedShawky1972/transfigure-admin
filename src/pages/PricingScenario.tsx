@@ -108,6 +108,7 @@ const PricingScenario = () => {
   const [newTierSetupValue, setNewTierSetupValue] = useState("");
   const [brandTiersLoaded, setBrandTiersLoaded] = useState<string | null>(null);
   const [savingBrandTiers, setSavingBrandTiers] = useState(false);
+  const [roundNumber, setRoundNumber] = useState<number>(4);
   const suggestedCoins = useMemo(() => {
     const price = parseFloat(suggestSalePrice);
     if (!price || price <= 0 || !inputs.sales1UsdCoins || inputs.sales1UsdCoins <= 0 || !inputs.rate || inputs.rate <= 0) return null;
