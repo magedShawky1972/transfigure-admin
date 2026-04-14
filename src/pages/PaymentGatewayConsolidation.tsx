@@ -11,7 +11,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePageAccess } from "@/hooks/usePageAccess";
-import AccessDenied from "@/components/AccessDenied";
+import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
 
 const today = () => format(new Date(), "yyyy-MM-dd");
