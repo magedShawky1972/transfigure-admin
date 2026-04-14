@@ -2152,24 +2152,28 @@ const SystemRestore = () => {
                   (externalResult.data && externalResult.data.error);
                 if (hasProxyError) {
                   const errMsg = externalResult.error || externalResult.data?.error || 'Unknown error';
-                  console.warn(`Batch insert failed for ${table.name}: ${errMsg}, trying individual inserts...`);
-                  // Try individual inserts on batch failure
+                  console.warn(`Batch insert failed for ${table.name}: ${errMsg}, trying individual statements...`);
+                  // Try each SQL statement separately on batch failure
                   const statements = sqlResult.sql.split(';\n').filter((s: string) => s.trim());
                   let batchErrors: string[] = [];
+                  let stmtMigrated = 0;
                   for (const stmt of statements) {
                     try {
                       const individualResult = await callExternalProxy('exec_sql', { sql: `SET session_replication_role = 'replica'; ${stmt}; SET session_replication_role = 'origin';` });
                       if (individualResult.data?.error) {
                         batchErrors.push(individualResult.data.error);
                       } else {
-                        totalMigrated++;
+                        // Count rows from multi-row VALUES: count commas between top-level parentheses
+                        const valuesMatch = stmt.match(/VALUES\s*\n?([\s\S]*)/i);
+                        const rowCount = valuesMatch ? (stmt.match(/\),\s*\n?\(/g)?.length ?? 0) + 1 : 1;
+                        stmtMigrated += rowCount;
                       }
                     } catch (e: any) {
                       batchErrors.push(e.message);
                     }
                   }
-                  if (batchErrors.length > 0 && totalMigrated === 0) {
-                    // All individual inserts also failed - report the first error
+                  totalMigrated += stmtMigrated;
+                  if (batchErrors.length > 0 && stmtMigrated === 0) {
                     errors.push(`Table ${table.name}: ${batchErrors[0]}`);
                   }
                 } else {
