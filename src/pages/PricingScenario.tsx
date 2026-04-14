@@ -874,6 +874,9 @@ const PricingScenario = () => {
                           <CommandItem key={b.id} value={b.brand_name} onSelect={() => {
                             setSelectedBrandId(b.id);
                             updateInput("brandName", b.brand_name);
+                            setBrandTiersLoaded(null);
+                            setSavedCoinsTiers([]);
+                            setShowResults(false);
                           }}>
                             <Check className={`mr-2 h-4 w-4 ${selectedBrandId === b.id ? "opacity-100" : "opacity-0"}`} />
                             {b.brand_name}
