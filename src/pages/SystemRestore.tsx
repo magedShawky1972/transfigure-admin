@@ -3542,8 +3542,14 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                       </TableHeader>
                       <TableBody>
                         {migrationTables.map((item, idx) => {
-                          const effectiveRowCount = item.rowCount > 0 ? item.rowCount : item.migratedRows;
-                          const progressPct = item.status === 'done' ? 100 : (effectiveRowCount > 0 ? Math.min(99, Math.round((item.migratedRows / effectiveRowCount) * 100)) : 0);
+                          // Calculate progress: use rowCount if available, otherwise show indeterminate-like progress
+                          const hasKnownTotal = item.rowCount > 0 && item.rowCount >= item.migratedRows;
+                          const progressPct = item.status === 'done' ? 100 
+                            : item.status === 'pending' ? 0
+                            : hasKnownTotal ? Math.min(99, Math.round((item.migratedRows / item.rowCount) * 100))
+                            : item.migratedRows > 0 ? 50 : 0; // indeterminate when no known total
+                          const displayTotal = item.status === 'done' ? item.migratedRows 
+                            : hasKnownTotal ? item.rowCount : item.migratedRows;
                           return (
                             <React.Fragment key={idx}>
                             <TableRow className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
@@ -3557,7 +3563,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                               </TableCell>
                               <TableCell className="text-center text-xs">
                                 <div className="space-y-0.5">
-                                  <div>{item.migratedRows.toLocaleString()}/{(item.rowCount > 0 ? item.rowCount : item.migratedRows).toLocaleString()}</div>
+                                  <div>{item.migratedRows.toLocaleString()}/{displayTotal.toLocaleString()}</div>
                                   {item.status === 'done' && (item.newRows > 0 || item.updatedRows > 0) && (
                                     <div className="flex items-center justify-center gap-1.5">
                                       {item.newRows > 0 && (
