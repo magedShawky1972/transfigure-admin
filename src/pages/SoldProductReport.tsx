@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Download, Printer, RefreshCw, Search, ChevronDown, X } from "lucide-react";
+import { ArrowLeft, Download, Printer, RefreshCw, Search, ChevronDown, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,6 +36,8 @@ interface SoldProduct {
   total: number;
   cost_price: number;
   cost_total: number;
+  payment_method: string;
+  payment_brand: string;
 }
 
 interface ProductSummary {
@@ -50,6 +52,21 @@ interface ProductSummary {
 
 interface BrandTotal {
   brand_name: string;
+  total_qty: number;
+  total_value: number;
+  total_cost: number;
+}
+
+interface PaymentMethodTotal {
+  payment_method: string;
+  total_qty: number;
+  total_value: number;
+  total_cost: number;
+  brands: PaymentBrandTotal[];
+}
+
+interface PaymentBrandTotal {
+  payment_brand: string;
   total_qty: number;
   total_value: number;
   total_cost: number;
