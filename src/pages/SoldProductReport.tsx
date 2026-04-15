@@ -946,6 +946,7 @@ const SoldProductReport = () => {
             </div>
           </CardContent>
         </Card>
+      )}
 
       {reportData.length === 0 && !loading && (
         <Card>
