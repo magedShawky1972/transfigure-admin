@@ -883,6 +883,70 @@ const SoldProductReport = () => {
         </Card>
       )}
 
+      {/* Payment Method Totals with Drill-Down */}
+      {reportData.length > 0 && (
+        <Card className="print:shadow-none print:border-none">
+          <CardHeader>
+            <CardTitle>{isRTL ? "إجماليات طرق الدفع" : "Payment Method Totals"}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table className="print-no-border print-black-text">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-bold">{isRTL ? "طريقة الدفع / العلامة" : "Payment Method / Brand"}</TableHead>
+                    <TableHead className="text-end font-bold">{isRTL ? "الكمية" : "Qty"}</TableHead>
+                    <TableHead className="text-end font-bold">{isRTL ? "الإجمالي" : "Total"}</TableHead>
+                    <TableHead className="text-end font-bold">{isRTL ? "إجمالي التكلفة" : "Total Cost"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentMethodTotals.map((method) => (
+                    <>
+                      <TableRow
+                        key={method.payment_method}
+                        className="bg-muted/50 font-semibold cursor-pointer hover:bg-muted/70"
+                        onClick={() => toggleMethod(method.payment_method)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {expandedMethods.has(method.payment_method) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                            <span className="font-bold">{method.payment_method}</span>
+                            <Badge variant="secondary">{method.brands.length}</Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-end font-bold">{method.total_qty}</TableCell>
+                        <TableCell className="text-end font-bold">{formatCurrency(method.total_value)}</TableCell>
+                        <TableCell className="text-end font-bold">{formatCurrency(method.total_cost)}</TableCell>
+                      </TableRow>
+                      {expandedMethods.has(method.payment_method) &&
+                        method.brands.map((brand) => (
+                          <TableRow key={`${method.payment_method}-${brand.payment_brand}`} className="bg-background">
+                            <TableCell className="ps-10">{brand.payment_brand}</TableCell>
+                            <TableCell className="text-end">{brand.total_qty}</TableCell>
+                            <TableCell className="text-end">{formatCurrency(brand.total_value)}</TableCell>
+                            <TableCell className="text-end">{formatCurrency(brand.total_cost)}</TableCell>
+                          </TableRow>
+                        ))}
+                    </>
+                  ))}
+                  {/* Payment Grand Total */}
+                  <TableRow className="bg-primary/10 font-bold">
+                    <TableCell className="font-bold">{isRTL ? "الإجمالي الكلي" : "Grand Total"}</TableCell>
+                    <TableCell className="text-end font-bold">{grandTotals.qty}</TableCell>
+                    <TableCell className="text-end font-bold">{formatCurrency(grandTotals.value)}</TableCell>
+                    <TableCell className="text-end font-bold">{formatCurrency(grandTotals.cost)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
       {reportData.length === 0 && !loading && (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
