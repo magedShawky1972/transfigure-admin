@@ -2306,7 +2306,7 @@ const SystemRestore = () => {
                   : totalMigrated + batchSize; // still more to go - estimate ahead
                 setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated, rowCount: Math.max(t.rowCount, estimatedTotal) } : t));
 
-                setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated } : t));
+                
                 offset += batchSize;
                 if (sqlResult.rowCount < batchSize) break;
                 await new Promise(r => setTimeout(r, 10));
