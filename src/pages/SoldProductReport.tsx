@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Download, Printer, RefreshCw, Search, ChevronDown, X } from "lucide-react";
+import { ArrowLeft, Download, Printer, RefreshCw, Search, ChevronDown, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,6 +36,8 @@ interface SoldProduct {
   total: number;
   cost_price: number;
   cost_total: number;
+  payment_method: string;
+  payment_brand: string;
 }
 
 interface ProductSummary {
@@ -50,6 +52,21 @@ interface ProductSummary {
 
 interface BrandTotal {
   brand_name: string;
+  total_qty: number;
+  total_value: number;
+  total_cost: number;
+}
+
+interface PaymentMethodTotal {
+  payment_method: string;
+  total_qty: number;
+  total_value: number;
+  total_cost: number;
+  brands: PaymentBrandTotal[];
+}
+
+interface PaymentBrandTotal {
+  payment_brand: string;
   total_qty: number;
   total_value: number;
   total_cost: number;
@@ -206,7 +223,7 @@ const SoldProductReport = () => {
       while (hasMore) {
         let query = supabase
           .from("purpletransaction")
-          .select("brand_name, product_name, unit_price, qty, total, cost_price")
+          .select("brand_name, product_name, unit_price, qty, total, cost_price, payment_method, payment_brand")
           .gte("created_at_date", dateFrom)
           .lte("created_at_date", dateTo)
           .neq("is_deleted", true)
@@ -238,6 +255,8 @@ const SoldProductReport = () => {
             total: parseFloat(String(item.total || 0).replace(/,/g, "")) || 0,
             cost_price: costPrice,
             cost_total: qty * costPrice,
+            payment_method: item.payment_method || "N/A",
+            payment_brand: item.payment_brand || "N/A",
           };
         });
 
@@ -351,6 +370,58 @@ const SoldProductReport = () => {
       cost: brandTotals.reduce((sum, bt) => sum + bt.total_cost, 0),
     };
   }, [brandTotals]);
+
+  // Payment method totals with drill-down to payment brand
+  const paymentMethodTotals = useMemo((): PaymentMethodTotal[] => {
+    const methodMap: Record<string, { total_qty: number; total_value: number; total_cost: number; brands: Record<string, { total_qty: number; total_value: number; total_cost: number }> }> = {};
+
+    filteredData.forEach((item) => {
+      const method = item.payment_method || "N/A";
+      const brand = item.payment_brand || "N/A";
+
+      if (!methodMap[method]) {
+        methodMap[method] = { total_qty: 0, total_value: 0, total_cost: 0, brands: {} };
+      }
+      methodMap[method].total_qty += item.qty;
+      methodMap[method].total_value += item.total;
+      methodMap[method].total_cost += item.cost_total;
+
+      if (!methodMap[method].brands[brand]) {
+        methodMap[method].brands[brand] = { total_qty: 0, total_value: 0, total_cost: 0 };
+      }
+      methodMap[method].brands[brand].total_qty += item.qty;
+      methodMap[method].brands[brand].total_value += item.total;
+      methodMap[method].brands[brand].total_cost += item.cost_total;
+    });
+
+    return Object.entries(methodMap)
+      .map(([payment_method, data]) => ({
+        payment_method,
+        total_qty: data.total_qty,
+        total_value: data.total_value,
+        total_cost: data.total_cost,
+        brands: Object.entries(data.brands)
+          .map(([payment_brand, bd]) => ({
+            payment_brand,
+            total_qty: bd.total_qty,
+            total_value: bd.total_value,
+            total_cost: bd.total_cost,
+          }))
+          .sort((a, b) => b.total_value - a.total_value),
+      }))
+      .sort((a, b) => b.total_value - a.total_value);
+  }, [filteredData]);
+
+  const [expandedMethods, setExpandedMethods] = useState<Set<string>>(new Set());
+
+  const toggleMethod = (method: string) => {
+    setExpandedMethods((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(method)) newSet.delete(method);
+      else newSet.add(method);
+      return newSet;
+    });
+  };
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString("en-SA", {
@@ -804,6 +875,71 @@ const SoldProductReport = () => {
                     <TableCell className="print:border-none text-end font-bold">
                       {formatCurrency(grandTotals.cost)}
                     </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Method Totals with Drill-Down */}
+      {reportData.length > 0 && (
+        <Card className="print:shadow-none print:border-none">
+          <CardHeader>
+            <CardTitle>{isRTL ? "إجماليات طرق الدفع" : "Payment Method Totals"}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table className="print-no-border print-black-text">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-bold">{isRTL ? "طريقة الدفع / العلامة" : "Payment Method / Brand"}</TableHead>
+                    <TableHead className="text-end font-bold">{isRTL ? "الكمية" : "Qty"}</TableHead>
+                    <TableHead className="text-end font-bold">{isRTL ? "الإجمالي" : "Total"}</TableHead>
+                    <TableHead className="text-end font-bold">{isRTL ? "إجمالي التكلفة" : "Total Cost"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentMethodTotals.map((method) => (
+                    <>
+                      <TableRow
+                        key={method.payment_method}
+                        className="bg-muted/50 font-semibold cursor-pointer hover:bg-muted/70"
+                        onClick={() => toggleMethod(method.payment_method)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {expandedMethods.has(method.payment_method) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                            <span className="font-bold">{method.payment_method}</span>
+                            <Badge variant="secondary">{method.brands.length}</Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-end font-bold">{method.total_qty}</TableCell>
+                        <TableCell className="text-end font-bold">{formatCurrency(method.total_value)}</TableCell>
+                        <TableCell className="text-end font-bold">{formatCurrency(method.total_cost)}</TableCell>
+                      </TableRow>
+                      {expandedMethods.has(method.payment_method) &&
+                        method.brands.map((brand) => (
+                          <TableRow key={`${method.payment_method}-${brand.payment_brand}`} className="bg-background">
+                            <TableCell className="ps-10">{brand.payment_brand}</TableCell>
+                            <TableCell className="text-end">{brand.total_qty}</TableCell>
+                            <TableCell className="text-end">{formatCurrency(brand.total_value)}</TableCell>
+                            <TableCell className="text-end">{formatCurrency(brand.total_cost)}</TableCell>
+                          </TableRow>
+                        ))}
+                    </>
+                  ))}
+                  {/* Payment Grand Total */}
+                  <TableRow className="bg-primary/10 font-bold">
+                    <TableCell className="font-bold">{isRTL ? "الإجمالي الكلي" : "Grand Total"}</TableCell>
+                    <TableCell className="text-end font-bold">{grandTotals.qty}</TableCell>
+                    <TableCell className="text-end font-bold">{formatCurrency(grandTotals.value)}</TableCell>
+                    <TableCell className="text-end font-bold">{formatCurrency(grandTotals.cost)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
