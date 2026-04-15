@@ -371,6 +371,58 @@ const SoldProductReport = () => {
     };
   }, [brandTotals]);
 
+  // Payment method totals with drill-down to payment brand
+  const paymentMethodTotals = useMemo((): PaymentMethodTotal[] => {
+    const methodMap: Record<string, { total_qty: number; total_value: number; total_cost: number; brands: Record<string, { total_qty: number; total_value: number; total_cost: number }> }> = {};
+
+    filteredData.forEach((item) => {
+      const method = item.payment_method || "N/A";
+      const brand = item.payment_brand || "N/A";
+
+      if (!methodMap[method]) {
+        methodMap[method] = { total_qty: 0, total_value: 0, total_cost: 0, brands: {} };
+      }
+      methodMap[method].total_qty += item.qty;
+      methodMap[method].total_value += item.total;
+      methodMap[method].total_cost += item.cost_total;
+
+      if (!methodMap[method].brands[brand]) {
+        methodMap[method].brands[brand] = { total_qty: 0, total_value: 0, total_cost: 0 };
+      }
+      methodMap[method].brands[brand].total_qty += item.qty;
+      methodMap[method].brands[brand].total_value += item.total;
+      methodMap[method].brands[brand].total_cost += item.cost_total;
+    });
+
+    return Object.entries(methodMap)
+      .map(([payment_method, data]) => ({
+        payment_method,
+        total_qty: data.total_qty,
+        total_value: data.total_value,
+        total_cost: data.total_cost,
+        brands: Object.entries(data.brands)
+          .map(([payment_brand, bd]) => ({
+            payment_brand,
+            total_qty: bd.total_qty,
+            total_value: bd.total_value,
+            total_cost: bd.total_cost,
+          }))
+          .sort((a, b) => b.total_value - a.total_value),
+      }))
+      .sort((a, b) => b.total_value - a.total_value);
+  }, [filteredData]);
+
+  const [expandedMethods, setExpandedMethods] = useState<Set<string>>(new Set());
+
+  const toggleMethod = (method: string) => {
+    setExpandedMethods((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(method)) newSet.delete(method);
+      else newSet.add(method);
+      return newSet;
+    });
+  };
+
   const formatCurrency = (value: number) => {
     return value.toLocaleString("en-SA", {
       minimumFractionDigits: 2,
