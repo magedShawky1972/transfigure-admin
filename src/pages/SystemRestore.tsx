@@ -3536,7 +3536,8 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                       </TableHeader>
                       <TableBody>
                         {migrationTables.map((item, idx) => {
-                          const progressPct = item.rowCount > 0 ? Math.min(100, Math.round((item.migratedRows / item.rowCount) * 100)) : (item.status === 'done' ? 100 : 0);
+                          const effectiveRowCount = item.rowCount > 0 ? item.rowCount : item.migratedRows;
+                          const progressPct = item.status === 'done' ? 100 : (effectiveRowCount > 0 ? Math.min(99, Math.round((item.migratedRows / effectiveRowCount) * 100)) : 0);
                           return (
                             <React.Fragment key={idx}>
                             <TableRow className={item.status === 'migrating' ? 'bg-primary/5' : ''}>
@@ -3550,7 +3551,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                               </TableCell>
                               <TableCell className="text-center text-xs">
                                 <div className="space-y-0.5">
-                                  <div>{item.migratedRows.toLocaleString()}/{item.rowCount.toLocaleString()}</div>
+                                  <div>{item.migratedRows.toLocaleString()}/{(item.rowCount > 0 ? item.rowCount : item.migratedRows).toLocaleString()}</div>
                                   {item.status === 'done' && (item.newRows > 0 || item.updatedRows > 0) && (
                                     <div className="flex items-center justify-center gap-1.5">
                                       {item.newRows > 0 && (
