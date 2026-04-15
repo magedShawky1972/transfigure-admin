@@ -223,7 +223,7 @@ const SoldProductReport = () => {
       while (hasMore) {
         let query = supabase
           .from("purpletransaction")
-          .select("brand_name, product_name, unit_price, qty, total, cost_price")
+          .select("brand_name, product_name, unit_price, qty, total, cost_price, payment_method, payment_brand")
           .gte("created_at_date", dateFrom)
           .lte("created_at_date", dateTo)
           .neq("is_deleted", true)
@@ -255,6 +255,8 @@ const SoldProductReport = () => {
             total: parseFloat(String(item.total || 0).replace(/,/g, "")) || 0,
             cost_price: costPrice,
             cost_total: qty * costPrice,
+            payment_method: item.payment_method || "N/A",
+            payment_brand: item.payment_brand || "N/A",
           };
         });
 
