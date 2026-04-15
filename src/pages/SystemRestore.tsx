@@ -2300,6 +2300,12 @@ const SystemRestore = () => {
                   totalMigrated += sqlResult.rowCount;
                 }
 
+                // Update rowCount estimate: if we got a full batch, there are likely more rows
+                const estimatedTotal = sqlResult.rowCount < batchSize 
+                  ? totalMigrated  // last batch - we know the total now
+                  : totalMigrated + batchSize; // still more to go - estimate ahead
+                setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated, rowCount: Math.max(t.rowCount, estimatedTotal) } : t));
+
                 setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated } : t));
                 offset += batchSize;
                 if (sqlResult.rowCount < batchSize) break;
