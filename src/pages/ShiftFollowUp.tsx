@@ -791,18 +791,18 @@ export default function ShiftFollowUp() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">{t("Shift Name")}</TableHead>
-                    <TableHead className="text-right">{"كود الوردية"}</TableHead>
-                    <TableHead className="text-right">{t("Start Time")}</TableHead>
-                    <TableHead className="text-right">{t("End Time")}</TableHead>
-                    <TableHead className="text-right">{t("Assigned Person")}</TableHead>
-                    <TableHead className="text-right">{t("Status")}</TableHead>
-                    <TableHead className="text-right">{"الصور"}</TableHead>
-                    <TableHead className="text-right">{t("Opened At")}</TableHead>
-                    <TableHead className="text-right">{t("Closed At")}</TableHead>
-                    <TableHead className="text-right">{t("User Notes") || "ملاحظات الموظف"}</TableHead>
-                    <TableHead className="text-right">{t("Admin Notes") || "ملاحظات المشرف"}</TableHead>
-                    <TableHead className="text-right">{t("Actions")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Shift Name")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{language === 'ar' ? "كود الوردية" : "Shift Code"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Start Time")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("End Time")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Assigned Person")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Status")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{language === 'ar' ? "الصور" : "Images"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Opened At")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Closed At")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("User Notes") || "ملاحظات الموظف"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Admin Notes") || "ملاحظات المشرف"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
