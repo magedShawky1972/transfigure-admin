@@ -117,7 +117,7 @@ export default function MissingShiftImages() {
         .order("assignment_date", { ascending: true }) as { data: any[] | null };
 
       const assignments = (rawAssignments || []).filter(
-        (a: any) => (a.shifts?.shift_types?.type || "").toLowerCase() !== "support"
+        (a: any) => (a.shifts?.shift_types?.type || "").toLowerCase() === "sales"
       );
 
       if (assignments.length === 0) {
