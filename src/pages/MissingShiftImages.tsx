@@ -177,7 +177,7 @@ export default function MissingShiftImages() {
         const session = sessionMap.get(assignment.id);
         const uploadedCount = session ? (balancesMap.get(session.id) || 0) : 0;
 
-        if (uploadedCount < requiredCount) {
+        if (uploadedCount < requiredCount && session?.status === "closed") {
           const shift = assignment.shifts;
           result.push({
             session_id: session?.id || "",
