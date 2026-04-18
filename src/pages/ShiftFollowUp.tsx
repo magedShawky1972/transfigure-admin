@@ -833,7 +833,21 @@ export default function ShiftFollowUp() {
                             className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: assignment.shifts.color }}
                           />
-                          {assignment.shifts.shift_name}
+                          <span>{assignment.shifts.shift_name}</span>
+                          {assignment.shifts.shift_types?.type && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                assignment.shifts.shift_types.type.toLowerCase() === 'support'
+                                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                                  : 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                              }
+                            >
+                              {assignment.shifts.shift_types.type.toLowerCase() === 'support'
+                                ? t('Support') || 'Support'
+                                : t('Sales') || 'Sales'}
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
