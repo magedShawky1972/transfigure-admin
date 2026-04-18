@@ -100,6 +100,7 @@ interface User {
 export default function ShiftFollowUp() {
   const { t, language } = useLanguage();
   const [selectedDate, setSelectedDate] = useState<string>(getKSADateString());
+  const [shiftTypeFilter, setShiftTypeFilter] = useState<string>("all");
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -770,6 +771,19 @@ export default function ShiftFollowUp() {
                 {formatDateInArabic(selectedDate)}
               </p>
             </div>
+            <div>
+              <Label>{language === 'ar' ? 'نوع الوردية' : 'Shift Type'}</Label>
+              <Select value={shiftTypeFilter} onValueChange={setShiftTypeFilter}>
+                <SelectTrigger className="w-[180px] mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                  <SelectItem value="sales">{language === 'ar' ? 'مبيعات' : 'Sales'}</SelectItem>
+                  <SelectItem value="support">{language === 'ar' ? 'دعم' : 'Support'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={fetchAssignments} variant="outline">
               <RefreshCw className="h-4 w-4 ml-2" />
               {t("Refresh")}
@@ -806,7 +820,7 @@ export default function ShiftFollowUp() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {[...assignments].sort((a, b) => (a.shifts.shift_start_time || '').localeCompare(b.shifts.shift_start_time || '')).map((assignment) => {
+                  {[...assignments].filter(a => shiftTypeFilter === 'all' || (a.shifts.shift_types?.type || '').toLowerCase() === shiftTypeFilter).sort((a, b) => (a.shifts.shift_start_time || '').localeCompare(b.shifts.shift_start_time || '')).map((assignment) => {
                      // Filter sessions to only those opened on the selected date (using KSA timezone)
                     // Also include supervisor-created placeholder sessions (where opened_at may differ from assignment date)
                     const allSessions = normalizeSessionsToArray(assignment.shift_sessions);
