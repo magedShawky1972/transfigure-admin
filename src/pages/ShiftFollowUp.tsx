@@ -771,6 +771,19 @@ export default function ShiftFollowUp() {
                 {formatDateInArabic(selectedDate)}
               </p>
             </div>
+            <div>
+              <Label>{language === 'ar' ? 'نوع الوردية' : 'Shift Type'}</Label>
+              <Select value={shiftTypeFilter} onValueChange={setShiftTypeFilter}>
+                <SelectTrigger className="w-[180px] mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                  <SelectItem value="sales">{language === 'ar' ? 'مبيعات' : 'Sales'}</SelectItem>
+                  <SelectItem value="support">{language === 'ar' ? 'دعم' : 'Support'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={fetchAssignments} variant="outline">
               <RefreshCw className="h-4 w-4 ml-2" />
               {t("Refresh")}
