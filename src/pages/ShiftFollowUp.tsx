@@ -72,6 +72,7 @@ interface ShiftAssignment {
     shift_end_time: string;
     color: string;
     shift_order: number;
+    shift_types?: { type: string } | null;
   };
   profiles: {
     user_name: string;
@@ -172,7 +173,8 @@ export default function ShiftFollowUp() {
             shift_start_time,
             shift_end_time,
             color,
-            shift_order
+            shift_order,
+            shift_types ( type )
           ),
           shift_sessions (
             id,
@@ -720,7 +722,7 @@ export default function ShiftFollowUp() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6" dir="rtl">
+    <div className="container mx-auto p-6 space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -789,18 +791,18 @@ export default function ShiftFollowUp() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">{t("Shift Name")}</TableHead>
-                    <TableHead className="text-right">{"كود الوردية"}</TableHead>
-                    <TableHead className="text-right">{t("Start Time")}</TableHead>
-                    <TableHead className="text-right">{t("End Time")}</TableHead>
-                    <TableHead className="text-right">{t("Assigned Person")}</TableHead>
-                    <TableHead className="text-right">{t("Status")}</TableHead>
-                    <TableHead className="text-right">{"الصور"}</TableHead>
-                    <TableHead className="text-right">{t("Opened At")}</TableHead>
-                    <TableHead className="text-right">{t("Closed At")}</TableHead>
-                    <TableHead className="text-right">{t("User Notes") || "ملاحظات الموظف"}</TableHead>
-                    <TableHead className="text-right">{t("Admin Notes") || "ملاحظات المشرف"}</TableHead>
-                    <TableHead className="text-right">{t("Actions")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Shift Name")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{language === 'ar' ? "كود الوردية" : "Shift Code"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Start Time")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("End Time")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Assigned Person")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Status")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{language === 'ar' ? "الصور" : "Images"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Opened At")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Closed At")}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("User Notes") || "ملاحظات الموظف"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Admin Notes") || "ملاحظات المشرف"}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-right' : 'text-left'}>{t("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -831,7 +833,21 @@ export default function ShiftFollowUp() {
                             className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: assignment.shifts.color }}
                           />
-                          {assignment.shifts.shift_name}
+                          <span>{assignment.shifts.shift_name}</span>
+                          {assignment.shifts.shift_types?.type && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                assignment.shifts.shift_types.type.toLowerCase() === 'support'
+                                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                                  : 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                              }
+                            >
+                              {assignment.shifts.shift_types.type.toLowerCase() === 'support'
+                                ? t('Support') || 'Support'
+                                : t('Sales') || 'Sales'}
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
