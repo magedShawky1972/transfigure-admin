@@ -100,6 +100,7 @@ interface User {
 export default function ShiftFollowUp() {
   const { t, language } = useLanguage();
   const [selectedDate, setSelectedDate] = useState<string>(getKSADateString());
+  const [shiftTypeFilter, setShiftTypeFilter] = useState<string>("all");
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
