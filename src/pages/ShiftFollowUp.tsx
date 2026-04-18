@@ -72,6 +72,7 @@ interface ShiftAssignment {
     shift_end_time: string;
     color: string;
     shift_order: number;
+    shift_types?: { type: string } | null;
   };
   profiles: {
     user_name: string;
