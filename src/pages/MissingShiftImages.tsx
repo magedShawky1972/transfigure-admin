@@ -103,20 +103,24 @@ export default function MissingShiftImages() {
 
       const allRequiredBrandIds = requiredBrands.map((b) => b.id);
 
-      // Get shift assignments for the date range
-      const { data: assignments } = await supabase
+      // Get shift assignments for the date range (exclude Support type — no images required)
+      const { data: rawAssignments } = await supabase
         .from("shift_assignments")
         .select(`
           id,
           user_id,
           assignment_date,
-          shifts!inner(shift_name, shift_start_time, shift_end_time)
+          shifts!inner(shift_name, shift_start_time, shift_end_time, shift_types(type))
         `)
         .gte("assignment_date", fromDate)
         .lte("assignment_date", toDate)
         .order("assignment_date", { ascending: true }) as { data: any[] | null };
 
-      if (!assignments || assignments.length === 0) {
+      const assignments = (rawAssignments || []).filter(
+        (a: any) => (a.shifts?.shift_types?.type || "").toLowerCase() !== "support"
+      );
+
+      if (assignments.length === 0) {
         setShifts([]);
         setLoading(false);
         return;
