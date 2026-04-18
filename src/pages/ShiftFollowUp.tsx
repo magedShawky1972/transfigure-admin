@@ -173,7 +173,8 @@ export default function ShiftFollowUp() {
             shift_start_time,
             shift_end_time,
             color,
-            shift_order
+            shift_order,
+            shift_types ( type )
           ),
           shift_sessions (
             id,
