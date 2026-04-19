@@ -246,6 +246,7 @@ interface UserPermission {
         { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
         { key: "autoUpload", label: "التحميل التلقائي", labelEn: "Auto Upload" },
         { key: "apiTransactionMapping", label: "خريطة حقول المعاملات", labelEn: "Transaction Mapping" },
+        { key: "allowCrmLogin", label: "السماح بتسجيل الدخول إلى CRM", labelEn: "Allow Login To CRM" },
       ]
     }
   ];
