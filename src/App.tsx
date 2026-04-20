@@ -162,12 +162,14 @@ import PaymentWhatIfScenario from "./pages/PaymentWhatIfScenario";
 import CRMIntegrationDoc from "./pages/CRMIntegrationDoc";
 import CRMSession from "./pages/CRMSession";
 import PaymentGatewayConsolidation from "./pages/PaymentGatewayConsolidation";
+import { GlobalMigrationRecovery } from "./components/GlobalMigrationRecovery";
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <LanguageProvider>
+        <GlobalMigrationRecovery />
         <Toaster />
         <Sonner />
         <BrowserRouter>
