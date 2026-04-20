@@ -418,6 +418,21 @@ const SystemRestore = () => {
     return data;
   };
 
+  const getExternalTableCount = async (tableName: string, timeoutMs = 5000): Promise<number | null> => {
+    try {
+      const result = await Promise.race([
+        callExternalProxy('exec_sql', { sql: `SELECT count(*)::int as cnt FROM public."${tableName}"` }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+      ]);
+
+      if (!result || typeof result !== 'object') return null;
+      const count = (result as any)?.data?.cnt;
+      return typeof count === 'number' ? count : null;
+    } catch {
+      return null;
+    }
+  };
+
   // Fetch all rows from RPCs that can exceed PostgREST default page size (1000 rows)
   const fetchAllRpcRows = async (rpcName: string, args: Record<string, any> = {}, pageSize = 1000) => {
     const allRows: any[] = [];
@@ -2429,13 +2444,7 @@ const SystemRestore = () => {
             const maxRetries = 3;
 
             // Get existing row count on external DB before migration
-            let existingRowsBefore = 0;
-            try {
-              const countResult = await callExternalProxy('exec_sql', { sql: `SELECT count(*)::int as cnt FROM public."${table.name}"` });
-              if (countResult?.data?.cnt !== undefined) {
-                existingRowsBefore = countResult.data.cnt;
-              }
-            } catch { /* ignore, will default to 0 */ }
+            const existingRowsBefore = await getExternalTableCount(table.name) ?? 0;
 
             try {
               let cancelledMidTable = false;
@@ -2555,13 +2564,7 @@ const SystemRestore = () => {
               }
 
               // Get row count after migration to determine new vs updated
-              let existingRowsAfter = existingRowsBefore + totalMigrated;
-              try {
-                const countResult = await callExternalProxy('exec_sql', { sql: `SELECT count(*)::int as cnt FROM public."${table.name}"` });
-                if (countResult?.data?.cnt !== undefined) {
-                  existingRowsAfter = countResult.data.cnt;
-                }
-              } catch { /* ignore */ }
+              const existingRowsAfter = (await getExternalTableCount(table.name)) ?? (existingRowsBefore + totalMigrated);
               
               table.rowCount = Math.max(table.rowCount || 0, totalMigrated);
               grandTotalRows = Math.max(grandTotalRows, cumulativeRows + table.rowCount);
