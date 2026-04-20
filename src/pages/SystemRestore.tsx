@@ -300,6 +300,105 @@ const SystemRestore = () => {
 
   const structureInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!globalActiveMigrationJob) {
+      if (migrationJobIdRef.current && !isMigrationComplete) {
+        setIsMigrating(false);
+      }
+      return;
+    }
+
+    const shouldTrackJob = !migrationJobIdRef.current || migrationJobIdRef.current === globalActiveMigrationJob.id;
+    if (!shouldTrackJob) return;
+
+    migrationJobIdRef.current = globalActiveMigrationJob.id;
+
+    const isPaused = Boolean(globalActiveMigrationJob.pause_requested || globalActiveMigrationJob.is_paused);
+    migrationControlRef.current = globalActiveMigrationJob.cancel_requested
+      ? 'terminated'
+      : isPaused
+        ? 'paused'
+        : 'running';
+
+    setIsMigrating(true);
+    setIsMigrationComplete(false);
+    setMigrationCurrentStep(
+      globalActiveMigrationJob.current_table
+        ? `${isRTL ? 'Migrating table' : 'Migrating table'}: ${globalActiveMigrationJob.current_table}`
+        : isPaused
+          ? (isRTL ? 'الترحيل متوقف مؤقتاً...' : 'Migration paused...')
+          : (isRTL ? 'جاري التحضير...' : 'Preparing...')
+    );
+
+    const completedTables = new Set(
+      Array.isArray(globalActiveMigrationJob.completed_tables)
+        ? globalActiveMigrationJob.completed_tables.map((table) => String(table))
+        : []
+    );
+    const failedTables = new Map(
+      Array.isArray(globalActiveMigrationJob.failed_tables)
+        ? globalActiveMigrationJob.failed_tables.map((item: any) => [String(item?.table), String(item?.error ?? '')])
+        : []
+    );
+
+    if (!globalActiveMigrationJob.current_table && completedTables.size === 0 && failedTables.size === 0) {
+      return;
+    }
+
+    setMigrationTables((prev) => {
+      const next = [...prev];
+
+      const upsertTable = (name: string) => {
+        let index = next.findIndex((table) => table.name === name);
+        if (index === -1) {
+          next.push({
+            name,
+            rowCount: 0,
+            status: 'pending',
+            migratedRows: 0,
+            updatedRows: 0,
+            newRows: 0,
+          });
+          index = next.length - 1;
+        }
+        return index;
+      };
+
+      if (globalActiveMigrationJob.current_table) {
+        const currentIndex = upsertTable(globalActiveMigrationJob.current_table);
+        next[currentIndex] = {
+          ...next[currentIndex],
+          status: isPaused ? 'pending' : 'migrating',
+          migratedRows: Number(globalActiveMigrationJob.current_table_processed ?? next[currentIndex].migratedRows ?? 0),
+          rowCount: Math.max(
+            Number(globalActiveMigrationJob.current_table_total ?? 0),
+            Number(next[currentIndex].rowCount ?? 0)
+          ),
+        };
+      }
+
+      completedTables.forEach((tableName) => {
+        const tableIndex = upsertTable(tableName);
+        next[tableIndex] = {
+          ...next[tableIndex],
+          status: 'done',
+          rowCount: Math.max(next[tableIndex].rowCount, next[tableIndex].migratedRows),
+        };
+      });
+
+      failedTables.forEach((errorMessage, tableName) => {
+        const tableIndex = upsertTable(tableName);
+        next[tableIndex] = {
+          ...next[tableIndex],
+          status: 'error',
+          errorMessage,
+        };
+      });
+
+      return next;
+    });
+  }, [globalActiveMigrationJob, isMigrationComplete, isRTL]);
   
   // Call external Supabase via proxy edge function
   const callExternalProxy = async (action: string, params: Record<string, any> = {}) => {
@@ -3610,8 +3709,8 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               </div>
             </div>
 
-            {globalActiveMigrationJob && !isMigrating && (
-              <ActiveMigrationCard />
+            {globalActiveMigrationJob && !showMigrationProgressDialog && (
+              <ActiveMigrationCard onNavigated={() => setShowMigrationProgressDialog(true)} />
             )}
 
             <Button
