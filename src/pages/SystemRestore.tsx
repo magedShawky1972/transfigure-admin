@@ -401,15 +401,34 @@ const SystemRestore = () => {
   }, [globalActiveMigrationJob, isMigrationComplete, isRTL]);
   
   // Call external Supabase via proxy edge function
-  const callExternalProxy = async (action: string, params: Record<string, any> = {}) => {
-    const { data, error } = await supabase.functions.invoke('external-supabase-proxy', {
-      body: {
-        action,
-        externalUrl,
-        externalAnonKey,
-        ...params
-      }
-    });
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), timeoutMs)),
+    ]);
+  };
+
+  const invokeMigrationFunction = async (body: Record<string, any>, timeoutMs = 45000) => {
+    return await withTimeout(
+      supabase.functions.invoke('migrate-to-external', { body }),
+      timeoutMs,
+      `migrate-to-external timeout: ${body.action || 'unknown action'}`
+    );
+  };
+
+  const callExternalProxy = async (action: string, params: Record<string, any> = {}, timeoutMs = 45000) => {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('external-supabase-proxy', {
+        body: {
+          action,
+          externalUrl,
+          externalAnonKey,
+          ...params
+        }
+      }),
+      timeoutMs,
+      `external-supabase-proxy timeout: ${action}`
+    );
     
     if (error) {
       throw error;
@@ -421,7 +440,7 @@ const SystemRestore = () => {
   const getExternalTableCount = async (tableName: string, timeoutMs = 5000): Promise<number | null> => {
     try {
       const result = await Promise.race([
-        callExternalProxy('exec_sql', { sql: `SELECT count(*)::int as cnt FROM public."${tableName}"` }),
+        callExternalProxy('exec_sql', { sql: `SELECT count(*)::int as cnt FROM public."${tableName}"` }, timeoutMs),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
       ]);
 
