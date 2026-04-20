@@ -253,6 +253,8 @@ const SystemRestore = () => {
   const [migrationSyncErrors, setMigrationSyncErrors] = useState<string[]>([]);
   // Migration control: 'running' | 'paused' | 'stopped' | 'terminated'
   const migrationControlRef = useRef<string>('running');
+  const migrationJobIdRef = useRef<string | null>(null);
+  const { job: globalActiveMigrationJob } = useActiveMigrationJob();
   const [matchingCurrentSituation, setMatchingCurrentSituation] = useState(false);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [applyingMissingObjects, setApplyingMissingObjects] = useState(false);
