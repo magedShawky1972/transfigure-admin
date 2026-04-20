@@ -2264,6 +2264,15 @@ const SystemRestore = () => {
           const grandTotalRows = tables.reduce((sum, t) => sum + (t.rowCount || 0), 0);
           let cumulativeRows = 0;
 
+          // Push real totals to background job (initial create may have been 0
+          // when user started migration before loading tables)
+          if (jobId) {
+            await migrationJobApi.update(jobId, {
+              total_tables: tables.length,
+              total_rows: grandTotalRows,
+            });
+          }
+
           // Migrate each table
           for (let i = 0; i < tables.length; i++) {
             const table = tables[i];
