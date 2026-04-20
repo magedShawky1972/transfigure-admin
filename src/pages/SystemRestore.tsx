@@ -3637,7 +3637,7 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
       )}
 
       {/* Migration Progress Dialog */}
-      <Dialog open={showMigrationProgressDialog} onOpenChange={(open) => { if (!isMigrating) setShowMigrationProgressDialog(open); }}>
+      <Dialog open={showMigrationProgressDialog} onOpenChange={setShowMigrationProgressDialog}>
         <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
