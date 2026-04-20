@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { migrationJobApi, useActiveMigrationJob } from "@/hooks/useMigrationJob";
 
 import { toast } from "sonner";
 import { Database, FileText, Upload, Loader2, CheckCircle2, AlertCircle, FileArchive, Play, LogOut, XCircle, ExternalLink, Server, Copy, Download, ChevronDown, ChevronRight, Save, ArrowRightLeft, Users, HardDrive, RefreshCw, Clock, GitBranch, Eye, EyeOff, Pause, Square, Ban } from "lucide-react";
@@ -252,6 +253,8 @@ const SystemRestore = () => {
   const [migrationSyncErrors, setMigrationSyncErrors] = useState<string[]>([]);
   // Migration control: 'running' | 'paused' | 'stopped' | 'terminated'
   const migrationControlRef = useRef<string>('running');
+  const migrationJobIdRef = useRef<string | null>(null);
+  const { job: globalActiveMigrationJob } = useActiveMigrationJob();
   const [matchingCurrentSituation, setMatchingCurrentSituation] = useState(false);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [applyingMissingObjects, setApplyingMissingObjects] = useState(false);
@@ -2142,6 +2145,17 @@ const SystemRestore = () => {
       return;
     }
 
+    // Block if there is already an active migration globally
+    const existingActive = await migrationJobApi.findActive();
+    if (existingActive) {
+      toast.error(
+        isRTL
+          ? `يوجد ترحيل نشط بالفعل (بدأه ${existingActive.user_email || 'مستخدم آخر'}). انتظر حتى يكتمل.`
+          : `An active migration is already running (started by ${existingActive.user_email || 'another user'}). Please wait until it finishes.`
+      );
+      return;
+    }
+
     setIsMigrating(true);
     setShowMigrationProgressDialog(true);
     setIsMigrationComplete(false);
@@ -2154,6 +2168,42 @@ const SystemRestore = () => {
     setMigrationStorageBuckets([]);
 
     const errors: string[] = [];
+    const failedTablesLog: { table: string; error: string }[] = [];
+    const completedTablesLog: string[] = [];
+
+    // Create the background migration job record
+    let jobId: string | null = null;
+    try {
+      const totalRowsEstimate = (tablesLoaded ? availableTables.filter(t => t.selected) : availableTables)
+        .reduce((sum, t) => sum + (t.rowCount || 0), 0);
+      const totalTablesEstimate = (tablesLoaded ? availableTables.filter(t => t.selected) : availableTables).length;
+
+      const job = await migrationJobApi.create({
+        destination_config: {
+          url: externalUrl,
+          name: savedConnections.find(c => c.url === externalUrl)?.name || new URL(externalUrl).hostname,
+        },
+        tables_config: {
+          migrateData: migrateDataEnabled,
+          migrateUsers: migrateUsersEnabled,
+          migrateStorage: migrateStorageEnabled,
+          conflictStrategy,
+        },
+        total_tables: totalTablesEstimate,
+        total_rows: totalRowsEstimate,
+      });
+      jobId = job.id;
+      migrationJobIdRef.current = jobId;
+    } catch (e: any) {
+      // Unique constraint = another active job slipped in
+      toast.error(
+        isRTL
+          ? 'تعذّر بدء الترحيل. قد يكون هناك ترحيل نشط بالفعل.'
+          : 'Could not start migration. Another active migration may exist.'
+      );
+      setIsMigrating(false);
+      return;
+    }
 
     try {
       // Step 0: Run pending migration files first
@@ -2210,12 +2260,34 @@ const SystemRestore = () => {
           setMigrationTables(tables);
           await new Promise(r => setTimeout(r, 50));
 
+          // Compute totals for progress tracking
+          const grandTotalRows = tables.reduce((sum, t) => sum + (t.rowCount || 0), 0);
+          let cumulativeRows = 0;
+
           // Migrate each table
           for (let i = 0; i < tables.length; i++) {
             const table = tables[i];
 
+            // Check for cancellation request from anywhere
+            if (jobId && await migrationJobApi.checkCancelRequested(jobId)) {
+              errors.push(isRTL ? 'تم إيقاف الترحيل بناءً على طلب المستخدم' : 'Migration cancelled by user request');
+              break;
+            }
+
             setMigrationCurrentStep(isRTL ? `ترحيل جدول: ${table.name}` : `Migrating table: ${table.name}`);
             setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'migrating' } : t));
+
+            // Update background job: current table
+            if (jobId) {
+              await migrationJobApi.update(jobId, {
+                current_table: table.name,
+                current_table_index: i + 1,
+                current_table_processed: 0,
+                current_table_total: table.rowCount,
+                progress_percent: grandTotalRows > 0 ? Math.round((cumulativeRows / grandTotalRows) * 100) : 0,
+              });
+            }
+
             let offset = 0;
             // Use smaller batches for large tables to avoid edge function timeouts
             const batchSize = table.rowCount > 50000 ? 500 : table.rowCount > 10000 ? 1000 : 2000;
@@ -2306,6 +2378,17 @@ const SystemRestore = () => {
                   : totalMigrated + batchSize; // still more to go - estimate ahead
                 setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated, rowCount: Math.max(t.rowCount, estimatedTotal) } : t));
 
+                // Update background job progress per batch
+                if (jobId) {
+                  const overallProcessed = cumulativeRows + totalMigrated;
+                  await migrationJobApi.update(jobId, {
+                    current_table_processed: totalMigrated,
+                    processed_rows: overallProcessed,
+                    progress_percent: grandTotalRows > 0
+                      ? Math.min(99, Math.round((overallProcessed / grandTotalRows) * 100))
+                      : 0,
+                  });
+                }
                 
                 offset += batchSize;
                 if (sqlResult.rowCount < batchSize) break;
@@ -2329,9 +2412,21 @@ const SystemRestore = () => {
                 newRows: Math.max(0, newRows),
                 updatedRows: Math.max(0, updatedRows),
               } : t));
+              completedTablesLog.push(table.name);
+              cumulativeRows += totalMigrated;
             } catch (err: any) {
               errors.push(`Table ${table.name}: ${err.message}`);
+              failedTablesLog.push({ table: table.name, error: err.message });
               setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'error', errorMessage: err.message, migratedRows: totalMigrated } : t));
+              cumulativeRows += totalMigrated;
+            }
+
+            // Persist completed/failed tables snapshot after each table
+            if (jobId) {
+              await migrationJobApi.update(jobId, {
+                completed_tables: completedTablesLog,
+                failed_tables: failedTablesLog,
+              });
             }
           }
         }
@@ -2474,6 +2569,17 @@ const SystemRestore = () => {
       }
       await loadMigrationTrackingState(externalUrl);
     } catch { /* ignore */ }
+
+    // Mark background migration job as completed/failed
+    if (jobId) {
+      try {
+        await migrationJobApi.complete(jobId, {
+          failed_tables: failedTablesLog,
+          error_message: errors.length > 0 ? errors.join(' | ').slice(0, 2000) : null,
+        });
+      } catch { /* ignore */ }
+      migrationJobIdRef.current = null;
+    }
 
     setIsMigrating(false);
     setIsMigrationComplete(true);
@@ -3432,9 +3538,28 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               </div>
             </div>
 
+            {globalActiveMigrationJob && !isMigrating && (
+              <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm space-y-1">
+                <p className="font-medium flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  {isRTL ? 'يوجد ترحيل نشط حالياً' : 'A migration is currently running'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isRTL ? 'بدأه: ' : 'Started by: '}
+                  <strong>{globalActiveMigrationJob.user_email || 'unknown'}</strong>
+                  {' — '}
+                  {Number(globalActiveMigrationJob.progress_percent ?? 0).toFixed(0)}%
+                  {globalActiveMigrationJob.current_table ? ` (${globalActiveMigrationJob.current_table})` : ''}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isRTL ? 'يمكنك متابعة التقدم من جرس الإشعارات في الأعلى.' : 'Track progress from the notification bell in the top toolbar.'}
+                </p>
+              </div>
+            )}
+
             <Button
               onClick={handleStartMigration}
-              disabled={isMigrating || (!migrateDataEnabled && !migrateUsersEnabled && !migrateStorageEnabled)}
+              disabled={isMigrating || (!!globalActiveMigrationJob && globalActiveMigrationJob.user_id !== undefined && !migrationJobIdRef.current) || (!migrateDataEnabled && !migrateUsersEnabled && !migrateStorageEnabled)}
               className="w-full"
               size="lg"
             >
