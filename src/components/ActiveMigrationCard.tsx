@@ -53,6 +53,8 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
       toast.error(isRTL ? "فشل الإنهاء الفوري" : "Force-stop failed");
     }
   };
+
+  const handlePause = async () => {
     try {
       await migrationJobApi.pause(job.id);
       toast.info(isRTL ? "تم إيقاف الترحيل مؤقتاً" : "Migration paused");
