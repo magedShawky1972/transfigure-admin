@@ -2156,6 +2156,7 @@ const SystemRestore = () => {
       return;
     }
 
+    migrationControlRef.current = 'running';
     setIsMigrating(true);
     setShowMigrationProgressDialog(true);
     setIsMigrationComplete(false);
@@ -2276,6 +2277,16 @@ const SystemRestore = () => {
           // Migrate each table
           for (let i = 0; i < tables.length; i++) {
             const table = tables[i];
+
+            // Honor pause: wait while paused
+            while (migrationControlRef.current === 'paused') {
+              await new Promise(r => setTimeout(r, 400));
+            }
+            // Honor local terminate/stop
+            if (migrationControlRef.current === 'terminated' || migrationControlRef.current === 'stopped') {
+              errors.push(isRTL ? '⛔ تم إنهاء الترحيل بواسطة المستخدم' : '⛔ Migration terminated by user');
+              break;
+            }
 
             // Check for cancellation request from anywhere
             if (jobId && await migrationJobApi.checkCancelRequested(jobId)) {
@@ -3610,7 +3621,65 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
                 : migrationCurrentStep || (isRTL ? 'جاري التحضير...' : 'Preparing...')}
             </DialogDescription>
           </DialogHeader>
-          
+
+          {/* Pause / Resume / Terminate controls (only while migration is running) */}
+          {isMigrating && !isMigrationComplete && (
+            <div className="flex flex-wrap items-center gap-2 px-1 pb-2 border-b">
+              <span className="text-xs text-muted-foreground me-auto">
+                {migrationControlRef.current === 'paused'
+                  ? (isRTL ? '⏸ متوقف مؤقتاً' : '⏸ Paused')
+                  : (isRTL ? '▶ قيد التشغيل' : '▶ Running')}
+              </span>
+              {migrationControlRef.current === 'paused' ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    migrationControlRef.current = 'running';
+                    toast.success(isRTL ? 'تم استئناف الترحيل' : 'Migration resumed');
+                    setMigrationCurrentStep((s) => s);
+                  }}
+                >
+                  <Play className="h-4 w-4 me-1" />
+                  {isRTL ? 'استئناف' : 'Resume'}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    migrationControlRef.current = 'paused';
+                    toast.info(isRTL ? 'تم إيقاف الترحيل مؤقتاً' : 'Migration paused');
+                    setMigrationCurrentStep((s) => s);
+                  }}
+                >
+                  <Pause className="h-4 w-4 me-1" />
+                  {isRTL ? 'إيقاف مؤقت' : 'Pause'}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={async () => {
+                  if (!window.confirm(isRTL
+                    ? 'هل أنت متأكد من إنهاء الترحيل؟ لا يمكن التراجع.'
+                    : 'Are you sure you want to terminate the migration? This cannot be undone.')) {
+                    return;
+                  }
+                  migrationControlRef.current = 'terminated';
+                  if (migrationJobIdRef.current) {
+                    try { await migrationJobApi.cancel(migrationJobIdRef.current); } catch { /* ignore */ }
+                  }
+                  toast.error(isRTL ? 'تم إنهاء الترحيل' : 'Migration terminated');
+                  setMigrationCurrentStep((s) => s);
+                }}
+              >
+                <Square className="h-4 w-4 me-1" />
+                {isRTL ? 'إنهاء' : 'Terminate'}
+              </Button>
+            </div>
+          )}
+
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-4 pr-4">
               {/* Migration Summary when complete */}
