@@ -2260,12 +2260,34 @@ const SystemRestore = () => {
           setMigrationTables(tables);
           await new Promise(r => setTimeout(r, 50));
 
+          // Compute totals for progress tracking
+          const grandTotalRows = tables.reduce((sum, t) => sum + (t.rowCount || 0), 0);
+          let cumulativeRows = 0;
+
           // Migrate each table
           for (let i = 0; i < tables.length; i++) {
             const table = tables[i];
 
+            // Check for cancellation request from anywhere
+            if (jobId && await migrationJobApi.checkCancelRequested(jobId)) {
+              errors.push(isRTL ? 'تم إيقاف الترحيل بناءً على طلب المستخدم' : 'Migration cancelled by user request');
+              break;
+            }
+
             setMigrationCurrentStep(isRTL ? `ترحيل جدول: ${table.name}` : `Migrating table: ${table.name}`);
             setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'migrating' } : t));
+
+            // Update background job: current table
+            if (jobId) {
+              await migrationJobApi.update(jobId, {
+                current_table: table.name,
+                current_table_index: i + 1,
+                current_table_processed: 0,
+                current_table_total: table.rowCount,
+                progress_percent: grandTotalRows > 0 ? Math.round((cumulativeRows / grandTotalRows) * 100) : 0,
+              });
+            }
+
             let offset = 0;
             // Use smaller batches for large tables to avoid edge function timeouts
             const batchSize = table.rowCount > 50000 ? 500 : table.rowCount > 10000 ? 1000 : 2000;
