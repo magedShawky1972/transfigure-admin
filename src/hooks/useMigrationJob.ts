@@ -64,7 +64,12 @@ export function useActiveMigrationJob() {
       )
       .subscribe();
 
+    const pollInterval = window.setInterval(() => {
+      fetchActive();
+    }, 5000);
+
     return () => {
+      window.clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, []);

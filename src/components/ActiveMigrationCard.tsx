@@ -1,4 +1,5 @@
-import { ArrowRightLeft, Database, ExternalLink, Loader2, Square, Pause, Play } from "lucide-react";
+import { ArrowRightLeft, Clock, Database, ExternalLink, Loader2, Square, Pause, Play } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -15,13 +16,37 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
   const isRTL = language === "ar";
   const navigate = useNavigate();
   const { job } = useActiveMigrationJob();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   if (!job) return null;
 
-  const percent = Math.min(100, Math.max(0, Number(job.progress_percent ?? 0)));
+  const processedRows = Number(job.processed_rows ?? 0);
+  const totalRows = Number(job.total_rows ?? 0);
+  const percentFromRows = totalRows > 0 ? (processedRows / totalRows) * 100 : null;
+  const percent = Math.min(100, Math.max(0, Number(percentFromRows ?? job.progress_percent ?? 0)));
   const currentIdx = job.current_table_index ?? 0;
   const totalTables = job.total_tables ?? 0;
   const isPaused = Boolean(job.pause_requested || job.is_paused);
+  const percentLabel = percent > 0 && percent < 1 ? "<1%" : `${percent.toFixed(percent < 10 && percent % 1 !== 0 ? 1 : 0)}%`;
+  const elapsedLabel = useMemo(() => {
+    if (!job.started_at) return null;
+    const startedAt = new Date(job.started_at).getTime();
+    if (Number.isNaN(startedAt)) return null;
+
+    const elapsedMs = Math.max(0, now - startedAt);
+    const totalSeconds = Math.floor(elapsedMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }, [job.started_at, now]);
 
   const handleView = () => {
     navigate("/system-restore");
@@ -111,7 +136,7 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
           <Database className="h-3 w-3" />
           {job.current_table || (isRTL ? "تجهيز…" : "Preparing…")}
         </span>
-        <span className="font-medium">{percent.toFixed(0)}%</span>
+        <span className="font-medium">{percentLabel}</span>
       </div>
 
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -119,10 +144,19 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
           {isRTL ? "الجدول" : "Table"} {currentIdx}/{totalTables}
         </span>
         <span>
-          {Number(job.processed_rows ?? 0).toLocaleString()} /{" "}
-          {Number(job.total_rows ?? 0).toLocaleString()} {isRTL ? "صف" : "rows"}
+          {processedRows.toLocaleString()} / {totalRows.toLocaleString()} {isRTL ? "صف" : "rows"}
         </span>
       </div>
+
+      {elapsedLabel && (
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {isRTL ? "مدة التشغيل" : "Running time"}
+          </span>
+          <span className="font-medium">{elapsedLabel}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2 pt-1">
         <Button size="sm" variant="default" className="h-7 text-xs" onClick={handleView}>
