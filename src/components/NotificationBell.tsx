@@ -47,6 +47,7 @@ export const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { permission, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
