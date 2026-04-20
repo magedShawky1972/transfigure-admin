@@ -23,18 +23,16 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
     return () => window.clearInterval(interval);
   }, []);
 
-  if (!job) return null;
-
-  const processedRows = Number(job.processed_rows ?? 0);
-  const totalRows = Number(job.total_rows ?? 0);
+  const processedRows = Number(job?.processed_rows ?? 0);
+  const totalRows = Number(job?.total_rows ?? 0);
   const percentFromRows = totalRows > 0 ? (processedRows / totalRows) * 100 : null;
-  const percent = Math.min(100, Math.max(0, Number(percentFromRows ?? job.progress_percent ?? 0)));
-  const currentIdx = job.current_table_index ?? 0;
-  const totalTables = job.total_tables ?? 0;
-  const isPaused = Boolean(job.pause_requested || job.is_paused);
+  const percent = Math.min(100, Math.max(0, Number(percentFromRows ?? job?.progress_percent ?? 0)));
+  const currentIdx = job?.current_table_index ?? 0;
+  const totalTables = job?.total_tables ?? 0;
+  const isPaused = Boolean(job?.pause_requested || job?.is_paused);
   const percentLabel = percent > 0 && percent < 1 ? "<1%" : `${percent.toFixed(percent < 10 && percent % 1 !== 0 ? 1 : 0)}%`;
   const elapsedLabel = useMemo(() => {
-    if (!job.started_at) return null;
+    if (!job?.started_at) return null;
     const startedAt = new Date(job.started_at).getTime();
     if (Number.isNaN(startedAt)) return null;
 
@@ -46,7 +44,9 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
 
     if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }, [job.started_at, now]);
+  }, [job?.started_at, now]);
+
+  if (!job) return null;
 
   const handleView = () => {
     navigate("/system-restore");
