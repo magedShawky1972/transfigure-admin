@@ -75,7 +75,7 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
             {isRTL ? "جاري الإيقاف" : "Stopping…"}
           </span>
         ) : isPaused ? (
-          <span className="text-[10px] uppercase font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+          <span className="text-[10px] uppercase font-medium text-warning flex items-center gap-1">
             <Pause className="h-3 w-3" />
             {isRTL ? "متوقف مؤقتاً" : "Paused"}
           </span>
