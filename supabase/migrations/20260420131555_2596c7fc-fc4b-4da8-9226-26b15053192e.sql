@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN IF NOT EXISTS skip_closing_image boolean NOT NULL DEFAULT false;
