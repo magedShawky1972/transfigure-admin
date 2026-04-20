@@ -2315,6 +2315,7 @@ const SystemRestore = () => {
           migrateUsers: migrateUsersEnabled,
           migrateStorage: migrateStorageEnabled,
           conflictStrategy,
+          selectedTables: tablesLoaded ? availableTables.filter(t => t.selected).map(t => t.name) : null,
         },
         total_tables: totalTablesEstimate,
         total_rows: totalRowsEstimate,
