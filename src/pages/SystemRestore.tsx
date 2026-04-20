@@ -2429,9 +2429,11 @@ const SystemRestore = () => {
                 }
 
                 // Update rowCount estimate: if we got a full batch, there are likely more rows
-                const estimatedTotal = sqlResult.rowCount < batchSize 
-                  ? totalMigrated  // last batch - we know the total now
-                  : totalMigrated + batchSize; // still more to go - estimate ahead
+                const estimatedTotal = sqlResult.rowCount < batchSize
+                  ? totalMigrated
+                  : totalMigrated + batchSize;
+                table.rowCount = Math.max(table.rowCount || 0, estimatedTotal);
+                grandTotalRows = Math.max(grandTotalRows, cumulativeRows + table.rowCount);
                 setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated, rowCount: Math.max(t.rowCount, estimatedTotal) } : t));
 
                 // Update background job progress per batch
@@ -2439,7 +2441,9 @@ const SystemRestore = () => {
                   const overallProcessed = cumulativeRows + totalMigrated;
                   await migrationJobApi.update(jobId, {
                     current_table_processed: totalMigrated,
+                    current_table_total: table.rowCount,
                     processed_rows: overallProcessed,
+                    total_rows: grandTotalRows,
                     progress_percent: grandTotalRows > 0
                       ? Math.min(99, Math.round((overallProcessed / grandTotalRows) * 100))
                       : 0,
@@ -2460,11 +2464,13 @@ const SystemRestore = () => {
                 }
               } catch { /* ignore */ }
               
+              table.rowCount = Math.max(table.rowCount || 0, totalMigrated);
+              grandTotalRows = Math.max(grandTotalRows, cumulativeRows + table.rowCount);
               const newRows = existingRowsAfter - existingRowsBefore;
               const updatedRows = totalMigrated - newRows;
 
               setMigrationTables(prev => prev.map((t, idx) => idx === i ? { 
-                ...t, status: 'done', migratedRows: totalMigrated,
+                ...t, status: 'done', migratedRows: totalMigrated, rowCount: table.rowCount,
                 newRows: Math.max(0, newRows),
                 updatedRows: Math.max(0, updatedRows),
               } : t));
@@ -2486,6 +2492,10 @@ const SystemRestore = () => {
             // Persist completed/failed tables snapshot after each table
             if (jobId) {
               await migrationJobApi.update(jobId, {
+                current_table_total: table.rowCount,
+                processed_rows: cumulativeRows,
+                total_rows: grandTotalRows,
+                progress_percent: grandTotalRows > 0 ? Math.min(99, Math.round((cumulativeRows / grandTotalRows) * 100)) : 0,
                 completed_tables: completedTablesLog,
                 failed_tables: failedTablesLog,
               });
