@@ -2277,6 +2277,16 @@ const SystemRestore = () => {
           for (let i = 0; i < tables.length; i++) {
             const table = tables[i];
 
+            // Honor pause: wait while paused
+            while (migrationControlRef.current === 'paused') {
+              await new Promise(r => setTimeout(r, 400));
+            }
+            // Honor local terminate/stop
+            if (migrationControlRef.current === 'terminated' || migrationControlRef.current === 'stopped') {
+              errors.push(isRTL ? '⛔ تم إنهاء الترحيل بواسطة المستخدم' : '⛔ Migration terminated by user');
+              break;
+            }
+
             // Check for cancellation request from anywhere
             if (jobId && await migrationJobApi.checkCancelRequested(jobId)) {
               errors.push(isRTL ? 'تم إيقاف الترحيل بناءً على طلب المستخدم' : 'Migration cancelled by user request');
