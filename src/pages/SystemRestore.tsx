@@ -2145,6 +2145,17 @@ const SystemRestore = () => {
       return;
     }
 
+    // Block if there is already an active migration globally
+    const existingActive = await migrationJobApi.findActive();
+    if (existingActive) {
+      toast.error(
+        isRTL
+          ? `يوجد ترحيل نشط بالفعل (بدأه ${existingActive.user_email || 'مستخدم آخر'}). انتظر حتى يكتمل.`
+          : `An active migration is already running (started by ${existingActive.user_email || 'another user'}). Please wait until it finishes.`
+      );
+      return;
+    }
+
     setIsMigrating(true);
     setShowMigrationProgressDialog(true);
     setIsMigrationComplete(false);
@@ -2157,6 +2168,42 @@ const SystemRestore = () => {
     setMigrationStorageBuckets([]);
 
     const errors: string[] = [];
+    const failedTablesLog: { table: string; error: string }[] = [];
+    const completedTablesLog: string[] = [];
+
+    // Create the background migration job record
+    let jobId: string | null = null;
+    try {
+      const totalRowsEstimate = (tablesLoaded ? availableTables.filter(t => t.selected) : availableTables)
+        .reduce((sum, t) => sum + (t.rowCount || 0), 0);
+      const totalTablesEstimate = (tablesLoaded ? availableTables.filter(t => t.selected) : availableTables).length;
+
+      const job = await migrationJobApi.create({
+        destination_config: {
+          url: externalUrl,
+          name: savedConnections.find(c => c.url === externalUrl)?.name || new URL(externalUrl).hostname,
+        },
+        tables_config: {
+          migrateData: migrateDataEnabled,
+          migrateUsers: migrateUsersEnabled,
+          migrateStorage: migrateStorageEnabled,
+          conflictStrategy,
+        },
+        total_tables: totalTablesEstimate,
+        total_rows: totalRowsEstimate,
+      });
+      jobId = job.id;
+      migrationJobIdRef.current = jobId;
+    } catch (e: any) {
+      // Unique constraint = another active job slipped in
+      toast.error(
+        isRTL
+          ? 'تعذّر بدء الترحيل. قد يكون هناك ترحيل نشط بالفعل.'
+          : 'Could not start migration. Another active migration may exist.'
+      );
+      setIsMigrating(false);
+      return;
+    }
 
     try {
       // Step 0: Run pending migration files first
