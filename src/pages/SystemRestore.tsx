@@ -2570,6 +2570,17 @@ const SystemRestore = () => {
       await loadMigrationTrackingState(externalUrl);
     } catch { /* ignore */ }
 
+    // Mark background migration job as completed/failed
+    if (jobId) {
+      try {
+        await migrationJobApi.complete(jobId, {
+          failed_tables: failedTablesLog,
+          error_message: errors.length > 0 ? errors.join(' | ').slice(0, 2000) : null,
+        });
+      } catch { /* ignore */ }
+      migrationJobIdRef.current = null;
+    }
+
     setIsMigrating(false);
     setIsMigrationComplete(true);
     setMigrationErrors(errors);
