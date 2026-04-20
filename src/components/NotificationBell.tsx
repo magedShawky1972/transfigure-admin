@@ -194,7 +194,7 @@ export const NotificationBell = () => {
             {/* Active Migration Card */}
             {activeMigration && (
               <div className="mb-3">
-                <ActiveMigrationCard />
+                <ActiveMigrationCard onNavigated={() => setPopoverOpen(false)} />
               </div>
             )}
 
