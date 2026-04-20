@@ -2334,7 +2334,29 @@ const SystemRestore = () => {
             } catch { /* ignore, will default to 0 */ }
 
             try {
+              let cancelledMidTable = false;
               while (true) {
+                // Per-batch cancel check (allows fast stop on huge tables)
+                if (migrationControlRef.current === 'terminated' || migrationControlRef.current === 'stopped') {
+                  cancelledMidTable = true;
+                  break;
+                }
+                if (jobId && await migrationJobApi.checkCancelRequested(jobId)) {
+                  migrationControlRef.current = 'terminated';
+                  cancelledMidTable = true;
+                  break;
+                }
+                // Per-batch pause check (honors remote pause too)
+                while (true) {
+                  const remotePaused = jobId ? await migrationJobApi.checkPauseRequested(jobId) : false;
+                  if (remotePaused && migrationControlRef.current !== 'paused') {
+                    migrationControlRef.current = 'paused';
+                  } else if (!remotePaused && migrationControlRef.current === 'paused') {
+                    migrationControlRef.current = 'running';
+                  }
+                  if (migrationControlRef.current !== 'paused') break;
+                  await new Promise(r => setTimeout(r, 800));
+                }
                 let sqlResult: any = null;
                 let lastErr: any = null;
                 for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -2441,6 +2463,12 @@ const SystemRestore = () => {
                 newRows: Math.max(0, newRows),
                 updatedRows: Math.max(0, updatedRows),
               } : t));
+              if (cancelledMidTable) {
+                setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'error', errorMessage: isRTL ? 'تم الإنهاء بواسطة المستخدم' : 'Terminated by user', migratedRows: totalMigrated } : t));
+                errors.push(isRTL ? `⛔ تم إنهاء الترحيل أثناء جدول ${table.name}` : `⛔ Migration terminated during table ${table.name}`);
+                cumulativeRows += totalMigrated;
+                break;
+              }
               completedTablesLog.push(table.name);
               cumulativeRows += totalMigrated;
             } catch (err: any) {

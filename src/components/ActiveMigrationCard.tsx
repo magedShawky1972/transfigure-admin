@@ -37,6 +37,23 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
     }
   };
 
+  const handleForceStop = async () => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase
+        .from("migration_jobs")
+        .update({
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          error_message: "Force-stopped by user",
+        } as any)
+        .eq("id", job.id);
+      toast.success(isRTL ? "تم الإنهاء فوراً" : "Migration force-stopped");
+    } catch {
+      toast.error(isRTL ? "فشل الإنهاء الفوري" : "Force-stop failed");
+    }
+  };
+
   const handlePause = async () => {
     try {
       await migrationJobApi.pause(job.id);
@@ -125,7 +142,7 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
             </Button>
           )
         )}
-        {!job.cancel_requested && (
+        {!job.cancel_requested ? (
           <Button
             size="sm"
             variant="destructive"
@@ -134,6 +151,16 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
           >
             <Square className="h-3 w-3 me-1" />
             {isRTL ? "إنهاء الترحيل" : "Terminate Migration"}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-xs col-span-2"
+            onClick={handleForceStop}
+          >
+            <Square className="h-3 w-3 me-1" />
+            {isRTL ? "إنهاء فوري الآن" : "Force Stop Now"}
           </Button>
         )}
       </div>
