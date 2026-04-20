@@ -37,7 +37,22 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
     }
   };
 
-  const handlePause = async () => {
+  const handleForceStop = async () => {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      await supabase
+        .from("migration_jobs")
+        .update({
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          error_message: "Force-stopped by user",
+        } as any)
+        .eq("id", job.id);
+      toast.success(isRTL ? "تم الإنهاء فوراً" : "Migration force-stopped");
+    } catch {
+      toast.error(isRTL ? "فشل الإنهاء الفوري" : "Force-stop failed");
+    }
+  };
     try {
       await migrationJobApi.pause(job.id);
       toast.info(isRTL ? "تم إيقاف الترحيل مؤقتاً" : "Migration paused");
