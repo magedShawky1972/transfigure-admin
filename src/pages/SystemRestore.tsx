@@ -2569,10 +2569,14 @@ const SystemRestore = () => {
                 grandTotalRows = Math.max(grandTotalRows, cumulativeRows + table.rowCount);
                 setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated, rowCount: Math.max(t.rowCount, estimatedTotal) } : t));
 
-                // Update background job progress per batch
-                if (jobId) {
+                // Update background job progress (throttled to once every 5s, fire-and-forget)
+                batchCounter++;
+                const nowProgress = Date.now();
+                if (jobId && nowProgress - lastProgressUpdateAt > 5000) {
+                  lastProgressUpdateAt = nowProgress;
                   const overallProcessed = cumulativeRows + totalMigrated;
-                  await migrationJobApi.update(jobId, {
+                  // Fire-and-forget so we don't block the next batch
+                  migrationJobApi.update(jobId, {
                     current_table_processed: totalMigrated,
                     current_table_total: table.rowCount,
                     processed_rows: overallProcessed,
@@ -2580,12 +2584,12 @@ const SystemRestore = () => {
                     progress_percent: grandTotalRows > 0
                       ? Math.min(99, Math.round((overallProcessed / grandTotalRows) * 100))
                       : 0,
-                  });
+                  }).catch(() => { /* ignore progress update errors */ });
                 }
                 
                 offset += batchSize;
                 if (sqlResult.rowCount < batchSize) break;
-                await new Promise(r => setTimeout(r, 10));
+                // Removed artificial 10ms delay - was unnecessary throttling
               }
 
               // Get row count after migration to determine new vs updated
