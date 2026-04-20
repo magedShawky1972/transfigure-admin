@@ -142,7 +142,7 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
             </Button>
           )
         )}
-        {!job.cancel_requested && (
+        {!job.cancel_requested ? (
           <Button
             size="sm"
             variant="destructive"
@@ -151,6 +151,16 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
           >
             <Square className="h-3 w-3 me-1" />
             {isRTL ? "إنهاء الترحيل" : "Terminate Migration"}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-xs col-span-2"
+            onClick={handleForceStop}
+          >
+            <Square className="h-3 w-3 me-1" />
+            {isRTL ? "إنهاء فوري الآن" : "Force Stop Now"}
           </Button>
         )}
       </div>
