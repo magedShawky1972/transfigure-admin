@@ -2378,6 +2378,17 @@ const SystemRestore = () => {
                   : totalMigrated + batchSize; // still more to go - estimate ahead
                 setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated, rowCount: Math.max(t.rowCount, estimatedTotal) } : t));
 
+                // Update background job progress per batch
+                if (jobId) {
+                  const overallProcessed = cumulativeRows + totalMigrated;
+                  await migrationJobApi.update(jobId, {
+                    current_table_processed: totalMigrated,
+                    processed_rows: overallProcessed,
+                    progress_percent: grandTotalRows > 0
+                      ? Math.min(99, Math.round((overallProcessed / grandTotalRows) * 100))
+                      : 0,
+                  });
+                }
                 
                 offset += batchSize;
                 if (sqlResult.rowCount < batchSize) break;
@@ -2401,9 +2412,21 @@ const SystemRestore = () => {
                 newRows: Math.max(0, newRows),
                 updatedRows: Math.max(0, updatedRows),
               } : t));
+              completedTablesLog.push(table.name);
+              cumulativeRows += totalMigrated;
             } catch (err: any) {
               errors.push(`Table ${table.name}: ${err.message}`);
+              failedTablesLog.push({ table: table.name, error: err.message });
               setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'error', errorMessage: err.message, migratedRows: totalMigrated } : t));
+              cumulativeRows += totalMigrated;
+            }
+
+            // Persist completed/failed tables snapshot after each table
+            if (jobId) {
+              await migrationJobApi.update(jobId, {
+                completed_tables: completedTablesLog,
+                failed_tables: failedTablesLog,
+              });
             }
           }
         }
