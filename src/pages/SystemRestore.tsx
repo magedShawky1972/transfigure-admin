@@ -502,9 +502,7 @@ const SystemRestore = () => {
       }
       
       // Load local migrations list
-      const { data: migResult, error: migErr } = await supabase.functions.invoke('migrate-to-external', {
-        body: { action: 'list_local_migrations' }
-      });
+      const { data: migResult, error: migErr } = await invokeMigrationFunction({ action: 'list_local_migrations' });
       
       if (!migErr && migResult?.success) {
         const migrations = migResult.migrations || [];
@@ -556,9 +554,7 @@ const SystemRestore = () => {
       
       try {
         // Get migration content from local DB
-        const { data: contentResult, error: contentErr } = await supabase.functions.invoke('migrate-to-external', {
-          body: { action: 'get_migration_content', tableName: mig.version }
-        });
+          const { data: contentResult, error: contentErr } = await invokeMigrationFunction({ action: 'get_migration_content', tableName: mig.version });
         
         if (contentErr || !contentResult?.success) {
           errors.push(`${mig.version}: Failed to get content`);
@@ -1277,9 +1273,7 @@ const SystemRestore = () => {
       let externalBuckets: string[] = [];
       let missingBuckets: typeof localBuckets = [];
       try {
-        const { data: bucketsResult } = await supabase.functions.invoke('migrate-to-external', {
-          body: { action: 'list_storage_buckets' }
-        });
+        const { data: bucketsResult } = await invokeMigrationFunction({ action: 'list_storage_buckets' });
         if (bucketsResult?.success && Array.isArray(bucketsResult.buckets)) {
           localBuckets = bucketsResult.buckets.map((b: any) => ({
             id: b.id, name: b.name, public: b.public,
@@ -2239,9 +2233,7 @@ const SystemRestore = () => {
   const loadAvailableTables = async () => {
     setLoadingAvailableTables(true);
     try {
-      const { data: tablesResult, error: tablesErr } = await supabase.functions.invoke('migrate-to-external', {
-        body: { action: 'list_tables' }
-      });
+      const { data: tablesResult, error: tablesErr } = await invokeMigrationFunction({ action: 'list_tables' });
       if (tablesErr || !tablesResult?.success) {
         toast.error(isRTL ? 'فشل في تحميل الجداول' : 'Failed to load tables');
         return;
@@ -2363,9 +2355,7 @@ const SystemRestore = () => {
             .map(t => ({ name: t.name, rowCount: t.rowCount || 0 }));
           selectedTableNames = selectedTablesWithCounts.map(t => t.name);
         } else {
-          const { data: tablesResult, error: tablesErr } = await supabase.functions.invoke('migrate-to-external', {
-            body: { action: 'list_tables' }
-          });
+          const { data: tablesResult, error: tablesErr } = await invokeMigrationFunction({ action: 'list_tables' });
           if (tablesErr || !tablesResult?.success) {
             errors.push(`Tables list: ${tablesErr?.message || tablesResult?.error || 'Failed'}`);
             selectedTableNames = [];
@@ -2493,9 +2483,7 @@ const SystemRestore = () => {
                 let lastErr: any = null;
                 for (let attempt = 0; attempt <= maxRetries; attempt++) {
                   try {
-                    const { data, error: sqlErr } = await supabase.functions.invoke('migrate-to-external', {
-                      body: { action: 'export_table_as_sql', tableName: table.name, offset, limit: batchSize, conflictStrategy }
-                    });
+                    const { data, error: sqlErr } = await invokeMigrationFunction({ action: 'export_table_as_sql', tableName: table.name, offset, limit: batchSize, conflictStrategy }, 60000);
                     if (sqlErr || !data?.success) {
                       lastErr = new Error(sqlErr?.message || data?.error || 'Export failed');
                       if (attempt < maxRetries) {
@@ -2636,9 +2624,7 @@ const SystemRestore = () => {
           let totalUsers = 0;
 
           while (true) {
-            const { data: usersResult, error: usersErr } = await supabase.functions.invoke('migrate-to-external', {
-              body: { action: 'export_users_as_sql', offset, limit: batchSize }
-            });
+            const { data: usersResult, error: usersErr } = await invokeMigrationFunction({ action: 'export_users_as_sql', offset, limit: batchSize }, 60000);
 
             if (usersErr || !usersResult?.success) {
               throw new Error(usersErr?.message || usersResult?.error || 'Failed to export users');
@@ -2680,9 +2666,7 @@ const SystemRestore = () => {
         
         try {
           // List buckets
-          const { data: bucketsResult, error: bucketsErr } = await supabase.functions.invoke('migrate-to-external', {
-            body: { action: 'list_storage_buckets' }
-          });
+          const { data: bucketsResult, error: bucketsErr } = await invokeMigrationFunction({ action: 'list_storage_buckets' });
 
           if (bucketsErr || !bucketsResult?.success) {
             throw new Error(bucketsErr?.message || bucketsResult?.error || 'Failed to list buckets');
@@ -2706,9 +2690,7 @@ const SystemRestore = () => {
             const batchSize = 100;
             
             while (true) {
-              const { data: filesResult, error: filesErr } = await supabase.functions.invoke('migrate-to-external', {
-                body: { action: 'list_storage_files', bucketId: bucket.id, offset, limit: batchSize }
-              });
+              const { data: filesResult, error: filesErr } = await invokeMigrationFunction({ action: 'list_storage_files', bucketId: bucket.id, offset, limit: batchSize }, 60000);
 
               if (filesErr || !filesResult?.success) break;
               const files = filesResult.files || [];
@@ -2717,9 +2699,7 @@ const SystemRestore = () => {
               for (const file of files) {
                 try {
                   // Get signed URL from source
-                  const { data: urlResult } = await supabase.functions.invoke('migrate-to-external', {
-                    body: { action: 'get_storage_file_url', bucketId: bucket.id, filePath: file.name }
-                  });
+                    const { data: urlResult } = await invokeMigrationFunction({ action: 'get_storage_file_url', bucketId: bucket.id, filePath: file.name }, 60000);
 
                   if (urlResult?.signedUrl) {
                     // Download and upload via SQL metadata insert (file content transfer needs service role on target)
