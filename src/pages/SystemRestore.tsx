@@ -2463,6 +2463,12 @@ const SystemRestore = () => {
                 newRows: Math.max(0, newRows),
                 updatedRows: Math.max(0, updatedRows),
               } : t));
+              if (cancelledMidTable) {
+                setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, status: 'error', errorMessage: isRTL ? 'تم الإنهاء بواسطة المستخدم' : 'Terminated by user', migratedRows: totalMigrated } : t));
+                errors.push(isRTL ? `⛔ تم إنهاء الترحيل أثناء جدول ${table.name}` : `⛔ Migration terminated during table ${table.name}`);
+                cumulativeRows += totalMigrated;
+                break;
+              }
               completedTablesLog.push(table.name);
               cumulativeRows += totalMigrated;
             } catch (err: any) {
