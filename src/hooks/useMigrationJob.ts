@@ -22,6 +22,8 @@ export interface MigrationJob {
   completed_tables: any;
   error_message: string | null;
   cancel_requested: boolean | null;
+  pause_requested: boolean | null;
+  is_paused: boolean | null;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
@@ -135,7 +137,21 @@ export const migrationJobApi = {
   async cancel(id: string) {
     await supabase
       .from("migration_jobs")
-      .update({ cancel_requested: true })
+      .update({ cancel_requested: true } as any)
+      .eq("id", id);
+  },
+
+  async pause(id: string) {
+    await supabase
+      .from("migration_jobs")
+      .update({ pause_requested: true, is_paused: true } as any)
+      .eq("id", id);
+  },
+
+  async resume(id: string) {
+    await supabase
+      .from("migration_jobs")
+      .update({ pause_requested: false, is_paused: false } as any)
       .eq("id", id);
   },
 
@@ -145,7 +161,16 @@ export const migrationJobApi = {
       .select("cancel_requested")
       .eq("id", id)
       .maybeSingle();
-    return Boolean(data?.cancel_requested);
+    return Boolean((data as any)?.cancel_requested);
+  },
+
+  async checkPauseRequested(id: string): Promise<boolean> {
+    const { data } = await supabase
+      .from("migration_jobs")
+      .select("pause_requested")
+      .eq("id", id)
+      .maybeSingle();
+    return Boolean((data as any)?.pause_requested);
   },
 
   async findActive(): Promise<MigrationJob | null> {
