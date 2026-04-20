@@ -4931,6 +4931,81 @@ export type Database = {
         }
         Relationships: []
       }
+      migration_jobs: {
+        Row: {
+          cancel_requested: boolean | null
+          completed_at: string | null
+          completed_tables: Json | null
+          created_at: string
+          current_table: string | null
+          current_table_index: number | null
+          current_table_processed: number | null
+          current_table_total: number | null
+          destination_config: Json | null
+          error_message: string | null
+          failed_tables: Json | null
+          id: string
+          processed_rows: number | null
+          progress_percent: number | null
+          started_at: string | null
+          status: string
+          tables_config: Json | null
+          total_rows: number | null
+          total_tables: number | null
+          updated_at: string
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          cancel_requested?: boolean | null
+          completed_at?: string | null
+          completed_tables?: Json | null
+          created_at?: string
+          current_table?: string | null
+          current_table_index?: number | null
+          current_table_processed?: number | null
+          current_table_total?: number | null
+          destination_config?: Json | null
+          error_message?: string | null
+          failed_tables?: Json | null
+          id?: string
+          processed_rows?: number | null
+          progress_percent?: number | null
+          started_at?: string | null
+          status?: string
+          tables_config?: Json | null
+          total_rows?: number | null
+          total_tables?: number | null
+          updated_at?: string
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          cancel_requested?: boolean | null
+          completed_at?: string | null
+          completed_tables?: Json | null
+          created_at?: string
+          current_table?: string | null
+          current_table_index?: number | null
+          current_table_processed?: number | null
+          current_table_total?: number | null
+          destination_config?: Json | null
+          error_message?: string | null
+          failed_tables?: Json | null
+          id?: string
+          processed_rows?: number | null
+          progress_percent?: number | null
+          started_at?: string | null
+          status?: string
+          tables_config?: Json | null
+          total_rows?: number | null
+          total_tables?: number | null
+          updated_at?: string
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
