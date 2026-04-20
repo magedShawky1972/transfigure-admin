@@ -2447,11 +2447,14 @@ const SystemRestore = () => {
             }
 
             let offset = 0;
-            // Use smaller batches for large tables to avoid edge function timeouts
-            const batchSize = table.rowCount > 50000 ? 500 : table.rowCount > 10000 ? 1000 : 2000;
+            // Use larger batches for faster throughput (fewer round-trips)
+            const batchSize = table.rowCount > 100000 ? 2000 : table.rowCount > 20000 ? 3000 : 5000;
             let totalMigrated = 0;
             let retryCount = 0;
             const maxRetries = 3;
+            let batchCounter = 0;
+            let lastControlCheckAt = 0;
+            let lastProgressUpdateAt = 0;
 
             // Get existing row count on external DB before migration
             const existingRowsBefore = await getExternalTableCount(table.name) ?? 0;
@@ -2459,26 +2462,40 @@ const SystemRestore = () => {
             try {
               let cancelledMidTable = false;
               while (true) {
-                // Per-batch cancel check (allows fast stop on huge tables)
+                // Local control check is instant (ref read) - keep every batch
                 if (migrationControlRef.current === 'terminated' || migrationControlRef.current === 'stopped') {
                   cancelledMidTable = true;
                   break;
                 }
-                if (jobId && await migrationJobApi.checkCancelRequested(jobId)) {
-                  migrationControlRef.current = 'terminated';
-                  cancelledMidTable = true;
-                  break;
-                }
-                // Per-batch pause check (honors remote pause too)
-                while (true) {
-                  const remotePaused = jobId ? await migrationJobApi.checkPauseRequested(jobId) : false;
-                  if (remotePaused && migrationControlRef.current !== 'paused') {
+                // Throttle remote DB control checks to once every 10s (was every batch)
+                const now = Date.now();
+                if (jobId && now - lastControlCheckAt > 10000) {
+                  lastControlCheckAt = now;
+                  const [cancelReq, pauseReq] = await Promise.all([
+                    migrationJobApi.checkCancelRequested(jobId),
+                    migrationJobApi.checkPauseRequested(jobId),
+                  ]);
+                  if (cancelReq) {
+                    migrationControlRef.current = 'terminated';
+                    cancelledMidTable = true;
+                    break;
+                  }
+                  if (pauseReq && migrationControlRef.current !== 'paused') {
                     migrationControlRef.current = 'paused';
-                  } else if (!remotePaused && migrationControlRef.current === 'paused') {
+                  } else if (!pauseReq && migrationControlRef.current === 'paused') {
                     migrationControlRef.current = 'running';
                   }
-                  if (migrationControlRef.current !== 'paused') break;
+                }
+                // Honor pause (local flag)
+                while (migrationControlRef.current === 'paused') {
                   await new Promise(r => setTimeout(r, 800));
+                  if (jobId) {
+                    const stillPaused = await migrationJobApi.checkPauseRequested(jobId);
+                    if (!stillPaused) {
+                      migrationControlRef.current = 'running';
+                      break;
+                    }
+                  }
                 }
                 let sqlResult: any = null;
                 let lastErr: any = null;
@@ -2552,10 +2569,14 @@ const SystemRestore = () => {
                 grandTotalRows = Math.max(grandTotalRows, cumulativeRows + table.rowCount);
                 setMigrationTables(prev => prev.map((t, idx) => idx === i ? { ...t, migratedRows: totalMigrated, rowCount: Math.max(t.rowCount, estimatedTotal) } : t));
 
-                // Update background job progress per batch
-                if (jobId) {
+                // Update background job progress (throttled to once every 5s, fire-and-forget)
+                batchCounter++;
+                const nowProgress = Date.now();
+                if (jobId && nowProgress - lastProgressUpdateAt > 5000) {
+                  lastProgressUpdateAt = nowProgress;
                   const overallProcessed = cumulativeRows + totalMigrated;
-                  await migrationJobApi.update(jobId, {
+                  // Fire-and-forget so we don't block the next batch
+                  migrationJobApi.update(jobId, {
                     current_table_processed: totalMigrated,
                     current_table_total: table.rowCount,
                     processed_rows: overallProcessed,
@@ -2563,12 +2584,12 @@ const SystemRestore = () => {
                     progress_percent: grandTotalRows > 0
                       ? Math.min(99, Math.round((overallProcessed / grandTotalRows) * 100))
                       : 0,
-                  });
+                  }).catch(() => { /* ignore progress update errors */ });
                 }
                 
                 offset += batchSize;
                 if (sqlResult.rowCount < batchSize) break;
-                await new Promise(r => setTimeout(r, 10));
+                // Removed artificial 10ms delay - was unnecessary throttling
               }
 
               // Get row count after migration to determine new vs updated
