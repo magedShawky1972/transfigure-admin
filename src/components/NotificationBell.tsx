@@ -16,6 +16,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { formatDistanceToNow, format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { ActiveMigrationCard } from "./ActiveMigrationCard";
+import { useActiveMigrationJob } from "@/hooks/useMigrationJob";
 
 type Notification = {
   id: string;
@@ -48,6 +50,7 @@ export const NotificationBell = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { permission, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
+  const { job: activeMigration } = useActiveMigrationJob();
 
   useEffect(() => {
     fetchNotifications();
@@ -118,6 +121,8 @@ export const NotificationBell = () => {
     setUnreadCount(unreadNotifications + activeReminders);
   };
 
+  const totalBadgeCount = unreadCount + (activeMigration ? 1 : 0);
+
   const handleNotificationClick = (notification: Notification) => {
     if (notification.ticket_id) {
       // For ticket notifications, navigate to ticket
@@ -142,12 +147,12 @@ export const NotificationBell = () => {
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
+            {totalBadgeCount > 0 && (
               <Badge
                 variant="destructive"
                 className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
               >
-                {unreadCount}
+                {totalBadgeCount}
               </Badge>
             )}
           </Button>
@@ -185,6 +190,13 @@ export const NotificationBell = () => {
               )}
             </div>
             
+            {/* Active Migration Card */}
+            {activeMigration && (
+              <div className="mb-3">
+                <ActiveMigrationCard />
+              </div>
+            )}
+
             {/* Send Notification Option */}
             <div className="mb-3">
               <SendNotificationDialog />
