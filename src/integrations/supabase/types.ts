@@ -4945,6 +4945,8 @@ export type Database = {
           error_message: string | null
           failed_tables: Json | null
           id: string
+          is_paused: boolean
+          pause_requested: boolean
           processed_rows: number | null
           progress_percent: number | null
           started_at: string | null
@@ -4969,6 +4971,8 @@ export type Database = {
           error_message?: string | null
           failed_tables?: Json | null
           id?: string
+          is_paused?: boolean
+          pause_requested?: boolean
           processed_rows?: number | null
           progress_percent?: number | null
           started_at?: string | null
@@ -4993,6 +4997,8 @@ export type Database = {
           error_message?: string | null
           failed_tables?: Json | null
           id?: string
+          is_paused?: boolean
+          pause_requested?: boolean
           processed_rows?: number | null
           progress_percent?: number | null
           started_at?: string | null

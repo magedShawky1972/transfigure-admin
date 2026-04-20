@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Database, ExternalLink, Loader2, Square } from "lucide-react";
+import { ArrowRightLeft, Database, ExternalLink, Loader2, Square, Pause, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -21,6 +21,7 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
   const percent = Math.min(100, Math.max(0, Number(job.progress_percent ?? 0)));
   const currentIdx = job.current_table_index ?? 0;
   const totalTables = job.total_tables ?? 0;
+  const isPaused = Boolean(job.pause_requested || job.is_paused);
 
   const handleView = () => {
     navigate("/system-restore");
@@ -30,9 +31,27 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
   const handleCancel = async () => {
     try {
       await migrationJobApi.cancel(job.id);
-      toast.success(isRTL ? "تم طلب الإيقاف" : "Cancellation requested");
+      toast.success(isRTL ? "تم طلب الإيقاف" : "Termination requested");
     } catch {
-      toast.error(isRTL ? "فشل طلب الإيقاف" : "Failed to request cancellation");
+      toast.error(isRTL ? "فشل طلب الإيقاف" : "Failed to request termination");
+    }
+  };
+
+  const handlePause = async () => {
+    try {
+      await migrationJobApi.pause(job.id);
+      toast.info(isRTL ? "تم إيقاف الترحيل مؤقتاً" : "Migration paused");
+    } catch {
+      toast.error(isRTL ? "فشل الإيقاف المؤقت" : "Failed to pause");
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await migrationJobApi.resume(job.id);
+      toast.success(isRTL ? "تم استئناف الترحيل" : "Migration resumed");
+    } catch {
+      toast.error(isRTL ? "فشل الاستئناف" : "Failed to resume");
     }
   };
 
@@ -54,6 +73,11 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
           <span className="text-[10px] text-destructive font-medium flex items-center gap-1">
             <Loader2 className="h-3 w-3 animate-spin" />
             {isRTL ? "جاري الإيقاف" : "Stopping…"}
+          </span>
+        ) : isPaused ? (
+          <span className="text-[10px] uppercase font-medium text-warning flex items-center gap-1">
+            <Pause className="h-3 w-3" />
+            {isRTL ? "متوقف مؤقتاً" : "Paused"}
           </span>
         ) : (
           <span className="text-[10px] uppercase font-medium text-primary flex items-center gap-1">
@@ -83,20 +107,33 @@ export function ActiveMigrationCard({ onNavigated }: Props) {
         </span>
       </div>
 
-      <div className="flex gap-2 pt-1">
-        <Button size="sm" variant="default" className="flex-1 h-7 text-xs" onClick={handleView}>
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <Button size="sm" variant="default" className="h-7 text-xs" onClick={handleView}>
           <ExternalLink className="h-3 w-3 me-1" />
           {isRTL ? "عرض التفاصيل" : "View Details"}
         </Button>
         {!job.cancel_requested && (
+          isPaused ? (
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleResume}>
+              <Play className="h-3 w-3 me-1" />
+              {isRTL ? "استئناف" : "Resume"}
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handlePause}>
+              <Pause className="h-3 w-3 me-1" />
+              {isRTL ? "إيقاف مؤقت" : "Pause"}
+            </Button>
+          )
+        )}
+        {!job.cancel_requested && (
           <Button
             size="sm"
-            variant="outline"
-            className="h-7 text-xs"
+            variant="destructive"
+            className="h-7 text-xs col-span-2"
             onClick={handleCancel}
           >
             <Square className="h-3 w-3 me-1" />
-            {isRTL ? "إيقاف" : "Stop"}
+            {isRTL ? "إنهاء الترحيل" : "Terminate Migration"}
           </Button>
         )}
       </div>
