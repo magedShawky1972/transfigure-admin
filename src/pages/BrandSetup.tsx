@@ -437,7 +437,16 @@ const BrandSetup = () => {
               ) : (
                 filteredBrands.map((brand) => (
                   <TableRow key={brand.id} onDoubleClick={() => handleEdit(brand)} className="cursor-pointer">
-                    <TableCell className="font-medium">{brand.brand_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{brand.brand_name}</span>
+                        {(brand as any).skip_closing_image && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" title="Closing image upload disabled">
+                            No Closing Img
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{brand.brand_code || '-'}</TableCell>
                     <TableCell>{brand.short_name || '-'}</TableCell>
                     <TableCell>{(brand as any).brand_type?.type_name || '-'}</TableCell>

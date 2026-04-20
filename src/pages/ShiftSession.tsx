@@ -206,6 +206,7 @@ const ShiftSession = () => {
             .select("*")
             .eq("status", "active")
             .eq("abc_analysis", "A")
+            .eq("skip_closing_image", false)
             .order("brand_name");
 
           if (brandsError) throw brandsError;
@@ -310,6 +311,7 @@ const ShiftSession = () => {
           .select("*")
           .eq("status", "active")
           .eq("abc_analysis", "A")
+          .eq("skip_closing_image", false)
           .order("brand_name");
 
         if (brandsError) throw brandsError;

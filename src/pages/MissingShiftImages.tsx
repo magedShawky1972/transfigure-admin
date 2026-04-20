@@ -94,7 +94,8 @@ export default function MissingShiftImages() {
         .from("brands")
         .select("id, brand_name, created_at")
         .eq("status", "active")
-        .eq("abc_analysis", "A");
+        .eq("abc_analysis", "A")
+        .eq("skip_closing_image", false);
 
       const requiredBrands = brandsData?.filter((b) => {
         const name = b.brand_name.toLowerCase();

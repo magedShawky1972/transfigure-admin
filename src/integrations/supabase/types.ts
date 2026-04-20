@@ -1186,6 +1186,7 @@ export type Database = {
           reorder_point: number | null
           safety_stock: number | null
           short_name: string | null
+          skip_closing_image: boolean
           sku_start_with: string | null
           status: string
           updated_at: string
@@ -1210,6 +1211,7 @@ export type Database = {
           reorder_point?: number | null
           safety_stock?: number | null
           short_name?: string | null
+          skip_closing_image?: boolean
           sku_start_with?: string | null
           status?: string
           updated_at?: string
@@ -1234,6 +1236,7 @@ export type Database = {
           reorder_point?: number | null
           safety_stock?: number | null
           short_name?: string | null
+          skip_closing_image?: boolean
           sku_start_with?: string | null
           status?: string
           updated_at?: string

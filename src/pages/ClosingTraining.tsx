@@ -166,6 +166,7 @@ const ClosingTraining = () => {
         .select("id, brand_name, brand_code, short_name")
         .eq("abc_analysis", "A")
         .eq("status", "active")
+        .eq("skip_closing_image", false)
         .order("brand_name");
 
       if (brandsError) throw brandsError;

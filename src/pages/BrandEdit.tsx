@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Calculator } from "lucide-react";
 import { format } from "date-fns";
+import { Switch } from "@/components/ui/switch";
 
 interface BrandType {
   id: string;
@@ -62,6 +63,7 @@ const BrandEdit = () => {
     asus_brand_name: "",
     sku_start_with: "",
     creation_source: "",
+    skip_closing_image: false,
   });
 
   // Format number with thousand separators and 2 decimal places
@@ -204,6 +206,7 @@ const BrandEdit = () => {
            asus_brand_name: (data as any).asus_brand_name || "",
           sku_start_with: (data as any).sku_start_with || "",
           creation_source: (data as any).creation_source || "",
+          skip_closing_image: (data as any).skip_closing_image || false,
           _created_at: data.created_at,
         } as any);
 
@@ -381,6 +384,7 @@ const BrandEdit = () => {
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
             asus_brand_name: formData.asus_brand_name || null,
             sku_start_with: formData.sku_start_with || null,
+            skip_closing_image: formData.skip_closing_image,
           } as any)
           .eq("id", brandId);
 
@@ -410,6 +414,7 @@ const BrandEdit = () => {
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
             asus_brand_name: formData.asus_brand_name || null,
             sku_start_with: formData.sku_start_with || null,
+            skip_closing_image: formData.skip_closing_image,
           } as any);
 
         if (error) throw error;
@@ -690,6 +695,24 @@ const BrandEdit = () => {
                   <SelectItem value="inactive">{t("brandSetup.inactive")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="skip_closing_image">Disable Closing Image Upload</Label>
+              <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-input bg-background">
+                <Switch
+                  id="skip_closing_image"
+                  checked={formData.skip_closing_image}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, skip_closing_image: checked })
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  {formData.skip_closing_image
+                    ? "Excluded from shift closing image upload"
+                    : "Required in shift closing image upload"}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2">
