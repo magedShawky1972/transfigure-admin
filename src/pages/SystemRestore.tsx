@@ -2156,6 +2156,7 @@ const SystemRestore = () => {
       return;
     }
 
+    migrationControlRef.current = 'running';
     setIsMigrating(true);
     setShowMigrationProgressDialog(true);
     setIsMigrationComplete(false);
