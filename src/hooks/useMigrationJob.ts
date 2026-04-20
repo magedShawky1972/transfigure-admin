@@ -39,10 +39,17 @@ export function useActiveMigrationJob() {
   const [loading, setLoading] = useState(true);
 
   const fetchActive = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setJob(null);
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from("migration_jobs")
       .select("*")
       .in("status", ["pending", "running"])
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
