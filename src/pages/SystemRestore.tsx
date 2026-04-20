@@ -3538,9 +3538,28 @@ GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;`);
               </div>
             </div>
 
+            {globalActiveMigrationJob && !isMigrating && (
+              <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm space-y-1">
+                <p className="font-medium flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  {isRTL ? 'يوجد ترحيل نشط حالياً' : 'A migration is currently running'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isRTL ? 'بدأه: ' : 'Started by: '}
+                  <strong>{globalActiveMigrationJob.user_email || 'unknown'}</strong>
+                  {' — '}
+                  {Number(globalActiveMigrationJob.progress_percent ?? 0).toFixed(0)}%
+                  {globalActiveMigrationJob.current_table ? ` (${globalActiveMigrationJob.current_table})` : ''}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {isRTL ? 'يمكنك متابعة التقدم من جرس الإشعارات في الأعلى.' : 'Track progress from the notification bell in the top toolbar.'}
+                </p>
+              </div>
+            )}
+
             <Button
               onClick={handleStartMigration}
-              disabled={isMigrating || (!migrateDataEnabled && !migrateUsersEnabled && !migrateStorageEnabled)}
+              disabled={isMigrating || (!!globalActiveMigrationJob && globalActiveMigrationJob.user_id !== undefined && !migrationJobIdRef.current) || (!migrateDataEnabled && !migrateUsersEnabled && !migrateStorageEnabled)}
               className="w-full"
               size="lg"
             >
