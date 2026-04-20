@@ -2223,8 +2223,12 @@ const SystemRestore = () => {
         
         // Use pre-selected tables if available, otherwise load all
         let selectedTableNames: string[];
+        let selectedTablesWithCounts: { name: string; rowCount: number }[] = [];
         if (tablesLoaded && availableTables.length > 0) {
-          selectedTableNames = availableTables.filter(t => t.selected).map(t => t.name);
+          selectedTablesWithCounts = availableTables
+            .filter(t => t.selected)
+            .map(t => ({ name: t.name, rowCount: t.rowCount || 0 }));
+          selectedTableNames = selectedTablesWithCounts.map(t => t.name);
         } else {
           const { data: tablesResult, error: tablesErr } = await supabase.functions.invoke('migrate-to-external', {
             body: { action: 'list_tables' }
@@ -2233,10 +2237,14 @@ const SystemRestore = () => {
             errors.push(`Tables list: ${tablesErr?.message || tablesResult?.error || 'Failed'}`);
             selectedTableNames = [];
           } else {
-            selectedTableNames = (tablesResult.tables || []).map((t: any) => t.name);
+            selectedTablesWithCounts = (tablesResult.tables || []).map((t: any) => ({
+              name: t.name,
+              rowCount: t.row_count || 0,
+            }));
+            selectedTableNames = selectedTablesWithCounts.map(t => t.name);
             // Store full table info for row counts
             if (!tablesLoaded) {
-              setAvailableTables((tablesResult.tables || []).map((t: any) => ({ name: t.name, rowCount: t.row_count || 0, selected: true })));
+              setAvailableTables(selectedTablesWithCounts.map((t) => ({ ...t, selected: true })));
             }
           }
         }
@@ -2245,12 +2253,9 @@ const SystemRestore = () => {
           toast.info(isRTL ? 'لم يتم اختيار أي جداول' : 'No tables selected');
         } else {
           // Build migration table items from selected tables - use available tables data for row counts
-          const tableSource = tablesLoaded 
-            ? availableTables.filter(t => t.selected) 
-            : selectedTableNames.map(n => {
-                const found = availableTables.find(t => t.name === n);
-                return { name: n, rowCount: found?.rowCount || 0 };
-              });
+          const tableSource = tablesLoaded
+            ? availableTables.filter(t => t.selected).map(t => ({ name: t.name, rowCount: t.rowCount || 0 }))
+            : selectedTablesWithCounts;
           const tables: MigrationTableItem[] = tableSource.map((t: any) => ({
             name: t.name,
             rowCount: t.rowCount || 0,
@@ -2263,7 +2268,7 @@ const SystemRestore = () => {
           await new Promise(r => setTimeout(r, 50));
 
           // Compute totals for progress tracking
-          const grandTotalRows = tables.reduce((sum, t) => sum + (t.rowCount || 0), 0);
+          let grandTotalRows = tables.reduce((sum, t) => sum + (t.rowCount || 0), 0);
           let cumulativeRows = 0;
 
           // Push real totals to background job (initial create may have been 0
