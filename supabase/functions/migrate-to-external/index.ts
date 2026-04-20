@@ -1,6 +1,70 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+const escapeSqlLiteral = (value: string) => value.replace(/'/g, "''");
+
+const normalizeColumns = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value !== 'string') return [];
+
+  const trimmed = value.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    return trimmed
+      .slice(1, -1)
+      .split(',')
+      .map((item) => item.replace(/^"|"$/g, '').trim())
+      .filter(Boolean);
+  }
+
+  return trimmed ? [trimmed] : [];
+};
+
+const getConflictColumns = async (supabase: ReturnType<typeof createClient>, tableName: string) => {
+  const escapedTableName = escapeSqlLiteral(tableName);
+  const { data, error } = await supabase.rpc('exec_sql', {
+    sql: `
+      SELECT
+        tc.constraint_type,
+        tc.constraint_name,
+        array_agg(kcu.column_name ORDER BY kcu.ordinal_position) AS columns
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+       AND tc.table_name = kcu.table_name
+      WHERE tc.table_schema = 'public'
+        AND tc.table_name = '${escapedTableName}'
+        AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+      GROUP BY tc.constraint_type, tc.constraint_name
+      ORDER BY
+        CASE WHEN tc.constraint_type = 'UNIQUE' THEN 0 ELSE 1 END,
+        array_length(array_agg(kcu.column_name ORDER BY kcu.ordinal_position), 1),
+        tc.constraint_name
+    `,
+  });
+
+  if (error || !Array.isArray(data) || data.length === 0) return null;
+
+  const constraints = data
+    .map((row: any) => ({
+      type: String(row.constraint_type ?? ''),
+      columns: normalizeColumns(row.columns),
+    }))
+    .filter((row) => row.columns.length > 0);
+
+  if (constraints.length === 0) return null;
+
+  const preferredUnique = constraints.find(
+    (constraint) => constraint.type === 'UNIQUE' && (constraint.columns.length > 1 || constraint.columns[0] !== 'id')
+  );
+  if (preferredUnique) return preferredUnique.columns;
+
+  const primaryKey = constraints.find((constraint) => constraint.type === 'PRIMARY KEY');
+  if (primaryKey) return primaryKey.columns;
+
+  return constraints[0]?.columns ?? null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -107,21 +171,26 @@ Deno.serve(async (req) => {
         const columnNames = Object.keys(rows[0]);
         const colNames = columnNames.map(c => `"${c}"`).join(', ');
         
-        // Detect primary key column (prefer 'id', fallback to first column)
-        const pkCol = columnNames.includes('id') ? 'id' : columnNames[0];
+        // Detect conflict columns from actual table constraints to avoid stalls on business-unique keys
+        const fallbackConflictColumns = [columnNames.includes('id') ? 'id' : columnNames[0]];
+        const detectedConflictColumns = await getConflictColumns(supabase, tableName);
+        const conflictColumns = (detectedConflictColumns && detectedConflictColumns.length > 0
+          ? detectedConflictColumns
+          : fallbackConflictColumns).filter((column) => columnNames.includes(column));
+        const conflictTargetSql = conflictColumns.map((column) => `"${column}"`).join(', ');
         
         // Build conflict clause based on strategy
         let onConflict = '';
         if (conflictStrategy === 'update') {
           const updateCols = columnNames
-            .filter(c => c !== pkCol)
+            .filter(c => !conflictColumns.includes(c))
             .map(c => `"${c}" = EXCLUDED."${c}"`)
             .join(', ');
           onConflict = updateCols 
-            ? ` ON CONFLICT ("${pkCol}") DO UPDATE SET ${updateCols}`
-            : ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+            ? ` ON CONFLICT (${conflictTargetSql}) DO UPDATE SET ${updateCols}`
+            : ` ON CONFLICT (${conflictTargetSql}) DO NOTHING`;
         } else if (conflictStrategy === 'skip') {
-          onConflict = ` ON CONFLICT ("${pkCol}") DO NOTHING`;
+          onConflict = ` ON CONFLICT (${conflictTargetSql}) DO NOTHING`;
         }
 
         // Build multi-row VALUES for a single INSERT (much faster than individual INSERTs)
