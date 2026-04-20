@@ -47,6 +47,7 @@ export const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { permission, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
@@ -143,7 +144,7 @@ export const NotificationBell = () => {
 
   return (
     <>
-      <Popover>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
@@ -193,7 +194,7 @@ export const NotificationBell = () => {
             {/* Active Migration Card */}
             {activeMigration && (
               <div className="mb-3">
-                <ActiveMigrationCard />
+                <ActiveMigrationCard onNavigated={() => setPopoverOpen(false)} />
               </div>
             )}
 
