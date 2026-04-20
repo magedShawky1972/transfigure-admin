@@ -2447,11 +2447,14 @@ const SystemRestore = () => {
             }
 
             let offset = 0;
-            // Use smaller batches for large tables to avoid edge function timeouts
-            const batchSize = table.rowCount > 50000 ? 500 : table.rowCount > 10000 ? 1000 : 2000;
+            // Use larger batches for faster throughput (fewer round-trips)
+            const batchSize = table.rowCount > 100000 ? 2000 : table.rowCount > 20000 ? 3000 : 5000;
             let totalMigrated = 0;
             let retryCount = 0;
             const maxRetries = 3;
+            let batchCounter = 0;
+            let lastControlCheckAt = 0;
+            let lastProgressUpdateAt = 0;
 
             // Get existing row count on external DB before migration
             const existingRowsBefore = await getExternalTableCount(table.name) ?? 0;
@@ -2459,26 +2462,40 @@ const SystemRestore = () => {
             try {
               let cancelledMidTable = false;
               while (true) {
-                // Per-batch cancel check (allows fast stop on huge tables)
+                // Local control check is instant (ref read) - keep every batch
                 if (migrationControlRef.current === 'terminated' || migrationControlRef.current === 'stopped') {
                   cancelledMidTable = true;
                   break;
                 }
-                if (jobId && await migrationJobApi.checkCancelRequested(jobId)) {
-                  migrationControlRef.current = 'terminated';
-                  cancelledMidTable = true;
-                  break;
-                }
-                // Per-batch pause check (honors remote pause too)
-                while (true) {
-                  const remotePaused = jobId ? await migrationJobApi.checkPauseRequested(jobId) : false;
-                  if (remotePaused && migrationControlRef.current !== 'paused') {
+                // Throttle remote DB control checks to once every 10s (was every batch)
+                const now = Date.now();
+                if (jobId && now - lastControlCheckAt > 10000) {
+                  lastControlCheckAt = now;
+                  const [cancelReq, pauseReq] = await Promise.all([
+                    migrationJobApi.checkCancelRequested(jobId),
+                    migrationJobApi.checkPauseRequested(jobId),
+                  ]);
+                  if (cancelReq) {
+                    migrationControlRef.current = 'terminated';
+                    cancelledMidTable = true;
+                    break;
+                  }
+                  if (pauseReq && migrationControlRef.current !== 'paused') {
                     migrationControlRef.current = 'paused';
-                  } else if (!remotePaused && migrationControlRef.current === 'paused') {
+                  } else if (!pauseReq && migrationControlRef.current === 'paused') {
                     migrationControlRef.current = 'running';
                   }
-                  if (migrationControlRef.current !== 'paused') break;
+                }
+                // Honor pause (local flag)
+                while (migrationControlRef.current === 'paused') {
                   await new Promise(r => setTimeout(r, 800));
+                  if (jobId) {
+                    const stillPaused = await migrationJobApi.checkPauseRequested(jobId);
+                    if (!stillPaused) {
+                      migrationControlRef.current = 'running';
+                      break;
+                    }
+                  }
                 }
                 let sqlResult: any = null;
                 let lastErr: any = null;
