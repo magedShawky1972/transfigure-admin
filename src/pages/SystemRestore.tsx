@@ -2278,9 +2278,17 @@ const SystemRestore = () => {
           for (let i = 0; i < tables.length; i++) {
             const table = tables[i];
 
-            // Honor pause: wait while paused
-            while (migrationControlRef.current === 'paused') {
-              await new Promise(r => setTimeout(r, 400));
+            // Honor pause: wait while paused (local OR remote via DB flag)
+            while (true) {
+              const remotePaused = jobId ? await migrationJobApi.checkPauseRequested(jobId) : false;
+              if (remotePaused && migrationControlRef.current !== 'paused') {
+                migrationControlRef.current = 'paused';
+              } else if (!remotePaused && migrationControlRef.current === 'paused') {
+                // Remote resume detected
+                migrationControlRef.current = 'running';
+              }
+              if (migrationControlRef.current !== 'paused') break;
+              await new Promise(r => setTimeout(r, 800));
             }
             // Honor local terminate/stop
             if (migrationControlRef.current === 'terminated' || migrationControlRef.current === 'stopped') {
