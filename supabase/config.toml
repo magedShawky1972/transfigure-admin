@@ -182,3 +182,6 @@ verify_jwt = false
 
 [functions.api-coin-value]
 verify_jwt = false
+
+[functions.api-brand-balance]
+verify_jwt = false
