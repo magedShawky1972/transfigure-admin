@@ -358,6 +358,26 @@ const API_ENDPOINTS = [
     ],
   },
   {
+    id: "coin-value",
+    name: "Coin Value (GET by Supplier Hub Code)",
+    endpoint: `${SUPABASE_FUNCTIONS_URL}/api-coin-value?supplier_hub_code={CODE}`,
+    method: "GET",
+    description: "Get the SAR value of one coin for a brand identified by its Supplier Hub Code. Calculation: one_coin_sar = usd_value_per_coin (multiply/divide) USD-to-SAR rate. Requires an API key with Product permission.",
+    fields: [
+      { name: "supplier_hub_code", type: "Query Param", required: true, note: "The brand's Supplier Hub Code" },
+    ],
+    responseFields: [
+      { name: "supplier_hub_code", type: "Text", note: "Echoed supplier hub code" },
+      { name: "brand_name", type: "Text", note: "Brand name" },
+      { name: "brand_code", type: "Text", note: "Brand code" },
+      { name: "usd_value_per_coin", type: "Decimal", note: "USD value of one coin (from brand setup)" },
+      { name: "usd_to_sar_rate", type: "Decimal", note: "Latest USD rate to base currency (SAR)" },
+      { name: "conversion_operator", type: "Text", note: "multiply or divide" },
+      { name: "one_coin_sar", type: "Decimal", note: "Final value of one coin in SAR" },
+      { name: "base_currency", type: "Text", note: "Always SAR" },
+    ],
+  },
+  {
     id: "products-list",
     name: "Products List (GET All)",
     endpoint: `${SUPABASE_FUNCTIONS_URL}/api-products-list`,
