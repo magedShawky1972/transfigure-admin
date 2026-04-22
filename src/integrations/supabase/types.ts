@@ -1189,6 +1189,7 @@ export type Database = {
           skip_closing_image: boolean
           sku_start_with: string | null
           status: string
+          supplier_hub_code: string | null
           updated_at: string
           usd_value_for_coins: number | null
         }
@@ -1214,6 +1215,7 @@ export type Database = {
           skip_closing_image?: boolean
           sku_start_with?: string | null
           status?: string
+          supplier_hub_code?: string | null
           updated_at?: string
           usd_value_for_coins?: number | null
         }
@@ -1239,6 +1241,7 @@ export type Database = {
           skip_closing_image?: boolean
           sku_start_with?: string | null
           status?: string
+          supplier_hub_code?: string | null
           updated_at?: string
           usd_value_for_coins?: number | null
         }
