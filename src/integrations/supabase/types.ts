@@ -1071,6 +1071,60 @@ export type Database = {
           },
         ]
       }
+      brand_coin_balances: {
+        Row: {
+          api_key_id: string | null
+          balance: number
+          brand_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          reorder_point_at_report: number | null
+          reported_at: string
+          source: string
+          triggered_alert: boolean
+        }
+        Insert: {
+          api_key_id?: string | null
+          balance?: number
+          brand_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reorder_point_at_report?: number | null
+          reported_at?: string
+          source?: string
+          triggered_alert?: boolean
+        }
+        Update: {
+          api_key_id?: string | null
+          balance?: number
+          brand_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reorder_point_at_report?: number | null
+          reported_at?: string
+          source?: string
+          triggered_alert?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_coin_balances_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_coin_balances_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_coin_tiers: {
         Row: {
           brand_id: string
