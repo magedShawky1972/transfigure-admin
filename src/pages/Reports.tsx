@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products']);
         setLoading(false);
         return;
       }
@@ -189,6 +189,15 @@ const Reports = () => {
         : "Detailed report for all Riyad Bank transactions with all columns and filters",
       icon: Landmark,
       route: "/reports/riyad-bank",
+    },
+    {
+      id: "riyad-bank-order-match",
+      name: language === "ar" ? "مطابقة الطلبات مع بنك الرياض" : "Order ↔ Riyad Bank Match",
+      description: language === "ar"
+        ? "مطابقة أرقام الطلبات مع مرجع التحصيل في كشف بنك الرياض، مجمعة حسب البراند مع فلاتر التاريخ وطريقة الدفع"
+        : "Match orders to Riyad Bank collection refs, grouped by brand with date and payment method filters",
+      icon: Landmark,
+      route: "/reports/riyad-bank-order-match",
     },
     {
       id: "security-dashboard",
