@@ -1318,10 +1318,34 @@ const AdminTickets = () => {
     }
   };
 
+  // Get pending approver user_ids for a ticket (next-in-chain approvers)
+  const getPendingApproverIds = (ticket: Ticket): string[] => {
+    if (ticket.approved_at) return [];
+    const deptAdmins = allDepartmentAdmins.filter(a => a.department_id === ticket.department_id);
+    const nextOrder = ticket.next_admin_order ?? 0;
+
+    if (!ticket.is_purchase_ticket) {
+      return deptAdmins
+        .filter(a => !a.is_purchase_admin && a.admin_order === nextOrder)
+        .map(a => a.user_id);
+    }
+    const regularAtOrder = deptAdmins.filter(a => !a.is_purchase_admin && a.admin_order === nextOrder);
+    if (regularAtOrder.length > 0) {
+      return regularAtOrder.map(a => a.user_id);
+    }
+    return deptAdmins
+      .filter(a => a.is_purchase_admin && a.admin_order === nextOrder)
+      .map(a => a.user_id);
+  };
+
   const filteredTickets = tickets.filter(ticket => {
     if (filterStatus !== "all" && ticket.status !== filterStatus) return false;
     if (filterPriority !== "all" && ticket.priority !== filterPriority) return false;
     if (filterDepartment !== "all" && ticket.department_id !== filterDepartment) return false;
+    if (filterPendingApprover !== "all") {
+      const pendingIds = getPendingApproverIds(ticket);
+      if (!pendingIds.includes(filterPendingApprover)) return false;
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchSubject = ticket.subject?.toLowerCase().includes(q);
@@ -1337,6 +1361,25 @@ const AdminTickets = () => {
   const uniqueDepartments = Array.from(
     new Map(tickets.map(t => [t.department_id, t.departments.department_name])).entries()
   ).map(([id, name]) => ({ id, name }));
+
+  // Build unique pending approvers list across currently visible tickets (before this filter)
+  const pendingApproverOptions = (() => {
+    const map = new Map<string, string>();
+    tickets.forEach(t => {
+      if (t.approved_at) return;
+      if (t.status === "Closed" || t.status === "Cancelled" || t.status === "Rejected") return;
+      const ids = getPendingApproverIds(t);
+      ids.forEach(uid => {
+        const admin = allDepartmentAdmins.find(a => a.user_id === uid && a.department_id === t.department_id);
+        if (admin?.user_name && !map.has(uid)) {
+          map.set(uid, admin.user_name);
+        }
+      });
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
 
   const openTickets = filteredTickets.filter(t => t.status === "Open");
   const inProgressTickets = filteredTickets.filter(t => t.status === "In Progress");
