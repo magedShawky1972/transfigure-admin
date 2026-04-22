@@ -1749,6 +1749,17 @@ const AdminTickets = () => {
             <SelectItem value="Low">{language === 'ar' ? 'منخفض' : 'Low'}</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={filterPendingApprover} onValueChange={setFilterPendingApprover}>
+          <SelectTrigger className="w-full sm:w-[220px] h-9 text-sm">
+            <SelectValue placeholder={language === 'ar' ? 'بانتظار موافقة' : 'Pending Approval From'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{language === 'ar' ? 'كل الموافقين' : 'All Approvers'}</SelectItem>
+            {pendingApproverOptions.map(opt => (
+              <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {loading ? (
