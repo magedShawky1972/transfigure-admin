@@ -62,6 +62,7 @@ const BrandEdit = () => {
     default_supplier_id: "none",
     asus_brand_name: "",
     sku_start_with: "",
+    supplier_hub_code: "",
     creation_source: "",
     skip_closing_image: false,
   });
@@ -205,6 +206,7 @@ const BrandEdit = () => {
            default_supplier_id: (data as any).default_supplier_id || "none",
            asus_brand_name: (data as any).asus_brand_name || "",
           sku_start_with: (data as any).sku_start_with || "",
+          supplier_hub_code: (data as any).supplier_hub_code || "",
           creation_source: (data as any).creation_source || "",
           skip_closing_image: (data as any).skip_closing_image || false,
           _created_at: data.created_at,
@@ -384,6 +386,7 @@ const BrandEdit = () => {
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
             asus_brand_name: formData.asus_brand_name || null,
             sku_start_with: formData.sku_start_with || null,
+            supplier_hub_code: formData.supplier_hub_code || null,
             skip_closing_image: formData.skip_closing_image,
           } as any)
           .eq("id", brandId);
@@ -414,6 +417,7 @@ const BrandEdit = () => {
             default_supplier_id: formData.default_supplier_id === "none" ? null : formData.default_supplier_id,
             asus_brand_name: formData.asus_brand_name || null,
             sku_start_with: formData.sku_start_with || null,
+            supplier_hub_code: formData.supplier_hub_code || null,
             skip_closing_image: formData.skip_closing_image,
           } as any);
 
@@ -771,6 +775,16 @@ const BrandEdit = () => {
               <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                 {skuTaken ? "This SKU prefix is already taken by another brand" : "1 or 2 characters, must be unique across all brands"}
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="supplier_hub_code">Supplier Hub Code</Label>
+              <Input
+                id="supplier_hub_code"
+                value={formData.supplier_hub_code}
+                onChange={(e) => setFormData({ ...formData, supplier_hub_code: e.target.value })}
+                placeholder="Enter supplier hub code"
+              />
             </div>
 
             {brandId && (
