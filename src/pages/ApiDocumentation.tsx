@@ -387,6 +387,7 @@ const API_ENDPOINTS = [
     fields: [
       { name: "supplier_hub_code", type: "Text", required: true, note: "The brand's Supplier Hub Code (used to locate the brand)" },
       { name: "balance", type: "Decimal", required: true, note: "Current coins balance for the brand" },
+      { name: "reported_at", type: "DateTime", required: false, note: "Optional date/time when the balance was measured (KSA time). Accepts ISO 8601 ('2026-04-23T14:30:00+03:00'), 'YYYY-MM-DD HH:mm:ss', or 'DD/MM/YYYY HH:mm:ss'. Defaults to current time." },
       { name: "notes", type: "Text", required: false, note: "Optional notes about this balance report" },
     ],
     responseFields: [
@@ -399,6 +400,7 @@ const API_ENDPOINTS = [
       { name: "reorder_point", type: "Decimal", note: "Brand's reorder point at time of report" },
       { name: "low_stock", type: "Boolean", note: "true when balance <= reorder_point (and reorder_point > 0)" },
       { name: "alert_sent", type: "Boolean", note: "true if low-stock notification was dispatched" },
+      { name: "reported_at", type: "DateTime", note: "Stored timestamp of the balance reading" },
     ],
   },
   {
