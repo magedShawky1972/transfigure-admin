@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save, Clock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save, Clock, Eye, EyeOff, Loader2, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
 interface ConfigItem {
@@ -75,6 +77,7 @@ const SystemConfig = () => {
     allow_salla_transaction: false,
     allow_crm: false,
   });
+  const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
     mobile_number: "",
     webhook_url: "",
@@ -364,6 +367,43 @@ const SystemConfig = () => {
       description: "API key deleted successfully",
     });
 
+    loadApiKeys();
+  };
+
+  const openEditApiKey = (key: ApiKey) => {
+    setEditingApiKey({ ...key });
+  };
+
+  const handleUpdateApiKey = async () => {
+    if (!editingApiKey) return;
+    const { id, description: desc, is_active,
+      allow_sales_header, allow_sales_line, allow_payment, allow_customer,
+      allow_supplier, allow_supplier_product, allow_brand, allow_product,
+      allow_zk_attendance, allow_salla_transaction, allow_crm } = editingApiKey;
+
+    if (!desc?.trim()) {
+      toast({ title: "Error", description: "Description is required", variant: "destructive" });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("api_keys")
+      .update({
+        description: desc.trim(),
+        is_active,
+        allow_sales_header, allow_sales_line, allow_payment, allow_customer,
+        allow_supplier, allow_supplier_product, allow_brand, allow_product,
+        allow_zk_attendance, allow_salla_transaction, allow_crm,
+      })
+      .eq("id", id);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to update API key", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Success", description: "API key updated successfully" });
+    setEditingApiKey(null);
     loadApiKeys();
   };
 
@@ -841,13 +881,22 @@ const SystemConfig = () => {
                           </Button>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteApiKey(key.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditApiKey(key)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteApiKey(key.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                       {key.allow_sales_header && (
@@ -893,6 +942,81 @@ const SystemConfig = () => {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={!!editingApiKey} onOpenChange={(open) => !open && setEditingApiKey(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit API Key</DialogTitle>
+              <DialogDescription>
+                Update the description, status, and endpoint permissions for this API key.
+              </DialogDescription>
+            </DialogHeader>
+            {editingApiKey && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>API Key</Label>
+                  <code className="block text-xs bg-muted px-2 py-2 rounded font-mono break-all">
+                    {editingApiKey.api_key}
+                  </code>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Input
+                    id="edit-description"
+                    value={editingApiKey.description}
+                    onChange={(e) => setEditingApiKey({ ...editingApiKey, description: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <Label>Active</Label>
+                    <p className="text-xs text-muted-foreground">Inactive keys are rejected by all API endpoints.</p>
+                  </div>
+                  <Switch
+                    checked={editingApiKey.is_active}
+                    onCheckedChange={(v) => setEditingApiKey({ ...editingApiKey, is_active: v })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>API Endpoint Permissions</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {([
+                      ["allow_sales_header", "Sales Header"],
+                      ["allow_sales_line", "Sales Line"],
+                      ["allow_payment", "Payment"],
+                      ["allow_customer", "Customer"],
+                      ["allow_supplier", "Supplier"],
+                      ["allow_supplier_product", "Supplier Product"],
+                      ["allow_brand", "Brand"],
+                      ["allow_product", "Product"],
+                      ["allow_zk_attendance", "ZK Attendance"],
+                      ["allow_salla_transaction", "Salla Transaction"],
+                      ["allow_crm", "CRM"],
+                    ] as const).map(([field, label]) => (
+                      <div key={field} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`edit-${field}`}
+                          checked={Boolean(editingApiKey[field as keyof ApiKey])}
+                          onCheckedChange={(checked) =>
+                            setEditingApiKey({ ...editingApiKey, [field]: Boolean(checked) } as ApiKey)
+                          }
+                        />
+                        <Label htmlFor={`edit-${field}`} className="cursor-pointer">{label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingApiKey(null)}>Cancel</Button>
+              <Button onClick={handleUpdateApiKey}>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* WhatsApp Configuration Section */}
