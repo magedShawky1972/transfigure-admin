@@ -369,6 +369,43 @@ const SystemConfig = () => {
     loadApiKeys();
   };
 
+  const openEditApiKey = (key: ApiKey) => {
+    setEditingApiKey({ ...key });
+  };
+
+  const handleUpdateApiKey = async () => {
+    if (!editingApiKey) return;
+    const { id, description: desc, is_active,
+      allow_sales_header, allow_sales_line, allow_payment, allow_customer,
+      allow_supplier, allow_supplier_product, allow_brand, allow_product,
+      allow_zk_attendance, allow_salla_transaction, allow_crm } = editingApiKey;
+
+    if (!desc?.trim()) {
+      toast({ title: "Error", description: "Description is required", variant: "destructive" });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("api_keys")
+      .update({
+        description: desc.trim(),
+        is_active,
+        allow_sales_header, allow_sales_line, allow_payment, allow_customer,
+        allow_supplier, allow_supplier_product, allow_brand, allow_product,
+        allow_zk_attendance, allow_salla_transaction, allow_crm,
+      })
+      .eq("id", id);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to update API key", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Success", description: "API key updated successfully" });
+    setEditingApiKey(null);
+    loadApiKeys();
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
