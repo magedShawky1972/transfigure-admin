@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save, Clock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Shield, Mail, Bell, Link2, Database, Key, Plus, Trash2, Copy, MessageCircle, Save, Clock, Eye, EyeOff, Loader2, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
 interface ConfigItem {
