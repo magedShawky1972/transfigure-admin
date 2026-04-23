@@ -186,9 +186,10 @@ Deno.serve(async (req) => {
     }
 
     // One Coin in SAR = USD value per coin (operator) USD rate to SAR
-    const oneCoinSar = operator === 'multiply'
+    const oneCoinSarRaw = operator === 'multiply'
       ? usdValuePerCoin * usdRate
       : usdValuePerCoin / usdRate;
+    const oneCoinSar = Math.round(oneCoinSarRaw * 100) / 100;
 
     responseMessage = 'Coin value computed';
     await logApiCall();
