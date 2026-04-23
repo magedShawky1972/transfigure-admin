@@ -77,6 +77,7 @@ const SystemConfig = () => {
     allow_salla_transaction: false,
     allow_crm: false,
   });
+  const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
     mobile_number: "",
     webhook_url: "",
