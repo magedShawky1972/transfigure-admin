@@ -269,6 +269,7 @@ Deno.serve(async (req) => {
       low_stock: isLowStock,
       alert_sent: alertSent,
       alert_error: alertError,
+      reported_at: inserted.reported_at,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
