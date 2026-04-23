@@ -189,7 +189,11 @@ Deno.serve(async (req) => {
     const oneCoinSarRaw = operator === 'multiply'
       ? usdValuePerCoin * usdRate
       : usdValuePerCoin / usdRate;
-    const oneCoinSar = Math.round(oneCoinSarRaw * 100) / 100;
+    // Round to 2 decimals, but if result would be 0, keep more precision (up to 8 decimals)
+    let oneCoinSar = Math.round(oneCoinSarRaw * 100) / 100;
+    if (oneCoinSar === 0 && oneCoinSarRaw > 0) {
+      oneCoinSar = Math.round(oneCoinSarRaw * 1e8) / 1e8;
+    }
 
     responseMessage = 'Coin value computed';
     await logApiCall();
