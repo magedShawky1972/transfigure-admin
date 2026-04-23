@@ -88,6 +88,52 @@ Deno.serve(async (req) => {
     const supplierHubCode = String(body.supplier_hub_code ?? body.Supplier_Hub_Code ?? '').trim();
     const balanceRaw = body.balance ?? body.Balance ?? body.coins_balance ?? body.Coins_Balance;
     const notes = body.notes ?? body.Notes ?? null;
+    const reportedAtRaw = body.reported_at ?? body.Reported_At ?? body.report_date ?? body.Report_Date ?? body.date_time ?? body.DateTime ?? null;
+
+    // Parse reported_at as KSA time if provided
+    let reportedAt: string | null = null;
+    if (reportedAtRaw) {
+      try {
+        let d: Date;
+        const s = String(reportedAtRaw).trim();
+        if (s.includes('T')) {
+          d = new Date(s);
+        } else if (s.includes('/')) {
+          const [datePart, timePart = '00:00:00'] = s.split(' ');
+          const parts = datePart.split('/');
+          if (parts.length === 3) {
+            d = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${timePart}+03:00`);
+          } else {
+            d = new Date(s);
+          }
+        } else if (s.includes(' ')) {
+          d = new Date(s.replace(' ', 'T') + '+03:00');
+        } else {
+          d = new Date(`${s}T00:00:00+03:00`);
+        }
+        if (!isNaN(d.getTime())) {
+          reportedAt = d.toISOString();
+        } else {
+          responseStatus = 400;
+          responseMessage = 'Invalid reported_at format. Use ISO 8601 or "YYYY-MM-DD HH:mm:ss" or "DD/MM/YYYY HH:mm:ss"';
+          success = false;
+          await logApiCall();
+          return new Response(JSON.stringify({ error: responseMessage }), {
+            status: responseStatus,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch {
+        responseStatus = 400;
+        responseMessage = 'Invalid reported_at format';
+        success = false;
+        await logApiCall();
+        return new Response(JSON.stringify({ error: responseMessage }), {
+          status: responseStatus,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     if (!supplierHubCode) {
       responseStatus = 400;
