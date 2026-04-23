@@ -195,17 +195,20 @@ Deno.serve(async (req) => {
     const isLowStock = reorderPoint > 0 && balance <= reorderPoint;
 
     // Save snapshot
+    const insertPayload: Record<string, any> = {
+      brand_id: brand.id,
+      balance,
+      reorder_point_at_report: reorderPoint,
+      source: 'api',
+      api_key_id: apiKey.id,
+      notes,
+      triggered_alert: isLowStock,
+    };
+    if (reportedAt) insertPayload.reported_at = reportedAt;
+
     const { data: inserted, error: insertError } = await supabase
       .from('brand_coin_balances')
-      .insert({
-        brand_id: brand.id,
-        balance,
-        reorder_point_at_report: reorderPoint,
-        source: 'api',
-        api_key_id: apiKey.id,
-        notes,
-        triggered_alert: isLowStock,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
