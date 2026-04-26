@@ -229,8 +229,8 @@ const FreeCoinsReport = () => {
     );
   }, [rows]);
 
-  const fmt = (n: number, d = 2) =>
-    n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmt = (n: number | null | undefined, d = 2) =>
+    (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
 
   const handleExport = () => {
     if (rows.length === 0) return;
