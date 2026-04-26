@@ -43,6 +43,7 @@ import * as XLSX from "xlsx";
 interface FreeCoinsRow {
   product_name: string;
   brand_name: string;
+  payment_brand: string;
   coins_number: number;
   qty: number;
   unit_price: number;
