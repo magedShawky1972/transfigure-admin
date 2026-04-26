@@ -85,25 +85,15 @@ const FreeCoinsReport = () => {
 
   useEffect(() => {
     (async () => {
-      // Source product list from the products catalog (all products for the selected brand).
-      const PAGE = 1000;
-      let from = 0;
-      const set = new Set<string>();
-      while (true) {
-        let query = supabase
-          .from("products")
-          .select("product_name")
-          .not("product_name", "is", null)
-          .range(from, from + PAGE - 1);
-        if (selectedBrand !== "all") query = query.eq("brand_name", selectedBrand);
-        const { data, error } = await query;
-        if (error || !data || data.length === 0) break;
-        data.forEach((p: any) => p.product_name && set.add(p.product_name));
-        if (data.length < PAGE) break;
-        from += PAGE;
-        if (from > 200000) break;
-      }
-      const names = Array.from(set).sort();
+      // "Free Coins" products = products with flexible coin amounts (named "فري كوينز").
+      let query = supabase
+        .from("products")
+        .select("product_name")
+        .ilike("product_name", "%فري كوينز%")
+        .not("product_name", "is", null);
+      if (selectedBrand !== "all") query = query.eq("brand_name", selectedBrand);
+      const { data } = await query.order("product_name");
+      const names = Array.from(new Set((data || []).map((p: any) => p.product_name).filter(Boolean)));
       setProducts(names);
       if (selectedProduct !== "all" && !names.includes(selectedProduct)) {
         setSelectedProduct("all");
