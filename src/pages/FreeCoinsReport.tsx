@@ -257,14 +257,37 @@ const FreeCoinsReport = () => {
             </div>
 
             <div>
-              <Label>{isRTL ? "البراند" : "Brand"}</Label>
-              <Select value={selectedBrand} onValueChange={setSelectedBrand}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{isRTL ? "الكل" : "All"}</SelectItem>
-                  {brands.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>{isRTL ? "البراند (الفئة A)" : "Brand (Class A)"}</Label>
+              <Popover open={brandOpen} onOpenChange={setBrandOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between">
+                    <span className="truncate">
+                      {selectedBrand === "all" ? (isRTL ? "الكل" : "All") : selectedBrand}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={isRTL ? "ابحث..." : "Search..."} />
+                    <CommandList>
+                      <CommandEmpty>{isRTL ? "لا يوجد" : "No results"}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem onSelect={() => { setSelectedBrand("all"); setBrandOpen(false); }}>
+                          <Check className={cn("mr-2 h-4 w-4", selectedBrand === "all" ? "opacity-100" : "opacity-0")} />
+                          {isRTL ? "الكل" : "All"}
+                        </CommandItem>
+                        {brands.map((b) => (
+                          <CommandItem key={b} value={b} onSelect={() => { setSelectedBrand(b); setBrandOpen(false); }}>
+                            <Check className={cn("mr-2 h-4 w-4", selectedBrand === b ? "opacity-100" : "opacity-0")} />
+                            {b}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div>
