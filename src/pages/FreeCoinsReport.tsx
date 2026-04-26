@@ -57,7 +57,7 @@ interface FreeCoinsRow {
   net_profit: number;
 }
 
-const PAGE_SIZE = 5000;
+const PAGE_SIZE = 1000;
 
 const FreeCoinsReport = () => {
   const { language } = useLanguage();
@@ -154,10 +154,11 @@ const FreeCoinsReport = () => {
       while (true) {
         let q = supabase
           .from("purpletransaction")
-          .select("order_number, product_name, brand_name, payment_brand, coins_number, qty, unit_price, total, cost_price, cost_sold, profit")
+          .select("id, order_number, product_name, brand_name, payment_brand, coins_number, qty, unit_price, total, cost_price, cost_sold, profit")
           .ilike("product_name", "%فري كوينز%")
           .gte("created_at_date", fromStr)
           .lte("created_at_date", toStr)
+          .order("id", { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
 
         if (selectedBrand !== "all") q = q.eq("brand_name", selectedBrand);
