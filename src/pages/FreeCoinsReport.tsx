@@ -595,7 +595,7 @@ const FreeCoinsReport = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isRTL ? "فئة الكوينز" : "Coins Category"}</TableHead>
+                      <TableHead className="text-right">{isRTL ? "الكوينز المباعة" : "Coins Sold"}</TableHead>
                       <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
                       <TableHead>{isRTL ? "وسيلة الدفع" : "Payment Brand"}</TableHead>
                       <TableHead className="text-right">{isRTL ? "العمليات" : "Txns"}</TableHead>
@@ -617,7 +617,7 @@ const FreeCoinsReport = () => {
                     ) : (
                       summary.map((s, i) => (
                         <TableRow key={i}>
-                          <TableCell>{s.product_name}</TableCell>
+                          <TableCell className="text-right">{fmt(s.coins_number, 0)}</TableCell>
                           <TableCell>{s.payment_method}</TableCell>
                           <TableCell>{s.payment_brand}</TableCell>
                           <TableCell className="text-right">{fmt(s.count, 0)}</TableCell>
