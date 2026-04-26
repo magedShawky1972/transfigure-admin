@@ -22,6 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   Popover,
   PopoverContent,
@@ -65,9 +67,12 @@ const FreeCoinsReport = () => {
   const [rows, setRows] = useState<FreeCoinsRow[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
+  const [paymentBrands, setPaymentBrands] = useState<string[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [selectedProduct, setSelectedProduct] = useState<string>("all");
+  const [selectedPaymentBrands, setSelectedPaymentBrands] = useState<string[]>([]);
   const [productOpen, setProductOpen] = useState(false);
+  const [paymentBrandOpen, setPaymentBrandOpen] = useState(false);
   const [fromDate, setFromDate] = useState<Date | undefined>();
   const [toDate, setToDate] = useState<Date | undefined>();
 
@@ -83,6 +88,20 @@ const FreeCoinsReport = () => {
   }, []);
 
   const [brandOpen, setBrandOpen] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      // Load distinct payment brands from free-coin transactions
+      const { data } = await supabase
+        .from("purpletransaction")
+        .select("payment_brand")
+        .ilike("product_name", "%فري كوينز%")
+        .not("payment_brand", "is", null)
+        .limit(5000);
+      const uniq = Array.from(new Set((data || []).map((r: any) => r.payment_brand).filter(Boolean))).sort();
+      setPaymentBrands(uniq);
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -129,6 +148,7 @@ const FreeCoinsReport = () => {
 
         if (selectedBrand !== "all") q = q.eq("brand_name", selectedBrand);
         if (selectedProduct !== "all") q = q.eq("product_name", selectedProduct);
+        if (selectedPaymentBrands.length > 0) q = q.in("payment_brand", selectedPaymentBrands);
 
         const { data, error } = await q;
         if (error) throw error;
@@ -233,7 +253,7 @@ const FreeCoinsReport = () => {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
               <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
               <Popover>
@@ -330,6 +350,67 @@ const FreeCoinsReport = () => {
                   </Command>
                 </PopoverContent>
               </Popover>
+            </div>
+
+            <div>
+              <Label>{isRTL ? "وسيلة الدفع" : "Payment Brand"}</Label>
+              <Popover open={paymentBrandOpen} onOpenChange={setPaymentBrandOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between">
+                    <span className="truncate">
+                      {selectedPaymentBrands.length === 0
+                        ? (isRTL ? "الكل" : "All")
+                        : `${selectedPaymentBrands.length} ${isRTL ? "محدد" : "selected"}`}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={isRTL ? "ابحث..." : "Search..."} />
+                    <CommandList>
+                      <CommandEmpty>{isRTL ? "لا يوجد" : "No results"}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem onSelect={() => setSelectedPaymentBrands([])}>
+                          <Check className={cn("mr-2 h-4 w-4", selectedPaymentBrands.length === 0 ? "opacity-100" : "opacity-0")} />
+                          {isRTL ? "الكل" : "All"}
+                        </CommandItem>
+                        {paymentBrands.map((pb) => {
+                          const checked = selectedPaymentBrands.includes(pb);
+                          return (
+                            <CommandItem
+                              key={pb}
+                              value={pb}
+                              onSelect={() => {
+                                setSelectedPaymentBrands((prev) =>
+                                  prev.includes(pb) ? prev.filter((x) => x !== pb) : [...prev, pb]
+                                );
+                              }}
+                            >
+                              <Checkbox checked={checked} className="mr-2" />
+                              {pb}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {selectedPaymentBrands.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedPaymentBrands.map((pb) => (
+                    <Badge
+                      key={pb}
+                      variant="secondary"
+                      className="cursor-pointer text-xs"
+                      onClick={() => setSelectedPaymentBrands((prev) => prev.filter((x) => x !== pb))}
+                    >
+                      {pb} ✕
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex items-end">
