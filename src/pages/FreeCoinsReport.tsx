@@ -85,18 +85,27 @@ const FreeCoinsReport = () => {
 
   useEffect(() => {
     (async () => {
-      // Source product list from actual point transactions so dropdown matches data
-      let query = supabase
-        .from("purpletransaction")
-        .select("product_name")
-        .eq("payment_method", "point")
-        .not("product_name", "is", null)
-        .limit(10000);
-      if (selectedBrand !== "all") query = query.eq("brand_name", selectedBrand);
-      const { data } = await query;
-      const names = Array.from(
-        new Set((data || []).map((p: any) => p.product_name).filter(Boolean))
-      ).sort() as string[];
+      // Source product list from actual point transactions so dropdown matches data.
+      // Paginate to bypass the default 1000-row cap and get ALL distinct names.
+      const PAGE = 1000;
+      let from = 0;
+      const set = new Set<string>();
+      while (true) {
+        let query = supabase
+          .from("purpletransaction")
+          .select("product_name")
+          .eq("payment_method", "point")
+          .not("product_name", "is", null)
+          .range(from, from + PAGE - 1);
+        if (selectedBrand !== "all") query = query.eq("brand_name", selectedBrand);
+        const { data, error } = await query;
+        if (error || !data || data.length === 0) break;
+        data.forEach((p: any) => p.product_name && set.add(p.product_name));
+        if (data.length < PAGE) break;
+        from += PAGE;
+        if (from > 200000) break; // safety cap
+      }
+      const names = Array.from(set).sort();
       setProducts(names);
       if (selectedProduct !== "all" && !names.includes(selectedProduct)) {
         setSelectedProduct("all");
