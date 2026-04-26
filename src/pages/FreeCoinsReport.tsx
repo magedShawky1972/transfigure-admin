@@ -74,11 +74,14 @@ const FreeCoinsReport = () => {
     (async () => {
       const { data } = await supabase
         .from("brands")
-        .select("brand_name")
+        .select("brand_name, abc_analysis")
+        .eq("abc_analysis", "A")
         .order("brand_name");
       setBrands(Array.from(new Set((data || []).map((b: any) => b.brand_name).filter(Boolean))));
     })();
   }, []);
+
+  const [brandOpen, setBrandOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
