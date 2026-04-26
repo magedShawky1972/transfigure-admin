@@ -410,7 +410,10 @@ const PricingScenario = () => {
     return allCoinsTiers.map((coins) => {
       const priceUsd = coins / sales1UsdCoins;
       const sarPriceRaw = sales1CoinSar > 0 ? coins * sales1CoinSar : priceUsd * effectiveSalesRate;
-      const sarPrice = parseFloat(sarPriceRaw.toFixed(roundNumber));
+      const hasOverride = priceOverrides[coins] !== undefined && !isNaN(priceOverrides[coins]);
+      const sarPrice = hasOverride
+        ? priceOverrides[coins]
+        : parseFloat(sarPriceRaw.toFixed(roundNumber));
       const costUsd = coins / cost1UsdCoins;
       const costSarRaw = costUsd * rate;
       const costSar = parseFloat(costSarRaw.toFixed(roundNumber));
