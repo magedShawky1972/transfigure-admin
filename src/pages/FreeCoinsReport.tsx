@@ -621,7 +621,7 @@ const FreeCoinsReport = () => {
                       <TableCell>{r.product_name}</TableCell>
                       <TableCell>{r.brand_name}</TableCell>
                       <TableCell>{r.payment_method}</TableCell>
-                      <TableCell>{r.payment_brand}</TableCell>
+                      <TableCell><div className="flex items-center gap-2"><PaymentBrandLogo brand={r.payment_brand} /><span>{r.payment_brand}</span></div></TableCell>
                       <TableCell className="text-right">{fmt(r.coins_number, 0)}</TableCell>
                       <TableCell className="text-right">{fmt(r.qty, 0)}</TableCell>
                       <TableCell className="text-right">{fmt(r.unit_price)}</TableCell>
