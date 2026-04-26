@@ -491,12 +491,14 @@ const FreeCoinsReport = () => {
                   <TableHead className="text-right">{isRTL ? "سعر التكلفة" : "Cost Price"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "تكلفة المباع" : "Cost Sold"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "الربح" : "Profit"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "رسوم ثابتة" : "Fixed Fee"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "صافي الربح" : "Net Profit"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       {isRTL ? "لا توجد بيانات. اختر الفلاتر ثم اضغط بحث." : "No data. Select filters and click Search."}
                     </TableCell>
                   </TableRow>
@@ -513,6 +515,8 @@ const FreeCoinsReport = () => {
                       <TableCell className="text-right">{fmt(r.cost_price)}</TableCell>
                       <TableCell className="text-right">{fmt(r.cost_sold)}</TableCell>
                       <TableCell className={cn("text-right font-medium", r.profit < 0 ? "text-destructive" : "")}>{fmt(r.profit)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{fmt(r.fixed_fee)}</TableCell>
+                      <TableCell className={cn("text-right font-semibold", r.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(r.net_profit)}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -528,6 +532,8 @@ const FreeCoinsReport = () => {
                     <TableCell />
                     <TableCell className="text-right font-bold">{fmt(totals.cost_sold)}</TableCell>
                     <TableCell className={cn("text-right font-bold", totals.profit < 0 ? "text-destructive" : "")}>{fmt(totals.profit)}</TableCell>
+                    <TableCell className="text-right font-bold">{fmt(totals.fixed_fee)}</TableCell>
+                    <TableCell className={cn("text-right font-bold", totals.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(totals.net_profit)}</TableCell>
                   </TableRow>
                 </TableFooter>
               )}
