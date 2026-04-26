@@ -694,7 +694,8 @@ const FreeCoinsReport = () => {
                                   <TableCell>{s.payment_method}</TableCell>
                                   <TableCell className="font-medium">
                                     <div className="flex items-center gap-2">
-                                      {s.payment_brand}
+                                      <PaymentBrandLogo brand={s.payment_brand} />
+                                      <span>{s.payment_brand}</span>
                                       {i === topIdx && (
                                         <Badge variant="secondary" className="text-xs">
                                           {isRTL ? "الأفضل" : "top performer"}
