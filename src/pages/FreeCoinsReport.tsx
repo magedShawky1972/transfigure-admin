@@ -1,0 +1,389 @@
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { CalendarIcon, Search, Download, Printer, Check, ChevronsUpDown } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
+
+interface FreeCoinsRow {
+  product_name: string;
+  brand_name: string;
+  coins_number: number;
+  qty: number;
+  unit_price: number;
+  total: number;
+  cost_price: number;
+  cost_sold: number;
+  profit: number;
+}
+
+const PAGE_SIZE = 5000;
+
+const FreeCoinsReport = () => {
+  const { language } = useLanguage();
+  const { toast } = useToast();
+  const isRTL = language === "ar";
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<FreeCoinsRow[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [products, setProducts] = useState<string[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string>("all");
+  const [selectedProduct, setSelectedProduct] = useState<string>("all");
+  const [productOpen, setProductOpen] = useState(false);
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("brands")
+        .select("brand_name")
+        .order("brand_name");
+      setBrands(Array.from(new Set((data || []).map((b: any) => b.brand_name).filter(Boolean))));
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      let query = supabase.from("products").select("product_name, brand_name").order("product_name");
+      if (selectedBrand !== "all") query = query.eq("brand_name", selectedBrand);
+      const { data } = await query;
+      const names = Array.from(new Set((data || []).map((p: any) => p.product_name).filter(Boolean))) as string[];
+      setProducts(names);
+      if (selectedProduct !== "all" && !names.includes(selectedProduct)) {
+        setSelectedProduct("all");
+      }
+    })();
+  }, [selectedBrand]);
+
+  const handleSearch = async () => {
+    if (!fromDate || !toDate) {
+      toast({
+        title: isRTL ? "تنبيه" : "Notice",
+        description: isRTL ? "اختر نطاق التاريخ" : "Please select a date range",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const fromStr = format(fromDate, "yyyy-MM-dd");
+      const toStr = format(toDate, "yyyy-MM-dd 23:59:59");
+
+      let all: any[] = [];
+      let from = 0;
+      while (true) {
+        let q = supabase
+          .from("purpletransaction")
+          .select("product_name, brand_name, coins_number, qty, unit_price, total, cost_price, cost_sold, profit")
+          .eq("payment_method", "point")
+          .gte("created_at_date", fromStr)
+          .lte("created_at_date", toStr)
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (selectedBrand !== "all") q = q.eq("brand_name", selectedBrand);
+        if (selectedProduct !== "all") q = q.eq("product_name", selectedProduct);
+
+        const { data, error } = await q;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+
+      setRows(
+        all.map((r) => ({
+          product_name: r.product_name || "",
+          brand_name: r.brand_name || "",
+          coins_number: Number(r.coins_number) || 0,
+          qty: Number(r.qty) || 0,
+          unit_price: Number(r.unit_price) || 0,
+          total: Number(r.total) || 0,
+          cost_price: Number(r.cost_price) || 0,
+          cost_sold: Number(r.cost_sold) || 0,
+          profit: Number(r.profit) || 0,
+        }))
+      );
+    } catch (err: any) {
+      toast({
+        title: isRTL ? "خطأ" : "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totals = useMemo(() => {
+    return rows.reduce(
+      (acc, r) => {
+        acc.coins += r.coins_number;
+        acc.qty += r.qty;
+        acc.total += r.total;
+        acc.cost_sold += r.cost_sold;
+        acc.profit += r.profit;
+        return acc;
+      },
+      { coins: 0, qty: 0, total: 0, cost_sold: 0, profit: 0 }
+    );
+  }, [rows]);
+
+  const fmt = (n: number, d = 2) =>
+    n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  const handleExport = () => {
+    if (rows.length === 0) return;
+    const data = rows.map((r) => ({
+      [isRTL ? "المنتج" : "Product"]: r.product_name,
+      [isRTL ? "البراند" : "Brand"]: r.brand_name,
+      [isRTL ? "الكوينز" : "Coins"]: r.coins_number,
+      [isRTL ? "الكمية" : "Qty"]: r.qty,
+      [isRTL ? "سعر الوحدة" : "Unit Price"]: r.unit_price,
+      [isRTL ? "الإجمالي" : "Total"]: r.total,
+      [isRTL ? "سعر التكلفة" : "Cost Price"]: r.cost_price,
+      [isRTL ? "تكلفة المباع" : "Cost Sold"]: r.cost_sold,
+      [isRTL ? "الربح" : "Profit"]: r.profit,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Free Coins");
+    XLSX.writeFile(wb, `free-coins-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+  };
+
+  const handlePrint = () => {
+    if (!printRef.current) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`
+      <html><head><title>Free Coins Report</title>
+      <style>
+        body{font-family:Arial;padding:20px;}
+        table{width:100%;border-collapse:collapse;font-size:12px;}
+        th,td{border:1px solid #ddd;padding:6px;text-align:${isRTL ? "right" : "left"};}
+        th{background:#f3f4f6;}
+        tfoot td{font-weight:bold;background:#f9fafb;}
+      </style></head><body>${printRef.current.innerHTML}</body></html>
+    `);
+    w.document.close();
+    w.print();
+  };
+
+  return (
+    <div className="space-y-6" dir={isRTL ? "rtl" : "ltr"}>
+      <div>
+        <h1 className="text-3xl font-bold mb-2">
+          {isRTL ? "تقرير الكوينز المجانية" : "Free Coins Report"}
+        </h1>
+        <p className="text-muted-foreground">
+          {isRTL
+            ? "مبيعات تم دفعها باستخدام النقاط/الكوينز المجانية"
+            : "Sales paid using points / free coins"}
+        </p>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left", !fromDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fromDate ? format(fromDate, "PPP") : (isRTL ? "اختر" : "Pick")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Label>{isRTL ? "إلى تاريخ" : "To Date"}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left", !toDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {toDate ? format(toDate, "PPP") : (isRTL ? "اختر" : "Pick")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Label>{isRTL ? "البراند" : "Brand"}</Label>
+              <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{isRTL ? "الكل" : "All"}</SelectItem>
+                  {brands.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>{isRTL ? "المنتج" : "Product"}</Label>
+              <Popover open={productOpen} onOpenChange={setProductOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between">
+                    <span className="truncate">
+                      {selectedProduct === "all" ? (isRTL ? "الكل" : "All") : selectedProduct}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={isRTL ? "ابحث..." : "Search..."} />
+                    <CommandList>
+                      <CommandEmpty>{isRTL ? "لا يوجد" : "No results"}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem onSelect={() => { setSelectedProduct("all"); setProductOpen(false); }}>
+                          <Check className={cn("mr-2 h-4 w-4", selectedProduct === "all" ? "opacity-100" : "opacity-0")} />
+                          {isRTL ? "الكل" : "All"}
+                        </CommandItem>
+                        {products.map((p) => (
+                          <CommandItem key={p} value={p} onSelect={() => { setSelectedProduct(p); setProductOpen(false); }}>
+                            <Check className={cn("mr-2 h-4 w-4", selectedProduct === p ? "opacity-100" : "opacity-0")} />
+                            {p}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="flex items-end">
+              <Button onClick={handleSearch} disabled={loading} className="w-full">
+                <Search className="mr-2 h-4 w-4" />
+                {loading ? (isRTL ? "جاري..." : "Loading...") : (isRTL ? "بحث" : "Search")}
+              </Button>
+            </div>
+          </div>
+
+          {rows.length > 0 && (
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={handleExport}>
+                <Download className="mr-2 h-4 w-4" />
+                {isRTL ? "تصدير Excel" : "Export Excel"}
+              </Button>
+              <Button variant="outline" onClick={handlePrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                {isRTL ? "طباعة" : "Print"}
+              </Button>
+              <div className="ml-auto text-sm text-muted-foreground self-center">
+                {isRTL ? `عدد السجلات: ${rows.length}` : `Records: ${rows.length}`}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div ref={printRef}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{isRTL ? "المنتج" : "Product"}</TableHead>
+                  <TableHead>{isRTL ? "البراند" : "Brand"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "الكمية" : "Qty"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "سعر الوحدة" : "Unit Price"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "الإجمالي" : "Total"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "سعر التكلفة" : "Cost Price"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "تكلفة المباع" : "Cost Sold"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "الربح" : "Profit"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      {isRTL ? "لا توجد بيانات. اختر الفلاتر ثم اضغط بحث." : "No data. Select filters and click Search."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{r.product_name}</TableCell>
+                      <TableCell>{r.brand_name}</TableCell>
+                      <TableCell className="text-right">{fmt(r.coins_number, 0)}</TableCell>
+                      <TableCell className="text-right">{fmt(r.qty, 0)}</TableCell>
+                      <TableCell className="text-right">{fmt(r.unit_price)}</TableCell>
+                      <TableCell className="text-right">{fmt(r.total)}</TableCell>
+                      <TableCell className="text-right">{fmt(r.cost_price)}</TableCell>
+                      <TableCell className="text-right">{fmt(r.cost_sold)}</TableCell>
+                      <TableCell className={cn("text-right font-medium", r.profit < 0 ? "text-destructive" : "")}>{fmt(r.profit)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+              {rows.length > 0 && (
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={2} className="font-bold">{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell className="text-right font-bold">{fmt(totals.coins, 0)}</TableCell>
+                    <TableCell className="text-right font-bold">{fmt(totals.qty, 0)}</TableCell>
+                    <TableCell />
+                    <TableCell className="text-right font-bold">{fmt(totals.total)}</TableCell>
+                    <TableCell />
+                    <TableCell className="text-right font-bold">{fmt(totals.cost_sold)}</TableCell>
+                    <TableCell className={cn("text-right font-bold", totals.profit < 0 ? "text-destructive" : "")}>{fmt(totals.profit)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default FreeCoinsReport;
