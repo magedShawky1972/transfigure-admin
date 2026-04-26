@@ -148,6 +148,7 @@ const FreeCoinsReport = () => {
 
         if (selectedBrand !== "all") q = q.eq("brand_name", selectedBrand);
         if (selectedProduct !== "all") q = q.eq("product_name", selectedProduct);
+        if (selectedPaymentBrands.length > 0) q = q.in("payment_brand", selectedPaymentBrands);
 
         const { data, error } = await q;
         if (error) throw error;
