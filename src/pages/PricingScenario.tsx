@@ -1287,7 +1287,35 @@ const PricingScenario = () => {
                             </TableCell>
                             <TableCell className="text-right font-medium">{r.coins.toLocaleString()}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.priceUsd, 6)}</TableCell>
-                            <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">{fmtNum(r.sarPrice, 4)}</TableCell>
+                            <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number"
+                                  step="0.0001"
+                                  value={priceOverrides[r.coins] !== undefined ? priceOverrides[r.coins] : r.sarPrice}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setPriceOverrides((prev) => {
+                                      const next = { ...prev };
+                                      if (val === "") delete next[r.coins];
+                                      else next[r.coins] = parseFloat(val);
+                                      return next;
+                                    });
+                                  }}
+                                  className={`h-7 w-24 text-right px-1 ${priceOverrides[r.coins] !== undefined ? "border-primary ring-1 ring-primary/30" : ""}`}
+                                  title={isRTL ? "تعديل السعر يدوياً" : "Edit price manually"}
+                                />
+                                {priceOverrides[r.coins] !== undefined && (
+                                  <button
+                                    onClick={() => setPriceOverrides((prev) => { const n = { ...prev }; delete n[r.coins]; return n; })}
+                                    className="text-muted-foreground hover:text-destructive"
+                                    title={isRTL ? "إعادة تعيين" : "Reset to calculated"}
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-right">{fmtNum(r.paymentCommission, 4)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.fixedValue)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.vat, 6)}</TableCell>
