@@ -91,6 +91,20 @@ const FreeCoinsReport = () => {
 
   useEffect(() => {
     (async () => {
+      // Load distinct payment brands from free-coin transactions
+      const { data } = await supabase
+        .from("purpletransaction")
+        .select("payment_brand")
+        .ilike("product_name", "%فري كوينز%")
+        .not("payment_brand", "is", null)
+        .limit(5000);
+      const uniq = Array.from(new Set((data || []).map((r: any) => r.payment_brand).filter(Boolean))).sort();
+      setPaymentBrands(uniq);
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
       // "Free Coins" products = products with flexible coin amounts (named "فري كوينز").
       let query = supabase
         .from("products")
