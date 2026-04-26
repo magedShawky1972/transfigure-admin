@@ -1548,6 +1548,25 @@ const Dashboard = () => {
     }
   }, [monthComparisonDirection]);
 
+  // Auto re-fetch all dashboard data when global Brand or Company filter changes
+  // (only if data has already been loaded once via Apply)
+  const didInitialLoadRef = useRef(false);
+  useEffect(() => {
+    if (allTransactions.length > 0 || monthComparison.length > 0) {
+      didInitialLoadRef.current = true;
+    }
+  }, [allTransactions.length, monthComparison.length]);
+
+  useEffect(() => {
+    if (!didInitialLoadRef.current) return;
+    if (dateFilter === 'dateRange' && (!fromDate || !toDate)) return;
+    fetchMetrics();
+    fetchCharts();
+    fetchTables();
+    fetchInactiveCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalBrandFilter, companyFilter]);
+
   // Auto-refresh every 5 minutes when date range is "today"
   const refreshRef = useRef<() => void>(() => {});
   const [refreshCountdown, setRefreshCountdown] = useState(300);
