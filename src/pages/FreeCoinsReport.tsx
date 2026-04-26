@@ -43,6 +43,37 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+// Payment brand logo badge — brand-recognizable color chip
+const PaymentBrandLogo = ({ brand }: { brand: string }) => {
+  const key = String(brand || "").toUpperCase().trim();
+  const styles: Record<string, { bg: string; fg: string; label: string }> = {
+    "MADA": { bg: "#231F20", fg: "#EB001B", label: "mada" },
+    "APPLEPAY - MADA": { bg: "#000000", fg: "#FFFFFF", label: " Pay" },
+    "APPLEPAY": { bg: "#000000", fg: "#FFFFFF", label: " Pay" },
+    "APPLE PAY": { bg: "#000000", fg: "#FFFFFF", label: " Pay" },
+    "VISA": { bg: "#1A1F71", fg: "#F7B600", label: "VISA" },
+    "MASTER": { bg: "#EB001B", fg: "#F79E1B", label: "MC" },
+    "MASTERCARD": { bg: "#EB001B", fg: "#F79E1B", label: "MC" },
+    "STC_PAY": { bg: "#4F2D7F", fg: "#FFFFFF", label: "stc" },
+    "STCPAY": { bg: "#4F2D7F", fg: "#FFFFFF", label: "stc" },
+    "STC PAY": { bg: "#4F2D7F", fg: "#FFFFFF", label: "stc" },
+    "AMEX": { bg: "#2E77BC", fg: "#FFFFFF", label: "AMEX" },
+    "TABBY": { bg: "#3BFFC1", fg: "#000000", label: "tabby" },
+    "TAMARA": { bg: "#FF4F92", fg: "#FFFFFF", label: "tamara" },
+    "BENEFIT": { bg: "#0066B3", fg: "#FFFFFF", label: "BNF" },
+  };
+  const s = styles[key] || { bg: "hsl(var(--muted))", fg: "hsl(var(--muted-foreground))", label: key.slice(0, 3) || "?" };
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-bold leading-none shrink-0 shadow-sm"
+      style={{ backgroundColor: s.bg, color: s.fg, minWidth: 32, height: 18, letterSpacing: "0.02em" }}
+      title={brand}
+    >
+      {s.label}
+    </span>
+  );
+};
+
 interface FreeCoinsRow {
   product_name: string;
   brand_name: string;
