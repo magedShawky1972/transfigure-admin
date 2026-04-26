@@ -93,14 +93,12 @@ const FreeCoinsReport = () => {
 
   useEffect(() => {
     (async () => {
-      // Load distinct payment brands from free-coin transactions
+      // Load distinct payment brands from payment_methods config (small table, no row cap concerns)
       const { data } = await supabase
-        .from("purpletransaction")
-        .select("payment_brand")
-        .ilike("product_name", "%فري كوينز%")
-        .not("payment_brand", "is", null)
-        .limit(5000);
-      const uniq = Array.from(new Set((data || []).map((r: any) => r.payment_brand).filter(Boolean))).sort();
+        .from("payment_methods")
+        .select("payment_method")
+        .eq("is_active", true);
+      const uniq = Array.from(new Set((data || []).map((r: any) => r.payment_method).filter(Boolean))).sort();
       setPaymentBrands(uniq);
     })();
   }, []);
