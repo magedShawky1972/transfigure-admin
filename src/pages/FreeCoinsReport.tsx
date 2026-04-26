@@ -253,7 +253,7 @@ const FreeCoinsReport = () => {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
               <Label>{isRTL ? "من تاريخ" : "From Date"}</Label>
               <Popover>
