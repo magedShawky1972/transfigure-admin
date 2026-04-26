@@ -53,6 +53,8 @@ interface FreeCoinsRow {
   cost_price: number;
   cost_sold: number;
   profit: number;
+  fixed_fee: number;
+  net_profit: number;
 }
 
 const PAGE_SIZE = 5000;
@@ -135,12 +137,26 @@ const FreeCoinsReport = () => {
       const fromStr = format(fromDate, "yyyy-MM-dd");
       const toStr = format(toDate, "yyyy-MM-dd 23:59:59");
 
+      // Build payment_brand -> fixed_value lookup (case-insensitive)
+      const { data: pmData } = await supabase
+        .from("payment_methods")
+        .select("payment_method, fixed_value")
+        .eq("is_active", true);
+      const fixedFeeMap = new Map<string, number>();
+      (pmData || []).forEach((p: any) => {
+        const key = String(p.payment_method || "").toLowerCase();
+        // Use the highest fixed_value if duplicate keys exist across payment_types
+        const prev = fixedFeeMap.get(key) ?? 0;
+        const val = Number(p.fixed_value) || 0;
+        if (val > prev) fixedFeeMap.set(key, val);
+      });
+
       let all: any[] = [];
       let from = 0;
       while (true) {
         let q = supabase
           .from("purpletransaction")
-          .select("product_name, brand_name, payment_brand, coins_number, qty, unit_price, total, cost_price, cost_sold, profit")
+          .select("order_number, product_name, brand_name, payment_brand, coins_number, qty, unit_price, total, cost_price, cost_sold, profit")
           .ilike("product_name", "%فري كوينز%")
           .gte("created_at_date", fromStr)
           .lte("created_at_date", toStr)
@@ -158,19 +174,35 @@ const FreeCoinsReport = () => {
         from += PAGE_SIZE;
       }
 
+      // Count lines per order_number to allocate fixed fee
+      const linesPerOrder = new Map<string, number>();
+      all.forEach((r) => {
+        const key = r.order_number || "__no_order__";
+        linesPerOrder.set(key, (linesPerOrder.get(key) || 0) + 1);
+      });
+
       setRows(
-        all.map((r) => ({
-          product_name: r.product_name || "",
-          brand_name: r.brand_name || "",
-          payment_brand: r.payment_brand || "",
-          coins_number: Number(r.coins_number) || 0,
-          qty: Number(r.qty) || 0,
-          unit_price: Number(r.unit_price) || 0,
-          total: Number(r.total) || 0,
-          cost_price: Number(r.cost_price) || 0,
-          cost_sold: Number(r.cost_sold) || 0,
-          profit: Number(r.profit) || 0,
-        }))
+        all.map((r) => {
+          const profit = Number(r.profit) || 0;
+          const pbKey = String(r.payment_brand || "").toLowerCase();
+          const fullFee = fixedFeeMap.get(pbKey) ?? 0;
+          const lineCount = linesPerOrder.get(r.order_number || "__no_order__") || 1;
+          const fixed_fee = lineCount > 0 ? fullFee / lineCount : fullFee;
+          return {
+            product_name: r.product_name || "",
+            brand_name: r.brand_name || "",
+            payment_brand: r.payment_brand || "",
+            coins_number: Number(r.coins_number) || 0,
+            qty: Number(r.qty) || 0,
+            unit_price: Number(r.unit_price) || 0,
+            total: Number(r.total) || 0,
+            cost_price: Number(r.cost_price) || 0,
+            cost_sold: Number(r.cost_sold) || 0,
+            profit,
+            fixed_fee,
+            net_profit: profit - fixed_fee,
+          };
+        })
       );
     } catch (err: any) {
       toast({
@@ -191,9 +223,11 @@ const FreeCoinsReport = () => {
         acc.total += r.total;
         acc.cost_sold += r.cost_sold;
         acc.profit += r.profit;
+        acc.fixed_fee += r.fixed_fee;
+        acc.net_profit += r.net_profit;
         return acc;
       },
-      { coins: 0, qty: 0, total: 0, cost_sold: 0, profit: 0 }
+      { coins: 0, qty: 0, total: 0, cost_sold: 0, profit: 0, fixed_fee: 0, net_profit: 0 }
     );
   }, [rows]);
 
@@ -213,6 +247,8 @@ const FreeCoinsReport = () => {
       [isRTL ? "سعر التكلفة" : "Cost Price"]: r.cost_price,
       [isRTL ? "تكلفة المباع" : "Cost Sold"]: r.cost_sold,
       [isRTL ? "الربح" : "Profit"]: r.profit,
+      [isRTL ? "رسوم ثابتة" : "Fixed Fee"]: r.fixed_fee,
+      [isRTL ? "صافي الربح" : "Net Profit"]: r.net_profit,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -455,12 +491,14 @@ const FreeCoinsReport = () => {
                   <TableHead className="text-right">{isRTL ? "سعر التكلفة" : "Cost Price"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "تكلفة المباع" : "Cost Sold"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "الربح" : "Profit"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "رسوم ثابتة" : "Fixed Fee"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "صافي الربح" : "Net Profit"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       {isRTL ? "لا توجد بيانات. اختر الفلاتر ثم اضغط بحث." : "No data. Select filters and click Search."}
                     </TableCell>
                   </TableRow>
@@ -477,6 +515,8 @@ const FreeCoinsReport = () => {
                       <TableCell className="text-right">{fmt(r.cost_price)}</TableCell>
                       <TableCell className="text-right">{fmt(r.cost_sold)}</TableCell>
                       <TableCell className={cn("text-right font-medium", r.profit < 0 ? "text-destructive" : "")}>{fmt(r.profit)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{fmt(r.fixed_fee)}</TableCell>
+                      <TableCell className={cn("text-right font-semibold", r.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(r.net_profit)}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -492,6 +532,8 @@ const FreeCoinsReport = () => {
                     <TableCell />
                     <TableCell className="text-right font-bold">{fmt(totals.cost_sold)}</TableCell>
                     <TableCell className={cn("text-right font-bold", totals.profit < 0 ? "text-destructive" : "")}>{fmt(totals.profit)}</TableCell>
+                    <TableCell className="text-right font-bold">{fmt(totals.fixed_fee)}</TableCell>
+                    <TableCell className={cn("text-right font-bold", totals.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(totals.net_profit)}</TableCell>
                   </TableRow>
                 </TableFooter>
               )}
