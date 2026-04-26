@@ -366,6 +366,7 @@ const FreeCoinsReport = () => {
                 <TableRow>
                   <TableHead>{isRTL ? "المنتج" : "Product"}</TableHead>
                   <TableHead>{isRTL ? "البراند" : "Brand"}</TableHead>
+                  <TableHead>{isRTL ? "وسيلة الدفع" : "Payment Brand"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "الكمية" : "Qty"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "سعر الوحدة" : "Unit Price"}</TableHead>
@@ -378,7 +379,7 @@ const FreeCoinsReport = () => {
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                       {isRTL ? "لا توجد بيانات. اختر الفلاتر ثم اضغط بحث." : "No data. Select filters and click Search."}
                     </TableCell>
                   </TableRow>
@@ -387,6 +388,7 @@ const FreeCoinsReport = () => {
                     <TableRow key={i}>
                       <TableCell>{r.product_name}</TableCell>
                       <TableCell>{r.brand_name}</TableCell>
+                      <TableCell>{r.payment_brand}</TableCell>
                       <TableCell className="text-right">{fmt(r.coins_number, 0)}</TableCell>
                       <TableCell className="text-right">{fmt(r.qty, 0)}</TableCell>
                       <TableCell className="text-right">{fmt(r.unit_price)}</TableCell>
@@ -401,7 +403,7 @@ const FreeCoinsReport = () => {
               {rows.length > 0 && (
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={2} className="font-bold">{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell colSpan={3} className="font-bold">{isRTL ? "الإجمالي" : "Total"}</TableCell>
                     <TableCell className="text-right font-bold">{fmt(totals.coins, 0)}</TableCell>
                     <TableCell className="text-right font-bold">{fmt(totals.qty, 0)}</TableCell>
                     <TableCell />
