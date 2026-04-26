@@ -137,18 +137,17 @@ const FreeCoinsReport = () => {
       const fromStr = format(fromDate, "yyyy-MM-dd");
       const toStr = format(toDate, "yyyy-MM-dd 23:59:59");
 
-      // Build payment_brand -> fixed_value lookup (case-insensitive)
+      // Build (payment_type + payment_method) -> fixed_value lookup (case-insensitive)
+      // In purpletransaction: payment_method = gateway (hyperpay/salla), payment_brand = brand (MADA/VISA…)
+      // In payment_methods:   payment_type   = gateway,                  payment_method = brand
       const { data: pmData } = await supabase
         .from("payment_methods")
-        .select("payment_method, fixed_value")
+        .select("payment_type, payment_method, fixed_value")
         .eq("is_active", true);
       const fixedFeeMap = new Map<string, number>();
       (pmData || []).forEach((p: any) => {
-        const key = String(p.payment_method || "").toLowerCase();
-        // Use the highest fixed_value if duplicate keys exist across payment_types
-        const prev = fixedFeeMap.get(key) ?? 0;
-        const val = Number(p.fixed_value) || 0;
-        if (val > prev) fixedFeeMap.set(key, val);
+        const key = `${String(p.payment_type || "").toLowerCase()}|${String(p.payment_method || "").toLowerCase()}`;
+        fixedFeeMap.set(key, Number(p.fixed_value) || 0);
       });
 
       let all: any[] = [];
@@ -185,7 +184,7 @@ const FreeCoinsReport = () => {
       setRows(
         all.map((r) => {
           const profit = Number(r.profit) || 0;
-          const pbKey = String(r.payment_brand || "").toLowerCase();
+          const pbKey = `${String(r.payment_method || "").toLowerCase()}|${String(r.payment_brand || "").toLowerCase()}`;
           const fullFee = fixedFeeMap.get(pbKey) ?? 0;
           const lineCount = linesPerOrder.get(r.order_number || "__no_order__") || 1;
           const fixed_fee = lineCount > 0 ? fullFee / lineCount : fullFee;
