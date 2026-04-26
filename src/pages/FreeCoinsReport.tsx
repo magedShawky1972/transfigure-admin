@@ -85,10 +85,18 @@ const FreeCoinsReport = () => {
 
   useEffect(() => {
     (async () => {
-      let query = supabase.from("products").select("product_name, brand_name").order("product_name");
+      // Source product list from actual point transactions so dropdown matches data
+      let query = supabase
+        .from("purpletransaction")
+        .select("product_name")
+        .eq("payment_method", "point")
+        .not("product_name", "is", null)
+        .limit(10000);
       if (selectedBrand !== "all") query = query.eq("brand_name", selectedBrand);
       const { data } = await query;
-      const names = Array.from(new Set((data || []).map((p: any) => p.product_name).filter(Boolean))) as string[];
+      const names = Array.from(
+        new Set((data || []).map((p: any) => p.product_name).filter(Boolean))
+      ).sort() as string[];
       setProducts(names);
       if (selectedProduct !== "all" && !names.includes(selectedProduct)) {
         setSelectedProduct("all");
