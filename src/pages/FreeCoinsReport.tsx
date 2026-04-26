@@ -121,7 +121,7 @@ const FreeCoinsReport = () => {
         let q = supabase
           .from("purpletransaction")
           .select("product_name, brand_name, coins_number, qty, unit_price, total, cost_price, cost_sold, profit")
-          .eq("payment_method", "point")
+          .ilike("product_name", "%فري كوينز%")
           .gte("created_at_date", fromStr)
           .lte("created_at_date", toStr)
           .range(from, from + PAGE_SIZE - 1);
