@@ -223,9 +223,11 @@ const FreeCoinsReport = () => {
         acc.total += r.total;
         acc.cost_sold += r.cost_sold;
         acc.profit += r.profit;
+        acc.fixed_fee += r.fixed_fee;
+        acc.net_profit += r.net_profit;
         return acc;
       },
-      { coins: 0, qty: 0, total: 0, cost_sold: 0, profit: 0 }
+      { coins: 0, qty: 0, total: 0, cost_sold: 0, profit: 0, fixed_fee: 0, net_profit: 0 }
     );
   }, [rows]);
 
@@ -245,6 +247,8 @@ const FreeCoinsReport = () => {
       [isRTL ? "سعر التكلفة" : "Cost Price"]: r.cost_price,
       [isRTL ? "تكلفة المباع" : "Cost Sold"]: r.cost_sold,
       [isRTL ? "الربح" : "Profit"]: r.profit,
+      [isRTL ? "رسوم ثابتة" : "Fixed Fee"]: r.fixed_fee,
+      [isRTL ? "صافي الربح" : "Net Profit"]: r.net_profit,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
