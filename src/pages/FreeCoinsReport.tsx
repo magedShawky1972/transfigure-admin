@@ -233,19 +233,20 @@ const FreeCoinsReport = () => {
   }, [rows]);
 
   // Summary grouped by Coins sold (coins_number) + Payment Method + Payment Brand
-  const summary = useMemo(() => {
-    const map = new Map<string, {
-      coins_number: number;
-      payment_method: string;
-      payment_brand: string;
-      qty: number;
-      total: number;
-      cost_sold: number;
-      profit: number;
-      fixed_fee: number;
-      net_profit: number;
-      count: number;
-    }>();
+  type SummaryLeaf = {
+    coins_number: number;
+    payment_method: string;
+    payment_brand: string;
+    qty: number;
+    total: number;
+    cost_sold: number;
+    profit: number;
+    fixed_fee: number;
+    net_profit: number;
+    count: number;
+  };
+  const summary = useMemo<SummaryLeaf[]>(() => {
+    const map = new Map<string, SummaryLeaf>();
     rows.forEach((r) => {
       const key = `${r.coins_number}|${r.payment_method}|${r.payment_brand}`;
       const cur = map.get(key) || {
@@ -269,6 +270,37 @@ const FreeCoinsReport = () => {
       a.payment_brand.localeCompare(b.payment_brand)
     );
   }, [rows]);
+
+  // Group summary by coins tier for card display
+  const summaryByCoins = useMemo(() => {
+    const groups = new Map<number, {
+      coins_number: number;
+      lines: SummaryLeaf[];
+      qty: number;
+      total: number;
+      cost_sold: number;
+      profit: number;
+      fixed_fee: number;
+      net_profit: number;
+      count: number;
+    }>();
+    summary.forEach((s) => {
+      const g = groups.get(s.coins_number) || {
+        coins_number: s.coins_number,
+        lines: [], qty: 0, total: 0, cost_sold: 0, profit: 0, fixed_fee: 0, net_profit: 0, count: 0,
+      };
+      g.lines.push(s);
+      g.qty += s.qty;
+      g.total += s.total;
+      g.cost_sold += s.cost_sold;
+      g.profit += s.profit;
+      g.fixed_fee += s.fixed_fee;
+      g.net_profit += s.net_profit;
+      g.count += s.count;
+      groups.set(s.coins_number, g);
+    });
+    return Array.from(groups.values()).sort((a, b) => a.coins_number - b.coins_number);
+  }, [summary]);
 
   const fmt = (n: number | null | undefined, d = 2) =>
     (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
