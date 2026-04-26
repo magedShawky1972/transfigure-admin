@@ -232,10 +232,10 @@ const FreeCoinsReport = () => {
     );
   }, [rows]);
 
-  // Summary grouped by Coins category (product_name) + Payment Method + Payment Brand
+  // Summary grouped by Coins sold (coins_number) + Payment Method + Payment Brand
   const summary = useMemo(() => {
     const map = new Map<string, {
-      product_name: string;
+      coins_number: number;
       payment_method: string;
       payment_brand: string;
       qty: number;
@@ -247,9 +247,9 @@ const FreeCoinsReport = () => {
       count: number;
     }>();
     rows.forEach((r) => {
-      const key = `${r.product_name}|${r.payment_method}|${r.payment_brand}`;
+      const key = `${r.coins_number}|${r.payment_method}|${r.payment_brand}`;
       const cur = map.get(key) || {
-        product_name: r.product_name,
+        coins_number: r.coins_number,
         payment_method: r.payment_method,
         payment_brand: r.payment_brand,
         qty: 0, total: 0, cost_sold: 0, profit: 0, fixed_fee: 0, net_profit: 0, count: 0,
@@ -263,7 +263,11 @@ const FreeCoinsReport = () => {
       cur.count += 1;
       map.set(key, cur);
     });
-    return Array.from(map.values()).sort((a, b) => b.net_profit - a.net_profit);
+    return Array.from(map.values()).sort((a, b) =>
+      a.coins_number - b.coins_number ||
+      a.payment_method.localeCompare(b.payment_method) ||
+      a.payment_brand.localeCompare(b.payment_brand)
+    );
   }, [rows]);
 
   const fmt = (n: number | null | undefined, d = 2) =>
@@ -591,7 +595,7 @@ const FreeCoinsReport = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isRTL ? "فئة الكوينز" : "Coins Category"}</TableHead>
+                      <TableHead className="text-right">{isRTL ? "الكوينز المباعة" : "Coins Sold"}</TableHead>
                       <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
                       <TableHead>{isRTL ? "وسيلة الدفع" : "Payment Brand"}</TableHead>
                       <TableHead className="text-right">{isRTL ? "العمليات" : "Txns"}</TableHead>
@@ -613,7 +617,7 @@ const FreeCoinsReport = () => {
                     ) : (
                       summary.map((s, i) => (
                         <TableRow key={i}>
-                          <TableCell>{s.product_name}</TableCell>
+                          <TableCell className="text-right">{fmt(s.coins_number, 0)}</TableCell>
                           <TableCell>{s.payment_method}</TableCell>
                           <TableCell>{s.payment_brand}</TableCell>
                           <TableCell className="text-right">{fmt(s.count, 0)}</TableCell>
