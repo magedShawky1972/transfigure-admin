@@ -53,6 +53,8 @@ interface FreeCoinsRow {
   cost_price: number;
   cost_sold: number;
   profit: number;
+  fixed_fee: number;
+  net_profit: number;
 }
 
 const PAGE_SIZE = 5000;
