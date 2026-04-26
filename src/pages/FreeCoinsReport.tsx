@@ -41,6 +41,7 @@ import { CalendarIcon, Search, Download, Printer, Check, ChevronsUpDown } from "
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface FreeCoinsRow {
   product_name: string;
@@ -230,6 +231,40 @@ const FreeCoinsReport = () => {
       },
       { coins: 0, qty: 0, total: 0, cost_sold: 0, profit: 0, fixed_fee: 0, net_profit: 0 }
     );
+  }, [rows]);
+
+  // Summary grouped by Coins category (product_name) + Payment Method + Payment Brand
+  const summary = useMemo(() => {
+    const map = new Map<string, {
+      product_name: string;
+      payment_method: string;
+      payment_brand: string;
+      qty: number;
+      total: number;
+      cost_sold: number;
+      profit: number;
+      fixed_fee: number;
+      net_profit: number;
+      count: number;
+    }>();
+    rows.forEach((r) => {
+      const key = `${r.product_name}|${r.payment_method}|${r.payment_brand}`;
+      const cur = map.get(key) || {
+        product_name: r.product_name,
+        payment_method: r.payment_method,
+        payment_brand: r.payment_brand,
+        qty: 0, total: 0, cost_sold: 0, profit: 0, fixed_fee: 0, net_profit: 0, count: 0,
+      };
+      cur.qty += r.qty;
+      cur.total += r.total;
+      cur.cost_sold += r.cost_sold;
+      cur.profit += r.profit;
+      cur.fixed_fee += r.fixed_fee;
+      cur.net_profit += r.net_profit;
+      cur.count += 1;
+      map.set(key, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.net_profit - a.net_profit);
   }, [rows]);
 
   const fmt = (n: number | null | undefined, d = 2) =>
@@ -483,6 +518,12 @@ const FreeCoinsReport = () => {
       <Card>
         <CardContent className="pt-6">
           <div ref={printRef}>
+            <Tabs defaultValue="details">
+              <TabsList>
+                <TabsTrigger value="details">{isRTL ? "التفاصيل" : "Details"}</TabsTrigger>
+                <TabsTrigger value="summary">{isRTL ? "ملخص" : "Summary"}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="details">
             <Table>
               <TableHeader>
                 <TableRow>
