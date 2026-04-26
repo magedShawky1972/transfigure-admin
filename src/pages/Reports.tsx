@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products']);
+        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins']);
         setLoading(false);
         return;
       }
@@ -396,6 +396,15 @@ const Reports = () => {
         : "Products found in transactions but missing from the products table",
       icon: AlertTriangle,
       route: "/reports/unmatched-transaction-products",
+    },
+    {
+      id: "free-coins",
+      name: language === "ar" ? "تقرير الكوينز المجانية" : "Free Coins",
+      description: language === "ar"
+        ? "مبيعات مدفوعة بالنقاط/الكوينز المجانية مع فلاتر التاريخ والبراند والمنتج"
+        : "Sales paid with points/free coins with date, brand, and product filters",
+      icon: Coins,
+      route: "/reports/free-coins",
     },
   ];
 
