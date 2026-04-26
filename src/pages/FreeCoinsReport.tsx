@@ -185,6 +185,7 @@ const FreeCoinsReport = () => {
     const data = rows.map((r) => ({
       [isRTL ? "المنتج" : "Product"]: r.product_name,
       [isRTL ? "البراند" : "Brand"]: r.brand_name,
+      [isRTL ? "وسيلة الدفع" : "Payment Brand"]: r.payment_brand,
       [isRTL ? "الكوينز" : "Coins"]: r.coins_number,
       [isRTL ? "الكمية" : "Qty"]: r.qty,
       [isRTL ? "سعر الوحدة" : "Unit Price"]: r.unit_price,
