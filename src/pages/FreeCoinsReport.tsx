@@ -261,15 +261,18 @@ const FreeCoinsReport = () => {
     w.document.write(`
       <html><head><title>Free Coins Report</title>
       <style>
+        *{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         body{font-family:Arial;padding:20px;}
         table{width:100%;border-collapse:collapse;font-size:12px;}
         th,td{border:1px solid #ddd;padding:6px;text-align:${isRTL ? "right" : "left"};}
         th{background:#f3f4f6;}
         tfoot td{font-weight:bold;background:#f9fafb;}
+        .text-destructive, .text-destructive *{ color:#dc2626 !important; }
+        @media print { .text-destructive, .text-destructive *{ color:#dc2626 !important; } }
       </style></head><body>${printRef.current.innerHTML}</body></html>
     `);
     w.document.close();
-    w.print();
+    setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 300);
   };
 
   return (
