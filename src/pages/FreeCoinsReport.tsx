@@ -142,6 +142,7 @@ const FreeCoinsReport = () => {
         all.map((r) => ({
           product_name: r.product_name || "",
           brand_name: r.brand_name || "",
+          payment_brand: r.payment_brand || "",
           coins_number: Number(r.coins_number) || 0,
           qty: Number(r.qty) || 0,
           unit_price: Number(r.unit_price) || 0,
