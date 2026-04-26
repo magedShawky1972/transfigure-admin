@@ -98,6 +98,7 @@ const PricingScenario = () => {
   const [selectedMethodIds, setSelectedMethodIds] = useState<string[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [excludedCoins, setExcludedCoins] = useState<Set<number>>(new Set());
+  const [priceOverrides, setPriceOverrides] = useState<Record<number, number>>({});
   const [customCoinsTiers, setCustomCoinsTiers] = useState<number[]>([]);
   const [savedCoinsTiers, setSavedCoinsTiers] = useState<number[]>([]);
   const [addCoinDialogOpen, setAddCoinDialogOpen] = useState(false);
@@ -409,7 +410,10 @@ const PricingScenario = () => {
     return allCoinsTiers.map((coins) => {
       const priceUsd = coins / sales1UsdCoins;
       const sarPriceRaw = sales1CoinSar > 0 ? coins * sales1CoinSar : priceUsd * effectiveSalesRate;
-      const sarPrice = parseFloat(sarPriceRaw.toFixed(roundNumber));
+      const hasOverride = priceOverrides[coins] !== undefined && !isNaN(priceOverrides[coins]);
+      const sarPrice = hasOverride
+        ? priceOverrides[coins]
+        : parseFloat(sarPriceRaw.toFixed(roundNumber));
       const costUsd = coins / cost1UsdCoins;
       const costSarRaw = costUsd * rate;
       const costSar = parseFloat(costSarRaw.toFixed(roundNumber));
@@ -1247,6 +1251,12 @@ const PricingScenario = () => {
                     <span className={`text-sm font-semibold px-2 py-1 rounded ${avgProfit < 0 ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-600"}`}>
                       {isRTL ? "متوسط الربح" : "Avg Profit"}: {avgProfit.toFixed(4)}%
                     </span>
+                    {Object.keys(priceOverrides).length > 0 && (
+                      <Button variant="outline" size="sm" className="h-7 gap-1" onClick={() => setPriceOverrides({})}>
+                        <RotateCcw className="h-3 w-3" />
+                        {isRTL ? `إعادة تعيين ${Object.keys(priceOverrides).length} سعر` : `Reset ${Object.keys(priceOverrides).length} custom price(s)`}
+                      </Button>
+                    )}
                   </CardTitle>
                   <CardDescription>
                     {isRTL ? "العمولة" : "Fee"}: {method.gateway_fee}% + {method.fixed_value} {isRTL ? "ثابت" : "fixed"} | {isRTL ? "الضريبة" : "VAT"}: {method.vat_fee}%
@@ -1283,7 +1293,35 @@ const PricingScenario = () => {
                             </TableCell>
                             <TableCell className="text-right font-medium">{r.coins.toLocaleString()}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.priceUsd, 6)}</TableCell>
-                            <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">{fmtNum(r.sarPrice, 4)}</TableCell>
+                            <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">
+                              <div className="flex items-center justify-end gap-1">
+                                <Input
+                                  type="number"
+                                  step="0.0001"
+                                  value={priceOverrides[r.coins] !== undefined ? priceOverrides[r.coins] : r.sarPrice}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setPriceOverrides((prev) => {
+                                      const next = { ...prev };
+                                      if (val === "") delete next[r.coins];
+                                      else next[r.coins] = parseFloat(val);
+                                      return next;
+                                    });
+                                  }}
+                                  className={`h-7 w-24 text-right px-1 ${priceOverrides[r.coins] !== undefined ? "border-primary ring-1 ring-primary/30" : ""}`}
+                                  title={isRTL ? "تعديل السعر يدوياً" : "Edit price manually"}
+                                />
+                                {priceOverrides[r.coins] !== undefined && (
+                                  <button
+                                    onClick={() => setPriceOverrides((prev) => { const n = { ...prev }; delete n[r.coins]; return n; })}
+                                    className="text-muted-foreground hover:text-destructive"
+                                    title={isRTL ? "إعادة تعيين" : "Reset to calculated"}
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-right">{fmtNum(r.paymentCommission, 4)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.fixedValue)}</TableCell>
                             <TableCell className="text-right">{fmtNum(r.vat, 6)}</TableCell>
