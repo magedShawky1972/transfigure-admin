@@ -1251,6 +1251,12 @@ const PricingScenario = () => {
                     <span className={`text-sm font-semibold px-2 py-1 rounded ${avgProfit < 0 ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-600"}`}>
                       {isRTL ? "متوسط الربح" : "Avg Profit"}: {avgProfit.toFixed(4)}%
                     </span>
+                    {Object.keys(priceOverrides).length > 0 && (
+                      <Button variant="outline" size="sm" className="h-7 gap-1" onClick={() => setPriceOverrides({})}>
+                        <RotateCcw className="h-3 w-3" />
+                        {isRTL ? `إعادة تعيين ${Object.keys(priceOverrides).length} سعر` : `Reset ${Object.keys(priceOverrides).length} custom price(s)`}
+                      </Button>
+                    )}
                   </CardTitle>
                   <CardDescription>
                     {isRTL ? "العمولة" : "Fee"}: {method.gateway_fee}% + {method.fixed_value} {isRTL ? "ثابت" : "fixed"} | {isRTL ? "الضريبة" : "VAT"}: {method.vat_fee}%
