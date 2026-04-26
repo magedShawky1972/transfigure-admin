@@ -67,9 +67,12 @@ const FreeCoinsReport = () => {
   const [rows, setRows] = useState<FreeCoinsRow[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
+  const [paymentBrands, setPaymentBrands] = useState<string[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [selectedProduct, setSelectedProduct] = useState<string>("all");
+  const [selectedPaymentBrands, setSelectedPaymentBrands] = useState<string[]>([]);
   const [productOpen, setProductOpen] = useState(false);
+  const [paymentBrandOpen, setPaymentBrandOpen] = useState(false);
   const [fromDate, setFromDate] = useState<Date | undefined>();
   const [toDate, setToDate] = useState<Date | undefined>();
 
