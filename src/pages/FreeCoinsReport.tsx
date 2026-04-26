@@ -85,16 +85,14 @@ const FreeCoinsReport = () => {
 
   useEffect(() => {
     (async () => {
-      // Source product list from actual point transactions so dropdown matches data.
-      // Paginate to bypass the default 1000-row cap and get ALL distinct names.
+      // Source product list from the products catalog (all products for the selected brand).
       const PAGE = 1000;
       let from = 0;
       const set = new Set<string>();
       while (true) {
         let query = supabase
-          .from("purpletransaction")
+          .from("products")
           .select("product_name")
-          .eq("payment_method", "point")
           .not("product_name", "is", null)
           .range(from, from + PAGE - 1);
         if (selectedBrand !== "all") query = query.eq("brand_name", selectedBrand);
@@ -103,7 +101,7 @@ const FreeCoinsReport = () => {
         data.forEach((p: any) => p.product_name && set.add(p.product_name));
         if (data.length < PAGE) break;
         from += PAGE;
-        if (from > 200000) break; // safety cap
+        if (from > 200000) break;
       }
       const names = Array.from(set).sort();
       setProducts(names);
