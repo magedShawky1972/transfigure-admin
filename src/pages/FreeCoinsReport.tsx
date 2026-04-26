@@ -624,60 +624,81 @@ const FreeCoinsReport = () => {
               </TabsContent>
 
               <TabsContent value="summary">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-right">{isRTL ? "الكوينز المباعة" : "Coins Sold"}</TableHead>
-                      <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
-                      <TableHead>{isRTL ? "وسيلة الدفع" : "Payment Brand"}</TableHead>
-                      <TableHead className="text-right">{isRTL ? "العمليات" : "Txns"}</TableHead>
-                      <TableHead className="text-right">{isRTL ? "الكمية" : "Qty"}</TableHead>
-                      <TableHead className="text-right">{isRTL ? "الإجمالي" : "Total"}</TableHead>
-                      <TableHead className="text-right">{isRTL ? "تكلفة المباع" : "Cost Sold"}</TableHead>
-                      <TableHead className="text-right">{isRTL ? "الربح" : "Profit"}</TableHead>
-                      <TableHead className="text-right">{isRTL ? "رسوم ثابتة" : "Fixed Fee"}</TableHead>
-                      <TableHead className="text-right">{isRTL ? "صافي الربح" : "Net Profit"}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {summary.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                          {isRTL ? "لا توجد بيانات." : "No data."}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      summary.map((s, i) => (
-                        <TableRow key={i}>
-                          <TableCell className="text-right">{fmt(s.coins_number, 0)}</TableCell>
-                          <TableCell>{s.payment_method}</TableCell>
-                          <TableCell>{s.payment_brand}</TableCell>
-                          <TableCell className="text-right">{fmt(s.count, 0)}</TableCell>
-                          <TableCell className="text-right">{fmt(s.qty, 0)}</TableCell>
-                          <TableCell className="text-right">{fmt(s.total)}</TableCell>
-                          <TableCell className="text-right">{fmt(s.cost_sold)}</TableCell>
-                          <TableCell className={cn("text-right font-medium", s.profit < 0 ? "text-destructive" : "")}>{fmt(s.profit)}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{fmt(s.fixed_fee)}</TableCell>
-                          <TableCell className={cn("text-right font-semibold", s.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(s.net_profit)}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                  {summary.length > 0 && (
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell colSpan={3} className="font-bold">{isRTL ? "الإجمالي" : "Total"}</TableCell>
-                        <TableCell className="text-right font-bold">{fmt(summary.reduce((a, s) => a + s.count, 0), 0)}</TableCell>
-                        <TableCell className="text-right font-bold">{fmt(totals.qty, 0)}</TableCell>
-                        <TableCell className="text-right font-bold">{fmt(totals.total)}</TableCell>
-                        <TableCell className="text-right font-bold">{fmt(totals.cost_sold)}</TableCell>
-                        <TableCell className={cn("text-right font-bold", totals.profit < 0 ? "text-destructive" : "")}>{fmt(totals.profit)}</TableCell>
-                        <TableCell className="text-right font-bold">{fmt(totals.fixed_fee)}</TableCell>
-                        <TableCell className={cn("text-right font-bold", totals.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(totals.net_profit)}</TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  )}
-                </Table>
+                {summaryByCoins.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-12">
+                    {isRTL ? "لا توجد بيانات." : "No data."}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {summaryByCoins.map((g) => {
+                      const topIdx = g.lines.reduce(
+                        (best, l, i, arr) => (l.net_profit > arr[best].net_profit ? i : best),
+                        0
+                      );
+                      return (
+                        <Card key={g.coins_number} className="overflow-hidden border-2">
+                          <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-5 py-3 border-b">
+                            <h3 className="text-lg font-bold">
+                              {isRTL ? "المنتج: " : "Product: "}
+                              <span className="text-primary">{fmt(g.coins_number, 0)} {isRTL ? "كوينز" : "Coins"}</span>
+                            </h3>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
+                                <TableHead>{isRTL ? "وسيلة الدفع" : "Payment Brand"}</TableHead>
+                                <TableHead className="text-right">{isRTL ? "العمليات" : "Txns"}</TableHead>
+                                <TableHead className="text-right">{isRTL ? "الكمية" : "Quantity"}</TableHead>
+                                <TableHead className="text-right">{isRTL ? "الإجمالي" : "Total"}</TableHead>
+                                <TableHead className="text-right">{isRTL ? "تكلفة المباع" : "Cost Sold"}</TableHead>
+                                <TableHead className="text-right">{isRTL ? "الربح" : "Profit"}</TableHead>
+                                <TableHead className="text-right">{isRTL ? "رسوم ثابتة" : "Fixed Fee"}</TableHead>
+                                <TableHead className="text-right">{isRTL ? "صافي الربح" : "Net Profit"}</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {g.lines.map((s, i) => (
+                                <TableRow key={i} className={cn(i === topIdx && "bg-primary/5")}>
+                                  <TableCell>{s.payment_method}</TableCell>
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      {s.payment_brand}
+                                      {i === topIdx && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          {isRTL ? "الأفضل" : "top performer"}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">{fmt(s.count, 0)}</TableCell>
+                                  <TableCell className="text-right">{fmt(s.qty, 0)}</TableCell>
+                                  <TableCell className="text-right">{fmt(s.total)}</TableCell>
+                                  <TableCell className="text-right">{fmt(s.cost_sold)}</TableCell>
+                                  <TableCell className={cn("text-right font-medium", s.profit < 0 ? "text-destructive" : "")}>{fmt(s.profit)}</TableCell>
+                                  <TableCell className="text-right text-muted-foreground">{fmt(s.fixed_fee)}</TableCell>
+                                  <TableCell className={cn("text-right font-semibold", s.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(s.net_profit)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                            <TableFooter>
+                              <TableRow className="bg-gradient-to-r from-amber-500/20 to-amber-600/10">
+                                <TableCell colSpan={2} className="font-bold">{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                                <TableCell className="text-right font-bold">{fmt(g.count, 0)}</TableCell>
+                                <TableCell className="text-right font-bold">{fmt(g.qty, 0)}</TableCell>
+                                <TableCell className="text-right font-bold">{fmt(g.total)}</TableCell>
+                                <TableCell className="text-right font-bold">{fmt(g.cost_sold)}</TableCell>
+                                <TableCell className={cn("text-right font-bold", g.profit < 0 ? "text-destructive" : "")}>{fmt(g.profit)}</TableCell>
+                                <TableCell className="text-right font-bold">{fmt(g.fixed_fee)}</TableCell>
+                                <TableCell className={cn("text-right font-bold", g.net_profit < 0 ? "text-destructive" : "text-primary")}>{fmt(g.net_profit)}</TableCell>
+                              </TableRow>
+                            </TableFooter>
+                          </Table>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
