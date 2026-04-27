@@ -199,6 +199,14 @@ export function AppSidebar() {
   useEffect(() => {
     fetchUserPermissions();
     fetchAsusTawasoulUnread();
+    fetchMenuCustomizations().then(setCustomizations);
+
+    const customChannel = supabase
+      .channel('menu-customizations-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_customizations' }, () => {
+        fetchMenuCustomizations().then(setCustomizations);
+      })
+      .subscribe();
 
     // Set up real-time subscription for permission changes
     const permChannel = supabase
