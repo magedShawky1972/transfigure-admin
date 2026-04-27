@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+import { fetchMenuCustomizations, groupKey, itemKey, type CustomMap } from "@/lib/menuCustomizations";
 import {
   LayoutDashboard, TicketCheck, Clock, FolderKanban, Users, Key, FileBarChart, FileText, Table2, Grid3x3,
   FileSpreadsheet, Database, MessageCircle, Calendar, Mail, Settings, UserCheck, TrendingUp, CreditCard,
@@ -269,9 +270,22 @@ export function MainPageMenu() {
   const { language } = useLanguage();
   const [userPermissions, setUserPermissions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [customizations, setCustomizations] = useState<CustomMap>({});
 
   useEffect(() => {
     fetchUserPermissions();
+    fetchMenuCustomizations().then(setCustomizations);
+
+    const channel = supabase
+      .channel('main-page-menu-customizations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_customizations' }, () => {
+        fetchMenuCustomizations().then(setCustomizations);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchUserPermissions = async () => {
@@ -325,20 +339,52 @@ export function MainPageMenu() {
     );
   }
 
+  const orderedGroups = menuGroups
+    .map((group) => {
+      const gc = customizations[groupKey(group.label)];
+      const labelOverride =
+        gc && (language === "ar" ? gc.name_ar : gc.name_en)
+          ? (language === "ar" ? gc.name_ar! : gc.name_en!)
+          : (language === "ar" ? group.labelAr : group.label);
+      return {
+        group,
+        displayLabel: labelOverride,
+        _order: gc?.sort_order ?? 0,
+        _hidden: gc?.hidden ?? false,
+      };
+    })
+    .filter((g) => !g._hidden)
+    .sort((a, b) => a._order - b._order);
+
   return (
     <div className="space-y-8 p-4" dir={language === "ar" ? "rtl" : "ltr"}>
-      {menuGroups.map((group) => {
-        const accessibleItems = group.items.filter(item => hasAccess(item.url));
-        
-        if (accessibleItems.length === 0) return null;
+      {orderedGroups.map(({ group, displayLabel }) => {
+        const items = group.items
+          .map((item) => {
+            const ic = customizations[itemKey(item.url)];
+            const title =
+              ic && (language === "ar" ? ic.name_ar : ic.name_en)
+                ? (language === "ar" ? ic.name_ar! : ic.name_en!)
+                : (language === "ar" ? item.titleAr : item.title);
+            return {
+              ...item,
+              displayTitle: title,
+              _order: ic?.sort_order ?? 0,
+              _hidden: ic?.hidden ?? false,
+            };
+          })
+          .filter((item) => !item._hidden && hasAccess(item.url))
+          .sort((a, b) => a._order - b._order);
+
+        if (items.length === 0) return null;
 
         return (
           <div key={group.label} className="space-y-4">
             <h2 className="text-lg font-semibold text-primary border-b border-border pb-2">
-              {language === "ar" ? group.labelAr : group.label}
+              {displayLabel}
             </h2>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
-              {accessibleItems.map((item) => {
+              {items.map((item) => {
                 const Icon = item.icon;
                 return (
                   <NavLink
@@ -350,7 +396,7 @@ export function MainPageMenu() {
                       <Icon className="h-6 w-6 text-primary" />
                     </div>
                     <span className="text-xs text-center font-medium text-muted-foreground group-hover:text-foreground line-clamp-2">
-                      {language === "ar" ? item.titleAr : item.title}
+                      {item.displayTitle}
                     </span>
                   </NavLink>
                 );
