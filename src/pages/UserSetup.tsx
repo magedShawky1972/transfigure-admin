@@ -249,6 +249,7 @@ interface UserPermission {
         { key: "autoUpload", label: "التحميل التلقائي", labelEn: "Auto Upload" },
         { key: "apiTransactionMapping", label: "خريطة حقول المعاملات", labelEn: "Transaction Mapping" },
         { key: "allowCrmLogin", label: "السماح بتسجيل الدخول إلى CRM", labelEn: "Allow Login To CRM" },
+        { key: "menuCustomization", label: "تخصيص القائمة", labelEn: "Menu Customization" },
       ]
     }
   ];
