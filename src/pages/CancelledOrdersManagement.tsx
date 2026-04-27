@@ -213,13 +213,15 @@ export default function CancelledOrdersManagement() {
 
   return (
     <div className="container mx-auto p-6" dir={isAr ? "rtl" : "ltr"}>
-      <div className="mb-6 flex items-center gap-2">
-        <ListX className="h-7 w-7 text-destructive" />
-        <div>
-          <h1 className="text-3xl font-bold">
+      <div className="mb-6 rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+        <div className="bg-slate-900 dark:bg-slate-800 px-6 py-5 text-white">
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/10 ring-1 ring-white/20">
+              <ListX className="h-5 w-5" />
+            </span>
             {isAr ? "إدارة الطلبات الملغاة" : "Cancelled Orders Management"}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-slate-200 mt-2 leading-relaxed">
             {isAr
               ? "جميع طلبات الإلغاء المقدمة من فريق المبيعات."
               : "All cancellation requests submitted by sales staff."}
