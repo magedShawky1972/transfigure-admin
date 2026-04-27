@@ -194,6 +194,7 @@ export function AppSidebar() {
     "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
     "/cancelled-orders": "cancelledOrders",
     "/cancelled-orders-management": "cancelledOrdersManagement",
+    "/menu-customization": "menuCustomization",
   };
 
   useEffect(() => {
