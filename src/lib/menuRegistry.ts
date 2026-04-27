@@ -230,6 +230,8 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/api-transaction-mapping", defaultEn: "Transaction Mapping", defaultAr: "خريطة حقول المعاملات", icon: ArrowRightLeft },
       { url: "/cancelled-orders-management", defaultEn: "Cancelled Orders Management", defaultAr: "إدارة الطلبات الملغاة", icon: ListX },
       { url: "/menu-customization", defaultEn: "Menu Customization", defaultAr: "تخصيص القائمة", icon: Settings },
+      { url: "/integrations", defaultEn: "Integrations", defaultAr: "التكاملات", icon: Plug },
+      { url: "/integration-access-control", defaultEn: "Integration Access Control", defaultAr: "صلاحيات التكاملات", icon: ShieldCheck },
     ],
   },
 ];
