@@ -134,6 +134,7 @@ import ProjectSetup from "./pages/ProjectSetup";
 import VoidPayment from "./pages/VoidPayment";
 import CancelledOrders from "./pages/CancelledOrders";
 import CancelledOrdersManagement from "./pages/CancelledOrdersManagement";
+import MenuCustomization from "./pages/MenuCustomization";
 import AcknowledgmentDocuments from "./pages/AcknowledgmentDocuments";
 import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
 import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
@@ -311,6 +312,7 @@ const App = () => (
               <Route path="/void-payment" element={<VoidPayment />} />
               <Route path="/cancelled-orders" element={<CancelledOrders />} />
               <Route path="/cancelled-orders-management" element={<CancelledOrdersManagement />} />
+              <Route path="/menu-customization" element={<MenuCustomization />} />
               <Route path="/acknowledgment-documents" element={<AcknowledgmentDocuments />} />
               <Route path="/employee-self-requests" element={<EmployeeSelfRequests />} />
               <Route path="/employee-request-approvals" element={<EmployeeRequestApprovals />} />
