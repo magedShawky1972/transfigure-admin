@@ -164,6 +164,7 @@ export default function CancelledOrdersManagement() {
                   <TableHead>{isAr ? "الموظف" : "Employee"}</TableHead>
                   <TableHead>{isAr ? "الوردية" : "Shift"}</TableHead>
                   <TableHead>{isAr ? "تاريخ الإرسال" : "Submitted At"}</TableHead>
+                  <TableHead className="text-right">{isAr ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
