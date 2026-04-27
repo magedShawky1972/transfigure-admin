@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { ShieldCheck, ArrowLeft, Save, Plus, Trash2, Users, UserCircle, Shield } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type TargetType = "user" | "role" | "group";
 
@@ -28,19 +29,23 @@ interface AccessRow {
 interface UserOpt { user_id: string; user_name: string; }
 interface GroupOpt { id: string; group_name: string; }
 
-const ROLES: Array<{ value: string; label: string }> = [
-  { value: "admin", label: "مدير" },
-  { value: "moderator", label: "مشرف" },
-  { value: "user", label: "مستخدم" },
-];
-
-const TYPE_META: Record<TargetType, { label: string; icon: any }> = {
-  user:  { label: "مستخدم",  icon: UserCircle },
-  role:  { label: "دور",  icon: Shield },
-  group: { label: "مجموعة", icon: Users },
-};
-
 export default function IntegrationAccessControl() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+  const tt = (en: string, ar: string) => (isAr ? ar : en);
+
+  const ROLES: Array<{ value: string; label: string }> = [
+    { value: "admin", label: tt("Admin", "مدير") },
+    { value: "moderator", label: tt("Moderator", "مشرف") },
+    { value: "user", label: tt("User", "مستخدم") },
+  ];
+
+  const TYPE_META: Record<TargetType, { label: string; icon: any }> = {
+    user:  { label: tt("User", "مستخدم"), icon: UserCircle },
+    role:  { label: tt("Role", "دور"),    icon: Shield },
+    group: { label: tt("Group", "مجموعة"), icon: Users },
+  };
+
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/integration-access-control");
   const [searchParams, setSearchParams] = useSearchParams();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -115,16 +120,16 @@ export default function IntegrationAccessControl() {
   const removeRow = async (row: AccessRow) => {
     const { error } = await supabase.from("integration_access").delete().eq("id", row.id);
     if (error) {
-      toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
+      toast({ title: tt("Remove failed", "فشل الحذف"), description: error.message, variant: "destructive" });
       return;
     }
     setRows((prev) => prev.filter((r) => r.id !== row.id));
-    toast({ title: "تم الحذف" });
+    toast({ title: tt("Removed", "تم الحذف") });
   };
 
   const addRow = async () => {
     if (!selectedId || !newTargetId) {
-      toast({ title: "اختر هدفاً", variant: "destructive" });
+      toast({ title: tt("Pick a target", "اختر هدفاً"), variant: "destructive" });
       return;
     }
     let label = newTargetId;
@@ -144,18 +149,18 @@ export default function IntegrationAccessControl() {
       .select()
       .single();
     if (error) {
-      toast({ title: "فشل الإضافة", description: error.message, variant: "destructive" });
+      toast({ title: tt("Add failed", "فشل الإضافة"), description: error.message, variant: "destructive" });
       return;
     }
     setRows((prev) => [...prev, data as any]);
     setNewTargetId("");
-    toast({ title: "تمت إضافة قاعدة الصلاحيات" });
+    toast({ title: tt("Access rule added", "تمت إضافة قاعدة الصلاحيات") });
   };
 
   const saveAll = async () => {
     const changed = rows.filter((r) => dirty[r.id]);
     if (changed.length === 0) {
-      toast({ title: "لا يوجد ما يتم حفظه" });
+      toast({ title: tt("Nothing to save", "لا يوجد ما يتم حفظه") });
       return;
     }
     setSaving(true);
@@ -167,11 +172,11 @@ export default function IntegrationAccessControl() {
     setSaving(false);
     const failed = updates.filter((u) => u.error);
     if (failed.length) {
-      toast({ title: "فشلت بعض التحديثات", description: failed[0].error!.message, variant: "destructive" });
+      toast({ title: tt("Some updates failed", "فشلت بعض التحديثات"), description: failed[0].error!.message, variant: "destructive" });
       return;
     }
     setDirty({});
-    toast({ title: "تم الحفظ", description: `تم تحديث ${changed.length} قاعدة` });
+    toast({ title: tt("Saved", "تم الحفظ"), description: tt(`${changed.length} rule${changed.length === 1 ? "" : "s"} updated`, `تم تحديث ${changed.length} قاعدة`) });
   };
 
   if (accessLoading || hasAccess === null) return <AccessDenied isLoading />;
@@ -183,40 +188,40 @@ export default function IntegrationAccessControl() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <ShieldCheck className="h-7 w-7 text-primary" />
-            صلاحيات التكاملات
+            {tt("Integration Access Control", "صلاحيات التكاملات")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            تفعيل أو تعطيل كل تكامل لكل مستخدم أو دور أو مجموعة
+            {tt("Enable or disable each integration per user, role, or group", "تفعيل أو تعطيل كل تكامل لكل مستخدم أو دور أو مجموعة")}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link to="/integrations"><ArrowLeft className="h-4 w-4 mr-2" />العودة إلى التكاملات</Link>
+            <Link to="/integrations"><ArrowLeft className="h-4 w-4 mr-2" />{tt("Back to Integrations", "العودة إلى التكاملات")}</Link>
           </Button>
           <Button onClick={saveAll} disabled={saving || Object.keys(dirty).length === 0}>
             <Save className="h-4 w-4 mr-2" />
-            حفظ التغييرات
+            {tt("Save changes", "حفظ التغييرات")}
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">التكامل</CardTitle>
-          <CardDescription>اختر تكاملاً لإعداد مصفوفة الصلاحيات الخاصة به</CardDescription>
+          <CardTitle className="text-lg">{tt("Integration", "التكامل")}</CardTitle>
+          <CardDescription>{tt("Select an integration to configure its permission matrix", "اختر تكاملاً لإعداد مصفوفة الصلاحيات الخاصة به")}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-muted-foreground">جارٍ التحميل…</p>
+            <p className="text-muted-foreground">{tt("Loading…", "جارٍ التحميل…")}</p>
           ) : integrations.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              لا توجد تكاملات مُعدّة. <Link to="/integrations" className="text-primary hover:underline">أضف واحداً</Link> أولاً.
+              {tt("No integrations configured.", "لا توجد تكاملات مُعدّة.")} <Link to="/integrations" className="text-primary hover:underline">{tt("Add one", "أضف واحداً")}</Link> {tt("first.", "أولاً.")}
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <Select value={selectedId} onValueChange={onPick}>
                 <SelectTrigger className="w-full sm:w-80">
-                  <SelectValue placeholder="اختر التكامل" />
+                  <SelectValue placeholder={tt("Choose integration", "اختر التكامل")} />
                 </SelectTrigger>
                 <SelectContent>
                   {integrations.map((i) => (
@@ -237,26 +242,26 @@ export default function IntegrationAccessControl() {
           {/* Add rule */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">إضافة قاعدة صلاحية</CardTitle>
-              <CardDescription>منح أو تقييد هذا التكامل لدور أو مجموعة أو مستخدم محدد</CardDescription>
+              <CardTitle className="text-base">{tt("Add Access Rule", "إضافة قاعدة صلاحية")}</CardTitle>
+              <CardDescription>{tt("Grant or restrict this integration for a specific role, group, or user", "منح أو تقييد هذا التكامل لدور أو مجموعة أو مستخدم محدد")}</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <Label>النوع</Label>
+                <Label>{tt("Type", "النوع")}</Label>
                 <Select value={newType} onValueChange={(v) => { setNewType(v as TargetType); setNewTargetId(""); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="role">دور</SelectItem>
-                    <SelectItem value="group">مجموعة</SelectItem>
-                    <SelectItem value="user">مستخدم</SelectItem>
+                    <SelectItem value="role">{tt("Role", "دور")}</SelectItem>
+                    <SelectItem value="group">{tt("Group", "مجموعة")}</SelectItem>
+                    <SelectItem value="user">{tt("User", "مستخدم")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="sm:col-span-2 flex gap-2 items-end">
                 <div className="flex-1">
-                  <Label>الهدف</Label>
+                  <Label>{tt("Target", "الهدف")}</Label>
                   <Select value={newTargetId} onValueChange={setNewTargetId}>
-                    <SelectTrigger><SelectValue placeholder="اختر…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tt("Select…", "اختر…")} /></SelectTrigger>
                     <SelectContent>
                       {newType === "role" && ROLES.map((r) => (
                         <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
@@ -270,7 +275,7 @@ export default function IntegrationAccessControl() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={addRow}><Plus className="h-4 w-4 mr-1" />إضافة</Button>
+                <Button onClick={addRow}><Plus className="h-4 w-4 mr-1" />{tt("Add", "إضافة")}</Button>
               </div>
             </CardContent>
           </Card>
@@ -278,15 +283,15 @@ export default function IntegrationAccessControl() {
           {/* Matrix */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">مصفوفة الصلاحيات</CardTitle>
-              <CardDescription>قم بتبديل الوصول. اضغط حفظ التغييرات عند الانتهاء.</CardDescription>
+              <CardTitle className="text-base">{tt("Permission Matrix", "مصفوفة الصلاحيات")}</CardTitle>
+              <CardDescription>{tt("Toggle access. Click Save changes when done.", "قم بتبديل الوصول. اضغط حفظ التغييرات عند الانتهاء.")}</CardDescription>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="role">
                 <TabsList>
-                  <TabsTrigger value="role">الأدوار ({grouped.role.length})</TabsTrigger>
-                  <TabsTrigger value="group">المجموعات ({grouped.group.length})</TabsTrigger>
-                  <TabsTrigger value="user">المستخدمون ({grouped.user.length})</TabsTrigger>
+                  <TabsTrigger value="role">{tt("Roles", "الأدوار")} ({grouped.role.length})</TabsTrigger>
+                  <TabsTrigger value="group">{tt("Groups", "المجموعات")} ({grouped.group.length})</TabsTrigger>
+                  <TabsTrigger value="user">{tt("Users", "المستخدمون")} ({grouped.user.length})</TabsTrigger>
                 </TabsList>
                 {(["role", "group", "user"] as TargetType[]).map((t) => (
                   <TabsContent key={t} value={t}>
@@ -296,6 +301,8 @@ export default function IntegrationAccessControl() {
                       dirty={dirty}
                       onToggle={toggleRow}
                       onRemove={removeRow}
+                      typeMeta={TYPE_META}
+                      isAr={isAr}
                     />
                   </TabsContent>
                 ))}
@@ -309,19 +316,23 @@ export default function IntegrationAccessControl() {
 }
 
 function MatrixSection({
-  rows, type, dirty, onToggle, onRemove,
+  rows, type, dirty, onToggle, onRemove, typeMeta, isAr,
 }: {
   rows: AccessRow[];
   type: TargetType;
   dirty: Record<string, boolean>;
   onToggle: (id: string, value: boolean) => void;
   onRemove: (row: AccessRow) => void;
+  typeMeta: Record<TargetType, { label: string; icon: any }>;
+  isAr: boolean;
 }) {
-  const Icon = TYPE_META[type].icon;
+  const Icon = typeMeta[type].icon;
   if (rows.length === 0) {
     return (
       <div className="text-center py-10 text-sm text-muted-foreground">
-        لا توجد قواعد {TYPE_META[type].label} بعد. أضف واحدة بالأعلى.
+        {isAr
+          ? `لا توجد قواعد ${typeMeta[type].label} بعد. أضف واحدة بالأعلى.`
+          : `No ${typeMeta[type].label.toLowerCase()} rules yet. Add one above.`}
       </div>
     );
   }
@@ -332,11 +343,11 @@ function MatrixSection({
           <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">{r.target_label || r.target_id}</p>
-            <p className="text-xs text-muted-foreground">{TYPE_META[type].label}</p>
+            <p className="text-xs text-muted-foreground">{typeMeta[type].label}</p>
           </div>
-          {dirty[r.id] && <Badge variant="outline" className="text-xs">غير محفوظ</Badge>}
+          {dirty[r.id] && <Badge variant="outline" className="text-xs">{isAr ? "غير محفوظ" : "Unsaved"}</Badge>}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{r.enabled ? "مفعّل" : "معطّل"}</span>
+            <span className="text-xs text-muted-foreground">{r.enabled ? (isAr ? "مفعّل" : "Enabled") : (isAr ? "معطّل" : "Disabled")}</span>
             <Switch checked={r.enabled} onCheckedChange={(v) => onToggle(r.id, v)} />
           </div>
           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onRemove(r)}>
