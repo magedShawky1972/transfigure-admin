@@ -314,19 +314,23 @@ export default function IntegrationAccessControl() {
 }
 
 function MatrixSection({
-  rows, type, dirty, onToggle, onRemove,
+  rows, type, dirty, onToggle, onRemove, typeMeta, isAr,
 }: {
   rows: AccessRow[];
   type: TargetType;
   dirty: Record<string, boolean>;
   onToggle: (id: string, value: boolean) => void;
   onRemove: (row: AccessRow) => void;
+  typeMeta: Record<TargetType, { label: string; icon: any }>;
+  isAr: boolean;
 }) {
-  const Icon = TYPE_META[type].icon;
+  const Icon = typeMeta[type].icon;
   if (rows.length === 0) {
     return (
       <div className="text-center py-10 text-sm text-muted-foreground">
-        لا توجد قواعد {TYPE_META[type].label} بعد. أضف واحدة بالأعلى.
+        {isAr
+          ? `لا توجد قواعد ${typeMeta[type].label} بعد. أضف واحدة بالأعلى.`
+          : `No ${typeMeta[type].label.toLowerCase()} rules yet. Add one above.`}
       </div>
     );
   }
@@ -337,11 +341,11 @@ function MatrixSection({
           <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-medium truncate">{r.target_label || r.target_id}</p>
-            <p className="text-xs text-muted-foreground">{TYPE_META[type].label}</p>
+            <p className="text-xs text-muted-foreground">{typeMeta[type].label}</p>
           </div>
-          {dirty[r.id] && <Badge variant="outline" className="text-xs">غير محفوظ</Badge>}
+          {dirty[r.id] && <Badge variant="outline" className="text-xs">{isAr ? "غير محفوظ" : "Unsaved"}</Badge>}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{r.enabled ? "مفعّل" : "معطّل"}</span>
+            <span className="text-xs text-muted-foreground">{r.enabled ? (isAr ? "مفعّل" : "Enabled") : (isAr ? "معطّل" : "Disabled")}</span>
             <Switch checked={r.enabled} onCheckedChange={(v) => onToggle(r.id, v)} />
           </div>
           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onRemove(r)}>
