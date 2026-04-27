@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { ShieldCheck, ArrowLeft, Save, Plus, Trash2, Users, UserCircle, Shield } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type TargetType = "user" | "role" | "group";
 
@@ -27,18 +28,6 @@ interface AccessRow {
 }
 interface UserOpt { user_id: string; user_name: string; }
 interface GroupOpt { id: string; group_name: string; }
-
-const ROLES: Array<{ value: string; label: string }> = [
-  { value: "admin", label: "مدير" },
-  { value: "moderator", label: "مشرف" },
-  { value: "user", label: "مستخدم" },
-];
-
-const TYPE_META: Record<TargetType, { label: string; icon: any }> = {
-  user:  { label: "مستخدم",  icon: UserCircle },
-  role:  { label: "دور",  icon: Shield },
-  group: { label: "مجموعة", icon: Users },
-};
 
 export default function IntegrationAccessControl() {
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/integration-access-control");
