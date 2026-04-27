@@ -191,7 +191,7 @@ export default function CancelledOrders() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <XCircle className="h-7 w-7 text-destructive" />
-          {isAr ? "الطلبات الملغاة" : "Cancelled Orders"}
+          {isAr ? "الطلبات الملغاة تم تنفيذها يدوي" : "Cancelled Orders"}
         </h1>
         <p className="text-muted-foreground mt-1">
           {isAr
