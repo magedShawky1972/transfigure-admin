@@ -56,6 +56,8 @@ import {
   CalendarDays,
   Landmark,
   ListX,
+  Plug,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
