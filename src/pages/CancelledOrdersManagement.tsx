@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
-import { Loader2, ListX, RefreshCw, Pencil, Check, X } from "lucide-react";
+import { Loader2, ListX, RefreshCw, Pencil, Check, X, Upload, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,6 +40,110 @@ export default function CancelledOrdersManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([["order_number"], ["12345"], ["67890"]]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cancelled Orders");
+    XLSX.writeFile(wb, "cancelled_orders_template.xlsx");
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+
+      // Extract order numbers from column "order_number" (case-insensitive) or first column
+      const numbers: string[] = [];
+      for (const row of json) {
+        const keys = Object.keys(row);
+        const key =
+          keys.find((k) => k.toLowerCase().trim() === "order_number") ||
+          keys.find((k) => k.toLowerCase().includes("order")) ||
+          keys[0];
+        const raw = row[key];
+        if (raw === null || raw === undefined) continue;
+        const val = String(raw).trim();
+        if (val) numbers.push(val);
+      }
+
+      // Dedupe within file
+      const unique = Array.from(new Set(numbers));
+      if (unique.length === 0) {
+        toast({
+          title: isAr ? "ملف فارغ" : "Empty file",
+          description: isAr ? "لم يتم العثور على أرقام طلبات." : "No order numbers found.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: isAr ? "غير مصرح" : "Not authorized", variant: "destructive" });
+        return;
+      }
+
+      // Filter out already-existing order numbers
+      const { data: existing } = await supabase
+        .from("cancelled_orders")
+        .select("order_number")
+        .in("order_number", unique);
+      const existingSet = new Set((existing || []).map((r: any) => r.order_number));
+      const toInsert = unique.filter((n) => !existingSet.has(n));
+      const skipped = unique.length - toInsert.length;
+
+      if (toInsert.length === 0) {
+        toast({
+          title: isAr ? "لا توجد سجلات جديدة" : "No new records",
+          description: isAr
+            ? `جميع الأرقام (${unique.length}) موجودة بالفعل.`
+            : `All ${unique.length} order numbers already exist.`,
+        });
+        return;
+      }
+
+      const rowsToInsert = toInsert.map((n) => ({
+        order_number: n,
+        submitted_by: user.id,
+      }));
+
+      const { error } = await supabase.from("cancelled_orders").insert(rowsToInsert);
+      if (error) {
+        toast({
+          title: isAr ? "فشل الاستيراد" : "Import failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: isAr ? "تم الاستيراد" : "Imported",
+        description: isAr
+          ? `تم إضافة ${toInsert.length} سجل${skipped ? `, تم تخطي ${skipped} مكرر` : ""}.`
+          : `Added ${toInsert.length} record(s)${skipped ? `, skipped ${skipped} duplicate(s)` : ""}.`,
+      });
+      fetchRows();
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: isAr ? "خطأ في قراءة الملف" : "File read error",
+        description: err?.message || String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const startEdit = (r: Row) => {
     setEditingId(r.id);
@@ -123,8 +228,40 @@ export default function CancelledOrdersManagement() {
       </div>
 
       <Card className="mb-4">
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="text-base">{isAr ? "تصفية" : "Filters"}</CardTitle>
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={downloadTemplate}
+              disabled={importing}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isAr ? "نموذج" : "Template"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+            >
+              {importing ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              {isAr ? "استيراد Excel" : "Import Excel"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
