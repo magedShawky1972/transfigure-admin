@@ -120,11 +120,11 @@ export default function IntegrationAccessControl() {
   const removeRow = async (row: AccessRow) => {
     const { error } = await supabase.from("integration_access").delete().eq("id", row.id);
     if (error) {
-      toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
+      toast({ title: tt("Remove failed", "فشل الحذف"), description: error.message, variant: "destructive" });
       return;
     }
     setRows((prev) => prev.filter((r) => r.id !== row.id));
-    toast({ title: "تم الحذف" });
+    toast({ title: tt("Removed", "تم الحذف") });
   };
 
   const addRow = async () => {
