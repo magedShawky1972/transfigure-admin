@@ -1316,6 +1316,44 @@ export type Database = {
           },
         ]
       }
+      cancelled_orders: {
+        Row: {
+          created_at: string
+          id: string
+          order_number: string
+          shift_name: string | null
+          shift_session_id: string | null
+          submitted_by: string
+          submitted_by_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_number: string
+          shift_name?: string | null
+          shift_session_id?: string | null
+          submitted_by: string
+          submitted_by_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_number?: string
+          shift_name?: string | null
+          shift_session_id?: string | null
+          submitted_by?: string
+          submitted_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancelled_orders_shift_session_id_fkey"
+            columns: ["shift_session_id"]
+            isOneToOne: false
+            referencedRelation: "shift_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coins_purchase_attachments: {
         Row: {
           created_at: string

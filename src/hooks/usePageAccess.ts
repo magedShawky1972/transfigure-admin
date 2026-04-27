@@ -135,6 +135,8 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/knowledge-base": "knowledgeBase",
   "/reports/payment-whatif": "paymentWhatIf",
   "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
+  "/cancelled-orders": "cancelledOrders",
+  "/cancelled-orders-management": "cancelledOrdersManagement",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {

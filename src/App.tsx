@@ -132,6 +132,8 @@ import CostCenterReport from "./pages/CostCenterReport";
 import ManualShiftTransactionReport from "./pages/ManualShiftTransactionReport";
 import ProjectSetup from "./pages/ProjectSetup";
 import VoidPayment from "./pages/VoidPayment";
+import CancelledOrders from "./pages/CancelledOrders";
+import CancelledOrdersManagement from "./pages/CancelledOrdersManagement";
 import AcknowledgmentDocuments from "./pages/AcknowledgmentDocuments";
 import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
 import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
@@ -307,6 +309,8 @@ const App = () => (
               <Route path="/reports/manual-shift-transactions" element={<ManualShiftTransactionReport />} />
               <Route path="/project-setup" element={<ProjectSetup />} />
               <Route path="/void-payment" element={<VoidPayment />} />
+              <Route path="/cancelled-orders" element={<CancelledOrders />} />
+              <Route path="/cancelled-orders-management" element={<CancelledOrdersManagement />} />
               <Route path="/acknowledgment-documents" element={<AcknowledgmentDocuments />} />
               <Route path="/employee-self-requests" element={<EmployeeSelfRequests />} />
               <Route path="/employee-request-approvals" element={<EmployeeRequestApprovals />} />
