@@ -134,6 +134,7 @@ import ProjectSetup from "./pages/ProjectSetup";
 import VoidPayment from "./pages/VoidPayment";
 import CancelledOrders from "./pages/CancelledOrders";
 import CancelledOrdersManagement from "./pages/CancelledOrdersManagement";
+import MenuCustomization from "./pages/MenuCustomization";
 import AcknowledgmentDocuments from "./pages/AcknowledgmentDocuments";
 import ShiftAttendanceReport from "./pages/ShiftAttendanceReport";
 import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
