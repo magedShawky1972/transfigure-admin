@@ -301,6 +301,8 @@ export default function IntegrationAccessControl() {
                       dirty={dirty}
                       onToggle={toggleRow}
                       onRemove={removeRow}
+                      typeMeta={TYPE_META}
+                      isAr={isAr}
                     />
                   </TabsContent>
                 ))}
