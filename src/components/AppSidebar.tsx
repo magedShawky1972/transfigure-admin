@@ -244,6 +244,7 @@ export function AppSidebar() {
     return () => {
       supabase.removeChannel(permChannel);
       supabase.removeChannel(msgChannel);
+      supabase.removeChannel(customChannel);
     };
   }, []);
 
