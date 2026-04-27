@@ -138,6 +138,8 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/cancelled-orders": "cancelledOrders",
   "/cancelled-orders-management": "cancelledOrdersManagement",
   "/menu-customization": "menuCustomization",
+  "/integrations": "integrations",
+  "/integration-access-control": "integrationAccessControl",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {
