@@ -28,6 +28,7 @@ export default function CancelledOrdersManagement() {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/cancelled-orders-management");
+  const { toast } = useToast();
 
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -35,6 +36,45 @@ export default function CancelledOrdersManagement() {
   const [dateTo, setDateTo] = useState(format(today, "yyyy-MM-dd"));
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const startEdit = (r: Row) => {
+    setEditingId(r.id);
+    setEditValue(r.order_number);
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue("");
+  };
+  const saveEdit = async (id: string) => {
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      toast({ title: isAr ? "رقم الطلب مطلوب" : "Order number required", variant: "destructive" });
+      return;
+    }
+    setSavingId(id);
+    const { error } = await supabase
+      .from("cancelled_orders")
+      .update({ order_number: trimmed })
+      .eq("id", id);
+    setSavingId(null);
+    if (error) {
+      const msg = error.message || "";
+      const display =
+        msg.includes("duplicate") || (error as any).code === "23505"
+          ? isAr
+            ? "هذا الرقم موجود مسبقاً."
+            : "This order number already exists."
+          : msg;
+      toast({ title: isAr ? "فشل التحديث" : "Update failed", description: display, variant: "destructive" });
+      return;
+    }
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, order_number: trimmed } : r)));
+    cancelEdit();
+    toast({ title: isAr ? "تم التحديث" : "Updated" });
+  };
 
   const fetchRows = async () => {
     setLoading(true);
