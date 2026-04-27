@@ -47,29 +47,29 @@ interface ActivityRow {
 }
 
 const STATUS_META: Record<IntegrationStatus, { label: string; dot: string; pill: string; icon: any }> = {
-  active:   { label: "Active",   dot: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
-  warning:  { label: "Warning",  dot: "bg-amber-500",   pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",       icon: AlertTriangle },
-  error:    { label: "Error",    dot: "bg-red-500",     pill: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",                icon: XCircle },
-  disabled: { label: "Disabled", dot: "bg-muted-foreground", pill: "bg-muted text-muted-foreground border-border",                              icon: MinusCircle },
+  active:   { label: "نشط",   dot: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
+  warning:  { label: "تحذير",  dot: "bg-amber-500",   pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",       icon: AlertTriangle },
+  error:    { label: "خطأ",    dot: "bg-red-500",     pill: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",                icon: XCircle },
+  disabled: { label: "معطل", dot: "bg-muted-foreground", pill: "bg-muted text-muted-foreground border-border",                              icon: MinusCircle },
 };
 
 const TYPE_LABEL: Record<IntegrationType, string> = {
   oauth: "OAuth",
-  api_key: "API Key",
+  api_key: "مفتاح API",
   webhook: "Webhook",
 };
 
 function formatRel(date: string | null): string {
-  if (!date) return "Never";
+  if (!date) return "أبداً";
   const d = new Date(date);
   const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return "الآن";
+  if (mins < 60) return `منذ ${mins} د`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `منذ ${hrs} س`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return `منذ ${days} ي`;
   return d.toLocaleDateString();
 }
 
@@ -84,10 +84,10 @@ function daysUntil(date: string | null): number | null {
 }
 
 const FILTERS: Array<{ key: "all" | IntegrationStatus; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "active", label: "Active" },
-  { key: "disabled", label: "Disabled" },
-  { key: "error", label: "Error" },
+  { key: "all", label: "الكل" },
+  { key: "active", label: "نشط" },
+  { key: "disabled", label: "معطل" },
+  { key: "error", label: "خطأ" },
 ];
 
 const EMPTY_FORM = {
@@ -241,32 +241,32 @@ export default function Integrations() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Plug className="h-7 w-7 text-primary" />
-            Integrations
+            التكاملات
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {stats.active} of {stats.total} apps connected
+            {stats.active} من {stats.total} تطبيقات متصلة
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to="/integration-access-control">
               <ShieldCheck className="h-4 w-4 mr-2" />
-              Access Control
+              صلاحيات الوصول
             </Link>
           </Button>
           <Button onClick={openAdd}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Integration
+            إضافة تكامل
           </Button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Integrations" value={stats.total} icon={Plug} />
-        <StatCard label="Active" value={stats.active} icon={CheckCircle2} accent="text-emerald-600" />
-        <StatCard label="API Requests / Month" value={stats.requests.toLocaleString()} icon={Activity} accent="text-primary" />
-        <StatCard label="Need Attention" value={stats.attention} icon={ShieldAlert} accent="text-amber-600" />
+        <StatCard label="إجمالي التكاملات" value={stats.total} icon={Plug} />
+        <StatCard label="نشط" value={stats.active} icon={CheckCircle2} accent="text-emerald-600" />
+        <StatCard label="طلبات API / شهرياً" value={stats.requests.toLocaleString()} icon={Activity} accent="text-primary" />
+        <StatCard label="يحتاج إلى انتباه" value={stats.attention} icon={ShieldAlert} accent="text-amber-600" />
       </div>
 
       {/* Filter bar */}
@@ -291,7 +291,7 @@ export default function Integrations() {
         <div className="sm:ml-auto relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search integrations..."
+            placeholder="بحث في التكاملات..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -301,15 +301,15 @@ export default function Integrations() {
 
       {/* Cards grid */}
       {loading ? (
-        <div className="text-center text-muted-foreground py-12">Loading…</div>
+        <div className="text-center text-muted-foreground py-12">جارٍ التحميل…</div>
       ) : filtered.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-16 text-center space-y-3">
             <Plug className="h-10 w-10 mx-auto text-muted-foreground" />
             <p className="text-muted-foreground">
-              {items.length === 0 ? "No integrations yet" : "No integrations match your filters"}
+              {items.length === 0 ? "لا توجد تكاملات بعد" : "لا توجد تكاملات تطابق الفلاتر"}
             </p>
-            {items.length === 0 && <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />Add your first integration</Button>}
+            {items.length === 0 && <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />أضف أول تكامل</Button>}
           </CardContent>
         </Card>
       ) : (
@@ -331,13 +331,13 @@ export default function Integrations() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            Recent Activity
+            النشاط الأخير
           </CardTitle>
-          <CardDescription>Latest events across all connected integrations</CardDescription>
+          <CardDescription>أحدث الأحداث عبر جميع التكاملات المتصلة</CardDescription>
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">No recent activity</p>
+            <p className="text-sm text-muted-foreground py-6 text-center">لا يوجد نشاط حديث</p>
           ) : (
             <ul className="divide-y">
               {activity.map((a) => {
@@ -369,61 +369,61 @@ export default function Integrations() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Integration" : "Add Integration"}</DialogTitle>
+            <DialogTitle>{editingId ? "تعديل التكامل" : "إضافة تكامل"}</DialogTitle>
             <DialogDescription>
-              Configure connection details. Per-user/role access is managed in Access Control.
+              قم بإعداد تفاصيل الاتصال. تتم إدارة الوصول لكل مستخدم/دور من صلاحيات الوصول.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Slack" />
+              <Label>الاسم *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="مثال: Slack" />
             </div>
             <div>
-              <Label>App Identifier</Label>
+              <Label>معرّف التطبيق</Label>
               <Input value={form.app_key} onChange={(e) => setForm({ ...form, app_key: e.target.value })} placeholder="slack" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Type</Label>
+                <Label>النوع</Label>
                 <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as IntegrationType })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="oauth">OAuth</SelectItem>
-                    <SelectItem value="api_key">API Key</SelectItem>
+                    <SelectItem value="api_key">مفتاح API</SelectItem>
                     <SelectItem value="webhook">Webhook</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Status</Label>
+                <Label>الحالة</Label>
                 <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as IntegrationStatus })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="warning">Warning</SelectItem>
-                    <SelectItem value="error">Error</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
+                    <SelectItem value="active">نشط</SelectItem>
+                    <SelectItem value="warning">تحذير</SelectItem>
+                    <SelectItem value="error">خطأ</SelectItem>
+                    <SelectItem value="disabled">معطل</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div>
-              <Label>Scopes (comma separated)</Label>
+              <Label>الصلاحيات (مفصولة بفاصلة)</Label>
               <Input value={form.scopes} onChange={(e) => setForm({ ...form, scopes: e.target.value })} placeholder="read:users, write:messages" />
             </div>
             <div>
-              <Label>Expires At</Label>
+              <Label>تاريخ الانتهاء</Label>
               <Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
             </div>
             <div>
-              <Label>Description</Label>
+              <Label>الوصف</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={save}>{editingId ? "Save changes" : "Add"}</Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>إلغاء</Button>
+            <Button onClick={save}>{editingId ? "حفظ التغييرات" : "إضافة"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -489,23 +489,23 @@ function IntegrationCard({
           <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
-              {item.warning_message || `API key expires in ${expiringDays} day${expiringDays === 1 ? "" : "s"}`}
+              {item.warning_message || `ينتهي مفتاح API خلال ${expiringDays} يوم`}
             </span>
           </div>
         )}
 
         {/* metadata grid */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-          <Meta label="Connected" value={formatDate(item.connected_at)} />
-          <Meta label="Last sync" value={formatRel(item.last_sync_at)} />
-          <Meta label="Daily requests" value={item.daily_requests.toLocaleString()} />
-          <Meta label="Success rate" value={`${item.success_rate}%`} />
+          <Meta label="تاريخ الاتصال" value={formatDate(item.connected_at)} />
+          <Meta label="آخر مزامنة" value={formatRel(item.last_sync_at)} />
+          <Meta label="الطلبات اليومية" value={item.daily_requests.toLocaleString()} />
+          <Meta label="معدل النجاح" value={`${item.success_rate}%`} />
         </div>
 
         {/* scopes */}
         {item.scopes && item.scopes.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs text-muted-foreground mb-1.5">Granted scopes</p>
+            <p className="text-xs text-muted-foreground mb-1.5">الصلاحيات الممنوحة</p>
             <div className="flex flex-wrap gap-1">
               {item.scopes.map((s) => (
                 <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-foreground/80 border">
@@ -520,13 +520,13 @@ function IntegrationCard({
         <div className="mt-4 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-2 text-xs">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">Access:</span>
+            <span className="text-muted-foreground">الوصول:</span>
             <Link to={`/integration-access-control?integration=${item.id}`} className="font-medium text-primary hover:underline">
-              Manage roles & users
+              إدارة الأدوار والمستخدمين
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{item.status === "disabled" ? "Off" : "On"}</span>
+            <span className="text-xs text-muted-foreground">{item.status === "disabled" ? "إيقاف" : "تشغيل"}</span>
             <Switch checked={item.status !== "disabled"} onCheckedChange={onToggle} />
           </div>
         </div>
@@ -535,11 +535,11 @@ function IntegrationCard({
         <div className="mt-4 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
             <Settings className="h-4 w-4 mr-1.5" />
-            Settings
+            الإعدادات
           </Button>
           <Button variant="outline" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={onDisconnect}>
             <Power className="h-4 w-4 mr-1.5" />
-            Disconnect
+            قطع الاتصال
           </Button>
         </div>
       </CardContent>
