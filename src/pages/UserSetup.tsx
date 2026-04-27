@@ -124,6 +124,8 @@ interface UserPermission {
         { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
         { key: "salesOrderEntry", label: "إدخال أمر البيع", labelEn: "Sales Order Entry" },
         { key: "pricingScenario", label: "سيناريو التسعير", labelEn: "Pricing Scenario" },
+        { key: "cancelledOrders", label: "الطلبات الملغاة", labelEn: "Cancelled Orders" },
+        { key: "cancelledOrdersManagement", label: "إدارة الطلبات الملغاة", labelEn: "Cancelled Orders Management" },
       ]
     },
     {
