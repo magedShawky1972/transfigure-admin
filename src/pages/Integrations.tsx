@@ -33,6 +33,7 @@ interface Integration {
   daily_requests: number;
   monthly_requests: number;
   success_rate: number;
+  start_date: string | null;
   expires_at: string | null;
   warning_message: string | null;
 }
@@ -97,6 +98,7 @@ const EMPTY_FORM = {
   type: "oauth" as IntegrationType,
   status: "active" as IntegrationStatus,
   scopes: "",
+  start_date: "",
   expires_at: "",
 };
 
@@ -167,6 +169,7 @@ export default function Integrations() {
       type: i.type,
       status: i.status,
       scopes: (i.scopes || []).join(", "),
+      start_date: i.start_date ? i.start_date.slice(0, 10) : "",
       expires_at: i.expires_at ? i.expires_at.slice(0, 10) : "",
     });
     setAddOpen(true);
@@ -184,6 +187,7 @@ export default function Integrations() {
       type: form.type,
       status: form.status,
       scopes: form.scopes.split(",").map((s) => s.trim()).filter(Boolean),
+      start_date: form.start_date || null,
       expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
     };
     let err;
@@ -412,9 +416,15 @@ export default function Integrations() {
               <Label>الصلاحيات (مفصولة بفاصلة)</Label>
               <Input value={form.scopes} onChange={(e) => setForm({ ...form, scopes: e.target.value })} placeholder="read:users, write:messages" />
             </div>
-            <div>
-              <Label>تاريخ الانتهاء</Label>
-              <Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>تاريخ البدء</Label>
+                <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>تاريخ الانتهاء</Label>
+                <Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
+              </div>
             </div>
             <div>
               <Label>الوصف</Label>
