@@ -181,22 +181,54 @@ export default function CancelledOrdersManagement() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.order_number}</TableCell>
-                      <TableCell>{r.submitted_by_name || "—"}</TableCell>
-                      <TableCell>
-                        {r.shift_name ? (
-                          <Badge variant="outline">{r.shift_name}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(r.created_at), "yyyy-MM-dd HH:mm")}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  rows.map((r) => {
+                    const isEditing = editingId === r.id;
+                    const isSaving = savingId === r.id;
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">
+                          {isEditing ? (
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              disabled={isSaving}
+                              className="h-8 max-w-[200px]"
+                              autoFocus
+                            />
+                          ) : (
+                            r.order_number
+                          )}
+                        </TableCell>
+                        <TableCell>{r.submitted_by_name || "—"}</TableCell>
+                        <TableCell>
+                          {r.shift_name ? (
+                            <Badge variant="outline">{r.shift_name}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {format(new Date(r.created_at), "yyyy-MM-dd HH:mm")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="default" onClick={() => saveEdit(r.id)} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={isSaving}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
