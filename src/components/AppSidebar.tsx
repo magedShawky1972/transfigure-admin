@@ -94,6 +94,7 @@ export function AppSidebar() {
     "/audit-logs": "auditLogs",
     "/certificate-management": "certificateManagement",
     "/security-dashboard": "securityDashboard",
+    "/integration-access-control": "integrationAccessControl",
     "/job-setup": "jobSetup",
     "/zk-attendance-logs": "zkAttendanceLogs",
     "/hr-vacation-calendar": "hrVacationCalendar",
@@ -140,6 +141,7 @@ export function AppSidebar() {
     "/cancelled-orders": "cancelledOrders",
     "/cancelled-orders-management": "cancelledOrdersManagement",
     "/menu-customization": "menuCustomization",
+    "/integrations": "integrations",
   };
 
   useEffect(() => {
