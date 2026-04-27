@@ -40,6 +40,110 @@ export default function CancelledOrdersManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([["order_number"], ["12345"], ["67890"]]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cancelled Orders");
+    XLSX.writeFile(wb, "cancelled_orders_template.xlsx");
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+
+      // Extract order numbers from column "order_number" (case-insensitive) or first column
+      const numbers: string[] = [];
+      for (const row of json) {
+        const keys = Object.keys(row);
+        const key =
+          keys.find((k) => k.toLowerCase().trim() === "order_number") ||
+          keys.find((k) => k.toLowerCase().includes("order")) ||
+          keys[0];
+        const raw = row[key];
+        if (raw === null || raw === undefined) continue;
+        const val = String(raw).trim();
+        if (val) numbers.push(val);
+      }
+
+      // Dedupe within file
+      const unique = Array.from(new Set(numbers));
+      if (unique.length === 0) {
+        toast({
+          title: isAr ? "ملف فارغ" : "Empty file",
+          description: isAr ? "لم يتم العثور على أرقام طلبات." : "No order numbers found.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: isAr ? "غير مصرح" : "Not authorized", variant: "destructive" });
+        return;
+      }
+
+      // Filter out already-existing order numbers
+      const { data: existing } = await supabase
+        .from("cancelled_orders")
+        .select("order_number")
+        .in("order_number", unique);
+      const existingSet = new Set((existing || []).map((r: any) => r.order_number));
+      const toInsert = unique.filter((n) => !existingSet.has(n));
+      const skipped = unique.length - toInsert.length;
+
+      if (toInsert.length === 0) {
+        toast({
+          title: isAr ? "لا توجد سجلات جديدة" : "No new records",
+          description: isAr
+            ? `جميع الأرقام (${unique.length}) موجودة بالفعل.`
+            : `All ${unique.length} order numbers already exist.`,
+        });
+        return;
+      }
+
+      const rowsToInsert = toInsert.map((n) => ({
+        order_number: n,
+        submitted_by: user.id,
+      }));
+
+      const { error } = await supabase.from("cancelled_orders").insert(rowsToInsert);
+      if (error) {
+        toast({
+          title: isAr ? "فشل الاستيراد" : "Import failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: isAr ? "تم الاستيراد" : "Imported",
+        description: isAr
+          ? `تم إضافة ${toInsert.length} سجل${skipped ? `, تم تخطي ${skipped} مكرر` : ""}.`
+          : `Added ${toInsert.length} record(s)${skipped ? `, skipped ${skipped} duplicate(s)` : ""}.`,
+      });
+      fetchRows();
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: isAr ? "خطأ في قراءة الملف" : "File read error",
+        description: err?.message || String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const startEdit = (r: Row) => {
     setEditingId(r.id);
