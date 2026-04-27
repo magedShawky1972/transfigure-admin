@@ -33,6 +33,7 @@ interface Integration {
   daily_requests: number;
   monthly_requests: number;
   success_rate: number;
+  start_date: string | null;
   expires_at: string | null;
   warning_message: string | null;
 }
