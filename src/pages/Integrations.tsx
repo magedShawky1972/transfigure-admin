@@ -489,7 +489,7 @@ function IntegrationCard({
           <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
-              {item.warning_message || `API key expires in ${expiringDays} day${expiringDays === 1 ? "" : "s"}`}
+              {item.warning_message || `ينتهي مفتاح API خلال ${expiringDays} يوم`}
             </span>
           </div>
         )}
