@@ -496,16 +496,16 @@ function IntegrationCard({
 
         {/* metadata grid */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-          <Meta label="Connected" value={formatDate(item.connected_at)} />
-          <Meta label="Last sync" value={formatRel(item.last_sync_at)} />
-          <Meta label="Daily requests" value={item.daily_requests.toLocaleString()} />
-          <Meta label="Success rate" value={`${item.success_rate}%`} />
+          <Meta label="تاريخ الاتصال" value={formatDate(item.connected_at)} />
+          <Meta label="آخر مزامنة" value={formatRel(item.last_sync_at)} />
+          <Meta label="الطلبات اليومية" value={item.daily_requests.toLocaleString()} />
+          <Meta label="معدل النجاح" value={`${item.success_rate}%`} />
         </div>
 
         {/* scopes */}
         {item.scopes && item.scopes.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs text-muted-foreground mb-1.5">Granted scopes</p>
+            <p className="text-xs text-muted-foreground mb-1.5">الصلاحيات الممنوحة</p>
             <div className="flex flex-wrap gap-1">
               {item.scopes.map((s) => (
                 <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-foreground/80 border">
@@ -520,13 +520,13 @@ function IntegrationCard({
         <div className="mt-4 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-2 text-xs">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">Access:</span>
+            <span className="text-muted-foreground">الوصول:</span>
             <Link to={`/integration-access-control?integration=${item.id}`} className="font-medium text-primary hover:underline">
-              Manage roles & users
+              إدارة الأدوار والمستخدمين
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{item.status === "disabled" ? "Off" : "On"}</span>
+            <span className="text-xs text-muted-foreground">{item.status === "disabled" ? "إيقاف" : "تشغيل"}</span>
             <Switch checked={item.status !== "disabled"} onCheckedChange={onToggle} />
           </div>
         </div>
@@ -535,11 +535,11 @@ function IntegrationCard({
         <div className="mt-4 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
             <Settings className="h-4 w-4 mr-1.5" />
-            Settings
+            الإعدادات
           </Button>
           <Button variant="outline" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={onDisconnect}>
             <Power className="h-4 w-4 mr-1.5" />
-            Disconnect
+            قطع الاتصال
           </Button>
         </div>
       </CardContent>
