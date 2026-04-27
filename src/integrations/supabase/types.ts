@@ -4657,15 +4657,23 @@ export type Database = {
       }
       integrations: {
         Row: {
+          access_label: string
+          access_summary: string | null
           app_key: string | null
           connected_at: string
           created_at: string
           daily_requests: number
           description: string | null
+          error_message: string | null
           expires_at: string | null
+          health: string
           icon_url: string | null
           id: string
+          is_favorite: boolean
+          last_error_at: string | null
           last_sync_at: string | null
+          latency_ms: number
+          monthly_quota: number | null
           monthly_requests: number
           name: string
           scopes: string[]
@@ -4674,18 +4682,27 @@ export type Database = {
           success_rate: number
           type: Database["public"]["Enums"]["integration_type"]
           updated_at: string
+          usage_history: number[]
           warning_message: string | null
         }
         Insert: {
+          access_label?: string
+          access_summary?: string | null
           app_key?: string | null
           connected_at?: string
           created_at?: string
           daily_requests?: number
           description?: string | null
+          error_message?: string | null
           expires_at?: string | null
+          health?: string
           icon_url?: string | null
           id?: string
+          is_favorite?: boolean
+          last_error_at?: string | null
           last_sync_at?: string | null
+          latency_ms?: number
+          monthly_quota?: number | null
           monthly_requests?: number
           name: string
           scopes?: string[]
@@ -4694,18 +4711,27 @@ export type Database = {
           success_rate?: number
           type?: Database["public"]["Enums"]["integration_type"]
           updated_at?: string
+          usage_history?: number[]
           warning_message?: string | null
         }
         Update: {
+          access_label?: string
+          access_summary?: string | null
           app_key?: string | null
           connected_at?: string
           created_at?: string
           daily_requests?: number
           description?: string | null
+          error_message?: string | null
           expires_at?: string | null
+          health?: string
           icon_url?: string | null
           id?: string
+          is_favorite?: boolean
+          last_error_at?: string | null
           last_sync_at?: string | null
+          latency_ms?: number
+          monthly_quota?: number | null
           monthly_requests?: number
           name?: string
           scopes?: string[]
@@ -4714,6 +4740,7 @@ export type Database = {
           success_rate?: number
           type?: Database["public"]["Enums"]["integration_type"]
           updated_at?: string
+          usage_history?: number[]
           warning_message?: string | null
         }
         Relationships: []
