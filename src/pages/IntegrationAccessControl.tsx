@@ -129,7 +129,7 @@ export default function IntegrationAccessControl() {
 
   const addRow = async () => {
     if (!selectedId || !newTargetId) {
-      toast({ title: "اختر هدفاً", variant: "destructive" });
+      toast({ title: tt("Pick a target", "اختر هدفاً"), variant: "destructive" });
       return;
     }
     let label = newTargetId;
