@@ -384,67 +384,67 @@ export default function Integrations() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "تعديل التكامل" : "إضافة تكامل"}</DialogTitle>
+            <DialogTitle>{editingId ? tt("Edit Integration", "تعديل التكامل") : tt("Add Integration", "إضافة تكامل")}</DialogTitle>
             <DialogDescription>
-              قم بإعداد تفاصيل الاتصال. تتم إدارة الوصول لكل مستخدم/دور من صلاحيات الوصول.
+              {tt("Configure connection details. Per-user/role access is managed in Access Control.", "قم بإعداد تفاصيل الاتصال. تتم إدارة الوصول لكل مستخدم/دور من صلاحيات الوصول.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>الاسم *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="مثال: Slack" />
+              <Label>{tt("Name *", "الاسم *")}</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={tt("e.g. Slack", "مثال: Slack")} />
             </div>
             <div>
-              <Label>معرّف التطبيق</Label>
+              <Label>{tt("App Identifier", "معرّف التطبيق")}</Label>
               <Input value={form.app_key} onChange={(e) => setForm({ ...form, app_key: e.target.value })} placeholder="slack" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>النوع</Label>
+                <Label>{tt("Type", "النوع")}</Label>
                 <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as IntegrationType })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="oauth">OAuth</SelectItem>
-                    <SelectItem value="api_key">مفتاح API</SelectItem>
+                    <SelectItem value="api_key">{tt("API Key", "مفتاح API")}</SelectItem>
                     <SelectItem value="webhook">Webhook</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>الحالة</Label>
+                <Label>{tt("Status", "الحالة")}</Label>
                 <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as IntegrationStatus })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">نشط</SelectItem>
-                    <SelectItem value="warning">تحذير</SelectItem>
-                    <SelectItem value="error">خطأ</SelectItem>
-                    <SelectItem value="disabled">معطل</SelectItem>
+                    <SelectItem value="active">{tt("Active", "نشط")}</SelectItem>
+                    <SelectItem value="warning">{tt("Warning", "تحذير")}</SelectItem>
+                    <SelectItem value="error">{tt("Error", "خطأ")}</SelectItem>
+                    <SelectItem value="disabled">{tt("Disabled", "معطل")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div>
-              <Label>الصلاحيات (مفصولة بفاصلة)</Label>
+              <Label>{tt("Scopes (comma separated)", "الصلاحيات (مفصولة بفاصلة)")}</Label>
               <Input value={form.scopes} onChange={(e) => setForm({ ...form, scopes: e.target.value })} placeholder="read:users, write:messages" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>تاريخ البدء</Label>
+                <Label>{tt("Start Date", "تاريخ البدء")}</Label>
                 <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
               </div>
               <div>
-                <Label>تاريخ الانتهاء</Label>
+                <Label>{tt("Expires At", "تاريخ الانتهاء")}</Label>
                 <Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
               </div>
             </div>
             <div>
-              <Label>الوصف</Label>
+              <Label>{tt("Description", "الوصف")}</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>إلغاء</Button>
-            <Button onClick={save}>{editingId ? "حفظ التغييرات" : "إضافة"}</Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>{tt("Cancel", "إلغاء")}</Button>
+            <Button onClick={save}>{editingId ? tt("Save changes", "حفظ التغييرات") : tt("Add", "إضافة")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
