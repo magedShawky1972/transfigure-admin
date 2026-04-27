@@ -83,7 +83,7 @@ export default function IntegrationAccessControl() {
         .eq("integration_id", selectedId)
         .order("target_type");
       if (error) {
-        toast({ title: "Failed to load access", description: error.message, variant: "destructive" });
+        toast({ title: "فشل تحميل الصلاحيات", description: error.message, variant: "destructive" });
         return;
       }
       setRows((data as any) || []);
