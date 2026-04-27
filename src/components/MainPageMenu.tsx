@@ -3,13 +3,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { fetchMenuCustomizations, groupKey, itemKey, type CustomMap } from "@/lib/menuCustomizations";
-import {
-  LayoutDashboard, TicketCheck, Clock, FolderKanban, Users, Key, FileBarChart, FileText, Table2, Grid3x3,
-  FileSpreadsheet, Database, MessageCircle, Calendar, Mail, Settings, UserCheck, TrendingUp, CreditCard,
-  DollarSign, Building2, Truck, UserCircle, Palmtree, ClipboardList, Calculator, HeartPulse, Briefcase,
-  KeyRound, Shield, Cloud, GraduationCap, Link2, HardDrive, RotateCcw, ClipboardCheck, FileKey, Receipt, ScrollText, BarChart3, Target, FileSignature, ImageIcon, Undo2, Home
-} from "lucide-react";
+import { DEFAULT_MENU } from "@/lib/menuRegistry";
 
+// URL → permission key map (kept in sync with usePageAccess / AppSidebar)
 const URL_TO_PERMISSION: Record<string, string> = {
   "/": "dashboard",
   "/dashboard": "dashboard",
@@ -18,6 +14,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/task-dashboard": "task_dashboard",
   "/user-dashboard": "user_dashboard",
   "/reports": "reports",
+  "/reports/riyad-bank": "reports",
   "/transactions": "transactions",
   "/tickets": "tickets",
   "/admin-tickets": "admin_tickets",
@@ -47,6 +44,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/shift-calendar": "shiftCalendar",
   "/shift-session": "shiftSession",
   "/shift-follow-up": "shiftFollowUp",
+  "/shift-attendance-report": "shiftAttendanceReport",
   "/my-shifts": "myShifts",
   "/tawasoul": "tawasoul",
   "/closing-training": "closingTraining",
@@ -54,6 +52,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/user-group-setup": "userGroupSetup",
   "/projects-tasks": "projectsTasks",
   "/task-list": "taskList",
+  "/project-setup": "projectSetup",
   "/company-hierarchy": "companyHierarchy",
   "/user-logins": "userLogins",
   "/supplier-setup": "supplierSetup",
@@ -79,6 +78,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/job-setup": "jobSetup",
   "/zk-attendance-logs": "zkAttendanceLogs",
   "/hr-vacation-calendar": "hrVacationCalendar",
+  "/company-wfh-calendar": "companyWfhCalendar",
   "/bank-setup": "bankSetup",
   "/treasury-setup": "treasurySetup",
   "/expense-category-setup": "expenseCategorySetup",
@@ -91,7 +91,8 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/payment-bank-link": "paymentBankLink",
   "/api-consumption-logs": "apiConsumptionLogs",
   "/update-bank-ledger": "updateBankLedger",
-  "/acknowledgment-documents": "acknowledgmentDocuments",
+  "/cost-center-setup": "costCenterSetup",
+  "/void-payment": "voidPayment",
   "/receiving-coins": "receivingCoins",
   "/coins-creation": "coinsCreation",
   "/coins-sending": "coinsSending",
@@ -99,172 +100,28 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/coins-workflow-setup": "coinsWorkflowSetup",
   "/coins-purchase-followup": "coinsPurchaseFollowUp",
   "/coins-transaction-guide": "coinsTransactionGuide",
-   "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
-   "/shift-attendance-report": "shiftAttendanceReport",
+  "/supplier-advance-payment": "supplierAdvancePayment",
+  "/coins-sheets": "coinsSheets",
+  "/sales-sheets": "salesSheets",
+  "/pricing-scenario": "pricingScenario",
   "/missing-shift-images": "missingShiftImages",
-  "/project-setup": "projectSetup",
   "/employee-self-requests": "employeeRequests",
   "/employee-request-approvals": "employeeRequestApprovals",
   "/hr-manager-setup": "hrManagerSetup",
-  "/void-payment": "voidPayment",
+  "/acknowledgment-documents": "acknowledgmentDocuments",
+  "/sales-order-entry": "salesOrderEntry",
+  "/auto-upload": "autoUpload",
   "/wfh-checkin": "wfhCheckin",
+  "/crm": "crmAccess",
+  "/crm-setup": "crmSetup",
+  "/knowledge-base": "knowledgeBase",
+  "/api-transaction-mapping": "apiTransactionMapping",
   "/reports/payment-whatif": "paymentWhatIf",
+  "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
+  "/cancelled-orders": "cancelledOrders",
+  "/cancelled-orders-management": "cancelledOrdersManagement",
+  "/menu-customization": "menuCustomization",
 };
-
-interface MenuItem {
-  title: string;
-  titleAr: string;
-  url: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-interface MenuGroup {
-  label: string;
-  labelAr: string;
-  items: MenuItem[];
-}
-
-const menuGroups: MenuGroup[] = [
-  {
-    label: "Reports",
-    labelAr: "التقارير",
-    items: [
-      { title: "Dashboard", titleAr: "لوحة التحكم", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Ticket Dashboard", titleAr: "لوحة التذاكر", url: "/ticket-dashboard", icon: TicketCheck },
-      { title: "Shift Dashboard", titleAr: "لوحة الورديات", url: "/shift-dashboard", icon: Clock },
-      { title: "Task Dashboard", titleAr: "لوحة المهام", url: "/task-dashboard", icon: FolderKanban },
-      { title: "User Dashboard", titleAr: "لوحة المستخدم", url: "/user-dashboard", icon: Users },
-      { title: "Software & Subscription", titleAr: "البرامج والاشتراكات", url: "/software-licenses", icon: Key },
-      { title: "Reports", titleAr: "التقارير", url: "/reports", icon: FileBarChart },
-      { title: "API Documentation", titleAr: "توثيق API", url: "/api-documentation", icon: FileText },
-      { title: "Transactions", titleAr: "المعاملات", url: "/transactions", icon: Table2 },
-      { title: "Pivot Table", titleAr: "الجدول المحوري", url: "/pivot-table", icon: Grid3x3 },
-      { title: "Payment Gateway", titleAr: "توحيد بوابة الدفع", url: "/reports/payment-gateway-consolidation", icon: CreditCard },
-    ]
-  },
-  {
-    label: "Entry",
-    labelAr: "الإدخال",
-    items: [
-      { title: "Load Data", titleAr: "تحميل البيانات", url: "/load-data", icon: FileSpreadsheet },
-      { title: "Upload Log", titleAr: "سجل التحميل", url: "/upload-log", icon: Database },
-      { title: "Clear Data", titleAr: "مسح البيانات", url: "/clear-data", icon: Database },
-      { title: "My Tickets", titleAr: "تذاكري", url: "/tickets", icon: FileText },
-      { title: "Department Tickets", titleAr: "تذاكر القسم", url: "/admin-tickets", icon: Users },
-      { title: "License Entry", titleAr: "إدخال الترخيص", url: "/software-license-setup", icon: Key },
-      { title: "Shift Session", titleAr: "جلسة الوردية", url: "/shift-session", icon: Clock },
-      { title: "My Shifts Calendar", titleAr: "تقويم وردياتي", url: "/my-shifts", icon: Calendar },
-      { title: "Shift Follow-Up", titleAr: "متابعة الورديات", url: "/shift-follow-up", icon: BarChart3 },
-      { title: "Missing Images", titleAr: "صور ناقصة", url: "/missing-shift-images", icon: ImageIcon },
-      { title: "Shift Attendance Report", titleAr: "سجل حضور الورديات", url: "/shift-attendance-report", icon: ClipboardCheck },
-      { title: "Tawasoul", titleAr: "تواصل", url: "/tawasoul", icon: MessageCircle },
-      { title: "Asus Tawasoul", titleAr: "أسس تواصل", url: "/asus-tawasoul", icon: Users },
-      { title: "Email Manager", titleAr: "مدير البريد", url: "/email-manager", icon: Mail },
-      { title: "Projects & Tasks", titleAr: "المشاريع والمهام", url: "/projects-tasks", icon: FolderKanban },
-    ]
-  },
-  {
-    label: "Setup",
-    labelAr: "الإعداد",
-    items: [
-      { title: "Reports Setup", titleAr: "إعداد التقارير", url: "/reports-setup", icon: Settings },
-      { title: "Customer Setup", titleAr: "إعداد العملاء", url: "/customer-setup", icon: UserCheck },
-      { title: "Customer Profile", titleAr: "ملف العميل", url: "/customer-profile", icon: Users },
-      { title: "Customer Totals", titleAr: "إجمالي العملاء", url: "/customer-totals", icon: TrendingUp },
-      { title: "Brand Setup", titleAr: "إعداد العلامات", url: "/brand-setup", icon: Settings },
-      { title: "Brand Type", titleAr: "نوع العلامة", url: "/brand-type", icon: Settings },
-      { title: "Product Setup", titleAr: "إعداد المنتجات", url: "/product-setup", icon: Database },
-      { title: "Payment Method Setup", titleAr: "إعداد طرق الدفع", url: "/payment-method-setup", icon: CreditCard },
-      { title: "Department Management", titleAr: "إدارة الأقسام", url: "/department-management", icon: Settings },
-      { title: "Shift Setup", titleAr: "إعداد الورديات", url: "/shift-setup", icon: Clock },
-      { title: "Shift Calendar", titleAr: "تقويم الورديات", url: "/shift-calendar", icon: BarChart3 },
-      { title: "Currency Setup", titleAr: "إعداد العملات", url: "/currency-setup", icon: DollarSign },
-      { title: "User Groups", titleAr: "مجموعات المستخدمين", url: "/user-group-setup", icon: Users },
-      { title: "Project Setup", titleAr: "إعداد المشاريع", url: "/project-setup", icon: FolderKanban },
-      { title: "Task List", titleAr: "قائمة المهام", url: "/task-list", icon: ClipboardList },
-    ]
-  },
-  {
-    label: "HR Management",
-    labelAr: "الموارد البشرية",
-    items: [
-      { title: "Employee Setup", titleAr: "إعداد الموظفين", url: "/employee-setup", icon: UserCircle },
-      { title: "Employee Requests", titleAr: "طلبات الموظفين", url: "/employee-self-requests", icon: ClipboardList },
-      { title: "Request Approvals", titleAr: "اعتماد الطلبات", url: "/employee-request-approvals", icon: ClipboardCheck },
-      { title: "HR Manager Setup", titleAr: "إعداد مديري HR", url: "/hr-manager-setup", icon: Users },
-      { title: "Vacation Setup", titleAr: "إعداد الإجازات", url: "/vacation-setup", icon: Palmtree },
-      { title: "Timesheet Management", titleAr: "إدارة الحضور", url: "/timesheet-management", icon: ClipboardList },
-      { title: "ZK Attendance Logs", titleAr: "سجلات حضور ZK", url: "/zk-attendance-logs", icon: Clock },
-      { title: "Deduction Rules", titleAr: "قواعد الخصم", url: "/deduction-rules-setup", icon: Calculator },
-      { title: "Medical Insurance", titleAr: "التأمين الطبي", url: "/medical-insurance-setup", icon: HeartPulse },
-      { title: "Document Types", titleAr: "أنواع المستندات", url: "/document-type-setup", icon: FileText },
-      { title: "Attendance Types", titleAr: "أنواع الحضور", url: "/attendance-type-setup", icon: Clock },
-      { title: "Job Setup", titleAr: "إعداد الوظائف", url: "/job-setup", icon: Briefcase },
-      { title: "Vacation Calendar", titleAr: "تقويم الإجازات", url: "/hr-vacation-calendar", icon: Palmtree },
-      { title: "Company Hierarchy", titleAr: "الهيكل التنظيمي", url: "/company-hierarchy", icon: Building2 },
-      { title: "Company News", titleAr: "أخبار الشركة", url: "/company-news", icon: FileText },
-      { title: "Administrative Decisions", titleAr: "القرارات الإدارية", url: "/acknowledgment-documents", icon: ClipboardCheck },
-      { title: "WFH Check-In", titleAr: "تسجيل حضور من المنزل", url: "/wfh-checkin", icon: Home },
-    ]
-  },
-  {
-    label: "Cash Management",
-    labelAr: "إدارة النقدية",
-    items: [
-      { title: "Bank Setup", titleAr: "إعداد البنوك", url: "/bank-setup", icon: Building2 },
-      { title: "Treasury Setup", titleAr: "إعداد الخزائن", url: "/treasury-setup", icon: DollarSign },
-      { title: "Expense Categories", titleAr: "فئات المصروفات", url: "/expense-category-setup", icon: Settings },
-      { title: "Expense Types", titleAr: "أنواع المصروفات", url: "/expense-type-setup", icon: Settings },
-      { title: "Cost Centers", titleAr: "مراكز التكلفة", url: "/cost-center-setup", icon: Target },
-      { title: "Treasury Opening Balance", titleAr: "رصيد الخزينة الافتتاحي", url: "/treasury-opening-balance", icon: DollarSign },
-      { title: "Treasury Entry", titleAr: "قيد الخزينة", url: "/treasury-entry", icon: FileText },
-      { title: "Bank Entry", titleAr: "قيد البنك", url: "/bank-entry", icon: FileText },
-      { title: "Expense Entry", titleAr: "قيد المصروفات", url: "/expense-entry", icon: Receipt },
-      { title: "Expense Requests", titleAr: "طلبات المصروفات", url: "/expense-requests", icon: ClipboardList },
-      { title: "Void Payment", titleAr: "إلغاء الدفع", url: "/void-payment", icon: Undo2 },
-      { title: "Payment Bank Link", titleAr: "ربط طرق الدفع بالبنوك", url: "/payment-bank-link", icon: Link2 },
-      { title: "Payment What-If", titleAr: "سيناريو ماذا لو - الدفع", url: "/reports/payment-whatif", icon: Calculator },
-    ]
-  },
-  {
-    label: "Coins Transaction",
-    labelAr: "معاملات الكوينز",
-    items: [
-      { title: "Coins Purchase Creation", titleAr: "إنشاء طلب شراء", url: "/coins-creation", icon: DollarSign },
-      { title: "Sending Transfers", titleAr: "توجيه التحويلات", url: "/coins-sending", icon: DollarSign },
-      { title: "Receiving Phase", titleAr: "استلام من المورد", url: "/coins-receiving-phase", icon: DollarSign },
-      { title: "Receiving Coins", titleAr: "استلام الكوينز", url: "/receiving-coins", icon: DollarSign },
-      { title: "Workflow Setup", titleAr: "إعداد سير العمل", url: "/coins-workflow-setup", icon: Settings },
-      { title: "Purchase Follow-Up", titleAr: "متابعة شراء الكوينز", url: "/coins-purchase-followup", icon: DollarSign },
-      { title: "Supplier Setup", titleAr: "إعداد الموردين", url: "/supplier-setup", icon: Truck },
-      { title: "User Guide", titleAr: "دليل المستخدم", url: "/coins-transaction-guide", icon: FileText },
-    ]
-  },
-  {
-    label: "Admin",
-    labelAr: "الإدارة",
-    items: [
-      { title: "User Setup", titleAr: "إعداد المستخدمين", url: "/user-setup", icon: Users },
-      { title: "Users Logins", titleAr: "بيانات تسجيل الدخول", url: "/user-logins", icon: KeyRound },
-      { title: "Users & Mails", titleAr: "المستخدمين والبريد", url: "/user-emails", icon: Mail },
-      { title: "Mail Setup", titleAr: "إعداد البريد", url: "/mail-setup", icon: Mail },
-      { title: "System Configuration", titleAr: "إعدادات النظام", url: "/system-config", icon: Shield },
-      { title: "API Integration Status", titleAr: "حالة تكامل API", url: "/api-integration-status", icon: Cloud },
-      { title: "Closing Training", titleAr: "تدريب الإغلاق", url: "/closing-training", icon: GraduationCap },
-      { title: "Odoo Setup", titleAr: "إعداد Odoo", url: "/odoo-setup", icon: Link2 },
-      { title: "Excel Setup", titleAr: "إعداد Excel", url: "/excel-sheets", icon: FileSpreadsheet },
-      { title: "Table Config", titleAr: "إعداد الجداول", url: "/table-generator", icon: Database },
-      { title: "PDF to Excel", titleAr: "تحويل PDF إلى Excel", url: "/pdf-to-excel", icon: FileSpreadsheet },
-      { title: "System Backup", titleAr: "نسخ احتياطي", url: "/system-backup", icon: HardDrive },
-      { title: "System Restore", titleAr: "استعادة النظام", url: "/system-restore", icon: RotateCcw },
-      { title: "Audit Logs", titleAr: "سجلات التدقيق", url: "/audit-logs", icon: ClipboardCheck },
-      { title: "Certificate Management", titleAr: "إدارة الشهادات", url: "/certificate-management", icon: FileKey },
-      { title: "Security Dashboard", titleAr: "لوحة الأمان", url: "/security-dashboard", icon: Shield },
-      { title: "API Consumption Logs", titleAr: "سجلات استهلاك API", url: "/api-consumption-logs", icon: ScrollText },
-      { title: "Update Bank Ledger", titleAr: "تحديث سجل البنك", url: "/update-bank-ledger", icon: Database },
-    ]
-  }
-];
 
 export function MainPageMenu() {
   const { language } = useLanguage();
@@ -317,7 +174,7 @@ export function MainPageMenu() {
           .filter(([_, hasAccess]) => hasAccess)
           .map(([menuItem]) => menuItem)
       );
-      
+
       setUserPermissions(permissions);
     } catch (error) {
       console.error("Error fetching permissions:", error);
@@ -339,17 +196,17 @@ export function MainPageMenu() {
     );
   }
 
-  const orderedGroups = menuGroups
-    .map((group) => {
-      const gc = customizations[groupKey(group.label)];
+  const orderedGroups = DEFAULT_MENU
+    .map((group, gi) => {
+      const gc = customizations[groupKey(group.defaultEn)];
       const labelOverride =
         gc && (language === "ar" ? gc.name_ar : gc.name_en)
           ? (language === "ar" ? gc.name_ar! : gc.name_en!)
-          : (language === "ar" ? group.labelAr : group.label);
+          : (language === "ar" ? group.defaultAr : group.defaultEn);
       return {
         group,
         displayLabel: labelOverride,
-        _order: gc?.sort_order ?? 0,
+        _order: gc?.sort_order ?? gi,
         _hidden: gc?.hidden ?? false,
       };
     })
@@ -360,16 +217,17 @@ export function MainPageMenu() {
     <div className="space-y-8 p-4" dir={language === "ar" ? "rtl" : "ltr"}>
       {orderedGroups.map(({ group, displayLabel }) => {
         const items = group.items
-          .map((item) => {
+          .map((item, ii) => {
             const ic = customizations[itemKey(item.url)];
             const title =
               ic && (language === "ar" ? ic.name_ar : ic.name_en)
                 ? (language === "ar" ? ic.name_ar! : ic.name_en!)
-                : (language === "ar" ? item.titleAr : item.title);
+                : (language === "ar" ? item.defaultAr : item.defaultEn);
             return {
-              ...item,
+              url: item.url,
+              icon: item.icon,
               displayTitle: title,
-              _order: ic?.sort_order ?? 0,
+              _order: ic?.sort_order ?? ii,
               _hidden: ic?.hidden ?? false,
             };
           })
@@ -379,7 +237,7 @@ export function MainPageMenu() {
         if (items.length === 0) return null;
 
         return (
-          <div key={group.label} className="space-y-4">
+          <div key={group.defaultEn} className="space-y-4">
             <h2 className="text-lg font-semibold text-primary border-b border-border pb-2">
               {displayLabel}
             </h2>
