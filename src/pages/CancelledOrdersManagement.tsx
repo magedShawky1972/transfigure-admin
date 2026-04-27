@@ -50,6 +50,31 @@ export default function CancelledOrdersManagement() {
     XLSX.writeFile(wb, "cancelled_orders_template.xlsx");
   };
 
+  const exportToExcel = () => {
+    if (rows.length === 0) {
+      toast({
+        title: isAr ? "لا توجد بيانات" : "No data",
+        description: isAr ? "لا توجد سجلات للتصدير في هذه الفترة." : "No records to export in this period.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const data = rows.map((r) => ({
+      [isAr ? "رقم الطلب" : "Order Number"]: r.order_number,
+      [isAr ? "الموظف" : "Employee"]: r.submitted_by_name || "",
+      [isAr ? "الوردية" : "Shift"]: r.shift_name || "",
+      [isAr ? "تاريخ الإرسال" : "Submitted At"]: format(new Date(r.created_at), "yyyy-MM-dd HH:mm"),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cancelled Orders");
+    XLSX.writeFile(wb, `cancelled_orders_${dateFrom}_to_${dateTo}.xlsx`);
+    toast({
+      title: isAr ? "تم التصدير" : "Exported",
+      description: isAr ? `تم تصدير ${rows.length} سجل.` : `Exported ${rows.length} record(s).`,
+    });
+  };
+
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -249,6 +274,16 @@ export default function CancelledOrdersManagement() {
             >
               <Download className="h-4 w-4 mr-2" />
               {isAr ? "نموذج" : "Template"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportToExcel}
+              disabled={loading || rows.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isAr ? "تصدير" : "Export"}
             </Button>
             <Button
               type="button"
