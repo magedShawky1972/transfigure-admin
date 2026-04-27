@@ -243,13 +243,22 @@ interface UserPermission {
         { key: "systemRestore", label: "استعادة النظام", labelEn: "System Restore" },
         { key: "auditLogs", label: "سجلات التدقيق", labelEn: "Audit Logs" },
         { key: "certificateManagement", label: "إدارة الشهادات", labelEn: "Certificate Management" },
-        { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
         { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
         { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
         { key: "autoUpload", label: "التحميل التلقائي", labelEn: "Auto Upload" },
         { key: "apiTransactionMapping", label: "خريطة حقول المعاملات", labelEn: "Transaction Mapping" },
         { key: "allowCrmLogin", label: "السماح بتسجيل الدخول إلى CRM", labelEn: "Allow Login To CRM" },
         { key: "menuCustomization", label: "تخصيص القائمة", labelEn: "Menu Customization" },
+        { key: "integrations", label: "التكاملات", labelEn: "Integrations" },
+      ]
+    },
+    {
+      groupKey: "security",
+      labelAr: "الأمان",
+      labelEn: "Security",
+      items: [
+        { key: "securityDashboard", label: "لوحة الأمان", labelEn: "Security Dashboard" },
+        { key: "integrationAccessControl", label: "صلاحيات التكاملات", labelEn: "Integration Access Control" },
       ]
     }
   ];
