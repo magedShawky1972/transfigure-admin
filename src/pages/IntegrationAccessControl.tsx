@@ -334,9 +334,9 @@ function MatrixSection({
             <p className="font-medium truncate">{r.target_label || r.target_id}</p>
             <p className="text-xs text-muted-foreground">{TYPE_META[type].label}</p>
           </div>
-          {dirty[r.id] && <Badge variant="outline" className="text-xs">Unsaved</Badge>}
+          {dirty[r.id] && <Badge variant="outline" className="text-xs">غير محفوظ</Badge>}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{r.enabled ? "Enabled" : "Disabled"}</span>
+            <span className="text-xs text-muted-foreground">{r.enabled ? "مفعّل" : "معطّل"}</span>
             <Switch checked={r.enabled} onCheckedChange={(v) => onToggle(r.id, v)} />
           </div>
           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => onRemove(r)}>
