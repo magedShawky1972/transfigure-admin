@@ -98,6 +98,7 @@ const EMPTY_FORM = {
   type: "oauth" as IntegrationType,
   status: "active" as IntegrationStatus,
   scopes: "",
+  start_date: "",
   expires_at: "",
 };
 
