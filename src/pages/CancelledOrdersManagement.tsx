@@ -170,13 +170,13 @@ export default function CancelledOrdersManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10">
+                    <TableCell colSpan={5} className="text-center py-10">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                       {isAr ? "لا توجد طلبات إلغاء في هذه الفترة." : "No cancellation requests in this period."}
                     </TableCell>
                   </TableRow>
