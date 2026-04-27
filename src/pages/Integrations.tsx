@@ -15,6 +15,7 @@ import {
   Plug, Plus, Search, Settings, Trash2, AlertTriangle, ShieldCheck, Activity,
   CheckCircle2, XCircle, MinusCircle, Power, ShieldAlert, Clock,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type IntegrationType = "oauth" | "api_key" | "webhook";
 type IntegrationStatus = "active" | "warning" | "error" | "disabled";
