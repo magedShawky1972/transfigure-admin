@@ -104,6 +104,13 @@ const EMPTY_FORM = {
 };
 
 export default function Integrations() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+  const tt = (en: string, ar: string) => (isAr ? ar : en);
+  const STATUS_META = useMemo(() => buildStatusMeta(isAr), [isAr]);
+  const TYPE_LABEL = useMemo(() => buildTypeLabel(isAr), [isAr]);
+  const FILTERS = useMemo(() => buildFilters(isAr), [isAr]);
+
   const [items, setItems] = useState<Integration[]>([]);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
