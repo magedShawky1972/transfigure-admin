@@ -474,6 +474,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'التحميل التلقائي' : 'Auto Upload', url: "/auto-upload", icon: Bot },
         { title: language === 'ar' ? 'خريطة حقول المعاملات' : 'Transaction Mapping', url: "/api-transaction-mapping", icon: ArrowRightLeft },
         { title: language === 'ar' ? 'إدارة الطلبات الملغاة' : 'Cancelled Orders Management', url: "/cancelled-orders-management", icon: ListX },
+        { title: language === 'ar' ? 'تخصيص القائمة' : 'Menu Customization', url: "/menu-customization", icon: Settings },
       ]
     }
   ];
