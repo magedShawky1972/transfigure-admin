@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { usePageAccess } from "@/hooks/usePageAccess";
+import { AccessDenied } from "@/components/AccessDenied";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +41,7 @@ const TYPE_META: Record<TargetType, { label: string; icon: any }> = {
 };
 
 export default function IntegrationAccessControl() {
+  const { hasAccess, isLoading: accessLoading } = usePageAccess("/integration-access-control");
   const [searchParams, setSearchParams] = useSearchParams();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -170,6 +173,9 @@ export default function IntegrationAccessControl() {
     setDirty({});
     toast({ title: "Saved", description: `${changed.length} rule${changed.length === 1 ? "" : "s"} updated` });
   };
+
+  if (accessLoading || hasAccess === null) return <AccessDenied isLoading />;
+  if (hasAccess === false) return <AccessDenied />;
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
