@@ -370,7 +370,7 @@ export default function Integrations() {
                     </div>
                     <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {formatRel(a.created_at)}
+                      {formatRel(a.created_at, isAr)}
                     </span>
                   </li>
                 );
