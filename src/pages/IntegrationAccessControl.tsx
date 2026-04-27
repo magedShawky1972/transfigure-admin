@@ -160,7 +160,7 @@ export default function IntegrationAccessControl() {
   const saveAll = async () => {
     const changed = rows.filter((r) => dirty[r.id]);
     if (changed.length === 0) {
-      toast({ title: "لا يوجد ما يتم حفظه" });
+      toast({ title: tt("Nothing to save", "لا يوجد ما يتم حفظه") });
       return;
     }
     setSaving(true);
@@ -172,11 +172,11 @@ export default function IntegrationAccessControl() {
     setSaving(false);
     const failed = updates.filter((u) => u.error);
     if (failed.length) {
-      toast({ title: "فشلت بعض التحديثات", description: failed[0].error!.message, variant: "destructive" });
+      toast({ title: tt("Some updates failed", "فشلت بعض التحديثات"), description: failed[0].error!.message, variant: "destructive" });
       return;
     }
     setDirty({});
-    toast({ title: "تم الحفظ", description: `تم تحديث ${changed.length} قاعدة` });
+    toast({ title: tt("Saved", "تم الحفظ"), description: tt(`${changed.length} rule${changed.length === 1 ? "" : "s"} updated`, `تم تحديث ${changed.length} قاعدة`) });
   };
 
   if (accessLoading || hasAccess === null) return <AccessDenied isLoading />;
