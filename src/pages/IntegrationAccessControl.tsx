@@ -321,7 +321,7 @@ function MatrixSection({
   if (rows.length === 0) {
     return (
       <div className="text-center py-10 text-sm text-muted-foreground">
-        No {TYPE_META[type].label.toLowerCase()} rules yet. Add one above.
+        لا توجد قواعد {TYPE_META[type].label} بعد. أضف واحدة بالأعلى.
       </div>
     );
   }
