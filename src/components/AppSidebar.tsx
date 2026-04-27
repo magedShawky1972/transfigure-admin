@@ -189,6 +189,8 @@ export function AppSidebar() {
     "/api-transaction-mapping": "apiTransactionMapping",
     "/reports/payment-whatif": "paymentWhatIf",
     "/reports/payment-gateway-consolidation": "paymentGatewayConsolidation",
+    "/cancelled-orders": "cancelledOrders",
+    "/cancelled-orders-management": "cancelledOrdersManagement",
   };
 
   useEffect(() => {
@@ -356,6 +358,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
         { title: language === 'ar' ? "إدخال أمر البيع" : "Sales Order Entry", url: "/sales-order-entry", icon: Receipt },
         { title: language === 'ar' ? 'سيناريو التسعير' : 'Pricing Scenario', url: "/pricing-scenario", icon: Calculator },
+        { title: language === 'ar' ? 'الطلبات الملغاة' : 'Cancelled Orders', url: "/cancelled-orders", icon: Undo2 },
       ]
     },
     {
@@ -458,6 +461,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? 'تحديث سجل البنك' : 'Update Bank Ledger', url: "/update-bank-ledger", icon: Database },
         { title: language === 'ar' ? 'التحميل التلقائي' : 'Auto Upload', url: "/auto-upload", icon: Bot },
         { title: language === 'ar' ? 'خريطة حقول المعاملات' : 'Transaction Mapping', url: "/api-transaction-mapping", icon: ArrowRightLeft },
+        { title: language === 'ar' ? 'إدارة الطلبات الملغاة' : 'Cancelled Orders Management', url: "/cancelled-orders-management", icon: ListX },
       ]
     }
   ];
