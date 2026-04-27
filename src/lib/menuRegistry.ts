@@ -225,7 +225,6 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/system-restore", defaultEn: "System Restore", defaultAr: "استعادة النظام", icon: RotateCcw },
       { url: "/audit-logs", defaultEn: "Audit Logs", defaultAr: "سجلات التدقيق", icon: ClipboardCheck },
       { url: "/certificate-management", defaultEn: "Certificate Management", defaultAr: "إدارة الشهادات", icon: FileKey },
-      { url: "/security-dashboard", defaultEn: "Security Dashboard", defaultAr: "لوحة الأمان", icon: Shield },
       { url: "/api-consumption-logs", defaultEn: "API Consumption Logs", defaultAr: "سجلات استهلاك API", icon: ScrollText },
       { url: "/update-bank-ledger", defaultEn: "Update Bank Ledger", defaultAr: "تحديث سجل البنك", icon: Database },
       { url: "/auto-upload", defaultEn: "Auto Upload", defaultAr: "التحميل التلقائي", icon: Bot },
@@ -233,6 +232,13 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/cancelled-orders-management", defaultEn: "Cancelled Orders Management", defaultAr: "إدارة الطلبات الملغاة", icon: ListX },
       { url: "/menu-customization", defaultEn: "Menu Customization", defaultAr: "تخصيص القائمة", icon: Settings },
       { url: "/integrations", defaultEn: "Integrations", defaultAr: "التكاملات", icon: Plug },
+    ],
+  },
+  {
+    defaultEn: "Security",
+    defaultAr: "الأمان",
+    items: [
+      { url: "/security-dashboard", defaultEn: "Security Dashboard", defaultAr: "لوحة الأمان", icon: Shield },
       { url: "/integration-access-control", defaultEn: "Integration Access Control", defaultAr: "صلاحيات التكاملات", icon: ShieldCheck },
     ],
   },
