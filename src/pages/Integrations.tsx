@@ -369,61 +369,61 @@ export default function Integrations() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Integration" : "Add Integration"}</DialogTitle>
+            <DialogTitle>{editingId ? "تعديل التكامل" : "إضافة تكامل"}</DialogTitle>
             <DialogDescription>
-              Configure connection details. Per-user/role access is managed in Access Control.
+              قم بإعداد تفاصيل الاتصال. تتم إدارة الوصول لكل مستخدم/دور من صلاحيات الوصول.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Slack" />
+              <Label>الاسم *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="مثال: Slack" />
             </div>
             <div>
-              <Label>App Identifier</Label>
+              <Label>معرّف التطبيق</Label>
               <Input value={form.app_key} onChange={(e) => setForm({ ...form, app_key: e.target.value })} placeholder="slack" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Type</Label>
+                <Label>النوع</Label>
                 <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as IntegrationType })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="oauth">OAuth</SelectItem>
-                    <SelectItem value="api_key">API Key</SelectItem>
+                    <SelectItem value="api_key">مفتاح API</SelectItem>
                     <SelectItem value="webhook">Webhook</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Status</Label>
+                <Label>الحالة</Label>
                 <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as IntegrationStatus })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="warning">Warning</SelectItem>
-                    <SelectItem value="error">Error</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
+                    <SelectItem value="active">نشط</SelectItem>
+                    <SelectItem value="warning">تحذير</SelectItem>
+                    <SelectItem value="error">خطأ</SelectItem>
+                    <SelectItem value="disabled">معطل</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div>
-              <Label>Scopes (comma separated)</Label>
+              <Label>الصلاحيات (مفصولة بفاصلة)</Label>
               <Input value={form.scopes} onChange={(e) => setForm({ ...form, scopes: e.target.value })} placeholder="read:users, write:messages" />
             </div>
             <div>
-              <Label>Expires At</Label>
+              <Label>تاريخ الانتهاء</Label>
               <Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
             </div>
             <div>
-              <Label>Description</Label>
+              <Label>الوصف</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={save}>{editingId ? "Save changes" : "Add"}</Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>إلغاء</Button>
+            <Button onClick={save}>{editingId ? "حفظ التغييرات" : "إضافة"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
