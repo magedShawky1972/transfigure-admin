@@ -188,40 +188,40 @@ export default function IntegrationAccessControl() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <ShieldCheck className="h-7 w-7 text-primary" />
-            صلاحيات التكاملات
+            {tt("Integration Access Control", "صلاحيات التكاملات")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            تفعيل أو تعطيل كل تكامل لكل مستخدم أو دور أو مجموعة
+            {tt("Enable or disable each integration per user, role, or group", "تفعيل أو تعطيل كل تكامل لكل مستخدم أو دور أو مجموعة")}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link to="/integrations"><ArrowLeft className="h-4 w-4 mr-2" />العودة إلى التكاملات</Link>
+            <Link to="/integrations"><ArrowLeft className="h-4 w-4 mr-2" />{tt("Back to Integrations", "العودة إلى التكاملات")}</Link>
           </Button>
           <Button onClick={saveAll} disabled={saving || Object.keys(dirty).length === 0}>
             <Save className="h-4 w-4 mr-2" />
-            حفظ التغييرات
+            {tt("Save changes", "حفظ التغييرات")}
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">التكامل</CardTitle>
-          <CardDescription>اختر تكاملاً لإعداد مصفوفة الصلاحيات الخاصة به</CardDescription>
+          <CardTitle className="text-lg">{tt("Integration", "التكامل")}</CardTitle>
+          <CardDescription>{tt("Select an integration to configure its permission matrix", "اختر تكاملاً لإعداد مصفوفة الصلاحيات الخاصة به")}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-muted-foreground">جارٍ التحميل…</p>
+            <p className="text-muted-foreground">{tt("Loading…", "جارٍ التحميل…")}</p>
           ) : integrations.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              لا توجد تكاملات مُعدّة. <Link to="/integrations" className="text-primary hover:underline">أضف واحداً</Link> أولاً.
+              {tt("No integrations configured.", "لا توجد تكاملات مُعدّة.")} <Link to="/integrations" className="text-primary hover:underline">{tt("Add one", "أضف واحداً")}</Link> {tt("first.", "أولاً.")}
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <Select value={selectedId} onValueChange={onPick}>
                 <SelectTrigger className="w-full sm:w-80">
-                  <SelectValue placeholder="اختر التكامل" />
+                  <SelectValue placeholder={tt("Choose integration", "اختر التكامل")} />
                 </SelectTrigger>
                 <SelectContent>
                   {integrations.map((i) => (
@@ -242,26 +242,26 @@ export default function IntegrationAccessControl() {
           {/* Add rule */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">إضافة قاعدة صلاحية</CardTitle>
-              <CardDescription>منح أو تقييد هذا التكامل لدور أو مجموعة أو مستخدم محدد</CardDescription>
+              <CardTitle className="text-base">{tt("Add Access Rule", "إضافة قاعدة صلاحية")}</CardTitle>
+              <CardDescription>{tt("Grant or restrict this integration for a specific role, group, or user", "منح أو تقييد هذا التكامل لدور أو مجموعة أو مستخدم محدد")}</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <Label>النوع</Label>
+                <Label>{tt("Type", "النوع")}</Label>
                 <Select value={newType} onValueChange={(v) => { setNewType(v as TargetType); setNewTargetId(""); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="role">دور</SelectItem>
-                    <SelectItem value="group">مجموعة</SelectItem>
-                    <SelectItem value="user">مستخدم</SelectItem>
+                    <SelectItem value="role">{tt("Role", "دور")}</SelectItem>
+                    <SelectItem value="group">{tt("Group", "مجموعة")}</SelectItem>
+                    <SelectItem value="user">{tt("User", "مستخدم")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="sm:col-span-2 flex gap-2 items-end">
                 <div className="flex-1">
-                  <Label>الهدف</Label>
+                  <Label>{tt("Target", "الهدف")}</Label>
                   <Select value={newTargetId} onValueChange={setNewTargetId}>
-                    <SelectTrigger><SelectValue placeholder="اختر…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tt("Select…", "اختر…")} /></SelectTrigger>
                     <SelectContent>
                       {newType === "role" && ROLES.map((r) => (
                         <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
@@ -275,7 +275,7 @@ export default function IntegrationAccessControl() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={addRow}><Plus className="h-4 w-4 mr-1" />إضافة</Button>
+                <Button onClick={addRow}><Plus className="h-4 w-4 mr-1" />{tt("Add", "إضافة")}</Button>
               </div>
             </CardContent>
           </Card>
@@ -283,15 +283,15 @@ export default function IntegrationAccessControl() {
           {/* Matrix */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">مصفوفة الصلاحيات</CardTitle>
-              <CardDescription>قم بتبديل الوصول. اضغط حفظ التغييرات عند الانتهاء.</CardDescription>
+              <CardTitle className="text-base">{tt("Permission Matrix", "مصفوفة الصلاحيات")}</CardTitle>
+              <CardDescription>{tt("Toggle access. Click Save changes when done.", "قم بتبديل الوصول. اضغط حفظ التغييرات عند الانتهاء.")}</CardDescription>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="role">
                 <TabsList>
-                  <TabsTrigger value="role">الأدوار ({grouped.role.length})</TabsTrigger>
-                  <TabsTrigger value="group">المجموعات ({grouped.group.length})</TabsTrigger>
-                  <TabsTrigger value="user">المستخدمون ({grouped.user.length})</TabsTrigger>
+                  <TabsTrigger value="role">{tt("Roles", "الأدوار")} ({grouped.role.length})</TabsTrigger>
+                  <TabsTrigger value="group">{tt("Groups", "المجموعات")} ({grouped.group.length})</TabsTrigger>
+                  <TabsTrigger value="user">{tt("Users", "المستخدمون")} ({grouped.user.length})</TabsTrigger>
                 </TabsList>
                 {(["role", "group", "user"] as TargetType[]).map((t) => (
                   <TabsContent key={t} value={t}>
