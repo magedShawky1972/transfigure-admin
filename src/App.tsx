@@ -167,6 +167,8 @@ import PaymentWhatIfScenario from "./pages/PaymentWhatIfScenario";
 import CRMIntegrationDoc from "./pages/CRMIntegrationDoc";
 import CRMSession from "./pages/CRMSession";
 import PaymentGatewayConsolidation from "./pages/PaymentGatewayConsolidation";
+import Integrations from "./pages/Integrations";
+import IntegrationAccessControl from "./pages/IntegrationAccessControl";
 import { GlobalMigrationRecovery } from "./components/GlobalMigrationRecovery";
 const queryClient = new QueryClient();
 
@@ -343,6 +345,8 @@ const App = () => (
               <Route path="/crm-session" element={<CRMSession />} />
               <Route path="/pricing-scenario" element={<PricingScenario />} />
               <Route path="/reports/payment-gateway-consolidation" element={<PaymentGatewayConsolidation />} />
+              <Route path="/integrations" element={<Integrations />} />
+              <Route path="/integration-access-control" element={<IntegrationAccessControl />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

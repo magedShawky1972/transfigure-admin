@@ -4576,6 +4576,145 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_access: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          integration_id: string
+          target_id: string
+          target_label: string | null
+          target_type: Database["public"]["Enums"]["integration_access_target"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          integration_id: string
+          target_id: string
+          target_label?: string | null
+          target_type: Database["public"]["Enums"]["integration_access_target"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          integration_id?: string
+          target_id?: string
+          target_label?: string | null
+          target_type?: Database["public"]["Enums"]["integration_access_target"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_access_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_activity: {
+        Row: {
+          action: string
+          app_name: string
+          created_at: string
+          id: string
+          integration_id: string | null
+          metadata: Json | null
+          status: string
+        }
+        Insert: {
+          action: string
+          app_name: string
+          created_at?: string
+          id?: string
+          integration_id?: string | null
+          metadata?: Json | null
+          status?: string
+        }
+        Update: {
+          action?: string
+          app_name?: string
+          created_at?: string
+          id?: string
+          integration_id?: string | null
+          metadata?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_activity_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          app_key: string | null
+          connected_at: string
+          created_at: string
+          daily_requests: number
+          description: string | null
+          expires_at: string | null
+          icon_url: string | null
+          id: string
+          last_sync_at: string | null
+          monthly_requests: number
+          name: string
+          scopes: string[]
+          status: Database["public"]["Enums"]["integration_status"]
+          success_rate: number
+          type: Database["public"]["Enums"]["integration_type"]
+          updated_at: string
+          warning_message: string | null
+        }
+        Insert: {
+          app_key?: string | null
+          connected_at?: string
+          created_at?: string
+          daily_requests?: number
+          description?: string | null
+          expires_at?: string | null
+          icon_url?: string | null
+          id?: string
+          last_sync_at?: string | null
+          monthly_requests?: number
+          name: string
+          scopes?: string[]
+          status?: Database["public"]["Enums"]["integration_status"]
+          success_rate?: number
+          type?: Database["public"]["Enums"]["integration_type"]
+          updated_at?: string
+          warning_message?: string | null
+        }
+        Update: {
+          app_key?: string | null
+          connected_at?: string
+          created_at?: string
+          daily_requests?: number
+          description?: string | null
+          expires_at?: string | null
+          icon_url?: string | null
+          id?: string
+          last_sync_at?: string | null
+          monthly_requests?: number
+          name?: string
+          scopes?: string[]
+          status?: Database["public"]["Enums"]["integration_status"]
+          success_rate?: number
+          type?: Database["public"]["Enums"]["integration_type"]
+          updated_at?: string
+          warning_message?: string | null
+        }
+        Relationships: []
+      }
       internal_conversation_participants: {
         Row: {
           conversation_id: string
@@ -11439,6 +11578,9 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       employment_status: "active" | "on_leave" | "terminated" | "suspended"
+      integration_access_target: "user" | "role" | "group"
+      integration_status: "active" | "warning" | "error" | "disabled"
+      integration_type: "oauth" | "api_key" | "webhook"
       shift_type: "fixed" | "rotating"
     }
     CompositeTypes: {
@@ -11569,6 +11711,9 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       employment_status: ["active", "on_leave", "terminated", "suspended"],
+      integration_access_target: ["user", "role", "group"],
+      integration_status: ["active", "warning", "error", "disabled"],
+      integration_type: ["oauth", "api_key", "webhook"],
       shift_type: ["fixed", "rotating"],
     },
   },
