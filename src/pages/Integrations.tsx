@@ -333,6 +333,9 @@ export default function Integrations() {
               onEdit={() => openEdit(i)}
               onToggle={() => toggleStatus(i)}
               onDisconnect={() => disconnect(i)}
+              statusMeta={STATUS_META}
+              typeLabel={TYPE_LABEL}
+              isAr={isAr}
             />
           ))}
         </div>
