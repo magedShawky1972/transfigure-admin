@@ -187,6 +187,7 @@ export default function Integrations() {
       type: form.type,
       status: form.status,
       scopes: form.scopes.split(",").map((s) => s.trim()).filter(Boolean),
+      start_date: form.start_date || null,
       expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
     };
     let err;
