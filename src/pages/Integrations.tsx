@@ -241,32 +241,32 @@ export default function Integrations() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Plug className="h-7 w-7 text-primary" />
-            Integrations
+            التكاملات
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {stats.active} of {stats.total} apps connected
+            {stats.active} من {stats.total} تطبيقات متصلة
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to="/integration-access-control">
               <ShieldCheck className="h-4 w-4 mr-2" />
-              Access Control
+              صلاحيات الوصول
             </Link>
           </Button>
           <Button onClick={openAdd}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Integration
+            إضافة تكامل
           </Button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Integrations" value={stats.total} icon={Plug} />
-        <StatCard label="Active" value={stats.active} icon={CheckCircle2} accent="text-emerald-600" />
-        <StatCard label="API Requests / Month" value={stats.requests.toLocaleString()} icon={Activity} accent="text-primary" />
-        <StatCard label="Need Attention" value={stats.attention} icon={ShieldAlert} accent="text-amber-600" />
+        <StatCard label="إجمالي التكاملات" value={stats.total} icon={Plug} />
+        <StatCard label="نشط" value={stats.active} icon={CheckCircle2} accent="text-emerald-600" />
+        <StatCard label="طلبات API / شهرياً" value={stats.requests.toLocaleString()} icon={Activity} accent="text-primary" />
+        <StatCard label="يحتاج إلى انتباه" value={stats.attention} icon={ShieldAlert} accent="text-amber-600" />
       </div>
 
       {/* Filter bar */}
@@ -291,7 +291,7 @@ export default function Integrations() {
         <div className="sm:ml-auto relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search integrations..."
+            placeholder="بحث في التكاملات..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -301,15 +301,15 @@ export default function Integrations() {
 
       {/* Cards grid */}
       {loading ? (
-        <div className="text-center text-muted-foreground py-12">Loading…</div>
+        <div className="text-center text-muted-foreground py-12">جارٍ التحميل…</div>
       ) : filtered.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-16 text-center space-y-3">
             <Plug className="h-10 w-10 mx-auto text-muted-foreground" />
             <p className="text-muted-foreground">
-              {items.length === 0 ? "No integrations yet" : "No integrations match your filters"}
+              {items.length === 0 ? "لا توجد تكاملات بعد" : "لا توجد تكاملات تطابق الفلاتر"}
             </p>
-            {items.length === 0 && <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />Add your first integration</Button>}
+            {items.length === 0 && <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />أضف أول تكامل</Button>}
           </CardContent>
         </Card>
       ) : (
@@ -331,13 +331,13 @@ export default function Integrations() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            Recent Activity
+            النشاط الأخير
           </CardTitle>
-          <CardDescription>Latest events across all connected integrations</CardDescription>
+          <CardDescription>أحدث الأحداث عبر جميع التكاملات المتصلة</CardDescription>
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">No recent activity</p>
+            <p className="text-sm text-muted-foreground py-6 text-center">لا يوجد نشاط حديث</p>
           ) : (
             <ul className="divide-y">
               {activity.map((a) => {
