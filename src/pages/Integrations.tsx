@@ -346,13 +346,13 @@ export default function Integrations() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            النشاط الأخير
+            {tt("Recent Activity", "النشاط الأخير")}
           </CardTitle>
-          <CardDescription>أحدث الأحداث عبر جميع التكاملات المتصلة</CardDescription>
+          <CardDescription>{tt("Latest events across all connected integrations", "أحدث الأحداث عبر جميع التكاملات المتصلة")}</CardDescription>
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">لا يوجد نشاط حديث</p>
+            <p className="text-sm text-muted-foreground py-6 text-center">{tt("No recent activity", "لا يوجد نشاط حديث")}</p>
           ) : (
             <ul className="divide-y">
               {activity.map((a) => {
