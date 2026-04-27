@@ -169,6 +169,7 @@ export default function Integrations() {
       type: i.type,
       status: i.status,
       scopes: (i.scopes || []).join(", "),
+      start_date: i.start_date ? i.start_date.slice(0, 10) : "",
       expires_at: i.expires_at ? i.expires_at.slice(0, 10) : "",
     });
     setAddOpen(true);
