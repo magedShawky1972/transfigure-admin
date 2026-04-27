@@ -359,7 +359,7 @@ export function AppSidebar() {
         { title: language === 'ar' ? "المشاريع والمهام" : "Projects & Tasks", url: "/projects-tasks", icon: FolderKanban },
         { title: language === 'ar' ? "إدخال أمر البيع" : "Sales Order Entry", url: "/sales-order-entry", icon: Receipt },
         { title: language === 'ar' ? 'سيناريو التسعير' : 'Pricing Scenario', url: "/pricing-scenario", icon: Calculator },
-        { title: language === 'ar' ? 'الطلبات الملغاة' : 'Cancelled Orders', url: "/cancelled-orders", icon: Undo2 },
+        { title: language === 'ar' ? 'الطلبات الملغاة تم تنفيذها يدوي' : 'Cancelled Orders', url: "/cancelled-orders", icon: Undo2 },
       ]
     },
     {
