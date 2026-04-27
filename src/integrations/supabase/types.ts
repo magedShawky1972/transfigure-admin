@@ -5029,6 +5029,45 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_customizations: {
+        Row: {
+          created_at: string
+          hidden: boolean
+          icon: string | null
+          id: string
+          key: string
+          kind: string
+          name_ar: string | null
+          name_en: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hidden?: boolean
+          icon?: string | null
+          id?: string
+          key: string
+          kind: string
+          name_ar?: string | null
+          name_en?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hidden?: boolean
+          icon?: string | null
+          id?: string
+          key?: string
+          kind?: string
+          name_ar?: string | null
+          name_en?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       migration_jobs: {
         Row: {
           cancel_requested: boolean | null
