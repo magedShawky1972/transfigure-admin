@@ -1,0 +1,177 @@
+// Default sidebar registry (kept in sync with AppSidebar.tsx).
+// Used by the Menu Customization admin page to know which groups/items exist
+// and their default English/Arabic names.
+
+export interface DefaultItem {
+  url: string;
+  defaultEn: string;
+  defaultAr: string;
+}
+
+export interface DefaultGroup {
+  defaultEn: string;
+  defaultAr: string;
+  items: DefaultItem[];
+}
+
+export const DEFAULT_MENU: DefaultGroup[] = [
+  {
+    defaultEn: "Reports",
+    defaultAr: "التقارير",
+    items: [
+      { url: "/dashboard", defaultEn: "Dashboard", defaultAr: "لوحة التحكم" },
+      { url: "/ticket-dashboard", defaultEn: "Ticket Dashboard", defaultAr: "لوحة التذاكر" },
+      { url: "/shift-dashboard", defaultEn: "Shift Dashboard", defaultAr: "لوحة الورديات" },
+      { url: "/task-dashboard", defaultEn: "Task Dashboard", defaultAr: "لوحة المهام" },
+      { url: "/user-dashboard", defaultEn: "Employee Dashboard", defaultAr: "لوحة الموظف" },
+      { url: "/software-licenses", defaultEn: "Software & Subscription", defaultAr: "البرامج والاشتراكات" },
+      { url: "/reports", defaultEn: "Reports", defaultAr: "التقارير" },
+      { url: "/api-documentation", defaultEn: "API Documentation", defaultAr: "توثيق API" },
+      { url: "/transactions", defaultEn: "Transactions", defaultAr: "المعاملات" },
+      { url: "/pivot-table", defaultEn: "Pivot Table", defaultAr: "جدول محوري" },
+      { url: "/reports/payment-gateway-consolidation", defaultEn: "Payment Gateway", defaultAr: "توحيد بوابة الدفع" },
+    ],
+  },
+  {
+    defaultEn: "CRM",
+    defaultAr: "إدارة العملاء",
+    items: [
+      { url: "/crm", defaultEn: "Case Board", defaultAr: "خدمة العملاء" },
+      { url: "/knowledge-base", defaultEn: "Knowledge Base", defaultAr: "قاعدة المعرفة" },
+      { url: "/crm-setup", defaultEn: "CRM Setup", defaultAr: "إعداد CRM" },
+    ],
+  },
+  {
+    defaultEn: "Entry",
+    defaultAr: "الإدخال",
+    items: [
+      { url: "/load-data", defaultEn: "Load Data", defaultAr: "تحميل البيانات" },
+      { url: "/upload-log", defaultEn: "Upload Log", defaultAr: "سجل التحميل" },
+      { url: "/clear-data", defaultEn: "Clear Data", defaultAr: "مسح البيانات" },
+      { url: "/tickets", defaultEn: "My Tickets", defaultAr: "تذاكري" },
+      { url: "/admin-tickets", defaultEn: "Department Tickets", defaultAr: "تذاكر القسم" },
+      { url: "/software-license-setup", defaultEn: "License Entry", defaultAr: "إدخال الترخيص" },
+      { url: "/shift-session", defaultEn: "Shift Session", defaultAr: "جلسة الوردية" },
+      { url: "/my-shifts", defaultEn: "My Shifts Calendar", defaultAr: "تقويم وردياتي" },
+      { url: "/shift-follow-up", defaultEn: "Shift Follow-Up", defaultAr: "متابعة الورديات" },
+      { url: "/missing-shift-images", defaultEn: "Missing Images", defaultAr: "صور ناقصة" },
+      { url: "/shift-attendance-report", defaultEn: "Shift Attendance Report", defaultAr: "سجل حضور الورديات" },
+      { url: "/tawasoul", defaultEn: "Tawasoul", defaultAr: "تواصل" },
+      { url: "/asus-tawasoul", defaultEn: "Asus Tawasoul", defaultAr: "أسس تواصل" },
+      { url: "/email-manager", defaultEn: "Email Manager", defaultAr: "مدير البريد" },
+      { url: "/projects-tasks", defaultEn: "Projects & Tasks", defaultAr: "المشاريع والمهام" },
+      { url: "/sales-order-entry", defaultEn: "Sales Order Entry", defaultAr: "إدخال أمر البيع" },
+      { url: "/pricing-scenario", defaultEn: "Pricing Scenario", defaultAr: "سيناريو التسعير" },
+      { url: "/cancelled-orders", defaultEn: "Cancelled Orders Manually Executed", defaultAr: "الطلبات الملغاة تم تنفيذها يدوي" },
+    ],
+  },
+  {
+    defaultEn: "Setup",
+    defaultAr: "الإعداد",
+    items: [
+      { url: "/reports-setup", defaultEn: "Reports Setup", defaultAr: "إعداد التقارير" },
+      { url: "/customer-setup", defaultEn: "Customer Setup", defaultAr: "إعداد العملاء" },
+      { url: "/customer-profile", defaultEn: "Customer Profile", defaultAr: "ملف العميل" },
+      { url: "/customer-totals", defaultEn: "Customer Totals", defaultAr: "إجماليات العملاء" },
+      { url: "/brand-setup", defaultEn: "Brand Setup", defaultAr: "إعداد العلامات" },
+      { url: "/brand-type", defaultEn: "Brand Type", defaultAr: "نوع العلامة" },
+      { url: "/product-setup", defaultEn: "Product Setup", defaultAr: "إعداد المنتجات" },
+      { url: "/payment-method-setup", defaultEn: "Payment Method Setup", defaultAr: "إعداد طرق الدفع" },
+      { url: "/shift-setup", defaultEn: "Shift Setup", defaultAr: "إعداد الورديات" },
+      { url: "/shift-calendar", defaultEn: "Shift Calendar", defaultAr: "تقويم الورديات" },
+      { url: "/currency-setup", defaultEn: "Currency Setup", defaultAr: "إعداد العملات" },
+      { url: "/user-group-setup", defaultEn: "User Groups", defaultAr: "مجموعات المستخدمين" },
+      { url: "/project-setup", defaultEn: "Project Setup", defaultAr: "إعداد المشاريع" },
+      { url: "/task-list", defaultEn: "Task List", defaultAr: "قائمة المهام" },
+    ],
+  },
+  {
+    defaultEn: "HR Management",
+    defaultAr: "الموارد البشرية",
+    items: [
+      { url: "/employee-setup", defaultEn: "Employee Setup", defaultAr: "إعداد الموظفين" },
+      { url: "/employee-self-requests", defaultEn: "Employee Requests", defaultAr: "طلبات الموظفين" },
+      { url: "/employee-request-approvals", defaultEn: "Request Approvals", defaultAr: "اعتماد الطلبات" },
+      { url: "/hr-manager-setup", defaultEn: "HR Manager Setup", defaultAr: "إعداد مديري HR" },
+      { url: "/vacation-setup", defaultEn: "Vacation Setup", defaultAr: "إعداد الإجازات" },
+      { url: "/timesheet-management", defaultEn: "Timesheet Management", defaultAr: "إدارة الحضور" },
+      { url: "/zk-attendance-logs", defaultEn: "ZK Attendance Logs", defaultAr: "سجلات حضور ZK" },
+      { url: "/deduction-rules-setup", defaultEn: "Deduction Rules", defaultAr: "قواعد الخصم" },
+      { url: "/medical-insurance-setup", defaultEn: "Medical Insurance", defaultAr: "التأمين الطبي" },
+      { url: "/document-type-setup", defaultEn: "Document Types", defaultAr: "أنواع المستندات" },
+      { url: "/attendance-type-setup", defaultEn: "Attendance Types", defaultAr: "أنواع الحضور" },
+      { url: "/job-setup", defaultEn: "Job Setup", defaultAr: "إعداد الوظائف" },
+      { url: "/hr-vacation-calendar", defaultEn: "Vacation Calendar", defaultAr: "تقويم الإجازات" },
+      { url: "/company-hierarchy", defaultEn: "Company Hierarchy", defaultAr: "الهيكل التنظيمي" },
+      { url: "/company-news", defaultEn: "Company News", defaultAr: "أخبار الشركة" },
+      { url: "/department-management", defaultEn: "Department Management", defaultAr: "إدارة الأقسام" },
+      { url: "/acknowledgment-documents", defaultEn: "Administrative Decisions", defaultAr: "القرارات الإدارية" },
+      { url: "/wfh-checkin", defaultEn: "WFH Check-In", defaultAr: "تسجيل حضور من المنزل" },
+      { url: "/company-wfh-calendar", defaultEn: "WFH Calendar", defaultAr: "تقويم العمل من المنزل" },
+    ],
+  },
+  {
+    defaultEn: "Cash Management",
+    defaultAr: "إدارة النقدية",
+    items: [
+      { url: "/bank-setup", defaultEn: "Bank Setup", defaultAr: "إعداد البنوك" },
+      { url: "/treasury-setup", defaultEn: "Treasury Setup", defaultAr: "إعداد الخزائن" },
+      { url: "/expense-category-setup", defaultEn: "Expense Categories", defaultAr: "فئات المصروفات" },
+      { url: "/expense-type-setup", defaultEn: "Expense Types", defaultAr: "أنواع المصروفات" },
+      { url: "/cost-center-setup", defaultEn: "Cost Centers", defaultAr: "مراكز التكلفة" },
+      { url: "/treasury-opening-balance", defaultEn: "Treasury Opening Balance", defaultAr: "رصيد الخزينة الافتتاحي" },
+      { url: "/treasury-entry", defaultEn: "Treasury Entry", defaultAr: "قيد الخزينة" },
+      { url: "/bank-entry", defaultEn: "Bank Entry", defaultAr: "قيد البنك" },
+      { url: "/expense-entry", defaultEn: "Expense Entry", defaultAr: "قيد المصروفات" },
+      { url: "/expense-requests", defaultEn: "Expense Requests", defaultAr: "طلبات المصروفات" },
+      { url: "/void-payment", defaultEn: "Void Payment", defaultAr: "إلغاء الدفع" },
+      { url: "/payment-bank-link", defaultEn: "Payment Bank Link", defaultAr: "ربط طرق الدفع بالبنوك" },
+      { url: "/reports/payment-whatif", defaultEn: "Payment What-If", defaultAr: "سيناريو ماذا لو - الدفع" },
+    ],
+  },
+  {
+    defaultEn: "Coins Transaction",
+    defaultAr: "معاملات الكوينز",
+    items: [
+      { url: "/coins-creation", defaultEn: "Coins Purchase Creation", defaultAr: "إنشاء طلب شراء" },
+      { url: "/coins-sending", defaultEn: "Sending Transfers", defaultAr: "توجيه التحويلات" },
+      { url: "/coins-receiving-phase", defaultEn: "Receiving Phase", defaultAr: "استلام من المورد" },
+      { url: "/receiving-coins", defaultEn: "Receiving Entry", defaultAr: "إيصال الاستلام" },
+      { url: "/coins-workflow-setup", defaultEn: "Workflow Setup", defaultAr: "إعداد سير العمل" },
+      { url: "/coins-purchase-followup", defaultEn: "Purchase Follow-Up", defaultAr: "متابعة شراء الكوينز" },
+      { url: "/supplier-setup", defaultEn: "Supplier Setup", defaultAr: "إعداد الموردين" },
+      { url: "/coins-transaction-guide", defaultEn: "User Guide", defaultAr: "دليل المستخدم" },
+      { url: "/supplier-advance-payment", defaultEn: "Supplier Advance Payment", defaultAr: "دفعات مقدمة للموردين" },
+      { url: "/coins-sheets", defaultEn: "Coins Sheets", defaultAr: "شيتات الكوينز" },
+      { url: "/sales-sheets", defaultEn: "Sales Sheets", defaultAr: "شيت المبيعات" },
+    ],
+  },
+  {
+    defaultEn: "Admin",
+    defaultAr: "الإدارة",
+    items: [
+      { url: "/user-setup", defaultEn: "User Setup", defaultAr: "إعداد المستخدمين" },
+      { url: "/user-logins", defaultEn: "Users Logins", defaultAr: "بيانات تسجيل الدخول" },
+      { url: "/user-emails", defaultEn: "Users & Mails", defaultAr: "المستخدمين والبريد" },
+      { url: "/mail-setup", defaultEn: "Mail Setup", defaultAr: "إعداد البريد" },
+      { url: "/system-config", defaultEn: "System Configuration", defaultAr: "إعدادات النظام" },
+      { url: "/api-integration-status", defaultEn: "API Integration Status", defaultAr: "حالة تكامل API" },
+      { url: "/closing-training", defaultEn: "Closing Training", defaultAr: "تدريب الإغلاق" },
+      { url: "/odoo-setup", defaultEn: "Odoo Setup", defaultAr: "إعداد Odoo" },
+      { url: "/excel-sheets", defaultEn: "Excel Setup", defaultAr: "إعداد Excel" },
+      { url: "/table-generator", defaultEn: "Table Config", defaultAr: "إعداد الجداول" },
+      { url: "/pdf-to-excel", defaultEn: "PDF to Excel", defaultAr: "تحويل PDF إلى Excel" },
+      { url: "/system-backup", defaultEn: "System Backup", defaultAr: "نسخ احتياطي" },
+      { url: "/system-restore", defaultEn: "System Restore", defaultAr: "استعادة النظام" },
+      { url: "/audit-logs", defaultEn: "Audit Logs", defaultAr: "سجلات التدقيق" },
+      { url: "/certificate-management", defaultEn: "Certificate Management", defaultAr: "إدارة الشهادات" },
+      { url: "/security-dashboard", defaultEn: "Security Dashboard", defaultAr: "لوحة الأمان" },
+      { url: "/api-consumption-logs", defaultEn: "API Consumption Logs", defaultAr: "سجلات استهلاك API" },
+      { url: "/update-bank-ledger", defaultEn: "Update Bank Ledger", defaultAr: "تحديث سجل البنك" },
+      { url: "/auto-upload", defaultEn: "Auto Upload", defaultAr: "التحميل التلقائي" },
+      { url: "/api-transaction-mapping", defaultEn: "Transaction Mapping", defaultAr: "خريطة حقول المعاملات" },
+      { url: "/cancelled-orders-management", defaultEn: "Cancelled Orders Management", defaultAr: "إدارة الطلبات الملغاة" },
+      { url: "/menu-customization", defaultEn: "Menu Customization", defaultAr: "تخصيص القائمة" },
+    ],
+  },
+];
