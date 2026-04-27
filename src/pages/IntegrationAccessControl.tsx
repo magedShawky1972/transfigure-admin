@@ -30,6 +30,22 @@ interface UserOpt { user_id: string; user_name: string; }
 interface GroupOpt { id: string; group_name: string; }
 
 export default function IntegrationAccessControl() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+  const tt = (en: string, ar: string) => (isAr ? ar : en);
+
+  const ROLES: Array<{ value: string; label: string }> = [
+    { value: "admin", label: tt("Admin", "مدير") },
+    { value: "moderator", label: tt("Moderator", "مشرف") },
+    { value: "user", label: tt("User", "مستخدم") },
+  ];
+
+  const TYPE_META: Record<TargetType, { label: string; icon: any }> = {
+    user:  { label: tt("User", "مستخدم"), icon: UserCircle },
+    role:  { label: tt("Role", "دور"),    icon: Shield },
+    group: { label: tt("Group", "مجموعة"), icon: Users },
+  };
+
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/integration-access-control");
   const [searchParams, setSearchParams] = useSearchParams();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
