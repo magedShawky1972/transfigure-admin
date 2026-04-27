@@ -225,7 +225,6 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/system-restore", defaultEn: "System Restore", defaultAr: "استعادة النظام", icon: RotateCcw },
       { url: "/audit-logs", defaultEn: "Audit Logs", defaultAr: "سجلات التدقيق", icon: ClipboardCheck },
       { url: "/certificate-management", defaultEn: "Certificate Management", defaultAr: "إدارة الشهادات", icon: FileKey },
-      { url: "/security-dashboard", defaultEn: "Security Dashboard", defaultAr: "لوحة الأمان", icon: Shield },
       { url: "/api-consumption-logs", defaultEn: "API Consumption Logs", defaultAr: "سجلات استهلاك API", icon: ScrollText },
       { url: "/update-bank-ledger", defaultEn: "Update Bank Ledger", defaultAr: "تحديث سجل البنك", icon: Database },
       { url: "/auto-upload", defaultEn: "Auto Upload", defaultAr: "التحميل التلقائي", icon: Bot },
