@@ -416,9 +416,15 @@ export default function Integrations() {
               <Label>الصلاحيات (مفصولة بفاصلة)</Label>
               <Input value={form.scopes} onChange={(e) => setForm({ ...form, scopes: e.target.value })} placeholder="read:users, write:messages" />
             </div>
-            <div>
-              <Label>تاريخ الانتهاء</Label>
-              <Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>تاريخ البدء</Label>
+                <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>تاريخ الانتهاء</Label>
+                <Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
+              </div>
             </div>
             <div>
               <Label>الوصف</Label>
