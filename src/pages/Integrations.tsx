@@ -469,11 +469,15 @@ function StatCard({ label, value, icon: Icon, accent }: { label: string; value: 
 }
 
 function IntegrationCard({
-  item, onEdit, onToggle, onDisconnect,
+  item, onEdit, onToggle, onDisconnect, statusMeta, typeLabel, isAr,
 }: {
   item: Integration; onEdit: () => void; onToggle: () => void; onDisconnect: () => void;
+  statusMeta: Record<IntegrationStatus, { label: string; dot: string; pill: string; icon: any }>;
+  typeLabel: Record<IntegrationType, string>;
+  isAr: boolean;
 }) {
-  const meta = STATUS_META[item.status];
+  const tt = (en: string, ar: string) => (isAr ? ar : en);
+  const meta = statusMeta[item.status];
   const StatusIcon = meta.icon;
   const expiringDays = daysUntil(item.expires_at);
   const expiringSoon = expiringDays !== null && expiringDays >= 0 && expiringDays <= 14;
@@ -493,7 +497,7 @@ function IntegrationCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold truncate">{item.name}</h3>
-              <Badge variant="outline" className="text-xs">{TYPE_LABEL[item.type]}</Badge>
+              <Badge variant="outline" className="text-xs">{typeLabel[item.type]}</Badge>
             </div>
             {item.description && (
               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>
@@ -510,23 +514,23 @@ function IntegrationCard({
           <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
-              {item.warning_message || `ينتهي مفتاح API خلال ${expiringDays} يوم`}
+              {item.warning_message || (isAr ? `ينتهي مفتاح API خلال ${expiringDays} يوم` : `API key expires in ${expiringDays} day${expiringDays === 1 ? "" : "s"}`)}
             </span>
           </div>
         )}
 
         {/* metadata grid */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-          <Meta label="تاريخ الاتصال" value={formatDate(item.connected_at)} />
-          <Meta label="آخر مزامنة" value={formatRel(item.last_sync_at)} />
-          <Meta label="الطلبات اليومية" value={item.daily_requests.toLocaleString()} />
-          <Meta label="معدل النجاح" value={`${item.success_rate}%`} />
+          <Meta label={tt("Connected", "تاريخ الاتصال")} value={formatDate(item.connected_at)} />
+          <Meta label={tt("Last sync", "آخر مزامنة")} value={formatRel(item.last_sync_at, isAr)} />
+          <Meta label={tt("Daily requests", "الطلبات اليومية")} value={item.daily_requests.toLocaleString()} />
+          <Meta label={tt("Success rate", "معدل النجاح")} value={`${item.success_rate}%`} />
         </div>
 
         {/* scopes */}
         {item.scopes && item.scopes.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs text-muted-foreground mb-1.5">الصلاحيات الممنوحة</p>
+            <p className="text-xs text-muted-foreground mb-1.5">{tt("Granted scopes", "الصلاحيات الممنوحة")}</p>
             <div className="flex flex-wrap gap-1">
               {item.scopes.map((s) => (
                 <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-foreground/80 border">
@@ -541,13 +545,13 @@ function IntegrationCard({
         <div className="mt-4 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-2 text-xs">
             <ShieldCheck className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">الوصول:</span>
+            <span className="text-muted-foreground">{tt("Access:", "الوصول:")}</span>
             <Link to={`/integration-access-control?integration=${item.id}`} className="font-medium text-primary hover:underline">
-              إدارة الأدوار والمستخدمين
+              {tt("Manage roles & users", "إدارة الأدوار والمستخدمين")}
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{item.status === "disabled" ? "إيقاف" : "تشغيل"}</span>
+            <span className="text-xs text-muted-foreground">{item.status === "disabled" ? tt("Off", "إيقاف") : tt("On", "تشغيل")}</span>
             <Switch checked={item.status !== "disabled"} onCheckedChange={onToggle} />
           </div>
         </div>
@@ -556,11 +560,11 @@ function IntegrationCard({
         <div className="mt-4 flex gap-2">
           <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
             <Settings className="h-4 w-4 mr-1.5" />
-            الإعدادات
+            {tt("Settings", "الإعدادات")}
           </Button>
           <Button variant="outline" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={onDisconnect}>
             <Power className="h-4 w-4 mr-1.5" />
-            قطع الاتصال
+            {tt("Disconnect", "قطع الاتصال")}
           </Button>
         </div>
       </CardContent>
