@@ -1,59 +1,3 @@
-import { 
-  ArrowRightLeft,
-  Database, 
-  FileSpreadsheet, 
-  Cloud, 
-  BarChart3, 
-  Table2,
-  LayoutDashboard,
-  Settings,
-  Users,
-  UserCheck,
-  TrendingUp,
-  Grid3x3,
-  CreditCard,
-  Link2,
-  FileText,
-  TicketCheck,
-  FileBarChart,
-  Key,
-  Shield,
-  Clock,
-  MessageCircle,
-  Calendar,
-  GraduationCap,
-  DollarSign,
-  Gamepad2,
-  FolderKanban,
-  Building2,
-  KeyRound,
-  Truck,
-  Mail,
-  HardDrive,
-  RotateCcw,
-  UserCircle,
-  Palmtree,
-  ClipboardList,
-  Calculator,
-  HeartPulse,
-  CalendarClock,
-  ClipboardCheck,
-  FileKey,
-  Briefcase,
-  Receipt,
-  ScrollText,
-  Target,
-  Undo2,
-  Coins,
-  ImageIcon,
-  Bot,
-  Home,
-  Headset,
-  BookOpen,
-  CalendarDays,
-  Landmark,
-  ListX
-} from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
@@ -70,6 +14,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMenuCustomizations, groupKey, itemKey, type CustomMap } from "@/lib/menuCustomizations";
+import { DEFAULT_MENU } from "@/lib/menuRegistry";
 
 export function AppSidebar() {
   const { state } = useSidebar();
