@@ -188,16 +188,20 @@ export default function CancelledOrders() {
 
   return (
     <div className="container mx-auto p-6 max-w-3xl" dir={isAr ? "rtl" : "ltr"}>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <XCircle className="h-7 w-7 text-destructive" />
-          {isAr ? "الطلبات الملغاة تم تنفيذها يدوي" : "Cancelled Orders Manually Executed"}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {isAr
-            ? "أضف أرقام الطلبات للقائمة، ثم اعتمد وأرسلها إلى الإدارة."
-            : "Add order numbers to the list, then approve and submit them to management."}
-        </p>
+      <div className="mb-6 rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+        <div className="bg-slate-900 dark:bg-slate-800 px-6 py-5 text-white">
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/10 ring-1 ring-white/20">
+              <XCircle className="h-5 w-5" />
+            </span>
+            {isAr ? "الطلبات الملغاة تم تنفيذها يدوي" : "Cancelled Orders — Manually Executed"}
+          </h1>
+          <p className="text-sm text-slate-200 mt-2 leading-relaxed">
+            {isAr
+              ? "أضف أرقام الطلبات للقائمة، ثم اعتمد وأرسلها إلى الإدارة."
+              : "Add order numbers to the list, then approve and submit them to management."}
+          </p>
+        </div>
       </div>
 
       {shiftLoading ? (
