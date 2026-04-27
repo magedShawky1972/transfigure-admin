@@ -124,7 +124,7 @@ export default function IntegrationAccessControl() {
 
   const addRow = async () => {
     if (!selectedId || !newTargetId) {
-      toast({ title: "Pick a target", variant: "destructive" });
+      toast({ title: "اختر هدفاً", variant: "destructive" });
       return;
     }
     let label = newTargetId;
