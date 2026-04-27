@@ -1829,9 +1829,15 @@ export default function TimesheetManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {ts.scheduled_start && ts.scheduled_end
-                          ? `${ts.scheduled_start} - ${ts.scheduled_end}`
-                          : "-"}
+                        {(() => {
+                          const emp: any = employees.find((e) => e.id === ts.employee_id);
+                          const liveStart = emp?.attendance_types?.fixed_start_time || emp?.fixed_shift_start || null;
+                          const liveEnd = emp?.attendance_types?.fixed_end_time || emp?.fixed_shift_end || null;
+                          const start = liveStart || ts.scheduled_start;
+                          const end = liveEnd || ts.scheduled_end;
+                          const fmt = (v: string | null) => v ? v.slice(0, 5) : null;
+                          return start && end ? `${fmt(start)} - ${fmt(end)}` : "-";
+                        })()}
                       </TableCell>
                       <TableCell>
                         {ts.actual_start || ts.actual_end
