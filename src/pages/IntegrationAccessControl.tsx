@@ -144,12 +144,12 @@ export default function IntegrationAccessControl() {
       .select()
       .single();
     if (error) {
-      toast({ title: "Add failed", description: error.message, variant: "destructive" });
+      toast({ title: "فشل الإضافة", description: error.message, variant: "destructive" });
       return;
     }
     setRows((prev) => [...prev, data as any]);
     setNewTargetId("");
-    toast({ title: "Access rule added" });
+    toast({ title: "تمت إضافة قاعدة الصلاحيات" });
   };
 
   const saveAll = async () => {
