@@ -277,6 +277,16 @@ export default function CancelledOrdersManagement() {
             </Button>
             <Button
               type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportToExcel}
+              disabled={loading || rows.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isAr ? "تصدير" : "Export"}
+            </Button>
+            <Button
+              type="button"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
