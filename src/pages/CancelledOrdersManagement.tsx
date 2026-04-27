@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
-import { Loader2, ListX, RefreshCw } from "lucide-react";
+import { Loader2, ListX, RefreshCw, Pencil, Check, X } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface Row {
   id: string;
@@ -27,6 +28,7 @@ export default function CancelledOrdersManagement() {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/cancelled-orders-management");
+  const { toast } = useToast();
 
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -34,6 +36,45 @@ export default function CancelledOrdersManagement() {
   const [dateTo, setDateTo] = useState(format(today, "yyyy-MM-dd"));
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const startEdit = (r: Row) => {
+    setEditingId(r.id);
+    setEditValue(r.order_number);
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue("");
+  };
+  const saveEdit = async (id: string) => {
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      toast({ title: isAr ? "رقم الطلب مطلوب" : "Order number required", variant: "destructive" });
+      return;
+    }
+    setSavingId(id);
+    const { error } = await supabase
+      .from("cancelled_orders")
+      .update({ order_number: trimmed })
+      .eq("id", id);
+    setSavingId(null);
+    if (error) {
+      const msg = error.message || "";
+      const display =
+        msg.includes("duplicate") || (error as any).code === "23505"
+          ? isAr
+            ? "هذا الرقم موجود مسبقاً."
+            : "This order number already exists."
+          : msg;
+      toast({ title: isAr ? "فشل التحديث" : "Update failed", description: display, variant: "destructive" });
+      return;
+    }
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, order_number: trimmed } : r)));
+    cancelEdit();
+    toast({ title: isAr ? "تم التحديث" : "Updated" });
+  };
 
   const fetchRows = async () => {
     setLoading(true);
@@ -123,38 +164,71 @@ export default function CancelledOrdersManagement() {
                   <TableHead>{isAr ? "الموظف" : "Employee"}</TableHead>
                   <TableHead>{isAr ? "الوردية" : "Shift"}</TableHead>
                   <TableHead>{isAr ? "تاريخ الإرسال" : "Submitted At"}</TableHead>
+                  <TableHead className="text-right">{isAr ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10">
+                    <TableCell colSpan={5} className="text-center py-10">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                       {isAr ? "لا توجد طلبات إلغاء في هذه الفترة." : "No cancellation requests in this period."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.order_number}</TableCell>
-                      <TableCell>{r.submitted_by_name || "—"}</TableCell>
-                      <TableCell>
-                        {r.shift_name ? (
-                          <Badge variant="outline">{r.shift_name}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(r.created_at), "yyyy-MM-dd HH:mm")}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  rows.map((r) => {
+                    const isEditing = editingId === r.id;
+                    const isSaving = savingId === r.id;
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">
+                          {isEditing ? (
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              disabled={isSaving}
+                              className="h-8 max-w-[200px]"
+                              autoFocus
+                            />
+                          ) : (
+                            r.order_number
+                          )}
+                        </TableCell>
+                        <TableCell>{r.submitted_by_name || "—"}</TableCell>
+                        <TableCell>
+                          {r.shift_name ? (
+                            <Badge variant="outline">{r.shift_name}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {format(new Date(r.created_at), "yyyy-MM-dd HH:mm")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="default" onClick={() => saveEdit(r.id)} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={isSaving}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
