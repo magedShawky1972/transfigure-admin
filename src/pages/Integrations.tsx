@@ -253,32 +253,32 @@ export default function Integrations() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Plug className="h-7 w-7 text-primary" />
-            التكاملات
+            {tt("Integrations", "التكاملات")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {stats.active} من {stats.total} تطبيقات متصلة
+            {isAr ? `${stats.active} من ${stats.total} تطبيقات متصلة` : `${stats.active} of ${stats.total} apps connected`}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to="/integration-access-control">
               <ShieldCheck className="h-4 w-4 mr-2" />
-              صلاحيات الوصول
+              {tt("Access Control", "صلاحيات الوصول")}
             </Link>
           </Button>
           <Button onClick={openAdd}>
             <Plus className="h-4 w-4 mr-2" />
-            إضافة تكامل
+            {tt("Add Integration", "إضافة تكامل")}
           </Button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="إجمالي التكاملات" value={stats.total} icon={Plug} />
-        <StatCard label="نشط" value={stats.active} icon={CheckCircle2} accent="text-emerald-600" />
-        <StatCard label="طلبات API / شهرياً" value={stats.requests.toLocaleString()} icon={Activity} accent="text-primary" />
-        <StatCard label="يحتاج إلى انتباه" value={stats.attention} icon={ShieldAlert} accent="text-amber-600" />
+        <StatCard label={tt("Total Integrations", "إجمالي التكاملات")} value={stats.total} icon={Plug} />
+        <StatCard label={tt("Active", "نشط")} value={stats.active} icon={CheckCircle2} accent="text-emerald-600" />
+        <StatCard label={tt("API Requests / Month", "طلبات API / شهرياً")} value={stats.requests.toLocaleString()} icon={Activity} accent="text-primary" />
+        <StatCard label={tt("Need Attention", "يحتاج إلى انتباه")} value={stats.attention} icon={ShieldAlert} accent="text-amber-600" />
       </div>
 
       {/* Filter bar */}
@@ -303,7 +303,7 @@ export default function Integrations() {
         <div className="sm:ml-auto relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="بحث في التكاملات..."
+            placeholder={tt("Search integrations...", "بحث في التكاملات...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -313,15 +313,15 @@ export default function Integrations() {
 
       {/* Cards grid */}
       {loading ? (
-        <div className="text-center text-muted-foreground py-12">جارٍ التحميل…</div>
+        <div className="text-center text-muted-foreground py-12">{tt("Loading…", "جارٍ التحميل…")}</div>
       ) : filtered.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-16 text-center space-y-3">
             <Plug className="h-10 w-10 mx-auto text-muted-foreground" />
             <p className="text-muted-foreground">
-              {items.length === 0 ? "لا توجد تكاملات بعد" : "لا توجد تكاملات تطابق الفلاتر"}
+              {items.length === 0 ? tt("No integrations yet", "لا توجد تكاملات بعد") : tt("No integrations match your filters", "لا توجد تكاملات تطابق الفلاتر")}
             </p>
-            {items.length === 0 && <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />أضف أول تكامل</Button>}
+            {items.length === 0 && <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />{tt("Add your first integration", "أضف أول تكامل")}</Button>}
           </CardContent>
         </Card>
       ) : (
