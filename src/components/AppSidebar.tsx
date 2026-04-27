@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchMenuCustomizations, groupKey, itemKey, type CustomMap } from "@/lib/menuCustomizations";
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -77,6 +78,7 @@ export function AppSidebar() {
   const [userPermissions, setUserPermissions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [asusTawasoulUnread, setAsusTawasoulUnread] = useState(0);
+  const [customizations, setCustomizations] = useState<CustomMap>({});
 
   const URL_TO_PERMISSION: Record<string, string> = {
     "/": "dashboard",
