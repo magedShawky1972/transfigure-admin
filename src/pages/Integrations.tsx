@@ -47,7 +47,7 @@ interface ActivityRow {
 }
 
 const STATUS_META: Record<IntegrationStatus, { label: string; dot: string; pill: string; icon: any }> = {
-  active:   { label: "Active",   dot: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
+  active:   { label: "نشط",   dot: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
   warning:  { label: "Warning",  dot: "bg-amber-500",   pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",       icon: AlertTriangle },
   error:    { label: "Error",    dot: "bg-red-500",     pill: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",                icon: XCircle },
   disabled: { label: "Disabled", dot: "bg-muted-foreground", pill: "bg-muted text-muted-foreground border-border",                              icon: MinusCircle },
