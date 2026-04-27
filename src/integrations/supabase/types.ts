@@ -4669,6 +4669,7 @@ export type Database = {
           monthly_requests: number
           name: string
           scopes: string[]
+          start_date: string | null
           status: Database["public"]["Enums"]["integration_status"]
           success_rate: number
           type: Database["public"]["Enums"]["integration_type"]
@@ -4688,6 +4689,7 @@ export type Database = {
           monthly_requests?: number
           name: string
           scopes?: string[]
+          start_date?: string | null
           status?: Database["public"]["Enums"]["integration_status"]
           success_rate?: number
           type?: Database["public"]["Enums"]["integration_type"]
@@ -4707,6 +4709,7 @@ export type Database = {
           monthly_requests?: number
           name?: string
           scopes?: string[]
+          start_date?: string | null
           status?: Database["public"]["Enums"]["integration_status"]
           success_rate?: number
           type?: Database["public"]["Enums"]["integration_type"]
