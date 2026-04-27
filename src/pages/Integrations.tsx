@@ -48,30 +48,30 @@ interface ActivityRow {
   created_at: string;
 }
 
-const STATUS_META: Record<IntegrationStatus, { label: string; dot: string; pill: string; icon: any }> = {
-  active:   { label: "نشط",   dot: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
-  warning:  { label: "تحذير",  dot: "bg-amber-500",   pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",       icon: AlertTriangle },
-  error:    { label: "خطأ",    dot: "bg-red-500",     pill: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",                icon: XCircle },
-  disabled: { label: "معطل", dot: "bg-muted-foreground", pill: "bg-muted text-muted-foreground border-border",                              icon: MinusCircle },
-};
+const buildStatusMeta = (isAr: boolean): Record<IntegrationStatus, { label: string; dot: string; pill: string; icon: any }> => ({
+  active:   { label: isAr ? "نشط" : "Active",     dot: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
+  warning:  { label: isAr ? "تحذير" : "Warning",  dot: "bg-amber-500",   pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",       icon: AlertTriangle },
+  error:    { label: isAr ? "خطأ" : "Error",      dot: "bg-red-500",     pill: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",                icon: XCircle },
+  disabled: { label: isAr ? "معطل" : "Disabled",  dot: "bg-muted-foreground", pill: "bg-muted text-muted-foreground border-border",                              icon: MinusCircle },
+});
 
-const TYPE_LABEL: Record<IntegrationType, string> = {
+const buildTypeLabel = (isAr: boolean): Record<IntegrationType, string> => ({
   oauth: "OAuth",
-  api_key: "مفتاح API",
+  api_key: isAr ? "مفتاح API" : "API Key",
   webhook: "Webhook",
-};
+});
 
-function formatRel(date: string | null): string {
-  if (!date) return "أبداً";
+function formatRel(date: string | null, isAr: boolean = false): string {
+  if (!date) return isAr ? "أبداً" : "Never";
   const d = new Date(date);
   const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "الآن";
-  if (mins < 60) return `منذ ${mins} د`;
+  if (mins < 1) return isAr ? "الآن" : "Just now";
+  if (mins < 60) return isAr ? `منذ ${mins} د` : `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `منذ ${hrs} س`;
+  if (hrs < 24) return isAr ? `منذ ${hrs} س` : `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `منذ ${days} ي`;
+  if (days < 30) return isAr ? `منذ ${days} ي` : `${days}d ago`;
   return d.toLocaleDateString();
 }
 
@@ -85,12 +85,12 @@ function daysUntil(date: string | null): number | null {
   return Math.ceil((new Date(date).getTime() - Date.now()) / 86400000);
 }
 
-const FILTERS: Array<{ key: "all" | IntegrationStatus; label: string }> = [
-  { key: "all", label: "الكل" },
-  { key: "active", label: "نشط" },
-  { key: "disabled", label: "معطل" },
-  { key: "error", label: "خطأ" },
-];
+const buildFilters = (isAr: boolean): Array<{ key: "all" | IntegrationStatus; label: string }> => ([
+  { key: "all",      label: isAr ? "الكل" : "All" },
+  { key: "active",   label: isAr ? "نشط" : "Active" },
+  { key: "disabled", label: isAr ? "معطل" : "Disabled" },
+  { key: "error",    label: isAr ? "خطأ" : "Error" },
+]);
 
 const EMPTY_FORM = {
   name: "",
