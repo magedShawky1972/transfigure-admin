@@ -48,28 +48,28 @@ interface ActivityRow {
 
 const STATUS_META: Record<IntegrationStatus, { label: string; dot: string; pill: string; icon: any }> = {
   active:   { label: "نشط",   dot: "bg-emerald-500", pill: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2 },
-  warning:  { label: "Warning",  dot: "bg-amber-500",   pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",       icon: AlertTriangle },
-  error:    { label: "Error",    dot: "bg-red-500",     pill: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",                icon: XCircle },
-  disabled: { label: "Disabled", dot: "bg-muted-foreground", pill: "bg-muted text-muted-foreground border-border",                              icon: MinusCircle },
+  warning:  { label: "تحذير",  dot: "bg-amber-500",   pill: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",       icon: AlertTriangle },
+  error:    { label: "خطأ",    dot: "bg-red-500",     pill: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",                icon: XCircle },
+  disabled: { label: "معطل", dot: "bg-muted-foreground", pill: "bg-muted text-muted-foreground border-border",                              icon: MinusCircle },
 };
 
 const TYPE_LABEL: Record<IntegrationType, string> = {
   oauth: "OAuth",
-  api_key: "API Key",
+  api_key: "مفتاح API",
   webhook: "Webhook",
 };
 
 function formatRel(date: string | null): string {
-  if (!date) return "Never";
+  if (!date) return "أبداً";
   const d = new Date(date);
   const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return "الآن";
+  if (mins < 60) return `منذ ${mins} د`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `منذ ${hrs} س`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return `منذ ${days} ي`;
   return d.toLocaleDateString();
 }
 
@@ -84,10 +84,10 @@ function daysUntil(date: string | null): number | null {
 }
 
 const FILTERS: Array<{ key: "all" | IntegrationStatus; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "active", label: "Active" },
-  { key: "disabled", label: "Disabled" },
-  { key: "error", label: "Error" },
+  { key: "all", label: "الكل" },
+  { key: "active", label: "نشط" },
+  { key: "disabled", label: "معطل" },
+  { key: "error", label: "خطأ" },
 ];
 
 const EMPTY_FORM = {
