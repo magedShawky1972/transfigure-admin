@@ -168,6 +168,7 @@ import CRMIntegrationDoc from "./pages/CRMIntegrationDoc";
 import CRMSession from "./pages/CRMSession";
 import PaymentGatewayConsolidation from "./pages/PaymentGatewayConsolidation";
 import Integrations from "./pages/Integrations";
+import ShiftGenerator from "./pages/ShiftGenerator";
 import IntegrationAccessControl from "./pages/IntegrationAccessControl";
 import { GlobalMigrationRecovery } from "./components/GlobalMigrationRecovery";
 const queryClient = new QueryClient();
