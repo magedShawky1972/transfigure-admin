@@ -123,6 +123,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/cancelled-orders-management": "cancelledOrdersManagement",
   "/menu-customization": "menuCustomization",
   "/integrations": "integrations",
+  "/shift-generator": "shiftGenerator",
 };
 
 export function MainPageMenu() {
