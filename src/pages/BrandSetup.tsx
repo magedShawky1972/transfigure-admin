@@ -279,10 +279,11 @@ const BrandSetup = () => {
         brand.brand_type_id === filterBrandType;
       const matchesStatus = !filterStatus || 
         brand.status === filterStatus;
+      const hasTxn =
+        (!!brand.brand_code && brandsWithTransactions.codes.has(brand.brand_code)) ||
+        (!!brand.brand_name && brandsWithTransactions.names.has(brand.brand_name));
       const matchesHasTransactions = !filterHasTransactions ||
-        (filterHasTransactions === "yes"
-          ? !!brand.brand_code && brandsWithTransactions.has(brand.brand_code)
-          : !brand.brand_code || !brandsWithTransactions.has(brand.brand_code));
+        (filterHasTransactions === "yes" ? hasTxn : !hasTxn);
       
       return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus && matchesHasTransactions;
     })
