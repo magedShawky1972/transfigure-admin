@@ -140,6 +140,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/menu-customization": "menuCustomization",
   "/integrations": "integrations",
   "/integration-access-control": "integrationAccessControl",
+  "/shift-generator": "shiftGenerator",
 };
 
 export const usePageAccess = (pageUrl?: string): UsePageAccessResult => {
