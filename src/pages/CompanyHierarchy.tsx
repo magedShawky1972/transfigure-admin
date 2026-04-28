@@ -826,12 +826,23 @@ const CompanyHierarchy = () => {
 
   const handleRemoveEmployeeFromDept = async (empId: string, empName: string, deptId: string) => {
     try {
-      const { error } = await supabase.from("hierarchy_assignments")
+      // Remove from hierarchy_assignments (new model)
+      const { error: haError } = await supabase.from("hierarchy_assignments")
         .delete()
         .eq("employee_id", empId)
         .eq("department_id", deptId);
+      if (haError) throw haError;
 
-      if (error) throw error;
+      // Also clear legacy employees.department_id if it points to this dept
+      const emp = employees.find(e => e.id === empId);
+      if (emp && (emp as any).department_id === deptId) {
+        const { error: empError } = await supabase.from("employees")
+          .update({ department_id: null, job_position_id: null })
+          .eq("id", empId)
+          .select();
+        if (empError) throw empError;
+      }
+
       toast({ title: language === 'ar' ? `تم إزالة ${empName} من القسم` : `${empName} removed from department` });
       fetchData();
     } catch (error: any) {
