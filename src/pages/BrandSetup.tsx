@@ -118,22 +118,15 @@ const BrandSetup = () => {
 
   const fetchBrandsWithTransactions = async () => {
     try {
+      const { data, error } = await supabase.rpc("get_brand_codes_with_transactions");
+      if (error) throw error;
       const codes = new Set<string>();
-      const pageSize = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("purpletransaction")
-          .select("brand_code")
-          .not("brand_code", "is", null)
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        data.forEach((r: any) => r.brand_code && codes.add(r.brand_code));
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-      setBrandsWithTransactions(codes);
+      const names = new Set<string>();
+      (data || []).forEach((r: any) => {
+        if (r.brand_code) codes.add(r.brand_code);
+        if (r.brand_name) names.add(r.brand_name);
+      });
+      setBrandsWithTransactions({ codes, names });
     } catch (error: any) {
       console.error("Error fetching brands with transactions:", error);
     }
