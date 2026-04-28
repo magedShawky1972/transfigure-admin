@@ -142,6 +142,7 @@ export function AppSidebar() {
     "/cancelled-orders-management": "cancelledOrdersManagement",
     "/menu-customization": "menuCustomization",
     "/integrations": "integrations",
+    "/shift-generator": "shiftGenerator",
   };
 
   useEffect(() => {
