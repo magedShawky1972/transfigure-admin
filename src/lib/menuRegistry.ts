@@ -138,7 +138,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/product-setup", defaultEn: "Product Setup", defaultAr: "إعداد المنتجات", icon: Database },
       { url: "/payment-method-setup", defaultEn: "Payment Method Setup", defaultAr: "إعداد طرق الدفع", icon: CreditCard },
       { url: "/shift-setup", defaultEn: "Shift Setup", defaultAr: "إعداد الورديات", icon: Clock },
-      
+      { url: "/shift-generator", defaultEn: "Shift Generator", defaultAr: "مولّد الشيفتات", icon: CalendarDays },
       { url: "/shift-calendar", defaultEn: "Shift Calendar", defaultAr: "تقويم الورديات", icon: BarChart3 },
       { url: "/currency-setup", defaultEn: "Currency Setup", defaultAr: "إعداد العملات", icon: DollarSign },
       { url: "/user-group-setup", defaultEn: "User Groups", defaultAr: "مجموعات المستخدمين", icon: Users },
