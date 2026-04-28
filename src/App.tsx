@@ -348,6 +348,7 @@ const App = () => (
               <Route path="/reports/payment-gateway-consolidation" element={<PaymentGatewayConsolidation />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/integration-access-control" element={<IntegrationAccessControl />} />
+              <Route path="/shift-generator" element={<ShiftGenerator />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
