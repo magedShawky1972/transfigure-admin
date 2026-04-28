@@ -404,6 +404,19 @@ const BrandSetup = () => {
               <option value="inactive">Inactive</option>
             </select>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterHasTransactions">Filter by Transactions</Label>
+            <select
+              id="filterHasTransactions"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filterHasTransactions}
+              onChange={(e) => setFilterHasTransactions(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="yes">With Transactions</option>
+              <option value="no">Without Transactions</option>
+            </select>
+          </div>
         </div>
 
         <div className="rounded-md border">
