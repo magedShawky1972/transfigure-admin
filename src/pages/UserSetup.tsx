@@ -126,6 +126,7 @@ interface UserPermission {
         { key: "pricingScenario", label: "سيناريو التسعير", labelEn: "Pricing Scenario" },
         { key: "cancelledOrders", label: "الطلبات الملغاة تم تنفيذها يدوي", labelEn: "Cancelled Orders Manually Executed" },
         { key: "cancelledOrdersManagement", label: "إدارة الطلبات الملغاة", labelEn: "Cancelled Orders Management" },
+        { key: "shiftGenerator", label: "مولّد الشيفتات", labelEn: "Shift Generator" },
       ]
     },
     {
@@ -143,7 +144,6 @@ interface UserPermission {
         { key: "paymentMethodSetup", label: "إعداد طرق الدفع", labelEn: "Payment Method Setup" },
         { key: "shiftSetup", label: "إعداد الورديات", labelEn: "Shift Setup" },
         { key: "shiftCalendar", label: "تقويم الورديات", labelEn: "Shift Calendar" },
-        { key: "shiftGenerator", label: "مولّد الشيفتات", labelEn: "Shift Generator" },
         { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
         { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
         { key: "projectSetup", label: "إعداد المشاريع", labelEn: "Project Setup" },
