@@ -74,6 +74,10 @@ const BrandSetup = () => {
   const [filterStatus, setFilterStatus] = useState(() => 
     localStorage.getItem("brandSetup_filterStatus") || ""
   );
+  const [filterHasTransactions, setFilterHasTransactions] = useState(() =>
+    localStorage.getItem("brandSetup_filterHasTransactions") || ""
+  );
+  const [brandsWithTransactions, setBrandsWithTransactions] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -103,9 +107,38 @@ const BrandSetup = () => {
   }, [filterStatus]);
 
   useEffect(() => {
+    localStorage.setItem("brandSetup_filterHasTransactions", filterHasTransactions);
+  }, [filterHasTransactions]);
+
+  useEffect(() => {
     fetchBrands();
     fetchBrandTypes();
+    fetchBrandsWithTransactions();
   }, []);
+
+  const fetchBrandsWithTransactions = async () => {
+    try {
+      const codes = new Set<string>();
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("purpletransaction")
+          .select("brand_code")
+          .not("brand_code", "is", null)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        data.forEach((r: any) => r.brand_code && codes.add(r.brand_code));
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      setBrandsWithTransactions(codes);
+    } catch (error: any) {
+      console.error("Error fetching brands with transactions:", error);
+    }
+  };
+
 
   const fetchBrandTypes = async () => {
     try {
@@ -253,8 +286,12 @@ const BrandSetup = () => {
         brand.brand_type_id === filterBrandType;
       const matchesStatus = !filterStatus || 
         brand.status === filterStatus;
+      const matchesHasTransactions = !filterHasTransactions ||
+        (filterHasTransactions === "yes"
+          ? !!brand.brand_code && brandsWithTransactions.has(brand.brand_code)
+          : !brand.brand_code || !brandsWithTransactions.has(brand.brand_code));
       
-      return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
+      return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus && matchesHasTransactions;
     })
     .sort((a, b) => {
       if (!sortColumn) return 0;
@@ -295,7 +332,7 @@ const BrandSetup = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
           <div className="space-y-2">
             <Label htmlFor="filterBrandName">Filter by Brand Name</Label>
             <Input
@@ -365,6 +402,19 @@ const BrandSetup = () => {
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
               <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filterHasTransactions">Filter by Transactions</Label>
+            <select
+              id="filterHasTransactions"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={filterHasTransactions}
+              onChange={(e) => setFilterHasTransactions(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="yes">With Transactions</option>
+              <option value="no">Without Transactions</option>
             </select>
           </div>
         </div>
