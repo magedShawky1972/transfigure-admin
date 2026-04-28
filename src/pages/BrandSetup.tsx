@@ -286,8 +286,12 @@ const BrandSetup = () => {
         brand.brand_type_id === filterBrandType;
       const matchesStatus = !filterStatus || 
         brand.status === filterStatus;
+      const matchesHasTransactions = !filterHasTransactions ||
+        (filterHasTransactions === "yes"
+          ? !!brand.brand_code && brandsWithTransactions.has(brand.brand_code)
+          : !brand.brand_code || !brandsWithTransactions.has(brand.brand_code));
       
-      return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus;
+      return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus && matchesHasTransactions;
     })
     .sort((a, b) => {
       if (!sortColumn) return 0;
