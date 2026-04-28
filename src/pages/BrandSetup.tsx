@@ -77,7 +77,7 @@ const BrandSetup = () => {
   const [filterHasTransactions, setFilterHasTransactions] = useState(() =>
     localStorage.getItem("brandSetup_filterHasTransactions") || ""
   );
-  const [brandsWithTransactions, setBrandsWithTransactions] = useState<Set<string>>(new Set());
+  const [brandsWithTransactions, setBrandsWithTransactions] = useState<{ codes: Set<string>; names: Set<string> }>({ codes: new Set(), names: new Set() });
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -118,22 +118,15 @@ const BrandSetup = () => {
 
   const fetchBrandsWithTransactions = async () => {
     try {
+      const { data, error } = await supabase.rpc("get_brand_codes_with_transactions");
+      if (error) throw error;
       const codes = new Set<string>();
-      const pageSize = 1000;
-      let from = 0;
-      while (true) {
-        const { data, error } = await supabase
-          .from("purpletransaction")
-          .select("brand_code")
-          .not("brand_code", "is", null)
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        data.forEach((r: any) => r.brand_code && codes.add(r.brand_code));
-        if (data.length < pageSize) break;
-        from += pageSize;
-      }
-      setBrandsWithTransactions(codes);
+      const names = new Set<string>();
+      (data || []).forEach((r: any) => {
+        if (r.brand_code) codes.add(r.brand_code);
+        if (r.brand_name) names.add(r.brand_name);
+      });
+      setBrandsWithTransactions({ codes, names });
     } catch (error: any) {
       console.error("Error fetching brands with transactions:", error);
     }
@@ -286,10 +279,11 @@ const BrandSetup = () => {
         brand.brand_type_id === filterBrandType;
       const matchesStatus = !filterStatus || 
         brand.status === filterStatus;
+      const hasTxn =
+        (!!brand.brand_code && brandsWithTransactions.codes.has(brand.brand_code)) ||
+        (!!brand.brand_name && brandsWithTransactions.names.has(brand.brand_name));
       const matchesHasTransactions = !filterHasTransactions ||
-        (filterHasTransactions === "yes"
-          ? !!brand.brand_code && brandsWithTransactions.has(brand.brand_code)
-          : !brand.brand_code || !brandsWithTransactions.has(brand.brand_code));
+        (filterHasTransactions === "yes" ? hasTxn : !hasTxn);
       
       return matchesBrandName && matchesBrandCode && matchesShortName && matchesABCAnalysis && matchesBrandType && matchesStatus && matchesHasTransactions;
     })
