@@ -77,7 +77,7 @@ const BrandSetup = () => {
   const [filterHasTransactions, setFilterHasTransactions] = useState(() =>
     localStorage.getItem("brandSetup_filterHasTransactions") || ""
   );
-  const [brandsWithTransactions, setBrandsWithTransactions] = useState<Set<string>>(new Set());
+  const [brandsWithTransactions, setBrandsWithTransactions] = useState<{ codes: Set<string>; names: Set<string> }>({ codes: new Set(), names: new Set() });
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
