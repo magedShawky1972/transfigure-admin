@@ -122,14 +122,35 @@ const BrandSetup = () => {
   }, [filterHasTransactions]);
 
   useEffect(() => {
+    if (filterTxnDateFrom) localStorage.setItem("brandSetup_filterTxnDateFrom", filterTxnDateFrom.toISOString());
+    else localStorage.removeItem("brandSetup_filterTxnDateFrom");
+  }, [filterTxnDateFrom]);
+
+  useEffect(() => {
+    if (filterTxnDateTo) localStorage.setItem("brandSetup_filterTxnDateTo", filterTxnDateTo.toISOString());
+    else localStorage.removeItem("brandSetup_filterTxnDateTo");
+  }, [filterTxnDateTo]);
+
+  useEffect(() => {
     fetchBrands();
     fetchBrandTypes();
-    fetchBrandsWithTransactions();
   }, []);
+
+  useEffect(() => {
+    fetchBrandsWithTransactions();
+  }, [filterTxnDateFrom, filterTxnDateTo]);
+
+  const dateToInt = (d?: Date) => {
+    if (!d) return null;
+    return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  };
 
   const fetchBrandsWithTransactions = async () => {
     try {
-      const { data, error } = await supabase.rpc("get_brand_codes_with_transactions");
+      const { data, error } = await supabase.rpc("get_brand_codes_with_transactions", {
+        _from_date: dateToInt(filterTxnDateFrom),
+        _to_date: dateToInt(filterTxnDateTo),
+      });
       if (error) throw error;
       const codes = new Set<string>();
       const names = new Set<string>();
