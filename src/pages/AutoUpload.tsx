@@ -11,7 +11,7 @@ import { Play, History, Bot, CheckCircle2, AlertCircle, Clock, Ban, Loader2, Mai
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
-import edaraLogo from "@/assets/edara-logo.png";
+import ThemedLogo from "@/components/ThemedLogo";
 
 interface FoundFile {
   index: number;
@@ -331,7 +331,7 @@ const AutoUpload = () => {
                 <div className="flex items-center gap-3">
                   <div className="text-3xl">{job.icon}</div>
                   <div className="flex items-center gap-2">
-                    <img src={edaraLogo} alt="Edara" className="h-6 w-6 rounded-full" />
+                    <ThemedLogo alt="Edara" className="h-6 w-6 rounded-full" />
                     <Bot className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div>

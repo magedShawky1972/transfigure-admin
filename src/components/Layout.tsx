@@ -12,7 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import edaraLogo from "@/assets/edara-logo.png";
+import ThemedLogo from "@/components/ThemedLogo";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import { getKSAGregorianDate, getKSADate } from "@/lib/ksaTime";
 import {
@@ -432,7 +432,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 {menuMode === "sidebar" && (
                   <SidebarTrigger className={language === "ar" ? "ml-4" : "mr-4"} />
                 )}
-                <img src={edaraLogo} alt="Edara Logo" className="w-10 h-10 object-contain" />
+                <ThemedLogo alt="Edara Logo" className="w-10 h-10 object-contain" />
                 <h1 className="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                   {t("app.name")}
                 </h1>

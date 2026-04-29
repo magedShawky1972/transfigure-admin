@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Calendar, FileSpreadsheet, User, AlertCircle, CheckCircle2, Bot } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import edaraLogo from "@/assets/edara-logo.png";
+import ThemedLogo from "@/components/ThemedLogo";
 
 interface UploadLog {
   id: string;
@@ -200,7 +200,7 @@ const UploadLog = () => {
                       <TableCell>
                         {log.user_name === "EdaraBoot" ? (
                           <div className="flex items-center gap-2">
-                            <img src={edaraLogo} alt="Edara" className="h-5 w-5 rounded-full" />
+                            <ThemedLogo alt="Edara" className="h-5 w-5 rounded-full" />
                             <span className="font-medium text-primary">EdaraBoot</span>
                             <Bot className="h-3.5 w-3.5 text-muted-foreground" />
                           </div>
