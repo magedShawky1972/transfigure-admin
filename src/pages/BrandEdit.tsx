@@ -353,10 +353,10 @@ const BrandEdit = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.sku_start_with && (formData.sku_start_with.length < 1 || formData.sku_start_with.length > 2)) {
+    if (formData.sku_start_with && formData.sku_start_with.length !== 2) {
       toast({
         title: "Validation Error",
-        description: "SKU Start With must be 1 or 2 characters",
+        description: "SKU Start With must be exactly 2 characters",
         variant: "destructive",
       });
       return;
@@ -767,13 +767,13 @@ const BrandEdit = () => {
                     }
                   }
                 }}
-                placeholder="e.g. S, IT, GO"
+                placeholder="e.g. IT, GO, SM"
                 maxLength={2}
-                minLength={1}
+                minLength={2}
                 className={skuTaken ? "border-destructive ring-destructive" : ""}
               />
               <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {skuTaken ? "This SKU prefix is already taken by another brand" : "1 or 2 characters, must be unique across all brands"}
+                {skuTaken ? "This SKU prefix is already taken by another brand" : "Exactly 2 characters, must be unique across all brands"}
               </p>
             </div>
 
