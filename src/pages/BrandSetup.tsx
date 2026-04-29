@@ -491,6 +491,11 @@ const BrandSetup = () => {
           </div>
         </div>
 
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm text-muted-foreground">
+            Number of records: <span className="font-semibold text-foreground">{filteredBrands.length}</span>
+          </div>
+        </div>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
