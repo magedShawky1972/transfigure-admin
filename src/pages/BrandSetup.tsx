@@ -15,9 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, RefreshCw, Truck } from "lucide-react";
+import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon } from "lucide-react";
 import BrandSuppliersDialog from "@/components/BrandSuppliersDialog";
 import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface Brand {
   id: string;
@@ -77,6 +80,14 @@ const BrandSetup = () => {
   const [filterHasTransactions, setFilterHasTransactions] = useState(() =>
     localStorage.getItem("brandSetup_filterHasTransactions") || ""
   );
+  const [filterTxnDateFrom, setFilterTxnDateFrom] = useState<Date | undefined>(() => {
+    const v = localStorage.getItem("brandSetup_filterTxnDateFrom");
+    return v ? new Date(v) : undefined;
+  });
+  const [filterTxnDateTo, setFilterTxnDateTo] = useState<Date | undefined>(() => {
+    const v = localStorage.getItem("brandSetup_filterTxnDateTo");
+    return v ? new Date(v) : undefined;
+  });
   const [brandsWithTransactions, setBrandsWithTransactions] = useState<{ codes: Set<string>; names: Set<string> }>({ codes: new Set(), names: new Set() });
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -111,14 +122,35 @@ const BrandSetup = () => {
   }, [filterHasTransactions]);
 
   useEffect(() => {
+    if (filterTxnDateFrom) localStorage.setItem("brandSetup_filterTxnDateFrom", filterTxnDateFrom.toISOString());
+    else localStorage.removeItem("brandSetup_filterTxnDateFrom");
+  }, [filterTxnDateFrom]);
+
+  useEffect(() => {
+    if (filterTxnDateTo) localStorage.setItem("brandSetup_filterTxnDateTo", filterTxnDateTo.toISOString());
+    else localStorage.removeItem("brandSetup_filterTxnDateTo");
+  }, [filterTxnDateTo]);
+
+  useEffect(() => {
     fetchBrands();
     fetchBrandTypes();
-    fetchBrandsWithTransactions();
   }, []);
+
+  useEffect(() => {
+    fetchBrandsWithTransactions();
+  }, [filterTxnDateFrom, filterTxnDateTo]);
+
+  const dateToInt = (d?: Date) => {
+    if (!d) return null;
+    return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  };
 
   const fetchBrandsWithTransactions = async () => {
     try {
-      const { data, error } = await supabase.rpc("get_brand_codes_with_transactions");
+      const { data, error } = await supabase.rpc("get_brand_codes_with_transactions", {
+        _from_date: dateToInt(filterTxnDateFrom),
+        _to_date: dateToInt(filterTxnDateTo),
+      });
       if (error) throw error;
       const codes = new Set<string>();
       const names = new Set<string>();
@@ -410,6 +442,52 @@ const BrandSetup = () => {
               <option value="yes">With Transactions</option>
               <option value="no">Without Transactions</option>
             </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Txn Date From</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-full justify-start text-left font-normal", !filterTxnDateFrom && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {filterTxnDateFrom ? format(filterTxnDateFrom, "MMM dd, yyyy") : "From"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={filterTxnDateFrom} onSelect={setFilterTxnDateFrom} initialFocus className="pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label>Txn Date To</Label>
+            <div className="flex gap-1">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("flex-1 justify-start text-left font-normal", !filterTxnDateTo && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filterTxnDateTo ? format(filterTxnDateTo, "MMM dd, yyyy") : "To"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={filterTxnDateTo} onSelect={setFilterTxnDateTo} initialFocus className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              {(filterTxnDateFrom || filterTxnDateTo) && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => { setFilterTxnDateFrom(undefined); setFilterTxnDateTo(undefined); }}
+                  title="Clear date range"
+                >
+                  ×
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

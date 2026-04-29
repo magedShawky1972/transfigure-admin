@@ -11282,13 +11282,21 @@ export type Database = {
           total_amount: number
         }[]
       }
-      get_brand_codes_with_transactions: {
-        Args: never
-        Returns: {
-          brand_code: string
-          brand_name: string
-        }[]
-      }
+      get_brand_codes_with_transactions:
+        | {
+            Args: never
+            Returns: {
+              brand_code: string
+              brand_name: string
+            }[]
+          }
+        | {
+            Args: { _from_date?: number; _to_date?: number }
+            Returns: {
+              brand_code: string
+              brand_name: string
+            }[]
+          }
       get_cost_of_sales:
         | { Args: { date_from: string; date_to: string }; Returns: number }
         | {
