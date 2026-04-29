@@ -12,7 +12,7 @@ import { z } from "zod";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import logo from "@/assets/edara-logo.png";
+import ThemedLogo from "@/components/ThemedLogo";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import CertificateUploadDialog from "@/components/CertificateUploadDialog";
 
@@ -868,7 +868,7 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={logo} alt="Edara Logo" className="h-16 w-auto" />
+            <ThemedLogo alt="Edara Logo" className="h-16 w-auto" />
           </div>
           <CardTitle className="text-2xl">{t("auth.welcome")}</CardTitle>
           <CardDescription>

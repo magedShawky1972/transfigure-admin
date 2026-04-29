@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
-import logo from "@/assets/edara-logo.png";
+import ThemedLogo from "@/components/ThemedLogo";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import PendingApprovalsPopup from "@/components/PendingApprovalsPopup";
 import { usePendingApprovalsCheck } from "@/hooks/usePendingApprovalsCheck";
@@ -75,7 +75,7 @@ const Index = () => {
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex flex-col items-center mb-4 space-y-2">
-            <img src={logo} alt="Edara Logo" className="h-24 w-auto" />
+            <ThemedLogo alt="Edara Logo" className="h-24 w-auto" />
             <p className="text-sm text-muted-foreground">{format(new Date(), "MMMM dd, yyyy")}</p>
           </div>
           <CardTitle className="text-3xl font-bold">{t("welcome.title")}</CardTitle>
