@@ -80,6 +80,14 @@ const BrandSetup = () => {
   const [filterHasTransactions, setFilterHasTransactions] = useState(() =>
     localStorage.getItem("brandSetup_filterHasTransactions") || ""
   );
+  const [filterTxnDateFrom, setFilterTxnDateFrom] = useState<Date | undefined>(() => {
+    const v = localStorage.getItem("brandSetup_filterTxnDateFrom");
+    return v ? new Date(v) : undefined;
+  });
+  const [filterTxnDateTo, setFilterTxnDateTo] = useState<Date | undefined>(() => {
+    const v = localStorage.getItem("brandSetup_filterTxnDateTo");
+    return v ? new Date(v) : undefined;
+  });
   const [brandsWithTransactions, setBrandsWithTransactions] = useState<{ codes: Set<string>; names: Set<string> }>({ codes: new Set(), names: new Set() });
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
