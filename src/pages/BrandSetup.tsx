@@ -443,6 +443,52 @@ const BrandSetup = () => {
               <option value="no">Without Transactions</option>
             </select>
           </div>
+          <div className="space-y-2">
+            <Label>Txn Date From</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-full justify-start text-left font-normal", !filterTxnDateFrom && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {filterTxnDateFrom ? format(filterTxnDateFrom, "MMM dd, yyyy") : "From"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={filterTxnDateFrom} onSelect={setFilterTxnDateFrom} initialFocus className="pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label>Txn Date To</Label>
+            <div className="flex gap-1">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("flex-1 justify-start text-left font-normal", !filterTxnDateTo && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filterTxnDateTo ? format(filterTxnDateTo, "MMM dd, yyyy") : "To"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={filterTxnDateTo} onSelect={setFilterTxnDateTo} initialFocus className="pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              {(filterTxnDateFrom || filterTxnDateTo) && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => { setFilterTxnDateFrom(undefined); setFilterTxnDateTo(undefined); }}
+                  title="Clear date range"
+                >
+                  ×
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="rounded-md border">
