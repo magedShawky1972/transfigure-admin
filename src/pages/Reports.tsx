@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList, FileSpreadsheet, AlertTriangle, Scale, FolderKanban, Calculator, Headset } from "lucide-react";
+import { FileText, TrendingUp, TicketCheck, Key, Calendar, BookOpen, BarChart3, Receipt, Database, Coins, Landmark, Shield, ShoppingCart, Link2, DollarSign, ClipboardList, FileSpreadsheet, AlertTriangle, Scale, FolderKanban, Calculator, Headset, Image as ImageIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins']);
+        setAllowedReports(['class-a-balance-images', 'revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins']);
         setLoading(false);
         return;
       }
@@ -396,6 +396,15 @@ const Reports = () => {
         : "Products found in transactions but missing from the products table",
       icon: AlertTriangle,
       route: "/reports/unmatched-transaction-products",
+    },
+    {
+      id: "class-a-balance-images",
+      name: language === "ar" ? "تقرير صور أرصدة الفئة A" : 'Class "A" Balance Images Report',
+      description: language === "ar"
+        ? "عرض الصور المرفوعة لأرصدة منتجات الفئة A لكل مناوبة مع قيم الرصيد"
+        : "View uploaded balance images for Class A products per shift with balance values",
+      icon: ImageIcon,
+      route: "/reports/class-a-balance-images",
     },
     {
       id: "free-coins",

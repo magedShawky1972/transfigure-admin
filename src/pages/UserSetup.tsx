@@ -318,6 +318,7 @@ const REPORTS = [
   { key: "bank-balance-by-date", labelEn: "Bank Balance by Date", labelAr: "تقرير رصيد البنك بالتاريخ" },
   { key: "projects-tasks", labelEn: "Projects & Tasks Report", labelAr: "تقرير المشاريع والمهام" },
   { key: "payment-whatif", labelEn: "Payment What-If Scenario", labelAr: "سيناريو ماذا لو - الدفع" },
+  { key: "class-a-balance-images", labelEn: 'Class "A" Balance Images Report', labelAr: "تقرير صور أرصدة الفئة A" },
 ];
 
 const UserSetup = () => {
