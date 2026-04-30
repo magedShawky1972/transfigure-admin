@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Send } from "lucide-react";
 import { format } from "date-fns";
 
 interface BrandType {
@@ -181,6 +181,35 @@ const BrandType = () => {
     setDialogOpen(true);
   };
 
+  const handleSendToOdoo = async (brand: BrandType) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-brand-to-odoo", {
+        body: {
+          brand_code: brand.type_code,
+          brand_name: brand.type_name,
+          status: brand.status,
+        },
+      });
+
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || "Failed to sync");
+
+      toast({
+        title: t("common.success"),
+        description: data?.message || "Brand Type sent to Odoo",
+      });
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredBrands = brands.filter((brand) => {
     const matchesTypeCode = !filterTypeCode || 
       brand.type_code.toLowerCase().includes(filterTypeCode.toLowerCase());
@@ -267,6 +296,14 @@ const BrandType = () => {
                           onClick={() => handleEdit(brand)}
                         >
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendToOdoo(brand)}
+                          title="Send to Odoo"
+                        >
+                          <Send className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="destructive"
