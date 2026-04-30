@@ -431,6 +431,7 @@ const ClassABalanceImagesReport = () => {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
+                      <TableCell className="text-right font-mono">{e.closing_balance.toLocaleString()}</TableCell>
                       <TableCell>
                         {e.receipt_image_path ? (
                           <button onClick={() => setPreviewImage(e.receipt_image_path)}>
