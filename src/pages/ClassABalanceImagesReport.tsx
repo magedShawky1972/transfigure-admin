@@ -501,6 +501,13 @@ const ClassABalanceImagesReport = () => {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {e.sales_coins > 0 ? (
+                          <span className="text-blue-600 font-semibold">{e.sales_coins.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-mono">{e.closing_balance.toLocaleString()}</TableCell>
                       <TableCell>
                         {e.receipt_image_path ? (
