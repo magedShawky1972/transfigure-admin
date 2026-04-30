@@ -23,6 +23,7 @@ interface ImageEntry {
   opening_image_path: string | null;
   receipt_image_path: string | null;
   receiving_coins: number;
+  sales_coins: number;
   user_name: string;
   shift_name: string;
   assignment_date: string;
