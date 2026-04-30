@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
         'Authorization': odooApiKey,
       },
       body: JSON.stringify({
+        sku: brand_code,
         name: brand_name,
       }),
     });
@@ -121,6 +122,7 @@ Deno.serve(async (req) => {
         'Authorization': odooApiKey,
       },
       body: JSON.stringify({
+        sku: brand_code,
         name: brand_name,
         cat_code: brand_code,
         status: status === 'active' ? 'active' : 'suspended',
