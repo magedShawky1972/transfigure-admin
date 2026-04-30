@@ -324,7 +324,7 @@ const BrandType = () => {
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             synced
                               ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                           }`}>
                             {modeLabel}: {synced ? 'Synced' : 'Not Synced'}
                           </span>
