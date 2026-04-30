@@ -171,6 +171,7 @@ import PaymentGatewayConsolidation from "./pages/PaymentGatewayConsolidation";
 import Integrations from "./pages/Integrations";
 import ShiftGenerator from "./pages/ShiftGenerator";
 import IntegrationAccessControl from "./pages/IntegrationAccessControl";
+import SqlQueryRunner from "./pages/SqlQueryRunner";
 import { GlobalMigrationRecovery } from "./components/GlobalMigrationRecovery";
 const queryClient = new QueryClient();
 
@@ -351,6 +352,7 @@ const App = () => (
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/integration-access-control" element={<IntegrationAccessControl />} />
               <Route path="/shift-generator" element={<ShiftGenerator />} />
+              <Route path="/sql-query-runner" element={<SqlQueryRunner />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
