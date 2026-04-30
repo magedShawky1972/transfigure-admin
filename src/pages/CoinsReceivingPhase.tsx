@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus, Download, FileText, ExternalLink, Maximize2 } from "lucide-react";
+import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus, Download, FileText, ExternalLink, Maximize2, Save } from "lucide-react";
 import { downloadFile } from "@/lib/fileDownload";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { format } from "date-fns";
