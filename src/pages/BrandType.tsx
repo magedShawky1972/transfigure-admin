@@ -210,11 +210,11 @@ const BrandType = () => {
       if (error) throw error;
       if (data && data.success === false) throw new Error(data.error || "Failed to sync");
 
-      // Mark sync flag for current mode
+      // Mark sync flag for current mode and clear any previous error
       const updateField = odooMode === "production"
-        ? { synced_to_odoo_production: true }
+        ? { synced_to_odoo_production: true, odoo_sync_error_production: null }
         : odooMode === "test"
-        ? { synced_to_odoo_test: true }
+        ? { synced_to_odoo_test: true, odoo_sync_error_test: null }
         : null;
       if (updateField) {
         await supabase.from("brand_type").update(updateField).eq("id", brand.id);
@@ -226,9 +226,20 @@ const BrandType = () => {
       });
       fetchBrands();
     } catch (error: any) {
+      const errMsg = error?.message || "Unknown error";
+      // Save error for current mode
+      const errField = odooMode === "production"
+        ? { synced_to_odoo_production: false, odoo_sync_error_production: errMsg }
+        : odooMode === "test"
+        ? { synced_to_odoo_test: false, odoo_sync_error_test: errMsg }
+        : null;
+      if (errField) {
+        await supabase.from("brand_type").update(errField).eq("id", brand.id);
+        fetchBrands();
+      }
       toast({
         title: t("common.error"),
-        description: error.message,
+        description: errMsg,
         variant: "destructive",
       });
     } finally {
