@@ -201,12 +201,7 @@ const ClassABalanceImagesReport = () => {
           id: b.id,
           brand_name: brand?.brand_name || "Unknown",
           brand_code: brand?.brand_code || null,
-          opening_balance: findPriorClosing(
-            b.brand_id,
-            a?.assignment_date || null,
-            a?.shift_order || null,
-            a?.shift_family || "other",
-          ),
+          opening_balance: findPriorClosing(b.brand_id, s?.opened_at || null),
           closing_balance: Number(b.closing_balance || 0),
           opening_image_path: b.opening_image_path,
           receipt_image_path: b.receipt_image_path,
