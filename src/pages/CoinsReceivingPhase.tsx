@@ -541,12 +541,24 @@ const CoinsReceivingPhase = () => {
                             {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
                           </TableCell>
                           <TableCell>
-                            <Input
-                              type="date"
-                              value={actualDate}
-                              onChange={(e) => updateLineActualDate(line.id, e.target.value)}
-                              className="h-9 w-40"
-                            />
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="date"
+                                value={actualDate}
+                                onChange={(e) => setLineActualDates(prev => ({ ...prev, [line.id]: e.target.value }))}
+                                className="h-9 w-40"
+                              />
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9"
+                                onClick={() => saveLineActualDate(line.id)}
+                                disabled={savingDateLineId === line.id}
+                                title={isArabic ? "حفظ" : "Save"}
+                              >
+                                <Save className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                           <TableCell className="font-bold text-lg">
                             {receiptCoins > 0 ? (
