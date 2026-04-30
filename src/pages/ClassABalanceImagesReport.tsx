@@ -142,72 +142,54 @@ const ClassABalanceImagesReport = () => {
       const { data: balances, error } = await q;
       if (error) throw error;
 
-      // Build prior closing-balance lookup using scheduled assignment date + shift order,
-      // not employee or session open/close timestamps.
+      // Opening = closing_balance of the previous row for the same brand,
+      // ordered by brand_name, opened_at across the entire history.
       const brandIdsInResults = [...new Set((balances || []).map((b) => b.brand_id))];
 
-      const { data: priorBalances } = await supabase
-        .from("shift_brand_balances")
-        .select(`
-          brand_id,
-          closing_balance,
-          shift_sessions!inner(
-            id,
-            closed_at,
-            shift_assignments!inner(
-              assignment_date,
-              shifts(
-                shift_name,
-                shift_order,
-                shift_types(type)
-              )
-            )
-          )
-        `)
-        .in("brand_id", brandIdsInResults.length ? brandIdsInResults : ["00000000-0000-0000-0000-000000000000"])
-        .not("closing_balance", "is", null);
+      // Fetch ALL balances for the brands in result (paginated to bypass 1000 row limit)
+      const allBalancesForBrands: any[] = [];
+      if (brandIdsInResults.length) {
+        let from = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data: page, error: pErr } = await supabase
+            .from("shift_brand_balances")
+            .select("brand_id, closing_balance, shift_sessions!inner(opened_at)")
+            .in("brand_id", brandIdsInResults)
+            .range(from, from + pageSize - 1);
+          if (pErr) throw pErr;
+          if (!page || page.length === 0) break;
+          allBalancesForBrands.push(...page);
+          if (page.length < pageSize) break;
+          from += pageSize;
+        }
+      }
 
-      // Group prior balances by brand, sorted by scheduled date/order descending.
-      const priorByBrand = new Map<string, PriorClosingMeta[]>();
-      (priorBalances || []).forEach((p: any) => {
-        const assignmentDate = p.shift_sessions?.shift_assignments?.assignment_date;
-        const shiftName = p.shift_sessions?.shift_assignments?.shifts?.shift_name;
-        const shiftOrder = Number(p.shift_sessions?.shift_assignments?.shifts?.shift_order || 0);
-        if (!assignmentDate || !shiftOrder) return;
-
-        const arr = priorByBrand.get(p.brand_id) || [];
+      // Group by brand, sorted ascending by opened_at
+      const historyByBrand = new Map<string, { opened_at: string; closing_balance: number }[]>();
+      allBalancesForBrands.forEach((p: any) => {
+        const openedAt = p.shift_sessions?.opened_at;
+        if (!openedAt) return;
+        const arr = historyByBrand.get(p.brand_id) || [];
         arr.push({
-          assignment_date: assignmentDate,
-          shift_order: shiftOrder,
-          shift_family: getShiftFamily(
-            p.shift_sessions?.shift_assignments?.shifts?.shift_types?.type,
-            shiftName,
-          ),
-          closed_at: p.shift_sessions?.closed_at || null,
+          opened_at: openedAt,
           closing_balance: Number(p.closing_balance || 0),
         });
-        priorByBrand.set(p.brand_id, arr);
+        historyByBrand.set(p.brand_id, arr);
       });
-      priorByBrand.forEach((arr) => arr.sort((a, b) => {
-        const dateCmp = b.assignment_date.localeCompare(a.assignment_date);
-        if (dateCmp !== 0) return dateCmp;
-        const orderCmp = b.shift_order - a.shift_order;
-        if (orderCmp !== 0) return orderCmp;
-        return (b.closed_at || "").localeCompare(a.closed_at || "");
-      }));
+      historyByBrand.forEach((arr) =>
+        arr.sort((a, b) => a.opened_at.localeCompare(b.opened_at)),
+      );
 
-      const findPriorClosing = (
-        brandId: string,
-        assignmentDate: string | null,
-        shiftOrder: number | null,
-        shiftFamily: ShiftFamily,
-      ): number => {
-        if (!assignmentDate || !shiftOrder) return 0;
-        const arr = priorByBrand.get(brandId) || [];
-        const prior = arr.find((p) => {
-          if (p.shift_family !== shiftFamily) return false;
-          return p.assignment_date < assignmentDate || (p.assignment_date === assignmentDate && p.shift_order < shiftOrder);
-        });
+      const findPriorClosing = (brandId: string, openedAt: string | null): number => {
+        if (!openedAt) return 0;
+        const arr = historyByBrand.get(brandId) || [];
+        // Find the last row with opened_at strictly before this one
+        let prior: { opened_at: string; closing_balance: number } | null = null;
+        for (const row of arr) {
+          if (row.opened_at < openedAt) prior = row;
+          else break;
+        }
         return prior ? prior.closing_balance : 0;
       };
 
