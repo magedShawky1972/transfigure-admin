@@ -75,7 +75,7 @@ const ClassABalanceImagesReport = () => {
 
       const { data: assignments } = await supabase
         .from("shift_assignments")
-        .select("id, assignment_date, shifts ( shift_name )")
+        .select("id, assignment_date, shifts ( shift_name, shift_order, shift_types ( type ) )")
         .gte("assignment_date", startDate)
         .lte("assignment_date", endDate);
 
@@ -108,34 +108,86 @@ const ClassABalanceImagesReport = () => {
       const { data: balances, error } = await q;
       if (error) throw error;
 
-      // Build prior closing-balance lookup: for each brand, find the most recently CLOSED shift
-      // whose closed_at is before this session's opened_at.
+      const getShiftFamily = (shiftType: string | null | undefined, shiftName: string | null | undefined) => {
+        const haystack = `${shiftType || ""} ${shiftName || ""}`.toLowerCase();
+        if (haystack.includes("training") || haystack.includes("تدريب")) return "sales-training";
+        if (haystack.includes("support") || haystack.includes("دعم")) return "support";
+        if (haystack.includes("sale") || haystack.includes("مبيعات")) return "sales";
+        return haystack.trim() || "other";
+      };
+
+      // Build prior closing-balance lookup using scheduled assignment date + shift order,
+      // not employee or session open/close timestamps.
       const brandIdsInResults = [...new Set((balances || []).map((b) => b.brand_id))];
 
       const { data: priorBalances } = await supabase
         .from("shift_brand_balances")
-        .select("brand_id, closing_balance, receipt_image_path, shift_sessions!inner(opened_at, closed_at)")
+        .select(`
+          brand_id,
+          closing_balance,
+          shift_sessions!inner(
+            id,
+            closed_at,
+            shift_assignments!inner(
+              assignment_date,
+              shifts(
+                shift_name,
+                shift_order,
+                shift_types(type)
+              )
+            )
+          )
+        `)
         .in("brand_id", brandIdsInResults.length ? brandIdsInResults : ["00000000-0000-0000-0000-000000000000"])
-        .not("shift_sessions.closed_at", "is", null);
+        .not("closing_balance", "is", null);
 
-      // Group prior balances by brand, sorted by closed_at desc
-      const priorByBrand = new Map<string, { closed_at: string; closing_balance: number }[]>();
+      // Group prior balances by brand, sorted by scheduled date/order descending.
+      const priorByBrand = new Map<string, {
+        assignment_date: string;
+        shift_order: number;
+        shift_family: string;
+        closed_at: string | null;
+        closing_balance: number;
+      }[]>();
       (priorBalances || []).forEach((p: any) => {
-        const closedAt = p.shift_sessions?.closed_at;
-        if (!closedAt) return;
+        const assignmentDate = p.shift_sessions?.shift_assignments?.assignment_date;
+        const shiftName = p.shift_sessions?.shift_assignments?.shifts?.shift_name;
+        const shiftOrder = Number(p.shift_sessions?.shift_assignments?.shifts?.shift_order || 0);
+        if (!assignmentDate || !shiftOrder) return;
+
         const arr = priorByBrand.get(p.brand_id) || [];
         arr.push({
-          closed_at: closedAt,
+          assignment_date: assignmentDate,
+          shift_order: shiftOrder,
+          shift_family: getShiftFamily(
+            p.shift_sessions?.shift_assignments?.shifts?.shift_types?.type,
+            shiftName,
+          ),
+          closed_at: p.shift_sessions?.closed_at || null,
           closing_balance: Number(p.closing_balance || 0),
         });
         priorByBrand.set(p.brand_id, arr);
       });
-      priorByBrand.forEach((arr) => arr.sort((a, b) => b.closed_at.localeCompare(a.closed_at)));
+      priorByBrand.forEach((arr) => arr.sort((a, b) => {
+        const dateCmp = b.assignment_date.localeCompare(a.assignment_date);
+        if (dateCmp !== 0) return dateCmp;
+        const orderCmp = b.shift_order - a.shift_order;
+        if (orderCmp !== 0) return orderCmp;
+        return (b.closed_at || "").localeCompare(a.closed_at || "");
+      }));
 
-      const findPriorClosing = (brandId: string, openedAt: string | null): number => {
-        if (!openedAt) return 0;
+      const findPriorClosing = (
+        brandId: string,
+        assignmentDate: string | null,
+        shiftOrder: number | null,
+        shiftFamily: string,
+      ): number => {
+        if (!assignmentDate || !shiftOrder) return 0;
         const arr = priorByBrand.get(brandId) || [];
-        const prior = arr.find((p) => p.closed_at < openedAt);
+        const prior = arr.find((p) => {
+          if (p.shift_family !== shiftFamily) return false;
+          return p.assignment_date < assignmentDate || (p.assignment_date === assignmentDate && p.shift_order < shiftOrder);
+        });
         return prior ? prior.closing_balance : 0;
       };
 
@@ -143,11 +195,17 @@ const ClassABalanceImagesReport = () => {
         const s: any = sessionMap.get(b.shift_session_id);
         const a: any = s ? assignmentMap.get(s.shift_assignment_id) : null;
         const brand: any = brandMap.get(b.brand_id);
+        const shiftFamily = getShiftFamily(a?.shifts?.shift_types?.type, a?.shifts?.shift_name);
         return {
           id: b.id,
           brand_name: brand?.brand_name || "Unknown",
           brand_code: brand?.brand_code || null,
-          opening_balance: findPriorClosing(b.brand_id, s?.opened_at || null),
+          opening_balance: findPriorClosing(
+            b.brand_id,
+            a?.assignment_date || null,
+            a?.shifts?.shift_order || null,
+            shiftFamily,
+          ),
           closing_balance: Number(b.closing_balance || 0),
           opening_image_path: b.opening_image_path,
           receipt_image_path: b.receipt_image_path,
