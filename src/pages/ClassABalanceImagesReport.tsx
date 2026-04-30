@@ -73,17 +73,19 @@ const ClassABalanceImagesReport = () => {
       const aIds = aBrands?.map((b) => b.id) || [];
       const brandMap = new Map(aBrands?.map((b) => [b.id, b]) || []);
 
+      const { data: assignments } = await supabase
+        .from("shift_assignments")
+        .select("id, assignment_date, shifts ( shift_name )")
+        .gte("assignment_date", startDate)
+        .lte("assignment_date", endDate);
+
+      const assignmentIds = assignments?.map((a) => a.id) || [];
+      const assignmentMap = new Map(assignments?.map((a) => [a.id, a]) || []);
+
       const { data: sessions } = await supabase
         .from("shift_sessions")
-        .select(`
-          id, user_id, opened_at, closed_at, shift_assignment_id,
-          shift_assignments (
-            assignment_date,
-            shifts ( shift_name )
-          )
-        `)
-        .gte("opened_at", `${startDate}T00:00:00`)
-        .lte("opened_at", `${endDate}T23:59:59`);
+        .select(`id, user_id, opened_at, closed_at, shift_assignment_id`)
+        .in("shift_assignment_id", assignmentIds.length ? assignmentIds : ["00000000-0000-0000-0000-000000000000"]);
 
       const sessionMap = new Map(sessions?.map((s) => [s.id, s]) || []);
       const sessionIds = sessions?.map((s) => s.id) || [];
@@ -108,6 +110,7 @@ const ClassABalanceImagesReport = () => {
 
       let combined: ImageEntry[] = (balances || []).map((b) => {
         const s: any = sessionMap.get(b.shift_session_id);
+        const a: any = s ? assignmentMap.get(s.shift_assignment_id) : null;
         const brand: any = brandMap.get(b.brand_id);
         return {
           id: b.id,
@@ -118,8 +121,8 @@ const ClassABalanceImagesReport = () => {
           opening_image_path: b.opening_image_path,
           receipt_image_path: b.receipt_image_path,
           user_name: profileMap.get(s?.user_id) || "Unknown",
-          shift_name: s?.shift_assignments?.shifts?.shift_name || "",
-          assignment_date: s?.shift_assignments?.assignment_date || "",
+          shift_name: a?.shifts?.shift_name || "",
+          assignment_date: a?.assignment_date || "",
           opened_at: s?.opened_at || null,
           closed_at: s?.closed_at || null,
         };
