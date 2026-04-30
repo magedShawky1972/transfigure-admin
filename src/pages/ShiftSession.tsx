@@ -47,6 +47,7 @@ interface ShiftSession {
   user_id: string;
   first_order_number: string | null;
   salla_first_order_number: string | null;
+  shift_assignment_id: string | null;
 }
 
 interface BrandBalance {
