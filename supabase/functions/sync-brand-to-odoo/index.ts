@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
         'Authorization': odooApiKey,
       },
       body: JSON.stringify({
+        sku: brand_code,
         name: brand_name,
       }),
     });
