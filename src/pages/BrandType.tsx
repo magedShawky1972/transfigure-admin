@@ -208,10 +208,21 @@ const BrandType = () => {
       if (error) throw error;
       if (data && data.success === false) throw new Error(data.error || "Failed to sync");
 
+      // Mark sync flag for current mode
+      const updateField = odooMode === "production"
+        ? { synced_to_odoo_production: true }
+        : odooMode === "test"
+        ? { synced_to_odoo_test: true }
+        : null;
+      if (updateField) {
+        await supabase.from("brand_type").update(updateField).eq("id", brand.id);
+      }
+
       toast({
         title: t("common.success"),
         description: data?.message || "Brand Type sent to Odoo",
       });
+      fetchBrands();
     } catch (error: any) {
       toast({
         title: t("common.error"),
