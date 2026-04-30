@@ -393,6 +393,7 @@ const ClassABalanceImagesReport = () => {
                     <TableHead>{language === "ar" ? "المناوبة" : "Shift"}</TableHead>
                     <TableHead className="text-right">{language === "ar" ? "افتتاحي" : "Opening"}</TableHead>
                     <TableHead>{language === "ar" ? "صورة الافتتاح" : "Opening Image"}</TableHead>
+                    <TableHead className="text-right">{language === "ar" ? "الاستلام" : "Receiving"}</TableHead>
                     <TableHead className="text-right">{language === "ar" ? "ختامي" : "Closing"}</TableHead>
                     <TableHead>{language === "ar" ? "صورة الإغلاق" : "Closing Image"}</TableHead>
                   </TableRow>
