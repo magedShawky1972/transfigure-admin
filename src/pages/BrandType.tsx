@@ -312,17 +312,24 @@ const BrandType = () => {
                       </span>
                     </TableCell>
                     <TableCell>
-                      {odooMode ? (
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          odooMode === 'production'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-                        }`}>
-                          {odooMode === 'production' ? 'Production' : 'Test'}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
+                      {(() => {
+                        const synced = odooMode === "production"
+                          ? brand.synced_to_odoo_production
+                          : odooMode === "test"
+                          ? brand.synced_to_odoo_test
+                          : false;
+                        const modeLabel = odooMode === "production" ? "Production" : odooMode === "test" ? "Test" : "—";
+                        if (!odooMode) return <span className="text-muted-foreground text-xs">—</span>;
+                        return (
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            synced
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                          }`}>
+                            {modeLabel}: {synced ? 'Synced' : 'Not Synced'}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>{format(new Date(brand.created_at), "PPp")}</TableCell>
                     <TableCell>{format(new Date(brand.updated_at), "PPp")}</TableCell>
