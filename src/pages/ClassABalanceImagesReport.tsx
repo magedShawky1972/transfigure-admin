@@ -23,6 +23,7 @@ interface ImageEntry {
   opening_image_path: string | null;
   receipt_image_path: string | null;
   receiving_coins: number;
+  sales_coins: number;
   user_name: string;
   shift_name: string;
   assignment_date: string;
@@ -156,7 +157,7 @@ const ClassABalanceImagesReport = () => {
         while (true) {
           const { data: page, error: pErr } = await supabase
             .from("shift_brand_balances")
-            .select("brand_id, closing_balance, receipt_image_path, shift_sessions!inner(opened_at)")
+            .select("brand_id, closing_balance, receipt_image_path, shift_sessions!inner(opened_at, closed_at)")
             .in("brand_id", brandIdsInResults)
             .range(from, from + pageSize - 1);
           if (pErr) throw pErr;
@@ -168,7 +169,7 @@ const ClassABalanceImagesReport = () => {
       }
 
       // Group by brand, sorted ascending by opened_at
-      type PriorRow = { opened_at: string; closing_balance: number; receipt_image_path: string | null };
+      type PriorRow = { opened_at: string; closed_at: string | null; closing_balance: number; receipt_image_path: string | null };
       const historyByBrand = new Map<string, PriorRow[]>();
       allBalancesForBrands.forEach((p: any) => {
         const openedAt = p.shift_sessions?.opened_at;
@@ -176,6 +177,7 @@ const ClassABalanceImagesReport = () => {
         const arr = historyByBrand.get(p.brand_id) || [];
         arr.push({
           opened_at: openedAt,
+          closed_at: p.shift_sessions?.closed_at || null,
           closing_balance: Number(p.closing_balance || 0),
           receipt_image_path: p.receipt_image_path || null,
         });
@@ -212,6 +214,72 @@ const ClassABalanceImagesReport = () => {
         }
       }
 
+      // Compute sales coins window per balance row: from previous shift's closed_at (fallback opened_at) to current closed_at
+      type RowWindow = { id: string; brand_id: string; brand_code: string | null; from: string | null; to: string | null };
+      const rowWindows: RowWindow[] = (balances || []).map((b) => {
+        const s: any = sessionMap.get(b.shift_session_id);
+        const brand: any = brandMap.get(b.brand_id);
+        const prior = findPrior(b.brand_id, s?.opened_at || null);
+        const fromTs = prior?.closed_at || s?.opened_at || null;
+        const toTs = s?.closed_at || null;
+        return { id: b.id, brand_id: b.brand_id, brand_code: brand?.brand_code || null, from: fromTs, to: toTs };
+      });
+
+      // Fetch purpletransaction sales coins for involved brand_codes within overall window (paginated)
+      const brandCodes = [...new Set(rowWindows.map((r) => r.brand_code).filter((c): c is string => !!c))];
+      const fromTimes = rowWindows.map((r) => r.from).filter((t): t is string => !!t);
+      const toTimes = rowWindows.map((r) => r.to).filter((t): t is string => !!t);
+      const overallFrom = fromTimes.length ? fromTimes.reduce((a, b) => (a < b ? a : b)) : null;
+      const overallTo = toTimes.length ? toTimes.reduce((a, b) => (a > b ? a : b)) : null;
+
+      type SalesTx = { brand_code: string; created_at_date: string; coins_number: number };
+      const salesTxs: SalesTx[] = [];
+      if (brandCodes.length && overallFrom && overallTo) {
+        let from = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data: page, error: pErr } = await supabase
+            .from("purpletransaction")
+            .select("brand_code, created_at_date, coins_number")
+            .in("brand_code", brandCodes)
+            .gte("created_at_date", overallFrom)
+            .lte("created_at_date", overallTo)
+            .range(from, from + pageSize - 1);
+          if (pErr) throw pErr;
+          if (!page || page.length === 0) break;
+          for (const r of page as any[]) {
+            salesTxs.push({
+              brand_code: r.brand_code,
+              created_at_date: r.created_at_date,
+              coins_number: Number(r.coins_number || 0),
+            });
+          }
+          if (page.length < pageSize) break;
+          from += pageSize;
+        }
+      }
+
+      // Index sales transactions by brand_code for fast per-row sum
+      const txsByBrandCode = new Map<string, SalesTx[]>();
+      for (const t of salesTxs) {
+        const arr = txsByBrandCode.get(t.brand_code) || [];
+        arr.push(t);
+        txsByBrandCode.set(t.brand_code, arr);
+      }
+      const salesCoinsByRowId = new Map<string, number>();
+      for (const w of rowWindows) {
+        if (!w.brand_code || !w.from || !w.to) {
+          salesCoinsByRowId.set(w.id, 0);
+          continue;
+        }
+        const arr = txsByBrandCode.get(w.brand_code) || [];
+        let sum = 0;
+        for (const t of arr) {
+          if (t.created_at_date > w.from && t.created_at_date <= w.to) sum += t.coins_number;
+        }
+        salesCoinsByRowId.set(w.id, sum);
+      }
+
       let combined: ImageEntry[] = (balances || []).map((b) => {
         const s: any = sessionMap.get(b.shift_session_id);
         const a = s ? assignmentMap.get(s.shift_assignment_id) : null;
@@ -228,6 +296,7 @@ const ClassABalanceImagesReport = () => {
           opening_image_path: prior ? prior.receipt_image_path : null,
           receipt_image_path: b.receipt_image_path,
           receiving_coins: dateKey ? (receivingByBrandDate.get(dateKey) || 0) : 0,
+          sales_coins: salesCoinsByRowId.get(b.id) || 0,
           user_name: profileMap.get(s?.user_id) || "Unknown",
           shift_name: a?.shift_name || "",
           assignment_date: a?.assignment_date || "",
@@ -394,6 +463,7 @@ const ClassABalanceImagesReport = () => {
                     <TableHead className="text-right">{language === "ar" ? "افتتاحي" : "Opening"}</TableHead>
                     <TableHead>{language === "ar" ? "صورة الافتتاح" : "Opening Image"}</TableHead>
                     <TableHead className="text-right">{language === "ar" ? "الاستلام" : "Receiving"}</TableHead>
+                    <TableHead className="text-right">{language === "ar" ? "كوينز المبيعات" : "Sales Coins"}</TableHead>
                     <TableHead className="text-right">{language === "ar" ? "ختامي" : "Closing"}</TableHead>
                     <TableHead>{language === "ar" ? "صورة الإغلاق" : "Closing Image"}</TableHead>
                   </TableRow>
@@ -427,6 +497,13 @@ const ClassABalanceImagesReport = () => {
                       <TableCell className="text-right font-mono">
                         {e.receiving_coins > 0 ? (
                           <span className="text-green-600 font-semibold">{e.receiving_coins.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {e.sales_coins > 0 ? (
+                          <span className="text-blue-600 font-semibold">{e.sales_coins.toLocaleString()}</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
