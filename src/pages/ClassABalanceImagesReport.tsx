@@ -154,7 +154,7 @@ const ClassABalanceImagesReport = () => {
         while (true) {
           const { data: page, error: pErr } = await supabase
             .from("shift_brand_balances")
-            .select("brand_id, closing_balance, shift_sessions!inner(opened_at)")
+            .select("brand_id, closing_balance, receipt_image_path, shift_sessions!inner(opened_at)")
             .in("brand_id", brandIdsInResults)
             .range(from, from + pageSize - 1);
           if (pErr) throw pErr;
@@ -166,7 +166,8 @@ const ClassABalanceImagesReport = () => {
       }
 
       // Group by brand, sorted ascending by opened_at
-      const historyByBrand = new Map<string, { opened_at: string; closing_balance: number }[]>();
+      type PriorRow = { opened_at: string; closing_balance: number; receipt_image_path: string | null };
+      const historyByBrand = new Map<string, PriorRow[]>();
       allBalancesForBrands.forEach((p: any) => {
         const openedAt = p.shift_sessions?.opened_at;
         if (!openedAt) return;
@@ -174,6 +175,7 @@ const ClassABalanceImagesReport = () => {
         arr.push({
           opened_at: openedAt,
           closing_balance: Number(p.closing_balance || 0),
+          receipt_image_path: p.receipt_image_path || null,
         });
         historyByBrand.set(p.brand_id, arr);
       });
@@ -181,29 +183,29 @@ const ClassABalanceImagesReport = () => {
         arr.sort((a, b) => a.opened_at.localeCompare(b.opened_at)),
       );
 
-      const findPriorClosing = (brandId: string, openedAt: string | null): number => {
-        if (!openedAt) return 0;
+      const findPrior = (brandId: string, openedAt: string | null): PriorRow | null => {
+        if (!openedAt) return null;
         const arr = historyByBrand.get(brandId) || [];
-        // Find the last row with opened_at strictly before this one
-        let prior: { opened_at: string; closing_balance: number } | null = null;
+        let prior: PriorRow | null = null;
         for (const row of arr) {
           if (row.opened_at < openedAt) prior = row;
           else break;
         }
-        return prior ? prior.closing_balance : 0;
+        return prior;
       };
 
       let combined: ImageEntry[] = (balances || []).map((b) => {
         const s: any = sessionMap.get(b.shift_session_id);
         const a = s ? assignmentMap.get(s.shift_assignment_id) : null;
         const brand: any = brandMap.get(b.brand_id);
+        const prior = findPrior(b.brand_id, s?.opened_at || null);
         return {
           id: b.id,
           brand_name: brand?.brand_name || "Unknown",
           brand_code: brand?.brand_code || null,
-          opening_balance: findPriorClosing(b.brand_id, s?.opened_at || null),
+          opening_balance: prior ? prior.closing_balance : 0,
           closing_balance: Number(b.closing_balance || 0),
-          opening_image_path: b.opening_image_path,
+          opening_image_path: prior ? prior.receipt_image_path : null,
           receipt_image_path: b.receipt_image_path,
           user_name: profileMap.get(s?.user_id) || "Unknown",
           shift_name: a?.shift_name || "",
