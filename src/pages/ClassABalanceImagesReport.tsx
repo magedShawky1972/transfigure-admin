@@ -108,6 +108,39 @@ const ClassABalanceImagesReport = () => {
       const { data: balances, error } = await q;
       if (error) throw error;
 
+      // Build prior closing-balance lookup: for each brand, find the latest closed shift before each session's opened_at
+      const brandIdsInResults = [...new Set((balances || []).map((b) => b.brand_id))];
+      const earliestOpenedAt = sessions?.reduce<string | null>((min, s) => {
+        if (!s.opened_at) return min;
+        return !min || s.opened_at < min ? s.opened_at : min;
+      }, null);
+
+      // Fetch all balances for these brands from sessions opened before our latest session, to find priors
+      const { data: priorBalances } = await supabase
+        .from("shift_brand_balances")
+        .select("brand_id, closing_balance, shift_session_id, shift_sessions!inner(opened_at, closed_at)")
+        .in("brand_id", brandIdsInResults.length ? brandIdsInResults : ["00000000-0000-0000-0000-000000000000"])
+        .lt("shift_sessions.opened_at", new Date().toISOString());
+
+      // Group prior balances by brand, sorted by opened_at desc
+      const priorByBrand = new Map<string, { opened_at: string; closing_balance: number }[]>();
+      (priorBalances || []).forEach((p: any) => {
+        const arr = priorByBrand.get(p.brand_id) || [];
+        arr.push({
+          opened_at: p.shift_sessions?.opened_at,
+          closing_balance: Number(p.closing_balance || 0),
+        });
+        priorByBrand.set(p.brand_id, arr);
+      });
+      priorByBrand.forEach((arr) => arr.sort((a, b) => (b.opened_at || "").localeCompare(a.opened_at || "")));
+
+      const findPriorClosing = (brandId: string, openedAt: string | null): number => {
+        if (!openedAt) return 0;
+        const arr = priorByBrand.get(brandId) || [];
+        const prior = arr.find((p) => p.opened_at && p.opened_at < openedAt);
+        return prior ? prior.closing_balance : 0;
+      };
+
       let combined: ImageEntry[] = (balances || []).map((b) => {
         const s: any = sessionMap.get(b.shift_session_id);
         const a: any = s ? assignmentMap.get(s.shift_assignment_id) : null;
@@ -116,7 +149,7 @@ const ClassABalanceImagesReport = () => {
           id: b.id,
           brand_name: brand?.brand_name || "Unknown",
           brand_code: brand?.brand_code || null,
-          opening_balance: Number(b.opening_balance || 0),
+          opening_balance: findPriorClosing(b.brand_id, s?.opened_at || null),
           closing_balance: Number(b.closing_balance || 0),
           opening_image_path: b.opening_image_path,
           receipt_image_path: b.receipt_image_path,
