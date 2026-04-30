@@ -38,6 +38,8 @@ interface BrandType {
   status: string;
   created_at: string;
   updated_at: string;
+  synced_to_odoo_production?: boolean;
+  synced_to_odoo_test?: boolean;
 }
 
 const BrandType = () => {
