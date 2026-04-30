@@ -904,38 +904,42 @@ export default function ShiftFollowUp() {
                         {getStatusBadge(latestSession)}
                       </TableCell>
                       <TableCell>
-                      {latestSession ? (() => {
-                          const uploaded = latestSession.uploaded_images_count || 0;
-                          const required = latestSession.required_images_count || 0;
-                          const missing = required - uploaded;
-                          const isComplete = missing <= 0;
-                          
-                          return (
-                            <div className={`text-sm font-medium ${isComplete ? 'text-green-600' : 'text-amber-600'}`}>
-                              {isComplete ? (
-                                <span className="flex items-center gap-1">
-                                  ✅ {uploaded}/{required}
+                      {(() => {
+                        const isSupport = (assignment.shifts.shift_types?.type || '').toLowerCase() === 'support';
+                        if (isSupport) {
+                          return <span className="text-sm text-muted-foreground">N/A</span>;
+                        }
+                        if (!latestSession) return "-";
+                        const uploaded = latestSession.uploaded_images_count || 0;
+                        const required = latestSession.required_images_count || 0;
+                        const missing = required - uploaded;
+                        const isComplete = missing <= 0;
+                        return (
+                          <div className={`text-sm font-medium ${isComplete ? 'text-green-600' : 'text-amber-600'}`}>
+                            {isComplete ? (
+                              <span className="flex items-center gap-1">
+                                ✅ {uploaded}/{required}
+                              </span>
+                            ) : (
+                              <button
+                                className="flex items-center gap-1 hover:underline cursor-pointer"
+                                onClick={() => {
+                                  setUploadImagesSessionId(latestSession.id);
+                                  setUploadImagesUserName(assignment.profiles.user_name);
+                                  setUploadImagesShiftName(assignment.shifts.shift_name);
+                                  setUploadImagesDialogOpen(true);
+                                }}
+                              >
+                                <Upload className="h-3 w-3" />
+                                ⚠️ {uploaded}/{required}
+                                <span className="text-xs text-destructive">
+                                  (ناقص {missing})
                                 </span>
-                              ) : (
-                                <button
-                                  className="flex items-center gap-1 hover:underline cursor-pointer"
-                                  onClick={() => {
-                                    setUploadImagesSessionId(latestSession.id);
-                                    setUploadImagesUserName(assignment.profiles.user_name);
-                                    setUploadImagesShiftName(assignment.shifts.shift_name);
-                                    setUploadImagesDialogOpen(true);
-                                  }}
-                                >
-                                  <Upload className="h-3 w-3" />
-                                  ⚠️ {uploaded}/{required}
-                                  <span className="text-xs text-destructive">
-                                    (ناقص {missing})
-                                  </span>
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })() : "-"}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                       </TableCell>
                       <TableCell className="text-sm">
                         {formatKSADateTime(latestSession?.opened_at || null, false)}
