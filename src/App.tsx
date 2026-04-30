@@ -142,6 +142,7 @@ import DataComparisonReport from "./pages/DataComparisonReport";
 import CoinsComparisonReport from "./pages/CoinsComparisonReport";
 import MainProductSalesReport from "./pages/MainProductSalesReport";
 import FreeCoinsReport from "./pages/FreeCoinsReport";
+import ClassABalanceImagesReport from "./pages/ClassABalanceImagesReport";
 import ReceivingCoins from "./pages/ReceivingCoins";
 import CoinsCreation from "./pages/CoinsCreation";
 import CoinsSending from "./pages/CoinsSending";
@@ -303,6 +304,7 @@ const App = () => (
               <Route path="/reports/payment-whatif" element={<PaymentWhatIfScenario />} />
               <Route path="/reports/main-product-sales" element={<MainProductSalesReport />} />
               <Route path="/reports/free-coins" element={<FreeCoinsReport />} />
+              <Route path="/reports/class-a-balance-images" element={<ClassABalanceImagesReport />} />
               <Route path="/reports/bank-balance-by-date" element={<BankBalanceByDateReport />} />
               <Route path="/reports/bank-statement-by-bank" element={<BankStatementByBankReport />} />
               <Route path="/reports/daily-sales" element={<DailySalesReport />} />
