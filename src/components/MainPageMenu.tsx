@@ -124,6 +124,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/menu-customization": "menuCustomization",
   "/integrations": "integrations",
   "/shift-generator": "shiftGenerator",
+  "/sql-query-runner": "sqlQueryRunner",
 };
 
 export function MainPageMenu() {

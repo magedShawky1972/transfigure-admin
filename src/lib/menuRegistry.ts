@@ -57,6 +57,7 @@ import {
   Landmark,
   ListX,
   Plug,
+  Terminal,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -123,6 +124,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/sales-order-entry", defaultEn: "Sales Order Entry", defaultAr: "إدخال أمر البيع", icon: Receipt },
       { url: "/pricing-scenario", defaultEn: "Pricing Scenario", defaultAr: "سيناريو التسعير", icon: Calculator },
       { url: "/cancelled-orders", defaultEn: "Cancelled Orders Manually Executed", defaultAr: "الطلبات الملغاة تم تنفيذها يدوي", icon: Undo2 },
+      { url: "/sql-query-runner", defaultEn: "SQL Query Runner", defaultAr: "تنفيذ استعلامات SQL", icon: Terminal },
     ],
   },
   {

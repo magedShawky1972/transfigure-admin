@@ -11248,6 +11248,7 @@ export type Database = {
         Args: { plain_password: string }
         Returns: string
       }
+      exec_select_json: { Args: { p_sql: string }; Returns: Json }
       exec_sql: { Args: { sql: string }; Returns: undefined }
       find_or_create_direct_conversation: {
         Args: { other_user_id: string }

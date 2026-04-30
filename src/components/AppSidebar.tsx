@@ -143,6 +143,7 @@ export function AppSidebar() {
     "/menu-customization": "menuCustomization",
     "/integrations": "integrations",
     "/shift-generator": "shiftGenerator",
+    "/sql-query-runner": "sqlQueryRunner",
   };
 
   useEffect(() => {
