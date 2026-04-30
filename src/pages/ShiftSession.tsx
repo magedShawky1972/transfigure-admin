@@ -1523,12 +1523,10 @@ const ShiftSession = () => {
         // Send notifications
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          const today = getKSADateString();
           const { data: assignment } = await supabase
             .from("shift_assignments")
             .select("shift_id")
-            .eq("user_id", user?.id)
-            .eq("assignment_date", today)
+            .eq("id", shiftSession.shift_assignment_id)
             .single();
 
           if (assignment) {
