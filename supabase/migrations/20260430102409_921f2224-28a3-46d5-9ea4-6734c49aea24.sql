@@ -1,0 +1,1 @@
+ALTER TABLE public.coins_purchase_order_lines ADD COLUMN IF NOT EXISTS actual_receiving_date date;

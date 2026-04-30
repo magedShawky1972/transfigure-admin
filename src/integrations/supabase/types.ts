@@ -1415,6 +1415,7 @@ export type Database = {
       }
       coins_purchase_order_lines: {
         Row: {
+          actual_receiving_date: string | null
           amount_in_currency: number | null
           base_amount_sar: number | null
           brand_id: string
@@ -1427,6 +1428,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          actual_receiving_date?: string | null
           amount_in_currency?: number | null
           base_amount_sar?: number | null
           brand_id: string
@@ -1439,6 +1441,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          actual_receiving_date?: string | null
           amount_in_currency?: number | null
           base_amount_sar?: number | null
           brand_id?: string

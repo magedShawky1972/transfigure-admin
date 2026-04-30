@@ -47,6 +47,10 @@ const CoinsReceivingPhase = () => {
   const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [sendingAttachments, setSendingAttachments] = useState<{ id: string; file_name: string; file_url: string; file_type: string | null; uploaded_by_name: string | null }[]>([]);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  // Receipt coins from receiving_coins (header+lines) for this order, grouped by brand_id + receipt_date
+  const [receiptCoinsByBrandDate, setReceiptCoinsByBrandDate] = useState<Record<string, number>>({});
+  // Editable actual receiving date per line id
+  const [lineActualDates, setLineActualDates] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchOrders();
@@ -95,7 +99,43 @@ const CoinsReceivingPhase = () => {
         .eq("purchase_order_id", id)
         .eq("phase", "sending");
       setSendingAttachments(sendingAtts || []);
+
+      // Initialize actual receiving dates from line records
+      const dateMap: Record<string, string> = {};
+      for (const l of (linesRes.data || []) as any[]) {
+        if (l.actual_receiving_date) dateMap[l.id] = l.actual_receiving_date;
+      }
+      setLineActualDates(dateMap);
+
+      // Fetch receipt coins from receiving_coins_header + receiving_coins_line for this PO
+      const { data: rcHeaders } = await supabase
+        .from("receiving_coins_header")
+        .select("id, receipt_date, receiving_coins_line(brand_id, coins)")
+        .eq("purchase_order_id", id);
+      const coinsMap: Record<string, number> = {};
+      for (const h of (rcHeaders || []) as any[]) {
+        const date = h.receipt_date;
+        for (const ln of (h.receiving_coins_line || [])) {
+          if (!ln.brand_id || !date) continue;
+          const key = `${ln.brand_id}__${date}`;
+          coinsMap[key] = (coinsMap[key] || 0) + Number(ln.coins || 0);
+        }
+      }
+      setReceiptCoinsByBrandDate(coinsMap);
+
       setView("detail");
+    }
+  };
+
+  const updateLineActualDate = async (lineId: string, date: string) => {
+    setLineActualDates(prev => ({ ...prev, [lineId]: date }));
+    const { error } = await supabase
+      .from("coins_purchase_order_lines")
+      .update({ actual_receiving_date: date || null } as any)
+      .eq("id", lineId)
+      .select();
+    if (error) {
+      toast.error(error.message);
     }
   };
 
@@ -448,6 +488,8 @@ const CoinsReceivingPhase = () => {
                       <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
                       <TableHead>{isArabic ? "1 USD = كوينز" : "1 USD = Coins"}</TableHead>
                       <TableHead>{isArabic ? "الكوينز المتوقعة" : "Expected Coins"}</TableHead>
+                      <TableHead>{isArabic ? "تاريخ الاستلام الفعلي" : "Actual Receiving Date"}</TableHead>
+                      <TableHead>{isArabic ? "الإيصال (كوينز)" : "Receipt (Coins)"}</TableHead>
                       <TableHead>{isArabic ? "صور الاستلام" : "Receiving Images"}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -457,6 +499,8 @@ const CoinsReceivingPhase = () => {
                       const amountInCurrency = parseFloat(line.amount_in_currency || 0);
                       const oneUsdToCoins = line.brands?.one_usd_to_coins || 0;
                       const expectedCoins = oneUsdToCoins > 0 && amountInCurrency > 0 ? Math.floor(amountInCurrency * oneUsdToCoins) : 0;
+                      const actualDate = lineActualDates[line.id] || "";
+                      const receiptCoins = actualDate ? (receiptCoinsByBrandDate[`${line.brand_id}__${actualDate}`] || 0) : 0;
                       return (
                         <TableRow key={line.id}>
                           <TableCell>{idx + 1}</TableCell>
@@ -469,6 +513,21 @@ const CoinsReceivingPhase = () => {
                           </TableCell>
                           <TableCell className="font-bold text-lg">
                             {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={actualDate}
+                              onChange={(e) => updateLineActualDate(line.id, e.target.value)}
+                              className="h-9 w-40"
+                            />
+                          </TableCell>
+                          <TableCell className="font-bold text-lg">
+                            {receiptCoins > 0 ? (
+                              <span className="text-green-600">{receiptCoins.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">{isArabic ? "لا يوجد" : "None"}</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             {brandReceivings.length > 0 ? (
