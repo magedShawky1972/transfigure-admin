@@ -43,7 +43,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown, Wand2, Bug, DatabaseBackup, Download } from "lucide-react";
+import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown, Wand2, Bug, DatabaseBackup, Download, Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProductExcelUpload } from "@/components/ProductExcelUpload";
 import { AdvancedProductFilter, FilterRule } from "@/components/AdvancedProductFilter";
@@ -138,6 +140,8 @@ const ProductSetup = () => {
   const [filterHasTransactions, setFilterHasTransactions] = useState<boolean>(() =>
     localStorage.getItem("ps.filterHasTransactions") === "true"
   );
+  const [filterBrandOpen, setFilterBrandOpen] = useState(false);
+  const [formBrandOpen, setFormBrandOpen] = useState(false);
   
   // Advanced filters
   const [advancedFilters, setAdvancedFilters] = useState<FilterRule[]>(() => {
@@ -1117,19 +1121,49 @@ const ProductSetup = () => {
               onChange={(e) => setFilterName(e.target.value)}
               className="truncate"
             />
-            <Select value={filterBrand} onValueChange={setFilterBrand}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("productSetup.filterByBrand")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("common.all")}</SelectItem>
-                {uniqueBrands.map((brand) => (
-                  <SelectItem key={brand} value={brand!}>
-                    {brand}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={filterBrandOpen} onOpenChange={setFilterBrandOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal"
+                >
+                  <span className="truncate">
+                    {filterBrand === "all"
+                      ? t("productSetup.filterByBrand")
+                      : filterBrand}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder={t("productSetup.filterByBrand")} />
+                  <CommandList>
+                    <CommandEmpty>{t("common.noResults") ?? "No results"}</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all"
+                        onSelect={() => { setFilterBrand("all"); setFilterBrandOpen(false); }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", filterBrand === "all" ? "opacity-100" : "opacity-0")} />
+                        {t("common.all")}
+                      </CommandItem>
+                      {uniqueBrands.map((brand) => (
+                        <CommandItem
+                          key={brand}
+                          value={brand!}
+                          onSelect={(val) => { setFilterBrand(val); setFilterBrandOpen(false); }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", filterBrand === brand ? "opacity-100" : "opacity-0")} />
+                          {brand}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <Select value={filterBrandType} onValueChange={setFilterBrandType}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by Brand Type" />
@@ -1737,18 +1771,40 @@ const ProductSetup = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="brand_name">{t("productSetup.brand")}</Label>
-              <Select value={formData.brand_name} onValueChange={handleBrandChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("productSetup.brandPlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {brands.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.brand_name}>
-                      {brand.brand_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={formBrandOpen} onOpenChange={setFormBrandOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {formData.brand_name || t("productSetup.brandPlaceholder")}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t("productSetup.brandPlaceholder")} />
+                    <CommandList>
+                      <CommandEmpty>{t("common.noResults") ?? "No results"}</CommandEmpty>
+                      <CommandGroup>
+                        {brands.map((brand) => (
+                          <CommandItem
+                            key={brand.id}
+                            value={brand.brand_name}
+                            onSelect={(val) => { handleBrandChange(val); setFormBrandOpen(false); }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", formData.brand_name === brand.brand_name ? "opacity-100" : "opacity-0")} />
+                            {brand.brand_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label htmlFor="brand_type">Brand Type</Label>
