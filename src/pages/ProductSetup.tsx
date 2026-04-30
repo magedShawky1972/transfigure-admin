@@ -45,7 +45,6 @@ import {
 } from "@/components/ui/popover";
 import { Pencil, Trash2, Grid3x3, List, MoreHorizontal, RefreshCw, Upload, ArrowUpDown, ArrowUp, ArrowDown, Wand2, Bug, DatabaseBackup, Download, Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProductExcelUpload } from "@/components/ProductExcelUpload";
