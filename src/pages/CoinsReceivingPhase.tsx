@@ -127,15 +127,41 @@ const CoinsReceivingPhase = () => {
     }
   };
 
-  const updateLineActualDate = async (lineId: string, date: string) => {
-    setLineActualDates(prev => ({ ...prev, [lineId]: date }));
-    const { error } = await supabase
-      .from("coins_purchase_order_lines")
-      .update({ actual_receiving_date: date || null } as any)
-      .eq("id", lineId)
-      .select();
-    if (error) {
-      toast.error(error.message);
+  const [savingDateLineId, setSavingDateLineId] = useState<string | null>(null);
+
+  const saveLineActualDate = async (lineId: string) => {
+    const date = lineActualDates[lineId] || "";
+    setSavingDateLineId(lineId);
+    try {
+      const { error } = await supabase
+        .from("coins_purchase_order_lines")
+        .update({ actual_receiving_date: date || null } as any)
+        .eq("id", lineId)
+        .select();
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      // Refresh receipt coins map for the current order so the Receipt column updates
+      if (selectedOrder?.id) {
+        const { data: rcHeaders } = await supabase
+          .from("receiving_coins_header")
+          .select("id, receipt_date, receiving_coins_line(brand_id, coins)")
+          .eq("purchase_order_id", selectedOrder.id);
+        const coinsMap: Record<string, number> = {};
+        for (const h of (rcHeaders || []) as any[]) {
+          const d = h.receipt_date;
+          for (const ln of (h.receiving_coins_line || [])) {
+            if (!ln.brand_id || !d) continue;
+            const key = `${ln.brand_id}__${d}`;
+            coinsMap[key] = (coinsMap[key] || 0) + Number(ln.coins || 0);
+          }
+        }
+        setReceiptCoinsByBrandDate(coinsMap);
+      }
+      toast.success(isArabic ? "تم الحفظ" : "Saved");
+    } finally {
+      setSavingDateLineId(null);
     }
   };
 
