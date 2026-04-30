@@ -1198,6 +1198,8 @@ export type Database = {
           created_at: string
           id: string
           status: string
+          synced_to_odoo_production: boolean
+          synced_to_odoo_test: boolean
           type_code: string
           type_name: string
           updated_at: string
@@ -1206,6 +1208,8 @@ export type Database = {
           created_at?: string
           id?: string
           status?: string
+          synced_to_odoo_production?: boolean
+          synced_to_odoo_test?: boolean
           type_code: string
           type_name: string
           updated_at?: string
@@ -1214,6 +1218,8 @@ export type Database = {
           created_at?: string
           id?: string
           status?: string
+          synced_to_odoo_production?: boolean
+          synced_to_odoo_test?: boolean
           type_code?: string
           type_name?: string
           updated_at?: string
