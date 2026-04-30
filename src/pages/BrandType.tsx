@@ -326,20 +326,25 @@ const BrandType = () => {
                     </TableCell>
                     <TableCell>
                       {(() => {
+                        if (!odooMode) return <span className="text-muted-foreground text-xs">—</span>;
                         const synced = odooMode === "production"
                           ? brand.synced_to_odoo_production
-                          : odooMode === "test"
-                          ? brand.synced_to_odoo_test
-                          : false;
-                        const modeLabel = odooMode === "production" ? "Production" : odooMode === "test" ? "Test" : "—";
-                        if (!odooMode) return <span className="text-muted-foreground text-xs">—</span>;
+                          : brand.synced_to_odoo_test;
+                        const errorMsg = odooMode === "production"
+                          ? brand.odoo_sync_error_production
+                          : brand.odoo_sync_error_test;
+                        const modeLabel = odooMode === "production" ? "Production" : "Test";
+                        const hasError = !synced && !!errorMsg;
                         return (
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            synced
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          }`}>
-                            {modeLabel}: {synced ? 'Synced' : 'Not Synced'}
+                          <span
+                            title={hasError ? errorMsg! : undefined}
+                            className={`px-2 py-1 rounded-full text-xs inline-block max-w-[260px] truncate align-middle ${
+                              synced
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            }`}
+                          >
+                            {modeLabel}: {synced ? 'Synced' : hasError ? `Error - ${errorMsg}` : 'Not Synced'}
                           </span>
                         );
                       })()}
