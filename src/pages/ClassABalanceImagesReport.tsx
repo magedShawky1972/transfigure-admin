@@ -214,6 +214,16 @@ const ClassABalanceImagesReport = () => {
         }
       }
 
+      // Convert a UTC timestamptz string to a KSA-naive ISO string ("YYYY-MM-DDTHH:mm:ss.sss")
+      // to match purpletransaction.created_at_date which is stored as timestamp WITHOUT time zone in KSA local.
+      const toKsaNaive = (ts: string | null): string | null => {
+        if (!ts) return null;
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return null;
+        const ksa = new Date(d.getTime() + 3 * 60 * 60 * 1000);
+        return ksa.toISOString().slice(0, 23).replace("Z", "");
+      };
+
       // Compute sales coins window per balance row: from previous shift's closed_at (fallback opened_at) to current closed_at
       type RowWindow = { id: string; brand_id: string; brand_code: string | null; from: string | null; to: string | null };
       const rowWindows: RowWindow[] = (balances || []).map((b) => {
@@ -221,8 +231,9 @@ const ClassABalanceImagesReport = () => {
         const brand: any = brandMap.get(b.brand_id);
         const prior = findPrior(b.brand_id, s?.opened_at || null);
         // Window: previous shift's closed_at (exclusive) -> this shift's closed_at (inclusive)
-        const fromTs = prior?.closed_at || null;
-        const toTs = s?.closed_at || null;
+        // Normalize to KSA-naive to align with purpletransaction.created_at_date (timestamp w/o tz, KSA local)
+        const fromTs = toKsaNaive(prior?.closed_at || null);
+        const toTs = toKsaNaive(s?.closed_at || null);
         return { id: b.id, brand_id: b.brand_id, brand_code: brand?.brand_code || null, from: fromTs, to: toTs };
       });
 
