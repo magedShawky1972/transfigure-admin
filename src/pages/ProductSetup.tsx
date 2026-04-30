@@ -137,6 +137,9 @@ const ProductSetup = () => {
   const [filterBrandType, setFilterBrandType] = useState<string>(() =>
     localStorage.getItem("ps.filterBrandType") ?? "all"
   );
+  const [filterHasTransactions, setFilterHasTransactions] = useState<boolean>(() =>
+    localStorage.getItem("ps.filterHasTransactions") === "true"
+  );
   const [filterBrandOpen, setFilterBrandOpen] = useState(false);
   const [formBrandOpen, setFormBrandOpen] = useState(false);
   
