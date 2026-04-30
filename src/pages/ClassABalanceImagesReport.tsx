@@ -220,7 +220,8 @@ const ClassABalanceImagesReport = () => {
         const s: any = sessionMap.get(b.shift_session_id);
         const brand: any = brandMap.get(b.brand_id);
         const prior = findPrior(b.brand_id, s?.opened_at || null);
-        const fromTs = prior?.closed_at || s?.opened_at || null;
+        // Window: previous shift's closed_at (exclusive) -> this shift's closed_at (inclusive)
+        const fromTs = prior?.closed_at || null;
         const toTs = s?.closed_at || null;
         return { id: b.id, brand_id: b.brand_id, brand_code: brand?.brand_code || null, from: fromTs, to: toTs };
       });
