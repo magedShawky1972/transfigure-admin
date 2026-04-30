@@ -8454,6 +8454,33 @@ export type Database = {
           },
         ]
       }
+      sql_saved_queries: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          query: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          query: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          query?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       supplier_advance_payment_attachments: {
         Row: {
           created_at: string
