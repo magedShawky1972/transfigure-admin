@@ -28,6 +28,24 @@ interface ImageEntry {
   closed_at: string | null;
 }
 
+type ShiftFamily = "sales" | "support" | "sales-training" | "other";
+
+interface AssignmentMeta {
+  id: string;
+  assignment_date: string;
+  shift_name: string;
+  shift_order: number;
+  shift_family: ShiftFamily;
+}
+
+interface PriorClosingMeta {
+  assignment_date: string;
+  shift_order: number;
+  shift_family: ShiftFamily;
+  closed_at: string | null;
+  closing_balance: number;
+}
+
 const ClassABalanceImagesReport = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -41,6 +59,14 @@ const ClassABalanceImagesReport = () => {
   const [brands, setBrands] = useState<{ id: string; brand_name: string }[]>([]);
   const [users, setUsers] = useState<{ user_id: string; user_name: string }[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const getShiftFamily = (shiftType: string | null | undefined, shiftName: string | null | undefined): ShiftFamily => {
+    const haystack = `${shiftType || ""} ${shiftName || ""}`.toLowerCase();
+    if (haystack.includes("training") || haystack.includes("تدريب")) return "sales-training";
+    if (haystack.includes("support") || haystack.includes("دعم")) return "support";
+    if (haystack.includes("sale") || haystack.includes("مبيعات")) return "sales";
+    return "other";
+  };
 
   useEffect(() => {
     (async () => {
@@ -79,8 +105,16 @@ const ClassABalanceImagesReport = () => {
         .gte("assignment_date", startDate)
         .lte("assignment_date", endDate);
 
-      const assignmentIds = assignments?.map((a) => a.id) || [];
-      const assignmentMap = new Map(assignments?.map((a) => [a.id, a]) || []);
+      const assignmentRows: AssignmentMeta[] = (assignments || []).map((a: any) => ({
+        id: a.id,
+        assignment_date: a.assignment_date,
+        shift_name: a?.shifts?.shift_name || "",
+        shift_order: Number(a?.shifts?.shift_order || 0),
+        shift_family: getShiftFamily(a?.shifts?.shift_types?.type, a?.shifts?.shift_name),
+      }));
+
+      const assignmentIds = assignmentRows.map((a) => a.id);
+      const assignmentMap = new Map(assignmentRows.map((a) => [a.id, a]));
 
       const { data: sessions } = await supabase
         .from("shift_sessions")
@@ -108,14 +142,6 @@ const ClassABalanceImagesReport = () => {
       const { data: balances, error } = await q;
       if (error) throw error;
 
-      const getShiftFamily = (shiftType: string | null | undefined, shiftName: string | null | undefined) => {
-        const haystack = `${shiftType || ""} ${shiftName || ""}`.toLowerCase();
-        if (haystack.includes("training") || haystack.includes("تدريب")) return "sales-training";
-        if (haystack.includes("support") || haystack.includes("دعم")) return "support";
-        if (haystack.includes("sale") || haystack.includes("مبيعات")) return "sales";
-        return haystack.trim() || "other";
-      };
-
       // Build prior closing-balance lookup using scheduled assignment date + shift order,
       // not employee or session open/close timestamps.
       const brandIdsInResults = [...new Set((balances || []).map((b) => b.brand_id))];
@@ -142,13 +168,7 @@ const ClassABalanceImagesReport = () => {
         .not("closing_balance", "is", null);
 
       // Group prior balances by brand, sorted by scheduled date/order descending.
-      const priorByBrand = new Map<string, {
-        assignment_date: string;
-        shift_order: number;
-        shift_family: string;
-        closed_at: string | null;
-        closing_balance: number;
-      }[]>();
+      const priorByBrand = new Map<string, PriorClosingMeta[]>();
       (priorBalances || []).forEach((p: any) => {
         const assignmentDate = p.shift_sessions?.shift_assignments?.assignment_date;
         const shiftName = p.shift_sessions?.shift_assignments?.shifts?.shift_name;
@@ -180,7 +200,7 @@ const ClassABalanceImagesReport = () => {
         brandId: string,
         assignmentDate: string | null,
         shiftOrder: number | null,
-        shiftFamily: string,
+        shiftFamily: ShiftFamily,
       ): number => {
         if (!assignmentDate || !shiftOrder) return 0;
         const arr = priorByBrand.get(brandId) || [];
@@ -193,9 +213,8 @@ const ClassABalanceImagesReport = () => {
 
       let combined: ImageEntry[] = (balances || []).map((b) => {
         const s: any = sessionMap.get(b.shift_session_id);
-        const a: any = s ? assignmentMap.get(s.shift_assignment_id) : null;
+        const a = s ? assignmentMap.get(s.shift_assignment_id) : null;
         const brand: any = brandMap.get(b.brand_id);
-        const shiftFamily = getShiftFamily(a?.shifts?.shift_types?.type, a?.shifts?.shift_name);
         return {
           id: b.id,
           brand_name: brand?.brand_name || "Unknown",
@@ -203,14 +222,14 @@ const ClassABalanceImagesReport = () => {
           opening_balance: findPriorClosing(
             b.brand_id,
             a?.assignment_date || null,
-            a?.shifts?.shift_order || null,
-            shiftFamily,
+            a?.shift_order || null,
+            a?.shift_family || "other",
           ),
           closing_balance: Number(b.closing_balance || 0),
           opening_image_path: b.opening_image_path,
           receipt_image_path: b.receipt_image_path,
           user_name: profileMap.get(s?.user_id) || "Unknown",
-          shift_name: a?.shifts?.shift_name || "",
+          shift_name: a?.shift_name || "",
           assignment_date: a?.assignment_date || "",
           opened_at: s?.opened_at || null,
           closed_at: s?.closed_at || null,
