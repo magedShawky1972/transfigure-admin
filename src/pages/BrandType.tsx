@@ -54,10 +54,21 @@ const BrandType = () => {
   });
   const [filterTypeCode, setFilterTypeCode] = useState("");
   const [filterTypeName, setFilterTypeName] = useState("");
+  const [odooMode, setOdooMode] = useState<"production" | "test" | null>(null);
 
   useEffect(() => {
     fetchBrands();
+    fetchOdooMode();
   }, []);
+
+  const fetchOdooMode = async () => {
+    const { data } = await supabase
+      .from("odoo_api_config")
+      .select("is_production_mode")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (data) setOdooMode(data.is_production_mode !== false ? "production" : "test");
+  };
 
   const fetchBrands = async () => {
     setLoading(true);
@@ -260,6 +271,7 @@ const BrandType = () => {
                 <TableHead>{t("brandType.brandCode")}</TableHead>
                 <TableHead>{t("brandType.brandName")}</TableHead>
                 <TableHead>{t("brandType.status")}</TableHead>
+                <TableHead>Odoo Sync Mode</TableHead>
                 <TableHead>{t("brandType.createdDate")}</TableHead>
                 <TableHead>{t("brandType.updatedDate")}</TableHead>
                 <TableHead>{t("brandType.actions")}</TableHead>
@@ -268,7 +280,7 @@ const BrandType = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {filterTypeCode || filterTypeName ? t("brandType.noMatches") : t("brandType.noData")}
                   </TableCell>
                 </TableRow>
@@ -285,6 +297,19 @@ const BrandType = () => {
                       }`}>
                         {brand.status === 'active' ? t("brandType.active") : t("brandType.inactive")}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      {odooMode ? (
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          odooMode === 'production'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                        }`}>
+                          {odooMode === 'production' ? 'Production' : 'Test'}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell>{format(new Date(brand.created_at), "PPp")}</TableCell>
                     <TableCell>{format(new Date(brand.updated_at), "PPp")}</TableCell>
