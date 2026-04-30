@@ -54,10 +54,21 @@ const BrandType = () => {
   });
   const [filterTypeCode, setFilterTypeCode] = useState("");
   const [filterTypeName, setFilterTypeName] = useState("");
+  const [odooMode, setOdooMode] = useState<"production" | "test" | null>(null);
 
   useEffect(() => {
     fetchBrands();
+    fetchOdooMode();
   }, []);
+
+  const fetchOdooMode = async () => {
+    const { data } = await supabase
+      .from("odoo_api_config")
+      .select("is_production_mode")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (data) setOdooMode(data.is_production_mode !== false ? "production" : "test");
+  };
 
   const fetchBrands = async () => {
     setLoading(true);
