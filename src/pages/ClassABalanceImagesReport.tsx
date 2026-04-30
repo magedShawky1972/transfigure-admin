@@ -196,19 +196,38 @@ const ClassABalanceImagesReport = () => {
         return prior;
       };
 
+      // Fetch receiving coins by brand+date for date range
+      const { data: rcHeaders } = await supabase
+        .from("receiving_coins_header")
+        .select("id, receipt_date, receiving_coins_line(brand_id, coins)")
+        .gte("receipt_date", startDate)
+        .lte("receipt_date", endDate);
+      const receivingByBrandDate = new Map<string, number>();
+      for (const h of (rcHeaders || []) as any[]) {
+        const d = h.receipt_date;
+        for (const ln of (h.receiving_coins_line || [])) {
+          if (!ln.brand_id || !d) continue;
+          const key = `${ln.brand_id}__${d}`;
+          receivingByBrandDate.set(key, (receivingByBrandDate.get(key) || 0) + Number(ln.coins || 0));
+        }
+      }
+
       let combined: ImageEntry[] = (balances || []).map((b) => {
         const s: any = sessionMap.get(b.shift_session_id);
         const a = s ? assignmentMap.get(s.shift_assignment_id) : null;
         const brand: any = brandMap.get(b.brand_id);
         const prior = findPrior(b.brand_id, s?.opened_at || null);
+        const dateKey = a?.assignment_date ? `${b.brand_id}__${a.assignment_date}` : "";
         return {
           id: b.id,
+          brand_id: b.brand_id,
           brand_name: brand?.brand_name || "Unknown",
           brand_code: brand?.brand_code || null,
           opening_balance: prior ? prior.closing_balance : 0,
           closing_balance: Number(b.closing_balance || 0),
           opening_image_path: prior ? prior.receipt_image_path : null,
           receipt_image_path: b.receipt_image_path,
+          receiving_coins: dateKey ? (receivingByBrandDate.get(dateKey) || 0) : 0,
           user_name: profileMap.get(s?.user_id) || "Unknown",
           shift_name: a?.shift_name || "",
           assignment_date: a?.assignment_date || "",
