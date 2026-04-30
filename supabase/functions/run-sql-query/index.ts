@@ -71,8 +71,8 @@ Deno.serve(async (req) => {
     // Use service role client to execute raw SQL via JSON-returning subquery
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Wrap query so postgres returns a JSON array of rows
-    const wrapped = `select coalesce(json_agg(t), '[]'::json) as data from (${query}) t`;
+    // Wrap so postgres aggregates rows into a JSON array
+    const wrapped = `select coalesce(json_agg(_q), '[]'::json) as data from (${query}) _q`;
 
     const { data, error } = await admin.rpc("exec_select_json", { p_sql: wrapped });
 
@@ -83,7 +83,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const rows = Array.isArray(data) ? data : (data ?? []);
+    // exec_select_json returns to_jsonb({data: [...]}) -> { data: [...] }
+    const rows = (data && typeof data === "object" && "data" in data)
+      ? (data as { data: unknown[] }).data
+      : (Array.isArray(data) ? data : []);
     return new Response(
       JSON.stringify({ rows, count: rows.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
