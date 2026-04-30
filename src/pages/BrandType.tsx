@@ -40,6 +40,8 @@ interface BrandType {
   updated_at: string;
   synced_to_odoo_production?: boolean;
   synced_to_odoo_test?: boolean;
+  odoo_sync_error_production?: string | null;
+  odoo_sync_error_test?: string | null;
 }
 
 const BrandType = () => {
