@@ -47,6 +47,7 @@ interface ShiftSession {
   user_id: string;
   first_order_number: string | null;
   salla_first_order_number: string | null;
+  shift_assignment_id: string | null;
 }
 
 interface BrandBalance {
@@ -1523,12 +1524,10 @@ const ShiftSession = () => {
         // Send notifications
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          const today = getKSADateString();
           const { data: assignment } = await supabase
             .from("shift_assignments")
             .select("shift_id")
-            .eq("user_id", user?.id)
-            .eq("assignment_date", today)
+            .eq("id", shiftSession.shift_assignment_id)
             .single();
 
           if (assignment) {
@@ -1668,12 +1667,10 @@ const ShiftSession = () => {
       // Send notifications to shift admins
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        const today = getKSADateString();
         const { data: assignment } = await supabase
           .from("shift_assignments")
           .select("shift_id")
-          .eq("user_id", user?.id)
-          .eq("assignment_date", today)
+          .eq("id", shiftSession.shift_assignment_id)
           .single();
 
         if (assignment) {
