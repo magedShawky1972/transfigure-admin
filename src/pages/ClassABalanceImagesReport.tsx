@@ -156,7 +156,7 @@ const ClassABalanceImagesReport = () => {
         while (true) {
           const { data: page, error: pErr } = await supabase
             .from("shift_brand_balances")
-            .select("brand_id, closing_balance, receipt_image_path, shift_sessions!inner(opened_at)")
+            .select("brand_id, closing_balance, receipt_image_path, shift_sessions!inner(opened_at, closed_at)")
             .in("brand_id", brandIdsInResults)
             .range(from, from + pageSize - 1);
           if (pErr) throw pErr;
@@ -168,7 +168,7 @@ const ClassABalanceImagesReport = () => {
       }
 
       // Group by brand, sorted ascending by opened_at
-      type PriorRow = { opened_at: string; closing_balance: number; receipt_image_path: string | null };
+      type PriorRow = { opened_at: string; closed_at: string | null; closing_balance: number; receipt_image_path: string | null };
       const historyByBrand = new Map<string, PriorRow[]>();
       allBalancesForBrands.forEach((p: any) => {
         const openedAt = p.shift_sessions?.opened_at;
@@ -176,6 +176,7 @@ const ClassABalanceImagesReport = () => {
         const arr = historyByBrand.get(p.brand_id) || [];
         arr.push({
           opened_at: openedAt,
+          closed_at: p.shift_sessions?.closed_at || null,
           closing_balance: Number(p.closing_balance || 0),
           receipt_image_path: p.receipt_image_path || null,
         });
