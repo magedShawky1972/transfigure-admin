@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { toast } from "sonner";
-import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus, Download, FileText, ExternalLink, Maximize2 } from "lucide-react";
+import { Upload, ArrowLeft, Eye, Coins, CheckCircle, Plus, Image, PackagePlus, Download, FileText, ExternalLink, Maximize2, Save } from "lucide-react";
 import { downloadFile } from "@/lib/fileDownload";
 import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { format } from "date-fns";
@@ -127,15 +127,41 @@ const CoinsReceivingPhase = () => {
     }
   };
 
-  const updateLineActualDate = async (lineId: string, date: string) => {
-    setLineActualDates(prev => ({ ...prev, [lineId]: date }));
-    const { error } = await supabase
-      .from("coins_purchase_order_lines")
-      .update({ actual_receiving_date: date || null } as any)
-      .eq("id", lineId)
-      .select();
-    if (error) {
-      toast.error(error.message);
+  const [savingDateLineId, setSavingDateLineId] = useState<string | null>(null);
+
+  const saveLineActualDate = async (lineId: string) => {
+    const date = lineActualDates[lineId] || "";
+    setSavingDateLineId(lineId);
+    try {
+      const { error } = await supabase
+        .from("coins_purchase_order_lines")
+        .update({ actual_receiving_date: date || null } as any)
+        .eq("id", lineId)
+        .select();
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      // Refresh receipt coins map for the current order so the Receipt column updates
+      if (selectedOrder?.id) {
+        const { data: rcHeaders } = await supabase
+          .from("receiving_coins_header")
+          .select("id, receipt_date, receiving_coins_line(brand_id, coins)")
+          .eq("purchase_order_id", selectedOrder.id);
+        const coinsMap: Record<string, number> = {};
+        for (const h of (rcHeaders || []) as any[]) {
+          const d = h.receipt_date;
+          for (const ln of (h.receiving_coins_line || [])) {
+            if (!ln.brand_id || !d) continue;
+            const key = `${ln.brand_id}__${d}`;
+            coinsMap[key] = (coinsMap[key] || 0) + Number(ln.coins || 0);
+          }
+        }
+        setReceiptCoinsByBrandDate(coinsMap);
+      }
+      toast.success(isArabic ? "تم الحفظ" : "Saved");
+    } finally {
+      setSavingDateLineId(null);
     }
   };
 
@@ -515,12 +541,24 @@ const CoinsReceivingPhase = () => {
                             {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
                           </TableCell>
                           <TableCell>
-                            <Input
-                              type="date"
-                              value={actualDate}
-                              onChange={(e) => updateLineActualDate(line.id, e.target.value)}
-                              className="h-9 w-40"
-                            />
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="date"
+                                value={actualDate}
+                                onChange={(e) => setLineActualDates(prev => ({ ...prev, [line.id]: e.target.value }))}
+                                className="h-9 w-40"
+                              />
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9"
+                                onClick={() => saveLineActualDate(line.id)}
+                                disabled={savingDateLineId === line.id}
+                                title={isArabic ? "حفظ" : "Save"}
+                              >
+                                <Save className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                           <TableCell className="font-bold text-lg">
                             {receiptCoins > 0 ? (
