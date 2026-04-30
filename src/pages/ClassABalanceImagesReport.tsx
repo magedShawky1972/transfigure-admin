@@ -108,36 +108,34 @@ const ClassABalanceImagesReport = () => {
       const { data: balances, error } = await q;
       if (error) throw error;
 
-      // Build prior closing-balance lookup: for each brand, find the latest closed shift before each session's opened_at
+      // Build prior closing-balance lookup: for each brand, find the most recently CLOSED shift
+      // whose closed_at is before this session's opened_at.
       const brandIdsInResults = [...new Set((balances || []).map((b) => b.brand_id))];
-      const earliestOpenedAt = sessions?.reduce<string | null>((min, s) => {
-        if (!s.opened_at) return min;
-        return !min || s.opened_at < min ? s.opened_at : min;
-      }, null);
 
-      // Fetch all balances for these brands from sessions opened before our latest session, to find priors
       const { data: priorBalances } = await supabase
         .from("shift_brand_balances")
-        .select("brand_id, closing_balance, shift_session_id, shift_sessions!inner(opened_at, closed_at)")
+        .select("brand_id, closing_balance, receipt_image_path, shift_sessions!inner(opened_at, closed_at)")
         .in("brand_id", brandIdsInResults.length ? brandIdsInResults : ["00000000-0000-0000-0000-000000000000"])
-        .lt("shift_sessions.opened_at", new Date().toISOString());
+        .not("shift_sessions.closed_at", "is", null);
 
-      // Group prior balances by brand, sorted by opened_at desc
-      const priorByBrand = new Map<string, { opened_at: string; closing_balance: number }[]>();
+      // Group prior balances by brand, sorted by closed_at desc
+      const priorByBrand = new Map<string, { closed_at: string; closing_balance: number }[]>();
       (priorBalances || []).forEach((p: any) => {
+        const closedAt = p.shift_sessions?.closed_at;
+        if (!closedAt) return;
         const arr = priorByBrand.get(p.brand_id) || [];
         arr.push({
-          opened_at: p.shift_sessions?.opened_at,
+          closed_at: closedAt,
           closing_balance: Number(p.closing_balance || 0),
         });
         priorByBrand.set(p.brand_id, arr);
       });
-      priorByBrand.forEach((arr) => arr.sort((a, b) => (b.opened_at || "").localeCompare(a.opened_at || "")));
+      priorByBrand.forEach((arr) => arr.sort((a, b) => b.closed_at.localeCompare(a.closed_at)));
 
       const findPriorClosing = (brandId: string, openedAt: string | null): number => {
         if (!openedAt) return 0;
         const arr = priorByBrand.get(brandId) || [];
-        const prior = arr.find((p) => p.opened_at && p.opened_at < openedAt);
+        const prior = arr.find((p) => p.closed_at < openedAt);
         return prior ? prior.closing_balance : 0;
       };
 
