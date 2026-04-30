@@ -488,6 +488,8 @@ const CoinsReceivingPhase = () => {
                       <TableHead>{isArabic ? "المبلغ بالعملة" : "Amount (Currency)"}</TableHead>
                       <TableHead>{isArabic ? "1 USD = كوينز" : "1 USD = Coins"}</TableHead>
                       <TableHead>{isArabic ? "الكوينز المتوقعة" : "Expected Coins"}</TableHead>
+                      <TableHead>{isArabic ? "تاريخ الاستلام الفعلي" : "Actual Receiving Date"}</TableHead>
+                      <TableHead>{isArabic ? "الإيصال (كوينز)" : "Receipt (Coins)"}</TableHead>
                       <TableHead>{isArabic ? "صور الاستلام" : "Receiving Images"}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -497,6 +499,8 @@ const CoinsReceivingPhase = () => {
                       const amountInCurrency = parseFloat(line.amount_in_currency || 0);
                       const oneUsdToCoins = line.brands?.one_usd_to_coins || 0;
                       const expectedCoins = oneUsdToCoins > 0 && amountInCurrency > 0 ? Math.floor(amountInCurrency * oneUsdToCoins) : 0;
+                      const actualDate = lineActualDates[line.id] || "";
+                      const receiptCoins = actualDate ? (receiptCoinsByBrandDate[`${line.brand_id}__${actualDate}`] || 0) : 0;
                       return (
                         <TableRow key={line.id}>
                           <TableCell>{idx + 1}</TableCell>
@@ -509,6 +513,21 @@ const CoinsReceivingPhase = () => {
                           </TableCell>
                           <TableCell className="font-bold text-lg">
                             {expectedCoins > 0 ? expectedCoins.toLocaleString() : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={actualDate}
+                              onChange={(e) => updateLineActualDate(line.id, e.target.value)}
+                              className="h-9 w-40"
+                            />
+                          </TableCell>
+                          <TableCell className="font-bold text-lg">
+                            {receiptCoins > 0 ? (
+                              <span className="text-green-600">{receiptCoins.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">{isArabic ? "لا يوجد" : "None"}</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             {brandReceivings.length > 0 ? (
