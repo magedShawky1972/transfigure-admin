@@ -47,6 +47,10 @@ const CoinsReceivingPhase = () => {
   const [bankTransferImages, setBankTransferImages] = useState<string[]>([]);
   const [sendingAttachments, setSendingAttachments] = useState<{ id: string; file_name: string; file_url: string; file_type: string | null; uploaded_by_name: string | null }[]>([]);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  // Receipt coins from receiving_coins (header+lines) for this order, grouped by brand_id + receipt_date
+  const [receiptCoinsByBrandDate, setReceiptCoinsByBrandDate] = useState<Record<string, number>>({});
+  // Editable actual receiving date per line id
+  const [lineActualDates, setLineActualDates] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchOrders();
