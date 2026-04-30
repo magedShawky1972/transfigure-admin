@@ -15,12 +15,14 @@ import { useNavigate } from "react-router-dom";
 
 interface ImageEntry {
   id: string;
+  brand_id: string;
   brand_name: string;
   brand_code: string | null;
   opening_balance: number;
   closing_balance: number;
   opening_image_path: string | null;
   receipt_image_path: string | null;
+  receiving_coins: number;
   user_name: string;
   shift_name: string;
   assignment_date: string;
