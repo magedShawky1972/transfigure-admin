@@ -199,16 +199,34 @@ const BrandType = () => {
   const handleSendToOdoo = async (brand: BrandType) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-brand-to-odoo", {
-        body: {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `https://${projectId}.supabase.co/functions/v1/sync-brand-to-odoo`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: anonKey,
+          Authorization: `Bearer ${token ?? anonKey}`,
+        },
+        body: JSON.stringify({
           brand_code: brand.type_code,
           brand_name: brand.type_name,
           status: brand.status,
-        },
+        }),
       });
 
-      if (error) throw error;
-      if (data && data.success === false) throw new Error(data.error || "Failed to sync");
+      const text = await res.text();
+      let data: any = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text }; }
+
+      if (!res.ok || data.success === false) {
+        const odooErr = data?.error || data?.message || (data?.odoo_response && JSON.stringify(data.odoo_response)) || `HTTP ${res.status}`;
+        throw new Error(odooErr);
+      }
 
       // Mark sync flag for current mode and clear any previous error
       const updateField = odooMode === "production"
