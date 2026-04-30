@@ -1197,6 +1197,8 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          odoo_sync_error_production: string | null
+          odoo_sync_error_test: string | null
           status: string
           synced_to_odoo_production: boolean
           synced_to_odoo_test: boolean
@@ -1207,6 +1209,8 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          odoo_sync_error_production?: string | null
+          odoo_sync_error_test?: string | null
           status?: string
           synced_to_odoo_production?: boolean
           synced_to_odoo_test?: boolean
@@ -1217,6 +1221,8 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          odoo_sync_error_production?: string | null
+          odoo_sync_error_test?: string | null
           status?: string
           synced_to_odoo_production?: boolean
           synced_to_odoo_test?: boolean
