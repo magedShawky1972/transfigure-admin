@@ -65,6 +65,7 @@ const BrandEdit = () => {
     supplier_hub_code: "",
     creation_source: "",
     skip_closing_image: false,
+    brand_start_date: "",
   });
 
   // Format number with thousand separators and 2 decimal places
@@ -209,6 +210,7 @@ const BrandEdit = () => {
           supplier_hub_code: (data as any).supplier_hub_code || "",
           creation_source: (data as any).creation_source || "",
           skip_closing_image: (data as any).skip_closing_image || false,
+          brand_start_date: (data as any).brand_start_date || "",
           _created_at: data.created_at,
         } as any);
 
@@ -388,6 +390,7 @@ const BrandEdit = () => {
             sku_start_with: formData.sku_start_with || null,
             supplier_hub_code: formData.supplier_hub_code || null,
             skip_closing_image: formData.skip_closing_image,
+            brand_start_date: formData.brand_start_date || null,
           } as any)
           .eq("id", brandId);
 
@@ -419,6 +422,7 @@ const BrandEdit = () => {
             sku_start_with: formData.sku_start_with || null,
             supplier_hub_code: formData.supplier_hub_code || null,
             skip_closing_image: formData.skip_closing_image,
+            brand_start_date: formData.brand_start_date || null,
           } as any);
 
         if (error) throw error;
@@ -784,6 +788,16 @@ const BrandEdit = () => {
                 value={formData.supplier_hub_code}
                 onChange={(e) => setFormData({ ...formData, supplier_hub_code: e.target.value })}
                 placeholder="Enter supplier hub code"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="brand_start_date">Brand Start Date</Label>
+              <Input
+                id="brand_start_date"
+                type="date"
+                value={formData.brand_start_date}
+                onChange={(e) => setFormData({ ...formData, brand_start_date: e.target.value })}
               />
             </div>
 
