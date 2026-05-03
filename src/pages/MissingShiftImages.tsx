@@ -92,7 +92,7 @@ export default function MissingShiftImages() {
       // Get required brands count (A-class, non-Ludo)
       const { data: brandsData } = await supabase
         .from("brands")
-        .select("id, brand_name, created_at")
+        .select("id, brand_name, created_at, brand_start_date, skip_closing_image")
         .eq("status", "active")
         .eq("abc_analysis", "A")
         .eq("skip_closing_image", false);
@@ -170,9 +170,12 @@ export default function MissingShiftImages() {
       for (const assignment of assignments as any[]) {
         // Calculate required count for this specific date
         const assignDate = assignment.assignment_date;
-        const requiredForDate = requiredBrands.filter(
-          (b) => b.created_at.split("T")[0] <= assignDate
-        );
+        const requiredForDate = requiredBrands.filter((b: any) => {
+          const startDate = b.brand_start_date
+            ? String(b.brand_start_date).split("T")[0]
+            : b.created_at.split("T")[0];
+          return startDate <= assignDate;
+        });
         const requiredCount = requiredForDate.length;
 
         const session = sessionMap.get(assignment.id);
