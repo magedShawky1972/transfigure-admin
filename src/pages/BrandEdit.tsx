@@ -353,10 +353,10 @@ const BrandEdit = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.sku_start_with && formData.sku_start_with.length !== 2) {
+    if (formData.sku_start_with && (formData.sku_start_with.length < 1 || formData.sku_start_with.length > 2)) {
       toast({
         title: "Validation Error",
-        description: "SKU Start With must be exactly 2 characters",
+        description: "SKU Start With must be 1 or 2 characters",
         variant: "destructive",
       });
       return;
