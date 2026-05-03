@@ -767,13 +767,13 @@ const BrandEdit = () => {
                     }
                   }
                 }}
-                placeholder="e.g. IT, GO, SM"
+                placeholder="e.g. I, IT, GO"
                 maxLength={2}
-                minLength={2}
+                minLength={1}
                 className={skuTaken ? "border-destructive ring-destructive" : ""}
               />
               <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {skuTaken ? "This SKU prefix is already taken by another brand" : "Exactly 2 characters, must be unique across all brands"}
+                {skuTaken ? "This SKU prefix is already taken by another brand" : "1 or 2 characters, must be unique across all brands"}
               </p>
             </div>
 
