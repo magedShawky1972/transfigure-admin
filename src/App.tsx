@@ -104,6 +104,7 @@ import SavedAttendance from "./pages/SavedAttendance";
 import SoldProductReport from "./pages/SoldProductReport";
 import ProductSkuReport from "./pages/ProductSkuReport";
 import DuplicateSkuReport from "./pages/DuplicateSkuReport";
+import BrandFirstSaleDateReport from "./pages/BrandFirstSaleDateReport";
 import OrphanBrandProductsReport from "./pages/OrphanBrandProductsReport";
 import UnmatchedTransactionProducts from "./pages/UnmatchedTransactionProducts";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
@@ -283,6 +284,7 @@ const App = () => (
               <Route path="/reports/sold-product" element={<SoldProductReport />} />
               <Route path="/reports/product-sku" element={<ProductSkuReport />} />
               <Route path="/reports/duplicate-sku" element={<DuplicateSkuReport />} />
+              <Route path="/reports/brand-first-sale-date" element={<BrandFirstSaleDateReport />} />
               <Route path="/reports/orphan-brand-products" element={<OrphanBrandProductsReport />} />
               <Route path="/reports/unmatched-transaction-products" element={<UnmatchedTransactionProducts />} />
               <Route path="/reports/odoo-sync-status" element={<OdooSyncStatusReport />} />

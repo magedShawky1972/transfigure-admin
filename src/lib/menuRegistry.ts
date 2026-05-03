@@ -91,6 +91,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/transactions", defaultEn: "Transactions", defaultAr: "المعاملات", icon: Table2 },
       { url: "/pivot-table", defaultEn: "Pivot Table", defaultAr: "جدول محوري", icon: Grid3x3 },
       { url: "/reports/payment-gateway-consolidation", defaultEn: "Payment Gateway", defaultAr: "توحيد بوابة الدفع", icon: Landmark },
+      { url: "/reports/brand-first-sale-date", defaultEn: "Brand First Sale Date", defaultAr: "أول تاريخ بيع للعلامة", icon: Calendar },
     ],
   },
   {
