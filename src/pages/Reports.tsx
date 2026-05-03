@@ -415,6 +415,15 @@ const Reports = () => {
       icon: Coins,
       route: "/reports/free-coins",
     },
+    {
+      id: "brand-first-sale-date",
+      name: language === "ar" ? "أول تاريخ بيع للعلامة" : "Brand First Sale Date",
+      description: language === "ar"
+        ? "أقدم تاريخ معاملة لكل علامة تجارية من جدول المعاملات"
+        : "Earliest transaction date per brand from purpletransaction",
+      icon: Calendar,
+      route: "/reports/brand-first-sale-date",
+    },
   ];
 
   const filteredReports = reports.filter(report => allowedReports.includes(report.id));
