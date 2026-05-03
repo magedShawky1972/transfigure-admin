@@ -65,6 +65,7 @@ const BrandEdit = () => {
     supplier_hub_code: "",
     creation_source: "",
     skip_closing_image: false,
+    brand_start_date: "",
   });
 
   // Format number with thousand separators and 2 decimal places
