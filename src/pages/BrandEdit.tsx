@@ -210,6 +210,7 @@ const BrandEdit = () => {
           supplier_hub_code: (data as any).supplier_hub_code || "",
           creation_source: (data as any).creation_source || "",
           skip_closing_image: (data as any).skip_closing_image || false,
+          brand_start_date: (data as any).brand_start_date || "",
           _created_at: data.created_at,
         } as any);
 
