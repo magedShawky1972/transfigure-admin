@@ -147,7 +147,7 @@ export default function MissingShiftImages() {
       // Get all session IDs to fetch brand balances
       const sessionIds = sessions?.map((s) => s.id) || [];
       
-      const balancesMap = new Map<string, number>();
+      const balancesMap = new Map<string, Set<string>>();
       if (sessionIds.length > 0) {
         const { data: balances } = await supabase
           .from("shift_brand_balances")
@@ -157,10 +157,9 @@ export default function MissingShiftImages() {
 
         balances?.forEach((b) => {
           if (b.receipt_image_path) {
-            balancesMap.set(
-              b.shift_session_id,
-              (balancesMap.get(b.shift_session_id) || 0) + 1
-            );
+            const sessionBrandIds = balancesMap.get(b.shift_session_id) || new Set<string>();
+            sessionBrandIds.add(b.brand_id);
+            balancesMap.set(b.shift_session_id, sessionBrandIds);
           }
         });
       }
@@ -176,10 +175,15 @@ export default function MissingShiftImages() {
             : b.created_at.split("T")[0];
           return startDate <= assignDate;
         });
-        const requiredCount = requiredForDate.length;
+        const requiredBrandIdsForDate = new Set(requiredForDate.map((brand: any) => brand.id));
+        const requiredCount = requiredBrandIdsForDate.size;
 
         const session = sessionMap.get(assignment.id);
-        const uploadedCount = session ? (balancesMap.get(session.id) || 0) : 0;
+        const uploadedCount = session
+          ? [...(balancesMap.get(session.id) || new Set<string>())].filter((brandId) =>
+              requiredBrandIdsForDate.has(brandId)
+            ).length
+          : 0;
 
         if (uploadedCount < requiredCount && session?.status === "closed") {
           const shift = assignment.shifts;
