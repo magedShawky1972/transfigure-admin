@@ -11343,6 +11343,14 @@ export type Database = {
               brand_name: string
             }[]
           }
+      get_brand_first_sale_dates: {
+        Args: never
+        Returns: {
+          brand_name: string
+          first_sale_date: string
+          transaction_count: number
+        }[]
+      }
       get_cost_of_sales:
         | { Args: { date_from: string; date_to: string }; Returns: number }
         | {
