@@ -791,6 +791,16 @@ const BrandEdit = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="brand_start_date">Brand Start Date</Label>
+              <Input
+                id="brand_start_date"
+                type="date"
+                value={formData.brand_start_date}
+                onChange={(e) => setFormData({ ...formData, brand_start_date: e.target.value })}
+              />
+            </div>
+
             {brandId && (
               <div className="space-y-2">
                 <Label>Current SKU Prefix in Products</Label>
