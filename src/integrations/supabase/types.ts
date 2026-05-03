@@ -1240,6 +1240,7 @@ export type Database = {
           average_consumption_per_month: number | null
           brand_code: string | null
           brand_name: string
+          brand_start_date: string | null
           brand_type_id: string | null
           created_at: string
           creation_source: string | null
@@ -1266,6 +1267,7 @@ export type Database = {
           average_consumption_per_month?: number | null
           brand_code?: string | null
           brand_name: string
+          brand_start_date?: string | null
           brand_type_id?: string | null
           created_at?: string
           creation_source?: string | null
@@ -1292,6 +1294,7 @@ export type Database = {
           average_consumption_per_month?: number | null
           brand_code?: string | null
           brand_name?: string
+          brand_start_date?: string | null
           brand_type_id?: string | null
           created_at?: string
           creation_source?: string | null

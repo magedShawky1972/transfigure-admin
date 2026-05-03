@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN brand_start_date date;
