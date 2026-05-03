@@ -132,7 +132,12 @@ export default function UploadMissingImagesDialog({
         };
       });
 
+      const hasMissingImages = brandsWithImages.some((brand) => !brand.receipt_image_path);
       setBrands(brandsWithImages);
+
+      if (!hasMissingImages) {
+        onImagesUploaded?.();
+      }
     } catch (error) {
       console.error("Error fetching brands:", error);
     } finally {
