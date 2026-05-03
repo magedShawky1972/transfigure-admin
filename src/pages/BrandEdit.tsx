@@ -422,6 +422,7 @@ const BrandEdit = () => {
             sku_start_with: formData.sku_start_with || null,
             supplier_hub_code: formData.supplier_hub_code || null,
             skip_closing_image: formData.skip_closing_image,
+            brand_start_date: formData.brand_start_date || null,
           } as any);
 
         if (error) throw error;
