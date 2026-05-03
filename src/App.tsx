@@ -104,6 +104,7 @@ import SavedAttendance from "./pages/SavedAttendance";
 import SoldProductReport from "./pages/SoldProductReport";
 import ProductSkuReport from "./pages/ProductSkuReport";
 import DuplicateSkuReport from "./pages/DuplicateSkuReport";
+import BrandFirstSaleDateReport from "./pages/BrandFirstSaleDateReport";
 import OrphanBrandProductsReport from "./pages/OrphanBrandProductsReport";
 import UnmatchedTransactionProducts from "./pages/UnmatchedTransactionProducts";
 import OdooSyncStatusReport from "./pages/OdooSyncStatusReport";
