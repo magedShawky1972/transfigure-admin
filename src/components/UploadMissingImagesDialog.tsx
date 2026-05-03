@@ -91,17 +91,25 @@ export default function UploadMissingImagesDialog({
     if (!shiftSessionId) return;
     setLoading(true);
     try {
-      // Fetch required brands (A-class, non-Ludo)
+      // Fetch required brands (A-class, non-Ludo, image upload not disabled)
       const { data: brandsData } = await supabase
         .from("brands")
-        .select("id, brand_name")
+        .select("id, brand_name, created_at, brand_start_date, skip_closing_image")
         .eq("status", "active")
-        .eq("abc_analysis", "A");
+        .eq("abc_analysis", "A")
+        .eq("skip_closing_image", false);
 
-      const requiredBrands = brandsData?.filter((brand) => {
+      const requiredBrands = (brandsData || []).filter((brand: any) => {
         const name = brand.brand_name.toLowerCase();
-        return !name.includes("yalla ludo") && !name.includes("يلا لودو") && !name.includes("ludo");
-      }) || [];
+        if (name.includes("yalla ludo") || name.includes("يلا لودو") || name.includes("ludo")) return false;
+        if (assignmentDate) {
+          const startDate = brand.brand_start_date
+            ? String(brand.brand_start_date).split("T")[0]
+            : String(brand.created_at).split("T")[0];
+          if (startDate > assignmentDate) return false;
+        }
+        return true;
+      });
 
       // Fetch existing balances for this session
       const { data: balancesData } = await supabase
