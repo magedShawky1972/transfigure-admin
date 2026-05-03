@@ -19,6 +19,7 @@ interface UploadMissingImagesDialogProps {
   shiftSessionId: string | null;
   userName: string;
   shiftName: string;
+  assignmentDate?: string | null;
   onImagesUploaded?: () => void;
 }
 
