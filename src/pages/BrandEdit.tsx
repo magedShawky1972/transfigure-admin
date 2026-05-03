@@ -792,7 +792,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brand_start_date">Brand Start Date</Label>
+              <Label htmlFor="brand_start_date">First Entry Date</Label>
               <Input
                 id="brand_start_date"
                 type="date"
