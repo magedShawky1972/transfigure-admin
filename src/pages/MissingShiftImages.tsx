@@ -92,7 +92,7 @@ export default function MissingShiftImages() {
       // Get required brands count (A-class, non-Ludo)
       const { data: brandsData } = await supabase
         .from("brands")
-        .select("id, brand_name, created_at")
+        .select("id, brand_name, created_at, brand_start_date, skip_closing_image")
         .eq("status", "active")
         .eq("abc_analysis", "A")
         .eq("skip_closing_image", false);
