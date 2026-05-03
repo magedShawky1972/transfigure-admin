@@ -224,6 +224,7 @@ export default function UploadMissingImagesDialog({
           <div className="text-sm text-muted-foreground space-y-1">
             <p><strong>{t.user}:</strong> {userName}</p>
             <p><strong>{t.shift}:</strong> {shiftName}</p>
+            {assignmentDate && <p><strong>{t.date}:</strong> {assignmentDate}</p>}
           </div>
         </DialogHeader>
 
