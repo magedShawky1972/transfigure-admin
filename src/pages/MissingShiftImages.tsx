@@ -338,6 +338,7 @@ export default function MissingShiftImages() {
           shiftSessionId={selectedShift.session_id || null}
           userName={selectedShift.user_name}
           shiftName={selectedShift.shift_name}
+          assignmentDate={selectedShift.assignment_date}
           onImagesUploaded={fetchShifts}
         />
       )}
