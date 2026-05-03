@@ -37,6 +37,7 @@ export default function UploadMissingImagesDialog({
   shiftSessionId,
   userName,
   shiftName,
+  assignmentDate,
   onImagesUploaded,
 }: UploadMissingImagesDialogProps) {
   const { language } = useLanguage();
