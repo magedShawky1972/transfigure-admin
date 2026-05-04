@@ -9,7 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText, ChevronsUpDown, Check } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -292,6 +294,9 @@ const OdooSyncBatch = () => {
   const [selectedInvoiceDetail, setSelectedInvoiceDetail] = useState<AggregatedInvoice | null>(null);
   const [showLinesBreakdownDialog, setShowLinesBreakdownDialog] = useState(false);
   const [selectedLinesBreakdown, setSelectedLinesBreakdown] = useState<AggregatedInvoice | null>(null);
+  const [vendorOptions, setVendorOptions] = useState<{ name: string; code?: string }[]>([]);
+  const [updatingVendorId, setUpdatingVendorId] = useState<string | null>(null);
+  const [vendorPopoverOpenId, setVendorPopoverOpenId] = useState<string | null>(null);
 
   // Filter states
   const [filterBrand, setFilterBrand] = useState<string>('');
@@ -398,6 +403,29 @@ const OdooSyncBatch = () => {
   }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
 
   // Reset product filter when brand changes
+  // Load vendor list once for the inline editor
+  useEffect(() => {
+    (async () => {
+      const all: { name: string; code?: string }[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('suppliers')
+          .select('supplier_name, supplier_code')
+          .order('supplier_name', { ascending: true })
+          .range(from, from + step - 1);
+        if (error || !data || data.length === 0) break;
+        for (const r of data) {
+          if (r.supplier_name) all.push({ name: r.supplier_name, code: r.supplier_code || undefined });
+        }
+        if (data.length < step) break;
+        from += step;
+      }
+      setVendorOptions(all);
+    })();
+  }, []);
+
   useEffect(() => {
     if (filterBrand && filterBrand !== 'all_brands' && filterProduct && filterProduct !== 'all_products') {
       // Check if the selected product belongs to the selected brand
@@ -409,6 +437,49 @@ const OdooSyncBatch = () => {
       }
     }
   }, [filterBrand, filterProduct, orderGroups]);
+
+  // Update vendor on a single original transaction line and reflect locally
+  const handleUpdateLineVendor = async (lineId: string, newVendorName: string) => {
+    if (!lineId) return;
+    setUpdatingVendorId(lineId);
+    try {
+      const { data, error } = await supabase
+        .from('purpletransaction')
+        .update({ vendor_name: newVendorName })
+        .eq('id', lineId)
+        .select('id, vendor_name');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: language === 'ar' ? 'لا يمكن التحديث' : 'Update blocked',
+          description: language === 'ar' ? 'لا تملك صلاحية تعديل هذا السجل' : 'You do not have permission to edit this row',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setAggregatedInvoices(prev => prev.map(inv => ({
+        ...inv,
+        originalLines: inv.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l),
+      })));
+      setSelectedInvoiceDetail(prev => prev ? {
+        ...prev,
+        originalLines: prev.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l),
+      } : prev);
+      toast({
+        title: language === 'ar' ? 'تم تحديث المورد' : 'Vendor updated',
+        description: newVendorName || (language === 'ar' ? 'تمت إزالة المورد' : 'Vendor cleared'),
+      });
+    } catch (e: any) {
+      toast({
+        title: language === 'ar' ? 'فشل التحديث' : 'Update failed',
+        description: e?.message || String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingVendorId(null);
+      setVendorPopoverOpenId(null);
+    }
+  };
 
   // Clear all filters
   const clearFilters = () => {
@@ -3393,7 +3464,66 @@ const OdooSyncBatch = () => {
                           <TableCell className="max-w-[150px] truncate text-xs" title={line.product_name}>
                             {line.product_name}
                           </TableCell>
-                          <TableCell className="text-xs">{line.vendor_name || '-'}</TableCell>
+                          <TableCell className="text-xs">
+                            <Popover
+                              open={vendorPopoverOpenId === line.id}
+                              onOpenChange={(o) => setVendorPopoverOpenId(o ? line.id : null)}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  role="combobox"
+                                  className="h-7 w-full justify-between text-xs font-normal"
+                                  disabled={updatingVendorId === line.id}
+                                >
+                                  <span className={cn("truncate", !line.vendor_name && "text-muted-foreground")}>
+                                    {updatingVendorId === line.id
+                                      ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
+                                      : (line.vendor_name || (language === 'ar' ? 'اختر المورد' : 'Select vendor'))}
+                                  </span>
+                                  <ChevronsUpDown className="h-3 w-3 opacity-50 shrink-0" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[280px] p-0" align="start">
+                                <Command>
+                                  <CommandInput
+                                    placeholder={language === 'ar' ? 'ابحث...' : 'Search vendor...'}
+                                    className="h-8"
+                                  />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      {language === 'ar' ? 'لا يوجد مورد' : 'No vendor found.'}
+                                    </CommandEmpty>
+                                    <CommandGroup>
+                                      <CommandItem
+                                        value="__clear__"
+                                        onSelect={() => handleUpdateLineVendor(line.id, '')}
+                                      >
+                                        <Check className={cn("mr-2 h-4 w-4", !line.vendor_name ? "opacity-100" : "opacity-0")} />
+                                        <span className="text-muted-foreground italic">
+                                          {language === 'ar' ? '— بدون مورد —' : '— No vendor —'}
+                                        </span>
+                                      </CommandItem>
+                                      {vendorOptions.map((v) => (
+                                        <CommandItem
+                                          key={v.name}
+                                          value={v.name}
+                                          onSelect={() => handleUpdateLineVendor(line.id, v.name)}
+                                        >
+                                          <Check className={cn("mr-2 h-4 w-4", line.vendor_name === v.name ? "opacity-100" : "opacity-0")} />
+                                          <div className="flex flex-col">
+                                            <span className="text-xs">{v.name}</span>
+                                            {v.code && <span className="text-[10px] text-muted-foreground font-mono">{v.code}</span>}
+                                          </div>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </TableCell>
                           <TableCell className="text-right">{line.qty}</TableCell>
                           <TableCell className="text-right">{line.unit_price.toFixed(2)}</TableCell>
                           <TableCell className="text-right font-medium">{line.total.toFixed(2)}</TableCell>
