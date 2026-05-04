@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, RefreshCw, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCw, Search, Cloud, CloudUpload } from "lucide-react";
 
 interface Supplier {
   id: string;
