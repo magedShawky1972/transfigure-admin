@@ -3413,6 +3413,134 @@ const OdooSyncBatch = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Lines Breakdown Dialog - per original order, products with coins for A-class brands */}
+      <Dialog open={showLinesBreakdownDialog} onOpenChange={setShowLinesBreakdownDialog}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              {language === 'ar' ? 'تفاصيل الطلبات الأصلية' : 'Original Orders Breakdown'}
+              {selectedLinesBreakdown && (
+                <Badge variant="outline" className="ml-2 font-mono">{selectedLinesBreakdown.orderNumber}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLinesBreakdown && (() => {
+            const isAClass = brandAbcMap.get(selectedLinesBreakdown.originalLines[0]?.brand_code || '') === 'A';
+            // Group originalLines by their original order number
+            const groups = new Map<string, Transaction[]>();
+            selectedLinesBreakdown.originalLines.forEach((ln) => {
+              const key = ln.order_number || '-';
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key)!.push(ln);
+            });
+            const groupArr = Array.from(groups.entries());
+            let grandTotal = 0;
+            let grandCost = 0;
+            return (
+              <ScrollArea className="max-h-[70vh] pr-3">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{language === 'ar' ? 'فئة العلامة:' : 'Brand Class:'}</span>
+                    <Badge variant={isAClass ? 'default' : 'secondary'}>
+                      {brandAbcMap.get(selectedLinesBreakdown.originalLines[0]?.brand_code || '') || '-'}
+                    </Badge>
+                    {!isAClass && (
+                      <span className="text-amber-600">
+                        {language === 'ar' ? '(عمود الكوينز يظهر فقط للفئة A)' : '(Coins column only for A-class)'}
+                      </span>
+                    )}
+                  </div>
+                  {groupArr.map(([orderNum, lines]) => {
+                    const subTotal = lines.reduce((s, l) => s + (l.total || 0), 0);
+                    const subCost = lines.reduce((s, l) => s + ((l.cost_price || 0) * (l.qty || 0)), 0);
+                    grandTotal += subTotal;
+                    grandCost += subCost;
+                    return (
+                      <div key={orderNum} className="border rounded-lg overflow-hidden">
+                        <div className="bg-muted/50 px-3 py-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Hash className="h-4 w-4 text-primary" />
+                            <span className="font-mono font-semibold">{orderNum}</span>
+                            <Badge variant="outline" className="text-xs">{lines.length} {language === 'ar' ? 'منتج' : 'items'}</Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {language === 'ar' ? 'الإجمالي:' : 'Total:'} <span className="font-bold text-foreground">{subTotal.toFixed(2)} SAR</span>
+                          </div>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                              <TableHead className="text-xs text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
+                              {isAClass && (
+                                <TableHead className="text-xs text-right">{language === 'ar' ? 'الكوينز' : 'Coins'}</TableHead>
+                              )}
+                              <TableHead className="text-xs text-right">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                              <TableHead className="text-xs text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
+                              <TableHead className="text-xs text-right">{language === 'ar' ? 'التكلفة' : 'Cost'}</TableHead>
+                              <TableHead className="text-xs text-right">{language === 'ar' ? 'إجمالي التكلفة' : 'Total Cost'}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {lines.map((line, idx) => {
+                              const totalCost = (line.cost_price || 0) * (line.qty || 0);
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell className="text-xs max-w-[300px]">
+                                    <div className="font-medium truncate" title={line.product_name}>{line.product_name}</div>
+                                    {line.sku && <div className="text-muted-foreground font-mono text-[10px]">{line.sku}</div>}
+                                  </TableCell>
+                                  <TableCell className="text-right text-xs">{line.qty}</TableCell>
+                                  {isAClass && (
+                                    <TableCell className="text-right text-xs">
+                                      {line.coins_number ? (
+                                        <Badge variant="secondary" className="text-xs">{line.coins_number}</Badge>
+                                      ) : '-'}
+                                    </TableCell>
+                                  )}
+                                  <TableCell className="text-right text-xs">{(line.unit_price || 0).toFixed(2)}</TableCell>
+                                  <TableCell className="text-right text-xs font-medium">{(line.total || 0).toFixed(2)}</TableCell>
+                                  <TableCell className="text-right text-xs">{(line.cost_price || 0).toFixed(2)}</TableCell>
+                                  <TableCell className="text-right text-xs font-medium">{totalCost.toFixed(2)}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                            <TableRow className="bg-muted/30 font-semibold">
+                              <TableCell className="text-xs" colSpan={isAClass ? 4 : 3}>
+                                {language === 'ar' ? 'الإجمالي الفرعي' : 'Subtotal'}
+                              </TableCell>
+                              <TableCell className="text-right text-xs">{subTotal.toFixed(2)}</TableCell>
+                              <TableCell />
+                              <TableCell className="text-right text-xs">{subCost.toFixed(2)}</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })}
+                  <div className="border-2 border-primary/40 rounded-lg bg-primary/5 px-4 py-3 flex items-center justify-between font-bold">
+                    <span>{language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}</span>
+                    <div className="flex gap-6 text-sm">
+                      <span>{language === 'ar' ? 'المبيعات:' : 'Sales:'} {grandTotal.toFixed(2)} SAR</span>
+                      <span>{language === 'ar' ? 'التكلفة:' : 'Cost:'} {grandCost.toFixed(2)} SAR</span>
+                      <span className="text-green-700 dark:text-green-400">
+                        {language === 'ar' ? 'الربح:' : 'Profit:'} {(grandTotal - grandCost).toFixed(2)} SAR
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            );
+          })()}
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={() => setShowLinesBreakdownDialog(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
