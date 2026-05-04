@@ -697,91 +697,69 @@ const Transactions = () => {
         transactionCount = Number(stats.tx_count || 0);
       }
 
-      // 2) Cost of Sales (non-point) from purpletransaction
-      const pageSize = 1000;
-      let fromIdx = 0;
-      let allCogsData: any[] = [];
-      while (true) {
-        const { data, error } = await supabase
-          .from('purpletransaction')
-          .select('cost_sold')
-          .gte('created_at_date', startStr)
-          .lt('created_at_date', endNextStr)
-          .neq('payment_method', 'point')
-          .order('created_at_date', { ascending: true })
-          .range(fromIdx, fromIdx + pageSize - 1);
-        if (error) throw error;
-        const batch = data || [];
-        allCogsData = allCogsData.concat(batch);
-        if (batch.length < pageSize) break;
-        fromIdx += pageSize;
-      }
-      let costOfSales = 0;
-      allCogsData.forEach((row) => {
-        costOfSales += Number(row.cost_sold) || 0;
-      });
+      // 2-4) Use the same RPCs as Dashboard for parity
+      const dateFromStr = format(start, 'yyyy-MM-dd');
+      const dateToStr = format(end, 'yyyy-MM-dd');
+      const [cogsResult, chargesResult, pointsResult] = await Promise.all([
+        supabase.rpc('get_cost_of_sales', {
+          date_from: dateFromStr,
+          date_to: dateToStr,
+          p_brand_name: null,
+          p_company: null,
+        }),
+        supabase.rpc('get_epayment_charges', {
+          date_from: dateFromStr,
+          date_to: dateToStr,
+          p_brand_name: null,
+          p_company: null,
+        }),
+        supabase.rpc('get_points_summary', {
+          date_from: dateFromStr,
+          date_to: dateToStr,
+          p_brand_name: null,
+          p_company: null,
+        }),
+      ]);
 
-      // 3) E-Payment Charges from ordertotals (non-point)
-      let orderFrom = 0;
-      let allOrderData: any[] = [];
-      while (true) {
-        const { data, error } = await supabase
-          .from('ordertotals')
-          .select('bank_fee')
-          .gte('order_date', startStr)
-          .lt('order_date', endNextStr)
-          .neq('payment_method', 'point')
-          .order('order_date', { ascending: true })
-          .range(orderFrom, orderFrom + pageSize - 1);
-        if (error) throw error;
-        const batch = data || [];
-        allOrderData = allOrderData.concat(batch);
-        if (batch.length < pageSize) break;
-        orderFrom += pageSize;
-      }
-      let ePaymentCharges = 0;
-      allOrderData.forEach((row) => {
-        ePaymentCharges += Number(row.bank_fee) || 0;
-      });
+      if (cogsResult.error) throw cogsResult.error;
+      if (chargesResult.error) throw chargesResult.error;
+      if (pointsResult.error) throw pointsResult.error;
 
-      // 4) Points sales and cost (grouped by order to avoid duplicates)
+      const costOfSales = Number(cogsResult.data || 0);
+      const ePaymentCharges = Number(chargesResult.data || 0);
+      const pointsData =
+        pointsResult.data && pointsResult.data.length > 0
+          ? pointsResult.data[0]
+          : { total_sales: 0, total_cost: 0 };
+      const totalPointsSales = Number(pointsData.total_sales || 0);
+      const totalPointsCost = Number(pointsData.total_cost || 0);
+
+      // Count distinct point order_numbers (paginated to bypass the 1000-row limit)
       let pointsFrom = 0;
-      let allPointsData: any[] = [];
+      const pointOrderSet = new Set<string>();
+      const ptPageSize = 1000;
       while (true) {
         const { data, error } = await supabase
           .from('purpletransaction')
-          .select('id, order_number, total, cost_sold')
+          .select('order_number, id')
           .ilike('payment_method', 'point')
           .gte('created_at_date', startStr)
           .lt('created_at_date', endNextStr)
-          .order('created_at_date', { ascending: true })
-          .range(pointsFrom, pointsFrom + pageSize - 1);
+          .order('id', { ascending: true })
+          .range(pointsFrom, pointsFrom + ptPageSize - 1);
         if (error) throw error;
         const batch = data || [];
-        allPointsData = allPointsData.concat(batch);
-        if (batch.length < pageSize) break;
-        pointsFrom += pageSize;
+        batch.forEach((r: any) => pointOrderSet.add(r.order_number || r.id));
+        if (batch.length < ptPageSize) break;
+        pointsFrom += ptPageSize;
       }
-      const orderGrouped = new Map<string, { total: number; cost: number }>();
-      allPointsData.forEach((item: any) => {
-        const key = item.order_number || item.id;
-        const total = Number(item.total) || 0;
-        const cost = Number(item.cost_sold) || 0;
-        const existing = orderGrouped.get(key);
-        if (!existing) {
-          orderGrouped.set(key, { total, cost });
-        } else {
-          existing.total += total;
-          existing.cost += cost;
-        }
-      });
-      const totalPointsSales = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.total, 0);
-      const totalPointsCost = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.cost, 0);
+      const pointTransactionsCount = pointOrderSet.size;
 
-      // 5) Final totals exactly like Dashboard card
+
+      // 5) Final totals exactly like Dashboard card (includes point cost in profit, like Dashboard default)
       setTotalSalesAll(totalSales);
-      setTotalProfitAll(totalProfit);
-      setPointTransactionCount(orderGrouped.size);
+      setTotalProfitAll(totalSales - costOfSales - totalPointsCost - ePaymentCharges);
+      setPointTransactionCount(pointTransactionsCount);
       setPointSales(totalPointsSales);
     } catch (error) {
       console.error('Error fetching totals:', error);
