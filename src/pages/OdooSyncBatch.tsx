@@ -457,14 +457,19 @@ const OdooSyncBatch = () => {
         });
         return;
       }
-      setAggregatedInvoices(prev => prev.map(inv => ({
-        ...inv,
-        originalLines: inv.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l),
-      })));
-      setSelectedInvoiceDetail(prev => prev ? {
-        ...prev,
-        originalLines: prev.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l),
-      } : prev);
+      setAggregatedInvoices(prev => prev.map(inv => {
+        const updatedLines = inv.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l);
+        const hasLine = inv.originalLines.some(l => l.id === lineId);
+        if (!hasLine) return inv;
+        const derivedVendor = updatedLines.map(l => l.vendor_name).find(v => v && v.trim()) || '';
+        return { ...inv, originalLines: updatedLines, vendorName: derivedVendor };
+      }));
+      setSelectedInvoiceDetail(prev => {
+        if (!prev) return prev;
+        const updatedLines = prev.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l);
+        const derivedVendor = updatedLines.map(l => l.vendor_name).find(v => v && v.trim()) || '';
+        return { ...prev, originalLines: updatedLines, vendorName: derivedVendor };
+      });
       toast({
         title: language === 'ar' ? 'تم تحديث المورد' : 'Vendor updated',
         description: newVendorName || (language === 'ar' ? 'تمت إزالة المورد' : 'Vendor cleared'),
