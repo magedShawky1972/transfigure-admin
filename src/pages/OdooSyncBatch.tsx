@@ -636,7 +636,10 @@ const OdooSyncBatch = () => {
           .select('brand_name, abc_analysis');
         const abcMap = new Map<string, string>();
         brandsData?.forEach(b => {
-          if (b.brand_name) abcMap.set(b.brand_name, (b.abc_analysis || '').toUpperCase());
+          if (b.brand_name) {
+            const abc = (b.abc_analysis || '').toUpperCase();
+            abcMap.set(normalizeBrandKey(b.brand_name), abc);
+          }
         });
         setBrandAbcMap(abcMap);
 
