@@ -2422,6 +2422,53 @@ const OdooSyncBatch = () => {
             </div>
           </CardContent>
         </Card>
+        {(() => {
+          const missingVendorNonACount = aggregatedInvoices.filter(inv => {
+            const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+            return abc !== 'A' && !inv.vendorName;
+          }).length;
+          const isActive = filterMissingVendorNonA;
+          return (
+            <Card
+              className={cn(
+                "cursor-pointer transition-colors",
+                missingVendorNonACount > 0
+                  ? "border-red-500/40 bg-red-500/5 hover:border-red-500/60"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50",
+                isActive && "ring-2 ring-red-500/60"
+              )}
+              onClick={() => {
+                if (missingVendorNonACount > 0) {
+                  setFilterMissingVendorNonA(prev => !prev);
+                }
+              }}
+              title={language === 'ar' ? 'تصفية الصفوف بدون مورد (ليست A)' : 'Filter rows missing vendor (non-A)'}
+            >
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  {missingVendorNonACount > 0 ? (
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  )}
+                  <div>
+                    <div className={cn(
+                      "text-2xl font-bold",
+                      missingVendorNonACount > 0 ? "text-red-500" : "text-green-500"
+                    )}>
+                      {missingVendorNonACount}
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      {language === 'ar'
+                        ? 'بدون مورد (ليست A)'
+                        : 'Missing Vendor (non-A)'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* Orders table */}
