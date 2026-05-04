@@ -820,7 +820,14 @@ const OdooSyncBatch = () => {
     };
 
     loadTransactions();
-  }, [fromDate, toDate, companyFilter, language, navigate]);
+  }, [fromDate, toDate, companyFilter, language, navigate, refreshKey]);
+
+  // Refresh all data and re-run supplier check
+  const handleRefreshAll = () => {
+    setSupplierCheckDone(false);
+    setSupplierCheckResult(null);
+    setRefreshKey(k => k + 1);
+  };
 
   // Toggle select all (only for filtered items)
   const handleSelectAll = (checked: boolean) => {
