@@ -111,6 +111,7 @@ interface AggregatedInvoice {
   paymentMethod: string;
   paymentBrand: string;
   userName: string;
+  vendorName: string;
   productLines: {
     productSku: string;
     productName: string;
@@ -732,6 +733,7 @@ const OdooSyncBatch = () => {
         paymentMethod: string;
         paymentBrand: string;
         userName: string;
+        vendorName: string;
         lines: Transaction[];
         originalOrderNumbers: string[];
       }>();
@@ -741,7 +743,7 @@ const OdooSyncBatch = () => {
           const dateOnly = line.created_at_date?.substring(0, 10) || '';
           // When separateByDay is false, use a fixed date part to consolidate all days
           const datePart = separateByDay ? dateOnly : 'ALL';
-          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
+          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.vendor_name || ''}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -756,6 +758,7 @@ const OdooSyncBatch = () => {
               paymentMethod: line.payment_method || '',
               paymentBrand: line.payment_brand || '',
               userName: line.user_name || '',
+              vendorName: line.vendor_name || '',
               lines: [line],
               originalOrderNumbers: [group.orderNumber],
             });
@@ -890,6 +893,7 @@ const OdooSyncBatch = () => {
           paymentMethod: invoice.paymentMethod,
           paymentBrand: invoice.paymentBrand,
           userName: invoice.userName,
+          vendorName: invoice.vendorName,
           productLines,
           grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
           originalOrderNumbers: invoice.originalOrderNumbers,
@@ -2456,7 +2460,7 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                     <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
-                    
+                    <TableHead>{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
@@ -2522,7 +2526,9 @@ const OdooSyncBatch = () => {
                       <TableCell className="text-xs">
                         {invoice.paymentMethod}/{invoice.paymentBrand}
                       </TableCell>
-                      
+                      <TableCell className="max-w-[140px] truncate text-xs" title={invoice.vendorName}>
+                        {invoice.vendorName || '-'}
+                      </TableCell>
                       <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
                       <TableCell>
                         <Button
@@ -3240,6 +3246,10 @@ const OdooSyncBatch = () => {
                   <div>
                     <p className="text-xs text-muted-foreground">{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</p>
                     <p className="font-medium">{selectedInvoiceDetail.paymentMethod}/{selectedInvoiceDetail.paymentBrand}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{language === 'ar' ? 'المورد' : 'Vendor'}</p>
+                    <p className="font-medium">{selectedInvoiceDetail.vendorName || '-'}</p>
                   </div>
                 </div>
 
