@@ -739,7 +739,7 @@ const Transactions = () => {
       // 5) Final totals exactly like Dashboard card (includes point cost in profit, like Dashboard default)
       setTotalSalesAll(totalSales);
       setTotalProfitAll(totalSales - costOfSales - totalPointsCost - ePaymentCharges);
-      setPointTransactionCount(orderGrouped.size);
+      setPointTransactionCount(pointTransactionsCount);
       setPointSales(totalPointsSales);
     } catch (error) {
       console.error('Error fetching totals:', error);
