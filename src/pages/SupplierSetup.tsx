@@ -438,6 +438,19 @@ export default function SupplierSetup() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => syncOneToOdoo(supplier)}
+                            disabled={rowSyncingId === supplier.id}
+                            title={isArabic ? "مزامنة مع Odoo" : "Sync to Odoo"}
+                          >
+                            {supplier.partner_profile_id ? (
+                              <Cloud className={`h-4 w-4 text-green-600 ${rowSyncingId === supplier.id ? "animate-pulse" : ""}`} />
+                            ) : (
+                              <CloudUpload className={`h-4 w-4 ${rowSyncingId === supplier.id ? "animate-pulse" : ""}`} />
+                            )}
+                          </Button>
                           <Button variant="outline" size="sm" onClick={() => handleEdit(supplier)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
