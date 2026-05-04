@@ -223,6 +223,8 @@ export default function SupplierSetup() {
       setRowSyncingId(null);
     }
   };
+
+  const handleAdd = () => {
     setSelectedSupplier(null);
     setFormData({
       supplier_code: "",
