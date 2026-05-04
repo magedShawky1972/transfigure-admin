@@ -780,7 +780,7 @@ const Transactions = () => {
 
       // 5) Final totals exactly like Dashboard card
       setTotalSalesAll(totalSales);
-      setTotalProfitAll(totalSales - costOfSales - totalPointsCost - ePaymentCharges);
+      setTotalProfitAll(totalProfit);
       setPointTransactionCount(orderGrouped.size);
       setPointSales(totalPointsSales);
     } catch (error) {
