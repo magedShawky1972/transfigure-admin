@@ -688,10 +688,12 @@ const Transactions = () => {
       if (summaryError) throw summaryError;
 
       let totalSales = 0;
+      let totalProfit = 0;
       let transactionCount = 0;
       if (summary && summary.length > 0) {
         const stats = summary[0];
         totalSales = Number(stats.total_sales || 0);
+        totalProfit = Number(stats.total_profit || 0);
         transactionCount = Number(stats.tx_count || 0);
       }
 
