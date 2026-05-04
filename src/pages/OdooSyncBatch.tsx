@@ -741,7 +741,7 @@ const OdooSyncBatch = () => {
           const dateOnly = line.created_at_date?.substring(0, 10) || '';
           // When separateByDay is false, use a fixed date part to consolidate all days
           const datePart = separateByDay ? dateOnly : 'ALL';
-          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.user_name || ''}`;
+          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -2456,7 +2456,7 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                     <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'المستخدم' : 'User'}</TableHead>
+                    
                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
@@ -2522,7 +2522,7 @@ const OdooSyncBatch = () => {
                       <TableCell className="text-xs">
                         {invoice.paymentMethod}/{invoice.paymentBrand}
                       </TableCell>
-                      <TableCell className="text-xs text-primary">{invoice.userName || '-'}</TableCell>
+                      
                       <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
                       <TableCell>
                         <Button
@@ -3240,10 +3240,6 @@ const OdooSyncBatch = () => {
                   <div>
                     <p className="text-xs text-muted-foreground">{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</p>
                     <p className="font-medium">{selectedInvoiceDetail.paymentMethod}/{selectedInvoiceDetail.paymentBrand}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{language === 'ar' ? 'المستخدم' : 'User'}</p>
-                    <p className="font-medium text-primary">{selectedInvoiceDetail.userName || '-'}</p>
                   </div>
                 </div>
 
