@@ -2501,13 +2501,16 @@ const OdooSyncBatch = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAggregatedInvoices.map((invoice, idx) => (
+                  {filteredAggregatedInvoices.map((invoice, idx) => {
+                    const missingVendorRed = (brandAbcMap.get(invoice.originalLines[0]?.brand_code || '') !== 'A') && !invoice.vendorName;
+                    return (
                     <TableRow 
                       key={invoice.orderNumber}
                       className={cn(
                         invoice.syncStatus === 'success' && 'bg-green-50 dark:bg-green-950/20',
                         invoice.syncStatus === 'failed' && 'bg-red-50 dark:bg-red-950/20',
-                        invoice.syncStatus === 'running' && 'bg-muted/50'
+                        invoice.syncStatus === 'running' && 'bg-muted/50',
+                        missingVendorRed && 'text-red-600 dark:text-red-400 font-semibold'
                       )}
                     >
                       <TableCell>
@@ -2622,7 +2625,8 @@ const OdooSyncBatch = () => {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {/* Grand Total Row */}
                   <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
                     <TableCell colSpan={8} className="text-right">
