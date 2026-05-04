@@ -453,6 +453,21 @@ const OdooSyncBatch = () => {
     })();
   }, []);
 
+  // Load Odoo environment mode (production/test)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('odoo_api_config')
+        .select('is_production_mode')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (data) {
+        setOdooMode(data.is_production_mode !== false ? 'production' : 'test');
+      }
+    })();
+  }, [refreshKey]);
+
+
   useEffect(() => {
     if (filterBrand && filterBrand !== 'all_brands' && filterProduct && filterProduct !== 'all_products') {
       // Check if the selected product belongs to the selected brand
