@@ -373,6 +373,10 @@ export default function SupplierSetup() {
                 <RefreshCw className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${syncing ? "animate-spin" : ""}`} />
                 {isArabic ? "مزامنة من المعاملات" : "Sync from Transactions"}
               </Button>
+              <Button onClick={syncAllToOdoo} variant="outline" disabled={odooSyncing}>
+                <CloudUpload className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"} ${odooSyncing ? "animate-pulse" : ""}`} />
+                {isArabic ? "مزامنة الكل مع Odoo" : "Sync All to Odoo"}
+              </Button>
               <Button onClick={handleAdd}>
                 <Plus className={`h-4 w-4 ${isArabic ? "ml-2" : "mr-2"}`} />
                 {isArabic ? "إضافة مورد" : "Add Supplier"}
