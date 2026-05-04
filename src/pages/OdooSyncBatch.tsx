@@ -2526,7 +2526,13 @@ const OdooSyncBatch = () => {
                       <TableCell className="text-xs">
                         {invoice.paymentMethod}/{invoice.paymentBrand}
                       </TableCell>
-                      <TableCell className="max-w-[140px] truncate text-xs" title={invoice.vendorName}>
+                      <TableCell
+                        className={cn(
+                          "max-w-[140px] truncate text-xs",
+                          invoice.hasNonStock && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
+                        )}
+                        title={invoice.vendorName}
+                      >
                         {invoice.vendorName || '-'}
                       </TableCell>
                       <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
