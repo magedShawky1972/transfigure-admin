@@ -157,7 +157,72 @@ export default function SupplierSetup() {
     }
   };
 
-  const handleAdd = () => {
+  const syncAllToOdoo = async () => {
+    try {
+      setOdooSyncing(true);
+      const { data, error } = await supabase.functions.invoke("sync-supplier-to-odoo", {
+        body: {},
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Sync failed");
+
+      const s = data.summary || { created: 0, existing: 0, errors: 0 };
+      toast({
+        title: isArabic ? "تمت المزامنة مع Odoo" : "Odoo Sync Complete",
+        description: isArabic
+          ? `تم إنشاء ${s.created}، موجود مسبقاً ${s.existing}، أخطاء ${s.errors}`
+          : `Created ${s.created}, existing ${s.existing}, errors ${s.errors}`,
+        variant: s.errors > 0 ? "destructive" : "default",
+      });
+      fetchSuppliers();
+    } catch (error: any) {
+      console.error("Error syncing to Odoo:", error);
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        description: error.message || (isArabic ? "فشل المزامنة مع Odoo" : "Failed to sync to Odoo"),
+        variant: "destructive",
+      });
+    } finally {
+      setOdooSyncing(false);
+    }
+  };
+
+  const syncOneToOdoo = async (supplier: Supplier) => {
+    try {
+      setRowSyncingId(supplier.id);
+      const { data, error } = await supabase.functions.invoke("sync-supplier-to-odoo", {
+        body: { supplier_ids: [supplier.id] },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Sync failed");
+
+      const r = data.results?.[0];
+      if (r?.status === "error") {
+        toast({
+          title: isArabic ? "فشل" : "Error",
+          description: r.message || (isArabic ? "فشل المزامنة" : "Failed to sync"),
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: isArabic ? "تم" : "Success",
+          description: isArabic
+            ? `${supplier.supplier_name} - ${r?.status === "created" ? "تم الإنشاء" : "موجود مسبقاً"} (Odoo ID: ${r?.partner_profile_id})`
+            : `${supplier.supplier_name} - ${r?.status === "created" ? "created" : "already exists"} (Odoo ID: ${r?.partner_profile_id})`,
+        });
+      }
+      fetchSuppliers();
+    } catch (error: any) {
+      console.error("Error syncing supplier to Odoo:", error);
+      toast({
+        title: isArabic ? "خطأ" : "Error",
+        description: error.message || (isArabic ? "فشل المزامنة مع Odoo" : "Failed to sync to Odoo"),
+        variant: "destructive",
+      });
+    } finally {
+      setRowSyncingId(null);
+    }
+  };
     setSelectedSupplier(null);
     setFormData({
       supplier_code: "",
