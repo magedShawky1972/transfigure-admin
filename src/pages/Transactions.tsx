@@ -778,9 +778,9 @@ const Transactions = () => {
       const totalPointsSales = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.total, 0);
       const totalPointsCost = Array.from(orderGrouped.values()).reduce((sum, v) => sum + v.cost, 0);
 
-      // 5) Final totals exactly like Dashboard card
+      // 5) Final totals exactly like Dashboard card (includes point cost in profit, like Dashboard default)
       setTotalSalesAll(totalSales);
-      setTotalProfitAll(totalProfit);
+      setTotalProfitAll(totalSales - costOfSales - totalPointsCost - ePaymentCharges);
       setPointTransactionCount(orderGrouped.size);
       setPointSales(totalPointsSales);
     } catch (error) {
