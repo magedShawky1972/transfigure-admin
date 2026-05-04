@@ -2557,7 +2557,7 @@ const OdooSyncBatch = () => {
                       <TableCell
                         className={cn(
                           "max-w-[140px] truncate text-xs",
-                          (brandAbcMap.get(invoice.brandName) !== 'A') && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
+                          (brandAbcMap.get(normalizeBrandKey(invoice.brandName)) !== 'A') && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
                         )}
                         title={invoice.vendorName}
                       >
