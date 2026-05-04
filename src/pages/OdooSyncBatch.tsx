@@ -399,9 +399,14 @@ const OdooSyncBatch = () => {
       } else if (filterHasPurchase === 'no') {
         if (inv.hasNonStock) return false;
       }
+      // Filter by missing vendor for non-A brands (red rows)
+      if (filterMissingVendorNonA) {
+        const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+        if (!(abc !== 'A' && !inv.vendorName)) return false;
+      }
       return true;
     });
-  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
+  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, brandAbcMap]);
 
   // Reset product filter when brand changes
   // Load vendor list once for the inline editor
