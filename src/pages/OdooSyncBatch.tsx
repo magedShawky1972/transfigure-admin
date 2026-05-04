@@ -408,6 +408,14 @@ const OdooSyncBatch = () => {
     });
   }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, brandAbcMap]);
 
+  // Count of aggregated invoices with missing vendor for non-A brands (red rows)
+  const missingVendorNonACount = useMemo(() => {
+    return aggregatedInvoices.filter(inv => {
+      const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+      return abc !== 'A' && !inv.vendorName;
+    }).length;
+  }, [aggregatedInvoices, brandAbcMap]);
+
   // Reset product filter when brand changes
   // Load vendor list once for the inline editor
   useEffect(() => {
@@ -2162,7 +2170,8 @@ const OdooSyncBatch = () => {
           )}
           <Button 
             onClick={handleStartSync} 
-            disabled={isSyncing || selectedCount === 0}
+            disabled={isSyncing || selectedCount === 0 || (aggregateMode && missingVendorNonACount > 0)}
+            title={aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
             className="gap-2"
           >
             {isSyncing ? (
@@ -2179,7 +2188,8 @@ const OdooSyncBatch = () => {
           </Button>
           <Button 
             onClick={handleStartBackgroundSync} 
-            disabled={isSyncing || selectedCount === 0 || startingBackgroundSync}
+            disabled={isSyncing || selectedCount === 0 || startingBackgroundSync || (aggregateMode && missingVendorNonACount > 0)}
+            title={aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
             variant="secondary"
             className="gap-2"
           >
@@ -2423,10 +2433,6 @@ const OdooSyncBatch = () => {
           </CardContent>
         </Card>
         {(() => {
-          const missingVendorNonACount = aggregatedInvoices.filter(inv => {
-            const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
-            return abc !== 'A' && !inv.vendorName;
-          }).length;
           const isActive = filterMissingVendorNonA;
           return (
             <Card
