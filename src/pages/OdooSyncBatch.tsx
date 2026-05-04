@@ -2336,7 +2336,7 @@ const OdooSyncBatch = () => {
       )}
 
       {/* Summary Cards - Always visible */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-blue-500/30 bg-blue-500/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
