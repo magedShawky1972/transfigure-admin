@@ -111,6 +111,7 @@ interface AggregatedInvoice {
   paymentMethod: string;
   paymentBrand: string;
   userName: string;
+  vendorName: string;
   productLines: {
     productSku: string;
     productName: string;
@@ -732,6 +733,7 @@ const OdooSyncBatch = () => {
         paymentMethod: string;
         paymentBrand: string;
         userName: string;
+        vendorName: string;
         lines: Transaction[];
         originalOrderNumbers: string[];
       }>();
@@ -741,7 +743,7 @@ const OdooSyncBatch = () => {
           const dateOnly = line.created_at_date?.substring(0, 10) || '';
           // When separateByDay is false, use a fixed date part to consolidate all days
           const datePart = separateByDay ? dateOnly : 'ALL';
-          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}`;
+          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.vendor_name || ''}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -756,6 +758,7 @@ const OdooSyncBatch = () => {
               paymentMethod: line.payment_method || '',
               paymentBrand: line.payment_brand || '',
               userName: line.user_name || '',
+              vendorName: line.vendor_name || '',
               lines: [line],
               originalOrderNumbers: [group.orderNumber],
             });
@@ -890,6 +893,7 @@ const OdooSyncBatch = () => {
           paymentMethod: invoice.paymentMethod,
           paymentBrand: invoice.paymentBrand,
           userName: invoice.userName,
+          vendorName: invoice.vendorName,
           productLines,
           grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
           originalOrderNumbers: invoice.originalOrderNumbers,
