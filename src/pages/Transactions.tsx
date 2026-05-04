@@ -733,7 +733,27 @@ const Transactions = () => {
           : { total_sales: 0, total_cost: 0 };
       const totalPointsSales = Number(pointsData.total_sales || 0);
       const totalPointsCost = Number(pointsData.total_cost || 0);
-      const pointTransactionsCount = Number((pointsData as any).tx_count || 0);
+
+      // Count distinct point order_numbers (paginated to bypass the 1000-row limit)
+      let pointsFrom = 0;
+      const pointOrderSet = new Set<string>();
+      const ptPageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('purpletransaction')
+          .select('order_number, id')
+          .ilike('payment_method', 'point')
+          .gte('created_at_date', startStr)
+          .lt('created_at_date', endNextStr)
+          .order('id', { ascending: true })
+          .range(pointsFrom, pointsFrom + ptPageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        batch.forEach((r: any) => pointOrderSet.add(r.order_number || r.id));
+        if (batch.length < ptPageSize) break;
+        pointsFrom += ptPageSize;
+      }
+      const pointTransactionsCount = pointOrderSet.size;
 
 
       // 5) Final totals exactly like Dashboard card (includes point cost in profit, like Dashboard default)
