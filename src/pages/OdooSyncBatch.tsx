@@ -408,6 +408,14 @@ const OdooSyncBatch = () => {
     });
   }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, brandAbcMap]);
 
+  // Count of aggregated invoices with missing vendor for non-A brands (red rows)
+  const missingVendorNonACount = useMemo(() => {
+    return aggregatedInvoices.filter(inv => {
+      const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+      return abc !== 'A' && !inv.vendorName;
+    }).length;
+  }, [aggregatedInvoices, brandAbcMap]);
+
   // Reset product filter when brand changes
   // Load vendor list once for the inline editor
   useEffect(() => {
