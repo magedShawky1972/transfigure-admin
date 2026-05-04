@@ -2546,9 +2546,19 @@ const OdooSyncBatch = () => {
                       </TableCell>
                       <TableCell className="font-mono text-xs">{invoice.orderNumber}</TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="secondary" className="text-xs">
-                          {invoice.originalOrderNumbers.length}
-                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => {
+                            setSelectedLinesBreakdown(invoice);
+                            setShowLinesBreakdownDialog(true);
+                          }}
+                        >
+                          <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-primary/20">
+                            {invoice.originalOrderNumbers.length}
+                          </Badge>
+                        </Button>
                       </TableCell>
                       <TableCell className="text-xs">
                         {invoice.date ? format(parseISO(invoice.date), 'yyyy-MM-dd') : '-'}
