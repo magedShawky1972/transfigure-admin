@@ -2487,6 +2487,7 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                     <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
+                    <TableHead className="text-center">ABC</TableHead>
                     <TableHead>{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
@@ -2552,6 +2553,16 @@ const OdooSyncBatch = () => {
                       </TableCell>
                       <TableCell className="text-xs">
                         {invoice.paymentMethod}/{invoice.paymentBrand}
+                      </TableCell>
+                      <TableCell className="text-center text-xs font-semibold">
+                        {(() => {
+                          const abc = brandAbcMap.get(invoice.originalLines[0]?.brand_code || '') || '-';
+                          const cls = abc === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                            : abc === 'B' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
+                            : abc === 'C' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                            : 'bg-muted text-muted-foreground';
+                          return <span className={cn('inline-block px-2 py-0.5 rounded', cls)}>{abc}</span>;
+                        })()}
                       </TableCell>
                       <TableCell
                         className={cn(
