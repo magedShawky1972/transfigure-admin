@@ -681,7 +681,8 @@ const Transactions = () => {
         .rpc('transactions_summary', {
           date_from: format(start, 'yyyy-MM-dd'),
           date_to: format(end, 'yyyy-MM-dd'),
-          p_brand_name: null
+          p_brand_name: null,
+          p_company: null
         });
 
       if (summaryError) throw summaryError;
