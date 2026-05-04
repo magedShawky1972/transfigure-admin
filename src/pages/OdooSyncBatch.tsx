@@ -139,6 +139,20 @@ interface AggregatedInvoice {
   hasNonStock: boolean;
 }
 
+// Normalize Arabic brand names for tolerant matching (alef/yaa/taa marbuta variants, kashida, diacritics)
+const normalizeBrandKey = (s: string): string => {
+  if (!s) return '';
+  return s
+    .normalize('NFKC')
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, '') // diacritics + tatweel
+    .replace(/[\u0622\u0623\u0625]/g, '\u0627') // أ إ آ -> ا
+    .replace(/\u0649/g, '\u064A') // ى -> ي
+    .replace(/\u0629/g, '\u0647') // ة -> ه
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+};
+
 // Helper function to translate Odoo error messages to Arabic
 const translateOdooError = (error: string, language: string): string => {
   if (language !== 'ar') return error;
@@ -636,7 +650,10 @@ const OdooSyncBatch = () => {
           .select('brand_name, abc_analysis');
         const abcMap = new Map<string, string>();
         brandsData?.forEach(b => {
-          if (b.brand_name) abcMap.set(b.brand_name, (b.abc_analysis || '').toUpperCase());
+          if (b.brand_name) {
+            const abc = (b.abc_analysis || '').toUpperCase();
+            abcMap.set(normalizeBrandKey(b.brand_name), abc);
+          }
         });
         setBrandAbcMap(abcMap);
 
@@ -2540,7 +2557,7 @@ const OdooSyncBatch = () => {
                       <TableCell
                         className={cn(
                           "max-w-[140px] truncate text-xs",
-                          (brandAbcMap.get(invoice.brandName) !== 'A') && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
+                          (brandAbcMap.get(normalizeBrandKey(invoice.brandName)) !== 'A') && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
                         )}
                         title={invoice.vendorName}
                       >
