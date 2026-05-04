@@ -289,6 +289,7 @@ const OdooSyncBatch = () => {
   } | null>(null);
   const [showSuppliersDialog, setShowSuppliersDialog] = useState(false);
   const [supplierCheckDone, setSupplierCheckDone] = useState(false);
+  const [odooMode, setOdooMode] = useState<'production' | 'test' | null>(null);
   
   // Invoice detail dialog state
   const [showInvoiceDetailDialog, setShowInvoiceDetailDialog] = useState(false);
