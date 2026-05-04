@@ -3245,6 +3245,10 @@ const OdooSyncBatch = () => {
                     <p className="text-xs text-muted-foreground">{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</p>
                     <p className="font-medium">{selectedInvoiceDetail.paymentMethod}/{selectedInvoiceDetail.paymentBrand}</p>
                   </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{language === 'ar' ? 'المورد' : 'Vendor'}</p>
+                    <p className="font-medium">{selectedInvoiceDetail.vendorName || '-'}</p>
+                  </div>
                 </div>
 
                 {/* Product Lines Section */}
