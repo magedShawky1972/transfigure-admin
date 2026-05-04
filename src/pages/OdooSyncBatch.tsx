@@ -248,6 +248,7 @@ const OdooSyncBatch = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
