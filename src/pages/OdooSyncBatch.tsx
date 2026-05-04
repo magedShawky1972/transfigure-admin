@@ -3464,7 +3464,66 @@ const OdooSyncBatch = () => {
                           <TableCell className="max-w-[150px] truncate text-xs" title={line.product_name}>
                             {line.product_name}
                           </TableCell>
-                          <TableCell className="text-xs">{line.vendor_name || '-'}</TableCell>
+                          <TableCell className="text-xs">
+                            <Popover
+                              open={vendorPopoverOpenId === line.id}
+                              onOpenChange={(o) => setVendorPopoverOpenId(o ? line.id : null)}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  role="combobox"
+                                  className="h-7 w-full justify-between text-xs font-normal"
+                                  disabled={updatingVendorId === line.id}
+                                >
+                                  <span className={cn("truncate", !line.vendor_name && "text-muted-foreground")}>
+                                    {updatingVendorId === line.id
+                                      ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
+                                      : (line.vendor_name || (language === 'ar' ? 'اختر المورد' : 'Select vendor'))}
+                                  </span>
+                                  <ChevronsUpDown className="h-3 w-3 opacity-50 shrink-0" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[280px] p-0" align="start">
+                                <Command>
+                                  <CommandInput
+                                    placeholder={language === 'ar' ? 'ابحث...' : 'Search vendor...'}
+                                    className="h-8"
+                                  />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      {language === 'ar' ? 'لا يوجد مورد' : 'No vendor found.'}
+                                    </CommandEmpty>
+                                    <CommandGroup>
+                                      <CommandItem
+                                        value="__clear__"
+                                        onSelect={() => handleUpdateLineVendor(line.id, '')}
+                                      >
+                                        <Check className={cn("mr-2 h-4 w-4", !line.vendor_name ? "opacity-100" : "opacity-0")} />
+                                        <span className="text-muted-foreground italic">
+                                          {language === 'ar' ? '— بدون مورد —' : '— No vendor —'}
+                                        </span>
+                                      </CommandItem>
+                                      {vendorOptions.map((v) => (
+                                        <CommandItem
+                                          key={v.name}
+                                          value={v.name}
+                                          onSelect={() => handleUpdateLineVendor(line.id, v.name)}
+                                        >
+                                          <Check className={cn("mr-2 h-4 w-4", line.vendor_name === v.name ? "opacity-100" : "opacity-0")} />
+                                          <div className="flex flex-col">
+                                            <span className="text-xs">{v.name}</span>
+                                            {v.code && <span className="text-[10px] text-muted-foreground font-mono">{v.code}</span>}
+                                          </div>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </TableCell>
                           <TableCell className="text-right">{line.qty}</TableCell>
                           <TableCell className="text-right">{line.unit_price.toFixed(2)}</TableCell>
                           <TableCell className="text-right font-medium">{line.total.toFixed(2)}</TableCell>
