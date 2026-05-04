@@ -2460,7 +2460,7 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                     <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
-                    
+                    <TableHead>{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
@@ -2526,7 +2526,9 @@ const OdooSyncBatch = () => {
                       <TableCell className="text-xs">
                         {invoice.paymentMethod}/{invoice.paymentBrand}
                       </TableCell>
-                      
+                      <TableCell className="max-w-[140px] truncate text-xs" title={invoice.vendorName}>
+                        {invoice.vendorName || '-'}
+                      </TableCell>
                       <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
                       <TableCell>
                         <Button
