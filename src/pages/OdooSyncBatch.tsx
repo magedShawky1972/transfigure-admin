@@ -303,6 +303,7 @@ const OdooSyncBatch = () => {
   const [filterProduct, setFilterProduct] = useState<string>('');
   const [filterOrderNumber, setFilterOrderNumber] = useState<string>('');
   const [filterHasPurchase, setFilterHasPurchase] = useState<string>('all');
+  const [filterMissingVendorNonA, setFilterMissingVendorNonA] = useState<boolean>(false);
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -398,9 +399,14 @@ const OdooSyncBatch = () => {
       } else if (filterHasPurchase === 'no') {
         if (inv.hasNonStock) return false;
       }
+      // Filter by missing vendor for non-A brands (red rows)
+      if (filterMissingVendorNonA) {
+        const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+        if (!(abc !== 'A' && !inv.vendorName)) return false;
+      }
       return true;
     });
-  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
+  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, brandAbcMap]);
 
   // Reset product filter when brand changes
   // Load vendor list once for the inline editor
@@ -492,12 +498,14 @@ const OdooSyncBatch = () => {
     setFilterProduct('');
     setFilterOrderNumber('');
     setFilterHasPurchase('all');
+    setFilterMissingVendorNonA(false);
   };
 
   const hasActiveFilters = (filterBrand && filterBrand !== 'all_brands') || 
                            (filterProduct && filterProduct !== 'all_products') || 
                            filterOrderNumber || 
-                           filterHasPurchase !== 'all';
+                           filterHasPurchase !== 'all' ||
+                           filterMissingVendorNonA;
 
   // Calculate duration in formatted string
   const formatDuration = (start: Date, end: Date): string => {
@@ -2328,7 +2336,7 @@ const OdooSyncBatch = () => {
       )}
 
       {/* Summary Cards - Always visible */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-blue-500/30 bg-blue-500/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
@@ -2414,6 +2422,53 @@ const OdooSyncBatch = () => {
             </div>
           </CardContent>
         </Card>
+        {(() => {
+          const missingVendorNonACount = aggregatedInvoices.filter(inv => {
+            const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+            return abc !== 'A' && !inv.vendorName;
+          }).length;
+          const isActive = filterMissingVendorNonA;
+          return (
+            <Card
+              className={cn(
+                "cursor-pointer transition-colors",
+                missingVendorNonACount > 0
+                  ? "border-red-500/40 bg-red-500/5 hover:border-red-500/60"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50",
+                isActive && "ring-2 ring-red-500/60"
+              )}
+              onClick={() => {
+                if (missingVendorNonACount > 0) {
+                  setFilterMissingVendorNonA(prev => !prev);
+                }
+              }}
+              title={language === 'ar' ? 'تصفية الصفوف بدون مورد (ليست A)' : 'Filter rows missing vendor (non-A)'}
+            >
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  {missingVendorNonACount > 0 ? (
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  )}
+                  <div>
+                    <div className={cn(
+                      "text-2xl font-bold",
+                      missingVendorNonACount > 0 ? "text-red-500" : "text-green-500"
+                    )}>
+                      {missingVendorNonACount}
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      {language === 'ar'
+                        ? 'بدون مورد (ليست A)'
+                        : 'Missing Vendor (non-A)'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* Orders table */}
