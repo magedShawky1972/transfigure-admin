@@ -2173,6 +2173,15 @@ const OdooSyncBatch = () => {
             <History className="h-4 w-4" />
             {language === 'ar' ? 'السجل' : 'History'}
           </Button>
+          <Button
+            variant="outline"
+            onClick={handleRefreshAll}
+            disabled={loading || isSyncing || checkingSuppliers}
+            className="gap-2"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            {language === 'ar' ? 'تحديث الكل' : 'Refresh All'}
+          </Button>
           {isSyncing && (
             <Button 
               variant="destructive"
