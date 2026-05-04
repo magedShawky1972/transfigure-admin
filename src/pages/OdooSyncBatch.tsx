@@ -2431,10 +2431,6 @@ const OdooSyncBatch = () => {
           </CardContent>
         </Card>
         {(() => {
-          const missingVendorNonACount = aggregatedInvoices.filter(inv => {
-            const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
-            return abc !== 'A' && !inv.vendorName;
-          }).length;
           const isActive = filterMissingVendorNonA;
           return (
             <Card
