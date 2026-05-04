@@ -238,6 +238,7 @@ const OdooSyncBatch = () => {
   const [currentOrderIndex, setCurrentOrderIndex] = useState(-1);
   const [syncComplete, setSyncComplete] = useState(false);
   const [nonStockSkuSet, setNonStockSkuSet] = useState<Set<string>>(new Set());
+  const [brandAbcMap, setBrandAbcMap] = useState<Map<string, string>>(new Map());
   
   // New states for enhanced features
   const [startTime, setStartTime] = useState<Date | null>(null);
@@ -628,6 +629,16 @@ const OdooSyncBatch = () => {
           if (p.product_id) nonStockSet.add(p.product_id);
         });
         setNonStockSkuSet(nonStockSet);
+
+        // Load brand ABC analysis to flag non-A class brands missing vendors
+        const { data: brandsData } = await supabase
+          .from('brands')
+          .select('brand_name, abc_analysis');
+        const abcMap = new Map<string, string>();
+        brandsData?.forEach(b => {
+          if (b.brand_name) abcMap.set(b.brand_name, (b.abc_analysis || '').toUpperCase());
+        });
+        setBrandAbcMap(abcMap);
 
         // Group by order_number
         const groupMap = new Map<string, Transaction[]>();
@@ -2529,7 +2540,7 @@ const OdooSyncBatch = () => {
                       <TableCell
                         className={cn(
                           "max-w-[140px] truncate text-xs",
-                          invoice.hasNonStock && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
+                          (brandAbcMap.get(invoice.brandName) !== 'A') && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
                         )}
                         title={invoice.vendorName}
                       >
