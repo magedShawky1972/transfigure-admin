@@ -416,6 +416,17 @@ const OdooSyncBatch = () => {
     }).length;
   }, [aggregatedInvoices, brandAbcMap]);
 
+  // Auto-run supplier check once when orders/invoices first become available
+  useEffect(() => {
+    if (supplierCheckDone || checkingSuppliers) return;
+    const hasData = (aggregateMode && aggregatedInvoices.length > 0) ||
+                    (!aggregateMode && orderGroups.length > 0);
+    if (hasData) {
+      checkSuppliersInOdoo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aggregateMode, aggregatedInvoices.length, orderGroups.length]);
+
   // Reset product filter when brand changes
   // Load vendor list once for the inline editor
   useEffect(() => {
