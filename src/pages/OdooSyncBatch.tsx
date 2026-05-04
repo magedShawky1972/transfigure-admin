@@ -289,6 +289,7 @@ const OdooSyncBatch = () => {
   } | null>(null);
   const [showSuppliersDialog, setShowSuppliersDialog] = useState(false);
   const [supplierCheckDone, setSupplierCheckDone] = useState(false);
+  const [odooMode, setOdooMode] = useState<'production' | 'test' | null>(null);
   
   // Invoice detail dialog state
   const [showInvoiceDetailDialog, setShowInvoiceDetailDialog] = useState(false);
@@ -451,6 +452,21 @@ const OdooSyncBatch = () => {
       setVendorOptions(all);
     })();
   }, []);
+
+  // Load Odoo environment mode (production/test)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('odoo_api_config')
+        .select('is_production_mode')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (data) {
+        setOdooMode(data.is_production_mode !== false ? 'production' : 'test');
+      }
+    })();
+  }, [refreshKey]);
+
 
   useEffect(() => {
     if (filterBrand && filterBrand !== 'all_brands' && filterProduct && filterProduct !== 'all_products') {
@@ -2143,8 +2159,23 @@ const OdooSyncBatch = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
               {language === 'ar' ? 'مزامنة الطلبات مع Odoo' : 'Sync Orders to Odoo'}
+              {odooMode && (
+                <Badge
+                  className={cn(
+                    "text-xs font-semibold border",
+                    odooMode === 'production'
+                      ? "bg-green-500/15 text-green-700 border-green-500/40 hover:bg-green-500/20 dark:text-green-400"
+                      : "bg-yellow-400/20 text-yellow-800 border-yellow-500/50 hover:bg-yellow-400/30 dark:text-yellow-300"
+                  )}
+                >
+                  {language === 'ar' ? 'وضع Odoo: ' : 'Odoo Mode: '}
+                  {odooMode === 'production'
+                    ? (language === 'ar' ? 'إنتاج' : 'Production')
+                    : (language === 'ar' ? 'تجريبي' : 'Test')}
+                </Badge>
+              )}
             </h1>
             <p className="text-muted-foreground">
               {fromDate && toDate && (
