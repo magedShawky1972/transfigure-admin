@@ -647,12 +647,11 @@ const OdooSyncBatch = () => {
         // Load brand ABC analysis to flag non-A class brands missing vendors
         const { data: brandsData } = await supabase
           .from('brands')
-          .select('brand_name, abc_analysis');
+          .select('brand_code, abc_analysis');
         const abcMap = new Map<string, string>();
         brandsData?.forEach(b => {
-          if (b.brand_name) {
-            const abc = (b.abc_analysis || '').toUpperCase();
-            abcMap.set(normalizeBrandKey(b.brand_name), abc);
+          if (b.brand_code) {
+            abcMap.set(b.brand_code, (b.abc_analysis || '').toUpperCase());
           }
         });
         setBrandAbcMap(abcMap);
@@ -2557,7 +2556,7 @@ const OdooSyncBatch = () => {
                       <TableCell
                         className={cn(
                           "max-w-[140px] truncate text-xs",
-                          (brandAbcMap.get(normalizeBrandKey(invoice.brandName)) !== 'A') && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
+                          (brandAbcMap.get(invoice.originalLines[0]?.brand_code || '') !== 'A') && !invoice.vendorName && "text-red-600 dark:text-red-400 font-semibold"
                         )}
                         title={invoice.vendorName}
                       >
