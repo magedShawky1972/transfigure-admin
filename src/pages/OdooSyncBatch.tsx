@@ -2159,8 +2159,23 @@ const OdooSyncBatch = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
               {language === 'ar' ? 'مزامنة الطلبات مع Odoo' : 'Sync Orders to Odoo'}
+              {odooMode && (
+                <Badge
+                  className={cn(
+                    "text-xs font-semibold border",
+                    odooMode === 'production'
+                      ? "bg-green-500/15 text-green-700 border-green-500/40 hover:bg-green-500/20 dark:text-green-400"
+                      : "bg-yellow-400/20 text-yellow-800 border-yellow-500/50 hover:bg-yellow-400/30 dark:text-yellow-300"
+                  )}
+                >
+                  {language === 'ar' ? 'وضع Odoo: ' : 'Odoo Mode: '}
+                  {odooMode === 'production'
+                    ? (language === 'ar' ? 'إنتاج' : 'Production')
+                    : (language === 'ar' ? 'تجريبي' : 'Test')}
+                </Badge>
+              )}
             </h1>
             <p className="text-muted-foreground">
               {fromDate && toDate && (
