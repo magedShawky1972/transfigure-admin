@@ -601,20 +601,19 @@ const OdooSyncBatch = () => {
     setSupplierCheckDone(false);
     
     try {
-      // Extract unique vendor names from non-stock products in orders
+      // Extract unique vendor names from ALL products in orders (stock and non-stock)
       const vendorNames = [...new Set(
         (aggregateMode && aggregatedInvoices.length > 0 ? aggregatedInvoices : orderGroups)
-          .filter(item => item.hasNonStock)
           .flatMap(item => {
             if ('productLines' in item) {
               // AggregatedInvoice
-              return item.productLines.map(pl => pl.vendorName).filter(Boolean);
+              const fromLines = (item as any).productLines.map((pl: any) => pl.vendorName).filter(Boolean);
+              const fromOriginal = ((item as any).originalLines || []).map((l: any) => l.vendor_name).filter(Boolean);
+              const aggVendor = (item as any).vendorName ? [(item as any).vendorName] : [];
+              return [...fromLines, ...fromOriginal, ...aggVendor];
             } else {
               // OrderGroup
-              return item.lines
-                .filter(l => nonStockSkuSet.has(l.sku || l.product_id || ''))
-                .map(l => l.vendor_name)
-                .filter(Boolean);
+              return (item as any).lines.map((l: any) => l.vendor_name).filter(Boolean);
             }
           })
       )].filter(Boolean) as string[];
