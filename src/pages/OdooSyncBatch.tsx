@@ -2625,7 +2625,8 @@ const OdooSyncBatch = () => {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {/* Grand Total Row */}
                   <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
                     <TableCell colSpan={8} className="text-right">
