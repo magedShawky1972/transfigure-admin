@@ -438,6 +438,49 @@ const OdooSyncBatch = () => {
     }
   }, [filterBrand, filterProduct, orderGroups]);
 
+  // Update vendor on a single original transaction line and reflect locally
+  const handleUpdateLineVendor = async (lineId: string, newVendorName: string) => {
+    if (!lineId) return;
+    setUpdatingVendorId(lineId);
+    try {
+      const { data, error } = await supabase
+        .from('purpletransaction')
+        .update({ vendor_name: newVendorName })
+        .eq('id', lineId)
+        .select('id, vendor_name');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({
+          title: language === 'ar' ? 'لا يمكن التحديث' : 'Update blocked',
+          description: language === 'ar' ? 'لا تملك صلاحية تعديل هذا السجل' : 'You do not have permission to edit this row',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setAggregatedInvoices(prev => prev.map(inv => ({
+        ...inv,
+        originalLines: inv.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l),
+      })));
+      setSelectedInvoiceDetail(prev => prev ? {
+        ...prev,
+        originalLines: prev.originalLines.map(l => l.id === lineId ? { ...l, vendor_name: newVendorName } : l),
+      } : prev);
+      toast({
+        title: language === 'ar' ? 'تم تحديث المورد' : 'Vendor updated',
+        description: newVendorName || (language === 'ar' ? 'تمت إزالة المورد' : 'Vendor cleared'),
+      });
+    } catch (e: any) {
+      toast({
+        title: language === 'ar' ? 'فشل التحديث' : 'Update failed',
+        description: e?.message || String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingVendorId(null);
+      setVendorPopoverOpenId(null);
+    }
+  };
+
   // Clear all filters
   const clearFilters = () => {
     setFilterBrand('');
