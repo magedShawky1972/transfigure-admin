@@ -2510,7 +2510,7 @@ const OdooSyncBatch = () => {
                         invoice.syncStatus === 'success' && 'bg-green-50 dark:bg-green-950/20',
                         invoice.syncStatus === 'failed' && 'bg-red-50 dark:bg-red-950/20',
                         invoice.syncStatus === 'running' && 'bg-muted/50',
-                        missingVendorRed && 'text-red-600 dark:text-red-400 font-semibold'
+                        missingVendorRed && '[&_td]:text-red-600 dark:[&_td]:text-red-400 [&_td]:font-semibold'
                       )}
                     >
                       <TableCell>
