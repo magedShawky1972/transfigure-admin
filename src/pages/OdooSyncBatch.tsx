@@ -498,12 +498,14 @@ const OdooSyncBatch = () => {
     setFilterProduct('');
     setFilterOrderNumber('');
     setFilterHasPurchase('all');
+    setFilterMissingVendorNonA(false);
   };
 
   const hasActiveFilters = (filterBrand && filterBrand !== 'all_brands') || 
                            (filterProduct && filterProduct !== 'all_products') || 
                            filterOrderNumber || 
-                           filterHasPurchase !== 'all';
+                           filterHasPurchase !== 'all' ||
+                           filterMissingVendorNonA;
 
   // Calculate duration in formatted string
   const formatDuration = (start: Date, end: Date): string => {
