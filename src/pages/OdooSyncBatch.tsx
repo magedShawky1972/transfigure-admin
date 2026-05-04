@@ -290,6 +290,8 @@ const OdooSyncBatch = () => {
   // Invoice detail dialog state
   const [showInvoiceDetailDialog, setShowInvoiceDetailDialog] = useState(false);
   const [selectedInvoiceDetail, setSelectedInvoiceDetail] = useState<AggregatedInvoice | null>(null);
+  const [showLinesBreakdownDialog, setShowLinesBreakdownDialog] = useState(false);
+  const [selectedLinesBreakdown, setSelectedLinesBreakdown] = useState<AggregatedInvoice | null>(null);
 
   // Filter states
   const [filterBrand, setFilterBrand] = useState<string>('');
