@@ -403,6 +403,29 @@ const OdooSyncBatch = () => {
   }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
 
   // Reset product filter when brand changes
+  // Load vendor list once for the inline editor
+  useEffect(() => {
+    (async () => {
+      const all: { name: string; code?: string }[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('suppliers')
+          .select('supplier_name, supplier_code')
+          .order('supplier_name', { ascending: true })
+          .range(from, from + step - 1);
+        if (error || !data || data.length === 0) break;
+        for (const r of data) {
+          if (r.supplier_name) all.push({ name: r.supplier_name, code: r.supplier_code || undefined });
+        }
+        if (data.length < step) break;
+        from += step;
+      }
+      setVendorOptions(all);
+    })();
+  }, []);
+
   useEffect(() => {
     if (filterBrand && filterBrand !== 'all_brands' && filterProduct && filterProduct !== 'all_products') {
       // Check if the selected product belongs to the selected brand
