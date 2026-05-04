@@ -248,6 +248,7 @@ const OdooSyncBatch = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
@@ -819,7 +820,14 @@ const OdooSyncBatch = () => {
     };
 
     loadTransactions();
-  }, [fromDate, toDate, companyFilter, language, navigate]);
+  }, [fromDate, toDate, companyFilter, language, navigate, refreshKey]);
+
+  // Refresh all data and re-run supplier check
+  const handleRefreshAll = () => {
+    setSupplierCheckDone(false);
+    setSupplierCheckResult(null);
+    setRefreshKey(k => k + 1);
+  };
 
   // Toggle select all (only for filtered items)
   const handleSelectAll = (checked: boolean) => {
@@ -2164,6 +2172,15 @@ const OdooSyncBatch = () => {
           >
             <History className="h-4 w-4" />
             {language === 'ar' ? 'السجل' : 'History'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleRefreshAll}
+            disabled={loading || isSyncing || checkingSuppliers}
+            className="gap-2"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            {language === 'ar' ? 'تحديث الكل' : 'Refresh All'}
           </Button>
           {isSyncing && (
             <Button 
