@@ -194,6 +194,7 @@ const BrandEdit = () => {
           brand_code: data.brand_code || "",
           short_name: data.short_name || "",
           usd_value_for_coins: data.usd_value_for_coins?.toString() || "",
+          sales_usd_value_for_coins: data.sales_usd_value_for_coins?.toString() || "",
           one_usd_to_coins: data.one_usd_to_coins?.toString() || "",
           recharge_usd_value: data.recharge_usd_value?.toString() || "",
           leadtime: data.leadtime?.toString() || "",
