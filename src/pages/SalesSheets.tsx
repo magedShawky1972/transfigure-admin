@@ -804,18 +804,27 @@ const SalesSheets = () => {
                 size="sm"
                 onClick={async () => {
                   const ids = Array.from(selectedIds);
-                  const deletable = filteredOrders.filter(o => ids.includes(o.id) && o.current_phase === "entry").map(o => o.id);
+                  const selectedOrders = filteredOrders.filter(o => ids.includes(o.id));
+                  const deletable = selectedOrders.filter(o => o.current_phase === "entry" || o.current_phase === "accounting_approved");
                   if (deletable.length === 0) {
-                    toast.error(isArabic ? "لا يمكن حذف الطلبات في هذه المرحلة" : "Selected orders cannot be deleted in their current phase");
+                    toast.error(isArabic ? "لا يمكن حذف الطلبات المكتملة" : "Completed orders cannot be deleted");
                     return;
                   }
-                  if (!confirm(isArabic ? `حذف ${deletable.length} طلب؟` : `Delete ${deletable.length} order(s)?`)) return;
+                  const inReview = deletable.filter(o => o.current_phase === "accounting_approved").length;
+                  let msg = isArabic ? `حذف ${deletable.length} طلب؟` : `Delete ${deletable.length} order(s)?`;
+                  if (inReview > 0) {
+                    msg += "\n\n" + (isArabic
+                      ? `⚠️ تحذير: ${inReview} طلب في مرحلة "مراجعة المحاسبة". الحذف سيؤدي إلى إزالة الطلب من سير عمل المحاسبة نهائيًا.`
+                      : `⚠️ Warning: ${inReview} order(s) are in "Accounting Review & Confirm" phase. Deleting will permanently remove them from the accounting workflow.`);
+                  }
+                  if (!confirm(msg)) return;
                   try {
-                    await supabase.from("sales_sheet_line_attachments" as any).delete().in("sheet_order_id", deletable);
-                    await supabase.from("sales_sheet_order_lines" as any).delete().in("sheet_order_id", deletable);
-                    const { error } = await supabase.from("sales_sheet_orders" as any).delete().in("id", deletable).select();
+                    const ids2 = deletable.map(o => o.id);
+                    await supabase.from("sales_sheet_line_attachments" as any).delete().in("sheet_order_id", ids2);
+                    await supabase.from("sales_sheet_order_lines" as any).delete().in("sheet_order_id", ids2);
+                    const { error } = await supabase.from("sales_sheet_orders" as any).delete().in("id", ids2).select();
                     if (error) throw error;
-                    toast.success(isArabic ? `تم حذف ${deletable.length}` : `Deleted ${deletable.length}`);
+                    toast.success(isArabic ? `تم حذف ${ids2.length}` : `Deleted ${ids2.length}`);
                     setSelectedIds(new Set());
                     fetchOrders();
                   } catch (err: any) {
