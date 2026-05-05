@@ -1339,6 +1339,7 @@ export type Database = {
           created_at: string
           id: string
           order_number: string
+          reason: string | null
           shift_name: string | null
           shift_session_id: string | null
           submitted_by: string
@@ -1348,6 +1349,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_number: string
+          reason?: string | null
           shift_name?: string | null
           shift_session_id?: string | null
           submitted_by: string
@@ -1357,6 +1359,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_number?: string
+          reason?: string | null
           shift_name?: string | null
           shift_session_id?: string | null
           submitted_by?: string

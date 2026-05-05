@@ -1,0 +1,1 @@
+ALTER TABLE public.cancelled_orders ADD COLUMN IF NOT EXISTS reason TEXT;
