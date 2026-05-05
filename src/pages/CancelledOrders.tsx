@@ -34,9 +34,11 @@ export default function CancelledOrders() {
   const [shiftLabel, setShiftLabel] = useState<string>("");
 
   const [orderNumber, setOrderNumber] = useState("");
+  const [reason, setReason] = useState("");
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [editReason, setEditReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const checkActiveShift = async () => {
