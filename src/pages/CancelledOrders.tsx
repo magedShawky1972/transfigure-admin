@@ -308,8 +308,9 @@ export default function CancelledOrders() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isAr ? "رقم الطلب" : "Order Number"}</TableHead>
-                      <TableHead className="text-right w-[180px]">
+                      <TableHead className="w-[200px]">{isAr ? "رقم الطلب" : "Order Number"}</TableHead>
+                      <TableHead>{isAr ? "سبب الإلغاء" : "Reason"}</TableHead>
+                      <TableHead className="text-right w-[140px]">
                         {isAr ? "إجراءات" : "Actions"}
                       </TableHead>
                     </TableRow>
@@ -317,7 +318,7 @@ export default function CancelledOrders() {
                   <TableBody>
                     {pending.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                           {isAr ? "لا توجد طلبات في القائمة." : "No items in the list."}
                         </TableCell>
                       </TableRow>
@@ -326,12 +327,12 @@ export default function CancelledOrders() {
                         const isEditing = editingId === item.id;
                         return (
                           <TableRow key={item.id}>
-                            <TableCell className="font-medium">
+                            <TableCell className="font-medium align-top">
                               {isEditing ? (
                                 <Input
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
-                                  className="h-8 max-w-[240px]"
+                                  className="h-8"
                                   autoFocus
                                   disabled={submitting}
                                 />
@@ -339,7 +340,20 @@ export default function CancelledOrders() {
                                 item.order_number
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="align-top">
+                              {isEditing ? (
+                                <Textarea
+                                  value={editReason}
+                                  onChange={(e) => setEditReason(e.target.value)}
+                                  className="min-h-[60px]"
+                                  disabled={submitting}
+                                  rows={2}
+                                />
+                              ) : (
+                                <span className="whitespace-pre-wrap text-sm">{item.reason}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right align-top">
                               <div className="flex gap-1 justify-end">
                                 {isEditing ? (
                                   <>
