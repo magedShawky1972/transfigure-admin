@@ -118,7 +118,8 @@ const AuditLogs = () => {
     "user_roles",
     "customers",
     "employees",
-    "api_keys"
+    "api_keys",
+    "saved_attendance"
   ];
 
   const passwordTables = ["profiles", "user_email_configs", "user_emails"];
