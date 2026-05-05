@@ -448,37 +448,18 @@ Deno.serve(async (req) => {
 
       case "product": {
         const productApiUrl = isProduction ? config.product_api_url : config.product_api_url_test;
-        const uniqueProductIds = [...new Set(transactions.map((t: Transaction) => t.product_id))];
-        
-        // Fetch actual SKUs and odoo_product_id from products table
-        const { data: productsData, error: productsError } = await supabase
-          .from("products")
-          .select("product_id, sku, product_name, product_price, product_cost, brand_code, odoo_product_id")
-          .in("product_id", uniqueProductIds);
-
-        if (productsError) {
-          result = {
-            step: "product",
-            mode: isProduction ? "Production" : "Test",
-            apiUrl: productApiUrl,
-            success: false,
-            error: `Failed to fetch products: ${productsError.message}`,
-          };
-          break;
-        }
+        // Brand-summary mode: use brand_code as the product SKU sent to Odoo
+        const uniqueBrandCodes = [...new Set(transactions.map((t: Transaction) => t.brand_code).filter(Boolean))];
 
         // Build request bodies for display
         const productBodies: any[] = [];
-        for (const productId of uniqueProductIds) {
-          const product = productsData?.find((p: any) => p.product_id === productId);
-          const transaction = transactions.find((t: Transaction) => t.product_id === productId);
-          const actualSku = product?.sku || productId;
-          
+        for (const brandCode of uniqueBrandCodes) {
+          const transaction = transactions.find((t: Transaction) => t.brand_code === brandCode);
           productBodies.push({
-            default_code: actualSku,
-            name: transaction?.product_name || actualSku,
+            default_code: brandCode,
+            name: transaction?.brand_name || brandCode,
             list_price: parseFloat(String(transaction?.unit_price)) || 0,
-            cat_code: transaction?.brand_code,
+            cat_code: brandCode,
           });
         }
 
@@ -491,12 +472,12 @@ Deno.serve(async (req) => {
           method: "PUT (Check) / POST (Create)",
         };
 
-        for (const productId of uniqueProductIds) {
-          const product = productsData?.find((p: any) => p.product_id === productId);
-          const transaction = transactions.find((t: Transaction) => t.product_id === productId);
-          
-          const actualSku = product?.sku || productId;
-          const productResult: any = { sku: actualSku, product_name: transaction?.product_name };
+        for (const brandCode of uniqueBrandCodes) {
+          const transaction = transactions.find((t: Transaction) => t.brand_code === brandCode);
+          const product: any = null;
+          const productId = brandCode;
+          const actualSku = brandCode;
+          const productResult: any = { sku: actualSku, product_name: transaction?.brand_name || brandCode };
 
           try {
             // Step 1: If we have a local Odoo product id, still verify it exists in the current Odoo environment
