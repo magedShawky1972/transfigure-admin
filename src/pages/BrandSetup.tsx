@@ -671,6 +671,15 @@ const BrandSetup = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleDebugSync(brand)}
+                          disabled={debugLoadingId === brand.id || !brand.brand_code}
+                          title="Debug Odoo Sync"
+                        >
+                          <Bug className={`h-4 w-4 ${debugLoadingId === brand.id ? 'animate-pulse' : ''}`} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleEdit(brand)}
                         >
                           <Pencil className="h-4 w-4" />
