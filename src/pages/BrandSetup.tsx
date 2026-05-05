@@ -58,6 +58,27 @@ const BrandSetup = () => {
   const [loading, setLoading] = useState(false);
   const [syncingBrandId, setSyncingBrandId] = useState<string | null>(null);
   const [suppliersDialogBrand, setSuppliersDialogBrand] = useState<Brand | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugLoadingId, setDebugLoadingId] = useState<string | null>(null);
+
+  const handleDebugSync = async (brand: Brand) => {
+    if (!brand.brand_code) {
+      toast({ title: "Error", description: "Brand code is required", variant: "destructive" });
+      return;
+    }
+    setDebugLoadingId(brand.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-brand-to-odoo', {
+        body: { brand_id: brand.id, brand_code: brand.brand_code, brand_name: brand.brand_name, debug: true },
+      });
+      if (error) throw error;
+      setDebugInfo(data);
+    } catch (err: any) {
+      toast({ title: "Debug failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDebugLoadingId(null);
+    }
+  };
   
   // Load filters from localStorage or use defaults
   const [filterBrandName, setFilterBrandName] = useState(() => 
