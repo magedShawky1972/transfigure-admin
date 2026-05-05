@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +16,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchMenuCustomizations, groupKey, itemKey, type CustomMap } from "@/lib/menuCustomizations";
 import { DEFAULT_MENU } from "@/lib/menuRegistry";
+
+const COLLAPSED_GROUPS_KEY = "sidebar-collapsed-groups";
 
 export function AppSidebar() {
   const { state } = useSidebar();
