@@ -813,11 +813,11 @@ const OdooSyncBatch = () => {
             skipSync: false,
             syncStatus: alreadySynced ? 'success' : 'pending',
             stepStatus: {
-              customer: alreadySynced ? 'success' : 'pending',
-              brand: alreadySynced ? 'success' : 'pending',
-              product: alreadySynced ? 'success' : 'pending',
-              order: alreadySynced ? 'success' : 'pending',
-              purchase: alreadySynced ? 'success' : 'pending',
+              customer: alreadySynced ? 'found' : 'pending',
+              brand: alreadySynced ? 'found' : 'pending',
+              product: alreadySynced ? 'found' : 'pending',
+              order: alreadySynced ? 'sent' : 'pending',
+              purchase: alreadySynced ? 'created' : 'pending',
             },
             hasNonStock,
           });
