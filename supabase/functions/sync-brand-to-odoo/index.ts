@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     const lead = Number(brand.leadtime) || 0;
     const reorderPoint = (safety + daily * lead) / 4;
 
-    const isNonStock = (brand.abc_analysis || '').toUpperCase() === 'A';
+    const isNonStock = (brand.abc_analysis || '').toUpperCase() !== 'A';
     const catCode = brand.brand_type?.type_code || '';
     const costPrice = Number(brand.usd_value_for_coins) || 0;
     const salesPrice = Number(brand.sales_usd_value_for_coins) || 0;
