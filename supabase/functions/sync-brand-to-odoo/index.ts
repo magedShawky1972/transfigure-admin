@@ -7,9 +7,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { brand_id, brand_code, brand_name, status } = await req.json();
+    const { brand_id, brand_code, brand_name } = await req.json();
 
-    console.log('Syncing brand as product to Odoo:', { brand_id, brand_code, brand_name, status });
+    console.log('Syncing brand as product to Odoo:', { brand_id, brand_code, brand_name });
 
     if (!brand_code || !brand_name) {
       return new Response(
@@ -23,6 +23,20 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Fetch brand details
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('*, brand_type:brand_type_id(type_code)')
+      .eq('id', brand_id)
+      .maybeSingle();
+
+    if (brandError || !brand) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Brand not found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: odooConfig, error: configError } = await supabase
       .from('odoo_api_config')
       .select('*')
@@ -30,7 +44,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (configError || !odooConfig) {
-      console.error('Error fetching Odoo config:', configError);
       return new Response(
         JSON.stringify({ success: false, error: 'Odoo API configuration not found' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -41,128 +54,89 @@ Deno.serve(async (req) => {
     const productApiUrl = isProductionMode ? odooConfig.product_api_url : odooConfig.product_api_url_test;
     const odooApiKey = isProductionMode ? odooConfig.api_key : odooConfig.api_key_test;
 
-    console.log('Using environment:', isProductionMode ? 'Production' : 'Test');
-
-    if (!productApiUrl) {
+    if (!productApiUrl || !odooApiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: `Product API URL not configured for ${isProductionMode ? 'Production' : 'Test'} environment` }),
+        JSON.stringify({ success: false, error: `Product API URL/key not configured for ${isProductionMode ? 'Production' : 'Test'}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!odooApiKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: `API key not configured for ${isProductionMode ? 'Production' : 'Test'} environment` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Compute reorder_point: (Safety + Daily × Lead) / 4
+    const safety = Number(brand.safety_stock) || 0;
+    const daily = Number(brand.average_consumption_per_day) || 0;
+    const lead = Number(brand.leadtime) || 0;
+    const reorderPoint = (safety + daily * lead) / 4;
 
-    // Step 1: PUT to check if product (using brand_code as SKU) exists in Odoo
-    console.log('Checking if brand-product exists in Odoo via PUT:', `${productApiUrl}/${brand_code}`);
+    const isNonStock = (brand.abc_analysis || '').toUpperCase() === 'A';
+    const catCode = brand.brand_type?.type_code || '';
+    const costPrice = Number(brand.usd_value_for_coins) || 0;
+    const salesPrice = Number(brand.sales_usd_value_for_coins) || 0;
 
+    const productPayload = {
+      sku: brand_code,
+      name: brand_name,
+      uom: 'Units',
+      cat_code: catCode,
+      reorder_point: reorderPoint,
+      minimum_order: 1,
+      maximum_order: 999999999,
+      cost_price: costPrice,
+      sales_price: salesPrice,
+      product_weight: 0,
+      is_non_stock: isNonStock,
+    };
+
+    console.log('Product payload:', productPayload);
+
+    // PUT first to update if exists
     const putResponse = await fetch(`${productApiUrl}/${brand_code}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': odooApiKey,
       },
-      body: JSON.stringify({
-        name: brand_name,
-      }),
+      body: JSON.stringify(productPayload),
     });
 
     const putText = await putResponse.text();
-    console.log('PUT response status:', putResponse.status);
-    console.log('PUT response:', putText);
+    console.log('PUT status:', putResponse.status, 'response:', putText);
 
     let putResult: any;
-    try {
-      putResult = JSON.parse(putText);
-    } catch {
-      putResult = { success: false, error: putText };
-    }
+    try { putResult = JSON.parse(putText); } catch { putResult = { success: false, error: putText }; }
 
     if (putResponse.ok && putResult?.success === true && putResult?.product_id) {
       if (brand_id) {
-        await supabase
-          .from('brands')
-          .update({ odoo_category_id: putResult.product_id })
-          .eq('id', brand_id);
+        await supabase.from('brands').update({ odoo_category_id: putResult.product_id }).eq('id', brand_id);
       }
-
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Brand-product exists in Odoo (updated)',
-          odoo_product_id: putResult.product_id,
-          odoo_response: putResult,
-        }),
+        JSON.stringify({ success: true, message: 'Brand-product updated in Odoo', odoo_product_id: putResult.product_id, odoo_response: putResult }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Step 2: Doesn't exist, create as product via POST
-    console.log('Brand-product not found, creating via POST:', productApiUrl);
-
+    // POST to create
     const postResponse = await fetch(productApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': odooApiKey,
       },
-      body: JSON.stringify({
-        sku: brand_code,
-        name: brand_name,
-        cost_price: 0,
-        sales_price: 0,
-      }),
+      body: JSON.stringify(productPayload),
     });
 
     const postText = await postResponse.text();
-    console.log('POST response status:', postResponse.status);
-    console.log('POST response:', postText);
+    console.log('POST status:', postResponse.status, 'response:', postText);
 
     let postResult: any;
-    try {
-      postResult = JSON.parse(postText);
-    } catch {
-      postResult = { success: false, error: postText };
-    }
+    try { postResult = JSON.parse(postText); } catch { postResult = { success: false, error: postText }; }
 
-    if (postResponse.ok && postResult?.product_id) {
+    const newId = postResult?.product_id || postResult?.existing_product_id;
+    if (postResponse.ok && newId) {
       if (brand_id) {
-        await supabase
-          .from('brands')
-          .update({ odoo_category_id: postResult.product_id })
-          .eq('id', brand_id);
+        await supabase.from('brands').update({ odoo_category_id: newId }).eq('id', brand_id);
       }
-
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Brand created as product in Odoo',
-          odoo_product_id: postResult.product_id,
-          odoo_response: postResult,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (postResult?.existing_product_id) {
-      if (brand_id) {
-        await supabase
-          .from('brands')
-          .update({ odoo_category_id: postResult.existing_product_id })
-          .eq('id', brand_id);
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Brand-product already exists in Odoo',
-          odoo_product_id: postResult.existing_product_id,
-          odoo_response: postResult,
-        }),
+        JSON.stringify({ success: true, message: 'Brand created as product in Odoo', odoo_product_id: newId, odoo_response: postResult }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
