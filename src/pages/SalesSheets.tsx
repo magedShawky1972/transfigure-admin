@@ -305,6 +305,7 @@ const SalesSheets = () => {
         } as any).select().single();
         if (error) throw error;
         orderId = (order as any).id;
+        setSelectedOrderId(orderId);
       }
       for (let i = 0; i < validLines.length; i++) {
         const l = validLines[i];
