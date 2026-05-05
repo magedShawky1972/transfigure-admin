@@ -59,7 +59,10 @@ const BrandSetup = () => {
   const [syncingBrandId, setSyncingBrandId] = useState<string | null>(null);
   const [suppliersDialogBrand, setSuppliersDialogBrand] = useState<Brand | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugBrand, setDebugBrand] = useState<Brand | null>(null);
   const [debugLoadingId, setDebugLoadingId] = useState<string | null>(null);
+  const [sendingFromDebug, setSendingFromDebug] = useState(false);
+  const [debugSteps, setDebugSteps] = useState<any[] | null>(null);
 
   const handleDebugSync = async (brand: Brand) => {
     if (!brand.brand_code) {
@@ -67,6 +70,8 @@ const BrandSetup = () => {
       return;
     }
     setDebugLoadingId(brand.id);
+    setDebugSteps(null);
+    setDebugBrand(brand);
     try {
       const { data, error } = await supabase.functions.invoke('sync-brand-to-odoo', {
         body: { brand_id: brand.id, brand_code: brand.brand_code, brand_name: brand.brand_name, debug: true },
@@ -77,6 +82,29 @@ const BrandSetup = () => {
       toast({ title: "Debug failed", description: err.message, variant: "destructive" });
     } finally {
       setDebugLoadingId(null);
+    }
+  };
+
+  const handleSendFromDebug = async () => {
+    if (!debugBrand) return;
+    setSendingFromDebug(true);
+    setDebugSteps(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-brand-to-odoo', {
+        body: { brand_id: debugBrand.id, brand_code: debugBrand.brand_code, brand_name: debugBrand.brand_name },
+      });
+      if (error) throw error;
+      setDebugSteps(data.steps || []);
+      if (data.success) {
+        toast({ title: "Success", description: data.message || "Synced to Odoo" });
+        fetchBrands();
+      } else {
+        toast({ title: "Sync failed", description: data.error || "Failed", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingFromDebug(false);
     }
   };
   
