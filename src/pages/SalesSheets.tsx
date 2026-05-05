@@ -488,7 +488,29 @@ const SalesSheets = () => {
     }
   };
 
-  const filteredOrders = phaseFilter === "all" ? orders : orders.filter(o => o.current_phase === phaseFilter);
+  const baseFiltered = phaseFilter === "all" ? orders : orders.filter(o => o.current_phase === phaseFilter);
+  const getSortValue = (order: any, key: string): any => {
+    switch (key) {
+      case "order_number": return order.order_number || "";
+      case "created_by_name": return order.created_by_name || "";
+      case "lines_count": return (order.sales_sheet_order_lines || []).length;
+      case "total_sar": return (order.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
+      case "current_phase": return order.current_phase || "";
+      case "created_at": return new Date(order.created_at).getTime();
+      default: return "";
+    }
+  };
+  const filteredOrders = sortConfig.length === 0 ? baseFiltered : [...baseFiltered].sort((a, b) => {
+    for (const { key, direction } of sortConfig) {
+      const av = getSortValue(a, key);
+      const bv = getSortValue(b, key);
+      let cmp = 0;
+      if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+      else cmp = String(av).localeCompare(String(bv));
+      if (cmp !== 0) return direction === "asc" ? cmp : -cmp;
+    }
+    return 0;
+  });
   const grandTotal = lines.reduce((sum, l) => sum + parseNum(l.total_sar), 0);
   const isEditable = !selectedOrderId || selectedOrderPhase === "entry";
 
