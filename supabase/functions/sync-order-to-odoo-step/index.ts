@@ -821,17 +821,38 @@ Deno.serve(async (req) => {
           break;
         }
 
-        // Fetch actual SKUs from products table for purchase lines
-        const nonStockProductIds = [...new Set(nonStockProducts.map((t: Transaction) => t.product_id))];
-        const { data: productsData } = await supabase
-          .from("products")
-          .select("product_id, sku")
-          .in("product_id", nonStockProductIds);
-
-        const skuMap = new Map();
-        productsData?.forEach((p: any) => {
-          skuMap.set(p.product_id, p.sku);
-        });
+        // Brand-summary mode: aggregate non-stock lines by brand_code (used as SKU)
+        type BrandPurchaseAgg = {
+          brand_code: string;
+          brand_name: string;
+          qty: number;
+          unit_total: number;
+          line_total: number;
+          vendor_name: string;
+        };
+        const brandPurchaseMap = new Map<string, BrandPurchaseAgg>();
+        for (const t of nonStockProducts as Transaction[]) {
+          const code = t.brand_code || "UNKNOWN";
+          const qty = parseFloat(String(t.qty)) || 1;
+          const unitPrice = parseFloat(String(t.cost_price || t.unit_price)) || 0;
+          const lineTotal = parseFloat(String(t.cost_sold || t.total)) || (unitPrice * qty);
+          const existing = brandPurchaseMap.get(code);
+          if (existing) {
+            existing.qty += qty;
+            existing.unit_total += unitPrice * qty;
+            existing.line_total += lineTotal;
+          } else {
+            brandPurchaseMap.set(code, {
+              brand_code: code,
+              brand_name: t.brand_name || code,
+              qty,
+              unit_total: unitPrice * qty,
+              line_total: lineTotal,
+              vendor_name: t.vendor_name || "",
+            });
+          }
+        }
+        const brandPurchaseLines = Array.from(brandPurchaseMap.values());
 
         // Collect vendor candidates and lookup supplier codes by name/code
         const vendorCandidates: string[] = [];
@@ -900,14 +921,14 @@ Deno.serve(async (req) => {
           payment_brand: firstTransaction.payment_brand || "",
           supplier_code: headerSupplierCode || String(nonStockProducts[0]?.vendor_name ?? ""),
           company: firstTransaction.company || "Purple",
-          lines: nonStockProducts.map((t: Transaction, index: number) => ({
+          lines: brandPurchaseLines.map((b, index) => ({
             line_number: index + 1,
-            product_sku: skuMap.get(t.product_id) || t.product_id,
-            product_name: t.product_name,
-            quantity: parseFloat(String(t.qty)) || 1,
+            product_sku: b.brand_code,
+            product_name: b.brand_name,
+            quantity: b.qty,
             uom: "Unit",
-            unit_price: parseFloat(String(t.cost_price || t.unit_price)) || 0,
-            total: parseFloat(String(t.cost_sold || t.total)) || 0,
+            unit_price: b.qty > 0 ? b.unit_total / b.qty : 0,
+            total: b.line_total,
           })),
         };
 
