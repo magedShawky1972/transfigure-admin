@@ -1044,6 +1044,8 @@ const OdooSyncBatch = () => {
         
         // Whether this is a re-sync (has existing mapping)
         const isResync = !!existingAggregatedOrderNumber;
+        // Already synced if every original line has sendodoo === true
+        const aggAlreadySynced = invoice.lines.length > 0 && invoice.lines.every(l => (l as any).sendodoo === true);
         
         result.push({
           orderNumber,
@@ -1057,15 +1059,15 @@ const OdooSyncBatch = () => {
           grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
           originalOrderNumbers: invoice.originalOrderNumbers,
           originalLines: invoice.lines,
-          selected: true, // Always select for syncing (these orders need sync based on sendodoo flag)
+          selected: !aggAlreadySynced,
           skipSync: false,
-          syncStatus: isResync ? 'pending' : 'pending', // Both new and re-sync start as pending
+          syncStatus: aggAlreadySynced ? 'success' : 'pending',
           stepStatus: {
-            customer: 'pending',
-            brand: 'pending',
-            product: 'pending',
-            order: 'pending',
-            purchase: 'pending',
+            customer: aggAlreadySynced ? 'found' : 'pending',
+            brand: aggAlreadySynced ? 'found' : 'pending',
+            product: aggAlreadySynced ? 'found' : 'pending',
+            order: aggAlreadySynced ? 'sent' : 'pending',
+            purchase: aggAlreadySynced ? 'created' : 'pending',
           },
           hasNonStock,
         });
