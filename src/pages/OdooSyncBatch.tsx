@@ -798,6 +798,8 @@ const OdooSyncBatch = () => {
             return sku && nonStockSet.has(sku);
           });
 
+          const alreadySynced = lines.every(l => (l as any).sendodoo === true);
+
           groups.push({
             orderNumber,
             lines,
@@ -807,15 +809,15 @@ const OdooSyncBatch = () => {
             totalAmount,
             paymentMethod: firstLine.payment_method || '',
             paymentBrand: firstLine.payment_brand || '',
-            selected: true,
+            selected: !alreadySynced,
             skipSync: false,
-            syncStatus: 'pending',
+            syncStatus: alreadySynced ? 'success' : 'pending',
             stepStatus: {
-              customer: 'pending',
-              brand: 'pending',
-              product: 'pending',
-              order: 'pending',
-              purchase: 'pending',
+              customer: alreadySynced ? 'success' : 'pending',
+              brand: alreadySynced ? 'success' : 'pending',
+              product: alreadySynced ? 'success' : 'pending',
+              order: alreadySynced ? 'success' : 'pending',
+              purchase: alreadySynced ? 'success' : 'pending',
             },
             hasNonStock,
           });
