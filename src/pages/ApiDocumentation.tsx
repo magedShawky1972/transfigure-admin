@@ -458,6 +458,9 @@ const API_ENDPOINTS = [
       { name: "user.email", type: "Text", note: "User email" },
       { name: "user.user_name", type: "Text", note: "Display name" },
       { name: "user.roles", type: "Array", note: "User roles (admin, user, etc.)" },
+      { name: "user.admin_access", type: "Boolean", note: "true if user has 'admin' role" },
+      { name: "user.shift_id", type: "UUID", note: "Assigned shift id (null if none)" },
+      { name: "user.shift_name", type: "Text", note: "Assigned shift name (null if none)" },
       { name: "user.permissions", type: "Array", note: "User access permissions" },
     ],
   },
@@ -996,7 +999,25 @@ ${generateRequestBodyExample(api.fields, api.method, api.endpoint)}`}</pre>
             <div>
               <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Response</p>
               <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
-                <pre>{api.method === 'GET' && api.id.startsWith('lookup') ? `{
+                <pre>{api.id === 'crm-login' ? `{
+  "success": true,
+  "session_id": "eyJhbGciOiJI...",
+  "refresh_token": "v1.MjE4ZjQ...",
+  "expires_at": 1712345678,
+  "user": {
+    "id": "uuid-here",
+    "email": "user@example.com",
+    "user_name": "John Doe",
+    "avatar_url": null,
+    "roles": ["admin"],
+    "admin_access": true,
+    "shift_id": "uuid-here",
+    "shift_name": "Morning Shift",
+    "permissions": [
+      { "parent_menu": "Reports", "menu_item": "tickets", "has_access": true }
+    ]
+  }
+}` : api.method === 'GET' && api.id.startsWith('lookup') ? `{
   "success": true,
   "exists": true,
   "entity": "${api.id.replace('lookup-', '') || 'salesheader'}",
