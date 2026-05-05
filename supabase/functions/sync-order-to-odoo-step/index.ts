@@ -629,7 +629,7 @@ Deno.serve(async (req) => {
           order_date: formatOrderDate(firstTransaction.created_at_date),
           payment_method: firstTransaction.payment_method,
           payment_brand: firstTransaction.payment_brand || "",
-          sales_person: firstTransaction.user_name || "",
+          sales_person: "",
           online_payment: "true",
           company: firstTransaction.company || "Purple",
           lines: brandLines.map((b, index) => ({
