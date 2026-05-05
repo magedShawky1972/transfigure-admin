@@ -709,6 +709,36 @@ const BrandSetup = () => {
           brandName={suppliersDialogBrand.brand_name}
         />
       )}
+
+      <Dialog open={!!debugInfo} onOpenChange={(o) => !o && setDebugInfo(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Odoo Sync Debug</DialogTitle>
+            <DialogDescription>Request that will be sent to Odoo</DialogDescription>
+          </DialogHeader>
+          {debugInfo && (
+            <div className="space-y-3 text-sm">
+              <div><span className="font-semibold">Environment:</span> {debugInfo.environment}</div>
+              <div>
+                <div className="font-semibold">PUT URL (try first):</div>
+                <code className="block bg-muted p-2 rounded break-all">{debugInfo.put_url}</code>
+              </div>
+              <div>
+                <div className="font-semibold">POST URL (fallback):</div>
+                <code className="block bg-muted p-2 rounded break-all">{debugInfo.post_url}</code>
+              </div>
+              <div>
+                <div className="font-semibold">Headers:</div>
+                <pre className="bg-muted p-2 rounded overflow-auto">{JSON.stringify(debugInfo.headers, null, 2)}</pre>
+              </div>
+              <div>
+                <div className="font-semibold">Body:</div>
+                <pre className="bg-muted p-2 rounded overflow-auto">{JSON.stringify(debugInfo.body, null, 2)}</pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
