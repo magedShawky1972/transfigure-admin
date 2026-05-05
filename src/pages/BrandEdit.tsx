@@ -48,6 +48,7 @@ const BrandEdit = () => {
     brand_code: "",
     short_name: "",
     usd_value_for_coins: "",
+    sales_usd_value_for_coins: "",
     one_usd_to_coins: "",
     recharge_usd_value: "",
     leadtime: "",
