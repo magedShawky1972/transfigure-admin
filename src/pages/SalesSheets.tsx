@@ -794,12 +794,12 @@ const SalesSheets = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                <TableHead>{isArabic ? "المنشئ" : "Created By"}</TableHead>
-                <TableHead>{isArabic ? "عدد الأسطر" : "Lines"}</TableHead>
-                <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
-                <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
-                <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                <TableHead onClick={(e) => handleSort("order_number", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "رقم الطلب" : "Order #"} {getSortIcon("order_number")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("created_by_name", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "المنشئ" : "Created By"} {getSortIcon("created_by_name")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("lines_count", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "عدد الأسطر" : "Lines"} {getSortIcon("lines_count")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("total_sar", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "الإجمالي ر.س" : "Total SAR"} {getSortIcon("total_sar")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("current_phase", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "المرحلة" : "Phase"} {getSortIcon("current_phase")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("created_at", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")}</span></TableHead>
                 <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
