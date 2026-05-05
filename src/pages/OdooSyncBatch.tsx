@@ -1002,6 +1002,7 @@ const OdooSyncBatch = () => {
           unitPrice: number;
           totalQty: number;
           totalAmount: number;
+          totalCoins: number;
           vendorName: string;
           costPrice: number;
           costSold: number;
@@ -1013,6 +1014,7 @@ const OdooSyncBatch = () => {
           if (existing) {
             existing.totalQty += line.qty || 0;
             existing.totalAmount += line.total || 0;
+            existing.totalCoins += line.coins_number || 0;
             existing.costSold += line.cost_sold || 0;
           } else {
             productMap.set(productKey, {
@@ -1021,6 +1023,7 @@ const OdooSyncBatch = () => {
               unitPrice: line.unit_price || 0,
               totalQty: line.qty || 0,
               totalAmount: line.total || 0,
+              totalCoins: line.coins_number || 0,
               vendorName: line.vendor_name || '',
               costPrice: line.cost_price || 0,
               costSold: line.cost_sold || 0,
