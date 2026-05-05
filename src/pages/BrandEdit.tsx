@@ -48,6 +48,7 @@ const BrandEdit = () => {
     brand_code: "",
     short_name: "",
     usd_value_for_coins: "",
+    sales_usd_value_for_coins: "",
     one_usd_to_coins: "",
     recharge_usd_value: "",
     leadtime: "",
@@ -193,6 +194,7 @@ const BrandEdit = () => {
           brand_code: data.brand_code || "",
           short_name: data.short_name || "",
           usd_value_for_coins: data.usd_value_for_coins?.toString() || "",
+          sales_usd_value_for_coins: data.sales_usd_value_for_coins?.toString() || "",
           one_usd_to_coins: data.one_usd_to_coins?.toString() || "",
           recharge_usd_value: data.recharge_usd_value?.toString() || "",
           leadtime: data.leadtime?.toString() || "",
@@ -375,6 +377,7 @@ const BrandEdit = () => {
             brand_code: formData.brand_code || null,
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
+            sales_usd_value_for_coins: formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0,
             one_usd_to_coins: formData.one_usd_to_coins ? parseFloat(formData.one_usd_to_coins) : null,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
@@ -407,6 +410,7 @@ const BrandEdit = () => {
             brand_code: formData.brand_code || null,
             short_name: formData.short_name,
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
+            sales_usd_value_for_coins: formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0,
             one_usd_to_coins: formData.one_usd_to_coins ? parseFloat(formData.one_usd_to_coins) : null,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
@@ -503,7 +507,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="usd_value_for_coins">One Coins = USD</Label>
+              <Label htmlFor="usd_value_for_coins">Cost One Coins = USD</Label>
               <Input
                 id="usd_value_for_coins"
                 type="number"
@@ -512,7 +516,21 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, usd_value_for_coins: e.target.value })
                 }
-                placeholder="Enter USD value for coins"
+                placeholder="Enter cost USD value per coin"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sales_usd_value_for_coins">Sales One Coins = USD</Label>
+              <Input
+                id="sales_usd_value_for_coins"
+                type="number"
+                step="0.01"
+                value={formData.sales_usd_value_for_coins}
+                onChange={(e) =>
+                  setFormData({ ...formData, sales_usd_value_for_coins: e.target.value })
+                }
+                placeholder="Enter sales USD value per coin"
               />
             </div>
 
