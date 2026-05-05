@@ -665,18 +665,28 @@ Deno.serve(async (req) => {
 
       case "order": {
         const salesOrderApiUrl = isProduction ? config.sales_order_api_url : config.sales_order_api_url_test;
-        
-        // Fetch actual SKUs from products table for order lines
-        const productIds = [...new Set(transactions.map((t: Transaction) => t.product_id))];
-        const { data: productsData } = await supabase
-          .from("products")
-          .select("product_id, sku")
-          .in("product_id", productIds);
 
-        const skuMap = new Map();
-        productsData?.forEach((p: any) => {
-          skuMap.set(p.product_id, p.sku);
-        });
+        // Brand-summary mode: aggregate transaction lines by brand_code
+        type BrandAgg = { brand_code: string; brand_name: string; qty: number; total: number };
+        const brandAggMap = new Map<string, BrandAgg>();
+        for (const t of transactions as Transaction[]) {
+          const code = t.brand_code || "UNKNOWN";
+          const existing = brandAggMap.get(code);
+          const qty = parseFloat(String(t.qty)) || 1;
+          const total = parseFloat(String(t.total)) || 0;
+          if (existing) {
+            existing.qty += qty;
+            existing.total += total;
+          } else {
+            brandAggMap.set(code, {
+              brand_code: code,
+              brand_name: t.brand_name || code,
+              qty,
+              total,
+            });
+          }
+        }
+        const brandLines = Array.from(brandAggMap.values());
 
         // Format order_date to YYYY-MM-DD HH:mm:ss format
         const formatOrderDate = (dateStr: string): string => {
@@ -707,13 +717,13 @@ Deno.serve(async (req) => {
           sales_person: firstTransaction.user_name || "",
           online_payment: "true",
           company: firstTransaction.company || "Purple",
-          lines: transactions.map((t: Transaction, index: number) => ({
+          lines: brandLines.map((b, index) => ({
             line_number: index + 1,
-            product_sku: skuMap.get(t.product_id) || t.product_id,
-            quantity: parseFloat(String(t.qty)) || 1,
+            product_sku: b.brand_code,
+            quantity: b.qty,
             uom: "Unit",
-            unit_price: parseFloat(String(t.unit_price)) || 0,
-            total: parseFloat(String(t.total)) || 0,
+            unit_price: b.qty > 0 ? b.total / b.qty : 0,
+            total: b.total,
           })),
         };
 
