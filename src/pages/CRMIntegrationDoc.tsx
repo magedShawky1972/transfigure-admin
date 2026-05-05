@@ -143,6 +143,9 @@ Body:
     "user_name": "John Doe",
     "avatar_url": null,
     "roles": ["admin"],
+    "admin_access": true,                // true if user has 'admin' role
+    "shift_id": "uuid",                  // Assigned shift id (null if none)
+    "shift_name": "Morning Shift",       // Assigned shift name (null if none)
     "permissions": [
       { "parent_menu": "Reports", "menu_item": "tickets", "has_access": true }
     ]
