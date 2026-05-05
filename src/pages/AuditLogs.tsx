@@ -62,6 +62,7 @@ interface AuditLog {
   old_data: unknown;
   new_data: unknown;
   created_at: string;
+  api_source?: string | null;
 }
 
 interface PasswordAccessLog {
