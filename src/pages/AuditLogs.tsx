@@ -993,7 +993,7 @@ const AuditLogs = () => {
                     <Label className="text-muted-foreground">
                       {language === "ar" ? "المستخدم" : "User"}
                     </Label>
-                    <p>{selectedLog.user_email || "Unknown"}</p>
+                    <p>{selectedLog.user_email || selectedLog.api_source || "Unknown"}</p>
                     <p className="text-xs text-muted-foreground font-mono">
                       {selectedLog.user_id}
                     </p>
