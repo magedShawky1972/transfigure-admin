@@ -603,9 +603,16 @@ const AuditLogs = () => {
                           </TableCell>
                           <TableCell className="text-sm">
                             {log.user_email || (
-                              <span className="text-muted-foreground italic">
-                                {language === "ar" ? "غير معروف" : "Unknown"}
-                              </span>
+                              log.api_source ? (
+                                <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                                  <Key className="h-3 w-3" />
+                                  {log.api_source}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground italic">
+                                  {language === "ar" ? "غير معروف" : "Unknown"}
+                                </span>
+                              )
                             )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
