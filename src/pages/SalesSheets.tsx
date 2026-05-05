@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File, ChevronsUpDown, Check, Maximize2, ExternalLink } from "lucide-react";
+import { Plus, Save, ArrowLeft, Send, Trash2, FileText, Upload, Eye, CheckCircle, XCircle, Paperclip, Download, Image, File, ChevronsUpDown, Check, Maximize2, ExternalLink, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { downloadFile } from "@/lib/fileDownload";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -96,6 +96,37 @@ const SalesSheets = () => {
 
   // Filter
   const [phaseFilter, setPhaseFilter] = useState("all");
+
+  // Multi-sort: array of { key, direction }
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }[]>([]);
+
+  const handleSort = (key: string, e: React.MouseEvent) => {
+    const additive = e.shiftKey;
+    setSortConfig(prev => {
+      const existing = prev.find(s => s.key === key);
+      if (additive) {
+        if (!existing) return [...prev, { key, direction: "asc" }];
+        if (existing.direction === "asc") return prev.map(s => s.key === key ? { ...s, direction: "desc" as const } : s);
+        return prev.filter(s => s.key !== key);
+      } else {
+        if (!existing) return [{ key, direction: "asc" }];
+        if (existing.direction === "asc") return [{ key, direction: "desc" }];
+        return [];
+      }
+    });
+  };
+
+  const getSortIcon = (key: string) => {
+    const idx = sortConfig.findIndex(s => s.key === key);
+    if (idx === -1) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    const s = sortConfig[idx];
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {s.direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {sortConfig.length > 1 && <span className="text-[10px] font-bold">{idx + 1}</span>}
+      </span>
+    );
+  };
 
   // Accounting dialog
   const [accountingDialog, setAccountingDialog] = useState(false);
@@ -457,7 +488,29 @@ const SalesSheets = () => {
     }
   };
 
-  const filteredOrders = phaseFilter === "all" ? orders : orders.filter(o => o.current_phase === phaseFilter);
+  const baseFiltered = phaseFilter === "all" ? orders : orders.filter(o => o.current_phase === phaseFilter);
+  const getSortValue = (order: any, key: string): any => {
+    switch (key) {
+      case "order_number": return order.order_number || "";
+      case "created_by_name": return order.created_by_name || "";
+      case "lines_count": return (order.sales_sheet_order_lines || []).length;
+      case "total_sar": return (order.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
+      case "current_phase": return order.current_phase || "";
+      case "created_at": return new Date(order.created_at).getTime();
+      default: return "";
+    }
+  };
+  const filteredOrders = sortConfig.length === 0 ? baseFiltered : [...baseFiltered].sort((a, b) => {
+    for (const { key, direction } of sortConfig) {
+      const av = getSortValue(a, key);
+      const bv = getSortValue(b, key);
+      let cmp = 0;
+      if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+      else cmp = String(av).localeCompare(String(bv));
+      if (cmp !== 0) return direction === "asc" ? cmp : -cmp;
+    }
+    return 0;
+  });
   const grandTotal = lines.reduce((sum, l) => sum + parseNum(l.total_sar), 0);
   const isEditable = !selectedOrderId || selectedOrderPhase === "entry";
 
@@ -741,12 +794,12 @@ const SalesSheets = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                <TableHead>{isArabic ? "المنشئ" : "Created By"}</TableHead>
-                <TableHead>{isArabic ? "عدد الأسطر" : "Lines"}</TableHead>
-                <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
-                <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
-                <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                <TableHead onClick={(e) => handleSort("order_number", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "رقم الطلب" : "Order #"} {getSortIcon("order_number")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("created_by_name", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "المنشئ" : "Created By"} {getSortIcon("created_by_name")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("lines_count", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "عدد الأسطر" : "Lines"} {getSortIcon("lines_count")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("total_sar", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "الإجمالي ر.س" : "Total SAR"} {getSortIcon("total_sar")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("current_phase", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "المرحلة" : "Phase"} {getSortIcon("current_phase")}</span></TableHead>
+                <TableHead onClick={(e) => handleSort("created_at", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")}</span></TableHead>
                 <TableHead>{isArabic ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
