@@ -100,6 +100,7 @@ const SalesSheets = () => {
 
   // Multi-sort: array of { key, direction }
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleSort = (key: string, e: React.MouseEvent) => {
     const additive = e.shiftKey;
