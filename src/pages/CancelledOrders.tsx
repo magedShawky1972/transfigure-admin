@@ -20,6 +20,7 @@ import {
 interface PendingItem {
   id: string;
   order_number: string;
+  reason: string;
 }
 
 export default function CancelledOrders() {
