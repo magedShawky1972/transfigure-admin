@@ -150,45 +150,43 @@ const AuditLogs = () => {
       if (error) throw error;
       const baseLogs = (data as AuditLog[]) || [];
 
-      // Enrich logs without a user (likely API-driven) by matching nearest
-      // api_consumption_logs entry by timestamp (±5 seconds).
+      // Enrich logs without a user (likely API-driven) by matching the nearest
+      // api_consumption_logs entry by timestamp (±5 seconds). Query per-row to
+      // avoid the 1000-row PostgREST limit when the API window is busy.
       const anonymousLogs = baseLogs.filter(l => !l.user_id && !l.user_email);
       if (anonymousLogs.length > 0) {
-        const timestamps = anonymousLogs.map(l => new Date(l.created_at).getTime());
-        const minTs = new Date(Math.min(...timestamps) - 5000).toISOString();
-        const maxTs = new Date(Math.max(...timestamps) + 5000).toISOString();
+        const matches = await Promise.all(
+          anonymousLogs.map(async (log) => {
+            const target = new Date(log.created_at).getTime();
+            const minTs = new Date(target - 5000).toISOString();
+            const maxTs = new Date(target + 5000).toISOString();
+            const { data: apiLogs } = await supabase
+              .from("api_consumption_logs")
+              .select("created_at, api_key_description")
+              .gte("created_at", minTs)
+              .lte("created_at", maxTs)
+              .not("api_key_description", "is", null);
 
-        const { data: apiLogs } = await supabase
-          .from("api_consumption_logs")
-          .select("created_at, api_key_description, endpoint")
-          .gte("created_at", minTs)
-          .lte("created_at", maxTs)
-          .not("api_key_description", "is", null)
-          .order("created_at", { ascending: false })
-          .limit(2000);
-
-        const apiArr = (apiLogs || []).map(a => ({
-          ...a,
-          ts: new Date(a.created_at).getTime(),
-        }));
-
-        const enriched = baseLogs.map(log => {
-          if (log.user_id || log.user_email) return log;
-          const target = new Date(log.created_at).getTime();
-          let best: typeof apiArr[number] | null = null;
-          let bestDiff = Infinity;
-          for (const a of apiArr) {
-            const diff = Math.abs(a.ts - target);
-            if (diff < bestDiff && diff <= 5000) {
-              bestDiff = diff;
-              best = a;
+            let best: { api_key_description: string | null; ts: number } | null = null;
+            let bestDiff = Infinity;
+            for (const a of apiLogs || []) {
+              const ts = new Date(a.created_at).getTime();
+              const diff = Math.abs(ts - target);
+              if (diff < bestDiff) {
+                bestDiff = diff;
+                best = { api_key_description: a.api_key_description, ts };
+              }
             }
-          }
-          return best
-            ? { ...log, api_source: best.api_key_description as string }
-            : log;
-        });
+            return { id: log.id, source: best?.api_key_description || null };
+          })
+        );
 
+        const sourceMap = new Map(matches.map(m => [m.id, m.source]));
+        const enriched = baseLogs.map(log =>
+          (!log.user_id && !log.user_email && sourceMap.get(log.id))
+            ? { ...log, api_source: sourceMap.get(log.id)! }
+            : log
+        );
         setLogs(enriched);
       } else {
         setLogs(baseLogs);
