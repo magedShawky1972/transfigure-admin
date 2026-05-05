@@ -121,12 +121,24 @@ Deno.serve(async (req) => {
     const user = authData.user;
     const session = authData.session;
 
-    // Get user profile, roles, permissions in parallel
-    const [profileRes, rolesRes, permissionsRes] = await Promise.all([
+    // Get user profile, roles, permissions, and shift admin assignment in parallel
+    const [profileRes, rolesRes, permissionsRes, shiftAdminRes] = await Promise.all([
       supabaseAdmin.from('profiles').select('user_name, avatar_url').eq('user_id', user.id).single(),
       supabaseAdmin.from('user_roles').select('role').eq('user_id', user.id),
       supabaseAdmin.from('user_permissions').select('parent_menu, menu_item, has_access').eq('user_id', user.id).eq('has_access', true),
+      supabaseAdmin
+        .from('shift_admins')
+        .select('shift_id, shifts(shift_name)')
+        .eq('user_id', user.id)
+        .order('admin_order', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
     ]);
+
+    const roles = rolesRes.data?.map(r => r.role) || [];
+    const adminAccess = roles.includes('admin');
+    const shiftId = shiftAdminRes.data?.shift_id || null;
+    const shiftName = (shiftAdminRes.data as any)?.shifts?.shift_name || null;
 
     responseMessage = 'Login successful';
     await logApiCall();
@@ -141,7 +153,10 @@ Deno.serve(async (req) => {
         email: user.email,
         user_name: profileRes.data?.user_name || null,
         avatar_url: profileRes.data?.avatar_url || null,
-        roles: rolesRes.data?.map(r => r.role) || [],
+        roles,
+        admin_access: adminAccess,
+        shift_id: shiftId,
+        shift_name: shiftName,
         permissions: permissionsRes.data || [],
       }
     }), {
