@@ -262,20 +262,33 @@ export default function CancelledOrders() {
                   <Label htmlFor="orderNumber">
                     {isAr ? "رقم الطلب" : "Order Number"}
                   </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="orderNumber"
-                      value={orderNumber}
-                      onChange={(e) => setOrderNumber(e.target.value)}
-                      placeholder={isAr ? "أدخل رقم الطلب" : "Enter order number"}
-                      disabled={submitting}
-                      autoComplete="off"
-                    />
-                    <Button type="submit" disabled={submitting} className="shrink-0">
-                      <Plus className="h-4 w-4 mr-1" />
-                      {isAr ? "إضافة" : "Add"}
-                    </Button>
-                  </div>
+                  <Input
+                    id="orderNumber"
+                    value={orderNumber}
+                    onChange={(e) => setOrderNumber(e.target.value)}
+                    placeholder={isAr ? "أدخل رقم الطلب" : "Enter order number"}
+                    disabled={submitting}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reason">
+                    {isAr ? "سبب الإلغاء" : "Cancellation Reason"}
+                  </Label>
+                  <Textarea
+                    id="reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder={isAr ? "اكتب سبب الإلغاء" : "Enter cancellation reason"}
+                    disabled={submitting}
+                    rows={3}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={submitting}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    {isAr ? "إضافة إلى القائمة" : "Add to List"}
+                  </Button>
                 </div>
               </form>
             </CardContent>
