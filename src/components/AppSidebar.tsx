@@ -343,40 +343,59 @@ export function AppSidebar() {
 
             if (filteredItems.length === 0) return null;
 
+            const isCollapsed = collapsedGroups.has(group.defaultEn);
+
             return (
               <SidebarGroup key={group.defaultEn}>
-                <SidebarGroupLabel className="text-sidebar-foreground/70 mb-2 px-3 text-sm font-semibold">
-                  {groupLabel}
+                <SidebarGroupLabel
+                  asChild
+                  className="text-sidebar-foreground/70 mb-2 px-3 text-sm font-semibold"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.defaultEn)}
+                    className="flex w-full items-center justify-between hover:text-sidebar-foreground transition-colors"
+                    aria-expanded={!isCollapsed}
+                  >
+                    <span>{groupLabel}</span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 transition-transform ${
+                        isCollapsed ? "-rotate-90" : ""
+                      }`}
+                    />
+                  </button>
                 </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {filteredItems.map((item) => (
-                      <SidebarMenuItem key={item.url}>
-                        <SidebarMenuButton asChild>
-                          <NavLink
-                            to={item.url}
-                            end
-                            className={({ isActive }) =>
-                              `flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-base ${
-                                isActive
-                                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-md"
-                                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                              }`
-                            }
-                          >
-                            <item.icon className="h-5 w-5 shrink-0" />
-                            <span>{item.title}</span>
-                            {item.url === "/asus-tawasoul" && asusTawasoulUnread > 0 && (
-                              <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1">
-                                {asusTawasoulUnread}
-                              </span>
-                            )}
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
+                {!isCollapsed && (
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {filteredItems.map((item) => (
+                        <SidebarMenuItem key={item.url}>
+                          <SidebarMenuButton asChild>
+                            <NavLink
+                              to={item.url}
+                              end
+                              className={({ isActive }) =>
+                                `flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-base ${
+                                  isActive
+                                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-md"
+                                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                }`
+                              }
+                            >
+                              <item.icon className="h-5 w-5 shrink-0" />
+                              <span>{item.title}</span>
+                              {item.url === "/asus-tawasoul" && asusTawasoulUnread > 0 && (
+                                <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+                                  {asusTawasoulUnread}
+                                </span>
+                              )}
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                )}
               </SidebarGroup>
             );
           })}
