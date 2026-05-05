@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -99,6 +100,7 @@ const SalesSheets = () => {
 
   // Multi-sort: array of { key, direction }
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleSort = (key: string, e: React.MouseEvent) => {
     const additive = e.shiftKey;
@@ -791,9 +793,52 @@ const SalesSheets = () => {
       {/* Orders Table */}
       <Card>
         <CardContent className="pt-4">
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between mb-3 p-2 bg-muted rounded">
+              <span className="text-sm">
+                {isArabic ? `${selectedIds.size} محدد` : `${selectedIds.size} selected`}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={async () => {
+                  const ids = Array.from(selectedIds);
+                  const deletable = filteredOrders.filter(o => ids.includes(o.id) && o.current_phase === "entry").map(o => o.id);
+                  if (deletable.length === 0) {
+                    toast.error(isArabic ? "لا يمكن حذف الطلبات في هذه المرحلة" : "Selected orders cannot be deleted in their current phase");
+                    return;
+                  }
+                  if (!confirm(isArabic ? `حذف ${deletable.length} طلب؟` : `Delete ${deletable.length} order(s)?`)) return;
+                  try {
+                    await supabase.from("sales_sheet_line_attachments" as any).delete().in("sheet_order_id", deletable);
+                    await supabase.from("sales_sheet_order_lines" as any).delete().in("sheet_order_id", deletable);
+                    const { error } = await supabase.from("sales_sheet_orders" as any).delete().in("id", deletable).select();
+                    if (error) throw error;
+                    toast.success(isArabic ? `تم حذف ${deletable.length}` : `Deleted ${deletable.length}`);
+                    setSelectedIds(new Set());
+                    fetchOrders();
+                  } catch (err: any) {
+                    toast.error(err.message || "Delete failed");
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                {isArabic ? "حذف المحدد" : "Delete Selected"}
+              </Button>
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filteredOrders.length > 0 && filteredOrders.every(o => selectedIds.has(o.id))}
+                    onCheckedChange={(checked) => {
+                      if (checked) setSelectedIds(new Set(filteredOrders.map(o => o.id)));
+                      else setSelectedIds(new Set());
+                    }}
+                  />
+                </TableHead>
                 <TableHead onClick={(e) => handleSort("order_number", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "رقم الطلب" : "Order #"} {getSortIcon("order_number")}</span></TableHead>
                 <TableHead onClick={(e) => handleSort("created_by_name", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "المنشئ" : "Created By"} {getSortIcon("created_by_name")}</span></TableHead>
                 <TableHead onClick={(e) => handleSort("lines_count", e)} className="cursor-pointer select-none"><span className="inline-flex items-center gap-1">{isArabic ? "عدد الأسطر" : "Lines"} {getSortIcon("lines_count")}</span></TableHead>
@@ -806,7 +851,7 @@ const SalesSheets = () => {
             <TableBody>
               {filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     {isArabic ? "لا توجد طلبات" : "No orders found"}
                   </TableCell>
                 </TableRow>
@@ -815,6 +860,19 @@ const SalesSheets = () => {
                   const totalSar = (order.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
                   return (
                     <TableRow key={order.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(order.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedIds(prev => {
+                              const next = new Set(prev);
+                              if (checked) next.add(order.id);
+                              else next.delete(order.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{order.order_number}</TableCell>
                       <TableCell>{order.created_by_name}</TableCell>
                       <TableCell>{(order.sales_sheet_order_lines || []).length}</TableCell>
