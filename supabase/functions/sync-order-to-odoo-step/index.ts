@@ -16,6 +16,7 @@ interface Transaction {
   unit_price: number;
   total: number;
   qty: number;
+  coins_number?: number;
   created_at_date: string;
   payment_method: string;
   payment_brand?: string;
