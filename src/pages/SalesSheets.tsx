@@ -785,6 +785,28 @@ const SalesSheets = () => {
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
+                          {order.current_phase === "entry" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={async () => {
+                                if (!confirm(isArabic ? `حذف الطلب ${order.order_number}؟` : `Delete order ${order.order_number}?`)) return;
+                                try {
+                                  await supabase.from("sales_sheet_line_attachments" as any).delete().eq("sheet_order_id", order.id);
+                                  await supabase.from("sales_sheet_order_lines" as any).delete().eq("sheet_order_id", order.id);
+                                  const { error } = await supabase.from("sales_sheet_orders" as any).delete().eq("id", order.id).select();
+                                  if (error) throw error;
+                                  toast.success(isArabic ? "تم الحذف" : "Deleted");
+                                  fetchOrders();
+                                } catch (err: any) {
+                                  toast.error(err.message || "Delete failed");
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
