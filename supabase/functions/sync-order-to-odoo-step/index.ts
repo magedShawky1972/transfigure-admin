@@ -583,22 +583,39 @@ Deno.serve(async (req) => {
         const salesOrderApiUrl = isProduction ? config.sales_order_api_url : config.sales_order_api_url_test;
 
         // Brand-summary mode: aggregate transaction lines by brand_code
-        type BrandAgg = { brand_code: string; brand_name: string; qty: number; total: number };
+        // Quantity = SUM(coins_number) if brand ABC = 'A' else SUM(qty)
+        const uniqueBrandCodesForOrder = [...new Set((transactions as Transaction[]).map((t) => t.brand_code).filter(Boolean))];
+        const abcMap = new Map<string, string>();
+        if (uniqueBrandCodesForOrder.length > 0) {
+          const { data: brandRows } = await supabase
+            .from("brands")
+            .select("brand_code, abc_analysis")
+            .in("brand_code", uniqueBrandCodesForOrder);
+          (brandRows || []).forEach((b: any) => {
+            abcMap.set(b.brand_code, String(b.abc_analysis || "").toUpperCase());
+          });
+        }
+
+        type BrandAgg = { brand_code: string; brand_name: string; qty: number; total: number; is_class_a: boolean };
         const brandAggMap = new Map<string, BrandAgg>();
         for (const t of transactions as Transaction[]) {
           const code = t.brand_code || "UNKNOWN";
-          const existing = brandAggMap.get(code);
-          const qty = parseFloat(String(t.qty)) || 1;
+          const isClassA = abcMap.get(code) === "A";
+          const qtyVal = isClassA
+            ? (parseFloat(String(t.coins_number)) || 0)
+            : (parseFloat(String(t.qty)) || 1);
           const total = parseFloat(String(t.total)) || 0;
+          const existing = brandAggMap.get(code);
           if (existing) {
-            existing.qty += qty;
+            existing.qty += qtyVal;
             existing.total += total;
           } else {
             brandAggMap.set(code, {
               brand_code: code,
               brand_name: t.brand_name || code,
-              qty,
+              qty: qtyVal,
               total,
+              is_class_a: isClassA,
             });
           }
         }
@@ -609,7 +626,6 @@ Deno.serve(async (req) => {
           try {
             const date = new Date(dateStr);
             if (isNaN(date.getTime())) {
-              // If it's already in the right format, return as-is
               return dateStr;
             }
             const year = date.getFullYear();
