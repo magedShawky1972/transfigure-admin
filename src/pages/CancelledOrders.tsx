@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +21,7 @@ import {
 interface PendingItem {
   id: string;
   order_number: string;
+  reason: string;
 }
 
 export default function CancelledOrders() {
@@ -33,9 +35,11 @@ export default function CancelledOrders() {
   const [shiftLabel, setShiftLabel] = useState<string>("");
 
   const [orderNumber, setOrderNumber] = useState("");
+  const [reason, setReason] = useState("");
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [editReason, setEditReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const checkActiveShift = async () => {
@@ -75,9 +79,17 @@ export default function CancelledOrders() {
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = orderNumber.trim();
+    const trimmedReason = reason.trim();
     if (!trimmed) {
       toast({
         title: isAr ? "رقم الطلب مطلوب" : "Order number required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!trimmedReason) {
+      toast({
+        title: isAr ? "سبب الإلغاء مطلوب" : "Cancellation reason required",
         variant: "destructive",
       });
       return;
@@ -91,25 +103,36 @@ export default function CancelledOrders() {
       return;
     }
     setPending((prev) => [
-      { id: crypto.randomUUID(), order_number: trimmed },
+      { id: crypto.randomUUID(), order_number: trimmed, reason: trimmedReason },
       ...prev,
     ]);
     setOrderNumber("");
+    setReason("");
   };
 
   const startEdit = (item: PendingItem) => {
     setEditingId(item.id);
     setEditValue(item.order_number);
+    setEditReason(item.reason);
   };
   const cancelEdit = () => {
     setEditingId(null);
     setEditValue("");
+    setEditReason("");
   };
   const saveEdit = (id: string) => {
     const trimmed = editValue.trim();
+    const trimmedReason = editReason.trim();
     if (!trimmed) {
       toast({
         title: isAr ? "رقم الطلب مطلوب" : "Order number required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!trimmedReason) {
+      toast({
+        title: isAr ? "سبب الإلغاء مطلوب" : "Cancellation reason required",
         variant: "destructive",
       });
       return;
@@ -122,7 +145,7 @@ export default function CancelledOrders() {
       });
       return;
     }
-    setPending((prev) => prev.map((p) => (p.id === id ? { ...p, order_number: trimmed } : p)));
+    setPending((prev) => prev.map((p) => (p.id === id ? { ...p, order_number: trimmed, reason: trimmedReason } : p)));
     cancelEdit();
   };
 
@@ -143,6 +166,7 @@ export default function CancelledOrders() {
 
     const rows = pending.map((p) => ({
       order_number: p.order_number,
+      reason: p.reason,
       submitted_by: user.id,
     }));
 
@@ -238,20 +262,33 @@ export default function CancelledOrders() {
                   <Label htmlFor="orderNumber">
                     {isAr ? "رقم الطلب" : "Order Number"}
                   </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="orderNumber"
-                      value={orderNumber}
-                      onChange={(e) => setOrderNumber(e.target.value)}
-                      placeholder={isAr ? "أدخل رقم الطلب" : "Enter order number"}
-                      disabled={submitting}
-                      autoComplete="off"
-                    />
-                    <Button type="submit" disabled={submitting} className="shrink-0">
-                      <Plus className="h-4 w-4 mr-1" />
-                      {isAr ? "إضافة" : "Add"}
-                    </Button>
-                  </div>
+                  <Input
+                    id="orderNumber"
+                    value={orderNumber}
+                    onChange={(e) => setOrderNumber(e.target.value)}
+                    placeholder={isAr ? "أدخل رقم الطلب" : "Enter order number"}
+                    disabled={submitting}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reason">
+                    {isAr ? "سبب الإلغاء" : "Cancellation Reason"}
+                  </Label>
+                  <Textarea
+                    id="reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder={isAr ? "اكتب سبب الإلغاء" : "Enter cancellation reason"}
+                    disabled={submitting}
+                    rows={3}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={submitting}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    {isAr ? "إضافة إلى القائمة" : "Add to List"}
+                  </Button>
                 </div>
               </form>
             </CardContent>
@@ -271,8 +308,9 @@ export default function CancelledOrders() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isAr ? "رقم الطلب" : "Order Number"}</TableHead>
-                      <TableHead className="text-right w-[180px]">
+                      <TableHead className="w-[200px]">{isAr ? "رقم الطلب" : "Order Number"}</TableHead>
+                      <TableHead>{isAr ? "سبب الإلغاء" : "Reason"}</TableHead>
+                      <TableHead className="text-right w-[140px]">
                         {isAr ? "إجراءات" : "Actions"}
                       </TableHead>
                     </TableRow>
@@ -280,7 +318,7 @@ export default function CancelledOrders() {
                   <TableBody>
                     {pending.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                           {isAr ? "لا توجد طلبات في القائمة." : "No items in the list."}
                         </TableCell>
                       </TableRow>
@@ -289,12 +327,12 @@ export default function CancelledOrders() {
                         const isEditing = editingId === item.id;
                         return (
                           <TableRow key={item.id}>
-                            <TableCell className="font-medium">
+                            <TableCell className="font-medium align-top">
                               {isEditing ? (
                                 <Input
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
-                                  className="h-8 max-w-[240px]"
+                                  className="h-8"
                                   autoFocus
                                   disabled={submitting}
                                 />
@@ -302,7 +340,20 @@ export default function CancelledOrders() {
                                 item.order_number
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="align-top">
+                              {isEditing ? (
+                                <Textarea
+                                  value={editReason}
+                                  onChange={(e) => setEditReason(e.target.value)}
+                                  className="min-h-[60px]"
+                                  disabled={submitting}
+                                  rows={2}
+                                />
+                              ) : (
+                                <span className="whitespace-pre-wrap text-sm">{item.reason}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right align-top">
                               <div className="flex gap-1 justify-end">
                                 {isEditing ? (
                                   <>
