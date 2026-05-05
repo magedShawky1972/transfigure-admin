@@ -15,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon } from "lucide-react";
+import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon, Bug } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import BrandSuppliersDialog from "@/components/BrandSuppliersDialog";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
