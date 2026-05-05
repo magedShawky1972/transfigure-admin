@@ -507,7 +507,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="usd_value_for_coins">One Coins = USD</Label>
+              <Label htmlFor="usd_value_for_coins">Cost One Coins = USD</Label>
               <Input
                 id="usd_value_for_coins"
                 type="number"
@@ -516,7 +516,21 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, usd_value_for_coins: e.target.value })
                 }
-                placeholder="Enter USD value for coins"
+                placeholder="Enter cost USD value per coin"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sales_usd_value_for_coins">Sales One Coins = USD</Label>
+              <Input
+                id="sales_usd_value_for_coins"
+                type="number"
+                step="0.01"
+                value={formData.sales_usd_value_for_coins}
+                onChange={(e) =>
+                  setFormData({ ...formData, sales_usd_value_for_coins: e.target.value })
+                }
+                placeholder="Enter sales USD value per coin"
               />
             </div>
 
