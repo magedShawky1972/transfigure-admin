@@ -15,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon } from "lucide-react";
+import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon, Bug } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import BrandSuppliersDialog from "@/components/BrandSuppliersDialog";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -57,6 +58,27 @@ const BrandSetup = () => {
   const [loading, setLoading] = useState(false);
   const [syncingBrandId, setSyncingBrandId] = useState<string | null>(null);
   const [suppliersDialogBrand, setSuppliersDialogBrand] = useState<Brand | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugLoadingId, setDebugLoadingId] = useState<string | null>(null);
+
+  const handleDebugSync = async (brand: Brand) => {
+    if (!brand.brand_code) {
+      toast({ title: "Error", description: "Brand code is required", variant: "destructive" });
+      return;
+    }
+    setDebugLoadingId(brand.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-brand-to-odoo', {
+        body: { brand_id: brand.id, brand_code: brand.brand_code, brand_name: brand.brand_name, debug: true },
+      });
+      if (error) throw error;
+      setDebugInfo(data);
+    } catch (err: any) {
+      toast({ title: "Debug failed", description: err.message, variant: "destructive" });
+    } finally {
+      setDebugLoadingId(null);
+    }
+  };
   
   // Load filters from localStorage or use defaults
   const [filterBrandName, setFilterBrandName] = useState(() => 
@@ -649,6 +671,15 @@ const BrandSetup = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => handleDebugSync(brand)}
+                          disabled={debugLoadingId === brand.id || !brand.brand_code}
+                          title="Debug Odoo Sync"
+                        >
+                          <Bug className={`h-4 w-4 ${debugLoadingId === brand.id ? 'animate-pulse' : ''}`} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleEdit(brand)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -678,6 +709,36 @@ const BrandSetup = () => {
           brandName={suppliersDialogBrand.brand_name}
         />
       )}
+
+      <Dialog open={!!debugInfo} onOpenChange={(o) => !o && setDebugInfo(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Odoo Sync Debug</DialogTitle>
+            <DialogDescription>Request that will be sent to Odoo</DialogDescription>
+          </DialogHeader>
+          {debugInfo && (
+            <div className="space-y-3 text-sm">
+              <div><span className="font-semibold">Environment:</span> {debugInfo.environment}</div>
+              <div>
+                <div className="font-semibold">PUT URL (try first):</div>
+                <code className="block bg-muted p-2 rounded break-all">{debugInfo.put_url}</code>
+              </div>
+              <div>
+                <div className="font-semibold">POST URL (fallback):</div>
+                <code className="block bg-muted p-2 rounded break-all">{debugInfo.post_url}</code>
+              </div>
+              <div>
+                <div className="font-semibold">Headers:</div>
+                <pre className="bg-muted p-2 rounded overflow-auto">{JSON.stringify(debugInfo.headers, null, 2)}</pre>
+              </div>
+              <div>
+                <div className="font-semibold">Body:</div>
+                <pre className="bg-muted p-2 rounded overflow-auto">{JSON.stringify(debugInfo.body, null, 2)}</pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { brand_id, brand_code, brand_name } = await req.json();
+    const { brand_id, brand_code, brand_name, debug } = await req.json();
 
     console.log('Syncing brand as product to Odoo:', { brand_id, brand_code, brand_name });
 
@@ -87,6 +87,22 @@ Deno.serve(async (req) => {
     };
 
     console.log('Product payload:', productPayload);
+
+    if (debug) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          debug: true,
+          put_url: `${productApiUrl}/${brand_code}`,
+          post_url: productApiUrl,
+          method_priority: ['PUT', 'POST'],
+          headers: { 'Content-Type': 'application/json', 'Authorization': '***hidden***' },
+          body: productPayload,
+          environment: isProductionMode ? 'Production' : 'Test',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // PUT first to update if exists
     const putResponse = await fetch(`${productApiUrl}/${brand_code}`, {
