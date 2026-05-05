@@ -97,6 +97,37 @@ const SalesSheets = () => {
   // Filter
   const [phaseFilter, setPhaseFilter] = useState("all");
 
+  // Multi-sort: array of { key, direction }
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }[]>([]);
+
+  const handleSort = (key: string, e: React.MouseEvent) => {
+    const additive = e.shiftKey;
+    setSortConfig(prev => {
+      const existing = prev.find(s => s.key === key);
+      if (additive) {
+        if (!existing) return [...prev, { key, direction: "asc" }];
+        if (existing.direction === "asc") return prev.map(s => s.key === key ? { ...s, direction: "desc" as const } : s);
+        return prev.filter(s => s.key !== key);
+      } else {
+        if (!existing) return [{ key, direction: "asc" }];
+        if (existing.direction === "asc") return [{ key, direction: "desc" }];
+        return [];
+      }
+    });
+  };
+
+  const getSortIcon = (key: string) => {
+    const idx = sortConfig.findIndex(s => s.key === key);
+    if (idx === -1) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    const s = sortConfig[idx];
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {s.direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {sortConfig.length > 1 && <span className="text-[10px] font-bold">{idx + 1}</span>}
+      </span>
+    );
+  };
+
   // Accounting dialog
   const [accountingDialog, setAccountingDialog] = useState(false);
   const [accountingNotes, setAccountingNotes] = useState("");
