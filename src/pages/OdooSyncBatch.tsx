@@ -1300,6 +1300,7 @@ const OdooSyncBatch = () => {
       unit_price: pl.unitPrice,
       total: pl.totalAmount,
       qty: pl.totalQty,
+      coins_number: (pl as any).totalCoins || 0,
       created_at_date: invoice.date,
       payment_method: invoice.paymentMethod,
       payment_brand: invoice.paymentBrand,
