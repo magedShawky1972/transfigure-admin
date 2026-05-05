@@ -1021,7 +1021,36 @@ ${generateRequestBodyExample(api.fields, api.method, api.endpoint)}`}</pre>
             <div>
               <p className="text-sm font-medium mb-2 text-gray-900 dark:text-foreground">Example Response</p>
               <div className="bg-muted p-3 rounded-lg font-mono text-xs overflow-x-auto text-gray-900 dark:text-foreground">
-                <pre>{api.id === 'crm-login' ? `{
+                <pre>{api.id === 'brand-abc-a-stock' ? `{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "brand_id": "uuid-here",
+      "brand_name": "بينمو | Binmo",
+      "brand_code": "C01004",
+      "supplier_hub_code": "BMO",
+      "abc_class": "A",
+      "average_consumption_per_day": 1241261.76,
+      "safety_stock": 1861892.64,
+      "reorder_point": 1396419.48,
+      "current_balance": 33285799,
+      "last_shift_closed_at": "2026-05-05T05:08:26.715+00:00"
+    },
+    {
+      "brand_id": "uuid-here",
+      "brand_name": "ماسا | Masa",
+      "brand_code": "C01-010",
+      "supplier_hub_code": "MSA",
+      "abc_class": "A",
+      "average_consumption_per_day": 24882326.92,
+      "safety_stock": 37323490.38,
+      "reorder_point": 27992617.79,
+      "current_balance": 102755146,
+      "last_shift_closed_at": "2026-05-05T05:08:26.715+00:00"
+    }
+  ]
+}` : api.id === 'crm-login' ? `{
   "success": true,
   "session_id": "eyJhbGciOiJI...",
   "refresh_token": "v1.MjE4ZjQ...",
