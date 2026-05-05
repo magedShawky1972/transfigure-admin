@@ -906,13 +906,20 @@ const SalesSheets = () => {
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
-                          {order.current_phase === "entry" && (
+                          {(order.current_phase === "entry" || order.current_phase === "accounting_approved") && (
                             <Button
                               variant="ghost"
                               size="icon"
                               className="text-destructive"
                               onClick={async () => {
-                                if (!confirm(isArabic ? `حذف الطلب ${order.order_number}؟` : `Delete order ${order.order_number}?`)) return;
+                                const isReview = order.current_phase === "accounting_approved";
+                                let msg = isArabic ? `حذف الطلب ${order.order_number}؟` : `Delete order ${order.order_number}?`;
+                                if (isReview) {
+                                  msg += "\n\n" + (isArabic
+                                    ? `⚠️ تحذير: هذا الطلب في مرحلة "مراجعة المحاسبة". الحذف سيؤدي إلى إزالته من سير عمل المحاسبة نهائيًا.`
+                                    : `⚠️ Warning: This order is in "Accounting Review & Confirm" phase. Deleting will permanently remove it from the accounting workflow.`);
+                                }
+                                if (!confirm(msg)) return;
                                 try {
                                   await supabase.from("sales_sheet_line_attachments" as any).delete().eq("sheet_order_id", order.id);
                                   await supabase.from("sales_sheet_order_lines" as any).delete().eq("sheet_order_id", order.id);
