@@ -118,7 +118,8 @@ const AuditLogs = () => {
     "user_roles",
     "customers",
     "employees",
-    "api_keys"
+    "api_keys",
+    "saved_attendance"
   ];
 
   const passwordTables = ["profiles", "user_email_configs", "user_emails"];
@@ -182,11 +183,16 @@ const AuditLogs = () => {
         );
 
         const sourceMap = new Map(matches.map(m => [m.id, m.source]));
-        const enriched = baseLogs.map(log =>
-          (!log.user_id && !log.user_email && sourceMap.get(log.id))
-            ? { ...log, api_source: sourceMap.get(log.id)! }
-            : log
-        );
+        const enriched = baseLogs.map(log => {
+          if (log.user_id || log.user_email) return log;
+          const matched = sourceMap.get(log.id);
+          if (matched) return { ...log, api_source: matched };
+          // Fallback: known background jobs by table
+          if (log.table_name === "saved_attendance") {
+            return { ...log, api_source: "ZK Attendance Job" };
+          }
+          return log;
+        });
         setLogs(enriched);
       } else {
         setLogs(baseLogs);
