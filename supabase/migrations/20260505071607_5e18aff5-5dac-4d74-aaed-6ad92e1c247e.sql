@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN IF NOT EXISTS sales_usd_value_for_coins numeric DEFAULT 0;
