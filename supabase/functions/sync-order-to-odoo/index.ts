@@ -263,17 +263,32 @@ Deno.serve(async (req) => {
           company: "Asus",
           status: 1,
           status_description: "completed",
-          lines: orderLines.map((line, idx) => ({
-            line_number: idx + 1,
-            line_status: 1,
-            product_sku: line.sku || line.product_id,
-            quantity: line.qty || 1,
-            unit_price: line.unit_price || 0,
-            total: line.total || 0,
-            coins_number: line.coins_number || 0,
-            cost_price: line.cost_price || 0,
-            total_cost: line.cost_sold || 0,
-          })),
+          lines: await (async () => {
+            const codes = [...new Set(orderLines.map(l => l.brand_code).filter(Boolean))] as string[];
+            const abc = new Map<string, string>();
+            if (codes.length) {
+              const { data: brandRows } = await supabase
+                .from('brands')
+                .select('brand_code, abc_analysis')
+                .in('brand_code', codes);
+              (brandRows || []).forEach((b: any) => abc.set(b.brand_code, String(b.abc_analysis || '').toUpperCase()));
+            }
+            return orderLines.map((line, idx) => {
+              const isA = abc.get(line.brand_code || '') === 'A';
+              const qtyOut = isA ? (line.coins_number || 0) : (line.qty || 1);
+              return {
+                line_number: idx + 1,
+                line_status: 1,
+                product_sku: line.sku || line.product_id,
+                quantity: qtyOut,
+                unit_price: line.unit_price || 0,
+                total: line.total || 0,
+                coins_number: line.coins_number || 0,
+                cost_price: line.cost_price || 0,
+                total_cost: line.cost_sold || 0,
+              };
+            });
+          })(),
           payment: {
             payment_method: firstLine.payment_method,
             payment_brand: firstLine.payment_brand,
