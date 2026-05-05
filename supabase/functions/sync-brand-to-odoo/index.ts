@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { brand_id, brand_code, brand_name } = await req.json();
+    const { brand_id, brand_code, brand_name, debug } = await req.json();
 
     console.log('Syncing brand as product to Odoo:', { brand_id, brand_code, brand_name });
 
