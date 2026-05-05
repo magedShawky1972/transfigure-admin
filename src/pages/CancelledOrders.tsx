@@ -112,16 +112,26 @@ export default function CancelledOrders() {
   const startEdit = (item: PendingItem) => {
     setEditingId(item.id);
     setEditValue(item.order_number);
+    setEditReason(item.reason);
   };
   const cancelEdit = () => {
     setEditingId(null);
     setEditValue("");
+    setEditReason("");
   };
   const saveEdit = (id: string) => {
     const trimmed = editValue.trim();
+    const trimmedReason = editReason.trim();
     if (!trimmed) {
       toast({
         title: isAr ? "رقم الطلب مطلوب" : "Order number required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!trimmedReason) {
+      toast({
+        title: isAr ? "سبب الإلغاء مطلوب" : "Cancellation reason required",
         variant: "destructive",
       });
       return;
@@ -134,7 +144,7 @@ export default function CancelledOrders() {
       });
       return;
     }
-    setPending((prev) => prev.map((p) => (p.id === id ? { ...p, order_number: trimmed } : p)));
+    setPending((prev) => prev.map((p) => (p.id === id ? { ...p, order_number: trimmed, reason: trimmedReason } : p)));
     cancelEdit();
   };
 
