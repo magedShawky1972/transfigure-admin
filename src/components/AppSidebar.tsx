@@ -27,6 +27,26 @@ export function AppSidebar() {
   const [loading, setLoading] = useState(true);
   const [asusTawasoulUnread, setAsusTawasoulUnread] = useState(0);
   const [customizations, setCustomizations] = useState<CustomMap>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(COLLAPSED_GROUPS_KEY);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
 
   const URL_TO_PERMISSION: Record<string, string> = {
     "/": "dashboard",
