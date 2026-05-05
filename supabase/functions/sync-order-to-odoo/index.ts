@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
           customer_phone: firstLine.customer_phone,
           order_date: firstLine.created_at_date,
           payment_term: "immediate",
-          sales_person: firstLine.user_name || "",
+          sales_person: "",
           payment_brand: firstLine.payment_brand || "",
           online_payment: "true",
           transaction_type: firstLine.user_name ? "manual" : "automatic",
