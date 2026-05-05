@@ -153,7 +153,10 @@ Deno.serve(async (req) => {
         email: user.email,
         user_name: profileRes.data?.user_name || null,
         avatar_url: profileRes.data?.avatar_url || null,
-        roles: rolesRes.data?.map(r => r.role) || [],
+        roles,
+        admin_access: adminAccess,
+        shift_id: shiftId,
+        shift_name: shiftName,
         permissions: permissionsRes.data || [],
       }
     }), {
