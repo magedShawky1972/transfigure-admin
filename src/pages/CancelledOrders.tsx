@@ -165,6 +165,7 @@ export default function CancelledOrders() {
 
     const rows = pending.map((p) => ({
       order_number: p.order_number,
+      reason: p.reason,
       submitted_by: user.id,
     }));
 
