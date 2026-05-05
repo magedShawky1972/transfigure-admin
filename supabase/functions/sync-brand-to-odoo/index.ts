@@ -104,8 +104,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // PUT first to update if exists
-    const putResponse = await fetch(`${productApiUrl}/${brand_code}`, {
+    const steps: any[] = [];
+
+    // Step 1: PUT to check if exists
+    const putUrl = `${productApiUrl}/${brand_code}`;
+    const putResponse = await fetch(putUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -120,17 +123,29 @@ Deno.serve(async (req) => {
     let putResult: any;
     try { putResult = JSON.parse(putText); } catch { putResult = { success: false, error: putText }; }
 
-    if (putResponse.ok && putResult?.success === true && putResult?.product_id) {
+    const putExists = putResponse.ok && putResult?.success === true && putResult?.product_id;
+
+    steps.push({
+      step: 1,
+      label: 'Check Product Exists (PUT)',
+      url: putUrl,
+      method: 'PUT',
+      status: putResponse.status,
+      result: putExists ? 'Exists' : 'Not Exists',
+      response: putResult,
+    });
+
+    if (putExists) {
       if (brand_id) {
         await supabase.from('brands').update({ odoo_category_id: putResult.product_id }).eq('id', brand_id);
       }
       return new Response(
-        JSON.stringify({ success: true, message: 'Brand-product updated in Odoo', odoo_product_id: putResult.product_id, odoo_response: putResult }),
+        JSON.stringify({ success: true, message: 'Brand-product updated in Odoo', odoo_product_id: putResult.product_id, steps }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // POST to create
+    // Step 2: POST to create
     const postResponse = await fetch(productApiUrl, {
       method: 'POST',
       headers: {
@@ -147,12 +162,23 @@ Deno.serve(async (req) => {
     try { postResult = JSON.parse(postText); } catch { postResult = { success: false, error: postText }; }
 
     const newId = postResult?.product_id || postResult?.existing_product_id;
+
+    steps.push({
+      step: 2,
+      label: 'Create Product (POST)',
+      url: productApiUrl,
+      method: 'POST',
+      status: postResponse.status,
+      result: newId ? 'Created' : 'Failed',
+      response: postResult,
+    });
+
     if (postResponse.ok && newId) {
       if (brand_id) {
         await supabase.from('brands').update({ odoo_category_id: newId }).eq('id', brand_id);
       }
       return new Response(
-        JSON.stringify({ success: true, message: 'Brand created as product in Odoo', odoo_product_id: newId, odoo_response: postResult }),
+        JSON.stringify({ success: true, message: 'Brand created as product in Odoo', odoo_product_id: newId, steps }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -161,7 +187,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: false,
         error: postResult?.error || postResult?.message || putResult?.error || putResult?.message || 'Failed to sync brand-product to Odoo',
-        odoo_response: { put: putResult, post: postResult },
+        steps,
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
