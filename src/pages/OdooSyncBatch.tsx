@@ -730,7 +730,6 @@ const OdooSyncBatch = () => {
             .lte('created_at_date_int', toDateInt)
             .or('payment_method.is.null,payment_method.neq.point')
             .eq('is_deleted', false)
-            .or('sendodoo.is.null,sendodoo.eq.false')
             .order('created_at_date_int', { ascending: false });
           
           if (companyFilter) query = query.eq('company', companyFilter);
