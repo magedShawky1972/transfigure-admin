@@ -361,6 +361,7 @@ const AuditLogs = () => {
     return (
       log.table_name.toLowerCase().includes(term) ||
       log.user_email?.toLowerCase().includes(term) ||
+      log.api_source?.toLowerCase().includes(term) ||
       log.record_id?.toLowerCase().includes(term) ||
       log.action.toLowerCase().includes(term)
     );
