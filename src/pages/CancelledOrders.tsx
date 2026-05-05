@@ -78,9 +78,17 @@ export default function CancelledOrders() {
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = orderNumber.trim();
+    const trimmedReason = reason.trim();
     if (!trimmed) {
       toast({
         title: isAr ? "رقم الطلب مطلوب" : "Order number required",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!trimmedReason) {
+      toast({
+        title: isAr ? "سبب الإلغاء مطلوب" : "Cancellation reason required",
         variant: "destructive",
       });
       return;
@@ -94,10 +102,11 @@ export default function CancelledOrders() {
       return;
     }
     setPending((prev) => [
-      { id: crypto.randomUUID(), order_number: trimmed },
+      { id: crypto.randomUUID(), order_number: trimmed, reason: trimmedReason },
       ...prev,
     ]);
     setOrderNumber("");
+    setReason("");
   };
 
   const startEdit = (item: PendingItem) => {
