@@ -730,7 +730,6 @@ const OdooSyncBatch = () => {
             .lte('created_at_date_int', toDateInt)
             .or('payment_method.is.null,payment_method.neq.point')
             .eq('is_deleted', false)
-            .or('sendodoo.is.null,sendodoo.eq.false')
             .order('created_at_date_int', { ascending: false });
           
           if (companyFilter) query = query.eq('company', companyFilter);
@@ -799,6 +798,8 @@ const OdooSyncBatch = () => {
             return sku && nonStockSet.has(sku);
           });
 
+          const alreadySynced = lines.every(l => (l as any).sendodoo === true);
+
           groups.push({
             orderNumber,
             lines,
@@ -808,15 +809,15 @@ const OdooSyncBatch = () => {
             totalAmount,
             paymentMethod: firstLine.payment_method || '',
             paymentBrand: firstLine.payment_brand || '',
-            selected: true,
+            selected: !alreadySynced,
             skipSync: false,
-            syncStatus: 'pending',
+            syncStatus: alreadySynced ? 'success' : 'pending',
             stepStatus: {
-              customer: 'pending',
-              brand: 'pending',
-              product: 'pending',
-              order: 'pending',
-              purchase: 'pending',
+              customer: alreadySynced ? 'found' : 'pending',
+              brand: alreadySynced ? 'found' : 'pending',
+              product: alreadySynced ? 'found' : 'pending',
+              order: alreadySynced ? 'sent' : 'pending',
+              purchase: alreadySynced ? 'created' : 'pending',
             },
             hasNonStock,
           });
@@ -1043,6 +1044,8 @@ const OdooSyncBatch = () => {
         
         // Whether this is a re-sync (has existing mapping)
         const isResync = !!existingAggregatedOrderNumber;
+        // Already synced if every original line has sendodoo === true
+        const aggAlreadySynced = invoice.lines.length > 0 && invoice.lines.every(l => (l as any).sendodoo === true);
         
         result.push({
           orderNumber,
@@ -1056,15 +1059,15 @@ const OdooSyncBatch = () => {
           grandTotal: productLines.reduce((sum, p) => sum + p.totalAmount, 0),
           originalOrderNumbers: invoice.originalOrderNumbers,
           originalLines: invoice.lines,
-          selected: true, // Always select for syncing (these orders need sync based on sendodoo flag)
+          selected: !aggAlreadySynced,
           skipSync: false,
-          syncStatus: isResync ? 'pending' : 'pending', // Both new and re-sync start as pending
+          syncStatus: aggAlreadySynced ? 'success' : 'pending',
           stepStatus: {
-            customer: 'pending',
-            brand: 'pending',
-            product: 'pending',
-            order: 'pending',
-            purchase: 'pending',
+            customer: aggAlreadySynced ? 'found' : 'pending',
+            brand: aggAlreadySynced ? 'found' : 'pending',
+            product: aggAlreadySynced ? 'found' : 'pending',
+            order: aggAlreadySynced ? 'sent' : 'pending',
+            purchase: aggAlreadySynced ? 'created' : 'pending',
           },
           hasNonStock,
         });
