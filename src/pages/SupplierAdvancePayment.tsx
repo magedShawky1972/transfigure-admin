@@ -545,6 +545,7 @@ const SupplierAdvancePayment = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>{isArabic ? "رقم المرجع" : "Ref. Number"}</TableHead>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
                   <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
