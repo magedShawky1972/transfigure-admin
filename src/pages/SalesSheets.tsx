@@ -475,7 +475,7 @@ const SalesSheets = () => {
     setHeaderBrandId("");
     setHeaderCoinsRate("");
     setHeaderExtraCoinsRate("");
-    setLines([emptyLine(1)]);
+    setLines([{ ...emptyLine(1), sar_rate: String(defaultSarRate) }]);
   };
 
   const getPhaseLabel = (key: string) => {
