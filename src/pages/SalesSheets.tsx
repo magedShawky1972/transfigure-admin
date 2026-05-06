@@ -688,6 +688,9 @@ const SalesSheets = () => {
                         <Input type="text" value={line.extra_coins ? Number(line.extra_coins).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""} onFocus={e => { e.target.value = line.extra_coins; e.target.type = "number"; }} onBlur={e => { handleLineChange(index, "extra_coins", e.target.value); e.target.type = "text"; }} onChange={e => handleLineChange(index, "extra_coins", e.target.value)} disabled={!isEditable} className="min-w-[100px]" />
                       </TableCell>
                       <TableCell>
+                        <Input type="number" step="0.0001" value={line.sar_rate} onChange={e => handleLineChange(index, "sar_rate", e.target.value)} disabled={!isEditable} className="min-w-[90px]" placeholder={String(defaultSarRate)} />
+                      </TableCell>
+                      <TableCell>
                         <span className="text-sm font-semibold">{parseNum(line.total_sar).toFixed(2)}</span>
                       </TableCell>
                       <TableCell>
