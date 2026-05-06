@@ -200,7 +200,7 @@ const SalesSheets = () => {
   const handleLineChange = (index: number, field: keyof SalesSheetLine, value: string) => {
     setLines(prev => {
       const updated = [...prev];
-      const numericFields = ["coins", "extra_coins", "usd_payment_amount"];
+      const numericFields = ["coins", "extra_coins", "usd_payment_amount", "sar_rate"];
       const cleanValue = numericFields.includes(field) ? value.replace(/,/g, "") : value;
       updated[index] = { ...updated[index], [field]: cleanValue };
 
@@ -213,16 +213,17 @@ const SalesSheets = () => {
         else updated[index].extra_coins = "0";
       }
 
-      if (["coins", "extra_coins", "usd_payment_amount"].includes(field)) {
+      if (["coins", "extra_coins", "usd_payment_amount", "sar_rate"].includes(field)) {
         const usdAmount = parseNum(updated[index].usd_payment_amount);
-        updated[index].total_sar = (usdAmount * defaultSarRate).toFixed(2);
+        const lineRate = parseNum(updated[index].sar_rate) || defaultSarRate;
+        updated[index].total_sar = (usdAmount * lineRate).toFixed(2);
       }
 
       return updated;
     });
   };
 
-  const addLine = () => setLines(prev => [...prev, emptyLine(prev.length + 1)]);
+  const addLine = () => setLines(prev => [...prev, { ...emptyLine(prev.length + 1), sar_rate: String(defaultSarRate) }]);
   const removeLine = (index: number) => {
     if (lines.length <= 1) return;
     setLines(prev => prev.filter((_, i) => i !== index).map((l, i) => ({ ...l, line_number: i + 1 })));
@@ -317,7 +318,7 @@ const SalesSheets = () => {
           usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
           coins: parseFloat(l.coins) || 0,
           extra_coins: parseFloat(l.extra_coins) || 0,
-          sar_rate: defaultSarRate,
+          sar_rate: parseFloat(l.sar_rate) || defaultSarRate,
           total_sar: parseFloat(l.total_sar) || 0,
           notes: l.notes,
           receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
@@ -474,7 +475,7 @@ const SalesSheets = () => {
     setHeaderBrandId("");
     setHeaderCoinsRate("");
     setHeaderExtraCoinsRate("");
-    setLines([emptyLine(1)]);
+    setLines([{ ...emptyLine(1), sar_rate: String(defaultSarRate) }]);
   };
 
   const getPhaseLabel = (key: string) => {
@@ -615,6 +616,7 @@ const SalesSheets = () => {
                       [isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"]: parseNum(l.usd_payment_amount),
                       [isArabic ? "الكوينز" : "Coins"]: parseNum(l.coins),
                       [isArabic ? "كوينز إضافية" : "Extra Coins"]: parseNum(l.extra_coins),
+                      [isArabic ? "سعر الصرف" : "Currency Rate"]: parseNum(l.sar_rate),
                       [isArabic ? "الإجمالي ر.س" : "Total SAR"]: parseNum(l.total_sar),
                       [isArabic ? "ملاحظات" : "Notes"]: l.notes,
                     }));
@@ -648,6 +650,7 @@ const SalesSheets = () => {
                     <TableHead>{isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
+                    <TableHead>{isArabic ? "سعر الصرف" : "Currency Rate"}</TableHead>
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
                     <TableHead>{isArabic ? "مرفقات" : "Attachments"}</TableHead>
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
@@ -686,6 +689,9 @@ const SalesSheets = () => {
                         <Input type="text" value={line.extra_coins ? Number(line.extra_coins).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""} onFocus={e => { e.target.value = line.extra_coins; e.target.type = "number"; }} onBlur={e => { handleLineChange(index, "extra_coins", e.target.value); e.target.type = "text"; }} onChange={e => handleLineChange(index, "extra_coins", e.target.value)} disabled={!isEditable} className="min-w-[100px]" />
                       </TableCell>
                       <TableCell>
+                        <Input type="number" step="0.0001" value={line.sar_rate} onChange={e => handleLineChange(index, "sar_rate", e.target.value)} disabled={!isEditable} className="min-w-[90px]" placeholder={String(defaultSarRate)} />
+                      </TableCell>
+                      <TableCell>
                         <span className="text-sm font-semibold">{parseNum(line.total_sar).toFixed(2)}</span>
                       </TableCell>
                       <TableCell>
@@ -722,7 +728,7 @@ const SalesSheets = () => {
                   ))}
                   {/* Totals row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={7} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)} SAR</TableCell>
                     <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>
