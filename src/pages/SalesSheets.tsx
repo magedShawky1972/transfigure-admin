@@ -616,6 +616,7 @@ const SalesSheets = () => {
                       [isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"]: parseNum(l.usd_payment_amount),
                       [isArabic ? "الكوينز" : "Coins"]: parseNum(l.coins),
                       [isArabic ? "كوينز إضافية" : "Extra Coins"]: parseNum(l.extra_coins),
+                      [isArabic ? "سعر الصرف" : "Currency Rate"]: parseNum(l.sar_rate),
                       [isArabic ? "الإجمالي ر.س" : "Total SAR"]: parseNum(l.total_sar),
                       [isArabic ? "ملاحظات" : "Notes"]: l.notes,
                     }));
