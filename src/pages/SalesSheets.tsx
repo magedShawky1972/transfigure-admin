@@ -200,7 +200,7 @@ const SalesSheets = () => {
   const handleLineChange = (index: number, field: keyof SalesSheetLine, value: string) => {
     setLines(prev => {
       const updated = [...prev];
-      const numericFields = ["coins", "extra_coins", "usd_payment_amount"];
+      const numericFields = ["coins", "extra_coins", "usd_payment_amount", "sar_rate"];
       const cleanValue = numericFields.includes(field) ? value.replace(/,/g, "") : value;
       updated[index] = { ...updated[index], [field]: cleanValue };
 
@@ -213,9 +213,10 @@ const SalesSheets = () => {
         else updated[index].extra_coins = "0";
       }
 
-      if (["coins", "extra_coins", "usd_payment_amount"].includes(field)) {
+      if (["coins", "extra_coins", "usd_payment_amount", "sar_rate"].includes(field)) {
         const usdAmount = parseNum(updated[index].usd_payment_amount);
-        updated[index].total_sar = (usdAmount * defaultSarRate).toFixed(2);
+        const lineRate = parseNum(updated[index].sar_rate) || defaultSarRate;
+        updated[index].total_sar = (usdAmount * lineRate).toFixed(2);
       }
 
       return updated;
