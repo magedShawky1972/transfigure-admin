@@ -727,7 +727,7 @@ const SalesSheets = () => {
                   ))}
                   {/* Totals row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={7} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toFixed(2)} SAR</TableCell>
                     <TableCell colSpan={isEditable ? 3 : 2}></TableCell>
                   </TableRow>
