@@ -8553,6 +8553,7 @@ export type Database = {
           payment_date: string
           receiving_image: string | null
           receiving_notes: string | null
+          ref_number: string | null
           sent_for_receiving: boolean
           sent_for_receiving_at: string | null
           sent_for_receiving_by: string | null
@@ -8580,6 +8581,7 @@ export type Database = {
           payment_date?: string
           receiving_image?: string | null
           receiving_notes?: string | null
+          ref_number?: string | null
           sent_for_receiving?: boolean
           sent_for_receiving_at?: string | null
           sent_for_receiving_by?: string | null
@@ -8607,6 +8609,7 @@ export type Database = {
           payment_date?: string
           receiving_image?: string | null
           receiving_notes?: string | null
+          ref_number?: string | null
           sent_for_receiving?: boolean
           sent_for_receiving_at?: string | null
           sent_for_receiving_by?: string | null

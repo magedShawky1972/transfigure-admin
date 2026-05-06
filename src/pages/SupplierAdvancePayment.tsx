@@ -545,6 +545,7 @@ const SupplierAdvancePayment = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>{isArabic ? "رقم المرجع" : "Ref. Number"}</TableHead>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
                   <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
                   <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
@@ -560,6 +561,7 @@ const SupplierAdvancePayment = () => {
               <TableBody>
                 {filteredPayments.map((p) => (
                   <TableRow key={p.id}>
+                    <TableCell className="font-mono text-xs">{p.ref_number || "-"}</TableCell>
                     <TableCell className="font-medium">{(p.suppliers as any)?.supplier_name || "-"}</TableCell>
                     <TableCell>{p.payment_date}</TableCell>
                     <TableCell>{(p.currencies as any)?.currency_code || "-"}</TableCell>
@@ -573,17 +575,15 @@ const SupplierAdvancePayment = () => {
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {getPhaseFromPayment(p) === "entry" && (
-                        <Button size="sm" variant="ghost" onClick={() => handleDeletePayment(p.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
+                      <Button size="sm" variant="ghost" onClick={() => handleDeletePayment(p.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 {filteredPayments.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد دفعات" : "No payments found"}
                     </TableCell>
                   </TableRow>
