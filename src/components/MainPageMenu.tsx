@@ -132,6 +132,16 @@ export function MainPageMenu() {
   const [userPermissions, setUserPermissions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [customizations, setCustomizations] = useState<CustomMap>({});
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchUserPermissions();
