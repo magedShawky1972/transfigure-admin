@@ -864,7 +864,7 @@ const CoinsSheets = () => {
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
                     <TableHead>{isArabic ? "إجمالي المدفوع" : "Total Payment"}</TableHead>
                     <TableHead className="w-10">{isArabic ? "دفع" : "Pay"}</TableHead>
-                    {isEditable && <TableHead className="w-10"></TableHead>}
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
