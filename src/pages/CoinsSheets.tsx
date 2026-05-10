@@ -860,6 +860,7 @@ const CoinsSheets = () => {
                     <TableHead>{isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
+                    <TableHead>{isArabic ? "سعر الصرف" : "Currency Rate"}</TableHead>
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
                     <TableHead>{isArabic ? "مرفقات" : "Attachments"}</TableHead>
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
