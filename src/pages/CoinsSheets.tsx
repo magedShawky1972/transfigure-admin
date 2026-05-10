@@ -209,7 +209,7 @@ const CoinsSheets = () => {
     });
   };
 
-  const addLine = () => setLines(prev => [...prev, emptyLine(prev.length + 1)]);
+  const addLine = () => setLines(prev => [...prev, { ...emptyLine(prev.length + 1), sar_rate: String(defaultSarRate) }]);
   const removeLine = (index: number) => {
     if (lines.length <= 1) return;
     setLines(prev => prev.filter((_, i) => i !== index).map((l, i) => ({ ...l, line_number: i + 1 })));
