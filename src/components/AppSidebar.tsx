@@ -28,11 +28,12 @@ export function AppSidebar() {
   const [asusTawasoulUnread, setAsusTawasoulUnread] = useState(0);
   const [customizations, setCustomizations] = useState<CustomMap>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    const allGroups = new Set(DEFAULT_MENU.map((g) => g.defaultEn));
     try {
       const stored = localStorage.getItem(COLLAPSED_GROUPS_KEY);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
+      return stored ? new Set(JSON.parse(stored)) : allGroups;
     } catch {
-      return new Set();
+      return allGroups;
     }
   });
 
