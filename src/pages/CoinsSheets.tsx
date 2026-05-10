@@ -199,16 +199,17 @@ const CoinsSheets = () => {
         }
       }
 
-      if (["coins", "extra_coins", "usd_payment_amount"].includes(field)) {
+      if (["coins", "extra_coins", "usd_payment_amount", "sar_rate"].includes(field)) {
         const usdAmount = parseNum(updated[index].usd_payment_amount);
-        updated[index].total_sar = (usdAmount * defaultSarRate).toFixed(2);
+        const lineRate = parseNum(updated[index].sar_rate) || defaultSarRate;
+        updated[index].total_sar = (usdAmount * lineRate).toFixed(2);
       }
 
       return updated;
     });
   };
 
-  const addLine = () => setLines(prev => [...prev, emptyLine(prev.length + 1)]);
+  const addLine = () => setLines(prev => [...prev, { ...emptyLine(prev.length + 1), sar_rate: String(defaultSarRate) }]);
   const removeLine = (index: number) => {
     if (lines.length <= 1) return;
     setLines(prev => prev.filter((_, i) => i !== index).map((l, i) => ({ ...l, line_number: i + 1 })));
@@ -366,7 +367,7 @@ const CoinsSheets = () => {
           usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
           coins: parseFloat(l.coins) || 0,
           extra_coins: parseFloat(l.extra_coins) || 0,
-          sar_rate: defaultSarRate,
+          sar_rate: parseFloat(l.sar_rate) || defaultSarRate,
           total_sar: parseFloat(l.total_sar) || 0,
           notes: l.notes,
           receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
@@ -859,6 +860,7 @@ const CoinsSheets = () => {
                     <TableHead>{isArabic ? "مبلغ الدفع USD" : "USD Payment Amount"}</TableHead>
                     <TableHead>{isArabic ? "الكوينز" : "Coins"}</TableHead>
                     <TableHead>{isArabic ? "كوينز إضافية" : "Extra Coins"}</TableHead>
+                    <TableHead>{isArabic ? "سعر الصرف" : "Currency Rate"}</TableHead>
                     <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
                     <TableHead>{isArabic ? "مرفقات" : "Attachments"}</TableHead>
                     <TableHead>{isArabic ? "ملاحظات" : "Notes"}</TableHead>
@@ -948,6 +950,17 @@ const CoinsSheets = () => {
                       </TableCell>
                       <TableCell>
                         <Input
+                          type="number"
+                          step="0.0001"
+                          value={line.sar_rate}
+                          onChange={e => handleLineChange(index, "sar_rate", e.target.value)}
+                          disabled={!isEditable}
+                          className="min-w-[90px]"
+                          placeholder={String(defaultSarRate)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
                           value={line.total_sar ? Number(line.total_sar).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                           readOnly
                           className="min-w-[120px] bg-muted font-semibold"
@@ -1031,7 +1044,7 @@ const CoinsSheets = () => {
                   );})}
                   {/* Grand Total Row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={6} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
+                    <TableCell colSpan={7} className="text-end">{isArabic ? "الإجمالي" : "Grand Total"}</TableCell>
                     <TableCell>{grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell colSpan={5}></TableCell>
                   </TableRow>
