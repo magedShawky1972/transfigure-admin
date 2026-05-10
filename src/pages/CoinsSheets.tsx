@@ -1022,13 +1022,11 @@ const CoinsSheets = () => {
                           </Button>
                         )}
                       </TableCell>
-                      {isEditable && (
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteLine(index)} disabled={lines.length <= 1} title={isArabic ? "حذف السطر" : "Delete line"}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );})}
                   {/* Grand Total Row */}
