@@ -950,6 +950,17 @@ const CoinsSheets = () => {
                       </TableCell>
                       <TableCell>
                         <Input
+                          type="number"
+                          step="0.0001"
+                          value={line.sar_rate}
+                          onChange={e => handleLineChange(index, "sar_rate", e.target.value)}
+                          disabled={!isEditable}
+                          className="min-w-[90px]"
+                          placeholder={String(defaultSarRate)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
                           value={line.total_sar ? Number(line.total_sar).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                           readOnly
                           className="min-w-[120px] bg-muted font-semibold"
