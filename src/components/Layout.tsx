@@ -417,7 +417,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider defaultOpen={menuMode === "sidebar"}>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20">
         {menuMode === "sidebar" && <AppSidebar />}
         
