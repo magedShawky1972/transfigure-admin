@@ -1201,6 +1201,28 @@ const CoinsSheets = () => {
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={async () => {
+                              if (!window.confirm(isArabic ? `هل أنت متأكد من حذف الطلب ${order.order_number}؟ سيتم حذف جميع الأسطر والمرفقات.` : `Are you sure you want to delete order ${order.order_number}? All lines and attachments will be deleted.`)) return;
+                              try {
+                                await supabase.from("coins_sheet_payment_terms").delete().eq("sheet_order_id", order.id);
+                                await supabase.from("coins_sheet_line_attachments").delete().eq("sheet_order_id", order.id);
+                                await supabase.from("coins_sheet_order_lines").delete().eq("sheet_order_id", order.id);
+                                const { error } = await supabase.from("coins_sheet_orders").delete().eq("id", order.id);
+                                if (error) throw error;
+                                toast.success(isArabic ? "تم حذف الطلب" : "Order deleted");
+                                fetchOrders();
+                              } catch (err: any) {
+                                toast.error(err.message || "Error");
+                              }
+                            }}
+                            title={isArabic ? "حذف" : "Delete"}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
