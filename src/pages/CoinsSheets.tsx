@@ -367,7 +367,7 @@ const CoinsSheets = () => {
           usd_payment_amount: parseFloat(l.usd_payment_amount) || 0,
           coins: parseFloat(l.coins) || 0,
           extra_coins: parseFloat(l.extra_coins) || 0,
-          sar_rate: defaultSarRate,
+          sar_rate: parseFloat(l.sar_rate) || defaultSarRate,
           total_sar: parseFloat(l.total_sar) || 0,
           notes: l.notes,
           receiving_date: l.receiving_date ? format(l.receiving_date, "yyyy-MM-dd") : null,
