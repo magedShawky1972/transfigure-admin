@@ -214,6 +214,29 @@ const CoinsSheets = () => {
     setLines(prev => prev.filter((_, i) => i !== index).map((l, i) => ({ ...l, line_number: i + 1 })));
   };
 
+  const handleDeleteLine = async (index: number) => {
+    const line = lines[index];
+    if (lines.length <= 1) {
+      toast.error(isArabic ? "لا يمكن حذف السطر الأخير" : "Cannot delete the last line");
+      return;
+    }
+    if (!isEditable && line.id && selectedOrderId) {
+      const confirmed = window.confirm(isArabic ? "هل أنت متأكد من حذف هذا السطر؟" : "Are you sure you want to delete this line?");
+      if (!confirmed) return;
+      try {
+        await supabase.from("coins_sheet_payment_terms").delete().eq("line_id", line.id);
+        await supabase.from("coins_sheet_line_attachments").delete().eq("line_id", line.id);
+        await supabase.from("coins_sheet_order_lines").delete().eq("id", line.id);
+        toast.success(isArabic ? "تم حذف السطر" : "Line deleted");
+        loadOrder(orders.find(o => o.id === selectedOrderId)!);
+      } catch (err: any) {
+        toast.error(err.message || "Error deleting line");
+      }
+    } else {
+      removeLine(index);
+    }
+  };
+
   const handleLineAttachmentUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
