@@ -199,9 +199,10 @@ const CoinsSheets = () => {
         }
       }
 
-      if (["coins", "extra_coins", "usd_payment_amount"].includes(field)) {
+      if (["coins", "extra_coins", "usd_payment_amount", "sar_rate"].includes(field)) {
         const usdAmount = parseNum(updated[index].usd_payment_amount);
-        updated[index].total_sar = (usdAmount * defaultSarRate).toFixed(2);
+        const lineRate = parseNum(updated[index].sar_rate) || defaultSarRate;
+        updated[index].total_sar = (usdAmount * lineRate).toFixed(2);
       }
 
       return updated;
