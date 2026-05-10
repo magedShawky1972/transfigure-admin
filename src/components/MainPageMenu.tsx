@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
@@ -132,6 +133,16 @@ export function MainPageMenu() {
   const [userPermissions, setUserPermissions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [customizations, setCustomizations] = useState<CustomMap>({});
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchUserPermissions();
@@ -240,30 +251,38 @@ export function MainPageMenu() {
 
         if (items.length === 0) return null;
 
+        const isOpen = openGroups.has(group.defaultEn);
         return (
           <div key={group.defaultEn} className="space-y-4">
-            <h2 className="text-lg font-semibold text-primary border-b border-border pb-2">
-              {displayLabel}
-            </h2>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
-              {items.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.url}
-                    to={item.url}
-                    className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-card hover:bg-muted hover:border-primary/50 transition-all group"
-                  >
-                    <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <Icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <span className="text-xs text-center font-medium text-muted-foreground group-hover:text-foreground line-clamp-2">
-                      {item.displayTitle}
-                    </span>
-                  </NavLink>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={() => toggleGroup(group.defaultEn)}
+              className="w-full flex items-center justify-between text-lg font-semibold text-primary border-b border-border pb-2 hover:text-primary/80 transition-colors"
+            >
+              <span>{displayLabel}</span>
+              {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </button>
+            {isOpen && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.url}
+                      to={item.url}
+                      className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-card hover:bg-muted hover:border-primary/50 transition-all group"
+                    >
+                      <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                        <Icon className="h-6 w-6 text-primary" />
+                      </div>
+                      <span className="text-xs text-center font-medium text-muted-foreground group-hover:text-foreground line-clamp-2">
+                        {item.displayTitle}
+                      </span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
