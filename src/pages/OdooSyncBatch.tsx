@@ -3522,6 +3522,11 @@ const OdooSyncBatch = () => {
                     {language === 'ar' ? 'المنتجات المجمعة' : 'Aggregated Products'}
                     <Badge variant="secondary">{selectedInvoiceDetail.productLines.length}</Badge>
                   </h4>
+                  {(() => {
+                    const totalQty = selectedInvoiceDetail.productLines.reduce((s, l) => s + (l.totalQty || 0), 0);
+                    const totalAmount = selectedInvoiceDetail.productLines.reduce((s, l) => s + (l.totalAmount || 0), 0);
+                    const totalCost = selectedInvoiceDetail.productLines.reduce((s, l) => s + ((l.costSold ?? ((l.costPrice || 0) * (l.totalQty || 0))) || 0), 0);
+                    return (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -3530,28 +3535,38 @@ const OdooSyncBatch = () => {
                         <TableHead className="text-right">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
                         <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
                         <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'التكلفة' : 'Cost'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'إجمالي التكلفة' : 'Cost Total'}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedInvoiceDetail.productLines.map((line, idx) => (
+                      {selectedInvoiceDetail.productLines.map((line, idx) => {
+                        const lineCostTotal = line.costSold ?? ((line.costPrice || 0) * (line.totalQty || 0));
+                        return (
                         <TableRow key={idx}>
                           <TableCell className="font-mono text-xs">{line.productSku}</TableCell>
                           <TableCell className="max-w-[200px] truncate" title={line.productName}>{line.productName}</TableCell>
                           <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{line.totalQty}</TableCell>
                           <TableCell className="text-right font-medium">{line.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{(line.costPrice || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-medium">{lineCostTotal.toFixed(2)}</TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                       <TableRow className="bg-primary/5 font-bold">
-                        <TableCell colSpan={4} className="text-right">
+                        <TableCell colSpan={3} className="text-right">
                           {language === 'ar' ? 'الإجمالي' : 'Total'}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {selectedInvoiceDetail.grandTotal.toFixed(2)} SAR
-                        </TableCell>
+                        <TableCell className="text-right">{totalQty}</TableCell>
+                        <TableCell className="text-right">{totalAmount.toFixed(2)} SAR</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                        <TableCell className="text-right">{totalCost.toFixed(2)} SAR</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
+                    );
+                  })()}
                 </div>
 
                 {/* Original Orders Section */}
