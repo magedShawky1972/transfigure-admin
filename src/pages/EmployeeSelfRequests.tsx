@@ -253,7 +253,7 @@ const EmployeeSelfRequests = () => {
         .from('employee_requests')
         .delete()
         .eq('id', requestId)
-        .eq('status', 'pending');
+        .in('status', ['pending', 'manager_approved', 'hr_pending']);
 
       if (error) throw error;
 
@@ -613,7 +613,7 @@ const EmployeeSelfRequests = () => {
                         </Button>
                       </TableCell>
                       <TableCell>
-                        {request.status === 'pending' && (
+                        {['pending', 'manager_approved', 'hr_pending'].includes(request.status) && (
                           <Button
                             variant="ghost"
                             size="icon"
