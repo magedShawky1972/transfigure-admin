@@ -2693,8 +2693,9 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
                     <TableHead className="text-center">ABC</TableHead>
                     <TableHead>{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
+                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                     <TableHead className="text-center">{language === 'ar' ? 'الكوينز' : 'Coins'}</TableHead>
+                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'العميل' : 'Customer'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'العلامة' : 'Brand'}</TableHead>
