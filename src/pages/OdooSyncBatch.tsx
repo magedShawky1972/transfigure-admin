@@ -2791,8 +2791,14 @@ const OdooSyncBatch = () => {
                       >
                         {invoice.vendorName || '-'}
                       </TableCell>
-                      <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
-                      <TableCell>
+                       <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
+                       <TableCell className="text-xs text-center font-semibold">
+                         {(() => {
+                           const totalCoins = invoice.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0);
+                           return totalCoins > 0 ? totalCoins.toLocaleString('en-US') : '-';
+                         })()}
+                       </TableCell>
+                       <TableCell>
                         <Button
                           variant="ghost"
                           size="sm"
