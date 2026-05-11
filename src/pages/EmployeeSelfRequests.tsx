@@ -253,7 +253,7 @@ const EmployeeSelfRequests = () => {
         .from('employee_requests')
         .delete()
         .eq('id', requestId)
-        .eq('status', 'pending');
+        .in('status', ['pending', 'manager_approved', 'hr_pending']);
 
       if (error) throw error;
 
