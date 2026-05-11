@@ -613,7 +613,7 @@ const EmployeeSelfRequests = () => {
                         </Button>
                       </TableCell>
                       <TableCell>
-                        {request.status === 'pending' && (
+                        {['pending', 'manager_approved', 'hr_pending'].includes(request.status) && (
                           <Button
                             variant="ghost"
                             size="icon"
