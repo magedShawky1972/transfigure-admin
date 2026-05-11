@@ -3592,6 +3592,11 @@ const OdooSyncBatch = () => {
                     {language === 'ar' ? 'تفاصيل المعاملات الأصلية' : 'Original Transaction Details'}
                     <Badge variant="secondary">{selectedInvoiceDetail.originalLines.length}</Badge>
                   </h4>
+                  {(() => {
+                    const oTotalQty = selectedInvoiceDetail.originalLines.reduce((s, l: any) => s + (l.qty || 0), 0);
+                    const oTotalAmount = selectedInvoiceDetail.originalLines.reduce((s, l: any) => s + (l.total || 0), 0);
+                    const oTotalCost = selectedInvoiceDetail.originalLines.reduce((s, l: any) => s + ((l.cost_sold ?? ((l.cost_price || 0) * (l.qty || 0))) || 0), 0);
+                    return (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -3601,10 +3606,14 @@ const OdooSyncBatch = () => {
                         <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
                         <TableHead className="text-right">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
                         <TableHead className="text-right">{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'التكلفة' : 'Cost'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'إجمالي التكلفة' : 'Cost Total'}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedInvoiceDetail.originalLines.map((line, idx) => (
+                      {selectedInvoiceDetail.originalLines.map((line: any, idx) => {
+                        const lineCostTotal = line.cost_sold ?? ((line.cost_price || 0) * (line.qty || 0));
+                        return (
                         <TableRow key={idx}>
                           <TableCell className="font-mono text-xs">{line.order_number}</TableCell>
                           <TableCell className="max-w-[150px] truncate text-xs" title={line.product_name}>
@@ -3673,10 +3682,25 @@ const OdooSyncBatch = () => {
                           <TableCell className="text-right">{line.qty}</TableCell>
                           <TableCell className="text-right">{line.unit_price.toFixed(2)}</TableCell>
                           <TableCell className="text-right font-medium">{line.total.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{(line.cost_price || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-medium">{lineCostTotal.toFixed(2)}</TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
+                      <TableRow className="bg-primary/5 font-bold">
+                        <TableCell colSpan={3} className="text-right">
+                          {language === 'ar' ? 'الإجمالي' : 'Total'}
+                        </TableCell>
+                        <TableCell className="text-right">{oTotalQty}</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                        <TableCell className="text-right">{oTotalAmount.toFixed(2)} SAR</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                        <TableCell className="text-right">{oTotalCost.toFixed(2)} SAR</TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
+                    );
+                  })()}
                 </div>
               </div>
             </ScrollArea>
