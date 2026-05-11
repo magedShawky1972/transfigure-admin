@@ -49,6 +49,7 @@ import {
   Building,
   MessageSquare,
   ArrowRightLeft,
+  Trash2,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
@@ -145,6 +146,22 @@ const EmployeeRequestApprovals = () => {
         await fetchPendingApprovers(data);
       }
     } catch (error) { console.error(error); }
+  };
+
+  const handleDeleteRequest = async (requestId: string) => {
+    if (!confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) return;
+    try {
+      const { error } = await supabase
+        .from('employee_requests')
+        .delete()
+        .eq('id', requestId)
+        .in('status', ['pending', 'manager_approved', 'hr_pending']);
+      if (error) throw error;
+      setRequests(prev => prev.filter(r => r.id !== requestId));
+      toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted', description: language === 'ar' ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully' });
+    } catch (error: any) {
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   const fetchPendingApprovers = async (requestsList: any[]) => {
@@ -668,6 +685,17 @@ const EmployeeRequestApprovals = () => {
                                 <X className="h-4 w-4" />
                               </Button>
                             </>
+                          )}
+                          {!['approved', 'rejected', 'cancelled'].includes(r.status) && isHRManager && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => handleDeleteRequest(r.id)}
+                              title={language === 'ar' ? 'حذف الطلب' : 'Delete Request'}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
                           )}
                         </div>
                       </TableCell>
