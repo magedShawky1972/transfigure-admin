@@ -2693,8 +2693,9 @@ const OdooSyncBatch = () => {
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
                     <TableHead className="text-center">ABC</TableHead>
                     <TableHead>{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
-                    <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
+                     <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
+                     <TableHead className="text-center">{language === 'ar' ? 'الكوينز' : 'Coins'}</TableHead>
+                     <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'العميل' : 'Customer'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'العلامة' : 'Brand'}</TableHead>
@@ -2790,8 +2791,14 @@ const OdooSyncBatch = () => {
                       >
                         {invoice.vendorName || '-'}
                       </TableCell>
-                      <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
-                      <TableCell>
+                       <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
+                       <TableCell className="text-xs text-center font-semibold">
+                         {(() => {
+                           const totalCoins = invoice.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0);
+                           return totalCoins > 0 ? totalCoins.toLocaleString('en-US') : '-';
+                         })()}
+                       </TableCell>
+                       <TableCell>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -2849,11 +2856,14 @@ const OdooSyncBatch = () => {
                         ({filteredAggregatedInvoices.length} {language === 'ar' ? 'فاتورة' : 'invoices'})
                       </span>
                     </TableCell>
-                    <TableCell className="text-lg">
-                      {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
-                    </TableCell>
-                    <TableCell colSpan={8}></TableCell>
-                  </TableRow>
+                     <TableCell className="text-lg">
+                       {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                     </TableCell>
+                     <TableCell className="text-center text-lg">
+                       {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0), 0).toLocaleString('en-US')}
+                     </TableCell>
+                     <TableCell colSpan={8}></TableCell>
+                   </TableRow>
                 </TableBody>
               </Table>
             </ScrollArea>
