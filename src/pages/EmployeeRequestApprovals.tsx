@@ -686,6 +686,17 @@ const EmployeeRequestApprovals = () => {
                               </Button>
                             </>
                           )}
+                          {!['approved', 'rejected', 'cancelled'].includes(r.status) && isHRManager && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => handleDeleteRequest(r.id)}
+                              title={language === 'ar' ? 'حذف الطلب' : 'Delete Request'}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
