@@ -49,6 +49,7 @@ import {
   Building,
   MessageSquare,
   ArrowRightLeft,
+  Trash2,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
