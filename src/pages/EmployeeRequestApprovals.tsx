@@ -163,6 +163,8 @@ const EmployeeRequestApprovals = () => {
       toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     }
   };
+
+  const fetchPendingApprovers = async (requestsList: any[]) => {
     const approverMap = new Map<string, string>();
     
     for (const req of requestsList) {
