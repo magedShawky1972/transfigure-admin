@@ -148,7 +148,21 @@ const EmployeeRequestApprovals = () => {
     } catch (error) { console.error(error); }
   };
 
-  const fetchPendingApprovers = async (requestsList: any[]) => {
+  const handleDeleteRequest = async (requestId: string) => {
+    if (!confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا الطلب؟' : 'Are you sure you want to delete this request?')) return;
+    try {
+      const { error } = await supabase
+        .from('employee_requests')
+        .delete()
+        .eq('id', requestId)
+        .in('status', ['pending', 'manager_approved', 'hr_pending']);
+      if (error) throw error;
+      setRequests(prev => prev.filter(r => r.id !== requestId));
+      toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted', description: language === 'ar' ? 'تم حذف الطلب بنجاح' : 'Request deleted successfully' });
+    } catch (error: any) {
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
     const approverMap = new Map<string, string>();
     
     for (const req of requestsList) {
