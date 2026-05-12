@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { format, startOfMonth, endOfMonth, subMonths, parse, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { ar } from "date-fns/locale";
 import { 
