@@ -121,7 +121,6 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/tawasoul", defaultEn: "Tawasoul", defaultAr: "تواصل", icon: MessageCircle },
       { url: "/asus-tawasoul", defaultEn: "Asus Tawasoul", defaultAr: "أسس تواصل", icon: Users },
       { url: "/email-manager", defaultEn: "Email Manager", defaultAr: "مدير البريد", icon: Mail },
-      { url: "/projects-tasks", defaultEn: "Projects & Tasks", defaultAr: "المشاريع والمهام", icon: FolderKanban },
       { url: "/sales-order-entry", defaultEn: "Sales Order Entry", defaultAr: "إدخال أمر البيع", icon: Receipt },
       { url: "/pricing-scenario", defaultEn: "Pricing Scenario", defaultAr: "سيناريو التسعير", icon: Calculator },
       { url: "/cancelled-orders", defaultEn: "Cancelled Orders Manually Executed", defaultAr: "الطلبات الملغاة تم تنفيذها يدوي", icon: Undo2 },
