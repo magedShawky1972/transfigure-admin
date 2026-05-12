@@ -2105,15 +2105,31 @@ const ProjectsTasks = () => {
                                       )}
                                     </div>
 
-                                    {/* Assignee */}
+                                    {/* Assignees (multi) */}
                                     <div className="flex items-center gap-2 mt-3">
-                                      <Avatar className="h-6 w-6">
-                                        <AvatarFallback className="text-xs bg-primary/10">
-                                          {task.profiles?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
-                                        </AvatarFallback>
-                                      </Avatar>
+                                      <div className="flex -space-x-2">
+                                        {(task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to]).slice(0, 3).map((uid, idx) => {
+                                          const u = users.find(x => x.user_id === uid);
+                                          return (
+                                            <Avatar key={uid + idx} className="h-6 w-6 border-2 border-background">
+                                              <AvatarFallback className="text-xs bg-primary/10">
+                                                {u?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                          );
+                                        })}
+                                        {((task.assignees?.length || 0) > 3) && (
+                                          <div className="h-6 w-6 rounded-full border-2 border-background bg-muted text-[10px] flex items-center justify-center">
+                                            +{(task.assignees!.length - 3)}
+                                          </div>
+                                        )}
+                                      </div>
                                       <span className="text-xs text-muted-foreground truncate flex-1">
-                                        {task.profiles?.user_name || t.selectUser}
+                                        {(() => {
+                                          const ids = task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to];
+                                          const names = ids.map(id => users.find(u => u.user_id === id)?.user_name).filter(Boolean) as string[];
+                                          return names.length > 0 ? names.join(', ') : t.selectUser;
+                                        })()}
                                       </span>
                                       <Popover>
                                         <PopoverTrigger asChild>
@@ -2121,7 +2137,7 @@ const ProjectsTasks = () => {
                                             variant="ghost"
                                             size="icon"
                                             className="h-6 w-6"
-                                            title={language === 'ar' ? 'تعيين مستخدم' : 'Assign user'}
+                                            title={language === 'ar' ? 'تعيين مستخدمين' : 'Assign users'}
                                             onClick={(e) => e.stopPropagation()}
                                           >
                                             <UserPlus className="h-3.5 w-3.5" />
@@ -2129,30 +2145,40 @@ const ProjectsTasks = () => {
                                         </PopoverTrigger>
                                         <PopoverContent className="w-64 p-0" align="end" onClick={(e) => e.stopPropagation()}>
                                           <div className="p-2 border-b text-xs font-medium">
-                                            {language === 'ar' ? 'تعيين إلى' : 'Assign to'}
+                                            {language === 'ar' ? 'تعيين إلى' : 'Assign to (multiple)'}
                                           </div>
                                           <ScrollArea className="max-h-64">
                                             <div className="p-1">
                                               {users
                                                 .filter(u => !task.department_id || u.default_department_id === task.department_id || (u.departmentMemberships && u.departmentMemberships.includes(task.department_id)))
-                                                .map(u => (
-                                                  <button
-                                                    key={u.user_id}
-                                                    type="button"
-                                                    onClick={() => handleAssignTask(task.id, u.user_id)}
-                                                    className={cn(
-                                                      "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted text-left",
-                                                      task.assigned_to === u.user_id && "bg-primary/10"
-                                                    )}
-                                                  >
-                                                    <Avatar className="h-5 w-5">
-                                                      <AvatarFallback className="text-[10px] bg-primary/10">
-                                                        {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
-                                                      </AvatarFallback>
-                                                    </Avatar>
-                                                    <span className="truncate">{u.user_name}</span>
-                                                  </button>
-                                                ))}
+                                                .map(u => {
+                                                  const current = task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to];
+                                                  const checked = current.includes(u.user_id);
+                                                  return (
+                                                    <button
+                                                      key={u.user_id}
+                                                      type="button"
+                                                      onClick={() => {
+                                                        const next = checked
+                                                          ? current.filter(id => id !== u.user_id)
+                                                          : [...current, u.user_id];
+                                                        handleAssignTask(task.id, next);
+                                                      }}
+                                                      className={cn(
+                                                        "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted text-left",
+                                                        checked && "bg-primary/10"
+                                                      )}
+                                                    >
+                                                      <Checkbox checked={checked} className="pointer-events-none" />
+                                                      <Avatar className="h-5 w-5">
+                                                        <AvatarFallback className="text-[10px] bg-primary/10">
+                                                          {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      <span className="truncate">{u.user_name}</span>
+                                                    </button>
+                                                  );
+                                                })}
                                             </div>
                                           </ScrollArea>
                                         </PopoverContent>
