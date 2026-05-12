@@ -1804,38 +1804,37 @@ const ProjectsTasks = () => {
                 <span className="text-sm text-muted-foreground">{t.projects}:</span>
                 <div className="flex flex-wrap gap-2">
                   {projects.filter(p => p.department_id === selectedDepartment && (selectedProject === 'all' || p.id === selectedProject)).map(project => (
-                    <Badge 
-                      key={project.id} 
-                      variant="outline" 
-                      className="gap-1 pr-1 cursor-pointer hover:bg-muted"
-                      onClick={() => handleEditProject(project)}
-                    >
-                      <FolderKanban className="h-3 w-3" />
-                      {project.name}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 ml-1 text-primary hover:bg-primary/20"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/project-gantt?projectId=${project.id}&departmentId=${selectedDepartment}`);
-                        }}
-                        title={language === 'ar' ? 'مخطط جانت' : 'Gantt Chart'}
+                    <div key={project.id} className="inline-flex items-center gap-1">
+                      <Badge
+                        variant="outline"
+                        className="gap-1 pr-1 cursor-pointer hover:bg-muted"
+                        onClick={() => handleEditProject(project)}
                       >
-                        <GanttChart className="h-3.5 w-3.5" />
-                      </Button>
+                        <FolderKanban className="h-3 w-3" />
+                        {project.name}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 hover:bg-destructive/20 hover:text-destructive ml-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(project.id);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-4 w-4 hover:bg-destructive/20 hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteProject(project.id);
-                        }}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-primary border-primary/40 hover:bg-primary/10"
+                        onClick={() => navigate(`/project-gantt?projectId=${project.id}&departmentId=${selectedDepartment}`)}
+                        title={language === 'ar' ? 'مخطط جانت' : 'Timeline'}
                       >
-                        <X className="h-3 w-3" />
+                        <GanttChart className="h-4 w-4" />
+                        <span className="text-xs font-medium">{language === 'ar' ? 'الجدول الزمني' : 'Timeline'}</span>
                       </Button>
-                    </Badge>
+                    </div>
                   ))}
                 </div>
               </div>
