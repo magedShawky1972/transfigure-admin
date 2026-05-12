@@ -1109,6 +1109,18 @@ const ProjectsTasks = () => {
     }
   };
 
+  const handleAssignTask = async (taskId: string, userId: string) => {
+    try {
+      const { error } = await supabase.from('tasks').update({ assigned_to: userId }).eq('id', taskId).select();
+      if (error) throw error;
+      toast({ title: language === 'ar' ? 'تم التعيين' : 'Assigned' });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error assigning task:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', description: error?.message, variant: 'destructive' });
+    }
+  };
+
   const handleDeleteProject = async (projectId: string) => {
     try {
       // First check if project has any tasks
