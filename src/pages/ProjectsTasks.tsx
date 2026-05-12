@@ -1504,10 +1504,17 @@ const ProjectsTasks = () => {
                     <div>
                       <label className="text-sm font-medium">{t.projectMembers}</label>
                       <div className="border rounded-md p-2 max-h-[150px] overflow-y-auto">
-                        {users.filter(u =>
-                          ((u.default_department_id && projectForm.department_ids.includes(u.default_department_id)) ||
-                           (u.departmentMemberships && u.departmentMemberships.some(d => projectForm.department_ids.includes(d)))) &&
-                          u.user_id !== projectForm.manager_id
+                        {Array.from(
+                          new Map(
+                            [...users, ...allProjectUsers]
+                              .filter((u) =>
+                                (((u.default_department_id && projectForm.department_ids.includes(u.default_department_id)) ||
+                                  (u.departmentMemberships && u.departmentMemberships.some(d => projectForm.department_ids.includes(d)))) ||
+                                  projectForm.member_ids.includes(u.user_id)) &&
+                                u.user_id !== projectForm.manager_id
+                              )
+                              .map((u) => [u.user_id, u])
+                          ).values()
                         ).map(u => (
                           <div key={u.user_id} className="flex items-center gap-2 py-1">
                             <Checkbox 
@@ -1515,7 +1522,7 @@ const ProjectsTasks = () => {
                               checked={projectForm.member_ids.includes(u.user_id)}
                               onCheckedChange={(checked) => {
                                 if (checked) {
-                                  setProjectForm({ ...projectForm, member_ids: [...projectForm.member_ids, u.user_id] });
+                                  setProjectForm({ ...projectForm, member_ids: Array.from(new Set([...projectForm.member_ids, u.user_id])) });
                                 } else {
                                   setProjectForm({ ...projectForm, member_ids: projectForm.member_ids.filter(id => id !== u.user_id) });
                                 }
@@ -1527,7 +1534,7 @@ const ProjectsTasks = () => {
                         {projectForm.member_ids.length > 0 && (
                           <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
                             {projectForm.member_ids.map(userId => {
-                              const user = users.find(u => u.user_id === userId);
+                              const user = allProjectUsers.find(u => u.user_id === userId) || users.find(u => u.user_id === userId);
                               return user ? (
                                 <Badge key={userId} variant="secondary" className="text-xs">
                                   {user.user_name}
