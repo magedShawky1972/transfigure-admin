@@ -202,6 +202,10 @@ const ProjectsTasks = () => {
   const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
   const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
   const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null);
+  const [inlineCreatePhase, setInlineCreatePhase] = useState<string | null>(null);
+  const [inlineTitle, setInlineTitle] = useState("");
+  const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
+  const [inlineSaving, setInlineSaving] = useState(false);
   
   // Form states
   const [projectForm, setProjectForm] = useState({
@@ -1128,6 +1132,35 @@ const ProjectsTasks = () => {
     }
   };
 
+  const handleInlineCreateTask = async (phaseKey: string) => {
+    const title = inlineTitle.trim();
+    if (!title || !currentUserId || !selectedDepartment) return;
+    const assignees = inlineAssignees.length > 0 ? inlineAssignees : [currentUserId];
+    setInlineSaving(true);
+    try {
+      const tasksToInsert = assignees.map(uid => ({
+        title,
+        description: null,
+        project_id: selectedProject !== 'all' ? selectedProject : null,
+        department_id: selectedDepartment,
+        assigned_to: uid,
+        status: phaseKey,
+        priority: 'medium',
+        created_by: currentUserId,
+      }));
+      const { error } = await supabase.from('tasks').insert(tasksToInsert);
+      if (error) throw error;
+      setInlineTitle("");
+      setInlineAssignees([]);
+      setInlineCreatePhase(null);
+      fetchData();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setInlineSaving(false);
+    }
+  };
+
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setTaskForm({
@@ -2041,6 +2074,78 @@ const ProjectsTasks = () => {
                           <CheckCircle2 className="h-8 w-8 mb-2 opacity-30" />
                           <p className="text-xs">{t.noTasks}</p>
                         </div>
+                      )}
+
+                      {/* Inline Add Task at end of phase */}
+                      {inlineCreatePhase === phase.phase_key ? (
+                        <Card className="border-dashed border-primary/50">
+                          <CardContent className="p-2 space-y-2">
+                            <Input
+                              autoFocus
+                              value={inlineTitle}
+                              onChange={(e) => setInlineTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') { e.preventDefault(); handleInlineCreateTask(phase.phase_key); }
+                                if (e.key === 'Escape') { setInlineCreatePhase(null); setInlineTitle(''); setInlineAssignees([]); }
+                              }}
+                              placeholder={language === 'ar' ? 'اسم المهمة...' : 'Task name...'}
+                              className="h-8 text-sm"
+                            />
+                            <div className="flex items-center justify-between gap-1">
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
+                                    <Users className="h-3.5 w-3.5" />
+                                    {inlineAssignees.length > 0
+                                      ? `${inlineAssignees.length}`
+                                      : (language === 'ar' ? 'تعيين' : 'Assign')}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-64 p-0" align="start">
+                                  <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                                    {users
+                                      .filter(u => u.default_department_id === selectedDepartment || (u as any).departmentMemberships?.includes(selectedDepartment))
+                                      .map(u => {
+                                        const checked = inlineAssignees.includes(u.user_id);
+                                        return (
+                                          <label key={u.user_id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
+                                            <Checkbox
+                                              checked={checked}
+                                              onCheckedChange={(v) => {
+                                                setInlineAssignees(prev => v ? [...prev, u.user_id] : prev.filter(id => id !== u.user_id));
+                                              }}
+                                            />
+                                            <span className="truncate">{u.user_name}</span>
+                                          </label>
+                                        );
+                                      })}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                                  onClick={() => { setInlineCreatePhase(null); setInlineTitle(''); setInlineAssignees([]); }}>
+                                  {t.cancel}
+                                </Button>
+                                <Button size="sm" className="h-7 px-2 text-xs"
+                                  disabled={!inlineTitle.trim() || inlineSaving}
+                                  onClick={() => handleInlineCreateTask(phase.phase_key)}>
+                                  {inlineSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : t.save}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 h-8"
+                          onClick={() => { setInlineCreatePhase(phase.phase_key); setInlineTitle(''); setInlineAssignees([]); }}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          {language === 'ar' ? 'إضافة مهمة' : 'Add task'}
+                        </Button>
                       )}
                     </div>
                   </DroppableColumn>
