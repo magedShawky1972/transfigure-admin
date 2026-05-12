@@ -2188,6 +2188,7 @@ const ProjectsTasks = () => {
                                                     >
                                                       <Checkbox checked={checked} className="pointer-events-none" />
                                                       <Avatar className="h-5 w-5">
+                                                        {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
                                                         <AvatarFallback className="text-[10px] bg-primary/10">
                                                           {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
                                                         </AvatarFallback>
