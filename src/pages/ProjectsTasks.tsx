@@ -1451,7 +1451,7 @@ const ProjectsTasks = () => {
                           <SelectTrigger><SelectValue placeholder={t.selectProject} /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">{t.noProject}</SelectItem>
-                            {projects.filter(p => !taskForm.department_id || p.department_id === taskForm.department_id).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            {projects.filter(p => (selectedProject === 'all' || p.id === selectedProject) && (!taskForm.department_id || p.department_id === taskForm.department_id)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
