@@ -28,6 +28,7 @@ import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskMessages from "@/components/TaskMessages";
+import ProjectTaskPhases from "@/components/ProjectTaskPhases";
 
 interface ProjectMember {
   id: string;
@@ -173,6 +174,7 @@ const ProjectsTasks = () => {
   const [accessibleDepartments, setAccessibleDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [taskPhases, setTaskPhases] = useState<TaskPhase[]>([]);
+  const [projectPhases, setProjectPhases] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserPositionLevel, setCurrentUserPositionLevel] = useState<number | null>(null);
   const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false, managedProjectIds: [] });
@@ -740,6 +742,22 @@ const ProjectsTasks = () => {
     }
   }, [selectedDepartment]);
 
+  // Load project-specific phases when a single project is selected
+  useEffect(() => {
+    if (selectedProject === 'all') { setProjectPhases([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('project_task_phases')
+        .select('*')
+        .eq('project_id', selectedProject)
+        .eq('is_active', true)
+        .order('phase_order', { ascending: true });
+      if (!cancelled) setProjectPhases(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProject, projectDialogOpen]);
+
   // Get phases for selected department
   const departmentPhases = taskPhases.filter(p => p.department_id === selectedDepartment);
   const defaultPhases = [
@@ -749,7 +767,9 @@ const ProjectsTasks = () => {
     { id: 'done', phase_key: 'done', phase_name: 'Done', phase_name_ar: 'مكتمل', phase_order: 3, phase_color: '#22C55E', department_id: selectedDepartment, is_active: true }
   ];
   
-  const activePhases = departmentPhases.length > 0 ? departmentPhases : defaultPhases;
+  const activePhases = (selectedProject !== 'all' && projectPhases.length > 0)
+    ? projectPhases.map((p: any) => ({ ...p, department_id: selectedDepartment }))
+    : (departmentPhases.length > 0 ? departmentPhases : defaultPhases);
 
   // Check if user is admin of selected department or project manager
   const isAdminOfSelectedDepartment = userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
@@ -1386,6 +1406,13 @@ const ProjectsTasks = () => {
                         )}
                       </div>
                     </div>
+
+                    {editingProject && (
+                      <ProjectTaskPhases
+                        projectId={editingProject.id}
+                        language={language as 'en' | 'ar'}
+                      />
+                    )}
 
                     <div className="flex gap-2 justify-between">
                       {editingProject && (

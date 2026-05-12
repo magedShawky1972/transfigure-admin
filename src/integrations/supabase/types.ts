@@ -6405,6 +6405,53 @@ export type Database = {
           },
         ]
       }
+      project_task_phases: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          phase_color: string
+          phase_key: string
+          phase_name: string
+          phase_name_ar: string | null
+          phase_order: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phase_color?: string
+          phase_key: string
+          phase_name: string
+          phase_name_ar?: string | null
+          phase_order?: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phase_color?: string
+          phase_key?: string
+          phase_name?: string
+          phase_name_ar?: string | null
+          phase_order?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_task_phases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string
