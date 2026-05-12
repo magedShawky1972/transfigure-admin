@@ -1061,6 +1061,7 @@ const ProjectsTasks = () => {
           external_links: taskForm.external_links,
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
+          wireframe_data: taskForm.wireframes as unknown as Json,
           created_by: currentUserId!
         };
         // Only include seq_number if it was changed
