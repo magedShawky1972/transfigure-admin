@@ -1024,6 +1024,14 @@ const ProjectsTasks = () => {
         }
         await supabase.from('tasks').update(payload).eq('id', editingTask.id);
 
+        // Sync multi-assignees: replace existing rows with new selection
+        await supabase.from('task_assignees').delete().eq('task_id', editingTask.id);
+        if (taskForm.assigned_to.length > 0) {
+          await supabase.from('task_assignees').insert(
+            taskForm.assigned_to.map(uid => ({ task_id: editingTask.id, user_id: uid }))
+          );
+        }
+
         // If status changed to "done", notify department admins
         if (taskForm.status === 'done' && editingTask.status !== 'done') {
           const currentUser = users.find(u => u.user_id === currentUserId);
