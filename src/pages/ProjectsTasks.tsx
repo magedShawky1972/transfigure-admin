@@ -1875,12 +1875,20 @@ const ProjectsTasks = () => {
                         language={language as 'en' | 'ar'}
                       />
                     )}
+                    </TabsContent>
+                    <TabsContent value="wireframe" className="mt-4">
+                      <WireframeBoard
+                        value={taskForm.wireframes}
+                        onChange={(next) => setTaskForm(prev => ({ ...prev, wireframes: next }))}
+                        language={language as 'en' | 'ar'}
+                      />
+                    </TabsContent>
+                  </Tabs>
 
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end mt-4">
                       <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>{t.cancel}</Button>
                       <Button onClick={handleSaveTask}>{t.save}</Button>
                     </div>
-                  </div>
                 </DialogContent>
               </Dialog>
             </div>
