@@ -1328,7 +1328,7 @@ const ProjectsTasks = () => {
       title: '', description: '', project_id: selectedProject !== 'all' ? selectedProject : '', department_id: selectedDepartment, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
       start_date: null, deadline: null, start_time: '', end_time: '',
-      external_links: [], file_attachments: [], video_attachments: [], seq_number: null
+      external_links: [], file_attachments: [], video_attachments: [], seq_number: null, wireframes: []
     });
   };
 
