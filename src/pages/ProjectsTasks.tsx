@@ -2203,7 +2203,8 @@ const ProjectsTasks = () => {
                                                       <span className="truncate">{u.user_name}</span>
                                                     </button>
                                                   );
-                                                })}
+                                                 });
+                                               })()}
                                             </div>
                                           </ScrollArea>
                                         </PopoverContent>
