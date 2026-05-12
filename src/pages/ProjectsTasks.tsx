@@ -1943,8 +1943,11 @@ const ProjectsTasks = () => {
               const rawUsers = selectedProj
                 ? (selectedProj.members?.map(m => users.find(u => u.user_id === m.user_id)).filter(Boolean) as typeof users)
                 : departmentUsers;
+              // Dedupe by user_id (same user may appear as both manager and member)
+              const seen = new Set<string>();
+              const uniqueUsers = rawUsers.filter(u => { if (seen.has(u.user_id)) return false; seen.add(u.user_id); return true; });
               // Put managers first
-              const avatarUsers = [...rawUsers].sort((a, b) => Number(managerIds.has(b.user_id)) - Number(managerIds.has(a.user_id)));
+              const avatarUsers = [...uniqueUsers].sort((a, b) => Number(managerIds.has(b.user_id)) - Number(managerIds.has(a.user_id)));
               const managerRing = "ring-2 ring-amber-500 ring-offset-2 ring-offset-background";
               return (
                 <div className="flex -space-x-2">
