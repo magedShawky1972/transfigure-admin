@@ -1409,7 +1409,7 @@ const ProjectsTasks = () => {
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto">  
                   <DialogHeader>
                     <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
                   </DialogHeader>
