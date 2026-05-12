@@ -663,7 +663,7 @@ const CoinsCreation = () => {
                       ) : (
                         <img src={imgUrl} alt={`Transfer ${idx + 1}`} className="w-full h-40 object-cover cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)} />
                       )}
-                      <div className="absolute top-1 left-1 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute top-1 left-1 z-10 flex gap-1">
                         <Button variant="secondary" size="icon" className="h-7 w-7" onClick={() => setPreviewImageUrl(imgUrl)} title={isArabic ? "تكبير" : "Maximize"}>
                           <Maximize2 className="h-3 w-3" />
                         </Button>
@@ -675,7 +675,16 @@ const CoinsCreation = () => {
                         </Button>
                       </div>
                       {!isReadOnly && (
-                        <Button variant="destructive" size="icon" className="absolute top-1 right-1 z-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setBankTransferImages(prev => prev.filter((_, i) => i !== idx))}>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 z-10 h-7 w-7"
+                          title={isArabic ? "حذف" : "Delete"}
+                          onClick={() => {
+                            if (!confirm(isArabic ? "هل أنت متأكد من حذف هذا الملف؟" : "Delete this file?")) return;
+                            setBankTransferImages(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                        >
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       )}
