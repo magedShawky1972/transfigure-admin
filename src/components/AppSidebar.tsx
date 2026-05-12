@@ -54,6 +54,14 @@ export function AppSidebar() {
     });
   };
 
+  const setAllGroups = (collapseAll: boolean) => {
+    const next = collapseAll ? new Set(DEFAULT_MENU.map((g) => g.defaultEn)) : new Set<string>();
+    setCollapsedGroups(next);
+    try {
+      localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(Array.from(next)));
+    } catch {}
+  };
+
   const URL_TO_PERMISSION: Record<string, string> = {
     "/": "dashboard",
     "/dashboard": "dashboard",
