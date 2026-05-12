@@ -22,9 +22,10 @@ import {
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
-  GanttChart, FileSpreadsheet
+  GanttChart, FileSpreadsheet, BarChart3
 } from "lucide-react";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
+import { ProjectSummaryDialog } from "@/components/ProjectSummaryDialog";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskMessages from "@/components/TaskMessages";
