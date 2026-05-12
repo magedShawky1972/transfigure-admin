@@ -674,20 +674,32 @@ const CoinsCreation = () => {
                           <ExternalLink className="h-3 w-3" />
                         </Button>
                       </div>
-                      {!isReadOnly && (
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 z-10 h-7 w-7"
-                          title={isArabic ? "حذف" : "Delete"}
-                          onClick={() => {
-                            if (!confirm(isArabic ? "هل أنت متأكد من حذف هذا الملف؟" : "Delete this file?")) return;
-                            setBankTransferImages(prev => prev.filter((_, i) => i !== idx));
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 z-10 h-7 w-7"
+                        title={isArabic ? "حذف" : "Delete"}
+                        onClick={async () => {
+                          if (!confirm(isArabic ? "هل أنت متأكد من حذف هذا الملف؟" : "Delete this file?")) return;
+                          const updated = bankTransferImages.filter((_, i) => i !== idx);
+                          setBankTransferImages(updated);
+                          if (selectedOrderId) {
+                            const { error } = await supabase
+                              .from("coins_purchase_orders")
+                              .update({ bank_transfer_image: JSON.stringify(updated) })
+                              .eq("id", selectedOrderId)
+                              .select();
+                            if (error) {
+                              toast.error(error.message);
+                              setBankTransferImages(bankTransferImages);
+                            } else {
+                              toast.success(isArabic ? "تم حذف الملف" : "File deleted");
+                            }
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   );
                 })}
