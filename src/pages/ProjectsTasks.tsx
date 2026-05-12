@@ -466,7 +466,7 @@ const ProjectsTasks = () => {
         return { data: allTasks, error: null };
       };
 
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         fetchAllTasks(),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
@@ -474,8 +474,16 @@ const ProjectsTasks = () => {
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
         supabase.from('job_positions').select('id, department_id, position_level').eq('is_active', true),
         supabase.from('project_members').select('*'),
-        supabase.from('department_members').select('user_id, department_id')
+        supabase.from('department_members').select('user_id, department_id'),
+        supabase.from('task_assignees').select('task_id, user_id')
       ]);
+
+      // Build map of taskId -> assignee user_ids
+      const assigneesMap = new Map<string, string[]>();
+      (taskAssigneesRes.data || []).forEach((ta: { task_id: string; user_id: string }) => {
+        if (!assigneesMap.has(ta.task_id)) assigneesMap.set(ta.task_id, []);
+        assigneesMap.get(ta.task_id)!.push(ta.user_id);
+      });
 
       // Get project IDs where user is a manager
       const projectMembers = projectMembersRes.data || [];
