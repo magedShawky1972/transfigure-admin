@@ -1336,9 +1336,9 @@ const ProjectsTasks = () => {
                         <SelectTrigger><SelectValue placeholder={t.selectManager} /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{t.noManager}</SelectItem>
-                          {users.filter(u => 
-                            u.default_department_id === projectForm.department_id || 
-                            (u.departmentMemberships && u.departmentMemberships.includes(projectForm.department_id))
+                          {users.filter(u =>
+                            (u.default_department_id && projectForm.department_ids.includes(u.default_department_id)) ||
+                            (u.departmentMemberships && u.departmentMemberships.some(d => projectForm.department_ids.includes(d)))
                           ).map(u => (
                             <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>
                           ))}
