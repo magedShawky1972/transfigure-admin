@@ -57,7 +57,6 @@ const MENU_GROUPS = [
       { key: "tawasoul", labelAr: "تواصل", labelEn: "Tawasoul" },
       { key: "asusTawasoul", labelAr: "أسس تواصل", labelEn: "Asus Tawasoul" },
       { key: "emailManager", labelAr: "مدير البريد", labelEn: "Email Manager" },
-      { key: "projectsTasks", labelAr: "المشاريع والمهام", labelEn: "Projects & Tasks" },
       { key: "salesOrderEntry", labelAr: "إدخال أمر البيع", labelEn: "Sales Order Entry" },
       { key: "pricingScenario", labelAr: "سيناريو التسعير", labelEn: "Pricing Scenario" },
     ],
@@ -79,6 +78,14 @@ const MENU_GROUPS = [
       { key: "shiftCalendar", labelAr: "تقويم الورديات", labelEn: "Shift Calendar" },
       { key: "currencySetup", labelAr: "إعداد العملات", labelEn: "Currency Setup" },
       { key: "userGroupSetup", labelAr: "مجموعات المستخدمين", labelEn: "User Groups" },
+    ],
+  },
+  {
+    groupKey: "projects",
+    labelAr: "المشاريع",
+    labelEn: "Projects",
+    items: [
+      { key: "projectsTasks", labelAr: "المشاريع والمهام", labelEn: "Projects & Tasks" },
       { key: "projectSetup", labelAr: "إعداد المشاريع", labelEn: "Project Setup" },
       { key: "taskList", labelAr: "قائمة المهام", labelEn: "Task List" },
     ],
