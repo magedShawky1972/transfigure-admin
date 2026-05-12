@@ -1936,44 +1936,52 @@ const ProjectsTasks = () => {
               </>
             )}
             
-            {/* User avatars */}
-            <div className="flex -space-x-2">
-              {departmentUsers.slice(0, 5).map(u => (
-                <Tooltip key={u.user_id}>
-                  <TooltipTrigger asChild>
-                    <Avatar className="h-8 w-8 border-2 border-background cursor-pointer hover:z-10">
-                      {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
-                      <AvatarFallback className="text-xs bg-primary/10">
-                        {u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent>{u.user_name}</TooltipContent>
-                </Tooltip>
-              ))}
-              {departmentUsers.length > 5 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Avatar className="h-8 w-8 border-2 border-background cursor-pointer">
-                      <AvatarFallback className="text-xs bg-muted">+{departmentUsers.length - 5}</AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
-                      {departmentUsers.slice(5).map(u => (
-                        <div key={u.user_id} className="flex items-center gap-2">
-                          <Avatar className="h-5 w-5">
-                            {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
-                            <AvatarFallback className="text-[9px]">{u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-xs">{u.user_name}</span>
+            {/* User avatars - shows project members when a project is selected, otherwise department users */}
+            {(() => {
+              const selectedProj = selectedProject !== 'all' ? projects.find(p => p.id === selectedProject) : null;
+              const avatarUsers = selectedProj
+                ? (selectedProj.members?.map(m => users.find(u => u.user_id === m.user_id)).filter(Boolean) as typeof users)
+                : departmentUsers;
+              return (
+                <div className="flex -space-x-2">
+                  {avatarUsers.slice(0, 5).map(u => (
+                    <Tooltip key={u.user_id}>
+                      <TooltipTrigger asChild>
+                        <Avatar className="h-8 w-8 border-2 border-background cursor-pointer hover:z-10">
+                          {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
+                          <AvatarFallback className="text-xs bg-primary/10">
+                            {u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </TooltipTrigger>
+                      <TooltipContent>{u.user_name}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                  {avatarUsers.length > 5 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Avatar className="h-8 w-8 border-2 border-background cursor-pointer">
+                          <AvatarFallback className="text-xs bg-muted">+{avatarUsers.length - 5}</AvatarFallback>
+                        </Avatar>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+                          {avatarUsers.slice(5).map(u => (
+                            <div key={u.user_id} className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5">
+                                {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
+                                <AvatarFallback className="text-[9px]">{u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs">{u.user_name}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Projects List */}
             {projects.filter(p => p.department_id === selectedDepartment && (selectedProject === 'all' || p.id === selectedProject)).length > 0 && (
