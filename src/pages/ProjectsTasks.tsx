@@ -1051,13 +1051,13 @@ const ProjectsTasks = () => {
           }
         }
       } else {
-        // For new tasks, create one task per selected user
-        const tasksToInsert = taskForm.assigned_to.map(userId => ({
+        // Create ONE task with the first user as primary assignee, then add all assignees in join table
+        const newTaskPayload = {
           title: taskForm.title,
           description: taskForm.description || null,
           project_id: taskForm.project_id || null,
           department_id: taskForm.department_id,
-          assigned_to: userId,
+          assigned_to: taskForm.assigned_to[0],
           status: taskForm.status,
           priority: taskForm.priority,
           dependency_task_id: taskForm.project_id && taskForm.dependency_task_id ? taskForm.dependency_task_id : null,
@@ -1070,10 +1070,20 @@ const ProjectsTasks = () => {
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
           created_by: currentUserId!
-        }));
+        };
 
-        const { error: insertError } = await supabase.from('tasks').insert(tasksToInsert);
+        const { data: insertedTask, error: insertError } = await supabase
+          .from('tasks')
+          .insert(newTaskPayload)
+          .select()
+          .single();
         if (insertError) throw insertError;
+
+        if (insertedTask) {
+          await supabase.from('task_assignees').insert(
+            taskForm.assigned_to.map(uid => ({ task_id: insertedTask.id, user_id: uid }))
+          );
+        }
 
         // Send notification to each assigned user
         for (const userId of taskForm.assigned_to) {
