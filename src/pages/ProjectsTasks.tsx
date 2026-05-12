@@ -879,16 +879,20 @@ const ProjectsTasks = () => {
   };
 
   const handleSaveProject = async () => {
-    if (!projectForm.name || !projectForm.department_id) {
+    const deptIds = projectForm.department_ids.length > 0
+      ? projectForm.department_ids
+      : (projectForm.department_id ? [projectForm.department_id] : []);
+    if (!projectForm.name || deptIds.length === 0) {
       toast({ title: language === 'ar' ? 'يرجى ملء الحقول المطلوبة' : 'Please fill required fields', variant: 'destructive' });
       return;
     }
 
     try {
+      const primaryDept = deptIds[0];
       const payload = {
         name: projectForm.name,
         description: projectForm.description || null,
-        department_id: projectForm.department_id,
+        department_id: primaryDept,
         status: projectForm.status,
         start_date: projectForm.start_date ? format(projectForm.start_date, 'yyyy-MM-dd') : null,
         end_date: projectForm.end_date ? format(projectForm.end_date, 'yyyy-MM-dd') : null,
@@ -907,6 +911,13 @@ const ProjectsTasks = () => {
         const { data: newProject, error } = await supabase.from('projects').insert(payload).select().single();
         if (error) throw error;
         projectId = newProject.id;
+      }
+
+      // Sync project_departments join rows
+      await supabase.from('project_departments').delete().eq('project_id', projectId);
+      const pdInserts = deptIds.map(did => ({ project_id: projectId, department_id: did }));
+      if (pdInserts.length > 0) {
+        await supabase.from('project_departments').insert(pdInserts);
       }
 
       // Add project manager
