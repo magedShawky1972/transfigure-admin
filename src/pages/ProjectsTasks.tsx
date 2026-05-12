@@ -466,7 +466,7 @@ const ProjectsTasks = () => {
         return { data: allTasks, error: null };
       };
 
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes, employeesRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         fetchAllTasks(),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
@@ -475,14 +475,19 @@ const ProjectsTasks = () => {
         supabase.from('job_positions').select('id, department_id, position_level').eq('is_active', true),
         supabase.from('project_members').select('*'),
         supabase.from('department_members').select('user_id, department_id'),
-        supabase.from('task_assignees').select('task_id, user_id')
+        supabase.from('task_assignees').select('task_id, user_id'),
+        supabase.from('employees').select('user_id, first_name, last_name, photo_url, employment_status').eq('employment_status', 'active' as any)
       ]);
 
-      // Build map of taskId -> assignee user_ids
-      const assigneesMap = new Map<string, string[]>();
-      (taskAssigneesRes.data || []).forEach((ta: { task_id: string; user_id: string }) => {
-        if (!assigneesMap.has(ta.task_id)) assigneesMap.set(ta.task_id, []);
-        assigneesMap.get(ta.task_id)!.push(ta.user_id);
+      // Map of user_id -> employee record (only active employees with a linked user_id)
+      const employeeMap = new Map<string, { full_name: string; photo_url: string | null }>();
+      (employeesRes.data || []).forEach((e: any) => {
+        if (e.user_id) {
+          employeeMap.set(e.user_id, {
+            full_name: `${e.first_name || ''} ${e.last_name || ''}`.trim(),
+            photo_url: e.photo_url || null,
+          });
+        }
       });
 
       // Get project IDs where user is a manager
