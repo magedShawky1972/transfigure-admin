@@ -1287,7 +1287,8 @@ const ProjectsTasks = () => {
       file_attachments: task.file_attachments || [],
       video_attachments: task.video_attachments || [],
       seq_number: task.seq_number || null,
-      wireframes: ((task as unknown as { wireframe_data?: Wireframe[] }).wireframe_data as Wireframe[]) || []
+      wireframes: ((task as unknown as { wireframe_data?: Wireframe[] }).wireframe_data as Wireframe[]) || [],
+      figma_link: ((task as unknown as { figma_link?: string }).figma_link) || ''
     });
     setTaskDialogOpen(true);
   };
