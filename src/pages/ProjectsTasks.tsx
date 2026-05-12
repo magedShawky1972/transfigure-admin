@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -466,7 +466,7 @@ const ProjectsTasks = () => {
         return { data: allTasks, error: null };
       };
 
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes, employeesRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         fetchAllTasks(),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
@@ -475,7 +475,8 @@ const ProjectsTasks = () => {
         supabase.from('job_positions').select('id, department_id, position_level').eq('is_active', true),
         supabase.from('project_members').select('*'),
         supabase.from('department_members').select('user_id, department_id'),
-        supabase.from('task_assignees').select('task_id, user_id')
+        supabase.from('task_assignees').select('task_id, user_id'),
+        supabase.from('employees').select('user_id, first_name, last_name, photo_url, employment_status').eq('employment_status', 'active' as any)
       ]);
 
       // Build map of taskId -> assignee user_ids
@@ -483,6 +484,17 @@ const ProjectsTasks = () => {
       (taskAssigneesRes.data || []).forEach((ta: { task_id: string; user_id: string }) => {
         if (!assigneesMap.has(ta.task_id)) assigneesMap.set(ta.task_id, []);
         assigneesMap.get(ta.task_id)!.push(ta.user_id);
+      });
+
+      // Map of user_id -> employee record (only active employees with a linked user_id)
+      const employeeMap = new Map<string, { full_name: string; photo_url: string | null }>();
+      (employeesRes.data || []).forEach((e: any) => {
+        if (e.user_id) {
+          employeeMap.set(e.user_id, {
+            full_name: `${e.first_name || ''} ${e.last_name || ''}`.trim(),
+            photo_url: e.photo_url || null,
+          });
+        }
       });
 
       // Get project IDs where user is a manager
@@ -592,19 +604,23 @@ const ProjectsTasks = () => {
               deptIds.push(deptId);
             }
           });
+          const emp = employeeMap.get(u.user_id);
           return {
             user_id: u.user_id,
-            user_name: u.user_name,
+            user_name: emp?.full_name || u.user_name,
             default_department_id: u.default_department_id,
-            avatar_url: u.avatar_url,
+            avatar_url: emp?.photo_url || u.avatar_url,
             job_position_id: u.job_position_id,
             position_level: positionLevel,
-            departmentMemberships: deptIds
+            departmentMemberships: deptIds,
+            isEmployee: !!emp,
           };
         });
         
-        // Admins see all users, others see filtered by accessible departments
-        const filteredUsers = isAdmin ? usersWithDepts : usersWithDepts.filter(u => 
+        // Only employees can be assigned tasks
+        const employeeOnly = usersWithDepts.filter(u => u.isEmployee);
+        // Admins see all employees, others see filtered by accessible departments
+        const filteredUsers = isAdmin ? employeeOnly : employeeOnly.filter(u => 
           u.departmentMemberships.some(deptId => accessibleDeptIds.includes(deptId))
         );
         
@@ -2112,6 +2128,7 @@ const ProjectsTasks = () => {
                                           const u = users.find(x => x.user_id === uid);
                                           return (
                                             <Avatar key={uid + idx} className="h-6 w-6 border-2 border-background">
+                                              {u?.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
                                               <AvatarFallback className="text-xs bg-primary/10">
                                                 {u?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
                                               </AvatarFallback>
@@ -2171,6 +2188,7 @@ const ProjectsTasks = () => {
                                                     >
                                                       <Checkbox checked={checked} className="pointer-events-none" />
                                                       <Avatar className="h-5 w-5">
+                                                        {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
                                                         <AvatarFallback className="text-[10px] bg-primary/10">
                                                           {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
                                                         </AvatarFallback>
