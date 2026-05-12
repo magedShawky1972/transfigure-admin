@@ -31,6 +31,7 @@ export function AppSidebar() {
   const [loading, setLoading] = useState(true);
   const [asusTawasoulUnread, setAsusTawasoulUnread] = useState(0);
   const [customizations, setCustomizations] = useState<CustomMap>({});
+  const [search, setSearch] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     const allGroups = new Set(DEFAULT_MENU.map((g) => g.defaultEn));
     try {
