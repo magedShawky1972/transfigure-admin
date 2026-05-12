@@ -1268,13 +1268,33 @@ const ProjectsTasks = () => {
                       <Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">{t.department} *</label>
-                      <Select value={projectForm.department_id} onValueChange={(v) => setProjectForm({ ...projectForm, department_id: v, manager_id: '', member_ids: [] })}>
-                        <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
-                        <SelectContent>
-                          {accessibleDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <label className="text-sm font-medium">{t.department} * {projectForm.department_ids.length > 0 && <span className="text-xs text-muted-foreground">({projectForm.department_ids.length})</span>}</label>
+                      <div className="border rounded-md p-2 max-h-[160px] overflow-y-auto space-y-1">
+                        {accessibleDepartments.map(d => {
+                          const checked = projectForm.department_ids.includes(d.id);
+                          return (
+                            <div key={d.id} className="flex items-center gap-2 py-0.5">
+                              <Checkbox
+                                id={`project-dept-${d.id}`}
+                                checked={checked}
+                                onCheckedChange={(c) => {
+                                  const next = c
+                                    ? [...projectForm.department_ids, d.id]
+                                    : projectForm.department_ids.filter(x => x !== d.id);
+                                  setProjectForm({
+                                    ...projectForm,
+                                    department_ids: next,
+                                    department_id: next[0] || '',
+                                    manager_id: '',
+                                    member_ids: []
+                                  });
+                                }}
+                              />
+                              <label htmlFor={`project-dept-${d.id}`} className="text-sm cursor-pointer">{d.department_name}</label>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                     
                     {/* Start and End Date */}
