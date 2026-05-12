@@ -2069,9 +2069,51 @@ const ProjectsTasks = () => {
                                           {task.profiles?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
                                         </AvatarFallback>
                                       </Avatar>
-                                      <span className="text-xs text-muted-foreground truncate">
+                                      <span className="text-xs text-muted-foreground truncate flex-1">
                                         {task.profiles?.user_name || t.selectUser}
                                       </span>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            title={language === 'ar' ? 'تعيين مستخدم' : 'Assign user'}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <UserPlus className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-64 p-0" align="end" onClick={(e) => e.stopPropagation()}>
+                                          <div className="p-2 border-b text-xs font-medium">
+                                            {language === 'ar' ? 'تعيين إلى' : 'Assign to'}
+                                          </div>
+                                          <ScrollArea className="max-h-64">
+                                            <div className="p-1">
+                                              {users
+                                                .filter(u => !task.department_id || u.default_department_id === task.department_id || (u.departmentMemberships && u.departmentMemberships.includes(task.department_id)))
+                                                .map(u => (
+                                                  <button
+                                                    key={u.user_id}
+                                                    type="button"
+                                                    onClick={() => handleAssignTask(task.id, u.user_id)}
+                                                    className={cn(
+                                                      "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted text-left",
+                                                      task.assigned_to === u.user_id && "bg-primary/10"
+                                                    )}
+                                                  >
+                                                    <Avatar className="h-5 w-5">
+                                                      <AvatarFallback className="text-[10px] bg-primary/10">
+                                                        {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                                                      </AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="truncate">{u.user_name}</span>
+                                                  </button>
+                                                ))}
+                                            </div>
+                                          </ScrollArea>
+                                        </PopoverContent>
+                                      </Popover>
                                     </div>
                                   </div>
                                 </div>
