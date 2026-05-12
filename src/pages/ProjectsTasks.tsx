@@ -1933,7 +1933,7 @@ const ProjectsTasks = () => {
                       {phaseTasks.map((task) => (
                         <DraggableTask key={task.id} task={task}>
                           {({ listeners }) => (
-                            <Card className="group hover:shadow-md transition-all cursor-pointer bg-card">
+                            <Card className="group hover:shadow-md transition-all cursor-pointer bg-card" onDoubleClick={() => handleEditTask(task)}>
                               <CardContent className="p-3">
                                 <div className="flex items-start gap-2">
                                   <button {...listeners} className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
