@@ -1167,7 +1167,7 @@ const ProjectsTasks = () => {
   const resetTaskForm = () => {
     setEditingTask(null);
     setTaskForm({
-      title: '', description: '', project_id: '', department_id: selectedDepartment, assigned_to: [],
+      title: '', description: '', project_id: selectedProject !== 'all' ? selectedProject : '', department_id: selectedDepartment, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
       start_date: null, deadline: null, start_time: '', end_time: '',
       external_links: [], file_attachments: [], video_attachments: [], seq_number: null
@@ -1873,7 +1873,7 @@ const ProjectsTasks = () => {
                         title={t.addTask}
                         onClick={() => {
                           resetTaskForm();
-                          setTaskForm(prev => ({ ...prev, status: phase.phase_key, department_id: selectedDepartment }));
+                          setTaskForm(prev => ({ ...prev, status: phase.phase_key, department_id: selectedDepartment, project_id: selectedProject !== 'all' ? selectedProject : prev.project_id }));
                           setTaskDialogOpen(true);
                         }}
                       >
