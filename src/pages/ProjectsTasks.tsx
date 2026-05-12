@@ -1120,14 +1120,25 @@ const ProjectsTasks = () => {
     setTaskDialogOpen(true);
   };
 
-  const handleEditProject = (project: Project) => {
+  const handleEditProject = async (project: Project) => {
     setEditingProject(project);
     const manager = project.members?.find(m => m.role === 'manager');
     const memberIds = project.members?.filter(m => m.role === 'member').map(m => m.user_id) || [];
+
+    // Load all departments linked to this project
+    const { data: pdRows } = await supabase
+      .from('project_departments')
+      .select('department_id')
+      .eq('project_id', project.id);
+    const deptIds = (pdRows && pdRows.length > 0)
+      ? pdRows.map((r: { department_id: string }) => r.department_id)
+      : [project.department_id];
+
     setProjectForm({
       name: project.name,
       description: project.description || '',
       department_id: project.department_id,
+      department_ids: deptIds,
       status: project.status,
       start_date: project.start_date ? new Date(project.start_date) : null,
       end_date: project.end_date ? new Date(project.end_date) : null,
@@ -1139,7 +1150,7 @@ const ProjectsTasks = () => {
 
   const resetProjectForm = () => {
     setEditingProject(null);
-    setProjectForm({ name: '', description: '', department_id: selectedDepartment, status: 'active', start_date: null, end_date: null, manager_id: '', member_ids: [] });
+    setProjectForm({ name: '', description: '', department_id: selectedDepartment, department_ids: selectedDepartment ? [selectedDepartment] : [], status: 'active', start_date: null, end_date: null, manager_id: '', member_ids: [] });
   };
 
   const resetTaskForm = () => {
