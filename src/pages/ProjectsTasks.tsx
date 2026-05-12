@@ -1161,6 +1161,7 @@ const ProjectsTasks = () => {
     }
   };
 
+  const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setTaskForm({
       title: task.title,
