@@ -28,6 +28,7 @@ import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskMessages from "@/components/TaskMessages";
+import ProjectTaskPhases from "@/components/ProjectTaskPhases";
 
 interface ProjectMember {
   id: string;
@@ -173,6 +174,7 @@ const ProjectsTasks = () => {
   const [accessibleDepartments, setAccessibleDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [taskPhases, setTaskPhases] = useState<TaskPhase[]>([]);
+  const [projectPhases, setProjectPhases] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserPositionLevel, setCurrentUserPositionLevel] = useState<number | null>(null);
   const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false, managedProjectIds: [] });
@@ -749,7 +751,9 @@ const ProjectsTasks = () => {
     { id: 'done', phase_key: 'done', phase_name: 'Done', phase_name_ar: 'مكتمل', phase_order: 3, phase_color: '#22C55E', department_id: selectedDepartment, is_active: true }
   ];
   
-  const activePhases = departmentPhases.length > 0 ? departmentPhases : defaultPhases;
+  const activePhases = (selectedProject !== 'all' && projectPhases.length > 0)
+    ? projectPhases.map((p: any) => ({ ...p, department_id: selectedDepartment }))
+    : (departmentPhases.length > 0 ? departmentPhases : defaultPhases);
 
   // Check if user is admin of selected department or project manager
   const isAdminOfSelectedDepartment = userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
@@ -1386,6 +1390,13 @@ const ProjectsTasks = () => {
                         )}
                       </div>
                     </div>
+
+                    {editingProject && (
+                      <ProjectTaskPhases
+                        projectId={editingProject.id}
+                        language={language as 'en' | 'ar'}
+                      />
+                    )}
 
                     <div className="flex gap-2 justify-between">
                       {editingProject && (
