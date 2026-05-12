@@ -389,9 +389,9 @@ const ProjectsTasks = () => {
     urgent: { color: 'bg-red-500', label: 'Urgent', labelAr: 'عاجلة' }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setCurrentUserId(user.id);
