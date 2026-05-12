@@ -57,7 +57,6 @@ const MENU_GROUPS = [
       { key: "tawasoul", labelAr: "تواصل", labelEn: "Tawasoul" },
       { key: "asusTawasoul", labelAr: "أسس تواصل", labelEn: "Asus Tawasoul" },
       { key: "emailManager", labelAr: "مدير البريد", labelEn: "Email Manager" },
-      { key: "projectsTasks", labelAr: "المشاريع والمهام", labelEn: "Projects & Tasks" },
       { key: "salesOrderEntry", labelAr: "إدخال أمر البيع", labelEn: "Sales Order Entry" },
       { key: "pricingScenario", labelAr: "سيناريو التسعير", labelEn: "Pricing Scenario" },
     ],
