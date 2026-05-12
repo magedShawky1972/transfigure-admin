@@ -2169,9 +2169,13 @@ const ProjectsTasks = () => {
                                           </div>
                                           <ScrollArea className="max-h-64">
                                             <div className="p-1">
-                                              {users
-                                                .filter(u => !task.department_id || u.default_department_id === task.department_id || (u.departmentMemberships && u.departmentMemberships.includes(task.department_id)))
-                                                .map(u => {
+                                               {(() => {
+                                                 const taskProject = task.project_id ? projects.find(p => p.id === task.project_id) : null;
+                                                 const projectMemberIds = taskProject?.members?.map(m => m.user_id) || [];
+                                                 const filtered = taskProject
+                                                   ? users.filter(u => projectMemberIds.includes(u.user_id))
+                                                   : users.filter(u => !task.department_id || u.default_department_id === task.department_id || (u.departmentMemberships && u.departmentMemberships.includes(task.department_id)));
+                                                 return filtered.map(u => {
                                                   const current = task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to];
                                                   const checked = current.includes(u.user_id);
                                                   return (
@@ -2199,7 +2203,8 @@ const ProjectsTasks = () => {
                                                       <span className="truncate">{u.user_name}</span>
                                                     </button>
                                                   );
-                                                })}
+                                                 });
+                                               })()}
                                             </div>
                                           </ScrollArea>
                                         </PopoverContent>
