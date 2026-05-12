@@ -144,6 +144,13 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/shift-calendar", defaultEn: "Shift Calendar", defaultAr: "تقويم الورديات", icon: BarChart3 },
       { url: "/currency-setup", defaultEn: "Currency Setup", defaultAr: "إعداد العملات", icon: DollarSign },
       { url: "/user-group-setup", defaultEn: "User Groups", defaultAr: "مجموعات المستخدمين", icon: Users },
+    ],
+  },
+  {
+    defaultEn: "Projects",
+    defaultAr: "المشاريع",
+    items: [
+      { url: "/projects-tasks", defaultEn: "Projects & Tasks", defaultAr: "المشاريع والمهام", icon: FolderKanban },
       { url: "/project-setup", defaultEn: "Project Setup", defaultAr: "إعداد المشاريع", icon: FolderKanban },
       { url: "/task-list", defaultEn: "Task List", defaultAr: "قائمة المهام", icon: ClipboardList },
     ],
