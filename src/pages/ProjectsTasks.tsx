@@ -468,6 +468,23 @@ const ProjectsTasks = () => {
         return { data: allTasks, error: null };
       };
 
+      const fetchAllTaskAssignees = async () => {
+        const all: { task_id: string; user_id: string }[] = [];
+        const pageSize = 1000;
+        let page = 0;
+        while (true) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+          const { data, error } = await supabase.from('task_assignees').select('task_id, user_id').range(from, to);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < pageSize) break;
+          page++;
+        }
+        return { data: all, error: null };
+      };
+
       const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes, employeesRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         fetchAllTasks(),
@@ -477,7 +494,7 @@ const ProjectsTasks = () => {
         supabase.from('job_positions').select('id, department_id, position_level').eq('is_active', true),
         supabase.from('project_members').select('*'),
         supabase.from('department_members').select('user_id, department_id'),
-        supabase.from('task_assignees').select('task_id, user_id'),
+        fetchAllTaskAssignees(),
         supabase.from('employees').select('user_id, first_name, last_name, photo_url, employment_status').eq('employment_status', 'active' as any)
       ]);
 
