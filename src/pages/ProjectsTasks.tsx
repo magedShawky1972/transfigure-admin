@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskMessages from "@/components/TaskMessages";
 import ProjectTaskPhases from "@/components/ProjectTaskPhases";
+import WireframeBoard, { type Wireframe } from "@/components/WireframeBoard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ProjectMember {
   id: string;
@@ -242,7 +244,8 @@ const ProjectsTasks = () => {
     external_links: [] as string[],
     file_attachments: [] as FileAttachment[],
     video_attachments: [] as FileAttachment[],
-    seq_number: null as number | null
+    seq_number: null as number | null,
+    wireframes: [] as Wireframe[]
   });
   const [newLink, setNewLink] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -1058,6 +1061,7 @@ const ProjectsTasks = () => {
           external_links: taskForm.external_links,
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
+          wireframe_data: taskForm.wireframes as unknown as Json,
           created_by: currentUserId!
         };
         // Only include seq_number if it was changed
@@ -1111,6 +1115,7 @@ const ProjectsTasks = () => {
           external_links: taskForm.external_links,
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
+          wireframe_data: taskForm.wireframes as unknown as Json,
           created_by: currentUserId!
         };
 
@@ -1280,7 +1285,8 @@ const ProjectsTasks = () => {
       external_links: task.external_links || [],
       file_attachments: task.file_attachments || [],
       video_attachments: task.video_attachments || [],
-      seq_number: task.seq_number || null
+      seq_number: task.seq_number || null,
+      wireframes: ((task as unknown as { wireframe_data?: Wireframe[] }).wireframe_data as Wireframe[]) || []
     });
     setTaskDialogOpen(true);
   };
@@ -1324,7 +1330,7 @@ const ProjectsTasks = () => {
       title: '', description: '', project_id: selectedProject !== 'all' ? selectedProject : '', department_id: selectedDepartment, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
       start_date: null, deadline: null, start_time: '', end_time: '',
-      external_links: [], file_attachments: [], video_attachments: [], seq_number: null
+      external_links: [], file_attachments: [], video_attachments: [], seq_number: null, wireframes: []
     });
   };
 
@@ -1581,7 +1587,12 @@ const ProjectsTasks = () => {
                   <DialogHeader>
                     <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <Tabs defaultValue="details" className="w-full">
+                    <TabsList>
+                      <TabsTrigger value="details">{language === 'ar' ? 'التفاصيل' : 'Details'}</TabsTrigger>
+                      <TabsTrigger value="wireframe">{language === 'ar' ? 'مخطط/رسم' : 'Wireframe'}</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="details" className="space-y-4 mt-4">
                     <div className="grid grid-cols-4 gap-4">
                       <div className="col-span-3">
                         <label className="text-sm font-medium">{t.taskTitle} *</label>
@@ -1864,12 +1875,20 @@ const ProjectsTasks = () => {
                         language={language as 'en' | 'ar'}
                       />
                     )}
+                    </TabsContent>
+                    <TabsContent value="wireframe" className="mt-4">
+                      <WireframeBoard
+                        value={taskForm.wireframes}
+                        onChange={(next) => setTaskForm(prev => ({ ...prev, wireframes: next }))}
+                        language={language as 'en' | 'ar'}
+                      />
+                    </TabsContent>
+                  </Tabs>
 
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end mt-4">
                       <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>{t.cancel}</Button>
                       <Button onClick={handleSaveTask}>{t.save}</Button>
                     </div>
-                  </div>
                 </DialogContent>
               </Dialog>
             </div>

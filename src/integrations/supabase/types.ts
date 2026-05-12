@@ -9012,6 +9012,7 @@ export type Database = {
           title: string
           updated_at: string
           video_attachments: Json | null
+          wireframe_data: Json | null
         }
         Insert: {
           assigned_to: string
@@ -9036,6 +9037,7 @@ export type Database = {
           title: string
           updated_at?: string
           video_attachments?: Json | null
+          wireframe_data?: Json | null
         }
         Update: {
           assigned_to?: string
@@ -9060,6 +9062,7 @@ export type Database = {
           title?: string
           updated_at?: string
           video_attachments?: Json | null
+          wireframe_data?: Json | null
         }
         Relationships: [
           {
