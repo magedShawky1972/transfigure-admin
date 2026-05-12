@@ -604,19 +604,23 @@ const ProjectsTasks = () => {
               deptIds.push(deptId);
             }
           });
+          const emp = employeeMap.get(u.user_id);
           return {
             user_id: u.user_id,
-            user_name: u.user_name,
+            user_name: emp?.full_name || u.user_name,
             default_department_id: u.default_department_id,
-            avatar_url: u.avatar_url,
+            avatar_url: emp?.photo_url || u.avatar_url,
             job_position_id: u.job_position_id,
             position_level: positionLevel,
-            departmentMemberships: deptIds
+            departmentMemberships: deptIds,
+            isEmployee: !!emp,
           };
         });
         
-        // Admins see all users, others see filtered by accessible departments
-        const filteredUsers = isAdmin ? usersWithDepts : usersWithDepts.filter(u => 
+        // Only employees can be assigned tasks
+        const employeeOnly = usersWithDepts.filter(u => u.isEmployee);
+        // Admins see all employees, others see filtered by accessible departments
+        const filteredUsers = isAdmin ? employeeOnly : employeeOnly.filter(u => 
           u.departmentMemberships.some(deptId => accessibleDeptIds.includes(deptId))
         );
         
