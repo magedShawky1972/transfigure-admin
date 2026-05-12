@@ -389,9 +389,9 @@ const ProjectsTasks = () => {
     urgent: { color: 'bg-red-500', label: 'Urgent', labelAr: 'عاجلة' }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setCurrentUserId(user.id);
@@ -672,7 +672,7 @@ const ProjectsTasks = () => {
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [selectedDepartment]);
 
@@ -704,7 +704,7 @@ const ProjectsTasks = () => {
       
       if (error) throw error;
       toast({ title: language === 'ar' ? 'تم بدء المؤقت' : 'Timer started' });
-      fetchData();
+      fetchData(true);
     } catch (error) {
       console.error('Error starting timer:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
@@ -729,7 +729,7 @@ const ProjectsTasks = () => {
       
       if (error) throw error;
       toast({ title: language === 'ar' ? 'تم إيقاف المؤقت' : 'Timer stopped' });
-      fetchData();
+      fetchData(true);
     } catch (error) {
       console.error('Error stopping timer:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
@@ -999,7 +999,7 @@ const ProjectsTasks = () => {
       toast({ title: language === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully' });
       setProjectDialogOpen(false);
       resetProjectForm();
-      fetchData();
+      fetchData(true);
     } catch (error) {
       console.error('Error saving project:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
@@ -1137,7 +1137,7 @@ const ProjectsTasks = () => {
       toast({ title: language === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully' });
       setTaskDialogOpen(false);
       resetTaskForm();
-      fetchData();
+      fetchData(true);
     } catch (error) {
       console.error('Error saving task:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
@@ -1148,7 +1148,7 @@ const ProjectsTasks = () => {
     try {
       await supabase.from('tasks').delete().eq('id', taskId);
       toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted' });
-      fetchData();
+      fetchData(true);
     } catch (error) {
       console.error('Error deleting task:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
@@ -1156,23 +1156,26 @@ const ProjectsTasks = () => {
   };
 
   const handleAssignTask = async (taskId: string, userIds: string[]) => {
+    const finalIds = userIds.length > 0 ? userIds : [];
+    // Optimistic local update so the popover stays open and UI updates immediately
+    setTasks(prev => prev.map(t => t.id === taskId
+      ? { ...t, assignees: finalIds, assigned_to: finalIds[0] ?? t.assigned_to }
+      : t
+    ));
     try {
-      const finalIds = userIds.length > 0 ? userIds : [];
-      // Update primary assigned_to (NOT NULL) — keep first selected, or skip update if empty
       if (finalIds.length > 0) {
         const { error } = await supabase.from('tasks').update({ assigned_to: finalIds[0] }).eq('id', taskId).select();
         if (error) throw error;
       }
-      // Sync join table
       await supabase.from('task_assignees').delete().eq('task_id', taskId);
       if (finalIds.length > 0) {
         await supabase.from('task_assignees').insert(finalIds.map(uid => ({ task_id: taskId, user_id: uid })));
       }
-      toast({ title: language === 'ar' ? 'تم التعيين' : 'Assigned' });
-      fetchData();
     } catch (error: any) {
       console.error('Error assigning task:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', description: error?.message, variant: 'destructive' });
+      // Revert by silently refetching
+      fetchData(true);
     }
   };
 
@@ -1192,7 +1195,7 @@ const ProjectsTasks = () => {
       await supabase.from('projects').delete().eq('id', projectId);
       toast({ title: language === 'ar' ? 'تم حذف المشروع' : 'Project deleted' });
       setProjectDialogOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (error) {
       console.error('Error deleting project:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
@@ -1224,7 +1227,7 @@ const ProjectsTasks = () => {
       setInlineTitle("");
       setInlineAssignees([]);
       setInlineCreatePhase(null);
-      fetchData();
+      fetchData(true);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
