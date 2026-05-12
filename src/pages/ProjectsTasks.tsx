@@ -1964,6 +1964,16 @@ const ProjectsTasks = () => {
                         variant="outline"
                         size="sm"
                         className="h-7 gap-1.5 text-primary border-primary/40 hover:bg-primary/10"
+                        onClick={() => setSummaryProject(project)}
+                        title={language === 'ar' ? 'الملخص' : 'Summary'}
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        <span className="text-xs font-medium">{language === 'ar' ? 'الملخص' : 'Summary'}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-primary border-primary/40 hover:bg-primary/10"
                         onClick={() => navigate(`/project-gantt?projectId=${project.id}&departmentId=${selectedDepartment}`)}
                         title={language === 'ar' ? 'مخطط جانت' : 'Timeline'}
                       >
