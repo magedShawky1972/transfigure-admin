@@ -109,6 +109,7 @@ interface Task {
   total_time_minutes?: number;
   active_timer?: TimeEntry | null;
   dependency_task?: { title: string } | null;
+  assignees?: string[];
 }
 
 interface Department {
@@ -465,7 +466,7 @@ const ProjectsTasks = () => {
         return { data: allTasks, error: null };
       };
 
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         fetchAllTasks(),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
@@ -473,8 +474,16 @@ const ProjectsTasks = () => {
         supabase.from('department_task_phases').select('*').eq('is_active', true).order('phase_order', { ascending: true }),
         supabase.from('job_positions').select('id, department_id, position_level').eq('is_active', true),
         supabase.from('project_members').select('*'),
-        supabase.from('department_members').select('user_id, department_id')
+        supabase.from('department_members').select('user_id, department_id'),
+        supabase.from('task_assignees').select('task_id, user_id')
       ]);
+
+      // Build map of taskId -> assignee user_ids
+      const assigneesMap = new Map<string, string[]>();
+      (taskAssigneesRes.data || []).forEach((ta: { task_id: string; user_id: string }) => {
+        if (!assigneesMap.has(ta.task_id)) assigneesMap.set(ta.task_id, []);
+        assigneesMap.get(ta.task_id)!.push(ta.user_id);
+      });
 
       // Get project IDs where user is a manager
       const projectMembers = projectMembersRes.data || [];
@@ -608,11 +617,12 @@ const ProjectsTasks = () => {
         
         // Filter tasks based on user access - admins see all tasks
         const filteredTasks = isAdmin ? tasksRes.data : tasksRes.data.filter(task => {
+          const taskAssignees = assigneesMap.get(task.id) || [];
           // Department admin sees all tasks in their departments
           if (adminDeptIds.includes(task.department_id)) return true;
-          // Regular user sees only their own tasks in their department
-          if (allMemberDepts.includes(task.department_id) && 
-              (task.assigned_to === user.id || task.created_by === user.id)) return true;
+          // Regular user sees tasks they're assigned to (single or multi) or created
+          if (allMemberDepts.includes(task.department_id) &&
+              (task.assigned_to === user.id || taskAssignees.includes(user.id) || task.created_by === user.id)) return true;
           return false;
         });
         
@@ -628,6 +638,7 @@ const ProjectsTasks = () => {
             return sum;
           }, 0);
           
+          const assignees = assigneesMap.get(task.id) || (task.assigned_to ? [task.assigned_to] : []);
           return {
             ...task,
             file_attachments: (task.file_attachments as unknown as FileAttachment[]) || [],
@@ -636,7 +647,8 @@ const ProjectsTasks = () => {
             profiles: usersRes.data?.find(u => u.user_id === task.assigned_to) || null,
             time_entries: taskTimeEntries,
             total_time_minutes: totalMinutes,
-            active_timer: activeTimer || null
+            active_timer: activeTimer || null,
+            assignees
           };
         });
         setTasks(tasksWithProfiles as unknown as Task[]);
@@ -808,7 +820,7 @@ const ProjectsTasks = () => {
     if (task.department_id !== selectedDepartment) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
-    if (selectedUser !== 'all' && task.assigned_to !== selectedUser) return false;
+    if (selectedUser !== 'all' && task.assigned_to !== selectedUser && !(task.assignees || []).includes(selectedUser)) return false;
     
     // Date filter - use start_date if available, otherwise created_at; for done tasks use updated_at
     if (dateMode !== 'all') {
@@ -1012,6 +1024,14 @@ const ProjectsTasks = () => {
         }
         await supabase.from('tasks').update(payload).eq('id', editingTask.id);
 
+        // Sync multi-assignees: replace existing rows with new selection
+        await supabase.from('task_assignees').delete().eq('task_id', editingTask.id);
+        if (taskForm.assigned_to.length > 0) {
+          await supabase.from('task_assignees').insert(
+            taskForm.assigned_to.map(uid => ({ task_id: editingTask.id, user_id: uid }))
+          );
+        }
+
         // If status changed to "done", notify department admins
         if (taskForm.status === 'done' && editingTask.status !== 'done') {
           const currentUser = users.find(u => u.user_id === currentUserId);
@@ -1031,13 +1051,13 @@ const ProjectsTasks = () => {
           }
         }
       } else {
-        // For new tasks, create one task per selected user
-        const tasksToInsert = taskForm.assigned_to.map(userId => ({
+        // Create ONE task with the first user as primary assignee, then add all assignees in join table
+        const newTaskPayload = {
           title: taskForm.title,
           description: taskForm.description || null,
           project_id: taskForm.project_id || null,
           department_id: taskForm.department_id,
-          assigned_to: userId,
+          assigned_to: taskForm.assigned_to[0],
           status: taskForm.status,
           priority: taskForm.priority,
           dependency_task_id: taskForm.project_id && taskForm.dependency_task_id ? taskForm.dependency_task_id : null,
@@ -1050,10 +1070,20 @@ const ProjectsTasks = () => {
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
           created_by: currentUserId!
-        }));
+        };
 
-        const { error: insertError } = await supabase.from('tasks').insert(tasksToInsert);
+        const { data: insertedTask, error: insertError } = await supabase
+          .from('tasks')
+          .insert(newTaskPayload)
+          .select()
+          .single();
         if (insertError) throw insertError;
+
+        if (insertedTask) {
+          await supabase.from('task_assignees').insert(
+            taskForm.assigned_to.map(uid => ({ task_id: insertedTask.id, user_id: uid }))
+          );
+        }
 
         // Send notification to each assigned user
         for (const userId of taskForm.assigned_to) {
@@ -1109,10 +1139,19 @@ const ProjectsTasks = () => {
     }
   };
 
-  const handleAssignTask = async (taskId: string, userId: string) => {
+  const handleAssignTask = async (taskId: string, userIds: string[]) => {
     try {
-      const { error } = await supabase.from('tasks').update({ assigned_to: userId }).eq('id', taskId).select();
-      if (error) throw error;
+      const finalIds = userIds.length > 0 ? userIds : [];
+      // Update primary assigned_to (NOT NULL) — keep first selected, or skip update if empty
+      if (finalIds.length > 0) {
+        const { error } = await supabase.from('tasks').update({ assigned_to: finalIds[0] }).eq('id', taskId).select();
+        if (error) throw error;
+      }
+      // Sync join table
+      await supabase.from('task_assignees').delete().eq('task_id', taskId);
+      if (finalIds.length > 0) {
+        await supabase.from('task_assignees').insert(finalIds.map(uid => ({ task_id: taskId, user_id: uid })));
+      }
       toast({ title: language === 'ar' ? 'تم التعيين' : 'Assigned' });
       fetchData();
     } catch (error: any) {
@@ -1150,18 +1189,22 @@ const ProjectsTasks = () => {
     const assignees = inlineAssignees.length > 0 ? inlineAssignees : [currentUserId];
     setInlineSaving(true);
     try {
-      const tasksToInsert = assignees.map(uid => ({
+      const { data: insertedTask, error } = await supabase.from('tasks').insert({
         title,
         description: null,
         project_id: selectedProject !== 'all' ? selectedProject : null,
         department_id: selectedDepartment,
-        assigned_to: uid,
+        assigned_to: assignees[0],
         status: phaseKey,
         priority: 'medium',
         created_by: currentUserId,
-      }));
-      const { error } = await supabase.from('tasks').insert(tasksToInsert);
+      }).select().single();
       if (error) throw error;
+      if (insertedTask) {
+        await supabase.from('task_assignees').insert(
+          assignees.map(uid => ({ task_id: insertedTask.id, user_id: uid }))
+        );
+      }
       setInlineTitle("");
       setInlineAssignees([]);
       setInlineCreatePhase(null);
@@ -1180,7 +1223,7 @@ const ProjectsTasks = () => {
       description: task.description || '',
       project_id: task.project_id || '',
       department_id: task.department_id,
-      assigned_to: [task.assigned_to], // Wrap in array for editing
+      assigned_to: task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to],
       status: task.status,
       priority: task.priority,
       dependency_task_id: task.dependency_task_id || '',
@@ -2062,15 +2105,31 @@ const ProjectsTasks = () => {
                                       )}
                                     </div>
 
-                                    {/* Assignee */}
+                                    {/* Assignees (multi) */}
                                     <div className="flex items-center gap-2 mt-3">
-                                      <Avatar className="h-6 w-6">
-                                        <AvatarFallback className="text-xs bg-primary/10">
-                                          {task.profiles?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
-                                        </AvatarFallback>
-                                      </Avatar>
+                                      <div className="flex -space-x-2">
+                                        {(task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to]).slice(0, 3).map((uid, idx) => {
+                                          const u = users.find(x => x.user_id === uid);
+                                          return (
+                                            <Avatar key={uid + idx} className="h-6 w-6 border-2 border-background">
+                                              <AvatarFallback className="text-xs bg-primary/10">
+                                                {u?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                          );
+                                        })}
+                                        {((task.assignees?.length || 0) > 3) && (
+                                          <div className="h-6 w-6 rounded-full border-2 border-background bg-muted text-[10px] flex items-center justify-center">
+                                            +{(task.assignees!.length - 3)}
+                                          </div>
+                                        )}
+                                      </div>
                                       <span className="text-xs text-muted-foreground truncate flex-1">
-                                        {task.profiles?.user_name || t.selectUser}
+                                        {(() => {
+                                          const ids = task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to];
+                                          const names = ids.map(id => users.find(u => u.user_id === id)?.user_name).filter(Boolean) as string[];
+                                          return names.length > 0 ? names.join(', ') : t.selectUser;
+                                        })()}
                                       </span>
                                       <Popover>
                                         <PopoverTrigger asChild>
@@ -2078,7 +2137,7 @@ const ProjectsTasks = () => {
                                             variant="ghost"
                                             size="icon"
                                             className="h-6 w-6"
-                                            title={language === 'ar' ? 'تعيين مستخدم' : 'Assign user'}
+                                            title={language === 'ar' ? 'تعيين مستخدمين' : 'Assign users'}
                                             onClick={(e) => e.stopPropagation()}
                                           >
                                             <UserPlus className="h-3.5 w-3.5" />
@@ -2086,30 +2145,40 @@ const ProjectsTasks = () => {
                                         </PopoverTrigger>
                                         <PopoverContent className="w-64 p-0" align="end" onClick={(e) => e.stopPropagation()}>
                                           <div className="p-2 border-b text-xs font-medium">
-                                            {language === 'ar' ? 'تعيين إلى' : 'Assign to'}
+                                            {language === 'ar' ? 'تعيين إلى' : 'Assign to (multiple)'}
                                           </div>
                                           <ScrollArea className="max-h-64">
                                             <div className="p-1">
                                               {users
                                                 .filter(u => !task.department_id || u.default_department_id === task.department_id || (u.departmentMemberships && u.departmentMemberships.includes(task.department_id)))
-                                                .map(u => (
-                                                  <button
-                                                    key={u.user_id}
-                                                    type="button"
-                                                    onClick={() => handleAssignTask(task.id, u.user_id)}
-                                                    className={cn(
-                                                      "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted text-left",
-                                                      task.assigned_to === u.user_id && "bg-primary/10"
-                                                    )}
-                                                  >
-                                                    <Avatar className="h-5 w-5">
-                                                      <AvatarFallback className="text-[10px] bg-primary/10">
-                                                        {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
-                                                      </AvatarFallback>
-                                                    </Avatar>
-                                                    <span className="truncate">{u.user_name}</span>
-                                                  </button>
-                                                ))}
+                                                .map(u => {
+                                                  const current = task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to];
+                                                  const checked = current.includes(u.user_id);
+                                                  return (
+                                                    <button
+                                                      key={u.user_id}
+                                                      type="button"
+                                                      onClick={() => {
+                                                        const next = checked
+                                                          ? current.filter(id => id !== u.user_id)
+                                                          : [...current, u.user_id];
+                                                        handleAssignTask(task.id, next);
+                                                      }}
+                                                      className={cn(
+                                                        "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted text-left",
+                                                        checked && "bg-primary/10"
+                                                      )}
+                                                    >
+                                                      <Checkbox checked={checked} className="pointer-events-none" />
+                                                      <Avatar className="h-5 w-5">
+                                                        <AvatarFallback className="text-[10px] bg-primary/10">
+                                                          {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      <span className="truncate">{u.user_name}</span>
+                                                    </button>
+                                                  );
+                                                })}
                                             </div>
                                           </ScrollArea>
                                         </PopoverContent>
