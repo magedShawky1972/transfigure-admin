@@ -109,6 +109,7 @@ interface Task {
   total_time_minutes?: number;
   active_timer?: TimeEntry | null;
   dependency_task?: { title: string } | null;
+  assignees?: string[];
 }
 
 interface Department {
