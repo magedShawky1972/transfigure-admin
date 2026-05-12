@@ -202,6 +202,10 @@ const ProjectsTasks = () => {
   const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
   const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
   const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null);
+  const [inlineCreatePhase, setInlineCreatePhase] = useState<string | null>(null);
+  const [inlineTitle, setInlineTitle] = useState("");
+  const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
+  const [inlineSaving, setInlineSaving] = useState(false);
   
   // Form states
   const [projectForm, setProjectForm] = useState({
