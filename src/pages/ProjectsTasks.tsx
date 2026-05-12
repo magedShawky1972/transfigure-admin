@@ -205,6 +205,7 @@ const ProjectsTasks = () => {
     name: '',
     description: '',
     department_id: '',
+    department_ids: [] as string[],
     status: 'active',
     start_date: null as Date | null,
     end_date: null as Date | null,
