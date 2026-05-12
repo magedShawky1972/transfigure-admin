@@ -145,6 +145,14 @@ interface UserPermission {
         { key: "shiftGenerator", label: "مولّد الشيفتات", labelEn: "Shift Generator" },
         { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
         { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
+      ]
+    },
+    {
+      groupKey: "projects",
+      labelAr: "المشاريع",
+      labelEn: "Projects",
+      items: [
+        { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
         { key: "projectSetup", label: "إعداد المشاريع", labelEn: "Project Setup" },
         { key: "taskList", label: "قائمة المهام", labelEn: "Task List" },
       ]
