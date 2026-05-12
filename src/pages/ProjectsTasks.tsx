@@ -479,6 +479,13 @@ const ProjectsTasks = () => {
         supabase.from('employees').select('user_id, first_name, last_name, photo_url, employment_status').eq('employment_status', 'active' as any)
       ]);
 
+      // Build map of taskId -> assignee user_ids
+      const assigneesMap = new Map<string, string[]>();
+      (taskAssigneesRes.data || []).forEach((ta: { task_id: string; user_id: string }) => {
+        if (!assigneesMap.has(ta.task_id)) assigneesMap.set(ta.task_id, []);
+        assigneesMap.get(ta.task_id)!.push(ta.user_id);
+      });
+
       // Map of user_id -> employee record (only active employees with a linked user_id)
       const employeeMap = new Map<string, { full_name: string; photo_url: string | null }>();
       (employeesRes.data || []).forEach((e: any) => {
