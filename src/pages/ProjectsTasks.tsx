@@ -820,7 +820,7 @@ const ProjectsTasks = () => {
     if (task.department_id !== selectedDepartment) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
-    if (selectedUser !== 'all' && task.assigned_to !== selectedUser) return false;
+    if (selectedUser !== 'all' && task.assigned_to !== selectedUser && !(task.assignees || []).includes(selectedUser)) return false;
     
     // Date filter - use start_date if available, otherwise created_at; for done tasks use updated_at
     if (dateMode !== 'all') {
