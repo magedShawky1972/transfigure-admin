@@ -245,7 +245,8 @@ const ProjectsTasks = () => {
     file_attachments: [] as FileAttachment[],
     video_attachments: [] as FileAttachment[],
     seq_number: null as number | null,
-    wireframes: [] as Wireframe[]
+    wireframes: [] as Wireframe[],
+    figma_link: '' as string
   });
   const [newLink, setNewLink] = useState('');
   const [uploading, setUploading] = useState(false);
