@@ -21,7 +21,7 @@ import { ar } from "date-fns/locale";
 import { 
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
-  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
+  Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
   GanttChart, FileSpreadsheet
 } from "lucide-react";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
