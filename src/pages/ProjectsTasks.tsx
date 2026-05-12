@@ -201,6 +201,7 @@ const ProjectsTasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [timeEntriesDialogOpen, setTimeEntriesDialogOpen] = useState(false);
   const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
+  const [summaryProject, setSummaryProject] = useState<Project | null>(null);
   const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
   const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
   const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null);
