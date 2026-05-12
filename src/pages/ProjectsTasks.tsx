@@ -1132,7 +1132,35 @@ const ProjectsTasks = () => {
     }
   };
 
-  const handleEditTask = (task: Task) => {
+  const handleInlineCreateTask = async (phaseKey: string) => {
+    const title = inlineTitle.trim();
+    if (!title || !currentUserId || !selectedDepartment) return;
+    const assignees = inlineAssignees.length > 0 ? inlineAssignees : [currentUserId];
+    setInlineSaving(true);
+    try {
+      const tasksToInsert = assignees.map(uid => ({
+        title,
+        description: null,
+        project_id: selectedProject !== 'all' ? selectedProject : null,
+        department_id: selectedDepartment,
+        assigned_to: uid,
+        status: phaseKey,
+        priority: 'medium',
+        created_by: currentUserId,
+      }));
+      const { error } = await supabase.from('tasks').insert(tasksToInsert);
+      if (error) throw error;
+      setInlineTitle("");
+      setInlineAssignees([]);
+      setInlineCreatePhase(null);
+      fetchData();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setInlineSaving(false);
+    }
+  };
+
     setEditingTask(task);
     setTaskForm({
       title: task.title,
