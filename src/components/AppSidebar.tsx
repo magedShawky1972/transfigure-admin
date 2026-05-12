@@ -422,7 +422,7 @@ export function AppSidebar() {
             <SidebarGroup key={group.defaultEn} className="px-1 py-1">
               <SidebarGroupLabel
                 asChild
-                className="text-sidebar-foreground/60 px-2 text-[11px] font-semibold uppercase tracking-wider"
+                className="text-sidebar-foreground/70 px-2 text-[12px] font-medium tracking-normal normal-case"
               >
                 <button
                   type="button"
@@ -456,9 +456,9 @@ export function AppSidebar() {
                             to={item.url}
                             end
                             className={({ isActive }) =>
-                              `group/link relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 text-sm ${
+                              `group/link relative flex items-center gap-3 px-3 py-1.5 rounded-md transition-all duration-150 text-[13px] leading-tight ${
                                 isActive
-                                  ? "bg-sidebar-primary/15 text-sidebar-primary-foreground font-medium"
+                                  ? "bg-sidebar-primary/15 text-sidebar-primary-foreground font-semibold"
                                   : "text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:translate-x-0.5"
                               }`
                             }
