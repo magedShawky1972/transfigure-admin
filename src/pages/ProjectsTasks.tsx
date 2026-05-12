@@ -1156,23 +1156,26 @@ const ProjectsTasks = () => {
   };
 
   const handleAssignTask = async (taskId: string, userIds: string[]) => {
+    const finalIds = userIds.length > 0 ? userIds : [];
+    // Optimistic local update so the popover stays open and UI updates immediately
+    setTasks(prev => prev.map(t => t.id === taskId
+      ? { ...t, assignees: finalIds, assigned_to: finalIds[0] ?? t.assigned_to }
+      : t
+    ));
     try {
-      const finalIds = userIds.length > 0 ? userIds : [];
-      // Update primary assigned_to (NOT NULL) — keep first selected, or skip update if empty
       if (finalIds.length > 0) {
         const { error } = await supabase.from('tasks').update({ assigned_to: finalIds[0] }).eq('id', taskId).select();
         if (error) throw error;
       }
-      // Sync join table
       await supabase.from('task_assignees').delete().eq('task_id', taskId);
       if (finalIds.length > 0) {
         await supabase.from('task_assignees').insert(finalIds.map(uid => ({ task_id: taskId, user_id: uid })));
       }
-      toast({ title: language === 'ar' ? 'تم التعيين' : 'Assigned' });
-      fetchData();
     } catch (error: any) {
       console.error('Error assigning task:', error);
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', description: error?.message, variant: 'destructive' });
+      // Revert by silently refetching
+      fetchData(true);
     }
   };
 
