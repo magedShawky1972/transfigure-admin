@@ -617,11 +617,12 @@ const ProjectsTasks = () => {
         
         // Filter tasks based on user access - admins see all tasks
         const filteredTasks = isAdmin ? tasksRes.data : tasksRes.data.filter(task => {
+          const taskAssignees = assigneesMap.get(task.id) || [];
           // Department admin sees all tasks in their departments
           if (adminDeptIds.includes(task.department_id)) return true;
-          // Regular user sees only their own tasks in their department
-          if (allMemberDepts.includes(task.department_id) && 
-              (task.assigned_to === user.id || task.created_by === user.id)) return true;
+          // Regular user sees tasks they're assigned to (single or multi) or created
+          if (allMemberDepts.includes(task.department_id) &&
+              (task.assigned_to === user.id || taskAssignees.includes(user.id) || task.created_by === user.id)) return true;
           return false;
         });
         
@@ -637,6 +638,7 @@ const ProjectsTasks = () => {
             return sum;
           }, 0);
           
+          const assignees = assigneesMap.get(task.id) || (task.assigned_to ? [task.assigned_to] : []);
           return {
             ...task,
             file_attachments: (task.file_attachments as unknown as FileAttachment[]) || [],
@@ -645,7 +647,8 @@ const ProjectsTasks = () => {
             profiles: usersRes.data?.find(u => u.user_id === task.assigned_to) || null,
             time_entries: taskTimeEntries,
             total_time_minutes: totalMinutes,
-            active_timer: activeTimer || null
+            active_timer: activeTimer || null,
+            assignees
           };
         });
         setTasks(tasksWithProfiles as unknown as Task[]);
