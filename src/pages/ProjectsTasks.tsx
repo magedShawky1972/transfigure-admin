@@ -27,6 +27,7 @@ import {
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import TaskMessages from "@/components/TaskMessages";
 
 interface ProjectMember {
   id: string;
@@ -1687,6 +1688,15 @@ const ProjectsTasks = () => {
                         </div>
                       )}
                     </div>
+
+                    {editingTask && (
+                      <TaskMessages
+                        taskId={editingTask.id}
+                        currentUserId={currentUserId}
+                        users={users as any}
+                        language={language as 'en' | 'ar'}
+                      />
+                    )}
 
                     <div className="flex gap-2 justify-end">
                       <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>{t.cancel}</Button>
