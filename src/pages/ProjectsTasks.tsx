@@ -2128,6 +2128,7 @@ const ProjectsTasks = () => {
                                           const u = users.find(x => x.user_id === uid);
                                           return (
                                             <Avatar key={uid + idx} className="h-6 w-6 border-2 border-background">
+                                              {u?.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
                                               <AvatarFallback className="text-xs bg-primary/10">
                                                 {u?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
                                               </AvatarFallback>
