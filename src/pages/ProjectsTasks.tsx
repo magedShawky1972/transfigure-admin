@@ -519,7 +519,10 @@ const ProjectsTasks = () => {
       });
 
       // Get project IDs where user is a manager
-      const projectMembers = projectMembersRes.data || [];
+      const projectMembers = ((projectMembersRes.data || []) as ProjectMember[]).sort((a, b) => {
+        if (a.role !== b.role) return a.role === 'manager' ? -1 : 1;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
       const managedProjectIds = projectMembers
         .filter(pm => pm.user_id === user.id && pm.role === 'manager')
         .map(pm => pm.project_id);
@@ -1942,8 +1945,15 @@ const ProjectsTasks = () => {
             {/* User avatars - shows project members when a project is selected, otherwise department users */}
             {(() => {
               const selectedProj = selectedProject !== 'all' ? projects.find(p => p.id === selectedProject) : null;
-              const managerIds = new Set(selectedProj?.members?.filter(m => m.role === 'manager').map(m => m.user_id) || []);
-              const projectMemberIds = selectedProj?.members?.map(m => m.user_id) || [];
+              const orderedProjectMembers = selectedProj?.members
+                ? [...selectedProj.members].sort((a, b) => {
+                    if (a.role !== b.role) return a.role === 'manager' ? -1 : 1;
+                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                  })
+                : [];
+              const managerIds = new Set(orderedProjectMembers.filter(m => m.role === 'manager').map(m => m.user_id));
+              const projectMemberIds = orderedProjectMembers.map(m => m.user_id);
+              const projectMemberOrder = new Map(projectMemberIds.map((userId, index) => [userId, index]));
               const rawUsers = selectedProj
                 ? projectMemberIds
                     .map(memberId => allProjectUsers.find(u => u.user_id === memberId) || users.find(u => u.user_id === memberId))
@@ -1956,8 +1966,13 @@ const ProjectsTasks = () => {
                 seen.add(u.user_id);
                 return true;
               });
-              // Put managers first, keep remaining project member order stable
-              const avatarUsers = [...uniqueUsers].sort((a, b) => Number(managerIds.has(b.user_id)) - Number(managerIds.has(a.user_id)));
+              const avatarUsers = selectedProj
+                ? [...uniqueUsers].sort(
+                    (a, b) =>
+                      (projectMemberOrder.get(a.user_id) ?? Number.MAX_SAFE_INTEGER) -
+                      (projectMemberOrder.get(b.user_id) ?? Number.MAX_SAFE_INTEGER)
+                  )
+                : uniqueUsers;
               const managerRing = "ring-2 ring-amber-500 ring-offset-2 ring-offset-background";
               return (
                 <div className="flex -space-x-2">
