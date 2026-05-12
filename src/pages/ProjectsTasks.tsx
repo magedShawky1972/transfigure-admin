@@ -176,6 +176,7 @@ const ProjectsTasks = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [accessibleDepartments, setAccessibleDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [allProjectUsers, setAllProjectUsers] = useState<Profile[]>([]);
   const [taskPhases, setTaskPhases] = useState<TaskPhase[]>([]);
   const [projectPhases, setProjectPhases] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -637,6 +638,8 @@ const ProjectsTasks = () => {
           };
         });
         
+        setAllProjectUsers(usersWithDepts);
+
         // Only employees can be assigned tasks
         const employeeOnly = usersWithDepts.filter(u => u.isEmployee);
         // Admins see all employees, others see filtered by accessible departments
@@ -1940,13 +1943,20 @@ const ProjectsTasks = () => {
             {(() => {
               const selectedProj = selectedProject !== 'all' ? projects.find(p => p.id === selectedProject) : null;
               const managerIds = new Set(selectedProj?.members?.filter(m => m.role === 'manager').map(m => m.user_id) || []);
+              const projectMemberIds = selectedProj?.members?.map(m => m.user_id) || [];
               const rawUsers = selectedProj
-                ? (selectedProj.members?.map(m => users.find(u => u.user_id === m.user_id)).filter(Boolean) as typeof users)
+                ? projectMemberIds
+                    .map(memberId => allProjectUsers.find(u => u.user_id === memberId) || users.find(u => u.user_id === memberId))
+                    .filter(Boolean)
                 : departmentUsers;
               // Dedupe by user_id (same user may appear as both manager and member)
               const seen = new Set<string>();
-              const uniqueUsers = rawUsers.filter(u => { if (seen.has(u.user_id)) return false; seen.add(u.user_id); return true; });
-              // Put managers first
+              const uniqueUsers = rawUsers.filter((u): u is Profile => {
+                if (!u || seen.has(u.user_id)) return false;
+                seen.add(u.user_id);
+                return true;
+              });
+              // Put managers first, keep remaining project member order stable
               const avatarUsers = [...uniqueUsers].sort((a, b) => Number(managerIds.has(b.user_id)) - Number(managerIds.has(a.user_id)));
               const managerRing = "ring-2 ring-amber-500 ring-offset-2 ring-offset-background";
               return (
