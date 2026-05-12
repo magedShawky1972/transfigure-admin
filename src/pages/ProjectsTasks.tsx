@@ -742,6 +742,22 @@ const ProjectsTasks = () => {
     }
   }, [selectedDepartment]);
 
+  // Load project-specific phases when a single project is selected
+  useEffect(() => {
+    if (selectedProject === 'all') { setProjectPhases([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('project_task_phases')
+        .select('*')
+        .eq('project_id', selectedProject)
+        .eq('is_active', true)
+        .order('phase_order', { ascending: true });
+      if (!cancelled) setProjectPhases(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProject, projectDialogOpen]);
+
   // Get phases for selected department
   const departmentPhases = taskPhases.filter(p => p.department_id === selectedDepartment);
   const defaultPhases = [
