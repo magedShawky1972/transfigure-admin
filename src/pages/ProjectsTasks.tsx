@@ -1939,24 +1939,33 @@ const ProjectsTasks = () => {
             {/* User avatars - shows project members when a project is selected, otherwise department users */}
             {(() => {
               const selectedProj = selectedProject !== 'all' ? projects.find(p => p.id === selectedProject) : null;
-              const avatarUsers = selectedProj
+              const managerIds = new Set(selectedProj?.members?.filter(m => m.role === 'manager').map(m => m.user_id) || []);
+              const rawUsers = selectedProj
                 ? (selectedProj.members?.map(m => users.find(u => u.user_id === m.user_id)).filter(Boolean) as typeof users)
                 : departmentUsers;
+              // Put managers first
+              const avatarUsers = [...rawUsers].sort((a, b) => Number(managerIds.has(b.user_id)) - Number(managerIds.has(a.user_id)));
+              const managerRing = "ring-2 ring-amber-500 ring-offset-2 ring-offset-background";
               return (
                 <div className="flex -space-x-2">
-                  {avatarUsers.slice(0, 5).map(u => (
-                    <Tooltip key={u.user_id}>
-                      <TooltipTrigger asChild>
-                        <Avatar className="h-8 w-8 border-2 border-background cursor-pointer hover:z-10">
-                          {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
-                          <AvatarFallback className="text-xs bg-primary/10">
-                            {u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                      </TooltipTrigger>
-                      <TooltipContent>{u.user_name}</TooltipContent>
-                    </Tooltip>
-                  ))}
+                  {avatarUsers.slice(0, 5).map(u => {
+                    const isManager = managerIds.has(u.user_id);
+                    return (
+                      <Tooltip key={u.user_id}>
+                        <TooltipTrigger asChild>
+                          <Avatar className={cn("h-8 w-8 border-2 border-background cursor-pointer hover:z-10", isManager && managerRing)}>
+                            {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
+                            <AvatarFallback className="text-xs bg-primary/10">
+                              {u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {u.user_name}{isManager && (language === 'ar' ? ' (مدير المشروع)' : ' (Project Manager)')}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
                   {avatarUsers.length > 5 && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1966,15 +1975,18 @@ const ProjectsTasks = () => {
                       </TooltipTrigger>
                       <TooltipContent>
                         <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
-                          {avatarUsers.slice(5).map(u => (
-                            <div key={u.user_id} className="flex items-center gap-2">
-                              <Avatar className="h-5 w-5">
-                                {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
-                                <AvatarFallback className="text-[9px]">{u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs">{u.user_name}</span>
-                            </div>
-                          ))}
+                          {avatarUsers.slice(5).map(u => {
+                            const isManager = managerIds.has(u.user_id);
+                            return (
+                              <div key={u.user_id} className="flex items-center gap-2">
+                                <Avatar className={cn("h-5 w-5", isManager && "ring-2 ring-amber-500")}>
+                                  {u.avatar_url && <AvatarImage src={u.avatar_url} alt={u.user_name} />}
+                                  <AvatarFallback className="text-[9px]">{u.user_name.split(' ').map(n => n[0]).join('').slice(0, 2)}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs">{u.user_name}{isManager && (language === 'ar' ? ' (مدير)' : ' (Manager)')}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </TooltipContent>
                     </Tooltip>
