@@ -1139,10 +1139,19 @@ const ProjectsTasks = () => {
     }
   };
 
-  const handleAssignTask = async (taskId: string, userId: string) => {
+  const handleAssignTask = async (taskId: string, userIds: string[]) => {
     try {
-      const { error } = await supabase.from('tasks').update({ assigned_to: userId }).eq('id', taskId).select();
-      if (error) throw error;
+      const finalIds = userIds.length > 0 ? userIds : [];
+      // Update primary assigned_to (NOT NULL) — keep first selected, or skip update if empty
+      if (finalIds.length > 0) {
+        const { error } = await supabase.from('tasks').update({ assigned_to: finalIds[0] }).eq('id', taskId).select();
+        if (error) throw error;
+      }
+      // Sync join table
+      await supabase.from('task_assignees').delete().eq('task_id', taskId);
+      if (finalIds.length > 0) {
+        await supabase.from('task_assignees').insert(finalIds.map(uid => ({ task_id: taskId, user_id: uid })));
+      }
       toast({ title: language === 'ar' ? 'تم التعيين' : 'Assigned' });
       fetchData();
     } catch (error: any) {
