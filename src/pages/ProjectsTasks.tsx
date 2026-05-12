@@ -1210,7 +1210,7 @@ const ProjectsTasks = () => {
       description: task.description || '',
       project_id: task.project_id || '',
       department_id: task.department_id,
-      assigned_to: [task.assigned_to], // Wrap in array for editing
+      assigned_to: task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to],
       status: task.status,
       priority: task.priority,
       dependency_task_id: task.dependency_task_id || '',
