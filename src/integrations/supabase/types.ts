@@ -8999,6 +8999,7 @@ export type Database = {
           description: string | null
           end_time: string | null
           external_links: string[] | null
+          figma_link: string | null
           file_attachments: Json | null
           id: string
           is_milestone: boolean
@@ -9024,6 +9025,7 @@ export type Database = {
           description?: string | null
           end_time?: string | null
           external_links?: string[] | null
+          figma_link?: string | null
           file_attachments?: Json | null
           id?: string
           is_milestone?: boolean
@@ -9049,6 +9051,7 @@ export type Database = {
           description?: string | null
           end_time?: string | null
           external_links?: string[] | null
+          figma_link?: string | null
           file_attachments?: Json | null
           id?: string
           is_milestone?: boolean
