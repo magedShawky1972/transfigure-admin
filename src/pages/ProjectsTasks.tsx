@@ -1063,6 +1063,7 @@ const ProjectsTasks = () => {
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
           wireframe_data: taskForm.wireframes as unknown as Json,
+          figma_link: taskForm.figma_link || null,
           created_by: currentUserId!
         };
         // Only include seq_number if it was changed
