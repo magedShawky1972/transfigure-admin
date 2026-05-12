@@ -6334,6 +6334,42 @@ export type Database = {
           },
         ]
       }
+      project_departments: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_departments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_departments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           created_at: string
