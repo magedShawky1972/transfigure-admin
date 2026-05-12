@@ -1866,6 +1866,19 @@ const ProjectsTasks = () => {
                       <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                         {phaseTasks.length}
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        title={t.addTask}
+                        onClick={() => {
+                          resetTaskForm();
+                          setTaskForm(prev => ({ ...prev, status: phase.phase_key, department_id: selectedDepartment }));
+                          setTaskDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
 
                     {/* Phase Search */}
