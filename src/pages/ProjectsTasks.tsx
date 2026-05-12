@@ -22,9 +22,10 @@ import {
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
-  GanttChart, FileSpreadsheet
+  GanttChart, FileSpreadsheet, BarChart3
 } from "lucide-react";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
+import { ProjectSummaryDialog } from "@/components/ProjectSummaryDialog";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskMessages from "@/components/TaskMessages";
@@ -200,6 +201,7 @@ const ProjectsTasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [timeEntriesDialogOpen, setTimeEntriesDialogOpen] = useState(false);
   const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
+  const [summaryProject, setSummaryProject] = useState<Project | null>(null);
   const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
   const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
   const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null);
@@ -1962,6 +1964,16 @@ const ProjectsTasks = () => {
                         variant="outline"
                         size="sm"
                         className="h-7 gap-1.5 text-primary border-primary/40 hover:bg-primary/10"
+                        onClick={() => setSummaryProject(project)}
+                        title={language === 'ar' ? 'الملخص' : 'Summary'}
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        <span className="text-xs font-medium">{language === 'ar' ? 'الملخص' : 'Summary'}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-primary border-primary/40 hover:bg-primary/10"
                         onClick={() => navigate(`/project-gantt?projectId=${project.id}&departmentId=${selectedDepartment}`)}
                         title={language === 'ar' ? 'مخطط جانت' : 'Timeline'}
                       >
@@ -2454,6 +2466,34 @@ const ProjectsTasks = () => {
         currentUserId={currentUserId || ""}
         onImportComplete={fetchData}
       />
+
+      {summaryProject && (
+        <ProjectSummaryDialog
+          open={!!summaryProject}
+          onOpenChange={(v) => !v && setSummaryProject(null)}
+          projectName={summaryProject.name}
+          tasks={tasks
+            .filter(t => t.project_id === summaryProject.id)
+            .map(t => ({
+              id: t.id,
+              title: t.title,
+              status: t.status,
+              priority: t.priority,
+              deadline: t.deadline,
+              created_at: t.created_at,
+              assigned_to: t.assigned_to,
+              assignees: t.assignees,
+              updated_at: (t as any).updated_at,
+            }))}
+          users={users.map(u => ({ user_id: u.user_id, user_name: u.user_name, avatar_url: u.avatar_url }))}
+          phases={activePhases.map(p => ({
+            phase_key: p.phase_key,
+            phase_label: language === 'ar' ? (p.phase_name_ar || p.phase_name) : p.phase_name,
+            phase_color: p.phase_color,
+          }))}
+          language={language as 'ar' | 'en'}
+        />
+      )}
     </div>
   );
 };
