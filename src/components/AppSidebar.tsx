@@ -456,9 +456,9 @@ export function AppSidebar() {
                             to={item.url}
                             end
                             className={({ isActive }) =>
-                              `group/link relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 text-sm ${
+                              `group/link relative flex items-center gap-3 px-3 py-1.5 rounded-md transition-all duration-150 text-[13px] leading-tight ${
                                 isActive
-                                  ? "bg-sidebar-primary/15 text-sidebar-primary-foreground font-medium"
+                                  ? "bg-sidebar-primary/15 text-sidebar-primary-foreground font-semibold"
                                   : "text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:translate-x-0.5"
                               }`
                             }
