@@ -471,9 +471,7 @@ export function AppSidebar() {
                                   }`}
                                 />
                                 <item.icon
-                                  className={`h-4 w-4 shrink-0 transition-colors ${
-                                    isActive ? "text-sidebar-primary" : "text-sidebar-foreground/60 group-hover/link:text-sidebar-foreground"
-                                  }`}
+                                  className="h-4 w-4 shrink-0 transition-colors text-sidebar-foreground/60 group-hover/link:text-sidebar-foreground"
                                 />
                                 <span className="truncate">{item.title}</span>
                                 {item.url === "/asus-tawasoul" && asusTawasoulUnread > 0 && (
