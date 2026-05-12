@@ -21,7 +21,7 @@ import { ar } from "date-fns/locale";
 import { 
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
-  Timer, History, Search, User, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
+  Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
   GanttChart, FileSpreadsheet
 } from "lucide-react";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
@@ -1109,6 +1109,18 @@ const ProjectsTasks = () => {
     }
   };
 
+  const handleAssignTask = async (taskId: string, userId: string) => {
+    try {
+      const { error } = await supabase.from('tasks').update({ assigned_to: userId }).eq('id', taskId).select();
+      if (error) throw error;
+      toast({ title: language === 'ar' ? 'تم التعيين' : 'Assigned' });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error assigning task:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', description: error?.message, variant: 'destructive' });
+    }
+  };
+
   const handleDeleteProject = async (projectId: string) => {
     try {
       // First check if project has any tasks
@@ -2057,9 +2069,51 @@ const ProjectsTasks = () => {
                                           {task.profiles?.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
                                         </AvatarFallback>
                                       </Avatar>
-                                      <span className="text-xs text-muted-foreground truncate">
+                                      <span className="text-xs text-muted-foreground truncate flex-1">
                                         {task.profiles?.user_name || t.selectUser}
                                       </span>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            title={language === 'ar' ? 'تعيين مستخدم' : 'Assign user'}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <UserPlus className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-64 p-0" align="end" onClick={(e) => e.stopPropagation()}>
+                                          <div className="p-2 border-b text-xs font-medium">
+                                            {language === 'ar' ? 'تعيين إلى' : 'Assign to'}
+                                          </div>
+                                          <ScrollArea className="max-h-64">
+                                            <div className="p-1">
+                                              {users
+                                                .filter(u => !task.department_id || u.default_department_id === task.department_id || (u.departmentMemberships && u.departmentMemberships.includes(task.department_id)))
+                                                .map(u => (
+                                                  <button
+                                                    key={u.user_id}
+                                                    type="button"
+                                                    onClick={() => handleAssignTask(task.id, u.user_id)}
+                                                    className={cn(
+                                                      "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-muted text-left",
+                                                      task.assigned_to === u.user_id && "bg-primary/10"
+                                                    )}
+                                                  >
+                                                    <Avatar className="h-5 w-5">
+                                                      <AvatarFallback className="text-[10px] bg-primary/10">
+                                                        {u.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                                                      </AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="truncate">{u.user_name}</span>
+                                                  </button>
+                                                ))}
+                                            </div>
+                                          </ScrollArea>
+                                        </PopoverContent>
+                                      </Popover>
                                     </div>
                                   </div>
                                 </div>
