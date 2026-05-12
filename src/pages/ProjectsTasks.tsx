@@ -205,6 +205,7 @@ const ProjectsTasks = () => {
     name: '',
     description: '',
     department_id: '',
+    department_ids: [] as string[],
     status: 'active',
     start_date: null as Date | null,
     end_date: null as Date | null,
@@ -878,16 +879,20 @@ const ProjectsTasks = () => {
   };
 
   const handleSaveProject = async () => {
-    if (!projectForm.name || !projectForm.department_id) {
+    const deptIds = projectForm.department_ids.length > 0
+      ? projectForm.department_ids
+      : (projectForm.department_id ? [projectForm.department_id] : []);
+    if (!projectForm.name || deptIds.length === 0) {
       toast({ title: language === 'ar' ? 'يرجى ملء الحقول المطلوبة' : 'Please fill required fields', variant: 'destructive' });
       return;
     }
 
     try {
+      const primaryDept = deptIds[0];
       const payload = {
         name: projectForm.name,
         description: projectForm.description || null,
-        department_id: projectForm.department_id,
+        department_id: primaryDept,
         status: projectForm.status,
         start_date: projectForm.start_date ? format(projectForm.start_date, 'yyyy-MM-dd') : null,
         end_date: projectForm.end_date ? format(projectForm.end_date, 'yyyy-MM-dd') : null,
@@ -906,6 +911,13 @@ const ProjectsTasks = () => {
         const { data: newProject, error } = await supabase.from('projects').insert(payload).select().single();
         if (error) throw error;
         projectId = newProject.id;
+      }
+
+      // Sync project_departments join rows
+      await supabase.from('project_departments').delete().eq('project_id', projectId);
+      const pdInserts = deptIds.map(did => ({ project_id: projectId, department_id: did }));
+      if (pdInserts.length > 0) {
+        await supabase.from('project_departments').insert(pdInserts);
       }
 
       // Add project manager
@@ -1119,14 +1131,25 @@ const ProjectsTasks = () => {
     setTaskDialogOpen(true);
   };
 
-  const handleEditProject = (project: Project) => {
+  const handleEditProject = async (project: Project) => {
     setEditingProject(project);
     const manager = project.members?.find(m => m.role === 'manager');
     const memberIds = project.members?.filter(m => m.role === 'member').map(m => m.user_id) || [];
+
+    // Load all departments linked to this project
+    const { data: pdRows } = await supabase
+      .from('project_departments')
+      .select('department_id')
+      .eq('project_id', project.id);
+    const deptIds = (pdRows && pdRows.length > 0)
+      ? pdRows.map((r: { department_id: string }) => r.department_id)
+      : [project.department_id];
+
     setProjectForm({
       name: project.name,
       description: project.description || '',
       department_id: project.department_id,
+      department_ids: deptIds,
       status: project.status,
       start_date: project.start_date ? new Date(project.start_date) : null,
       end_date: project.end_date ? new Date(project.end_date) : null,
@@ -1138,7 +1161,7 @@ const ProjectsTasks = () => {
 
   const resetProjectForm = () => {
     setEditingProject(null);
-    setProjectForm({ name: '', description: '', department_id: selectedDepartment, status: 'active', start_date: null, end_date: null, manager_id: '', member_ids: [] });
+    setProjectForm({ name: '', description: '', department_id: selectedDepartment, department_ids: selectedDepartment ? [selectedDepartment] : [], status: 'active', start_date: null, end_date: null, manager_id: '', member_ids: [] });
   };
 
   const resetTaskForm = () => {
@@ -1245,13 +1268,33 @@ const ProjectsTasks = () => {
                       <Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">{t.department} *</label>
-                      <Select value={projectForm.department_id} onValueChange={(v) => setProjectForm({ ...projectForm, department_id: v, manager_id: '', member_ids: [] })}>
-                        <SelectTrigger><SelectValue placeholder={t.selectDepartment} /></SelectTrigger>
-                        <SelectContent>
-                          {accessibleDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <label className="text-sm font-medium">{t.department} * {projectForm.department_ids.length > 0 && <span className="text-xs text-muted-foreground">({projectForm.department_ids.length})</span>}</label>
+                      <div className="border rounded-md p-2 max-h-[160px] overflow-y-auto space-y-1">
+                        {accessibleDepartments.map(d => {
+                          const checked = projectForm.department_ids.includes(d.id);
+                          return (
+                            <div key={d.id} className="flex items-center gap-2 py-0.5">
+                              <Checkbox
+                                id={`project-dept-${d.id}`}
+                                checked={checked}
+                                onCheckedChange={(c) => {
+                                  const next = c
+                                    ? [...projectForm.department_ids, d.id]
+                                    : projectForm.department_ids.filter(x => x !== d.id);
+                                  setProjectForm({
+                                    ...projectForm,
+                                    department_ids: next,
+                                    department_id: next[0] || '',
+                                    manager_id: '',
+                                    member_ids: []
+                                  });
+                                }}
+                              />
+                              <label htmlFor={`project-dept-${d.id}`} className="text-sm cursor-pointer">{d.department_name}</label>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                     
                     {/* Start and End Date */}
@@ -1293,9 +1336,9 @@ const ProjectsTasks = () => {
                         <SelectTrigger><SelectValue placeholder={t.selectManager} /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{t.noManager}</SelectItem>
-                          {users.filter(u => 
-                            u.default_department_id === projectForm.department_id || 
-                            (u.departmentMemberships && u.departmentMemberships.includes(projectForm.department_id))
+                          {users.filter(u =>
+                            (u.default_department_id && projectForm.department_ids.includes(u.default_department_id)) ||
+                            (u.departmentMemberships && u.departmentMemberships.some(d => projectForm.department_ids.includes(d)))
                           ).map(u => (
                             <SelectItem key={u.user_id} value={u.user_id}>{u.user_name}</SelectItem>
                           ))}
@@ -1307,9 +1350,9 @@ const ProjectsTasks = () => {
                     <div>
                       <label className="text-sm font-medium">{t.projectMembers}</label>
                       <div className="border rounded-md p-2 max-h-[150px] overflow-y-auto">
-                        {users.filter(u => 
-                          (u.default_department_id === projectForm.department_id || 
-                           (u.departmentMemberships && u.departmentMemberships.includes(projectForm.department_id))) &&
+                        {users.filter(u =>
+                          ((u.default_department_id && projectForm.department_ids.includes(u.default_department_id)) ||
+                           (u.departmentMemberships && u.departmentMemberships.some(d => projectForm.department_ids.includes(d)))) &&
                           u.user_id !== projectForm.manager_id
                         ).map(u => (
                           <div key={u.user_id} className="flex items-center gap-2 py-1">
