@@ -1880,7 +1880,27 @@ const ProjectsTasks = () => {
                       />
                     )}
                     </TabsContent>
-                    <TabsContent value="wireframe" className="mt-4">
+                    <TabsContent value="wireframe" className="mt-4 space-y-4">
+                      <div>
+                        <label className="text-sm font-medium flex items-center gap-1">
+                          <Link className="h-4 w-4" /> Figma Link
+                        </label>
+                        <div className="flex gap-2 mt-1">
+                          <Input
+                            type="url"
+                            value={taskForm.figma_link}
+                            onChange={(e) => setTaskForm(prev => ({ ...prev, figma_link: e.target.value }))}
+                            placeholder="https://www.figma.com/file/..."
+                          />
+                          {taskForm.figma_link && (
+                            <Button type="button" variant="outline" size="sm" asChild>
+                              <a href={taskForm.figma_link} target="_blank" rel="noopener noreferrer">
+                                {language === 'ar' ? 'فتح' : 'Open'}
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                       <WireframeBoard
                         value={taskForm.wireframes}
                         onChange={(next) => setTaskForm(prev => ({ ...prev, wireframes: next }))}
