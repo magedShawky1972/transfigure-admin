@@ -855,7 +855,7 @@ const ProjectsTasks = () => {
   }).sort((a, b) => {
     const dateA = a.start_date || a.created_at || '';
     const dateB = b.start_date || b.created_at || '';
-    return dateB.localeCompare(dateA);
+    return dateA.localeCompare(dateB);
   });
 
   const handleDragStart = (event: DragStartEvent) => {
