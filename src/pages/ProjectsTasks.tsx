@@ -245,7 +245,8 @@ const ProjectsTasks = () => {
     file_attachments: [] as FileAttachment[],
     video_attachments: [] as FileAttachment[],
     seq_number: null as number | null,
-    wireframes: [] as Wireframe[]
+    wireframes: [] as Wireframe[],
+    figma_link: '' as string
   });
   const [newLink, setNewLink] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -1062,6 +1063,7 @@ const ProjectsTasks = () => {
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
           wireframe_data: taskForm.wireframes as unknown as Json,
+          figma_link: taskForm.figma_link || null,
           created_by: currentUserId!
         };
         // Only include seq_number if it was changed
@@ -1116,6 +1118,7 @@ const ProjectsTasks = () => {
           file_attachments: taskForm.file_attachments as unknown as Json,
           video_attachments: taskForm.video_attachments as unknown as Json,
           wireframe_data: taskForm.wireframes as unknown as Json,
+          figma_link: taskForm.figma_link || null,
           created_by: currentUserId!
         };
 
@@ -1286,7 +1289,8 @@ const ProjectsTasks = () => {
       file_attachments: task.file_attachments || [],
       video_attachments: task.video_attachments || [],
       seq_number: task.seq_number || null,
-      wireframes: ((task as unknown as { wireframe_data?: Wireframe[] }).wireframe_data as Wireframe[]) || []
+      wireframes: ((task as unknown as { wireframe_data?: Wireframe[] }).wireframe_data as Wireframe[]) || [],
+      figma_link: ((task as unknown as { figma_link?: string }).figma_link) || ''
     });
     setTaskDialogOpen(true);
   };
@@ -1330,7 +1334,7 @@ const ProjectsTasks = () => {
       title: '', description: '', project_id: selectedProject !== 'all' ? selectedProject : '', department_id: selectedDepartment, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
       start_date: null, deadline: null, start_time: '', end_time: '',
-      external_links: [], file_attachments: [], video_attachments: [], seq_number: null, wireframes: []
+      external_links: [], file_attachments: [], video_attachments: [], seq_number: null, wireframes: [], figma_link: ''
     });
   };
 
@@ -1876,7 +1880,27 @@ const ProjectsTasks = () => {
                       />
                     )}
                     </TabsContent>
-                    <TabsContent value="wireframe" className="mt-4">
+                    <TabsContent value="wireframe" className="mt-4 space-y-4">
+                      <div>
+                        <label className="text-sm font-medium flex items-center gap-1">
+                          <Link className="h-4 w-4" /> Figma Link
+                        </label>
+                        <div className="flex gap-2 mt-1">
+                          <Input
+                            type="url"
+                            value={taskForm.figma_link}
+                            onChange={(e) => setTaskForm(prev => ({ ...prev, figma_link: e.target.value }))}
+                            placeholder="https://www.figma.com/file/..."
+                          />
+                          {taskForm.figma_link && (
+                            <Button type="button" variant="outline" size="sm" asChild>
+                              <a href={taskForm.figma_link} target="_blank" rel="noopener noreferrer">
+                                {language === 'ar' ? 'فتح' : 'Open'}
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                       <WireframeBoard
                         value={taskForm.wireframes}
                         onChange={(next) => setTaskForm(prev => ({ ...prev, wireframes: next }))}
