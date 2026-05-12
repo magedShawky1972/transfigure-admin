@@ -422,7 +422,7 @@ export function AppSidebar() {
             <SidebarGroup key={group.defaultEn} className="px-1 py-1">
               <SidebarGroupLabel
                 asChild
-                className="text-sidebar-foreground/70 px-2 text-[12px] font-medium tracking-normal normal-case"
+                className="text-sidebar-foreground/80 px-2 text-[15px] font-semibold tracking-normal normal-case"
               >
                 <button
                   type="button"
