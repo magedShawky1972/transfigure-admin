@@ -244,7 +244,8 @@ const ProjectsTasks = () => {
     external_links: [] as string[],
     file_attachments: [] as FileAttachment[],
     video_attachments: [] as FileAttachment[],
-    seq_number: null as number | null
+    seq_number: null as number | null,
+    wireframes: [] as Wireframe[]
   });
   const [newLink, setNewLink] = useState('');
   const [uploading, setUploading] = useState(false);
