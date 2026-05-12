@@ -1189,18 +1189,22 @@ const ProjectsTasks = () => {
     const assignees = inlineAssignees.length > 0 ? inlineAssignees : [currentUserId];
     setInlineSaving(true);
     try {
-      const tasksToInsert = assignees.map(uid => ({
+      const { data: insertedTask, error } = await supabase.from('tasks').insert({
         title,
         description: null,
         project_id: selectedProject !== 'all' ? selectedProject : null,
         department_id: selectedDepartment,
-        assigned_to: uid,
+        assigned_to: assignees[0],
         status: phaseKey,
         priority: 'medium',
         created_by: currentUserId,
-      }));
-      const { error } = await supabase.from('tasks').insert(tasksToInsert);
+      }).select().single();
       if (error) throw error;
+      if (insertedTask) {
+        await supabase.from('task_assignees').insert(
+          assignees.map(uid => ({ task_id: insertedTask.id, user_id: uid }))
+        );
+      }
       setInlineTitle("");
       setInlineAssignees([]);
       setInlineCreatePhase(null);
