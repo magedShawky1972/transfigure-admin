@@ -1587,7 +1587,12 @@ const ProjectsTasks = () => {
                   <DialogHeader>
                     <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <Tabs defaultValue="details" className="w-full">
+                    <TabsList>
+                      <TabsTrigger value="details">{language === 'ar' ? 'التفاصيل' : 'Details'}</TabsTrigger>
+                      <TabsTrigger value="wireframe">{language === 'ar' ? 'مخطط/رسم' : 'Wireframe'}</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="details" className="space-y-4 mt-4">
                     <div className="grid grid-cols-4 gap-4">
                       <div className="col-span-3">
                         <label className="text-sm font-medium">{t.taskTitle} *</label>
