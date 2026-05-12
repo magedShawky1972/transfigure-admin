@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskMessages from "@/components/TaskMessages";
 import ProjectTaskPhases from "@/components/ProjectTaskPhases";
+import WireframeBoard, { type Wireframe } from "@/components/WireframeBoard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ProjectMember {
   id: string;
