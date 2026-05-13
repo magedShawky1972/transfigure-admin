@@ -189,6 +189,19 @@ const ProjectSetup = () => {
     setDialogOpen(true);
   };
 
+  const handleNew = () => {
+    setEditingProject(null);
+    setFormData({
+      name: "",
+      description: "",
+      department_id: "",
+      status: "active",
+      start_date: "",
+      end_date: ""
+    });
+    setDialogOpen(true);
+  };
+
   const handleSave = async () => {
     if (!formData.name || !formData.department_id) {
       toast({ title: t.fillRequired, variant: 'destructive' });
@@ -206,18 +219,36 @@ const ProjectSetup = () => {
         end_date: formData.end_date || null
       };
 
-      const { error } = await supabase
-        .from('projects')
-        .update(payload)
-        .eq('id', editingProject!.id);
+      if (editingProject) {
+        const { error } = await supabase
+          .from('projects')
+          .update(payload)
+          .eq('id', editingProject.id);
 
-      if (error) {
-        console.error('Error saving project:', error);
-        toast({ title: t.error, description: error.message, variant: 'destructive' });
-        return;
+        if (error) {
+          console.error('Error saving project:', error);
+          toast({ title: t.error, description: error.message, variant: 'destructive' });
+          return;
+        }
+        toast({ title: t.updated });
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast({ title: t.error, variant: 'destructive' });
+          return;
+        }
+        const { error } = await supabase
+          .from('projects')
+          .insert({ ...payload, created_by: user.id });
+
+        if (error) {
+          console.error('Error creating project:', error);
+          toast({ title: t.error, description: error.message, variant: 'destructive' });
+          return;
+        }
+        toast({ title: t.created });
       }
 
-      toast({ title: t.updated });
       setDialogOpen(false);
       setEditingProject(null);
       fetchData();
