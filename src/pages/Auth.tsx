@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp";
-import { Shield, Eye, EyeOff, Loader2, AlertTriangle, Database } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2, AlertTriangle, Database, Globe } from "lucide-react";
 import { z } from "zod";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -30,7 +30,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { t, language } = useLanguage();
+  const { t, language, toggleLanguage } = useLanguage();
   const version = useAppVersion();
   const [loading, setLoading] = useState(false);
   const [checkingSystem, setCheckingSystem] = useState(true);
