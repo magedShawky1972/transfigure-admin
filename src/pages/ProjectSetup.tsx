@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Pencil, Trash2, Search, FolderKanban, Calendar } from "lucide-react";
+import { Loader2, Pencil, Trash2, Search, FolderKanban, Calendar, Plus } from "lucide-react";
 import { format } from "date-fns";
 
 interface Department {
@@ -84,6 +84,9 @@ const ProjectSetup = () => {
     edit: isRTL ? "تعديل" : "Edit",
     delete: isRTL ? "حذف" : "Delete",
     editProject: isRTL ? "تعديل المشروع" : "Edit Project",
+    newProject: isRTL ? "مشروع جديد" : "New Project",
+    addProject: isRTL ? "إضافة مشروع" : "Add Project",
+    created: isRTL ? "تم إنشاء المشروع" : "Project created",
     description: isRTL ? "الوصف" : "Description",
     selectDepartment: isRTL ? "اختر القسم" : "Select Department",
     selectStatus: isRTL ? "اختر الحالة" : "Select Status",
@@ -186,6 +189,19 @@ const ProjectSetup = () => {
     setDialogOpen(true);
   };
 
+  const handleNew = () => {
+    setEditingProject(null);
+    setFormData({
+      name: "",
+      description: "",
+      department_id: "",
+      status: "active",
+      start_date: "",
+      end_date: ""
+    });
+    setDialogOpen(true);
+  };
+
   const handleSave = async () => {
     if (!formData.name || !formData.department_id) {
       toast({ title: t.fillRequired, variant: 'destructive' });
@@ -203,18 +219,36 @@ const ProjectSetup = () => {
         end_date: formData.end_date || null
       };
 
-      const { error } = await supabase
-        .from('projects')
-        .update(payload)
-        .eq('id', editingProject!.id);
+      if (editingProject) {
+        const { error } = await supabase
+          .from('projects')
+          .update(payload)
+          .eq('id', editingProject.id);
 
-      if (error) {
-        console.error('Error saving project:', error);
-        toast({ title: t.error, description: error.message, variant: 'destructive' });
-        return;
+        if (error) {
+          console.error('Error saving project:', error);
+          toast({ title: t.error, description: error.message, variant: 'destructive' });
+          return;
+        }
+        toast({ title: t.updated });
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast({ title: t.error, variant: 'destructive' });
+          return;
+        }
+        const { error } = await supabase
+          .from('projects')
+          .insert({ ...payload, created_by: user.id });
+
+        if (error) {
+          console.error('Error creating project:', error);
+          toast({ title: t.error, description: error.message, variant: 'destructive' });
+          return;
+        }
+        toast({ title: t.created });
       }
 
-      toast({ title: t.updated });
       setDialogOpen(false);
       setEditingProject(null);
       fetchData();
@@ -281,12 +315,18 @@ const ProjectSetup = () => {
     <div className={`container mx-auto p-6 space-y-6 ${isRTL ? 'rtl' : 'ltr'}`}>
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <FolderKanban className="h-6 w-6 text-primary" />
-            <div>
-              <CardTitle>{t.title}</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">{t.subtitle}</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <FolderKanban className="h-6 w-6 text-primary" />
+              <div>
+                <CardTitle>{t.title}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">{t.subtitle}</p>
+              </div>
             </div>
+            <Button onClick={handleNew}>
+              <Plus className="h-4 w-4 mr-1" />
+              {t.addProject}
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -415,7 +455,7 @@ const ProjectSetup = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t.editProject}</DialogTitle>
+            <DialogTitle>{editingProject ? t.editProject : t.newProject}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
