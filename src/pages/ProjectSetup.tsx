@@ -45,6 +45,7 @@ const ProjectSetup = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
   const isRTL = language === 'ar';
+  const navigate = useNavigate();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
