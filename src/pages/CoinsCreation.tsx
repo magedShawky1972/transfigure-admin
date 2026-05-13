@@ -422,6 +422,28 @@ const CoinsCreation = () => {
   const handleDeleteOrder = async (orderId: string) => {
     if (!confirm(isArabic ? "هل أنت متأكد من حذف هذا الطلب؟" : "Are you sure you want to delete this order?")) return;
     try {
+      // Block deletion if order has progressed to next phases (Sending or Receiving)
+      const [{ data: receivingRows }, { data: orderRow }] = await Promise.all([
+        supabase.from("receiving_coins_header").select("id, receipt_number").eq("purchase_order_id", orderId).limit(1),
+        supabase.from("coins_purchase_orders").select("phase").eq("id", orderId).maybeSingle(),
+      ]);
+      if (receivingRows && receivingRows.length > 0) {
+        toast.error(
+          isArabic
+            ? `لا يمكن حذف الطلب - يوجد إيصال استلام مرتبط (${receivingRows[0].receipt_number}). يرجى التراجع عن مرحلة الاستلام أولاً.`
+            : `Cannot delete - linked receiving entry exists (${receivingRows[0].receipt_number}). Please rollback the Receiving phase first.`
+        );
+        return;
+      }
+      const currentPhase = (orderRow as any)?.phase;
+      if (currentPhase && currentPhase !== "creation") {
+        toast.error(
+          isArabic
+            ? `لا يمكن حذف الطلب - تم نقله إلى مرحلة "${currentPhase}". يرجى التراجع عن المرحلة التالية أولاً.`
+            : `Cannot delete - order has moved to "${currentPhase}" phase. Please rollback the next phase first.`
+        );
+        return;
+      }
       await supabase.from("coins_purchase_order_lines").delete().eq("purchase_order_id", orderId);
       await supabase.from("coins_purchase_phase_history").delete().eq("purchase_order_id", orderId);
       const { error } = await supabase.from("coins_purchase_orders").delete().eq("id", orderId);
