@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp";
-import { Shield, Eye, EyeOff, Loader2, AlertTriangle, Database } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2, AlertTriangle, Database, Globe } from "lucide-react";
 import { z } from "zod";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { format } from "date-fns";
@@ -30,7 +30,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { t, language } = useLanguage();
+  const { t, language, toggleLanguage } = useLanguage();
   const version = useAppVersion();
   const [loading, setLoading] = useState(false);
   const [checkingSystem, setCheckingSystem] = useState(true);
@@ -865,7 +865,18 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute top-3 right-3"
+          onClick={toggleLanguage}
+          title={language === "ar" ? "Switch to English" : "Switch to Arabic"}
+        >
+          <Globe className="h-5 w-5 text-muted-foreground" />
+          <span className="sr-only">{language === "ar" ? "Switch to English" : "Switch to Arabic"}</span>
+        </Button>
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <ThemedLogo alt="Edara Logo" className="h-16 w-auto" />
