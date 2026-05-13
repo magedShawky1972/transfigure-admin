@@ -192,16 +192,8 @@ const ProjectSetup = () => {
   };
 
   const handleNew = () => {
-    setEditingProject(null);
-    setFormData({
-      name: "",
-      description: "",
-      department_id: "",
-      status: "active",
-      start_date: "",
-      end_date: ""
-    });
-    setDialogOpen(true);
+    // Use the full-featured Add Project dialog from Projects & Tasks
+    navigate('/projects-tasks?newProject=1');
   };
 
   const handleSave = async () => {
