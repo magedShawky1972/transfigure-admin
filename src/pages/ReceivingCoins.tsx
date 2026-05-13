@@ -69,6 +69,8 @@ const ReceivingCoins = () => {
   const [statusFilter, setStatusFilter] = useState<"pending" | "sent" | "all">("pending");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
+  const [searchOrderNumber, setSearchOrderNumber] = useState("");
+  const [searchReceiptNumber, setSearchReceiptNumber] = useState("");
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
