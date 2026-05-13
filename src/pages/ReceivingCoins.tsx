@@ -603,6 +603,14 @@ const ReceivingCoins = () => {
         if (statusFilter === "sent" && r.status !== "closed") return false;
         if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
         if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+        if (searchOrderNumber) {
+          const orderNum = (r.coins_purchase_orders?.order_number || "").toLowerCase();
+          if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
+        }
+        if (searchReceiptNumber) {
+          const rcptNum = (r.receipt_number || "").toLowerCase();
+          if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+        }
         return true;
       });
 
