@@ -315,12 +315,18 @@ const ProjectSetup = () => {
     <div className={`container mx-auto p-6 space-y-6 ${isRTL ? 'rtl' : 'ltr'}`}>
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <FolderKanban className="h-6 w-6 text-primary" />
-            <div>
-              <CardTitle>{t.title}</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">{t.subtitle}</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <FolderKanban className="h-6 w-6 text-primary" />
+              <div>
+                <CardTitle>{t.title}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">{t.subtitle}</p>
+              </div>
             </div>
+            <Button onClick={handleNew}>
+              <Plus className="h-4 w-4 mr-1" />
+              {t.addProject}
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
