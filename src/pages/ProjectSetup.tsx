@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,7 @@ const ProjectSetup = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
   const isRTL = language === 'ar';
+  const navigate = useNavigate();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -190,16 +192,8 @@ const ProjectSetup = () => {
   };
 
   const handleNew = () => {
-    setEditingProject(null);
-    setFormData({
-      name: "",
-      description: "",
-      department_id: "",
-      status: "active",
-      start_date: "",
-      end_date: ""
-    });
-    setDialogOpen(true);
+    // Use the full-featured Add Project dialog from Projects & Tasks
+    navigate('/projects-tasks?newProject=1');
   };
 
   const handleSave = async () => {

@@ -786,6 +786,18 @@ const ProjectsTasks = () => {
     fetchData();
   }, [fetchData]);
 
+  // Auto-open New Project dialog when ?newProject=1 is in the URL
+  useEffect(() => {
+    if (searchParams.get('newProject') === '1') {
+      resetProjectForm();
+      setProjectDialogOpen(true);
+      const sp = new URLSearchParams(searchParams);
+      sp.delete('newProject');
+      setSearchParams(sp, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Reset filters when department changes (but respect URL params on first load)
   useEffect(() => {
     const urlProjectId = searchParams.get('projectId');
