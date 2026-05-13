@@ -16,14 +16,14 @@ export function ProjectSummaryDialogLoader({ project, onClose, allProjectUsers, 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: taskRows } = await supabase
+      const { data: taskRows } = await (supabase as any)
         .from('project_tasks')
         .select('id, title, status, priority, deadline, created_at, updated_at, assigned_to')
         .eq('project_id', project.id);
-      const ids = (taskRows || []).map(t => t.id);
+      const ids = ((taskRows as any[]) || []).map((t: any) => t.id);
       let assigneesMap = new Map<string, string[]>();
       if (ids.length > 0) {
-        const { data: ar } = await supabase
+        const { data: ar } = await (supabase as any)
           .from('project_task_assignees')
           .select('task_id, user_id')
           .in('task_id', ids);
