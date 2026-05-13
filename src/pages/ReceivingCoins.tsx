@@ -982,13 +982,23 @@ const ReceivingCoins = () => {
                 </TableHeader>
                 <TableBody>
                   {(() => {
-                    const filtered = receipts.filter(r => {
+                   const filtered = receipts.filter(r => {
                       // Status filter
                       if (statusFilter === "pending" && r.status === "closed") return false;
                       if (statusFilter === "sent" && r.status !== "closed") return false;
                       // Date range filter
                       if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
                       if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+                      // Order number search
+                      if (searchOrderNumber) {
+                        const orderNum = ((r as any).coins_purchase_orders?.order_number || "").toLowerCase();
+                        if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
+                      }
+                      // Receipt number search
+                      if (searchReceiptNumber) {
+                        const rcptNum = (r.receipt_number || "").toLowerCase();
+                        if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+                      }
                       return true;
                     });
                     return filtered.length === 0 ? (
