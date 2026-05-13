@@ -455,7 +455,7 @@ const ProjectSetup = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t.editProject}</DialogTitle>
+            <DialogTitle>{editingProject ? t.editProject : t.newProject}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
