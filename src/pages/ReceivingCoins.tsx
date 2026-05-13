@@ -69,6 +69,8 @@ const ReceivingCoins = () => {
   const [statusFilter, setStatusFilter] = useState<"pending" | "sent" | "all">("pending");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
+  const [searchOrderNumber, setSearchOrderNumber] = useState("");
+  const [searchReceiptNumber, setSearchReceiptNumber] = useState("");
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
@@ -601,6 +603,14 @@ const ReceivingCoins = () => {
         if (statusFilter === "sent" && r.status !== "closed") return false;
         if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
         if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+        if (searchOrderNumber) {
+          const orderNum = (r.coins_purchase_orders?.order_number || "").toLowerCase();
+          if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
+        }
+        if (searchReceiptNumber) {
+          const rcptNum = (r.receipt_number || "").toLowerCase();
+          if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+        }
         return true;
       });
 
@@ -940,6 +950,25 @@ const ReceivingCoins = () => {
            sentLabel={isArabic ? "مغلقة" : "Closed"}
          />
 
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+           <div className="relative">
+             <Input
+               placeholder={isArabic ? "البحث برقم الطلب..." : "Search by Order Number..."}
+               value={searchOrderNumber}
+               onChange={(e) => setSearchOrderNumber(e.target.value)}
+               className="pr-10"
+             />
+           </div>
+           <div className="relative">
+             <Input
+               placeholder={isArabic ? "البحث برقم الإيصال..." : "Search by Receipt Number..."}
+               value={searchReceiptNumber}
+               onChange={(e) => setSearchReceiptNumber(e.target.value)}
+               className="pr-10"
+             />
+           </div>
+         </div>
+
          <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -961,13 +990,23 @@ const ReceivingCoins = () => {
                 </TableHeader>
                 <TableBody>
                   {(() => {
-                    const filtered = receipts.filter(r => {
+                   const filtered = receipts.filter(r => {
                       // Status filter
                       if (statusFilter === "pending" && r.status === "closed") return false;
                       if (statusFilter === "sent" && r.status !== "closed") return false;
                       // Date range filter
                       if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
                       if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+                      // Order number search
+                      if (searchOrderNumber) {
+                        const orderNum = ((r as any).coins_purchase_orders?.order_number || "").toLowerCase();
+                        if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
+                      }
+                      // Receipt number search
+                      if (searchReceiptNumber) {
+                        const rcptNum = (r.receipt_number || "").toLowerCase();
+                        if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+                      }
                       return true;
                     });
                     return filtered.length === 0 ? (
