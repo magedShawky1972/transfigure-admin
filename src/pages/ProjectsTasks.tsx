@@ -2619,29 +2619,11 @@ const ProjectsTasks = () => {
       />
 
       {summaryProject && (
-        <ProjectSummaryDialog
-          open={!!summaryProject}
-          onOpenChange={(v) => !v && setSummaryProject(null)}
-          projectName={summaryProject.name}
-          tasks={tasks
-            .filter(t => t.project_id === summaryProject.id)
-            .map(t => ({
-              id: t.id,
-              title: t.title,
-              status: t.status,
-              priority: t.priority,
-              deadline: t.deadline,
-              created_at: t.created_at,
-              assigned_to: t.assigned_to,
-              assignees: t.assignees,
-              updated_at: (t as any).updated_at,
-            }))}
-          users={users.map(u => ({ user_id: u.user_id, user_name: u.user_name, avatar_url: u.avatar_url }))}
-          phases={activePhases.map(p => ({
-            phase_key: p.phase_key,
-            phase_label: language === 'ar' ? (p.phase_name_ar || p.phase_name) : p.phase_name,
-            phase_color: p.phase_color,
-          }))}
+        <ProjectSummaryDialogLoader
+          project={summaryProject}
+          onClose={() => setSummaryProject(null)}
+          allProjectUsers={allProjectUsers}
+          activePhases={activePhases}
           language={language as 'ar' | 'en'}
         />
       )}
