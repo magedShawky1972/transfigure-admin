@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { ProjectSummaryDialog } from "@/components/ProjectSummaryDialog";
+import { ProjectSummaryDialogLoader } from "@/components/ProjectSummaryDialogLoader";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskMessages from "@/components/TaskMessages";
