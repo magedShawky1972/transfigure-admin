@@ -865,7 +865,18 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute top-3 right-3"
+          onClick={toggleLanguage}
+          title={language === "ar" ? "Switch to English" : "Switch to Arabic"}
+        >
+          <Globe className="h-5 w-5 text-muted-foreground" />
+          <span className="sr-only">{language === "ar" ? "Switch to English" : "Switch to Arabic"}</span>
+        </Button>
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <ThemedLogo alt="Edara Logo" className="h-16 w-auto" />
