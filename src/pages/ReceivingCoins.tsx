@@ -942,6 +942,25 @@ const ReceivingCoins = () => {
            sentLabel={isArabic ? "مغلقة" : "Closed"}
          />
 
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+           <div className="relative">
+             <Input
+               placeholder={isArabic ? "البحث برقم الطلب..." : "Search by Order Number..."}
+               value={searchOrderNumber}
+               onChange={(e) => setSearchOrderNumber(e.target.value)}
+               className="pr-10"
+             />
+           </div>
+           <div className="relative">
+             <Input
+               placeholder={isArabic ? "البحث برقم الإيصال..." : "Search by Receipt Number..."}
+               value={searchReceiptNumber}
+               onChange={(e) => setSearchReceiptNumber(e.target.value)}
+               className="pr-10"
+             />
+           </div>
+         </div>
+
          <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
