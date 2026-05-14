@@ -92,6 +92,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/pivot-table", defaultEn: "Pivot Table", defaultAr: "جدول محوري", icon: Grid3x3 },
       { url: "/reports/payment-gateway-consolidation", defaultEn: "Payment Gateway", defaultAr: "توحيد بوابة الدفع", icon: Landmark },
       { url: "/reports/brand-first-sale-date", defaultEn: "Brand First Sale Date", defaultAr: "أول تاريخ بيع للعلامة", icon: Calendar },
+      { url: "/employee-contacts", defaultEn: "Employee Contacts", defaultAr: "دليل الموظفين", icon: Users },
     ],
   },
   {
