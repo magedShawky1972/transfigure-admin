@@ -66,6 +66,7 @@ const URL_TO_PERMISSION: Record<string, string> = {
   "/shift-report": "shiftReport",
   "/shift-plans-setup": "shiftPlansSetup",
   "/employee-setup": "employeeSetup",
+  "/employee-contacts": "employeeContacts",
   "/employee-profile": "employeeProfile",
   "/job-setup": "jobSetup",
   "/attendance-type-setup": "attendanceTypeSetup",

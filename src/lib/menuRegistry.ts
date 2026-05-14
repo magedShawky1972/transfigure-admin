@@ -92,6 +92,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/pivot-table", defaultEn: "Pivot Table", defaultAr: "جدول محوري", icon: Grid3x3 },
       { url: "/reports/payment-gateway-consolidation", defaultEn: "Payment Gateway", defaultAr: "توحيد بوابة الدفع", icon: Landmark },
       { url: "/reports/brand-first-sale-date", defaultEn: "Brand First Sale Date", defaultAr: "أول تاريخ بيع للعلامة", icon: Calendar },
+      { url: "/employee-contacts", defaultEn: "Employee Contacts", defaultAr: "دليل الموظفين", icon: Users },
     ],
   },
   {
@@ -160,7 +161,6 @@ export const DEFAULT_MENU: DefaultGroup[] = [
     defaultAr: "الموارد البشرية",
     items: [
       { url: "/employee-setup", defaultEn: "Employee Setup", defaultAr: "إعداد الموظفين", icon: UserCircle },
-      { url: "/employee-contacts", defaultEn: "Employee Contacts", defaultAr: "دليل الموظفين", icon: Users },
       { url: "/employee-self-requests", defaultEn: "Employee Requests", defaultAr: "طلبات الموظفين", icon: ClipboardList },
       { url: "/employee-request-approvals", defaultEn: "Request Approvals", defaultAr: "اعتماد الطلبات", icon: ClipboardCheck },
       { url: "/hr-manager-setup", defaultEn: "HR Manager Setup", defaultAr: "إعداد مديري HR", icon: Users },

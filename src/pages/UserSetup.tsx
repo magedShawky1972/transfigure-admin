@@ -101,6 +101,7 @@ interface UserPermission {
         { key: "transactions", label: "المعاملات", labelEn: "Transactions" },
         { key: "pivotTable", label: "الجدول المحوري", labelEn: "Pivot Table" },
         { key: "paymentGatewayConsolidation", label: "توحيد بوابة الدفع", labelEn: "Payment Gateway Consolidation" },
+        { key: "employeeContacts", label: "دليل الموظفين", labelEn: "Employee Contacts" },
       ]
     },
     {
