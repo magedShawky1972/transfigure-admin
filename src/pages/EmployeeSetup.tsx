@@ -1578,7 +1578,15 @@ export default function EmployeeSetup() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{language === "ar" ? "الجوال" : "Mobile"}</Label>
+                  <Label>{language === "ar" ? "جوال العمل" : "Work Mobile"}</Label>
+                  <Input
+                    value={formData.work_mobile}
+                    onChange={(e) => setFormData({ ...formData, work_mobile: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الجوال الخاص" : "Private Mobile Number"}</Label>
                   <Input
                     value={formData.mobile}
                     onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
