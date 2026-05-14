@@ -112,13 +112,34 @@ export default function MenuCustomization() {
   const load = async () => {
     setLoading(true);
     const customs = await fetchMenuCustomizations();
-    const built: GroupRow[] = DEFAULT_MENU.map((g, gi) => {
+
+    // Build groups (without items first), then distribute items honoring parent_group overrides.
+    const groupShells: Record<string, GroupRow & { _order: number }> = {};
+    DEFAULT_MENU.forEach((g, gi) => {
       const gKey = groupKey(g.defaultEn);
       const gc = customs[gKey];
-      const itemsWithMeta = g.items.map((it, ii) => {
+      groupShells[gKey] = {
+        key: gKey,
+        defaultEn: g.defaultEn,
+        defaultAr: g.defaultAr,
+        name_en: gc?.name_en ?? g.defaultEn,
+        name_ar: gc?.name_ar ?? g.defaultAr,
+        hidden: gc?.hidden ?? false,
+        items: [],
+        _order: gc?.sort_order ?? gi,
+      };
+    });
+
+    DEFAULT_MENU.forEach((g) => {
+      const defaultGKey = groupKey(g.defaultEn);
+      g.items.forEach((it, ii) => {
         const iKey = itemKey(it.url);
         const ic = customs[iKey];
-        return {
+        const targetGroupKey =
+          ic?.parent_group && groupShells[ic.parent_group]
+            ? ic.parent_group
+            : defaultGKey;
+        const row: ItemRow & { _order: number } = {
           key: iKey,
           url: it.url,
           defaultEn: it.defaultEn,
@@ -126,22 +147,21 @@ export default function MenuCustomization() {
           name_en: ic?.name_en ?? it.defaultEn,
           name_ar: ic?.name_ar ?? it.defaultAr,
           hidden: ic?.hidden ?? false,
+          defaultGroupKey: defaultGKey,
           _order: ic?.sort_order ?? ii,
         };
+        groupShells[targetGroupKey].items.push(row);
       });
-      itemsWithMeta.sort((a, b) => (a as any)._order - (b as any)._order);
-      return {
-        key: gKey,
-        defaultEn: g.defaultEn,
-        defaultAr: g.defaultAr,
-        name_en: gc?.name_en ?? g.defaultEn,
-        name_ar: gc?.name_ar ?? g.defaultAr,
-        hidden: gc?.hidden ?? false,
-        items: itemsWithMeta.map(({ _order, ...rest }: any) => rest),
-        _order: gc?.sort_order ?? gi,
-      } as any;
     });
-    built.sort((a: any, b: any) => a._order - b._order);
+
+    const built = Object.values(groupShells).map((g) => ({
+      ...g,
+      items: g.items
+        .slice()
+        .sort((a: any, b: any) => a._order - b._order)
+        .map(({ _order, ...rest }: any) => rest),
+    }));
+    built.sort((a, b) => a._order - b._order);
     setGroups(built.map(({ _order, ...rest }: any) => rest));
     setLoading(false);
   };
