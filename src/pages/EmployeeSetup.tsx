@@ -48,6 +48,7 @@ interface Employee {
   email: string | null;
   phone: string | null;
   mobile: string | null;
+  work_mobile: string | null;
   photo_url: string | null;
   date_of_birth: string | null;
   gender: string | null;
