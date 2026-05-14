@@ -89,6 +89,7 @@ import OdooSyncBatch from "./pages/OdooSyncBatch";
 import OdooSyncAll from "./pages/OdooSyncAll";
 import EmployeeSetup from "./pages/EmployeeSetup";
 import EmployeeProfile from "./pages/EmployeeProfile";
+import EmployeeContacts from "./pages/EmployeeContacts";
 import VacationSetup from "./pages/VacationSetup";
 import TimesheetManagement from "./pages/TimesheetManagement";
 import DeductionRulesSetup from "./pages/DeductionRulesSetup";
