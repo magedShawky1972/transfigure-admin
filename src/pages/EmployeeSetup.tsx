@@ -48,6 +48,7 @@ interface Employee {
   email: string | null;
   phone: string | null;
   mobile: string | null;
+  work_mobile: string | null;
   photo_url: string | null;
   date_of_birth: string | null;
   gender: string | null;
@@ -224,6 +225,7 @@ export default function EmployeeSetup() {
     email: "",
     phone: "",
     mobile: "",
+    work_mobile: "",
     date_of_birth: "",
     gender: "",
     nationality: "",
@@ -429,6 +431,7 @@ export default function EmployeeSetup() {
       email: user.email,
       phone: "",
       mobile: "",
+      work_mobile: "",
       date_of_birth: "",
       gender: "",
       nationality: "",
@@ -689,6 +692,7 @@ export default function EmployeeSetup() {
       email: "",
       phone: "",
       mobile: "",
+      work_mobile: "",
       date_of_birth: "",
       gender: "",
       nationality: "",
@@ -732,6 +736,7 @@ export default function EmployeeSetup() {
       email: employee.email || "",
       phone: employee.phone || "",
       mobile: employee.mobile || "",
+      work_mobile: (employee as any).work_mobile || "",
       date_of_birth: employee.date_of_birth || "",
       gender: employee.gender || "",
       nationality: employee.nationality || "",
@@ -924,6 +929,7 @@ export default function EmployeeSetup() {
         email: formData.email || null,
         phone: formData.phone || null,
         mobile: formData.mobile || null,
+        work_mobile: formData.work_mobile || null,
         photo_url: formData.photo_url || null,
         date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
@@ -1037,7 +1043,8 @@ export default function EmployeeSetup() {
       isArabic ? "اسم العائلة (عربي)" : "Last Name (AR)",
       isArabic ? "البريد الإلكتروني" : "Email",
       isArabic ? "الهاتف" : "Phone",
-      isArabic ? "الجوال" : "Mobile",
+      isArabic ? "الجوال الخاص" : "Private Mobile",
+      isArabic ? "جوال العمل" : "Work Mobile",
       isArabic ? "تاريخ الميلاد" : "Date of Birth",
       isArabic ? "الجنس" : "Gender",
       isArabic ? "الجنسية" : "Nationality",
@@ -1080,6 +1087,7 @@ export default function EmployeeSetup() {
         emp.email || "",
         emp.phone || "",
         emp.mobile || "",
+        (emp as any).work_mobile || "",
         emp.date_of_birth || "",
         emp.gender || "",
         emp.nationality || "",
@@ -1572,7 +1580,15 @@ export default function EmployeeSetup() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{language === "ar" ? "الجوال" : "Mobile"}</Label>
+                  <Label>{language === "ar" ? "جوال العمل" : "Work Mobile"}</Label>
+                  <Input
+                    value={formData.work_mobile}
+                    onChange={(e) => setFormData({ ...formData, work_mobile: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الجوال الخاص" : "Private Mobile Number"}</Label>
                   <Input
                     value={formData.mobile}
                     onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}

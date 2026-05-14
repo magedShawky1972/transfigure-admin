@@ -18,6 +18,7 @@ interface EmployeeRow {
   email: string | null;
   phone: string | null;
   mobile: string | null;
+  work_mobile: string | null;
   photo_url: string | null;
   department: { name: string; name_ar: string | null } | null;
   job_position: { title: string; title_ar: string | null } | null;
@@ -39,7 +40,7 @@ export default function EmployeeContacts() {
       const { data, error } = await supabase
         .from("employees")
         .select(
-          "id, employee_number, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile, photo_url, department:departments(name, name_ar), job_position:job_positions(title, title_ar)"
+          "id, employee_number, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile, work_mobile, photo_url, department:departments(name, name_ar), job_position:job_positions(title, title_ar)"
         )
         .eq("employment_status", "active")
         .order("first_name", { ascending: true });
@@ -60,6 +61,7 @@ export default function EmployeeContacts() {
         fullAr.includes(q) ||
         (e.email ?? "").toLowerCase().includes(q) ||
         (e.mobile ?? "").includes(q) ||
+        (e.work_mobile ?? "").includes(q) ||
         (e.phone ?? "").includes(q) ||
         e.employee_number.toLowerCase().includes(q)
       );
@@ -177,14 +179,14 @@ export default function EmployeeContacts() {
                         <span className="italic text-xs">{isAr ? "غير متوفر" : "Not available"}</span>
                       </div>
                     )}
-                    {e.mobile ? (
+                    {e.work_mobile ? (
                       <a
-                        href={`tel:${e.mobile}`}
+                        href={`tel:${e.work_mobile}`}
                         className="flex items-center gap-2 hover:text-primary"
                         dir="ltr"
                       >
                         <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span>{e.mobile}</span>
+                        <span>{e.work_mobile}</span>
                         <Badge variant="outline" className="text-[10px] ml-auto">
                           {isAr ? "عمل" : "Work"}
                         </Badge>
@@ -195,14 +197,14 @@ export default function EmployeeContacts() {
                         <span className="italic text-xs">{isAr ? "جوال العمل غير متوفر" : "Work mobile N/A"}</span>
                       </div>
                     )}
-                    {e.phone ? (
+                    {e.mobile ? (
                       <a
-                        href={`tel:${e.phone}`}
+                        href={`tel:${e.mobile}`}
                         className="flex items-center gap-2 hover:text-primary"
                         dir="ltr"
                       >
                         <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span>{e.phone}</span>
+                        <span>{e.mobile}</span>
                         <Badge variant="outline" className="text-[10px] ml-auto">
                           {isAr ? "خاص" : "Private"}
                         </Badge>
@@ -210,7 +212,7 @@ export default function EmployeeContacts() {
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="h-4 w-4 shrink-0" />
-                        <span className="italic text-xs">{isAr ? "الرقم الخاص غير متوفر" : "Private number N/A"}</span>
+                        <span className="italic text-xs">{isAr ? "الجوال الخاص غير متوفر" : "Private mobile N/A"}</span>
                       </div>
                     )}
                   </div>

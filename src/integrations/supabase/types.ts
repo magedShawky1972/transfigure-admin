@@ -3521,6 +3521,7 @@ export type Database = {
           user_id: string | null
           vacation_balance: number | null
           vacation_code_id: string | null
+          work_mobile: string | null
           zk_employee_code: string | null
         }
         Insert: {
@@ -3565,6 +3566,7 @@ export type Database = {
           user_id?: string | null
           vacation_balance?: number | null
           vacation_code_id?: string | null
+          work_mobile?: string | null
           zk_employee_code?: string | null
         }
         Update: {
@@ -3609,6 +3611,7 @@ export type Database = {
           user_id?: string | null
           vacation_balance?: number | null
           vacation_code_id?: string | null
+          work_mobile?: string | null
           zk_employee_code?: string | null
         }
         Relationships: [
