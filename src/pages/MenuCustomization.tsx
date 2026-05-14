@@ -208,6 +208,25 @@ export default function MenuCustomization() {
       )
     );
 
+  const moveItemToGroup = (fromGroupKey: string, itemKeyStr: string, toGroupKey: string) => {
+    if (fromGroupKey === toGroupKey) return;
+    setGroups((prev) => {
+      const item = prev
+        .find((g) => g.key === fromGroupKey)
+        ?.items.find((i) => i.key === itemKeyStr);
+      if (!item) return prev;
+      return prev.map((g) => {
+        if (g.key === fromGroupKey) {
+          return { ...g, items: g.items.filter((i) => i.key !== itemKeyStr) };
+        }
+        if (g.key === toGroupKey) {
+          return { ...g, items: [...g.items, item] };
+        }
+        return g;
+      });
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const rows: any[] = [];
@@ -220,8 +239,10 @@ export default function MenuCustomization() {
         name_ar: g.name_ar,
         hidden: g.hidden,
         icon: null,
+        parent_group: null,
       });
       g.items.forEach((it, ii) => {
+        const movedTo = g.key !== it.defaultGroupKey ? g.key : null;
         rows.push({
           key: it.key,
           kind: "item",
@@ -230,6 +251,7 @@ export default function MenuCustomization() {
           name_ar: it.name_ar,
           hidden: it.hidden,
           icon: null,
+          parent_group: movedTo,
         });
       });
     });
