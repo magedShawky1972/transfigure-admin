@@ -929,6 +929,7 @@ export default function EmployeeSetup() {
         email: formData.email || null,
         phone: formData.phone || null,
         mobile: formData.mobile || null,
+        work_mobile: formData.work_mobile || null,
         photo_url: formData.photo_url || null,
         date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
