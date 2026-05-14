@@ -6,7 +6,51 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Mail, Phone, Smartphone, Building2, Briefcase } from "lucide-react";
+import { Search, Mail, Phone, Smartphone, Building2, Briefcase, UserPlus, Download } from "lucide-react";
+
+function escapeVCard(v: string | null | undefined) {
+  if (!v) return "";
+  return String(v).replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+}
+
+function buildVCard(e: {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  mobile: string | null;
+  work_mobile: string | null;
+  employee_number: string;
+  department?: { department_name: string } | null;
+  job_position?: { position_name: string } | null;
+}) {
+  const lines = ["BEGIN:VCARD", "VERSION:3.0"];
+  lines.push(`UID:edara-${e.id}`);
+  lines.push(`N:${escapeVCard(e.last_name)};${escapeVCard(e.first_name)};;;`);
+  lines.push(`FN:${escapeVCard(`${e.first_name} ${e.last_name}`.trim())}`);
+  if (e.job_position?.position_name) lines.push(`TITLE:${escapeVCard(e.job_position.position_name)}`);
+  if (e.department?.department_name) lines.push(`ORG:${escapeVCard(e.department.department_name)}`);
+  if (e.work_mobile) lines.push(`TEL;TYPE=CELL,WORK:${escapeVCard(e.work_mobile)}`);
+  if (e.mobile) lines.push(`TEL;TYPE=CELL:${escapeVCard(e.mobile)}`);
+  if (e.phone) lines.push(`TEL;TYPE=WORK,VOICE:${escapeVCard(e.phone)}`);
+  if (e.email) lines.push(`EMAIL;TYPE=WORK:${escapeVCard(e.email)}`);
+  if (e.employee_number) lines.push(`NOTE:Employee #${escapeVCard(e.employee_number)}`);
+  lines.push("END:VCARD");
+  return lines.join("\r\n");
+}
+
+function downloadVCard(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/vcard;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".vcf") ? filename : `${filename}.vcf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 interface EmployeeRow {
   id: string;
@@ -81,14 +125,31 @@ export default function EmployeeContacts() {
               : "Search contact details for any employee in the company"}
           </p>
         </div>
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={isAr ? "بحث بالاسم أو البريد أو الجوال..." : "Search name, email or mobile..."}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={isAr ? "بحث بالاسم أو البريد أو الجوال..." : "Search name, email or mobile..."}
+              className="pl-9"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const vcf = filtered.map((e) => buildVCard(e as any)).join("\r\n");
+              downloadVCard(`edara-contacts-${new Date().toISOString().slice(0, 10)}.vcf`, vcf);
+            }}
+            disabled={filtered.length === 0}
+            title={isAr ? "افتح الملف على هاتفك لإضافة جميع جهات الاتصال" : "Open the file on your phone to import all contacts"}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {isAr
+              ? `تحميل الكل (${filtered.length})`
+              : `Download all (${filtered.length})`}
+          </Button>
         </div>
       </div>
 
@@ -144,6 +205,20 @@ export default function EmployeeContacts() {
                         {e.employee_number}
                       </Badge>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      title={isAr ? "حفظ في جهات الاتصال" : "Save to Contacts"}
+                      onClick={() =>
+                        downloadVCard(
+                          `${e.first_name}-${e.last_name}.vcf`,
+                          buildVCard(e as any)
+                        )
+                      }
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
                   </div>
 
                   {(dept || job) && (
