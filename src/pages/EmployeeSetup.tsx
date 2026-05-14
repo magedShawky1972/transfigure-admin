@@ -1087,6 +1087,7 @@ export default function EmployeeSetup() {
         emp.email || "",
         emp.phone || "",
         emp.mobile || "",
+        (emp as any).work_mobile || "",
         emp.date_of_birth || "",
         emp.gender || "",
         emp.nationality || "",
