@@ -422,6 +422,27 @@ export default function MenuCustomization() {
                                       onChange={(e) => updateItem(g.key, it.key, { name_ar: e.target.value })}
                                     />
                                   </div>
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {isAr ? "نقل إلى مجموعة" : "Move to group"}
+                                    </Label>
+                                    <Select
+                                      value={g.key}
+                                      onValueChange={(v) => moveItemToGroup(g.key, it.key, v)}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {groups.map((og) => (
+                                          <SelectItem key={og.key} value={og.key}>
+                                            {isAr ? og.name_ar : og.name_en}
+                                            {og.key === it.defaultGroupKey ? (isAr ? " (الأصلي)" : " (default)") : ""}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
                                 </div>
                               </SortableRow>
                             ))}
