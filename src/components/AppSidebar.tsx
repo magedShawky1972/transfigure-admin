@@ -321,6 +321,24 @@ export function AppSidebar() {
   const isSearching = searchQ.length > 0;
   const allCollapsed = collapsedGroups.size === DEFAULT_MENU.length;
 
+  // Build a mapping: groupKey -> override item list (urls moved into this group from elsewhere)
+  const itemOverrideTargets: Record<string, { url: string; icon: any; defaultEn: string; defaultAr: string; originalIdx: number }[]> = {};
+  DEFAULT_MENU.forEach((g) => {
+    g.items.forEach((it, ii) => {
+      const ic = customizations[itemKey(it.url)];
+      if (ic?.parent_group) {
+        if (!itemOverrideTargets[ic.parent_group]) itemOverrideTargets[ic.parent_group] = [];
+        itemOverrideTargets[ic.parent_group].push({
+          url: it.url,
+          icon: it.icon,
+          defaultEn: it.defaultEn,
+          defaultAr: it.defaultAr,
+          originalIdx: ii,
+        });
+      }
+    });
+  });
+
   // Pre-compute visible groups + filtered items
   const visibleGroups = DEFAULT_MENU
     .map((group, gi) => {
@@ -332,6 +350,7 @@ export function AppSidebar() {
           : (isRTL ? group.defaultAr : group.defaultEn);
       return {
         group,
+        gKey,
         groupLabel,
         groupOrder: gc?.sort_order ?? gi,
         groupHidden: gc?.hidden ?? false,
@@ -339,9 +358,23 @@ export function AppSidebar() {
     })
     .filter((g) => !g.groupHidden)
     .sort((a, b) => a.groupOrder - b.groupOrder)
-    .map(({ group, groupLabel }) => {
-      const items = group.items
-        .map((item, ii) => {
+    .map(({ group, gKey, groupLabel }) => {
+      // Items that natively belong here, MINUS any moved out
+      const native = group.items
+        .filter((it) => {
+          const ic = customizations[itemKey(it.url)];
+          return !ic?.parent_group || ic.parent_group === gKey;
+        })
+        .map((item, ii) => ({ item, ii }));
+
+      // Items moved INTO this group from other groups
+      const incoming = (itemOverrideTargets[gKey] || []).map((o) => ({
+        item: { url: o.url, icon: o.icon, defaultEn: o.defaultEn, defaultAr: o.defaultAr },
+        ii: o.originalIdx,
+      }));
+
+      const items = [...native, ...incoming]
+        .map(({ item, ii }) => {
           const ic = customizations[itemKey(item.url)];
           const title =
             ic && (isRTL ? ic.name_ar : ic.name_en)
@@ -361,6 +394,7 @@ export function AppSidebar() {
       return { group, groupLabel, items };
     })
     .filter((g) => g.items.length > 0);
+
 
   return (
     <Sidebar
