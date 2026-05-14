@@ -125,14 +125,31 @@ export default function EmployeeContacts() {
               : "Search contact details for any employee in the company"}
           </p>
         </div>
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={isAr ? "بحث بالاسم أو البريد أو الجوال..." : "Search name, email or mobile..."}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={isAr ? "بحث بالاسم أو البريد أو الجوال..." : "Search name, email or mobile..."}
+              className="pl-9"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const vcf = filtered.map((e) => buildVCard(e as any)).join("\r\n");
+              downloadVCard(`edara-contacts-${new Date().toISOString().slice(0, 10)}.vcf`, vcf);
+            }}
+            disabled={filtered.length === 0}
+            title={isAr ? "افتح الملف على هاتفك لإضافة جميع جهات الاتصال" : "Open the file on your phone to import all contacts"}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {isAr
+              ? `تحميل الكل (${filtered.length})`
+              : `Download all (${filtered.length})`}
+          </Button>
         </div>
       </div>
 
