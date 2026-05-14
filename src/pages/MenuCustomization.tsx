@@ -21,6 +21,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -50,6 +57,7 @@ interface ItemRow {
   name_en: string;
   name_ar: string;
   hidden: boolean;
+  defaultGroupKey: string; // original group this item belongs to in DEFAULT_MENU
 }
 interface GroupRow {
   key: string;
@@ -104,13 +112,34 @@ export default function MenuCustomization() {
   const load = async () => {
     setLoading(true);
     const customs = await fetchMenuCustomizations();
-    const built: GroupRow[] = DEFAULT_MENU.map((g, gi) => {
+
+    // Build groups (without items first), then distribute items honoring parent_group overrides.
+    const groupShells: Record<string, GroupRow & { _order: number }> = {};
+    DEFAULT_MENU.forEach((g, gi) => {
       const gKey = groupKey(g.defaultEn);
       const gc = customs[gKey];
-      const itemsWithMeta = g.items.map((it, ii) => {
+      groupShells[gKey] = {
+        key: gKey,
+        defaultEn: g.defaultEn,
+        defaultAr: g.defaultAr,
+        name_en: gc?.name_en ?? g.defaultEn,
+        name_ar: gc?.name_ar ?? g.defaultAr,
+        hidden: gc?.hidden ?? false,
+        items: [],
+        _order: gc?.sort_order ?? gi,
+      };
+    });
+
+    DEFAULT_MENU.forEach((g) => {
+      const defaultGKey = groupKey(g.defaultEn);
+      g.items.forEach((it, ii) => {
         const iKey = itemKey(it.url);
         const ic = customs[iKey];
-        return {
+        const targetGroupKey =
+          ic?.parent_group && groupShells[ic.parent_group]
+            ? ic.parent_group
+            : defaultGKey;
+        const row: ItemRow & { _order: number } = {
           key: iKey,
           url: it.url,
           defaultEn: it.defaultEn,
@@ -118,22 +147,21 @@ export default function MenuCustomization() {
           name_en: ic?.name_en ?? it.defaultEn,
           name_ar: ic?.name_ar ?? it.defaultAr,
           hidden: ic?.hidden ?? false,
+          defaultGroupKey: defaultGKey,
           _order: ic?.sort_order ?? ii,
         };
+        groupShells[targetGroupKey].items.push(row);
       });
-      itemsWithMeta.sort((a, b) => (a as any)._order - (b as any)._order);
-      return {
-        key: gKey,
-        defaultEn: g.defaultEn,
-        defaultAr: g.defaultAr,
-        name_en: gc?.name_en ?? g.defaultEn,
-        name_ar: gc?.name_ar ?? g.defaultAr,
-        hidden: gc?.hidden ?? false,
-        items: itemsWithMeta.map(({ _order, ...rest }: any) => rest),
-        _order: gc?.sort_order ?? gi,
-      } as any;
     });
-    built.sort((a: any, b: any) => a._order - b._order);
+
+    const built = Object.values(groupShells).map((g) => ({
+      ...g,
+      items: g.items
+        .slice()
+        .sort((a: any, b: any) => a._order - b._order)
+        .map(({ _order, ...rest }: any) => rest),
+    }));
+    built.sort((a, b) => a._order - b._order);
     setGroups(built.map(({ _order, ...rest }: any) => rest));
     setLoading(false);
   };
@@ -180,6 +208,25 @@ export default function MenuCustomization() {
       )
     );
 
+  const moveItemToGroup = (fromGroupKey: string, itemKeyStr: string, toGroupKey: string) => {
+    if (fromGroupKey === toGroupKey) return;
+    setGroups((prev) => {
+      const item = prev
+        .find((g) => g.key === fromGroupKey)
+        ?.items.find((i) => i.key === itemKeyStr);
+      if (!item) return prev;
+      return prev.map((g) => {
+        if (g.key === fromGroupKey) {
+          return { ...g, items: g.items.filter((i) => i.key !== itemKeyStr) };
+        }
+        if (g.key === toGroupKey) {
+          return { ...g, items: [...g.items, item] };
+        }
+        return g;
+      });
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const rows: any[] = [];
@@ -192,8 +239,10 @@ export default function MenuCustomization() {
         name_ar: g.name_ar,
         hidden: g.hidden,
         icon: null,
+        parent_group: null,
       });
       g.items.forEach((it, ii) => {
+        const movedTo = g.key !== it.defaultGroupKey ? g.key : null;
         rows.push({
           key: it.key,
           kind: "item",
@@ -202,6 +251,7 @@ export default function MenuCustomization() {
           name_ar: it.name_ar,
           hidden: it.hidden,
           icon: null,
+          parent_group: movedTo,
         });
       });
     });
@@ -371,6 +421,27 @@ export default function MenuCustomization() {
                                       placeholder={it.defaultAr}
                                       onChange={(e) => updateItem(g.key, it.key, { name_ar: e.target.value })}
                                     />
+                                  </div>
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {isAr ? "نقل إلى مجموعة" : "Move to group"}
+                                    </Label>
+                                    <Select
+                                      value={g.key}
+                                      onValueChange={(v) => moveItemToGroup(g.key, it.key, v)}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {groups.map((og) => (
+                                          <SelectItem key={og.key} value={og.key}>
+                                            {isAr ? og.name_ar : og.name_en}
+                                            {og.key === it.defaultGroupKey ? (isAr ? " (الأصلي)" : " (default)") : ""}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 </div>
                               </SortableRow>

@@ -10,6 +10,7 @@ export interface MenuCustomization {
   name_ar: string | null;
   hidden: boolean;
   icon: string | null;
+  parent_group: string | null;
 }
 
 export type CustomMap = Record<string, MenuCustomization>;
@@ -20,9 +21,10 @@ export const itemKey = (url: string) => `item:${url}`;
 export async function fetchMenuCustomizations(): Promise<CustomMap> {
   const { data, error } = await supabase
     .from("menu_customizations")
-    .select("key, kind, sort_order, name_en, name_ar, hidden, icon");
+    .select("key, kind, sort_order, name_en, name_ar, hidden, icon, parent_group");
   if (error || !data) return {};
   const map: CustomMap = {};
   for (const row of data as MenuCustomization[]) map[row.key] = row;
   return map;
 }
+

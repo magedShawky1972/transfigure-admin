@@ -5232,6 +5232,7 @@ export type Database = {
           kind: string
           name_ar: string | null
           name_en: string | null
+          parent_group: string | null
           sort_order: number
           updated_at: string
         }
@@ -5244,6 +5245,7 @@ export type Database = {
           kind: string
           name_ar?: string | null
           name_en?: string | null
+          parent_group?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -5256,6 +5258,7 @@ export type Database = {
           kind?: string
           name_ar?: string | null
           name_en?: string | null
+          parent_group?: string | null
           sort_order?: number
           updated_at?: string
         }
