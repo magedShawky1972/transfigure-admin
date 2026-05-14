@@ -128,8 +128,8 @@ export default function EmployeeContacts() {
               ? `${e.first_name_ar} ${e.last_name_ar ?? ""}`
               : `${e.first_name} ${e.last_name}`;
             const initials = `${e.first_name?.[0] ?? ""}${e.last_name?.[0] ?? ""}`.toUpperCase();
-            const dept = e.department ? (isAr && e.department.name_ar ? e.department.name_ar : e.department.name) : null;
-            const job = e.job_position ? (isAr && e.job_position.title_ar ? e.job_position.title_ar : e.job_position.title) : null;
+            const dept = e.department ? (isAr && e.department.department_name_ar ? e.department.department_name_ar : e.department.department_name) : null;
+            const job = e.job_position ? (isAr && e.job_position.position_name_ar ? e.job_position.position_name_ar : e.job_position.position_name) : null;
             return (
               <Card key={e.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4 space-y-3">
