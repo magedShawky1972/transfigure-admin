@@ -160,7 +160,6 @@ export const DEFAULT_MENU: DefaultGroup[] = [
     defaultAr: "الموارد البشرية",
     items: [
       { url: "/employee-setup", defaultEn: "Employee Setup", defaultAr: "إعداد الموظفين", icon: UserCircle },
-      { url: "/employee-contacts", defaultEn: "Employee Contacts", defaultAr: "دليل الموظفين", icon: Users },
       { url: "/employee-self-requests", defaultEn: "Employee Requests", defaultAr: "طلبات الموظفين", icon: ClipboardList },
       { url: "/employee-request-approvals", defaultEn: "Request Approvals", defaultAr: "اعتماد الطلبات", icon: ClipboardCheck },
       { url: "/hr-manager-setup", defaultEn: "HR Manager Setup", defaultAr: "إعداد مديري HR", icon: Users },
