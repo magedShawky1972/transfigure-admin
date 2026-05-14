@@ -181,6 +181,7 @@ export function AppSidebar() {
     "/integrations": "integrations",
     "/shift-generator": "shiftGenerator",
     "/sql-query-runner": "sqlQueryRunner",
+    "/employee-contacts": "employeeContacts",
   };
 
   useEffect(() => {
