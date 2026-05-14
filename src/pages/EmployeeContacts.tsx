@@ -205,6 +205,20 @@ export default function EmployeeContacts() {
                         {e.employee_number}
                       </Badge>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      title={isAr ? "حفظ في جهات الاتصال" : "Save to Contacts"}
+                      onClick={() =>
+                        downloadVCard(
+                          `${e.first_name}-${e.last_name}.vcf`,
+                          buildVCard(e as any)
+                        )
+                      }
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
                   </div>
 
                   {(dept || job) && (
