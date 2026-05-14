@@ -1888,7 +1888,19 @@ const ProjectsTasks = () => {
                       <TaskMessages
                         taskId={editingTask.id}
                         currentUserId={currentUserId}
-                        users={users as any}
+                        users={(() => {
+                          if (!editingTask.project_id) return users as any;
+                          const project = projects.find(p => p.id === editingTask.project_id);
+                          if (!project?.members?.length) return users as any;
+                          const memberIds = new Set(project.members.map(member => member.user_id));
+                          return allProjectUsers
+                            .filter(user => memberIds.has(user.user_id))
+                            .map(user => ({
+                              user_id: user.user_id,
+                              user_name: user.user_name,
+                              avatar_url: user.avatar_url,
+                            })) as any;
+                        })()}
                         language={language as 'en' | 'ar'}
                       />
                     )}

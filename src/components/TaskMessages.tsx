@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -18,7 +18,9 @@ interface TaskMessage {
 interface UserLite {
   user_id: string;
   full_name?: string | null;
+  user_name?: string | null;
   email?: string | null;
+  avatar_url?: string | null;
 }
 
 interface Props {
@@ -49,9 +51,12 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
     noMatch: language === 'ar' ? 'لا يوجد أعضاء مطابقون' : 'No members match',
   };
 
+  const getDisplayName = (user: UserLite) => user.full_name || user.user_name || user.email || "";
+  const normalizeMention = (value: string) => value.trim().replace(/\s+/g, '_').toLowerCase();
+
   const userName = (uid: string) => {
     const u = users.find(x => x.user_id === uid);
-    return u?.full_name || u?.email || uid.slice(0, 6);
+    return (u ? getDisplayName(u) : '') || uid.slice(0, 6);
   };
 
   const initials = (name: string) => name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
@@ -83,7 +88,7 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
     if (!mentionOpen) return [];
     const q = mentionQuery.trim().toLowerCase();
     const list = users.filter(u => {
-      const name = (u.full_name || u.email || '').toLowerCase();
+      const name = getDisplayName(u).toLowerCase();
       return !q || name.includes(q);
     });
     return list.slice(0, 8);
@@ -109,7 +114,7 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
     if (mentionStart == null || !textareaRef.current) return;
     const ta = textareaRef.current;
     const caret = ta.selectionStart ?? text.length;
-    const name = (u.full_name || u.email || '').replace(/\s+/g, '_');
+    const name = normalizeMention(getDisplayName(u));
     const before = text.slice(0, mentionStart);
     const after = text.slice(caret);
     const insert = `@${name} `;
@@ -162,8 +167,8 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
     const parts = msg.split(/(@[\p{L}0-9_.-]+)/gu);
     return parts.map((p, i) => {
       if (p.startsWith('@')) {
-        const tag = p.slice(1).replace(/_/g, ' ').toLowerCase();
-        const matched = users.some(u => (u.full_name || u.email || '').toLowerCase() === tag);
+        const tag = p.slice(1).toLowerCase();
+        const matched = users.some(u => normalizeMention(getDisplayName(u)) === tag);
         if (matched) {
           return <span key={i} className="font-semibold text-primary bg-primary/10 rounded px-1">{p.replace(/_/g, ' ')}</span>;
         }
@@ -186,6 +191,7 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
             return (
               <div key={m.id} className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
                 <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarImage src={users.find(x => x.user_id === m.user_id)?.avatar_url || undefined} alt={name} />
                   <AvatarFallback className="text-[10px]">{initials(name)}</AvatarFallback>
                 </Avatar>
                 <div className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${mine ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
@@ -223,7 +229,7 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
                 <div className="px-3 py-2 text-xs text-muted-foreground">{t.noMatch}</div>
               ) : (
                 filteredMentions.map((u, idx) => {
-                  const name = u.full_name || u.email || '';
+                  const name = getDisplayName(u);
                   return (
                     <button
                       key={u.user_id}
@@ -232,6 +238,7 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
                       className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-accent ${idx === mentionIndex ? 'bg-accent' : ''}`}
                     >
                       <Avatar className="h-6 w-6">
+                        <AvatarImage src={u.avatar_url || undefined} alt={name} />
                         <AvatarFallback className="text-[10px]">{initials(name)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 truncate">
