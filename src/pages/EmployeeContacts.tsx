@@ -61,6 +61,7 @@ export default function EmployeeContacts() {
         fullAr.includes(q) ||
         (e.email ?? "").toLowerCase().includes(q) ||
         (e.mobile ?? "").includes(q) ||
+        (e.work_mobile ?? "").includes(q) ||
         (e.phone ?? "").includes(q) ||
         e.employee_number.toLowerCase().includes(q)
       );
