@@ -20,8 +20,8 @@ interface EmployeeRow {
   mobile: string | null;
   work_mobile: string | null;
   photo_url: string | null;
-  department: { name: string; name_ar: string | null } | null;
-  job_position: { title: string; title_ar: string | null } | null;
+  department: { department_name: string; department_name_ar: string | null } | null;
+  job_position: { position_name: string; position_name_ar: string | null } | null;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
