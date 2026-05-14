@@ -736,6 +736,7 @@ export default function EmployeeSetup() {
       email: employee.email || "",
       phone: employee.phone || "",
       mobile: employee.mobile || "",
+      work_mobile: (employee as any).work_mobile || "",
       date_of_birth: employee.date_of_birth || "",
       gender: employee.gender || "",
       nationality: employee.nationality || "",
