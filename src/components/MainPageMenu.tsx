@@ -90,6 +90,27 @@ export function MainPageMenu() {
     );
   }
 
+  const itemOverrideTargets: Record<
+    string,
+    { url: string; icon: any; defaultEn: string; defaultAr: string; originalIdx: number }[]
+  > = {};
+
+  DEFAULT_MENU.forEach((group) => {
+    group.items.forEach((item, ii) => {
+      const ic = customizations[itemKey(item.url)];
+      if (ic?.parent_group) {
+        if (!itemOverrideTargets[ic.parent_group]) itemOverrideTargets[ic.parent_group] = [];
+        itemOverrideTargets[ic.parent_group].push({
+          url: item.url,
+          icon: item.icon,
+          defaultEn: item.defaultEn,
+          defaultAr: item.defaultAr,
+          originalIdx: ii,
+        });
+      }
+    });
+  });
+
   const orderedGroups = DEFAULT_MENU
     .map((group, gi) => {
       const gc = customizations[groupKey(group.defaultEn)];
@@ -110,8 +131,27 @@ export function MainPageMenu() {
   return (
     <div className="space-y-8 p-4" dir={language === "ar" ? "rtl" : "ltr"}>
       {orderedGroups.map(({ group, displayLabel }) => {
-        const items = group.items
-          .map((item, ii) => {
+        const gKey = groupKey(group.defaultEn);
+
+        const nativeItems = group.items
+          .filter((item) => {
+            const ic = customizations[itemKey(item.url)];
+            return !ic?.parent_group || ic.parent_group === gKey;
+          })
+          .map((item, ii) => ({ item, ii }));
+
+        const incomingItems = (itemOverrideTargets[gKey] || []).map((item) => ({
+          item: {
+            url: item.url,
+            icon: item.icon,
+            defaultEn: item.defaultEn,
+            defaultAr: item.defaultAr,
+          },
+          ii: item.originalIdx,
+        }));
+
+        const items = [...nativeItems, ...incomingItems]
+          .map(({ item, ii }) => {
             const ic = customizations[itemKey(item.url)];
             const title =
               ic && (language === "ar" ? ic.name_ar : ic.name_en)
