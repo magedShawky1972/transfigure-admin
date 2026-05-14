@@ -225,6 +225,7 @@ export default function EmployeeSetup() {
     email: "",
     phone: "",
     mobile: "",
+    work_mobile: "",
     date_of_birth: "",
     gender: "",
     nationality: "",
