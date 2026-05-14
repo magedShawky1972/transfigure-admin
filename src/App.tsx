@@ -89,6 +89,7 @@ import OdooSyncBatch from "./pages/OdooSyncBatch";
 import OdooSyncAll from "./pages/OdooSyncAll";
 import EmployeeSetup from "./pages/EmployeeSetup";
 import EmployeeProfile from "./pages/EmployeeProfile";
+import EmployeeContacts from "./pages/EmployeeContacts";
 import VacationSetup from "./pages/VacationSetup";
 import TimesheetManagement from "./pages/TimesheetManagement";
 import DeductionRulesSetup from "./pages/DeductionRulesSetup";
@@ -269,6 +270,7 @@ const App = () => (
               <Route path="/odoo-sync-all" element={<OdooSyncAll />} />
               <Route path="/employee-setup" element={<EmployeeSetup />} />
               <Route path="/employee-profile/:id" element={<EmployeeProfile />} />
+              <Route path="/employee-contacts" element={<EmployeeContacts />} />
               <Route path="/vacation-setup" element={<VacationSetup />} />
               <Route path="/timesheet-management" element={<TimesheetManagement />} />
               <Route path="/deduction-rules-setup" element={<DeductionRulesSetup />} />
