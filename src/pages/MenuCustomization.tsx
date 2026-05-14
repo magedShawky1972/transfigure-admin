@@ -57,6 +57,7 @@ interface ItemRow {
   name_en: string;
   name_ar: string;
   hidden: boolean;
+  defaultGroupKey: string; // original group this item belongs to in DEFAULT_MENU
 }
 interface GroupRow {
   key: string;
