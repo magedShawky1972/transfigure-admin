@@ -959,11 +959,20 @@ export default function EmployeeSetup() {
       let employeeId: string;
 
       if (selectedEmployee) {
-        const { error } = await supabase
+        const { data: updated, error } = await supabase
           .from("employees")
           .update(payload)
-          .eq("id", selectedEmployee.id);
+          .eq("id", selectedEmployee.id)
+          .select("id");
         if (error) throw error;
+        if (!updated || updated.length === 0) {
+          toast.error(
+            language === "ar"
+              ? "لا تملك صلاحية تعديل هذا الموظف. يرجى التواصل مع المسؤول."
+              : "You don't have permission to update this employee. Please contact an administrator."
+          );
+          return;
+        }
         employeeId = selectedEmployee.id;
         toast.success(language === "ar" ? "تم تحديث الموظف بنجاح" : "Employee updated successfully");
       } else {
