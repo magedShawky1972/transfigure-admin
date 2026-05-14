@@ -20,8 +20,8 @@ interface EmployeeRow {
   mobile: string | null;
   work_mobile: string | null;
   photo_url: string | null;
-  department: { name: string; name_ar: string | null } | null;
-  job_position: { title: string; title_ar: string | null } | null;
+  department: { department_name: string; department_name_ar: string | null } | null;
+  job_position: { position_name: string; position_name_ar: string | null } | null;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -40,7 +40,7 @@ export default function EmployeeContacts() {
       const { data, error } = await supabase
         .from("employees")
         .select(
-          "id, employee_number, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile, work_mobile, photo_url, department:departments(name, name_ar), job_position:job_positions(title, title_ar)"
+          "id, employee_number, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile, work_mobile, photo_url, department:departments(department_name, department_name_ar), job_position:job_positions(position_name, position_name_ar)"
         )
         .eq("employment_status", "active")
         .order("first_name", { ascending: true });
@@ -128,8 +128,8 @@ export default function EmployeeContacts() {
               ? `${e.first_name_ar} ${e.last_name_ar ?? ""}`
               : `${e.first_name} ${e.last_name}`;
             const initials = `${e.first_name?.[0] ?? ""}${e.last_name?.[0] ?? ""}`.toUpperCase();
-            const dept = e.department ? (isAr && e.department.name_ar ? e.department.name_ar : e.department.name) : null;
-            const job = e.job_position ? (isAr && e.job_position.title_ar ? e.job_position.title_ar : e.job_position.title) : null;
+            const dept = e.department ? (isAr && e.department.department_name_ar ? e.department.department_name_ar : e.department.department_name) : null;
+            const job = e.job_position ? (isAr && e.job_position.position_name_ar ? e.job_position.position_name_ar : e.job_position.position_name) : null;
             return (
               <Card key={e.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4 space-y-3">
