@@ -40,7 +40,7 @@ export default function EmployeeContacts() {
       const { data, error } = await supabase
         .from("employees")
         .select(
-          "id, employee_number, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile, work_mobile, photo_url, department:departments(name, name_ar), job_position:job_positions(title, title_ar)"
+          "id, employee_number, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile, work_mobile, photo_url, department:departments(department_name, department_name_ar), job_position:job_positions(position_name, position_name_ar)"
         )
         .eq("employment_status", "active")
         .order("first_name", { ascending: true });
