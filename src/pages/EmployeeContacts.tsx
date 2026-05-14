@@ -18,6 +18,7 @@ interface EmployeeRow {
   email: string | null;
   phone: string | null;
   mobile: string | null;
+  work_mobile: string | null;
   photo_url: string | null;
   department: { name: string; name_ar: string | null } | null;
   job_position: { title: string; title_ar: string | null } | null;
