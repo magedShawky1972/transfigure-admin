@@ -218,7 +218,7 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
             className="min-h-[40px] max-h-[120px]"
           />
           {mentionOpen && (
-            <div className="absolute bottom-full mb-1 left-0 z-50 w-64 max-h-56 overflow-y-auto rounded-md border bg-popover shadow-lg">
+            <div className="absolute bottom-full mb-1 left-0 z-50 w-64 max-h-56 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg">
               {filteredMentions.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-muted-foreground">{t.noMatch}</div>
               ) : (
