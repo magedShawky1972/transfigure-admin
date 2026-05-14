@@ -1,0 +1,1 @@
+ALTER TABLE public.menu_customizations ADD COLUMN IF NOT EXISTS parent_group text;
