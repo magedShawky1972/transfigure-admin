@@ -72,7 +72,8 @@ serve(async (req) => {
       );
     }
 
-    const { email, password } = await req.json();
+    const { email: rawEmail, password } = await req.json();
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
     if (!email) {
       return new Response(
@@ -84,19 +85,32 @@ serve(async (req) => {
     // Use provided password or generate random one
     const newPassword = password || generateRandomPassword(10);
 
-    // Get user by email
-    const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    
-    if (listError) {
-      console.error('Error listing users:', listError);
-      return new Response(
-        JSON.stringify({ error: listError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Find user by email via profiles (case-insensitive), fall back to auth scan
+    const { data: profileMatch } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id')
+      .ilike('email', email)
+      .maybeSingle();
+
+    let targetUser: { id: string; email?: string } | null = null;
+    if (profileMatch?.user_id) {
+      const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(profileMatch.user_id);
+      if (userRes?.user) targetUser = { id: userRes.user.id, email: userRes.user.email };
     }
 
-    const targetUser = users.users.find(u => u.email === email);
-    
+    if (!targetUser) {
+      const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (listError) {
+        console.error('Error listing users:', listError);
+        return new Response(
+          JSON.stringify({ error: listError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const found = users.users.find(u => (u.email || '').toLowerCase() === email);
+      if (found) targetUser = { id: found.id, email: found.email };
+    }
+
     if (!targetUser) {
       return new Response(
         JSON.stringify({ error: 'User not found' }),
