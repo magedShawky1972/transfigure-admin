@@ -13,7 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const { email: rawEmail } = await req.json();
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
     if (!email) {
       return new Response(
