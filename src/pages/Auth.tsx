@@ -444,8 +444,8 @@ const Auth = () => {
       const { data: profile } = await supabase
         .from("profiles")
         .select("must_change_password, user_id")
-        .eq("email", email)
-        .single();
+        .ilike("email", email)
+        .maybeSingle();
 
       if (profile?.must_change_password) {
         setStep("change-password");

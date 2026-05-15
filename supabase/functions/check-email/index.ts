@@ -13,7 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const { email: rawEmail } = await req.json();
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
     if (!email) {
       return new Response(
@@ -30,11 +31,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Check if email exists in profiles table
+    // Check if email exists in profiles table (case-insensitive)
     const { data, error } = await supabaseClient
       .from('profiles')
       .select('user_id')
-      .eq('email', email)
+      .ilike('email', email)
       .maybeSingle();
 
     if (error) {
