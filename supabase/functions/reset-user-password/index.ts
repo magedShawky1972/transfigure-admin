@@ -49,7 +49,8 @@ serve(async (req) => {
       );
     }
 
-    const { email, new_password } = await req.json();
+    const { email: rawEmail, new_password } = await req.json();
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : rawEmail;
 
     if (!email) {
       return new Response(
@@ -61,18 +62,32 @@ serve(async (req) => {
     // Default to "123456" if no password provided
     const password = new_password || '123456';
 
-    // Get user by email
-    const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    
-    if (listError) {
-      return new Response(
-        JSON.stringify({ error: listError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Find user by email via profiles table (case-insensitive)
+    const { data: profileMatch } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id, email')
+      .ilike('email', email)
+      .maybeSingle();
+
+    let targetUser: { id: string; email?: string } | null = null;
+    if (profileMatch?.user_id) {
+      const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(profileMatch.user_id);
+      if (userRes?.user) targetUser = { id: userRes.user.id, email: userRes.user.email };
     }
 
-    const targetUser = users.users.find(u => u.email === email);
-    
+    if (!targetUser) {
+      // Fallback: scan auth users
+      const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (listError) {
+        return new Response(
+          JSON.stringify({ error: listError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const found = users.users.find(u => (u.email || '').toLowerCase() === email);
+      if (found) targetUser = { id: found.id, email: found.email };
+    }
+
     if (!targetUser) {
       return new Response(
         JSON.stringify({ error: 'User not found' }),
