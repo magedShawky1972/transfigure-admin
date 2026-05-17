@@ -154,6 +154,7 @@ import CoinsWorkflowSetup from "./pages/CoinsWorkflowSetup";
 import CoinsPurchaseFollowUp from "./pages/CoinsPurchaseFollowUp";
 import MissingShiftImages from "./pages/MissingShiftImages";
 import SalesOrderEntry from "./pages/SalesOrderEntry";
+import SalesOrderList from "./pages/SalesOrderList";
 import CoinsTransactionGuide from "./pages/CoinsTransactionGuide";
 import AutoUpload from "./pages/AutoUpload";
 import PricingScenario from "./pages/PricingScenario";
