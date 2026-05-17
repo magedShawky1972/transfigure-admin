@@ -76,20 +76,36 @@ const SalesOrderList = () => {
     }) || null;
   };
 
-  const handleChangeRowBrand = (rowIdx: number, newBrandId: string) => {
+  const handleChangeRowBrand = async (rowIdx: number, newBrandId: string) => {
+    const newBrand = brandsList.find(b => b.id === newBrandId) || null;
+    let sourceName = "";
     setPreviewRows(prev => {
       if (!prev) return prev;
       const targetRow = prev[rowIdx];
-      const oldBrandKey = String(targetRow.brand_name || "").trim().toLowerCase();
-      const newBrand = brandsList.find(b => b.id === newBrandId) || null;
+      sourceName = String(targetRow.source_brand_name || targetRow.brand_name || "").trim();
+      const sourceKey = sourceName.toLowerCase();
       return prev.map(r => {
-        const sameOriginalBrand = String(r.brand_name || "").trim().toLowerCase() === oldBrandKey;
-        if (!sameOriginalBrand) return r;
+        const rowSource = String(r.source_brand_name || r.brand_name || "").trim().toLowerCase();
+        if (rowSource !== sourceKey) return r;
         const product = newBrand ? findProductForBrand(newBrand, r.product_name) : null;
         return recomputeRow(r, newBrand, product);
       });
     });
     setBrandPopoverIdx(null);
+
+    // Persist mapping so future imports auto-resolve
+    if (sourceName && newBrand) {
+      try {
+        await supabase.from("sales_order_brand_mappings").upsert({
+          source_brand_name: sourceName,
+          purple_brand_id: newBrand.id,
+          purple_brand_code: newBrand.brand_code,
+          purple_brand_name: newBrand.brand_name,
+        }, { onConflict: "source_brand_name" });
+      } catch (e) {
+        // ignore — mapping is a convenience, not required
+      }
+    }
   };
 
   const handleChangeRowProduct = (rowIdx: number, newProductId: string) => {
@@ -216,17 +232,25 @@ const SalesOrderList = () => {
       if (raw.length === 0) throw new Error("Empty file");
 
       // Lookups
-      const [{ data: brandsData }, { data: productsData }] = await Promise.all([
+      const [{ data: brandsData }, { data: productsData }, { data: mappingsData }] = await Promise.all([
         supabase.from("brands").select("id, brand_code, brand_name, sales_one_coins_sar, cost_one_coins_sar"),
         supabase.from("products").select("id, product_name, product_price, product_cost, coins_number, brand_code, brand_name").eq("status", "active").limit(5000),
+        supabase.from("sales_order_brand_mappings").select("source_brand_name, purple_brand_id"),
       ]);
       setBrandsList(brandsData || []);
       setProductsList(productsData || []);
+      const brandById = new Map<string, any>();
       const brandByName = new Map<string, any>();
       const brandByCode = new Map<string, any>();
       (brandsData || []).forEach((b: any) => {
+        brandById.set(b.id, b);
         if (b.brand_name) brandByName.set(String(b.brand_name).trim().toLowerCase(), b);
         if (b.brand_code) brandByCode.set(String(b.brand_code).trim().toLowerCase(), b);
+      });
+      const mappingBySource = new Map<string, any>();
+      (mappingsData || []).forEach((m: any) => {
+        const b = brandById.get(m.purple_brand_id);
+        if (b) mappingBySource.set(String(m.source_brand_name).trim().toLowerCase(), b);
       });
       const productsByBrandAndName = new Map<string, any>();
       (productsData || []).forEach((p: any) => {
@@ -237,7 +261,9 @@ const SalesOrderList = () => {
 
       const resolved = raw.map((r: any, idx: number) => {
         const brandNameRaw = String(r.brand_name || "").trim();
-        const brand = brandByName.get(brandNameRaw.toLowerCase()) || brandByCode.get(String(r.brand_code || "").trim().toLowerCase());
+        const brand = mappingBySource.get(brandNameRaw.toLowerCase())
+          || brandByName.get(brandNameRaw.toLowerCase())
+          || brandByCode.get(String(r.brand_code || "").trim().toLowerCase());
         const productNameRaw = String(r.product_name || "").trim();
         const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
         const product = productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
@@ -257,6 +283,7 @@ const SalesOrderList = () => {
         return {
           row: idx + 2,
           group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
+          source_brand_name: brandNameRaw,
           order_date: orderDate,
           customer_name: r.customer_name || "",
           sales_reference: r.sales_reference || "",
@@ -532,6 +559,7 @@ const SalesOrderList = () => {
                     { key: 'group_key', label: 'Group' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
+                    { key: 'source_brand_name', label: 'Source (Excel)' },
                     { key: 'brand_code', label: 'Brand Code' },
                     { key: 'brand_name', label: 'Brand' },
                     { key: 'product_id', label: 'Product ID' },
@@ -574,6 +602,7 @@ const SalesOrderList = () => {
                       <TableCell className="font-mono text-xs">{r.group_key?.startsWith('__row_') ? <span className="text-muted-foreground">—</span> : r.group_key}</TableCell>
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
+                      <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>

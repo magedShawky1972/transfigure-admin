@@ -7438,6 +7438,44 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_order_brand_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          purple_brand_code: string | null
+          purple_brand_id: string | null
+          purple_brand_name: string | null
+          source_brand_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          purple_brand_code?: string | null
+          purple_brand_id?: string | null
+          purple_brand_name?: string | null
+          source_brand_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          purple_brand_code?: string | null
+          purple_brand_id?: string | null
+          purple_brand_name?: string | null
+          source_brand_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_brand_mappings_purple_brand_id_fkey"
+            columns: ["purple_brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_order_header: {
         Row: {
           company: string | null
