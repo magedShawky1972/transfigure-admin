@@ -45,7 +45,7 @@ const SalesOrderList = () => {
   const [showUnitCostZero, setShowUnitCostZero] = useState(false);
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
-    const coins = Number(product?.coins_number) || 0;
+    const coins = Number(row.source_coins_number ?? row.coins_number) || 0;
     const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
     const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
     const srcUnit = Number(row.source_unit_price) || 0;
