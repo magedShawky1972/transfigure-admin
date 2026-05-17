@@ -568,6 +568,9 @@ const BrandSetup = () => {
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("usd_value_for_coins")}>
                   1 Coins= USD {sortColumn === "usd_value_for_coins" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("cost_one_coins_sar")}>
+                  Cost 1 Coins= SAR {sortColumn === "cost_one_coins_sar" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("one_usd_to_coins")}>
                   1 USD=Coins {sortColumn === "one_usd_to_coins" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
@@ -610,7 +613,7 @@ const BrandSetup = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                   <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
+                   <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName || filterABCAnalysis || filterBrandType ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
@@ -642,6 +645,7 @@ const BrandSetup = () => {
                       </span>
                     </TableCell>
                     <TableCell>{brand.usd_value_for_coins || 0}</TableCell>
+                    <TableCell>{((brand as any).cost_one_coins_sar ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell>{(brand as any).one_usd_to_coins ? parseFloat((brand as any).one_usd_to_coins).toFixed(8) : '-'}</TableCell>
                     <TableCell>{brand.recharge_usd_value?.toFixed(3) || '0.000'}</TableCell>
                     <TableCell>{brand.leadtime || 0}</TableCell>
