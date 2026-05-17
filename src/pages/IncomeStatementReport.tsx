@@ -19,7 +19,9 @@ interface IncomeRow {
   value: number;
   percentage: number;
   isTotal?: boolean;
-  drilldown: "brand" | "epayment" | "points-brand" | "none";
+  drilldown: "brand" | "epayment" | "points-brand" | "company" | "none";
+  company?: string;
+  metric?: "sales" | "cost";
 }
 
 interface BrandAggregate {
@@ -208,15 +210,15 @@ const IncomeStatementReport = () => {
 
   const rows: IncomeRow[] = [
     { key: "totalSales", label: isRTL ? "إجمالي المبيعات (شامل الخصومات)" : "Total Sales (Including Discounts)", value: totals.totalSales, percentage: 100, drilldown: "brand" },
-    { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "none" },
-    { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "none" },
-    { key: "asusSales", label: isRTL ? "مبيعات Asus" : "Asus Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "none" },
+    { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "sales" },
+    { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "sales" },
+    { key: "asusSales", label: isRTL ? "مبيعات Asus" : "Asus Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "sales" },
     { key: "couponSales", label: isRTL ? "كوبونات الخصم" : "Discount Coupons", value: totals.couponSales, percentage: pct(totals.couponSales, totals.totalSales), drilldown: "none" },
     { key: "salesPlusCoupon", label: isRTL ? "المبيعات + الكوبونات" : "Sales + Coupon", value: totals.totalSales + totals.couponSales, percentage: pct(totals.totalSales + totals.couponSales, totals.totalSales), drilldown: "brand" },
     { key: "costOfSales", label: isRTL ? "تكلفة المبيعات" : "Cost Of Sales", value: totals.costOfSales, percentage: pct(totals.costOfSales, totals.totalSales), drilldown: "brand" },
-    { key: "purpleCost", label: isRTL ? "تكلفة Purple" : "Purple Cost", value: costSources["Purple"] || 0, percentage: pct(costSources["Purple"] || 0, totals.totalSales), drilldown: "none" },
-    { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "none" },
-    { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "none" },
+    { key: "purpleCost", label: isRTL ? "تكلفة Purple" : "Purple Cost", value: costSources["Purple"] || 0, percentage: pct(costSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "cost" },
+    { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "cost" },
+    { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "cost" },
     { key: "pointsCost", label: isRTL ? "تكلفة النقاط" : "Points Cost", value: totals.pointsCost, percentage: pct(totals.pointsCost, totals.totalSales), drilldown: "points-brand" },
     { key: "shipping", label: isRTL ? "الشحن" : "Shipping", value: totals.shipping, percentage: 0, drilldown: "none" },
     { key: "taxes", label: isRTL ? "الضرائب" : "Taxes", value: totals.taxes, percentage: 0, drilldown: "none" },
@@ -249,6 +251,91 @@ const IncomeStatementReport = () => {
       breakdown = breakdown.filter((b) => Math.abs(b.value) > 0.001).sort((a, b) => b.value - a.value);
       setDrillBrandData(breakdown);
       setDrillOpen(true);
+      return;
+    }
+
+    if (row.drilldown === "company" && row.company) {
+      setDrillType("brand");
+      setDrillLoading(true);
+      setDrillOpen(true);
+      try {
+        const startInt = parseInt(appliedStartDate.replace(/-/g, ""));
+        const endInt = parseInt(appliedEndDate.replace(/-/g, ""));
+        const baseTotal = row.value || 1;
+        const map = new Map<string, { value: number; tx_count: number; coins: number }>();
+
+        if (row.company === "Asus") {
+          // From confirmed manual sales orders → line items grouped by brand
+          const { data: orders, error: oErr } = await supabase
+            .from("manual_sales_orders")
+            .select("id")
+            .eq("status", "confirmed")
+            .gte("order_date", appliedStartDate)
+            .lte("order_date", appliedEndDate);
+          if (oErr) throw oErr;
+          const orderIds = (orders || []).map((o: any) => o.id);
+          if (orderIds.length > 0) {
+            let from = 0;
+            while (true) {
+              const { data: lines, error: lErr } = await supabase
+                .from("manual_sales_order_lines")
+                .select("brand_id, product_name, qty, total, cost_price, coins_number")
+                .in("order_id", orderIds)
+                .range(from, from + PAGE_SIZE - 1);
+              if (lErr) throw lErr;
+              const batch = lines || [];
+              batch.forEach((l: any) => {
+                const brand = l.brand_id || "Unknown";
+                const cur = map.get(brand) || { value: 0, tx_count: 0, coins: 0 };
+                const v = row.metric === "cost" ? (Number(l.cost_price) || 0) * (Number(l.qty) || 0) : (Number(l.total) || 0);
+                cur.value += v;
+                cur.tx_count += 1;
+                cur.coins += Number(l.coins_number) || 0;
+                map.set(brand, cur);
+              });
+              if (batch.length < PAGE_SIZE) break;
+              from += PAGE_SIZE;
+            }
+          }
+        } else {
+          // Purple / Salla from purpletransaction grouped by brand_name
+          let from = 0;
+          while (true) {
+            let q = supabase
+              .from("purpletransaction")
+              .select("brand_name, total, cost_sold, coins_number")
+              .gte("created_at_date_int", startInt)
+              .lte("created_at_date_int", endInt)
+              .eq("revenue_source", row.company);
+            if (appliedBrandFilter !== "all") q = q.eq("brand_name", appliedBrandFilter);
+            if (appliedCompanyFilter !== "all") q = q.eq("company", appliedCompanyFilter);
+            const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
+            if (error) throw error;
+            const batch = data || [];
+            batch.forEach((r: any) => {
+              const brand = r.brand_name || "Unknown";
+              const cur = map.get(brand) || { value: 0, tx_count: 0, coins: 0 };
+              const v = row.metric === "cost" ? Number(r.cost_sold) || 0 : Number(r.total) || 0;
+              cur.value += v;
+              cur.tx_count += 1;
+              cur.coins += Number(r.coins_number) || 0;
+              map.set(brand, cur);
+            });
+            if (batch.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+          }
+        }
+
+        const breakdown = Array.from(map.entries())
+          .map(([brand_name, v]) => ({ brand_name, value: v.value, percentage: (v.value / baseTotal) * 100, tx_count: v.tx_count, coins: brandAbcMap[brand_name] === "A" ? v.coins : 0 }))
+          .filter((b) => Math.abs(b.value) > 0.001)
+          .sort((a, b) => b.value - a.value);
+        setDrillBrandData(breakdown);
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to load breakdown");
+      } finally {
+        setDrillLoading(false);
+      }
       return;
     }
 
