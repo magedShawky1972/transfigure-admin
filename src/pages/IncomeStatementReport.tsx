@@ -284,7 +284,7 @@ const IncomeStatementReport = () => {
             while (true) {
               const { data: lines, error: lErr } = await supabase
                 .from("manual_sales_order_lines")
-                .select("brand_id, product_name, qty, total, cost_price, coins_number")
+                .select("brand_id, product_name, qty, total, total_cost, cost_price, coins_number")
                 .in("order_id", orderIds)
                 .range(from, from + PAGE_SIZE - 1);
               if (lErr) throw lErr;
@@ -292,7 +292,8 @@ const IncomeStatementReport = () => {
               batch.forEach((l: any) => {
                 const brand = brandNameMap[l.brand_id] || l.brand_id || "Unknown";
                 const cur = map.get(brand) || { value: 0, tx_count: 0, coins: 0 };
-                const v = row.metric === "cost" ? (Number(l.cost_price) || 0) * (Number(l.qty) || 0) * (Number(l.coins_number) || 0) : (Number(l.total) || 0);
+                const computedCost = (Number(l.cost_price) || 0) * (Number(l.qty) || 0) * (Number(l.coins_number) || 0);
+                const v = row.metric === "cost" ? (Number(l.total_cost) || computedCost) : (Number(l.total) || 0);
                 cur.value += v;
                 cur.tx_count += 1;
                 cur.coins += (Number(l.coins_number) || 0) * (Number(l.qty) || 0);
