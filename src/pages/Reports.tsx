@@ -60,6 +60,15 @@ const Reports = () => {
 
   const reports = [
     {
+      id: "income-statement",
+      name: language === "ar" ? "قائمة الدخل" : "Income Statement",
+      description: language === "ar"
+        ? "تقرير قائمة الدخل مع التفصيل لكل بند (المبيعات، التكلفة، النقاط، الرسوم)"
+        : "Income statement report with drilldown per item (sales, cost, points, charges)",
+      icon: BarChart3,
+      route: "/reports/income-statement",
+    },
+    {
       id: "revenue-by-brand-type",
       name: t("reports.revenueByBrandType.name"),
       description: t("reports.revenueByBrandType.description"),
