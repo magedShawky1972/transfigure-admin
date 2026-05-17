@@ -88,7 +88,7 @@ const SalesOrderEntry = () => {
   const [salesPerson, setSalesPerson] = useState("");
   const [notes, setNotes] = useState("");
   const [company, setCompany] = useState("");
-  const companyOptions = ["Purple", "Ish7an"];
+  const [companyOptions, setCompanyOptions] = useState<string[]>([]);
 
   // Lines state
   const [lines, setLines] = useState<OrderLine[]>([]);
