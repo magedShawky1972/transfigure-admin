@@ -21,6 +21,7 @@ interface OrderLine {
   id: string;
   brand_id: string;
   product_name: string;
+  coins_number: number;
   qty: number;
   unit_price: number;
   cost_price: number;
@@ -43,6 +44,8 @@ const SalesOrderEntry = () => {
   const [customerOpen, setCustomerOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentBrand, setPaymentBrand] = useState("");
+  const [salesReference, setSalesReference] = useState("");
+  const [salesPerson, setSalesPerson] = useState("");
   const [notes, setNotes] = useState("");
 
   // Lines state
@@ -55,6 +58,7 @@ const SalesOrderEntry = () => {
   const [customerLoading, setCustomerLoading] = useState(false);
   const customerSearchTimer = useRef<NodeJS.Timeout | null>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [salesPeople, setSalesPeople] = useState<any[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -77,14 +81,16 @@ const SalesOrderEntry = () => {
   };
 
   const fetchLookups = async () => {
-    const [brandsRes, pmRes, prodRes] = await Promise.all([
+    const [brandsRes, pmRes, prodRes, spRes] = await Promise.all([
       supabase.from("brands").select("id, brand_name, brand_code").eq("status", "active").order("brand_name"),
       supabase.from("payment_methods").select("id, payment_method, payment_type").eq("is_active", true).order("payment_method"),
       supabase.from("products").select("id, product_name, cost_price, selling_price, brand_id").eq("status", "active").order("product_name").limit(1000),
+      supabase.from("profiles").select("user_id, user_name, salesman_code").eq("is_active", true).order("user_name"),
     ]);
     setBrands(brandsRes.data || []);
     setPaymentMethods(pmRes.data || []);
     setProducts(prodRes.data || []);
+    setSalesPeople(spRes.data || []);
   };
 
   const searchCustomers = useCallback(async (query: string) => {
@@ -121,6 +127,7 @@ const SalesOrderEntry = () => {
       id: generateTempId(),
       brand_id: "",
       product_name: "",
+      coins_number: 0,
       qty: 1,
       unit_price: 0,
       cost_price: 0,
@@ -161,6 +168,8 @@ const SalesOrderEntry = () => {
 
   const orderTotal = lines.reduce((sum, l) => sum + l.total, 0);
   const orderProfit = lines.reduce((sum, l) => sum + l.profit, 0);
+  const orderCost = lines.reduce((sum, l) => sum + l.qty * l.cost_price, 0);
+  const orderCoins = lines.reduce((sum, l) => sum + (l.coins_number || 0), 0);
 
   const generateOrderNumber = () => {
     const dateStr = format(new Date(), "yyyyMMdd");
@@ -196,6 +205,7 @@ const SalesOrderEntry = () => {
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
         product_name: line.product_name,
+        coins_number: line.coins_number || 0,
         qty: line.qty,
         unit_price: line.unit_price,
         cost_price: line.cost_price,
@@ -207,6 +217,8 @@ const SalesOrderEntry = () => {
         order_number: orderNumber,
         ordernumber: orderNumber,
         user_name: currentUser?.name || "",
+        sales_reference: salesReference || null,
+        sales_person: salesPerson || null,
         trans_type: "manual",
         company: "SupPurple",
         created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
@@ -227,8 +239,9 @@ const SalesOrderEntry = () => {
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod("");
-      setPaymentMethod("");
       setPaymentBrand("");
+      setSalesReference("");
+      setSalesPerson("");
       setNotes("");
       setLines([]);
     } catch (error: any) {
@@ -244,6 +257,8 @@ const SalesOrderEntry = () => {
     setCustomerPhone("");
     setPaymentMethod("");
     setPaymentBrand("");
+    setSalesReference("");
+    setSalesPerson("");
     setNotes("");
     setLines([]);
   };
@@ -337,6 +352,25 @@ const SalesOrderEntry = () => {
             </div>
 
             <div className="space-y-2">
+              <Label>{language === 'ar' ? 'مرجع البيع' : 'Sales Reference'}</Label>
+              <Input value={salesReference} onChange={e => setSalesReference(e.target.value)} placeholder={language === 'ar' ? 'رقم مرجع البيع' : 'Sales reference'} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'مندوب البيع' : 'Sales Person'}</Label>
+              <Select value={salesPerson} onValueChange={setSalesPerson}>
+                <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر مندوب البيع' : 'Select sales person'} /></SelectTrigger>
+                <SelectContent>
+                  {salesPeople.map(sp => (
+                    <SelectItem key={sp.user_id} value={sp.user_name || ""}>
+                      {sp.user_name}{sp.salesman_code ? ` (${sp.salesman_code})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 md:col-span-3">
               <Label>{language === 'ar' ? 'ملاحظات' : 'Notes'}</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={1} />
             </div>
@@ -363,9 +397,11 @@ const SalesOrderEntry = () => {
                   <TableHead className="w-8">#</TableHead>
                   <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                  <TableHead className="w-28">{language === 'ar' ? 'عدد الكوينز' : 'Coins #'}</TableHead>
                   <TableHead className="w-24">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'التكلفة' : 'Cost'}</TableHead>
+                  <TableHead className="w-32">{language === 'ar' ? 'إجمالي التكلفة' : 'Total Cost'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'الربح' : 'Profit'}</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -374,7 +410,7 @@ const SalesOrderEntry = () => {
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                       {language === 'ar' ? 'لا توجد بنود. اضغط "إضافة سطر" لبدء الإدخال.' : 'No lines. Click "Add Line" to start.'}
                     </TableCell>
                   </TableRow>
@@ -407,6 +443,9 @@ const SalesOrderEntry = () => {
                         </Select>
                       </TableCell>
                       <TableCell>
+                        <Input type="number" step="0.001" value={line.coins_number} onChange={e => updateLine(line.id, "coins_number", Number(e.target.value))} />
+                      </TableCell>
+                      <TableCell>
                         <Input type="number" min={1} value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
@@ -415,6 +454,7 @@ const SalesOrderEntry = () => {
                       <TableCell>
                         <Input type="number" step="0.01" value={line.cost_price} onChange={e => updateLine(line.id, "cost_price", Number(e.target.value))} />
                       </TableCell>
+                      <TableCell className="font-medium">{(line.qty * line.cost_price).toFixed(2)}</TableCell>
                       <TableCell className="font-medium">{line.total.toFixed(2)}</TableCell>
                       <TableCell className={`font-medium ${line.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {line.profit.toFixed(2)}
@@ -432,7 +472,15 @@ const SalesOrderEntry = () => {
           </div>
 
           {lines.length > 0 && (
-            <div className="flex justify-end gap-6 mt-4 p-4 bg-muted/50 rounded-lg">
+            <div className="flex flex-wrap justify-end gap-6 mt-4 p-4 bg-muted/50 rounded-lg">
+              <div className="text-sm">
+                <span className="text-muted-foreground">{language === 'ar' ? 'إجمالي الكوينز:' : 'Total Coins:'}</span>
+                <span className="font-bold text-foreground ml-2">{orderCoins.toFixed(2)}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">{language === 'ar' ? 'إجمالي التكلفة:' : 'Total Cost:'}</span>
+                <span className="font-bold text-foreground ml-2">{orderCost.toFixed(2)} SAR</span>
+              </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">{language === 'ar' ? 'الإجمالي:' : 'Total:'}</span>
                 <span className="font-bold text-foreground ml-2">{orderTotal.toFixed(2)} SAR</span>
