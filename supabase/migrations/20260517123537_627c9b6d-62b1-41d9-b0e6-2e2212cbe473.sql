@@ -1,0 +1,1 @@
+ALTER TABLE public.manual_sales_order_lines ADD COLUMN IF NOT EXISTS vendor text;
