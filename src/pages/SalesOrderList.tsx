@@ -35,6 +35,7 @@ const SalesOrderList = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [commitProgress, setCommitProgress] = useState<{ current: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewRows, setPreviewRows] = useState<any[] | null>(null);
   const [brandsList, setBrandsList] = useState<any[]>([]);
