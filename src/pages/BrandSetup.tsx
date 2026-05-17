@@ -568,6 +568,9 @@ const BrandSetup = () => {
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("usd_value_for_coins")}>
                   1 Coins= USD {sortColumn === "usd_value_for_coins" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("cost_one_coins_sar")}>
+                  Cost 1 Coins= SAR {sortColumn === "cost_one_coins_sar" && (sortDirection === "asc" ? "↑" : "↓")}
+                </TableHead>
                 <TableHead className="cursor-pointer hover:bg-accent" onClick={() => handleSort("one_usd_to_coins")}>
                   1 USD=Coins {sortColumn === "one_usd_to_coins" && (sortDirection === "asc" ? "↑" : "↓")}
                 </TableHead>
