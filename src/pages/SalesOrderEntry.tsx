@@ -168,6 +168,8 @@ const SalesOrderEntry = () => {
 
   const orderTotal = lines.reduce((sum, l) => sum + l.total, 0);
   const orderProfit = lines.reduce((sum, l) => sum + l.profit, 0);
+  const orderCost = lines.reduce((sum, l) => sum + l.qty * l.cost_price, 0);
+  const orderCoins = lines.reduce((sum, l) => sum + (l.coins_number || 0), 0);
 
   const generateOrderNumber = () => {
     const dateStr = format(new Date(), "yyyyMMdd");
