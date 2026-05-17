@@ -462,12 +462,29 @@ const SalesOrderEntry = () => {
       </div>
     );
   }
+  if (!hasAccess) return <AccessDenied />;
+
+  const isConfirmed = orderStatus === 'confirmed';
 
   return (
     <div className="p-4 md:p-6 space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-      <h1 className="text-2xl font-bold text-foreground">
-        {language === 'ar' ? 'إدخال أمر البيع' : 'Sales Order Entry'}
-      </h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => navigate("/sales-order-entry")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isEditMode
+              ? (language === 'ar' ? `تعديل أمر البيع ${orderNumber}` : `Edit Sales Order ${orderNumber}`)
+              : (language === 'ar' ? 'إدخال أمر البيع' : 'Sales Order Entry')}
+          </h1>
+        </div>
+        {isConfirmed && (
+          <span className="text-sm px-3 py-1 rounded-full bg-primary/10 text-primary font-medium">
+            {language === 'ar' ? 'مؤكد - للعرض فقط' : 'Confirmed (read-only)'}
+          </span>
+        )}
+      </div>
 
       {/* Header Card */}
       <Card>
