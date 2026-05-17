@@ -1242,6 +1242,7 @@ export type Database = {
           brand_name: string
           brand_start_date: string | null
           brand_type_id: string | null
+          cost_one_coins_sar: number | null
           created_at: string
           creation_source: string | null
           default_supplier_id: string | null
@@ -1270,6 +1271,7 @@ export type Database = {
           brand_name: string
           brand_start_date?: string | null
           brand_type_id?: string | null
+          cost_one_coins_sar?: number | null
           created_at?: string
           creation_source?: string | null
           default_supplier_id?: string | null
@@ -1298,6 +1300,7 @@ export type Database = {
           brand_name?: string
           brand_start_date?: string | null
           brand_type_id?: string | null
+          cost_one_coins_sar?: number | null
           created_at?: string
           creation_source?: string | null
           default_supplier_id?: string | null
