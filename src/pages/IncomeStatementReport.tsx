@@ -80,9 +80,15 @@ const IncomeStatementReport = () => {
     (async () => {
       const { data: bData } = await supabase
         .from("brands")
-        .select("brand_name")
+        .select("brand_name, abc_analysis")
         .order("brand_name");
-      setBrands((bData || []).map((b: any) => b.brand_name).filter(Boolean));
+      const list = (bData || []).map((b: any) => b.brand_name).filter(Boolean);
+      setBrands(list);
+      const map: Record<string, string> = {};
+      (bData || []).forEach((b: any) => {
+        if (b.brand_name) map[b.brand_name] = (b.abc_analysis || "").toString().toUpperCase();
+      });
+      setBrandAbcMap(map);
 
       const { data: cData } = await supabase
         .from("purpletransaction")
