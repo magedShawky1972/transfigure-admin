@@ -66,6 +66,7 @@ const IncomeStatementReport = () => {
   const [loading, setLoading] = useState(false);
   const [aggregates, setAggregates] = useState<BrandAggregate[]>([]);
   const [revenueSources, setRevenueSources] = useState<Record<string, number>>({});
+  const [costSources, setCostSources] = useState<Record<string, number>>({});
 
   // Drilldown state
   const [drillOpen, setDrillOpen] = useState(false);
@@ -148,8 +149,12 @@ const IncomeStatementReport = () => {
       );
       if (rsError) throw rsError;
       const rsMap: Record<string, number> = {};
+      const csMap: Record<string, number> = {};
       (rsData || []).forEach((r: any) => {
-        if (r.revenue_source) rsMap[r.revenue_source] = Number(r.total) || 0;
+        if (r.revenue_source) {
+          rsMap[r.revenue_source] = Number(r.total) || 0;
+          csMap[r.revenue_source] = Number(r.cost_sold) || 0;
+        }
       });
 
       // ASUS Sales from confirmed manual sales orders (Sales Order Entry)
@@ -165,11 +170,10 @@ const IncomeStatementReport = () => {
         const asusCost = (msoData || []).reduce((s: number, r: any) => s + (Number(r.total_cost) || 0), 0);
         // Manual sales orders are the source of truth for Asus — replace any value coming from purpletransaction to avoid double counting
         rsMap["Asus"] = asusTotal;
-        if (asusTotal > 0 || asusCost > 0) {
-          // Do NOT push to aggregates: purpletransaction already includes these rows, so adding them again would double Total Sales / Cost
-        }
+        csMap["Asus"] = asusCost;
       }
       setRevenueSources(rsMap);
+      setCostSources(csMap);
 
       setAppliedStartDate(startDate);
       setAppliedEndDate(endDate);
@@ -210,6 +214,9 @@ const IncomeStatementReport = () => {
     { key: "couponSales", label: isRTL ? "كوبونات الخصم" : "Discount Coupons", value: totals.couponSales, percentage: pct(totals.couponSales, totals.totalSales), drilldown: "none" },
     { key: "salesPlusCoupon", label: isRTL ? "المبيعات + الكوبونات" : "Sales + Coupon", value: totals.totalSales + totals.couponSales, percentage: pct(totals.totalSales + totals.couponSales, totals.totalSales), drilldown: "brand" },
     { key: "costOfSales", label: isRTL ? "تكلفة المبيعات" : "Cost Of Sales", value: totals.costOfSales, percentage: pct(totals.costOfSales, totals.totalSales), drilldown: "brand" },
+    { key: "purpleCost", label: isRTL ? "تكلفة Purple" : "Purple Cost", value: costSources["Purple"] || 0, percentage: pct(costSources["Purple"] || 0, totals.totalSales), drilldown: "none" },
+    { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "none" },
+    { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "none" },
     { key: "pointsCost", label: isRTL ? "تكلفة النقاط" : "Points Cost", value: totals.pointsCost, percentage: pct(totals.pointsCost, totals.totalSales), drilldown: "points-brand" },
     { key: "shipping", label: isRTL ? "الشحن" : "Shipping", value: totals.shipping, percentage: 0, drilldown: "none" },
     { key: "taxes", label: isRTL ? "الضرائب" : "Taxes", value: totals.taxes, percentage: 0, drilldown: "none" },

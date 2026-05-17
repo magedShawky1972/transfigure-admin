@@ -11796,6 +11796,7 @@ export type Database = {
           p_start_int: number
         }
         Returns: {
+          cost_sold: number
           revenue_source: string
           total: number
           tx_count: number
