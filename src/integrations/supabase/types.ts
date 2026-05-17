@@ -6579,6 +6579,8 @@ export type Database = {
           qty: number | null
           register_user_id: number | null
           revenue_source: string | null
+          sales_person: string | null
+          sales_reference: string | null
           sendodoo: boolean | null
           source: string
           status: number | null
@@ -6632,6 +6634,8 @@ export type Database = {
           qty?: number | null
           register_user_id?: number | null
           revenue_source?: string | null
+          sales_person?: string | null
+          sales_reference?: string | null
           sendodoo?: boolean | null
           source?: string
           status?: number | null
@@ -6685,6 +6689,8 @@ export type Database = {
           qty?: number | null
           register_user_id?: number | null
           revenue_source?: string | null
+          sales_person?: string | null
+          sales_reference?: string | null
           sendodoo?: boolean | null
           source?: string
           status?: number | null
