@@ -21,6 +21,7 @@ interface OrderLine {
   id: string;
   brand_id: string;
   product_name: string;
+  coins_number: number;
   qty: number;
   unit_price: number;
   cost_price: number;
