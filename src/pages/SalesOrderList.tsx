@@ -941,7 +941,7 @@ const SalesOrderList = () => {
                   );
                 })}
               </TableBody>
-            </Table>
+            </table>
           </div>
           <DialogFooter>
             <Button variant="outline" disabled={committing} onClick={() => setPreviewRows(null)}>
