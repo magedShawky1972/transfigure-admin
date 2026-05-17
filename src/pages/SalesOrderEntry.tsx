@@ -115,7 +115,7 @@ const SalesOrderEntry = () => {
 
   const fetchLookups = async () => {
     const [brandsRes, pmRes, prodRes, spRes] = await Promise.all([
-      supabase.from("brands").select("id, brand_name, brand_code").eq("status", "active").order("brand_name"),
+      supabase.from("brands").select("id, brand_name, brand_code, sales_one_coins_sar, cost_one_coins_sar").eq("status", "active").order("brand_name"),
       supabase.from("payment_methods").select("id, payment_method, payment_type").eq("is_active", true).order("payment_method"),
       supabase.from("products").select("id, product_name, product_cost, product_price, coins_number, brand_code, brand_name").eq("status", "active").order("product_name").limit(5000),
       supabase.from("profiles").select("user_id, user_name, salesman_code").eq("is_active", true).order("user_name"),
@@ -194,14 +194,16 @@ const SalesOrderEntry = () => {
 
       if (field === "product_id") {
         const product = products.find(p => p.id === value);
-        console.log("[SalesOrderEntry] product selected:", value, product);
+        const brand = brands.find(b => b.id === updated.brand_id);
+        console.log("[SalesOrderEntry] product selected:", value, product, brand);
         if (product) {
-          const price = Number(product.product_price ?? 0) || 0;
-          const cost = Number(product.product_cost ?? 0) || 0;
+          const coins = Number(product.coins_number) || 0;
+          const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
+          const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
           updated.product_name = product.product_name;
-          updated.unit_price = price;
-          updated.cost_price = cost;
-          updated.coins_number = Number(product.coins_number) || 0;
+          updated.coins_number = coins;
+          updated.unit_price = salesRate > 0 ? salesRate * coins : (Number(product.product_price ?? 0) || 0);
+          updated.cost_price = costRate > 0 ? costRate * coins : (Number(product.product_cost ?? 0) || 0);
         }
       }
 
