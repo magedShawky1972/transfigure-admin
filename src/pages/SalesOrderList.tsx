@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle, ChevronsUpDown, ArrowUp, ArrowDown, Copy, RefreshCw } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
@@ -43,6 +44,7 @@ const SalesOrderList = () => {
   const [showProductErrorsOnly, setShowProductErrorsOnly] = useState(false);
   const [showUnitPriceZero, setShowUnitPriceZero] = useState(false);
   const [showUnitCostZero, setShowUnitCostZero] = useState(false);
+  const [salesRefFilter, setSalesRefFilter] = useState("");
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
     const coins = Number(row.source_coins_number ?? row.coins_number) || 0;
@@ -786,6 +788,19 @@ const SalesOrderList = () => {
                 </span>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={salesRefFilter}
+                onChange={(e) => setSalesRefFilter(e.target.value)}
+                placeholder={language === 'ar' ? 'بحث برقم المرجع' : 'Filter sales ref'}
+                className="h-8 w-44 text-xs"
+              />
+              {salesRefFilter && (
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSalesRefFilter("")}>
+                  ✕
+                </Button>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -803,6 +818,7 @@ const SalesOrderList = () => {
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   {[
+                    { key: 'sales_reference', label: 'Sales Ref' },
                     { key: 'group_key', label: 'Group' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
@@ -844,6 +860,8 @@ const SalesOrderList = () => {
               </TableHeader>
               <TableBody>
                 {(sortedPreview || []).filter((r: any) => {
+                  const refQuery = salesRefFilter.trim().toLowerCase();
+                  if (refQuery && !String(r.sales_reference || "").toLowerCase().includes(refQuery)) return false;
                   const hasAnyIssue = r.issues.length > 0;
                   const hasBrandError = r.issues.some((i: string) => i.includes('Brand not found'));
                   const hasProductError = r.issues.some((i: string) => i.includes('Product not found'));
@@ -862,6 +880,7 @@ const SalesOrderList = () => {
                   return (
                     <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
                       <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
+                      <TableCell className="text-xs font-medium">{r.sales_reference || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="font-mono text-xs">{r.group_key?.startsWith('__row_') ? <span className="text-muted-foreground">—</span> : r.group_key}</TableCell>
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
