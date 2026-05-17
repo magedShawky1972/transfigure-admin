@@ -312,6 +312,8 @@ const SalesOrderList = () => {
 
       setSortConfig([]);
       setShowErrorsOnly(false);
+      setShowBrandErrorsOnly(false);
+      setShowProductErrorsOnly(false);
       setPreviewRows(resolved);
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
