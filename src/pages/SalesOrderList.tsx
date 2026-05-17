@@ -511,7 +511,7 @@ const SalesOrderList = () => {
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   {[
-                    { key: 'order_number', label: 'Order #' },
+                    { key: 'group_key', label: 'Group' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
                     { key: 'brand_code', label: 'Brand Code' },
