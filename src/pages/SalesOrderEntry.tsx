@@ -468,9 +468,9 @@ const SalesOrderEntry = () => {
                       </TableCell>
                       <TableCell>
                         <SearchableSelect
-                          value={line.product_name}
-                          onChange={v => updateLine(line.id, "product_name", v)}
-                          options={getFilteredProducts(line.brand_id).map(p => ({ value: p.product_name, label: p.product_name }))}
+                          value={line.product_id}
+                          onChange={v => updateLine(line.id, "product_id", v)}
+                          options={getFilteredProducts(line.brand_id).map(p => ({ value: p.id, label: p.product_name }))}
                           placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'}
                           className="min-w-[200px]"
                         />
