@@ -340,9 +340,9 @@ const SalesOrderList = () => {
           qty,
           unit_price: unit,
           cost_price: cost,
-          total: coins * qty * unit,
-          total_cost: coins * qty * cost,
-          profit: (coins * qty * unit) - (coins * qty * cost),
+          total: qty * unit,
+          total_cost: qty * cost,
+          profit: (qty * unit) - (qty * cost),
           issues,
         };
       });
