@@ -318,7 +318,7 @@ const SalesOrderList = () => {
         const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
         const product = productMappingByKey.get(`${brandNameRaw.toLowerCase()}::${productNameRaw.toLowerCase()}`)
           || productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
-        const coins = Number(r.coins_number) || 0;
+        const coins = Number(r.coins_number) || Number(product?.coins_number) || 0;
         const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
         const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
         const srcUnit = Number(r.unit_price ?? r.unit ?? r.price) || 0;
