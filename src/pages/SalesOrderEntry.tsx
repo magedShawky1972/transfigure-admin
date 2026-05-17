@@ -722,12 +722,18 @@ const SalesOrderEntry = () => {
       </Card>
 
       {/* Actions */}
-      <div className="flex gap-3 justify-end">
-        <Button variant="outline" onClick={handleReset} disabled={submitting}>
+      <div className="flex gap-3 justify-end flex-wrap">
+        <Button variant="outline" onClick={handleReset} disabled={submitting || saving || isConfirmed}>
           <RotateCcw className="h-4 w-4 mr-1" />
           {language === 'ar' ? 'إعادة تعيين' : 'Reset'}
         </Button>
-        <Button onClick={handleConfirm} disabled={submitting || lines.length === 0}>
+        <Button variant="secondary" onClick={handleSave} disabled={submitting || saving || isConfirmed || lines.length === 0}>
+          <Save className="h-4 w-4 mr-1" />
+          {saving
+            ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
+            : (language === 'ar' ? 'حفظ' : 'Save')}
+        </Button>
+        <Button onClick={handleConfirm} disabled={submitting || saving || isConfirmed || lines.length === 0}>
           <Check className="h-4 w-4 mr-1" />
           {submitting
             ? (language === 'ar' ? 'جاري التأكيد...' : 'Confirming...')
