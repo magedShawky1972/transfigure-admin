@@ -730,6 +730,7 @@ const SalesOrderEntry = () => {
                         <Input
                           type="text"
                           inputMode="decimal"
+                          className="min-w-[90px] text-right"
                           value={line.coins_number === 0 ? "" : String(line.coins_number)}
                           onChange={e => {
                             const clean = e.target.value.replace(/[^0-9.]/g, "");
@@ -738,12 +739,13 @@ const SalesOrderEntry = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input type="text" inputMode="numeric" value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value) || 0)} />
+                        <Input type="text" inputMode="numeric" className="min-w-[70px] text-right" value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value) || 0)} />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="text"
                           inputMode="decimal"
+                          className="min-w-[110px] text-right"
                            value={line.unit_price === 0 ? "" : String(line.unit_price)}
                            onChange={e => {
                              const v = e.target.value.replace(/[^0-9.]/g, "");
@@ -758,6 +760,7 @@ const SalesOrderEntry = () => {
                         <Input
                           type="text"
                           inputMode="decimal"
+                          className="min-w-[110px] text-right"
                           value={line.cost_price === 0 ? "" : String(line.cost_price)}
                            onChange={e => {
                              const v = e.target.value.replace(/[^0-9.]/g, "");
