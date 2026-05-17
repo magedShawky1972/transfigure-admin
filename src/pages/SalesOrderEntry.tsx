@@ -267,20 +267,20 @@ const SalesOrderEntry = () => {
           const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
           updated.product_name = product.product_name;
           updated.coins_number = coins;
-          updated.unit_price = salesRate > 0 ? salesRate * coins : (Number(product.product_price ?? 0) || 0);
-          updated.cost_price = costRate > 0 ? costRate * coins : (Number(product.product_cost ?? 0) || 0);
+          updated.unit_price = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product.product_price ?? 0) || 0) / coins : 0);
+          updated.cost_price = costRate > 0 ? costRate : (coins > 0 ? (Number(product.product_cost ?? 0) || 0) / coins : 0);
         }
       }
 
-      updated.total = updated.qty * updated.unit_price;
-      updated.profit = updated.total - (updated.qty * updated.cost_price);
+      updated.total = (updated.coins_number || 0) * updated.qty * updated.unit_price;
+      updated.profit = updated.total - ((updated.coins_number || 0) * updated.qty * updated.cost_price);
       return updated;
     }));
   };
 
   const orderTotal = lines.reduce((sum, l) => sum + l.total, 0);
   const orderProfit = lines.reduce((sum, l) => sum + l.profit, 0);
-  const orderCost = lines.reduce((sum, l) => sum + l.qty * l.cost_price, 0);
+  const orderCost = lines.reduce((sum, l) => sum + (l.coins_number || 0) * l.qty * l.cost_price, 0);
   const orderCoins = lines.reduce((sum, l) => sum + (l.coins_number || 0), 0);
 
   const generateOrderNumber = () => {
@@ -351,7 +351,7 @@ const SalesOrderEntry = () => {
           unit_price: line.unit_price,
           cost_price: line.cost_price,
           total: line.total,
-          total_cost: line.qty * line.cost_price,
+          total_cost: (line.coins_number || 0) * line.qty * line.cost_price,
           profit: line.profit,
         };
       });
@@ -413,7 +413,7 @@ const SalesOrderEntry = () => {
           qty: line.qty,
           unit_price: line.unit_price,
           cost_price: line.cost_price,
-          cost_sold: line.qty * line.cost_price,
+          cost_sold: (line.coins_number || 0) * line.qty * line.cost_price,
           total: line.total,
           profit: line.profit,
           payment_method: selectedPM?.payment_type || paymentMethod,
@@ -735,7 +735,7 @@ const SalesOrderEntry = () => {
                            placeholder="0.0000000"
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{(line.qty * line.cost_price).toFixed(2)}</TableCell>
+                      <TableCell className="font-medium">{((line.coins_number || 0) * line.qty * line.cost_price).toFixed(2)}</TableCell>
                       <TableCell className="font-medium">{line.total.toFixed(2)}</TableCell>
                       <TableCell className={`font-medium ${line.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {line.profit.toFixed(2)}
