@@ -19,16 +19,22 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 type SOption = { value: string; label: string };
-function SearchableSelect({ value, onChange, options, placeholder, className }: { value: string; onChange: (v: string) => void; options: SOption[]; placeholder: string; className?: string }) {
+function SearchableSelect({ value, onChange, options, placeholder, className, asLabel }: { value: string; onChange: (v: string) => void; options: SOption[]; placeholder: string; className?: string; asLabel?: boolean }) {
   const [open, setOpen] = useState(false);
   const selected = options.find(o => o.value === value);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" role="combobox" className={cn("justify-between font-normal", className)}>
-          <span className="truncate">{selected ? selected.label : placeholder}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+        {asLabel ? (
+          <button type="button" className={cn("text-left text-sm hover:underline truncate cursor-pointer bg-transparent border-0 p-0 m-0", !selected && "text-muted-foreground", className)}>
+            {selected ? selected.label : placeholder}
+          </button>
+        ) : (
+          <Button type="button" variant="outline" role="combobox" className={cn("justify-between font-normal", className)}>
+            <span className="truncate">{selected ? selected.label : placeholder}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[220px]" align="start">
         <Command>
