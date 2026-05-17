@@ -454,6 +454,37 @@ const SalesOrderEntry = () => {
     }
   };
 
+  const handleRollback = async () => {
+    if (!savedId || !orderNumber) return;
+    if (!window.confirm(language === 'ar'
+      ? 'هل تريد إعادة فتح هذا الطلب؟ سيتم حذف الحركات المسجلة.'
+      : 'Reopen this order? Posted transactions will be removed.')) return;
+    setSubmitting(true);
+    try {
+      const { error: delErr } = await supabase
+        .from("purpletransaction")
+        .delete()
+        .eq("ordernumber", orderNumber)
+        .eq("trans_type", "manual");
+      if (delErr) throw delErr;
+
+      const { error: updErr } = await supabase
+        .from("manual_sales_orders")
+        .update({ status: 'draft', confirmed_at: null })
+        .eq("id", savedId)
+        .select();
+      if (updErr) throw updErr;
+
+      setOrderStatus('draft');
+      toast({ title: language === 'ar' ? 'تم إعادة فتح الطلب' : 'Order reopened' });
+    } catch (error: any) {
+      console.error("Error rolling back order:", error);
+      toast({ title: language === 'ar' ? 'خطأ في إعادة الفتح' : 'Error reopening order', description: error.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleReset = () => {
     setCustomerName("");
     setCustomerPhone("");
