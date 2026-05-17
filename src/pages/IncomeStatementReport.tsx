@@ -112,7 +112,7 @@ const IncomeStatementReport = () => {
       while (true) {
         let q = supabase
           .from("purpletransaction")
-          .select("brand_name, total, cost_sold, bank_fee, payment_method, qty, order_number, id")
+          .select("brand_name, total, cost_sold, bank_fee, payment_method, qty, coins_number, order_number, id")
           .gte("created_at_date_int", startInt)
           .lte("created_at_date_int", endInt);
         if (brandFilter !== "all") q = q.eq("brand_name", brandFilter);
@@ -139,6 +139,7 @@ const IncomeStatementReport = () => {
             bank_fee: 0,
             points_cost: 0,
             qty: 0,
+            coins: 0,
             tx_count: 0,
           });
         }
@@ -160,6 +161,7 @@ const IncomeStatementReport = () => {
           agg.cost_sold += Number(r.cost_sold) || 0;
           agg.bank_fee += Number(r.bank_fee) || 0;
           agg.qty += Number(r.qty) || 0;
+          agg.coins += Number(r.coins_number) || 0;
           agg.tx_count += 1;
         }
       }
