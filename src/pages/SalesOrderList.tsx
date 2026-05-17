@@ -39,6 +39,8 @@ const SalesOrderList = () => {
   const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
   const [productPopoverIdx, setProductPopoverIdx] = useState<number | null>(null);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
+  const [showBrandErrorsOnly, setShowBrandErrorsOnly] = useState(false);
+  const [showProductErrorsOnly, setShowProductErrorsOnly] = useState(false);
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
     const coins = Number(product?.coins_number) || 0;
