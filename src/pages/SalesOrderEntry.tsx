@@ -116,7 +116,7 @@ const SalesOrderEntry = () => {
     const [brandsRes, pmRes, prodRes, spRes] = await Promise.all([
       supabase.from("brands").select("id, brand_name, brand_code").eq("status", "active").order("brand_name"),
       supabase.from("payment_methods").select("id, payment_method, payment_type").eq("is_active", true).order("payment_method"),
-      supabase.from("products").select("id, product_name, cost_price, selling_price, brand_id").eq("status", "active").order("product_name").limit(1000),
+      supabase.from("products").select("id, product_name, cost_price, selling_price, brand_code").eq("status", "active").order("product_name").limit(5000),
       supabase.from("profiles").select("user_id, user_name, salesman_code").eq("is_active", true).order("user_name"),
     ]);
     setBrands(brandsRes.data || []);
