@@ -472,7 +472,15 @@ const SalesOrderEntry = () => {
           </div>
 
           {lines.length > 0 && (
-            <div className="flex justify-end gap-6 mt-4 p-4 bg-muted/50 rounded-lg">
+            <div className="flex flex-wrap justify-end gap-6 mt-4 p-4 bg-muted/50 rounded-lg">
+              <div className="text-sm">
+                <span className="text-muted-foreground">{language === 'ar' ? 'إجمالي الكوينز:' : 'Total Coins:'}</span>
+                <span className="font-bold text-foreground ml-2">{orderCoins.toFixed(2)}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">{language === 'ar' ? 'إجمالي التكلفة:' : 'Total Cost:'}</span>
+                <span className="font-bold text-foreground ml-2">{orderCost.toFixed(2)} SAR</span>
+              </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">{language === 'ar' ? 'الإجمالي:' : 'Total:'}</span>
                 <span className="font-bold text-foreground ml-2">{orderTotal.toFixed(2)} SAR</span>
