@@ -50,6 +50,7 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/closing-training": "closingTraining",
   "/currency-setup": "currencySetup",
   "/user-group-setup": "userGroupSetup",
+  "/company-setup": "companySetup",
   "/projects-tasks": "projectsTasks",
   "/project-gantt": "projectGantt",
   "/task-list": "taskList",

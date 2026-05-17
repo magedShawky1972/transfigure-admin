@@ -34,6 +34,7 @@ import BrandType from "./pages/BrandType";
 import ProductSetup from "./pages/ProductSetup";
 import ProductDetails from "./pages/ProductDetails";
 import PaymentMethodSetup from "./pages/PaymentMethodSetup";
+import CompanySetup from "./pages/CompanySetup";
 import PivotTable from "./pages/PivotTable";
 import OdooSetup from "./pages/OdooSetup";
 import Auth from "./pages/Auth";
@@ -217,6 +218,7 @@ const App = () => (
               <Route path="/product-details/:id" element={<ProductDetails />} />
               <Route path="/payment-method-setup" element={<PaymentMethodSetup />} />
               <Route path="/pivot-table" element={<PivotTable />} />
+              <Route path="/company-setup" element={<CompanySetup />} />
               <Route path="/odoo-setup" element={<OdooSetup />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/tickets" element={<Tickets />} />

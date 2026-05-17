@@ -145,6 +145,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/shift-calendar", defaultEn: "Shift Calendar", defaultAr: "تقويم الورديات", icon: BarChart3 },
       { url: "/currency-setup", defaultEn: "Currency Setup", defaultAr: "إعداد العملات", icon: DollarSign },
       { url: "/user-group-setup", defaultEn: "User Groups", defaultAr: "مجموعات المستخدمين", icon: Users },
+      { url: "/company-setup", defaultEn: "Company Setup", defaultAr: "إعداد الشركات", icon: Settings },
     ],
   },
   {
