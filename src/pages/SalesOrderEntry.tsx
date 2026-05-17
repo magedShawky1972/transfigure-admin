@@ -280,6 +280,95 @@ const SalesOrderEntry = () => {
     return `SO-${dateStr}-${random}`;
   };
 
+  const persistDraft = async (): Promise<string | null> => {
+    // Returns the id of the persisted manual_sales_orders row, or null on failure.
+    const number = orderNumber || generateOrderNumber();
+    const headerPayload: any = {
+      order_number: number,
+      order_date: orderDate,
+      customer_name: customerName || null,
+      customer_phone: customerPhone || null,
+      payment_method: paymentMethod || null,
+      sales_reference: salesReference || null,
+      sales_person: salesPerson || null,
+      notes: notes || null,
+      total_amount: orderTotal,
+      total_cost: orderCost,
+      total_profit: orderProfit,
+      total_coins: orderCoins,
+      created_by: currentUser?.id || null,
+      created_by_name: currentUser?.name || null,
+    };
+
+    let savedId = orderId;
+    if (orderId) {
+      const { data, error } = await supabase
+        .from("manual_sales_orders")
+        .update(headerPayload)
+        .eq("id", orderId)
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Order update failed (permission?)");
+      savedId = data.id;
+    } else {
+      headerPayload.status = 'draft';
+      const { data, error } = await supabase
+        .from("manual_sales_orders")
+        .insert(headerPayload)
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      savedId = data!.id;
+      setOrderId(savedId);
+      setOrderNumber(number);
+    }
+
+    // Replace lines: delete then insert
+    await supabase.from("manual_sales_order_lines").delete().eq("order_id", savedId!);
+    if (lines.length > 0) {
+      const lineRows = lines.map((line, idx) => {
+        const lineBrand = brands.find(b => b.id === line.brand_id);
+        return {
+          order_id: savedId,
+          line_number: idx + 1,
+          brand_id: line.brand_id || null,
+          brand_code: lineBrand?.brand_code || null,
+          brand_name: lineBrand?.brand_name || null,
+          product_name: line.product_name,
+          coins_number: line.coins_number || 0,
+          qty: line.qty,
+          unit_price: line.unit_price,
+          cost_price: line.cost_price,
+          total: line.total,
+          total_cost: line.qty * line.cost_price,
+          profit: line.profit,
+        };
+      });
+      const { error: linesErr } = await supabase.from("manual_sales_order_lines").insert(lineRows);
+      if (linesErr) throw linesErr;
+    }
+    return savedId;
+  };
+
+  const handleSave = async () => {
+    if (orderStatus === 'confirmed') {
+      toast({ title: language === 'ar' ? 'لا يمكن تعديل طلب مؤكد' : 'Cannot edit a confirmed order', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await persistDraft();
+      toast({ title: language === 'ar' ? 'تم الحفظ كمسودة' : 'Saved as draft' });
+      navigate("/sales-order-entry");
+    } catch (error: any) {
+      console.error("Error saving draft:", error);
+      toast({ title: language === 'ar' ? 'خطأ في الحفظ' : 'Save failed', description: error.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!paymentMethod) {
       toast({ title: language === 'ar' ? "يرجى اختيار طريقة الدفع" : "Please select a payment method", variant: "destructive" });
@@ -296,7 +385,9 @@ const SalesOrderEntry = () => {
 
     setSubmitting(true);
     try {
-      const orderNumber = generateOrderNumber();
+      // Persist draft first to obtain a stable order number
+      const savedId = await persistDraft();
+      const finalNumber = orderNumber || (await supabase.from("manual_sales_orders").select("order_number").eq("id", savedId!).maybeSingle()).data?.order_number || generateOrderNumber();
       const orderDateObj = new Date(orderDate);
       const selectedPM = paymentMethods.find(pm => pm.payment_method === paymentMethod);
 
@@ -305,48 +396,46 @@ const SalesOrderEntry = () => {
         return {
           brand_name: lineBrand?.brand_name || "",
           brand_code: lineBrand?.brand_code || "",
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
-        product_name: line.product_name,
-        coins_number: line.coins_number || 0,
-        qty: line.qty,
-        unit_price: line.unit_price,
-        cost_price: line.cost_price,
-        cost_sold: line.qty * line.cost_price,
-        total: line.total,
-        profit: line.profit,
-        payment_method: selectedPM?.payment_type || paymentMethod,
-        payment_brand: paymentMethod,
-        order_number: orderNumber,
-        ordernumber: orderNumber,
-        user_name: currentUser?.name || "",
-        sales_reference: salesReference || null,
-        sales_person: salesPerson || null,
-        trans_type: "manual",
-        company: "SupPurple",
-        created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
-        is_deleted: false,
-      };
+          customer_name: customerName || null,
+          customer_phone: customerPhone || null,
+          product_name: line.product_name,
+          coins_number: line.coins_number || 0,
+          qty: line.qty,
+          unit_price: line.unit_price,
+          cost_price: line.cost_price,
+          cost_sold: line.qty * line.cost_price,
+          total: line.total,
+          profit: line.profit,
+          payment_method: selectedPM?.payment_type || paymentMethod,
+          payment_brand: paymentMethod,
+          order_number: finalNumber,
+          ordernumber: finalNumber,
+          user_name: currentUser?.name || "",
+          sales_reference: salesReference || null,
+          sales_person: salesPerson || null,
+          trans_type: "manual",
+          company: "SupPurple",
+          created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
+          is_deleted: false,
+        };
       });
 
       const { error } = await supabase.from("purpletransaction").insert(rows);
-
       if (error) throw error;
+
+      // Mark as confirmed
+      await supabase
+        .from("manual_sales_orders")
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+        .eq("id", savedId!)
+        .select();
 
       toast({
         title: language === 'ar' ? "تم تأكيد الطلب بنجاح" : "Order confirmed successfully",
-        description: `${language === 'ar' ? 'رقم الطلب' : 'Order Number'}: ${orderNumber}`,
+        description: `${language === 'ar' ? 'رقم الطلب' : 'Order Number'}: ${finalNumber}`,
       });
 
-      // Reset form
-      setCustomerName("");
-      setCustomerPhone("");
-      setPaymentMethod("");
-      setPaymentBrand("");
-      setSalesReference("");
-      setSalesPerson("");
-      setNotes("");
-      setLines([]);
+      navigate("/sales-order-entry");
     } catch (error: any) {
       console.error("Error confirming order:", error);
       toast({ title: language === 'ar' ? "خطأ في تأكيد الطلب" : "Error confirming order", description: error.message, variant: "destructive" });
@@ -366,8 +455,13 @@ const SalesOrderEntry = () => {
     setLines([]);
   };
 
-  if (accessLoading) return null;
-  if (!hasAccess) return <AccessDenied />;
+  if (accessLoading || loadingOrder) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
