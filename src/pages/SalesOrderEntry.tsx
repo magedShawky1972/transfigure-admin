@@ -397,9 +397,11 @@ const SalesOrderEntry = () => {
                   <TableHead className="w-8">#</TableHead>
                   <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                  <TableHead className="w-28">{language === 'ar' ? 'عدد الكوينز' : 'Coins #'}</TableHead>
                   <TableHead className="w-24">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'التكلفة' : 'Cost'}</TableHead>
+                  <TableHead className="w-32">{language === 'ar' ? 'إجمالي التكلفة' : 'Total Cost'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
                   <TableHead className="w-32">{language === 'ar' ? 'الربح' : 'Profit'}</TableHead>
                   <TableHead className="w-12"></TableHead>
