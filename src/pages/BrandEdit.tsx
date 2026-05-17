@@ -521,6 +521,17 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="cost_one_coins_sar">Cost One Coins = SAR (USD × 3.75)</Label>
+              <Input
+                id="cost_one_coins_sar"
+                type="text"
+                value={formatNumber((parseFloat(formData.usd_value_for_coins) || 0) * 3.75)}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="sales_usd_value_for_coins">Sales One Coins = USD</Label>
               <Input
                 id="sales_usd_value_for_coins"
