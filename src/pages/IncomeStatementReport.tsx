@@ -55,6 +55,7 @@ const IncomeStatementReport = () => {
   const [includePointCost, setIncludePointCost] = useState(true);
 
   const [brands, setBrands] = useState<string[]>([]);
+  const [brandAbcMap, setBrandAbcMap] = useState<Record<string, string>>({});
   const [companies, setCompanies] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
