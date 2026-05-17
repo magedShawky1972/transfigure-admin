@@ -488,14 +488,14 @@ const SalesOrderEntry = () => {
                         <Input
                           type="text"
                           inputMode="decimal"
-                          value={line.unit_price === 0 ? "" : String(line.unit_price)}
-                          onChange={e => {
-                            const v = e.target.value.replace(/[^0-9.]/g, "");
-                            const parts = v.split(".");
-                            const clean = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 6)}` : v;
-                            updateLine(line.id, "unit_price", clean === "" || clean === "." ? 0 : Number(clean));
+                           value={line.unit_price === 0 ? "" : String(line.unit_price)}
+                           onChange={e => {
+                             const v = e.target.value.replace(/[^0-9.]/g, "");
+                             const parts = v.split(".");
+                             const clean = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 7)}` : v;
+                             updateLine(line.id, "unit_price", clean === "" || clean === "." ? 0 : Number(clean));
                           }}
-                          placeholder="0.000000"
+                          placeholder="0.0000000"
                         />
                       </TableCell>
                       <TableCell>
@@ -503,13 +503,13 @@ const SalesOrderEntry = () => {
                           type="text"
                           inputMode="decimal"
                           value={line.cost_price === 0 ? "" : String(line.cost_price)}
-                          onChange={e => {
-                            const v = e.target.value.replace(/[^0-9.]/g, "");
-                            const parts = v.split(".");
-                            const clean = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 6)}` : v;
-                            updateLine(line.id, "cost_price", clean === "" || clean === "." ? 0 : Number(clean));
-                          }}
-                          placeholder="0.000000"
+                           onChange={e => {
+                             const v = e.target.value.replace(/[^0-9.]/g, "");
+                             const parts = v.split(".");
+                             const clean = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 7)}` : v;
+                             updateLine(line.id, "cost_price", clean === "" || clean === "." ? 0 : Number(clean));
+                           }}
+                           placeholder="0.0000000"
                         />
                       </TableCell>
                       <TableCell className="font-medium">{(line.qty * line.cost_price).toFixed(2)}</TableCell>
