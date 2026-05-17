@@ -432,6 +432,7 @@ const IncomeStatementReport = () => {
                 </TableFooter>
               )}
             </Table>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
