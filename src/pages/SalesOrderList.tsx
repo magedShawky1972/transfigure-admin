@@ -254,10 +254,11 @@ const SalesOrderList = () => {
       if (raw.length === 0) throw new Error("Empty file");
 
       // Lookups
-      const [{ data: brandsData }, { data: productsData }, { data: mappingsData }] = await Promise.all([
+      const [{ data: brandsData }, { data: productsData }, { data: mappingsData }, { data: productMappingsData }] = await Promise.all([
         supabase.from("brands").select("id, brand_code, brand_name, sales_one_coins_sar, cost_one_coins_sar"),
         supabase.from("products").select("id, product_name, product_price, product_cost, coins_number, brand_code, brand_name").eq("status", "active").limit(5000),
         supabase.from("sales_order_brand_mappings").select("source_brand_name, purple_brand_id"),
+        supabase.from("sales_order_product_mappings").select("source_brand_name, source_product_name, purple_product_id"),
       ]);
       setBrandsList(brandsData || []);
       setProductsList(productsData || []);
@@ -274,11 +275,18 @@ const SalesOrderList = () => {
         const b = brandById.get(m.purple_brand_id);
         if (b) mappingBySource.set(String(m.source_brand_name).trim().toLowerCase(), b);
       });
+      const productById = new Map<string, any>();
       const productsByBrandAndName = new Map<string, any>();
       (productsData || []).forEach((p: any) => {
+        productById.set(p.id, p);
         const bk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
         const nk = String(p.product_name || "").trim().toLowerCase();
         if (nk) productsByBrandAndName.set(`${bk}::${nk}`, p);
+      });
+      const productMappingByKey = new Map<string, any>();
+      (productMappingsData || []).forEach((m: any) => {
+        const p = productById.get(m.purple_product_id);
+        if (p) productMappingByKey.set(`${String(m.source_brand_name).trim().toLowerCase()}::${String(m.source_product_name).trim().toLowerCase()}`, p);
       });
 
       const resolved = raw.map((r: any, idx: number) => {
@@ -288,7 +296,8 @@ const SalesOrderList = () => {
           || brandByCode.get(String(r.brand_code || "").trim().toLowerCase());
         const productNameRaw = String(r.product_name || "").trim();
         const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
-        const product = productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
+        const product = productMappingByKey.get(`${brandNameRaw.toLowerCase()}::${productNameRaw.toLowerCase()}`)
+          || productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
         const coins = Number(product?.coins_number) || 0;
         const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
         const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
@@ -306,6 +315,7 @@ const SalesOrderList = () => {
           row: idx + 2,
           group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
           source_brand_name: brandNameRaw,
+          source_product_name: productNameRaw,
           order_date: orderDate,
           customer_name: r.customer_name || "",
           sales_reference: r.sales_reference || "",
