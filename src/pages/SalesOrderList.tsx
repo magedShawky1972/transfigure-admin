@@ -39,6 +39,7 @@ const SalesOrderList = () => {
   const [previewRows, setPreviewRows] = useState<any[] | null>(null);
   const [brandsList, setBrandsList] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<any[]>([]);
+  const [suppliersSet, setSuppliersSet] = useState<Set<string>>(new Set());
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
   const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
   const [productPopoverIdx, setProductPopoverIdx] = useState<number | null>(null);
@@ -575,6 +576,12 @@ const SalesOrderList = () => {
   };
 
   useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("suppliers").select("supplier_name").eq("status", "active");
+      setSuppliersSet(new Set((data || []).map((s: any) => String(s.supplier_name || "").trim().toLowerCase()).filter(Boolean)));
+    })();
+  }, []);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -970,7 +977,7 @@ const SalesOrderList = () => {
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
                       <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                      <TableCell className="text-xs">{r.vendor || <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className={`text-xs ${r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase()) ? 'text-destructive font-medium' : ''}`}>{r.vendor || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>
