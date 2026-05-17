@@ -495,7 +495,7 @@ const SalesOrderEntry = () => {
                              const clean = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 7)}` : v;
                              updateLine(line.id, "unit_price", clean === "" || clean === "." ? 0 : Number(clean));
                           }}
-                          placeholder="0.000000"
+                          placeholder="0.0000000"
                         />
                       </TableCell>
                       <TableCell>
