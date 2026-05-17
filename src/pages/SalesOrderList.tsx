@@ -530,6 +530,7 @@ const SalesOrderList = () => {
           sales_person: head.sales_person || null,
           company: head.company || null,
           notes: head.notes || null,
+          payment_method: "Bank",
           status: "draft",
           total_amount: totalAmount,
           total_cost: totalCost,
