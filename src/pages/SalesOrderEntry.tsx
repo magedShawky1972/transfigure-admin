@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, Trash2, Check, RotateCcw, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, RotateCcw, ChevronsUpDown, Loader2, Save, ArrowLeft } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
@@ -67,9 +68,15 @@ const generateTempId = () => crypto.randomUUID();
 const SalesOrderEntry = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { id: orderIdParam } = useParams();
+  const isEditMode = !!orderIdParam;
   const { hasAccess, isLoading: accessLoading } = usePageAccess();
 
   // Header state
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string>("");
+  const [orderStatus, setOrderStatus] = useState<'draft' | 'confirmed'>('draft');
   const [orderDate, setOrderDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -94,12 +101,61 @@ const SalesOrderEntry = () => {
   const [salesPeople, setSalesPeople] = useState<any[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingOrder, setLoadingOrder] = useState(isEditMode);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     fetchLookups();
     fetchCurrentUser();
   }, []);
+
+  useEffect(() => {
+    if (isEditMode && orderIdParam) {
+      loadOrder(orderIdParam);
+    }
+  }, [orderIdParam]);
+
+  const loadOrder = async (id: string) => {
+    setLoadingOrder(true);
+    try {
+      const [{ data: header }, { data: lineRows }] = await Promise.all([
+        supabase.from("manual_sales_orders").select("*").eq("id", id).maybeSingle(),
+        supabase.from("manual_sales_order_lines").select("*").eq("order_id", id).order("line_number"),
+      ]);
+      if (!header) {
+        toast({ title: language === 'ar' ? 'لم يتم العثور على الطلب' : 'Order not found', variant: "destructive" });
+        navigate("/sales-order-entry");
+        return;
+      }
+      setOrderId(header.id);
+      setOrderNumber(header.order_number);
+      setOrderStatus((header.status as 'draft' | 'confirmed') || 'draft');
+      setOrderDate(header.order_date);
+      setCustomerName(header.customer_name || "");
+      setCustomerPhone(header.customer_phone || "");
+      setPaymentMethod(header.payment_method || "");
+      setSalesReference(header.sales_reference || "");
+      setSalesPerson(header.sales_person || "");
+      setNotes(header.notes || "");
+      setLines((lineRows || []).map((r: any) => ({
+        id: r.id,
+        brand_id: r.brand_id || "",
+        product_id: "",
+        product_name: r.product_name || "",
+        coins_number: Number(r.coins_number) || 0,
+        qty: Number(r.qty) || 0,
+        unit_price: Number(r.unit_price) || 0,
+        cost_price: Number(r.cost_price) || 0,
+        total: Number(r.total) || 0,
+        profit: Number(r.profit) || 0,
+      })));
+    } catch (e: any) {
+      toast({ title: 'Error loading order', description: e.message, variant: "destructive" });
+    } finally {
+      setLoadingOrder(false);
+    }
+  };
 
   const fetchCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -224,6 +280,95 @@ const SalesOrderEntry = () => {
     return `SO-${dateStr}-${random}`;
   };
 
+  const persistDraft = async (): Promise<string | null> => {
+    // Returns the id of the persisted manual_sales_orders row, or null on failure.
+    const number = orderNumber || generateOrderNumber();
+    const headerPayload: any = {
+      order_number: number,
+      order_date: orderDate,
+      customer_name: customerName || null,
+      customer_phone: customerPhone || null,
+      payment_method: paymentMethod || null,
+      sales_reference: salesReference || null,
+      sales_person: salesPerson || null,
+      notes: notes || null,
+      total_amount: orderTotal,
+      total_cost: orderCost,
+      total_profit: orderProfit,
+      total_coins: orderCoins,
+      created_by: currentUser?.id || null,
+      created_by_name: currentUser?.name || null,
+    };
+
+    let savedId = orderId;
+    if (orderId) {
+      const { data, error } = await supabase
+        .from("manual_sales_orders")
+        .update(headerPayload)
+        .eq("id", orderId)
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Order update failed (permission?)");
+      savedId = data.id;
+    } else {
+      headerPayload.status = 'draft';
+      const { data, error } = await supabase
+        .from("manual_sales_orders")
+        .insert(headerPayload)
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      savedId = data!.id;
+      setOrderId(savedId);
+      setOrderNumber(number);
+    }
+
+    // Replace lines: delete then insert
+    await supabase.from("manual_sales_order_lines").delete().eq("order_id", savedId!);
+    if (lines.length > 0) {
+      const lineRows = lines.map((line, idx) => {
+        const lineBrand = brands.find(b => b.id === line.brand_id);
+        return {
+          order_id: savedId,
+          line_number: idx + 1,
+          brand_id: line.brand_id || null,
+          brand_code: lineBrand?.brand_code || null,
+          brand_name: lineBrand?.brand_name || null,
+          product_name: line.product_name,
+          coins_number: line.coins_number || 0,
+          qty: line.qty,
+          unit_price: line.unit_price,
+          cost_price: line.cost_price,
+          total: line.total,
+          total_cost: line.qty * line.cost_price,
+          profit: line.profit,
+        };
+      });
+      const { error: linesErr } = await supabase.from("manual_sales_order_lines").insert(lineRows);
+      if (linesErr) throw linesErr;
+    }
+    return savedId;
+  };
+
+  const handleSave = async () => {
+    if (orderStatus === 'confirmed') {
+      toast({ title: language === 'ar' ? 'لا يمكن تعديل طلب مؤكد' : 'Cannot edit a confirmed order', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await persistDraft();
+      toast({ title: language === 'ar' ? 'تم الحفظ كمسودة' : 'Saved as draft' });
+      navigate("/sales-order-entry");
+    } catch (error: any) {
+      console.error("Error saving draft:", error);
+      toast({ title: language === 'ar' ? 'خطأ في الحفظ' : 'Save failed', description: error.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!paymentMethod) {
       toast({ title: language === 'ar' ? "يرجى اختيار طريقة الدفع" : "Please select a payment method", variant: "destructive" });
@@ -240,7 +385,9 @@ const SalesOrderEntry = () => {
 
     setSubmitting(true);
     try {
-      const orderNumber = generateOrderNumber();
+      // Persist draft first to obtain a stable order number
+      const savedId = await persistDraft();
+      const finalNumber = orderNumber || (await supabase.from("manual_sales_orders").select("order_number").eq("id", savedId!).maybeSingle()).data?.order_number || generateOrderNumber();
       const orderDateObj = new Date(orderDate);
       const selectedPM = paymentMethods.find(pm => pm.payment_method === paymentMethod);
 
@@ -249,48 +396,46 @@ const SalesOrderEntry = () => {
         return {
           brand_name: lineBrand?.brand_name || "",
           brand_code: lineBrand?.brand_code || "",
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
-        product_name: line.product_name,
-        coins_number: line.coins_number || 0,
-        qty: line.qty,
-        unit_price: line.unit_price,
-        cost_price: line.cost_price,
-        cost_sold: line.qty * line.cost_price,
-        total: line.total,
-        profit: line.profit,
-        payment_method: selectedPM?.payment_type || paymentMethod,
-        payment_brand: paymentMethod,
-        order_number: orderNumber,
-        ordernumber: orderNumber,
-        user_name: currentUser?.name || "",
-        sales_reference: salesReference || null,
-        sales_person: salesPerson || null,
-        trans_type: "manual",
-        company: "SupPurple",
-        created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
-        is_deleted: false,
-      };
+          customer_name: customerName || null,
+          customer_phone: customerPhone || null,
+          product_name: line.product_name,
+          coins_number: line.coins_number || 0,
+          qty: line.qty,
+          unit_price: line.unit_price,
+          cost_price: line.cost_price,
+          cost_sold: line.qty * line.cost_price,
+          total: line.total,
+          profit: line.profit,
+          payment_method: selectedPM?.payment_type || paymentMethod,
+          payment_brand: paymentMethod,
+          order_number: finalNumber,
+          ordernumber: finalNumber,
+          user_name: currentUser?.name || "",
+          sales_reference: salesReference || null,
+          sales_person: salesPerson || null,
+          trans_type: "manual",
+          company: "SupPurple",
+          created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
+          is_deleted: false,
+        };
       });
 
       const { error } = await supabase.from("purpletransaction").insert(rows);
-
       if (error) throw error;
+
+      // Mark as confirmed
+      await supabase
+        .from("manual_sales_orders")
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+        .eq("id", savedId!)
+        .select();
 
       toast({
         title: language === 'ar' ? "تم تأكيد الطلب بنجاح" : "Order confirmed successfully",
-        description: `${language === 'ar' ? 'رقم الطلب' : 'Order Number'}: ${orderNumber}`,
+        description: `${language === 'ar' ? 'رقم الطلب' : 'Order Number'}: ${finalNumber}`,
       });
 
-      // Reset form
-      setCustomerName("");
-      setCustomerPhone("");
-      setPaymentMethod("");
-      setPaymentBrand("");
-      setSalesReference("");
-      setSalesPerson("");
-      setNotes("");
-      setLines([]);
+      navigate("/sales-order-entry");
     } catch (error: any) {
       console.error("Error confirming order:", error);
       toast({ title: language === 'ar' ? "خطأ في تأكيد الطلب" : "Error confirming order", description: error.message, variant: "destructive" });
@@ -310,14 +455,36 @@ const SalesOrderEntry = () => {
     setLines([]);
   };
 
-  if (accessLoading) return null;
+  if (accessLoading || loadingOrder) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
   if (!hasAccess) return <AccessDenied />;
+
+  const isConfirmed = orderStatus === 'confirmed';
 
   return (
     <div className="p-4 md:p-6 space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-      <h1 className="text-2xl font-bold text-foreground">
-        {language === 'ar' ? 'إدخال أمر البيع' : 'Sales Order Entry'}
-      </h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => navigate("/sales-order-entry")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isEditMode
+              ? (language === 'ar' ? `تعديل أمر البيع ${orderNumber}` : `Edit Sales Order ${orderNumber}`)
+              : (language === 'ar' ? 'إدخال أمر البيع' : 'Sales Order Entry')}
+          </h1>
+        </div>
+        {isConfirmed && (
+          <span className="text-sm px-3 py-1 rounded-full bg-primary/10 text-primary font-medium">
+            {language === 'ar' ? 'مؤكد - للعرض فقط' : 'Confirmed (read-only)'}
+          </span>
+        )}
+      </div>
 
       {/* Header Card */}
       <Card>
@@ -555,12 +722,18 @@ const SalesOrderEntry = () => {
       </Card>
 
       {/* Actions */}
-      <div className="flex gap-3 justify-end">
-        <Button variant="outline" onClick={handleReset} disabled={submitting}>
+      <div className="flex gap-3 justify-end flex-wrap">
+        <Button variant="outline" onClick={handleReset} disabled={submitting || saving || isConfirmed}>
           <RotateCcw className="h-4 w-4 mr-1" />
           {language === 'ar' ? 'إعادة تعيين' : 'Reset'}
         </Button>
-        <Button onClick={handleConfirm} disabled={submitting || lines.length === 0}>
+        <Button variant="secondary" onClick={handleSave} disabled={submitting || saving || isConfirmed || lines.length === 0}>
+          <Save className="h-4 w-4 mr-1" />
+          {saving
+            ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
+            : (language === 'ar' ? 'حفظ' : 'Save')}
+        </Button>
+        <Button onClick={handleConfirm} disabled={submitting || saving || isConfirmed || lines.length === 0}>
           <Check className="h-4 w-4 mr-1" />
           {submitting
             ? (language === 'ar' ? 'جاري التأكيد...' : 'Confirming...')
