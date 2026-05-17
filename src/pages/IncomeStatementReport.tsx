@@ -607,7 +607,7 @@ const IncomeStatementReport = () => {
                         ))}
                       </>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </div>
