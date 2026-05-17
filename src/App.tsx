@@ -143,6 +143,7 @@ import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
 import DataComparisonReport from "./pages/DataComparisonReport";
 import CoinsComparisonReport from "./pages/CoinsComparisonReport";
 import MainProductSalesReport from "./pages/MainProductSalesReport";
+import IncomeStatementReport from "./pages/IncomeStatementReport";
 import FreeCoinsReport from "./pages/FreeCoinsReport";
 import ClassABalanceImagesReport from "./pages/ClassABalanceImagesReport";
 import ReceivingCoins from "./pages/ReceivingCoins";
