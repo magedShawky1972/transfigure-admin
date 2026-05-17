@@ -797,8 +797,71 @@ const SalesOrderList = () => {
     }
   };
 
+  const rollbackableSelectedIds = selectedIds.filter(id => {
+    const o = orders.find(x => x.id === id);
+    return o && o.status === 'confirmed';
+  });
+
+  const handleBulkRollback = async () => {
+    if (rollbackableSelectedIds.length === 0) return;
+    setBulkRollingBack(true);
+    const total = rollbackableSelectedIds.length;
+    setBulkRollbackProgress({ current: 0, total });
+
+    let rolled = 0;
+    let skipped = 0;
+    let processed = 0;
+
+    try {
+      for (const oid of rollbackableSelectedIds) {
+        const order = orders.find(x => x.id === oid);
+        if (!order || !order.order_number) {
+          skipped++; processed++;
+          if (processed % 5 === 0 || processed === total) {
+            setBulkRollbackProgress({ current: processed, total });
+            await new Promise(r => setTimeout(r, 0));
+          }
+          continue;
+        }
+        const { error: delErr } = await supabase
+          .from("purpletransaction")
+          .delete()
+          .eq("ordernumber", order.order_number)
+          .eq("trans_type", "manual");
+        if (delErr) {
+          console.error(`Rollback failed for ${order.order_number}:`, delErr);
+          skipped++;
+        } else {
+          await supabase.from("manual_sales_orders")
+            .update({ status: 'draft', confirmed_at: null })
+            .eq("id", oid)
+            .select();
+          rolled++;
+        }
+        processed++;
+        if (processed % 5 === 0 || processed === total) {
+          setBulkRollbackProgress({ current: processed, total });
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+
+      toast({
+        title: language === 'ar' ? 'تم إعادة الفتح' : 'Rolled back',
+        description: `${language === 'ar' ? 'تم' : 'Done'}: ${rolled}, ${language === 'ar' ? 'متخطى' : 'Skipped'}: ${skipped}`,
+      });
+      setSelectedIds([]);
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: language === 'ar' ? 'فشل إعادة الفتح' : 'Rollback failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setBulkRollingBack(false);
+      setBulkRollbackProgress(null);
+      setBulkRollbackOpen(false);
+    }
+  };
+
   const toggleSelectAll = () => {
-    const eligibleIds = orders.filter(o => o.status !== 'confirmed').map(o => o.id);
+    const eligibleIds = orders.map(o => o.id);
     if (eligibleIds.every(id => selectedIds.includes(id)) && eligibleIds.length > 0) {
       setSelectedIds([]);
     } else {
