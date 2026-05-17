@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
@@ -37,6 +38,7 @@ const SalesOrderList = () => {
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
   const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
   const [productPopoverIdx, setProductPopoverIdx] = useState<number | null>(null);
+  const [showErrorsOnly, setShowErrorsOnly] = useState(false);
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
     const coins = Number(product?.coins_number) || 0;
@@ -307,6 +309,7 @@ const SalesOrderList = () => {
       });
 
       setSortConfig([]);
+      setShowErrorsOnly(false);
       setPreviewRows(resolved);
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
@@ -550,6 +553,21 @@ const SalesOrderList = () => {
               )}
             </DialogTitle>
           </DialogHeader>
+          <div className="flex items-center gap-2 py-2">
+            <Checkbox
+              id="showErrorsOnly"
+              checked={showErrorsOnly}
+              onCheckedChange={(c) => setShowErrorsOnly(c === true)}
+            />
+            <label htmlFor="showErrorsOnly" className="text-sm cursor-pointer">
+              {language === 'ar' ? 'إظهار الأخطاء فقط' : 'Show Errors Only'}
+            </label>
+            {showErrorsOnly && previewRows && (
+              <span className="text-xs text-muted-foreground ml-2">
+                {(sortedPreview || []).filter((r: any) => r.issues.length > 0).length} rows
+              </span>
+            )}
+          </div>
           <div className="flex-1 overflow-auto border rounded">
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
@@ -594,7 +612,7 @@ const SalesOrderList = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(sortedPreview || []).map((r: any) => {
+                {(sortedPreview || []).filter((r: any) => !showErrorsOnly || r.issues.length > 0).map((r: any) => {
                   const origIdx = r.__idx;
                   return (
                     <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
