@@ -17,6 +17,38 @@ import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
+type SOption = { value: string; label: string };
+function SearchableSelect({ value, onChange, options, placeholder, className }: { value: string; onChange: (v: string) => void; options: SOption[]; placeholder: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find(o => o.value === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" className={cn("justify-between font-normal", className)}>
+          <span className="truncate">{selected ? selected.label : placeholder}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[220px]" align="start">
+        <Command>
+          <CommandInput placeholder={placeholder} />
+          <CommandList>
+            <CommandEmpty>No results.</CommandEmpty>
+            <CommandGroup>
+              {options.map(o => (
+                <CommandItem key={o.value} value={o.label} onSelect={() => { onChange(o.value); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === o.value ? "opacity-100" : "opacity-0")} />
+                  {o.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface OrderLine {
   id: string;
   brand_id: string;
@@ -358,16 +390,13 @@ const SalesOrderEntry = () => {
 
             <div className="space-y-2">
               <Label>{language === 'ar' ? 'مندوب البيع' : 'Sales Person'}</Label>
-              <Select value={salesPerson} onValueChange={setSalesPerson}>
-                <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر مندوب البيع' : 'Select sales person'} /></SelectTrigger>
-                <SelectContent>
-                  {salesPeople.map(sp => (
-                    <SelectItem key={sp.user_id} value={sp.user_name || ""}>
-                      {sp.user_name}{sp.salesman_code ? ` (${sp.salesman_code})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={salesPerson}
+                onChange={setSalesPerson}
+                options={salesPeople.map(sp => ({ value: sp.user_name || "", label: `${sp.user_name}${sp.salesman_code ? ` (${sp.salesman_code})` : ''}` }))}
+                placeholder={language === 'ar' ? 'اختر مندوب البيع' : 'Select sales person'}
+                className="w-full"
+              />
             </div>
 
             <div className="space-y-2 md:col-span-3">
@@ -419,28 +448,22 @@ const SalesOrderEntry = () => {
                     <TableRow key={line.id}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
-                        <Select value={line.brand_id} onValueChange={v => updateLine(line.id, "brand_id", v)}>
-                          <SelectTrigger className="min-w-[150px]">
-                            <SelectValue placeholder={language === 'ar' ? 'العلامة' : 'Brand'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {brands.map(b => (
-                              <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          value={line.brand_id}
+                          onChange={v => updateLine(line.id, "brand_id", v)}
+                          options={brands.map(b => ({ value: b.id, label: b.brand_name }))}
+                          placeholder={language === 'ar' ? 'العلامة' : 'Brand'}
+                          className="min-w-[150px]"
+                        />
                       </TableCell>
                       <TableCell>
-                        <Select value={line.product_name} onValueChange={v => updateLine(line.id, "product_name", v)}>
-                          <SelectTrigger className="min-w-[200px]">
-                            <SelectValue placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {getFilteredProducts(line.brand_id).map(p => (
-                              <SelectItem key={p.id} value={p.product_name}>{p.product_name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          value={line.product_name}
+                          onChange={v => updateLine(line.id, "product_name", v)}
+                          options={getFilteredProducts(line.brand_id).map(p => ({ value: p.product_name, label: p.product_name }))}
+                          placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'}
+                          className="min-w-[200px]"
+                        />
                       </TableCell>
                       <TableCell>
                         <Input type="number" step="0.001" value={line.coins_number} onChange={e => updateLine(line.id, "coins_number", Number(e.target.value))} />
