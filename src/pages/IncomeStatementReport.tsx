@@ -482,7 +482,7 @@ const IncomeStatementReport = () => {
       </Card>
 
       {/* Statement */}
-      <Card>
+      <Card className="print:hidden">
         <CardHeader>
           <CardTitle>{isRTL ? "قائمة الدخل" : "Income Statement"}</CardTitle>
         </CardHeader>
