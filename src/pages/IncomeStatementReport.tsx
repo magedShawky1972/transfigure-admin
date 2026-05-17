@@ -544,6 +544,54 @@ const IncomeStatementReport = () => {
         </CardContent>
       </Card>
 
+      {/* Print-only document */}
+      <div className="hidden print:block print-document" dir={isRTL ? "rtl" : "ltr"}>
+        <style>{`
+          @media print {
+            @page { size: A4; margin: 14mm; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .print-document { color: #000; font-family: Arial, sans-serif; }
+            .print-document h1 { font-size: 22px; margin: 0 0 4px 0; }
+            .print-document .meta { font-size: 11px; color: #444; margin-bottom: 12px; }
+            .print-document table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            .print-document th, .print-document td { padding: 6px 8px; border-bottom: 1px solid #ddd; }
+            .print-document th { text-align: ${isRTL ? "right" : "left"}; background: #f3f3f3; border-bottom: 1px solid #999; }
+            .print-document td.num { text-align: ${isRTL ? "left" : "right"}; font-variant-numeric: tabular-nums; }
+            .print-document tr.total td { font-weight: 700; border-top: 2px solid #000; background: #fafafa; }
+            .print-document tr.child td:first-child { padding-${isRTL ? "right" : "left"}: 24px; color: #333; }
+          }
+        `}</style>
+        <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+          <div>
+            <h1>{isRTL ? "قائمة الدخل" : "Income Statement"}</h1>
+            <div className="meta">
+              {isRTL ? "من" : "From"} {appliedStartDate} {isRTL ? "إلى" : "to"} {appliedEndDate}
+              {appliedBrandFilter !== "all" && ` · ${isRTL ? "العلامة" : "Brand"}: ${appliedBrandFilter}`}
+              {appliedCompanyFilter !== "all" && ` · ${isRTL ? "الشركة" : "Company"}: ${appliedCompanyFilter}`}
+            </div>
+          </div>
+          <div className="meta">{format(new Date(), "yyyy-MM-dd HH:mm")}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>{isRTL ? "البند" : "Item"}</th>
+              <th className="num" style={{ textAlign: isRTL ? "left" : "right" }}>%</th>
+              <th className="num" style={{ textAlign: isRTL ? "left" : "right" }}>{isRTL ? "القيمة" : "Amount"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key} className={`${row.isTotal ? "total" : ""} ${row.parent ? "child" : ""}`.trim()}>
+                <td>{row.label.replace(/\*/g, "").trim()}</td>
+                <td className="num">{row.percentage !== 0 && row.percentage !== 100 ? `${row.percentage.toFixed(2)}%` : ""}</td>
+                <td className="num">{fmt(row.value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* Drilldown Dialog */}
       <Dialog open={drillOpen} onOpenChange={setDrillOpen}>
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto" dir={isRTL ? "rtl" : "ltr"}>
