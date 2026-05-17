@@ -754,34 +754,6 @@ const SalesOrderList = () => {
                           )}
                         </div>
                       </TableCell>
-                          <PopoverContent className="p-0 w-[320px]" align="start">
-                            <Command>
-                              <CommandInput placeholder="Search product..." />
-                              <CommandList>
-                                <CommandEmpty>No product found.</CommandEmpty>
-                                <CommandGroup>
-                                  {productsList
-                                    .filter(p => {
-                                      const bk = String(r.brand_code || r.brand_name || "").trim().toLowerCase();
-                                      const pbk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
-                                      return !bk || pbk === bk;
-                                    })
-                                    .map(p => (
-                                      <CommandItem
-                                        key={p.id}
-                                        value={`${p.product_name} ${p.coins_number}`}
-                                        onSelect={() => handleChangeRowProduct(origIdx, p.id)}
-                                      >
-                                        <span className="font-medium">{p.product_name}</span>
-                                        {p.coins_number != null && <span className="ml-2 text-xs text-muted-foreground">({p.coins_number} coins)</span>}
-                                      </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                      </TableCell>
                       <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
                       <TableCell className="text-right text-xs">{r.qty}</TableCell>
                       <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
