@@ -414,6 +414,7 @@ const BrandEdit = () => {
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             cost_one_coins_sar: (formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0) * 3.75,
             sales_usd_value_for_coins: formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0,
+            sales_one_coins_sar: (formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0) * 3.75,
             one_usd_to_coins: formData.one_usd_to_coins ? parseFloat(formData.one_usd_to_coins) : null,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
