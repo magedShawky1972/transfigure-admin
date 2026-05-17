@@ -1479,6 +1479,26 @@ const SalesOrderList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={bulkRollbackOpen} onOpenChange={(o) => !o && !bulkRollingBack && setBulkRollbackOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === 'ar' ? 'إعادة فتح متعدد' : 'Rollback Selected'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar'
+                ? `سيتم إعادة فتح ${rollbackableSelectedIds.length} طلب وحذف الحركات المرتبطة بها.`
+                : `${rollbackableSelectedIds.length} order(s) will be reopened and their posted transactions removed.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkRollingBack}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkRollback} disabled={bulkRollingBack}>
+              {bulkRollingBack ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {language === 'ar' ? 'إعادة الفتح' : 'Rollback'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
