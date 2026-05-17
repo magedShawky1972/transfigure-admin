@@ -280,18 +280,31 @@ const SalesOrderList = () => {
     }
     setCommitting(true);
     try {
-      // Group by order_number
+      // Group by group_key (from excel) — rows without one are their own order
       const groups = new Map<string, any[]>();
       valid.forEach(r => {
-        const arr = groups.get(r.order_number) || [];
-        arr.push(r); groups.set(r.order_number, arr);
+        const key = r.group_key || `__row_${r.row}`;
+        const arr = groups.get(key) || [];
+        arr.push(r); groups.set(key, arr);
+      });
+
+      // Generate unique order numbers
+      const dateStr = format(new Date(), "yyyyMMdd");
+      const { data: todays } = await supabase
+        .from("manual_sales_orders")
+        .select("order_number")
+        .like("order_number", `SO-${dateStr}-%`);
+      let maxSeq = 0;
+      (todays || []).forEach((o: any) => {
+        const m = String(o.order_number).match(/SO-\d{8}-(\d+)/);
+        if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
       });
 
       let created = 0, skipped = 0;
-      for (const [orderNum, grp] of groups) {
+      for (const [, grp] of groups) {
         const head = grp[0];
-        const { data: existing } = await supabase.from("manual_sales_orders").select("id").eq("order_number", orderNum).maybeSingle();
-        if (existing) { skipped++; continue; }
+        maxSeq++;
+        const orderNum = `SO-${dateStr}-${String(maxSeq).padStart(4, '0')}`;
 
         const totalAmount = grp.reduce((s, l) => s + l.total, 0);
         const totalCost = grp.reduce((s, l) => s + l.total_cost, 0);
@@ -333,7 +346,7 @@ const SalesOrderList = () => {
         created++;
       }
 
-      toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped (existing): ${skipped}` });
+      toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped: ${skipped}` });
       setPreviewRows(null);
       fetchOrders();
     } catch (err: any) {
