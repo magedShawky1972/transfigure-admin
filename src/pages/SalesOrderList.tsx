@@ -128,9 +128,9 @@ const SalesOrderList = () => {
   })();
 
   const COLUMNS = [
-    "order_number","order_date","customer_name",
+    "order_date","customer_name",
     "sales_reference","sales_person","company","notes",
-    "brand_name","product_name","qty"
+    "brand_name","product_name","qty","group_key"
   ];
 
   const EXPORT_COLUMNS = [
