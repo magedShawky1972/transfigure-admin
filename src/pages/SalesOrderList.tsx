@@ -1204,7 +1204,9 @@ const SalesOrderList = () => {
             </Button>
             <Button disabled={committing || !previewRows?.some(r => r.issues.length === 0)} onClick={handleCommitImport}>
               {committing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-              {language === 'ar' ? 'تأكيد الاستيراد' : 'Confirm Import'}
+              {committing && commitProgress
+                ? (language === 'ar' ? `جاري الاستيراد ${commitProgress.current}/${commitProgress.total}` : `Importing ${commitProgress.current}/${commitProgress.total}`)
+                : (language === 'ar' ? 'تأكيد الاستيراد' : 'Confirm Import')}
             </Button>
           </DialogFooter>
         </DialogContent>
