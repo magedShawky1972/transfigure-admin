@@ -245,7 +245,9 @@ const SalesOrderList = () => {
 
       const resolved = raw.map((r: any, idx: number) => {
         const brandNameRaw = String(r.brand_name || "").trim();
-        const brand = brandByName.get(brandNameRaw.toLowerCase()) || brandByCode.get(String(r.brand_code || "").trim().toLowerCase());
+        const brand = mappingBySource.get(brandNameRaw.toLowerCase())
+          || brandByName.get(brandNameRaw.toLowerCase())
+          || brandByCode.get(String(r.brand_code || "").trim().toLowerCase());
         const productNameRaw = String(r.product_name || "").trim();
         const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
         const product = productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
