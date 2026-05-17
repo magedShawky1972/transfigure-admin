@@ -860,6 +860,8 @@ const SalesOrderList = () => {
               </TableHeader>
               <TableBody>
                 {(sortedPreview || []).filter((r: any) => {
+                  const refQuery = salesRefFilter.trim().toLowerCase();
+                  if (refQuery && !String(r.sales_reference || "").toLowerCase().includes(refQuery)) return false;
                   const hasAnyIssue = r.issues.length > 0;
                   const hasBrandError = r.issues.some((i: string) => i.includes('Brand not found'));
                   const hasProductError = r.issues.some((i: string) => i.includes('Product not found'));
