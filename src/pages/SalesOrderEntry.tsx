@@ -267,13 +267,13 @@ const SalesOrderEntry = () => {
           const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
           updated.product_name = product.product_name;
           updated.coins_number = coins;
-          updated.unit_price = salesRate > 0 ? salesRate * coins : (Number(product.product_price ?? 0) || 0);
-          updated.cost_price = costRate > 0 ? costRate * coins : (Number(product.product_cost ?? 0) || 0);
+          updated.unit_price = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product.product_price ?? 0) || 0) / coins : 0);
+          updated.cost_price = costRate > 0 ? costRate : (coins > 0 ? (Number(product.product_cost ?? 0) || 0) / coins : 0);
         }
       }
 
-      updated.total = updated.qty * updated.unit_price;
-      updated.profit = updated.total - (updated.qty * updated.cost_price);
+      updated.total = (updated.coins_number || 0) * updated.qty * updated.unit_price;
+      updated.profit = updated.total - ((updated.coins_number || 0) * updated.qty * updated.cost_price);
       return updated;
     }));
   };
