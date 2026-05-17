@@ -66,6 +66,7 @@ const IncomeStatementReport = () => {
   const [loading, setLoading] = useState(false);
   const [aggregates, setAggregates] = useState<BrandAggregate[]>([]);
   const [revenueSources, setRevenueSources] = useState<Record<string, number>>({});
+  const [costSources, setCostSources] = useState<Record<string, number>>({});
 
   // Drilldown state
   const [drillOpen, setDrillOpen] = useState(false);
