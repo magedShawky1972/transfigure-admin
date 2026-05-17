@@ -509,6 +509,7 @@ const SalesOrderList = () => {
           brand_id: l.brand_id,
           brand_code: l.brand_code,
           brand_name: l.brand_name,
+          vendor: l.vendor || null,
           product_id: l.product_id,
           product_name: l.product_name,
           coins_number: l.coins_number,
