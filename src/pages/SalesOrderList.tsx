@@ -380,6 +380,76 @@ const SalesOrderList = () => {
         </CardContent>
       </Card>
 
+      <Dialog open={!!previewRows} onOpenChange={(o) => !o && !committing && setPreviewRows(null)}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'معاينة الاستيراد' : 'Import Preview'}
+              {previewRows && (
+                <span className="ml-3 text-sm font-normal text-muted-foreground">
+                  {previewRows.length} rows · {previewRows.filter(r => r.issues.length === 0).length} ready · {previewRows.filter(r => r.issues.length > 0).length} with issues
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto border rounded">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead className="w-10">#</TableHead>
+                  <TableHead>Order #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Brand</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Coins</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Unit</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(previewRows || []).map((r, i) => (
+                  <TableRow key={i} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
+                    <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
+                    <TableCell className="text-xs">{r.order_date}</TableCell>
+                    <TableCell className="text-xs">{r.customer_name}</TableCell>
+                    <TableCell className="text-xs">{r.brand_name}{r.brand_code ? <span className="text-muted-foreground"> ({r.brand_code})</span> : null}</TableCell>
+                    <TableCell className="text-xs">{r.product_name}</TableCell>
+                    <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-xs">{r.qty}</TableCell>
+                    <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
+                    <TableCell className="text-right text-xs">{Number(r.cost_price).toFixed(7)}</TableCell>
+                    <TableCell className="text-right text-xs font-medium">{Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell>
+                      {r.issues.length === 0 ? (
+                        <Badge variant="secondary" className="text-xs">OK</Badge>
+                      ) : (
+                        <span className="text-xs text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />{r.issues.join('; ')}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={committing} onClick={() => setPreviewRows(null)}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button disabled={committing || !previewRows?.some(r => r.issues.length === 0)} onClick={handleCommitImport}>
+              {committing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {language === 'ar' ? 'تأكيد الاستيراد' : 'Confirm Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
