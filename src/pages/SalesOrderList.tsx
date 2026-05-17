@@ -677,21 +677,37 @@ const SalesOrderList = () => {
               {previewRows && (
                 <span className="ml-3 text-sm font-normal text-muted-foreground">
                   {previewRows.length} rows · {previewRows.filter(r => r.issues.length === 0).length} ready · {previewRows.filter(r => r.issues.length > 0).length} with issues
-                  {(() => {
-                    const ready = previewRows.filter(r => r.issues.length === 0);
-                    const totalSales = ready.reduce((s, r) => s + (Number(r.total) || 0), 0);
-                    const totalCost = ready.reduce((s, r) => s + (Number(r.cost_price) || 0) * (Number(r.qty) || 0), 0);
-                    const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    return (
-                      <span className="ml-3">
-                        · <span className="text-foreground font-medium">Total Sales:</span> {fmt(totalSales)} · <span className="text-foreground font-medium">Total Cost:</span> {fmt(totalCost)} · <span className="text-foreground font-medium">Margin:</span> {fmt(totalSales - totalCost)}
-                      </span>
-                    );
-                  })()}
                 </span>
               )}
             </DialogTitle>
           </DialogHeader>
+          {previewRows && (() => {
+            const ready = previewRows.filter(r => r.issues.length === 0);
+            const totalSales = ready.reduce((s, r) => s + (Number(r.total) || 0), 0);
+            const totalCost = ready.reduce((s, r) => s + (Number(r.cost_price) || 0) * (Number(r.qty) || 0), 0);
+            const margin = totalSales - totalCost;
+            const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-2">
+                <div className="rounded border bg-muted/30 px-3 py-2">
+                  <div className="text-[10px] uppercase text-muted-foreground">Rows Ready</div>
+                  <div className="text-base font-semibold">{ready.length.toLocaleString()}</div>
+                </div>
+                <div className="rounded border bg-muted/30 px-3 py-2">
+                  <div className="text-[10px] uppercase text-muted-foreground">Total Sales</div>
+                  <div className="text-base font-semibold text-primary">{fmt(totalSales)}</div>
+                </div>
+                <div className="rounded border bg-muted/30 px-3 py-2">
+                  <div className="text-[10px] uppercase text-muted-foreground">Total Cost</div>
+                  <div className="text-base font-semibold text-destructive">{fmt(totalCost)}</div>
+                </div>
+                <div className="rounded border bg-muted/30 px-3 py-2">
+                  <div className="text-[10px] uppercase text-muted-foreground">Margin</div>
+                  <div className={cn("text-base font-semibold", margin >= 0 ? "text-emerald-600" : "text-destructive")}>{fmt(margin)}</div>
+                </div>
+              </div>
+            );
+          })()}
           <div className="flex items-center gap-4 py-2 flex-wrap">
             <div className="flex items-center gap-2">
               <Checkbox
