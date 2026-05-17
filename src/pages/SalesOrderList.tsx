@@ -536,7 +536,14 @@ const SalesOrderList = () => {
           total_profit: totalAmount - totalCost,
           total_coins: totalCoins,
         }).select().single();
-        if (insErr || !ins) { skipped++; processed++; setCommitProgress({ current: processed, total: totalGroups }); continue; }
+        if (insErr || !ins) {
+          skipped++; processed++;
+          if (processed % 10 === 0 || processed === totalGroups) {
+            setCommitProgress({ current: processed, total: totalGroups });
+            await new Promise(r => setTimeout(r, 0));
+          }
+          continue;
+        }
 
         const lineRows = grp.map((l, idx) => ({
           order_id: ins.id,
@@ -558,7 +565,10 @@ const SalesOrderList = () => {
         await supabase.from("manual_sales_order_lines").insert(lineRows);
         created++;
         processed++;
-        setCommitProgress({ current: processed, total: totalGroups });
+        if (processed % 10 === 0 || processed === totalGroups) {
+          setCommitProgress({ current: processed, total: totalGroups });
+          await new Promise(r => setTimeout(r, 0));
+        }
       }
 
       toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped: ${skipped}` });
