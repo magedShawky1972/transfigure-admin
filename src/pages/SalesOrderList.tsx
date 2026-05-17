@@ -39,10 +39,12 @@ const SalesOrderList = () => {
   const [previewRows, setPreviewRows] = useState<any[] | null>(null);
   const [brandsList, setBrandsList] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<any[]>([]);
-  const [suppliersSet, setSuppliersSet] = useState<Set<string>>(new Set());
+  const [suppliersList, setSuppliersList] = useState<any[]>([]);
+  const [supplierMappingsMap, setSupplierMappingsMap] = useState<Record<string, string>>({});
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
   const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
   const [productPopoverIdx, setProductPopoverIdx] = useState<number | null>(null);
+  const [vendorPopoverIdx, setVendorPopoverIdx] = useState<number | null>(null);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
   const [showBrandErrorsOnly, setShowBrandErrorsOnly] = useState(false);
   const [showProductErrorsOnly, setShowProductErrorsOnly] = useState(false);
@@ -355,7 +357,11 @@ const SalesOrderList = () => {
           sales_reference: r.sales_reference || "",
           sales_person: r.sales_person || "",
           company: r.company || "",
-          vendor: r.vendor || r.Vendor || r.supplier || r.Supplier || "",
+          source_vendor_name: String(r.vendor || r.Vendor || r.supplier || r.Supplier || "").trim(),
+          vendor: (() => {
+            const raw = String(r.vendor || r.Vendor || r.supplier || r.Supplier || "").trim();
+            return supplierMappingsMap[raw.toLowerCase()] || raw;
+          })(),
           notes: r.notes || "",
           brand_id: brand?.id || null,
           brand_code: brand?.brand_code || "",
@@ -578,10 +584,46 @@ const SalesOrderList = () => {
   useEffect(() => { fetchOrders(); }, []);
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("suppliers").select("supplier_name").eq("status", "active");
-      setSuppliersSet(new Set((data || []).map((s: any) => String(s.supplier_name || "").trim().toLowerCase()).filter(Boolean)));
+      const [{ data: sups }, { data: maps }] = await Promise.all([
+        supabase.from("suppliers").select("id, supplier_name, supplier_code, status").eq("status", "active").order("supplier_name"),
+        supabase.from("sales_order_supplier_mappings").select("source_vendor_name, supplier_name"),
+      ]);
+      setSuppliersList(sups || []);
+      const m: Record<string, string> = {};
+      (maps || []).forEach((x: any) => { if (x.source_vendor_name && x.supplier_name) m[String(x.source_vendor_name).trim().toLowerCase()] = x.supplier_name; });
+      setSupplierMappingsMap(m);
     })();
   }, []);
+
+  const suppliersSet = new Set(suppliersList.map((s: any) => String(s.supplier_name || "").trim().toLowerCase()).filter(Boolean));
+
+  const handleChangeRowVendor = async (rowIdx: number, newSupplierId: string) => {
+    const sup = suppliersList.find((s: any) => s.id === newSupplierId);
+    if (!sup) return;
+    let sourceVendor = "";
+    setPreviewRows(prev => {
+      if (!prev) return prev;
+      const target = prev[rowIdx];
+      sourceVendor = String(target.source_vendor_name || target.vendor || "").trim();
+      const key = sourceVendor.toLowerCase();
+      return prev.map(r => {
+        const rs = String(r.source_vendor_name || r.vendor || "").trim().toLowerCase();
+        if (rs !== key) return r;
+        return { ...r, vendor: sup.supplier_name };
+      });
+    });
+    setVendorPopoverIdx(null);
+    if (sourceVendor) {
+      try {
+        await supabase.from("sales_order_supplier_mappings").upsert({
+          source_vendor_name: sourceVendor,
+          supplier_id: sup.id,
+          supplier_name: sup.supplier_name,
+        }, { onConflict: "source_vendor_name" });
+        setSupplierMappingsMap(prev => ({ ...prev, [sourceVendor.toLowerCase()]: sup.supplier_name }));
+      } catch {}
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -977,7 +1019,38 @@ const SalesOrderList = () => {
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
                       <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                      <TableCell className={`text-xs ${r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase()) ? 'text-destructive font-medium' : ''}`}>{r.vendor || <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className="text-xs">
+                        <Popover open={vendorPopoverIdx === origIdx} onOpenChange={(o) => setVendorPopoverIdx(o ? origIdx : null)}>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className={`h-7 px-2 text-xs font-normal justify-between min-w-[140px] ${r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase()) ? 'text-destructive border-destructive' : ''}`}>
+                              <span className="truncate">
+                                {r.vendor || <span className="text-muted-foreground">Select vendor</span>}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-[260px]" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search vendor..." />
+                              <CommandList>
+                                <CommandEmpty>No vendor found.</CommandEmpty>
+                                <CommandGroup>
+                                  {suppliersList.map((s: any) => (
+                                    <CommandItem
+                                      key={s.id}
+                                      value={`${s.supplier_name} ${s.supplier_code || ''}`}
+                                      onSelect={() => handleChangeRowVendor(origIdx, s.id)}
+                                    >
+                                      <span className="font-medium">{s.supplier_name}</span>
+                                      {s.supplier_code && <span className="ml-2 text-xs text-muted-foreground">({s.supplier_code})</span>}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>

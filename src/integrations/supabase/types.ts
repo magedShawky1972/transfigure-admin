@@ -7664,6 +7664,41 @@ export type Database = {
           },
         ]
       }
+      sales_order_supplier_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          source_vendor_name: string
+          supplier_id: string | null
+          supplier_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          source_vendor_name: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          source_vendor_name?: string
+          supplier_id?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_supplier_mappings_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_sheet_line_attachments: {
         Row: {
           created_at: string
