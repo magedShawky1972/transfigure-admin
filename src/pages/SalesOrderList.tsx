@@ -302,9 +302,9 @@ const SalesOrderList = () => {
                         <TableCell>{o.customer_name || '—'}{o.customer_phone ? ` (${o.customer_phone})` : ''}</TableCell>
                         <TableCell>{o.payment_method || '—'}</TableCell>
                         <TableCell className="text-right font-medium">{Number(o.total_coins || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-medium">{Number(o.total_amount || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-medium">{Number(o.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         <TableCell className={`text-right font-medium ${Number(o.total_profit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {Number(o.total_profit || 0).toFixed(2)}
+                          {Number(o.total_profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell>
                           <Badge variant={o.status === 'confirmed' ? 'default' : 'secondary'}>
