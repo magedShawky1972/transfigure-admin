@@ -218,6 +218,7 @@ const App = () => (
               <Route path="/product-details/:id" element={<ProductDetails />} />
               <Route path="/payment-method-setup" element={<PaymentMethodSetup />} />
               <Route path="/pivot-table" element={<PivotTable />} />
+              <Route path="/company-setup" element={<CompanySetup />} />
               <Route path="/odoo-setup" element={<OdooSetup />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/tickets" element={<Tickets />} />
