@@ -147,11 +147,12 @@ const SalesOrderList = () => {
 
   const handleExportTemplate = () => {
     const sample = [{
-      order_number: "SO-20260101-0001", order_date: "2026-01-01",
+      order_date: "2026-01-01",
       customer_name: "Sample Customer",
       sales_reference: "REF-1", sales_person: "John",
       company: "Asus", notes: "",
       brand_name: "Hawa Chat", product_name: "1 Coin", qty: 1,
+      group_key: "G1",
     }];
     downloadXlsx(sample, "sales_orders_template.xlsx");
   };
