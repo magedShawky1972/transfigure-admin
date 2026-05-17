@@ -332,7 +332,7 @@ const IncomeStatementReport = () => {
         }
 
         const breakdown = Array.from(map.entries())
-          .map(([brand_name, v]) => ({ brand_name, value: v.value, percentage: (v.value / baseTotal) * 100, tx_count: v.tx_count, coins: brandAbcMap[brand_name] === "A" ? v.coins : 0 }))
+          .map(([brand_name, v]) => ({ brand_name, value: v.value, percentage: (v.value / baseTotal) * 100, tx_count: v.tx_count, coins: row.company === "Asus" ? v.coins : (brandAbcMap[brand_name] === "A" ? v.coins : 0) }))
           .filter((b) => Math.abs(b.value) > 0.001)
           .sort((a, b) => b.value - a.value);
         setDrillBrandData(breakdown);
