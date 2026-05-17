@@ -87,6 +87,8 @@ const SalesOrderEntry = () => {
   const [salesReference, setSalesReference] = useState("");
   const [salesPerson, setSalesPerson] = useState("");
   const [notes, setNotes] = useState("");
+  const [company, setCompany] = useState("");
+  const companyOptions = ["Purple", "Ish7an"];
 
   // Lines state
   const [lines, setLines] = useState<OrderLine[]>([]);
@@ -563,6 +565,18 @@ const SalesOrderEntry = () => {
                   </Command>
                 </PopoverContent>
               </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'الشركة' : 'Company'}</Label>
+              <Select value={company} onValueChange={setCompany}>
+                <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر الشركة' : 'Select Company'} /></SelectTrigger>
+                <SelectContent>
+                  {companyOptions.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
