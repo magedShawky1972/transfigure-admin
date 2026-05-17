@@ -6578,6 +6578,7 @@ export type Database = {
           profit_center: string | null
           qty: number | null
           register_user_id: number | null
+          revenue_source: string | null
           sendodoo: boolean | null
           source: string
           status: number | null
@@ -6630,6 +6631,7 @@ export type Database = {
           profit_center?: string | null
           qty?: number | null
           register_user_id?: number | null
+          revenue_source?: string | null
           sendodoo?: boolean | null
           source?: string
           status?: number | null
@@ -6682,6 +6684,7 @@ export type Database = {
           profit_center?: string | null
           qty?: number | null
           register_user_id?: number | null
+          revenue_source?: string | null
           sendodoo?: boolean | null
           source?: string
           status?: number | null
