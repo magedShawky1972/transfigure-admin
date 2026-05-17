@@ -667,10 +667,10 @@ const SalesOrderEntry = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="0.001" value={line.coins_number} onChange={e => updateLine(line.id, "coins_number", Number(e.target.value))} />
+                        <Input type="text" inputMode="decimal" value={line.coins_number} onChange={e => updateLine(line.id, "coins_number", Number(e.target.value) || 0)} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" min={1} value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value))} />
+                        <Input type="text" inputMode="numeric" value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value) || 0)} />
                       </TableCell>
                       <TableCell>
                         <Input
