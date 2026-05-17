@@ -613,7 +613,7 @@ const BrandSetup = () => {
             <TableBody>
               {filteredBrands.length === 0 ? (
                 <TableRow>
-                   <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
+                   <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                     {filterBrandName || filterShortName || filterABCAnalysis || filterBrandType ? "No brands match your filters" : t("brandSetup.noData")}
                   </TableCell>
                 </TableRow>
