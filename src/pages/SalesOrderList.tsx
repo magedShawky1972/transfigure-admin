@@ -322,6 +322,7 @@ const SalesOrderList = () => {
           group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
           source_brand_name: brandNameRaw,
           source_product_name: productNameRaw,
+          source_coins_number: coins,
           source_unit_price: srcUnit,
           source_cost_price: srcCost,
           order_date: orderDate,
