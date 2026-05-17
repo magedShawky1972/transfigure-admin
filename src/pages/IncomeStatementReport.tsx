@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileBarChart, Printer, ChevronRight, Download } from "lucide-react";
+import { Loader2, FileBarChart, Printer, ChevronRight, ChevronDown, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -22,6 +22,7 @@ interface IncomeRow {
   drilldown: "brand" | "epayment" | "points-brand" | "company" | "none";
   company?: string;
   metric?: "sales" | "cost";
+  parent?: string;
 }
 
 interface BrandAggregate {
@@ -72,6 +73,7 @@ const IncomeStatementReport = () => {
 
   // Drilldown state
   const [drillOpen, setDrillOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ totalSales: false, costOfSales: false });
   const [drillTitle, setDrillTitle] = useState("");
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
   const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
@@ -213,13 +215,13 @@ const IncomeStatementReport = () => {
 
   const rows: IncomeRow[] = [
     { key: "totalSales", label: isRTL ? "*** إجمالي المبيعات ***" : "*** Total Sales ***", value: totals.totalSales, percentage: 100, isTotal: true, drilldown: "brand" },
-    { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "sales" },
-    { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "sales" },
-    { key: "asusSales", label: isRTL ? "مبيعات Asus" : "Asus Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "sales" },
+    { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "sales", parent: "totalSales" },
+    { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "sales", parent: "totalSales" },
+    { key: "asusSales", label: isRTL ? "مبيعات Asus" : "Asus Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "sales", parent: "totalSales" },
     { key: "costOfSales", label: isRTL ? "*** إجمالي التكلفة ***" : "*** Total Cost ***", value: totalCompanyCost, percentage: pct(totalCompanyCost, totals.totalSales), isTotal: true, drilldown: "brand" },
-    { key: "purpleCost", label: isRTL ? "تكلفة Purple" : "Purple Cost", value: costSources["Purple"] || 0, percentage: pct(costSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "cost" },
-    { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "cost" },
-    { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "cost" },
+    { key: "purpleCost", label: isRTL ? "تكلفة Purple" : "Purple Cost", value: costSources["Purple"] || 0, percentage: pct(costSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "cost", parent: "costOfSales" },
+    { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "cost", parent: "costOfSales" },
+    { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "cost", parent: "costOfSales" },
     { key: "pointsCost", label: isRTL ? "تكلفة النقاط" : "Point Cost", value: totals.pointsCost, percentage: pct(totals.pointsCost, totals.totalSales), drilldown: "points-brand" },
     { key: "ePayment", label: isRTL ? "رسوم الدفع الإلكتروني" : "E-Payment Charges", value: totals.ePaymentCharges, percentage: pct(totals.ePaymentCharges, totals.totalSales), drilldown: "epayment" },
     { key: "grossProfit", label: isRTL ? "*** الربح الإجمالي ***" : "*** Gross Profit ***", value: grossProfit, percentage: pct(grossProfit, totals.totalSales), isTotal: true, drilldown: "none" },
@@ -491,8 +493,10 @@ const IncomeStatementReport = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {rows.map((row) => {
+              {rows.filter(r => !r.parent || expanded[r.parent]).map((row) => {
                 const clickable = row.drilldown !== "none" && Math.abs(row.value) > 0.001;
+                const isExpandable = row.key === "totalSales" || row.key === "costOfSales";
+                const isOpen = isExpandable && expanded[row.key];
                 return (
                   <div
                     key={row.key}
@@ -500,11 +504,23 @@ const IncomeStatementReport = () => {
                     className={[
                       "flex items-center justify-between py-3 px-2 transition-colors",
                       row.isTotal ? "font-bold text-lg border-t-2 mt-2 pt-4" : "",
+                      row.parent ? "pl-8" : "",
                       clickable ? "cursor-pointer hover:bg-muted/50 rounded-md" : "",
                     ].join(" ")}
                   >
                     <span className="flex items-center gap-2">
-                      {clickable && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      {isExpandable ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [row.key]: !prev[row.key] })); }}
+                          className="p-0.5 rounded hover:bg-muted"
+                          aria-label={isOpen ? "Collapse" : "Expand"}
+                        >
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                      ) : (
+                        clickable && <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
                       {row.label}
                     </span>
                     <div className="flex items-center gap-6">
