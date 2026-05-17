@@ -151,7 +151,10 @@ const SalesOrderEntry = () => {
   }, [searchCustomers]);
 
   const getFilteredProducts = (brandId: string) => {
-    return brandId ? products.filter(p => p.brand_id === brandId) : products;
+    if (!brandId) return products;
+    const brand = brands.find(b => b.id === brandId);
+    if (!brand?.brand_code) return [];
+    return products.filter(p => p.brand_code === brand.brand_code);
   };
 
   const addLine = () => {
