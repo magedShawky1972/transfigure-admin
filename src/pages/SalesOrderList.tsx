@@ -557,20 +557,52 @@ const SalesOrderList = () => {
               )}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex items-center gap-2 py-2">
-            <Checkbox
-              id="showErrorsOnly"
-              checked={showErrorsOnly}
-              onCheckedChange={(c) => setShowErrorsOnly(c === true)}
-            />
-            <label htmlFor="showErrorsOnly" className="text-sm cursor-pointer">
-              {language === 'ar' ? 'إظهار الأخطاء فقط' : 'Show Errors Only'}
-            </label>
-            {showErrorsOnly && previewRows && (
-              <span className="text-xs text-muted-foreground ml-2">
-                {(sortedPreview || []).filter((r: any) => r.issues.length > 0).length} rows
-              </span>
-            )}
+          <div className="flex items-center gap-4 py-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showErrorsOnly"
+                checked={showErrorsOnly}
+                onCheckedChange={(c) => setShowErrorsOnly(c === true)}
+              />
+              <label htmlFor="showErrorsOnly" className="text-sm cursor-pointer">
+                {language === 'ar' ? 'إظهار الأخطاء فقط' : 'Show Errors Only'}
+              </label>
+              {showErrorsOnly && previewRows && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {(sortedPreview || []).filter((r: any) => r.issues.length > 0).length} rows
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showBrandErrorsOnly"
+                checked={showBrandErrorsOnly}
+                onCheckedChange={(c) => setShowBrandErrorsOnly(c === true)}
+              />
+              <label htmlFor="showBrandErrorsOnly" className="text-sm cursor-pointer">
+                {language === 'ar' ? 'أخطاء الماركة فقط' : 'Brand Error Only'}
+              </label>
+              {showBrandErrorsOnly && previewRows && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Brand not found'))).length} rows
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showProductErrorsOnly"
+                checked={showProductErrorsOnly}
+                onCheckedChange={(c) => setShowProductErrorsOnly(c === true)}
+              />
+              <label htmlFor="showProductErrorsOnly" className="text-sm cursor-pointer">
+                {language === 'ar' ? 'أخطاء المنتج فقط' : 'Product Error Only'}
+              </label>
+              {showProductErrorsOnly && previewRows && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Product not found'))).length} rows
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex-1 overflow-auto border rounded">
             <Table>
