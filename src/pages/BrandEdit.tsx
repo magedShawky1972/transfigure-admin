@@ -550,6 +550,17 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="sales_one_coins_sar">Sales One Coins = SAR (USD × 3.75)</Label>
+              <Input
+                id="sales_one_coins_sar"
+                type="number"
+                value={((parseFloat(formData.sales_usd_value_for_coins) || 0) * 3.75).toFixed(4)}
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="one_usd_to_coins">1 USD = Coins</Label>
               <Input
                 id="one_usd_to_coins"
