@@ -576,6 +576,12 @@ const SalesOrderList = () => {
   };
 
   useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("suppliers").select("supplier_name").eq("status", "active");
+      setSuppliersSet(new Set((data || []).map((s: any) => String(s.supplier_name || "").trim().toLowerCase()).filter(Boolean)));
+    })();
+  }, []);
 
   const handleDelete = async () => {
     if (!deleteId) return;
