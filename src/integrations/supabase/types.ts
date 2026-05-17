@@ -5250,6 +5250,7 @@ export type Database = {
       }
       manual_sales_orders: {
         Row: {
+          company: string | null
           confirmed_at: string | null
           created_at: string
           created_by: string | null
@@ -5271,6 +5272,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company?: string | null
           confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -5292,6 +5294,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company?: string | null
           confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
