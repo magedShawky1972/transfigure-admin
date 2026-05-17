@@ -649,6 +649,17 @@ const SalesOrderEntry = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</Label>
+              <SearchableSelect
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                options={paymentMethods.map(pm => ({ value: pm.payment_method, label: pm.payment_method }))}
+                placeholder={language === 'ar' ? 'اختر طريقة الدفع' : 'Select payment method'}
+                className="w-full"
+              />
+            </div>
+
             <div className="space-y-2 md:col-span-3">
               <Label>{language === 'ar' ? 'ملاحظات' : 'Notes'}</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={1} />
