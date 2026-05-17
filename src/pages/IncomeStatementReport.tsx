@@ -502,9 +502,9 @@ const IncomeStatementReport = () => {
             <div className="divide-y">
               {rows.filter(r => !r.parent || expanded[r.parent]).map((row) => {
                 const clickable = row.drilldown !== "none" && Math.abs(row.value) > 0.001;
-                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment";
+                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment" || row.key === "pointsCost";
                 const isOpen = isExpandable && expanded[row.key];
-                const splitClick = row.key === "ePayment"; // chevron expands, amount opens popup
+                const splitClick = row.key === "ePayment" || row.key === "pointsCost"; // chevron expands, amount opens popup
                 return (
                   <Fragment key={row.key}>
                     <div
