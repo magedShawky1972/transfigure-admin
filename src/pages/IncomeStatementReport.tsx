@@ -73,9 +73,11 @@ const IncomeStatementReport = () => {
 
   // Drilldown state
   const [drillOpen, setDrillOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ totalSales: false, costOfSales: false, ePayment: false });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ totalSales: false, costOfSales: false, ePayment: false, pointsCost: false });
   const [ePaymentByMethod, setEPaymentByMethod] = useState<Array<{ payment_method: string; bank_fee: number; percentage: number }>>([]);
   const [ePaymentByMethodLoading, setEPaymentByMethodLoading] = useState(false);
+  const [pointsByCompany, setPointsByCompany] = useState<Array<{ company: string; points_cost: number; percentage: number }>>([]);
+  const [pointsByCompanyLoading, setPointsByCompanyLoading] = useState(false);
   const [drillTitle, setDrillTitle] = useState("");
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
   const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
@@ -118,7 +120,8 @@ const IncomeStatementReport = () => {
     try {
       setLoading(true);
       setEPaymentByMethod([]);
-      setExpanded(prev => ({ ...prev, ePayment: false }));
+      setPointsByCompany([]);
+      setExpanded(prev => ({ ...prev, ePayment: false, pointsCost: false }));
       const startInt = parseInt(startDate.replace(/-/g, ""));
       const endInt = parseInt(endDate.replace(/-/g, ""));
       const nextBrandFilter = brandFilter;
@@ -499,9 +502,9 @@ const IncomeStatementReport = () => {
             <div className="divide-y">
               {rows.filter(r => !r.parent || expanded[r.parent]).map((row) => {
                 const clickable = row.drilldown !== "none" && Math.abs(row.value) > 0.001;
-                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment";
+                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment" || row.key === "pointsCost";
                 const isOpen = isExpandable && expanded[row.key];
-                const splitClick = row.key === "ePayment"; // chevron expands, amount opens popup
+                const splitClick = row.key === "ePayment" || row.key === "pointsCost"; // chevron expands, amount opens popup
                 return (
                   <Fragment key={row.key}>
                     <div
@@ -548,6 +551,47 @@ const IncomeStatementReport = () => {
                                   toast.error(err?.message || "Failed to load breakdown");
                                 } finally {
                                   setEPaymentByMethodLoading(false);
+                                }
+                              }
+                              if (row.key === "pointsCost" && willOpen && pointsByCompany.length === 0 && !pointsByCompanyLoading) {
+                                setPointsByCompanyLoading(true);
+                                try {
+                                  const startInt = parseInt(appliedStartDate.replace(/-/g, ""));
+                                  const endInt = parseInt(appliedEndDate.replace(/-/g, ""));
+                                  let q = supabase
+                                    .from("purpletransaction")
+                                    .select("company, points_cost")
+                                    .eq("is_deleted", false)
+                                    .gte("order_date_int_utc", startInt)
+                                    .lte("order_date_int_utc", endInt);
+                                  if (appliedBrandFilter !== "all") q = q.eq("brand_name", appliedBrandFilter);
+                                  if (appliedCompanyFilter !== "all") q = q.eq("company", appliedCompanyFilter);
+                                  const agg: Record<string, number> = {};
+                                  let from = 0;
+                                  while (true) {
+                                    const { data, error } = await q.range(from, from + 999);
+                                    if (error) throw error;
+                                    (data || []).forEach((r: any) => {
+                                      const k = r.company || "Unknown";
+                                      agg[k] = (agg[k] || 0) + (Number(r.points_cost) || 0);
+                                    });
+                                    if (!data || data.length < 1000) break;
+                                    from += 1000;
+                                  }
+                                  const totalPts = totals.pointsCost || 1;
+                                  const list = Object.entries(agg)
+                                    .filter(([, v]) => Math.abs(v) > 0.001)
+                                    .map(([company, points_cost]) => ({
+                                      company,
+                                      points_cost,
+                                      percentage: (points_cost / totalPts) * 100,
+                                    }))
+                                    .sort((a, b) => b.points_cost - a.points_cost);
+                                  setPointsByCompany(list);
+                                } catch (err: any) {
+                                  toast.error(err?.message || "Failed to load breakdown");
+                                } finally {
+                                  setPointsByCompanyLoading(false);
                                 }
                               }
                             }}
@@ -602,6 +646,25 @@ const IncomeStatementReport = () => {
                             <div className="flex items-center gap-6">
                               <span className="text-sm text-muted-foreground">{pm.percentage.toFixed(2)}%</span>
                               <span>{fmt(pm.bank_fee)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {row.key === "pointsCost" && isOpen && (
+                      <>
+                        {pointsByCompanyLoading ? (
+                          <div className="flex items-center gap-2 py-2 pl-8 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" /> {isRTL ? "جاري التحميل" : "Loading"}…
+                          </div>
+                        ) : pointsByCompany.length === 0 ? (
+                          <div className="py-2 pl-8 text-sm text-muted-foreground">{isRTL ? "لا توجد بيانات" : "No data"}</div>
+                        ) : pointsByCompany.map((pc) => (
+                          <div key={`pc-${pc.company}`} className="flex items-center justify-between py-3 px-2 pl-8">
+                            <span>{pc.company}</span>
+                            <div className="flex items-center gap-6">
+                              <span className="text-sm text-muted-foreground">{pc.percentage.toFixed(2)}%</span>
+                              <span>{fmt(pc.points_cost)}</span>
                             </div>
                           </div>
                         ))}
