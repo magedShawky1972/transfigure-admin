@@ -152,14 +152,22 @@ const PaymentMethodSetup = () => {
     }
   };
 
-  const handleAddMethod = async () => {
+  const handleAddMethod = async (showToast = true) => {
     try {
       // Validate input
-      paymentMethodSchema.parse(newMethod);
+      const payload = {
+        payment_type: newMethod.payment_type.trim(),
+        payment_method: newMethod.payment_method.trim(),
+        gateway_fee: newMethod.gateway_fee,
+        fixed_value: newMethod.fixed_value,
+        vat_fee: newMethod.vat_fee,
+      };
+
+      paymentMethodSchema.parse(payload);
 
       const { data, error } = await supabase
         .from("payment_methods")
-        .insert([{ ...newMethod, is_active: true }])
+        .insert([{ ...payload, is_active: true }])
         .select("id, payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active");
 
       if (error) throw error;
@@ -167,13 +175,15 @@ const PaymentMethodSetup = () => {
         throw new Error(language === "ar" ? "لا تملك صلاحية الإضافة" : "You don't have permission to add this payment method");
       }
 
-      toast({
-        title: language === "ar" ? "نجاح" : "Success",
-        description:
-          language === "ar"
-            ? "تم إضافة طريقة الدفع بنجاح"
-            : "Payment method added successfully",
-      });
+      if (showToast) {
+        toast({
+          title: language === "ar" ? "نجاح" : "Success",
+          description:
+            language === "ar"
+              ? "تم إضافة طريقة الدفع بنجاح"
+              : "Payment method added successfully",
+        });
+      }
 
       setNewMethod({
         payment_type: "",
@@ -184,6 +194,7 @@ const PaymentMethodSetup = () => {
       });
 
       setPaymentMethods((prev) => [...data, ...prev]);
+      return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
@@ -202,6 +213,7 @@ const PaymentMethodSetup = () => {
           variant: "destructive",
         });
       }
+      return false;
     }
   };
 
@@ -244,8 +256,22 @@ const PaymentMethodSetup = () => {
     try {
       setSaving(true);
 
+      const hasPendingNewMethod =
+        newMethod.payment_type.trim() !== "" ||
+        newMethod.payment_method.trim() !== "" ||
+        newMethod.gateway_fee !== 0 ||
+        newMethod.fixed_value !== 0 ||
+        newMethod.vat_fee !== 0;
+
       for (const method of paymentMethods) {
         await handleUpdateMethod(method);
+      }
+
+      if (hasPendingNewMethod) {
+        const added = await handleAddMethod(false);
+        if (!added) {
+          return;
+        }
       }
 
       toast({
@@ -858,7 +884,7 @@ const PaymentMethodSetup = () => {
                 </div>
                 <div></div>
                 <div></div>
-                <Button onClick={handleAddMethod} size="icon">
+                <Button onClick={() => { void handleAddMethod(); }} size="icon">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
