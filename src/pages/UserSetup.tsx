@@ -302,6 +302,7 @@ const DASHBOARD_COMPONENTS = [
 ];
 
 const REPORTS = [
+  { key: "income-statement", labelEn: "Income Statement", labelAr: "قائمة الدخل" },
   { key: "revenue-by-brand-type", labelEn: "Revenue by Brand Type", labelAr: "الإيرادات حسب نوع العلامة التجارية" },
   { key: "cost-by-brand-type", labelEn: "Cost by Brand Type", labelAr: "التكلفة حسب نوع العلامة التجارية" },
   { key: "tickets", labelEn: "Tickets Report", labelAr: "تقرير التذاكر" },
