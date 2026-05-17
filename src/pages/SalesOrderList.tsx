@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle, ChevronsUpDown, ArrowUp, ArrowDown, Copy } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
@@ -701,41 +701,58 @@ const SalesOrderList = () => {
                       </TableCell>
                       <TableCell className="text-[10px] font-mono text-muted-foreground" title={r.product_id || ''}>{r.product_id ? String(r.product_id).slice(0, 8) + '…' : <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
-                        <Popover open={productPopoverIdx === origIdx} onOpenChange={(o) => setProductPopoverIdx(o ? origIdx : null)}>
-                          <PopoverTrigger asChild>
-                            <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal justify-between min-w-[160px]">
-                              <span className="truncate">
-                                {r.product_name || <span className="text-muted-foreground">Select product</span>}
-                              </span>
+                        <div className="flex items-center gap-1">
+                          <Popover open={productPopoverIdx === origIdx} onOpenChange={(o) => setProductPopoverIdx(o ? origIdx : null)}>
+                            <PopoverTrigger asChild>
+                              <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal justify-between min-w-[140px]">
+                                <span className="truncate">
+                                  {r.product_name || <span className="text-muted-foreground">Select product</span>}
+                                </span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="p-0 w-[320px]" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search product..." />
+                                <CommandList>
+                                  <CommandEmpty>No product found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {productsList
+                                      .filter(p => {
+                                        const bk = String(r.brand_code || r.brand_name || "").trim().toLowerCase();
+                                        const pbk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
+                                        return !bk || pbk === bk;
+                                      })
+                                      .map(p => (
+                                        <CommandItem
+                                          key={p.id}
+                                          value={`${p.product_name} ${p.coins_number}`}
+                                          onSelect={() => handleChangeRowProduct(origIdx, p.id)}
+                                        >
+                                          <span className="font-medium">{p.product_name}</span>
+                                          {p.coins_number != null && <span className="ml-2 text-xs text-muted-foreground">({p.coins_number} coins)</span>}
+                                        </CommandItem>
+                                      ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          {r.product_name && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              title="Copy product name"
+                              onClick={() => {
+                                navigator.clipboard.writeText(r.product_name);
+                                toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied', description: r.product_name });
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
                             </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="p-0 w-[320px]" align="start">
-                            <Command>
-                              <CommandInput placeholder="Search product..." />
-                              <CommandList>
-                                <CommandEmpty>No product found.</CommandEmpty>
-                                <CommandGroup>
-                                  {productsList
-                                    .filter(p => {
-                                      const bk = String(r.brand_code || r.brand_name || "").trim().toLowerCase();
-                                      const pbk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
-                                      return !bk || pbk === bk;
-                                    })
-                                    .map(p => (
-                                      <CommandItem
-                                        key={p.id}
-                                        value={`${p.product_name} ${p.coins_number}`}
-                                        onSelect={() => handleChangeRowProduct(origIdx, p.id)}
-                                      >
-                                        <span className="font-medium">{p.product_name}</span>
-                                        {p.coins_number != null && <span className="ml-2 text-xs text-muted-foreground">({p.coins_number} coins)</span>}
-                                      </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
                       <TableCell className="text-right text-xs">{r.qty}</TableCell>
