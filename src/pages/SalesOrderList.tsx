@@ -49,8 +49,16 @@ const SalesOrderList = () => {
   const [showUnitCostZero, setShowUnitCostZero] = useState(false);
   const [salesRefFilter, setSalesRefFilter] = useState("");
 
+  const parseNumeric = (v: any): number => {
+    if (v === null || v === undefined || v === "") return 0;
+    if (typeof v === "number") return isFinite(v) ? v : 0;
+    const s = String(v).replace(/[,\s\u00A0\u200F\u200E]/g, "");
+    const m = s.match(/-?\d+(?:\.\d+)?/);
+    return m ? Number(m[0]) || 0 : 0;
+  };
+
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
-    const coins = Number(row.source_coins_number) || Number(row.coins_number) || Number(product?.coins_number) || 0;
+    const coins = parseNumeric(row.source_coins_number) || parseNumeric(row.coins_number) || parseNumeric(product?.coins_number) || 0;
     const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
     const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
     const srcUnit = Number(row.source_unit_price) || 0;
