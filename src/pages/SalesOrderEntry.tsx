@@ -122,6 +122,7 @@ const SalesOrderEntry = () => {
       id: generateTempId(),
       brand_id: "",
       product_name: "",
+      coins_number: 0,
       qty: 1,
       unit_price: 0,
       cost_price: 0,
