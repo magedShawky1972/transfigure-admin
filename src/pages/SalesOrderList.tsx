@@ -956,6 +956,7 @@ const SalesOrderList = () => {
                       <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
                       <TableCell className="text-right text-xs">{Number(r.cost_price).toFixed(7)}</TableCell>
                       <TableCell className="text-right text-xs font-medium">{Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right text-xs font-medium">{Number(r.total_cost ?? (Number(r.cost_price) || 0) * (Number(r.qty) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell>
                         {r.issues.length === 0 ? (
                           <Badge variant="secondary" className="text-xs">OK</Badge>
