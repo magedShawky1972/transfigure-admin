@@ -482,7 +482,7 @@ const SalesOrderEntry = () => {
                         <Input type="number" min={1} value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="0.01" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", Number(e.target.value))} />
+                        <Input type="number" step="0.001" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
                         <Input type="number" step="0.01" value={line.cost_price} onChange={e => updateLine(line.id, "cost_price", Number(e.target.value))} />
