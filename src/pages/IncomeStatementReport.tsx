@@ -442,6 +442,7 @@ const IncomeStatementReport = () => {
                 <TableRow>
                   <TableHead>{isRTL ? "العلامة التجارية" : "Brand"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "عدد المعاملات" : "Tx Count"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "النسبة" : "%"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "القيمة" : "Value"}</TableHead>
                 </TableRow>
@@ -455,13 +456,14 @@ const IncomeStatementReport = () => {
                   >
                     <TableCell className="font-medium">{b.brand_name}</TableCell>
                     <TableCell className="text-right">{b.tx_count.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{(b.coins || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{b.percentage.toFixed(2)}%</TableCell>
                     <TableCell className="text-right font-semibold">{fmt(b.value)}</TableCell>
                   </TableRow>
                 ))}
                 {drillBrandData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       {isRTL ? "لا توجد بيانات" : "No data"}
                     </TableCell>
                   </TableRow>
