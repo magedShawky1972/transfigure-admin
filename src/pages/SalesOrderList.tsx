@@ -43,6 +43,7 @@ const SalesOrderList = () => {
   const [showProductErrorsOnly, setShowProductErrorsOnly] = useState(false);
   const [showUnitPriceZero, setShowUnitPriceZero] = useState(false);
   const [showUnitCostZero, setShowUnitCostZero] = useState(false);
+  const [salesRefFilter, setSalesRefFilter] = useState("");
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
     const coins = Number(row.source_coins_number ?? row.coins_number) || 0;
