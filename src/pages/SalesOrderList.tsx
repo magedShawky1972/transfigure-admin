@@ -985,6 +985,7 @@ const SalesOrderList = () => {
                     { key: 'sales_reference', label: 'Sales Ref' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
+                    { key: 'sales_person', label: 'Sales Person' },
                     { key: 'source_brand_name', label: 'Source (Excel)' },
                     { key: 'vendor', label: 'Vendor' },
                     { key: 'brand_code', label: 'Brand Code' },
@@ -1047,6 +1048,7 @@ const SalesOrderList = () => {
                       
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
+                      <TableCell className="text-xs">{r.sales_person || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={vendorPopoverIdx === origIdx} onOpenChange={(o) => setVendorPopoverIdx(o ? origIdx : null)}>
