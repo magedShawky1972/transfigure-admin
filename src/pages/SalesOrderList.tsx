@@ -76,20 +76,36 @@ const SalesOrderList = () => {
     }) || null;
   };
 
-  const handleChangeRowBrand = (rowIdx: number, newBrandId: string) => {
+  const handleChangeRowBrand = async (rowIdx: number, newBrandId: string) => {
+    const newBrand = brandsList.find(b => b.id === newBrandId) || null;
+    let sourceName = "";
     setPreviewRows(prev => {
       if (!prev) return prev;
       const targetRow = prev[rowIdx];
-      const oldBrandKey = String(targetRow.brand_name || "").trim().toLowerCase();
-      const newBrand = brandsList.find(b => b.id === newBrandId) || null;
+      sourceName = String(targetRow.source_brand_name || targetRow.brand_name || "").trim();
+      const sourceKey = sourceName.toLowerCase();
       return prev.map(r => {
-        const sameOriginalBrand = String(r.brand_name || "").trim().toLowerCase() === oldBrandKey;
-        if (!sameOriginalBrand) return r;
+        const rowSource = String(r.source_brand_name || r.brand_name || "").trim().toLowerCase();
+        if (rowSource !== sourceKey) return r;
         const product = newBrand ? findProductForBrand(newBrand, r.product_name) : null;
         return recomputeRow(r, newBrand, product);
       });
     });
     setBrandPopoverIdx(null);
+
+    // Persist mapping so future imports auto-resolve
+    if (sourceName && newBrand) {
+      try {
+        await supabase.from("sales_order_brand_mappings").upsert({
+          source_brand_name: sourceName,
+          purple_brand_id: newBrand.id,
+          purple_brand_code: newBrand.brand_code,
+          purple_brand_name: newBrand.brand_name,
+        }, { onConflict: "source_brand_name" });
+      } catch (e) {
+        // ignore — mapping is a convenience, not required
+      }
+    }
   };
 
   const handleChangeRowProduct = (rowIdx: number, newProductId: string) => {
