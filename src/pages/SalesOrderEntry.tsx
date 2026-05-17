@@ -96,6 +96,7 @@ const SalesOrderEntry = () => {
 
   // Lookups
   const [brands, setBrands] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerLoading, setCustomerLoading] = useState(false);
@@ -183,14 +184,16 @@ const SalesOrderEntry = () => {
   };
 
   const fetchLookups = async () => {
-    const [brandsRes, pmRes, prodRes, spRes, coRes] = await Promise.all([
+    const [brandsRes, pmRes, prodRes, spRes, coRes, supRes] = await Promise.all([
       supabase.from("brands").select("id, brand_name, brand_code, sales_one_coins_sar, cost_one_coins_sar").eq("status", "active").order("brand_name"),
       supabase.from("payment_methods").select("id, payment_method, payment_type").eq("is_active", true).order("payment_method"),
       supabase.from("products").select("id, product_name, product_cost, product_price, coins_number, brand_code, brand_name").eq("status", "active").order("product_name").limit(5000),
       supabase.from("profiles").select("user_id, user_name, salesman_code").eq("is_active", true).order("user_name"),
       supabase.from("companies").select("name").eq("is_active", true).order("name"),
+      supabase.from("suppliers").select("id, supplier_name, supplier_code").eq("status", "active").order("supplier_name"),
     ]);
     setBrands(brandsRes.data || []);
+    setSuppliers(supRes.data || []);
     setPaymentMethods(pmRes.data || []);
     setProducts(prodRes.data || []);
     setSalesPeople(spRes.data || []);
@@ -699,12 +702,12 @@ const SalesOrderEntry = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="text"
+                        <SearchableSelect
                           value={line.vendor}
-                          onChange={e => updateLine(line.id, "vendor", e.target.value)}
+                          onChange={v => updateLine(line.id, "vendor", v)}
+                          options={suppliers.map((s: any) => ({ value: s.supplier_name, label: s.supplier_code ? `${s.supplier_name} (${s.supplier_code})` : s.supplier_name }))}
                           placeholder={language === 'ar' ? 'المورد' : 'Vendor'}
-                          className="min-w-[120px]"
+                          className="min-w-[150px]"
                         />
                       </TableCell>
                       <TableCell>
