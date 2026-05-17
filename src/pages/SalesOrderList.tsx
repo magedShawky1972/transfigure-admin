@@ -1384,6 +1384,26 @@ const SalesOrderList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={(o) => !o && !bulkConfirming && setBulkConfirmOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === 'ar' ? 'تأكيد متعدد' : 'Confirm Selected'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar'
+                ? `سيتم تأكيد ${confirmableSelectedIds.length} طلب وترحيلها كمعاملات. لا يمكن التراجع.`
+                : `${confirmableSelectedIds.length} order(s) will be confirmed and posted as transactions. This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkConfirming}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkConfirm} disabled={bulkConfirming}>
+              {bulkConfirming ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {language === 'ar' ? 'تأكيد' : 'Confirm'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
