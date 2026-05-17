@@ -769,7 +769,7 @@ const SalesOrderList = () => {
             </Button>
           </div>
           <div className="flex-1 overflow-auto border rounded">
-            <Table>
+            <table className="w-full caption-bottom text-sm">
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
@@ -941,7 +941,7 @@ const SalesOrderList = () => {
                   );
                 })}
               </TableBody>
-            </Table>
+            </table>
           </div>
           <DialogFooter>
             <Button variant="outline" disabled={committing} onClick={() => setPreviewRows(null)}>
