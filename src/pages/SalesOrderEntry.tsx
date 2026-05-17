@@ -186,17 +186,19 @@ const SalesOrderEntry = () => {
       
       // When brand changes, reset product
       if (field === "brand_id") {
+        updated.product_id = "";
         updated.product_name = "";
         updated.unit_price = 0;
         updated.cost_price = 0;
       }
 
-      if (field === "product_name") {
-        const product = products.find(p => p.product_name === value);
+      if (field === "product_id") {
+        const product = products.find(p => p.id === value);
         if (product) {
-          updated.unit_price = parseFloat(product.product_price || "0") || 0;
-          updated.cost_price = parseFloat(product.product_cost || "0") || 0;
-          updated.coins_number = product.coins_number || 0;
+          updated.product_name = product.product_name;
+          updated.unit_price = parseFloat(product.product_price ?? "0") || 0;
+          updated.cost_price = parseFloat(product.product_cost ?? "0") || 0;
+          updated.coins_number = Number(product.coins_number) || 0;
         }
       }
 
