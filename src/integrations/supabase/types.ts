@@ -1253,6 +1253,7 @@ export type Database = {
           recharge_usd_value: number | null
           reorder_point: number | null
           safety_stock: number | null
+          sales_one_coins_sar: number | null
           sales_usd_value_for_coins: number | null
           short_name: string | null
           skip_closing_image: boolean
@@ -1282,6 +1283,7 @@ export type Database = {
           recharge_usd_value?: number | null
           reorder_point?: number | null
           safety_stock?: number | null
+          sales_one_coins_sar?: number | null
           sales_usd_value_for_coins?: number | null
           short_name?: string | null
           skip_closing_image?: boolean
@@ -1311,6 +1313,7 @@ export type Database = {
           recharge_usd_value?: number | null
           reorder_point?: number | null
           safety_stock?: number | null
+          sales_one_coins_sar?: number | null
           sales_usd_value_for_coins?: number | null
           short_name?: string | null
           skip_closing_image?: boolean
