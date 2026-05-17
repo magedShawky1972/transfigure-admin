@@ -128,9 +128,9 @@ const SalesOrderList = () => {
   })();
 
   const COLUMNS = [
-    "order_number","order_date","customer_name",
+    "order_date","customer_name",
     "sales_reference","sales_person","company","notes",
-    "brand_name","product_name","qty"
+    "brand_name","product_name","qty","group_key"
   ];
 
   const EXPORT_COLUMNS = [
@@ -147,11 +147,12 @@ const SalesOrderList = () => {
 
   const handleExportTemplate = () => {
     const sample = [{
-      order_number: "SO-20260101-0001", order_date: "2026-01-01",
+      order_date: "2026-01-01",
       customer_name: "Sample Customer",
       sales_reference: "REF-1", sales_person: "John",
       company: "Asus", notes: "",
       brand_name: "Hawa Chat", product_name: "1 Coin", qty: 1,
+      group_key: "G1",
     }];
     downloadXlsx(sample, "sales_orders_template.xlsx");
   };
@@ -234,11 +235,10 @@ const SalesOrderList = () => {
         const issues: string[] = [];
         if (!brand) issues.push("Brand not found");
         if (!product) issues.push("Product not found");
-        if (!r.order_number) issues.push("Missing order_number");
         if (qty <= 0) issues.push("Qty must be > 0");
         return {
           row: idx + 2,
-          order_number: String(r.order_number || "").trim(),
+          group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
           order_date: orderDate,
           customer_name: r.customer_name || "",
           sales_reference: r.sales_reference || "",
@@ -280,18 +280,31 @@ const SalesOrderList = () => {
     }
     setCommitting(true);
     try {
-      // Group by order_number
+      // Group by group_key (from excel) — rows without one are their own order
       const groups = new Map<string, any[]>();
       valid.forEach(r => {
-        const arr = groups.get(r.order_number) || [];
-        arr.push(r); groups.set(r.order_number, arr);
+        const key = r.group_key || `__row_${r.row}`;
+        const arr = groups.get(key) || [];
+        arr.push(r); groups.set(key, arr);
+      });
+
+      // Generate unique order numbers
+      const dateStr = format(new Date(), "yyyyMMdd");
+      const { data: todays } = await supabase
+        .from("manual_sales_orders")
+        .select("order_number")
+        .like("order_number", `SO-${dateStr}-%`);
+      let maxSeq = 0;
+      (todays || []).forEach((o: any) => {
+        const m = String(o.order_number).match(/SO-\d{8}-(\d+)/);
+        if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10));
       });
 
       let created = 0, skipped = 0;
-      for (const [orderNum, grp] of groups) {
+      for (const [, grp] of groups) {
         const head = grp[0];
-        const { data: existing } = await supabase.from("manual_sales_orders").select("id").eq("order_number", orderNum).maybeSingle();
-        if (existing) { skipped++; continue; }
+        maxSeq++;
+        const orderNum = `SO-${dateStr}-${String(maxSeq).padStart(4, '0')}`;
 
         const totalAmount = grp.reduce((s, l) => s + l.total, 0);
         const totalCost = grp.reduce((s, l) => s + l.total_cost, 0);
@@ -333,7 +346,7 @@ const SalesOrderList = () => {
         created++;
       }
 
-      toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped (existing): ${skipped}` });
+      toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped: ${skipped}` });
       setPreviewRows(null);
       fetchOrders();
     } catch (err: any) {
@@ -498,7 +511,7 @@ const SalesOrderList = () => {
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   {[
-                    { key: 'order_number', label: 'Order #' },
+                    { key: 'group_key', label: 'Group' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
                     { key: 'brand_code', label: 'Brand Code' },
@@ -540,7 +553,7 @@ const SalesOrderList = () => {
                   return (
                     <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
                       <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.group_key?.startsWith('__row_') ? <span className="text-muted-foreground">—</span> : r.group_key}</TableCell>
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
