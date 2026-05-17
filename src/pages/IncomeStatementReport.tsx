@@ -19,7 +19,9 @@ interface IncomeRow {
   value: number;
   percentage: number;
   isTotal?: boolean;
-  drilldown: "brand" | "epayment" | "points-brand" | "none";
+  drilldown: "brand" | "epayment" | "points-brand" | "company" | "none";
+  company?: string;
+  metric?: "sales" | "cost";
 }
 
 interface BrandAggregate {
