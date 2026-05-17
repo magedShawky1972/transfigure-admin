@@ -645,6 +645,7 @@ const BrandSetup = () => {
                       </span>
                     </TableCell>
                     <TableCell>{brand.usd_value_for_coins || 0}</TableCell>
+                    <TableCell>{((brand as any).cost_one_coins_sar ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell>{(brand as any).one_usd_to_coins ? parseFloat((brand as any).one_usd_to_coins).toFixed(8) : '-'}</TableCell>
                     <TableCell>{brand.recharge_usd_value?.toFixed(3) || '0.000'}</TableCell>
                     <TableCell>{brand.leadtime || 0}</TableCell>
