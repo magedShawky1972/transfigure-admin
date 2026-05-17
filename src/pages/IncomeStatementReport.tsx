@@ -28,6 +28,7 @@ interface BrandAggregate {
   bank_fee: number;
   points_cost: number;
   qty: number;
+  coins: number;
   tx_count: number;
 }
 
