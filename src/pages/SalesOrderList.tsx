@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
@@ -25,16 +26,23 @@ const SalesOrderList = () => {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [committing, setCommitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [previewRows, setPreviewRows] = useState<any[] | null>(null);
 
   const COLUMNS = [
     "order_number","order_date","customer_name",
-    "sales_reference","sales_person","company","notes","status",
-    "brand_code","brand_name","product_id","product_name","coins_number","qty","unit_price","cost_price"
+    "sales_reference","sales_person","company","notes",
+    "brand_name","product_name","qty"
   ];
 
-  const downloadXlsx = (rows: any[], filename: string) => {
-    const ws = XLSX.utils.json_to_sheet(rows, { header: COLUMNS });
+  const EXPORT_COLUMNS = [
+    ...COLUMNS,
+    "status","brand_code","product_id","coins_number","unit_price","cost_price"
+  ];
+
+  const downloadXlsx = (rows: any[], filename: string, headers: string[] = COLUMNS) => {
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "SalesOrders");
     XLSX.writeFile(wb, filename);
@@ -45,9 +53,8 @@ const SalesOrderList = () => {
       order_number: "SO-20260101-0001", order_date: "2026-01-01",
       customer_name: "Sample Customer",
       sales_reference: "REF-1", sales_person: "John",
-      company: "Asus", notes: "", status: "draft",
-      brand_code: "HC", brand_name: "Hawa Chat", product_id: "00000000-0000-0000-0000-000000000000", product_name: "1 Coin",
-      coins_number: 100, qty: 1, unit_price: 0.0025, cost_price: 0.0020,
+      company: "Asus", notes: "",
+      brand_name: "Hawa Chat", product_name: "1 Coin", qty: 1,
     }];
     downloadXlsx(sample, "sales_orders_template.xlsx");
   };
@@ -80,7 +87,7 @@ const SalesOrderList = () => {
         }));
       }
     });
-    downloadXlsx(rows, `sales_orders_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`);
+    downloadXlsx(rows, `sales_orders_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`, EXPORT_COLUMNS);
   };
 
   const handleImportFile = async (file: File) => {
@@ -92,105 +99,70 @@ const SalesOrderList = () => {
       const raw: any[] = XLSX.utils.sheet_to_json(ws, { defval: null });
       if (raw.length === 0) throw new Error("Empty file");
 
-      // Resolve brands
+      // Lookups
       const [{ data: brandsData }, { data: productsData }] = await Promise.all([
-        supabase.from("brands").select("id, brand_code, brand_name"),
-        supabase.from("products").select("id, product_name, brand_code, brand_name").eq("status", "active").limit(5000),
+        supabase.from("brands").select("id, brand_code, brand_name, sales_one_coins_sar, cost_one_coins_sar"),
+        supabase.from("products").select("id, product_name, product_price, product_cost, coins_number, brand_code, brand_name").eq("status", "active").limit(5000),
       ]);
-      const brandByCode = new Map<string, any>();
       const brandByName = new Map<string, any>();
-      const productsById = new Map<string, any>();
-      const productsByBrandAndName = new Map<string, any>();
+      const brandByCode = new Map<string, any>();
       (brandsData || []).forEach((b: any) => {
-        if (b.brand_code) brandByCode.set(String(b.brand_code).trim().toLowerCase(), b);
         if (b.brand_name) brandByName.set(String(b.brand_name).trim().toLowerCase(), b);
+        if (b.brand_code) brandByCode.set(String(b.brand_code).trim().toLowerCase(), b);
       });
+      const productsByBrandAndName = new Map<string, any>();
       (productsData || []).forEach((p: any) => {
-        if (p.id) productsById.set(String(p.id), p);
-        const productBrandKey = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
-        const productNameKey = String(p.product_name || "").trim().toLowerCase();
-        const key = `${productBrandKey}::${productNameKey}`;
-        if (productNameKey && !productsByBrandAndName.has(key)) {
-          productsByBrandAndName.set(key, p);
-        }
+        const bk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
+        const nk = String(p.product_name || "").trim().toLowerCase();
+        if (nk) productsByBrandAndName.set(`${bk}::${nk}`, p);
       });
 
-      // Group by order_number
-      const groups = new Map<string, any[]>();
-      raw.forEach((r: any) => {
-        const num = String(r.order_number || "").trim();
-        if (!num) return;
-        const arr = groups.get(num) || [];
-        arr.push(r); groups.set(num, arr);
-      });
-
-      let created = 0, skipped = 0;
-      for (const [orderNum, grp] of groups) {
-        const head = grp[0];
-        // Skip if exists
-        const { data: existing } = await supabase.from("manual_sales_orders").select("id").eq("order_number", orderNum).maybeSingle();
-        if (existing) { skipped++; continue; }
-
-        const lines = grp.filter(r => r.product_name || r.brand_code || r.brand_name).map((r, idx) => {
-          const code = String(r.brand_code || "").trim().toLowerCase();
-          const name = String(r.brand_name || "").trim().toLowerCase();
-          const brand = brandByCode.get(code) || brandByName.get(name);
-          const productId = String(r.product_id || "").trim();
-          const productBrandKey = String(brand?.brand_code || brand?.brand_name || r.brand_code || r.brand_name || "").trim().toLowerCase();
-          const productNameKey = String(r.product_name || "").trim().toLowerCase();
-          const matchedProduct = (productId && productsById.get(productId)) || productsByBrandAndName.get(`${productBrandKey}::${productNameKey}`);
-          const coins = Number(r.coins_number) || 0;
-          const qty = Number(r.qty) || 0;
-          const unit = Number(r.unit_price) || 0;
-          const cost = Number(r.cost_price) || 0;
-          return {
-            line_number: idx + 1,
-            brand_id: brand?.id || null,
-            brand_code: brand?.brand_code || r.brand_code || null,
-            brand_name: brand?.brand_name || r.brand_name || null,
-            product_id: matchedProduct?.id || null,
-            product_name: r.product_name || matchedProduct?.product_name || "",
-            coins_number: coins, qty, unit_price: unit, cost_price: cost,
-            total: coins * qty * unit,
-            total_cost: coins * qty * cost,
-            profit: (coins * qty * unit) - (coins * qty * cost),
-          };
-        });
-
-        const totalAmount = lines.reduce((s, l) => s + l.total, 0);
-        const totalCost = lines.reduce((s, l) => s + l.total_cost, 0);
-        const totalCoins = lines.reduce((s, l) => s + (l.coins_number * l.qty), 0);
-
-        const orderDate = head.order_date ? (typeof head.order_date === "number"
-          ? XLSX.SSF.format("yyyy-mm-dd", head.order_date)
-          : String(head.order_date).substring(0, 10)) : format(new Date(), "yyyy-MM-dd");
-
-        const { data: ins, error: insErr } = await supabase.from("manual_sales_orders").insert({
-          order_number: orderNum,
+      const resolved = raw.map((r: any, idx: number) => {
+        const brandNameRaw = String(r.brand_name || "").trim();
+        const brand = brandByName.get(brandNameRaw.toLowerCase()) || brandByCode.get(String(r.brand_code || "").trim().toLowerCase());
+        const productNameRaw = String(r.product_name || "").trim();
+        const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
+        const product = productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
+        const coins = Number(product?.coins_number) || 0;
+        const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
+        const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
+        const unit = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product?.product_price ?? 0) || 0) / coins : 0);
+        const cost = costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0);
+        const qty = Number(r.qty) || 0;
+        const orderDate = r.order_date ? (typeof r.order_date === "number"
+          ? XLSX.SSF.format("yyyy-mm-dd", r.order_date)
+          : String(r.order_date).substring(0, 10)) : format(new Date(), "yyyy-MM-dd");
+        const issues: string[] = [];
+        if (!brand) issues.push("Brand not found");
+        if (!product) issues.push("Product not found");
+        if (!r.order_number) issues.push("Missing order_number");
+        if (qty <= 0) issues.push("Qty must be > 0");
+        return {
+          row: idx + 2,
+          order_number: String(r.order_number || "").trim(),
           order_date: orderDate,
-          customer_name: head.customer_name || null,
-          customer_phone: head.customer_phone ? String(head.customer_phone) : null,
-          payment_method: head.payment_method || null,
-          sales_reference: head.sales_reference || null,
-          sales_person: head.sales_person || null,
-          company: head.company || null,
-          notes: head.notes || null,
-          status: String(head.status || "draft").toLowerCase() === "confirmed" ? "draft" : "draft",
-          total_amount: totalAmount,
-          total_cost: totalCost,
-          total_profit: totalAmount - totalCost,
-          total_coins: totalCoins,
-        }).select().single();
-        if (insErr || !ins) { skipped++; continue; }
+          customer_name: r.customer_name || "",
+          sales_reference: r.sales_reference || "",
+          sales_person: r.sales_person || "",
+          company: r.company || "",
+          notes: r.notes || "",
+          brand_id: brand?.id || null,
+          brand_code: brand?.brand_code || "",
+          brand_name: brand?.brand_name || brandNameRaw,
+          product_id: product?.id || null,
+          product_name: product?.product_name || productNameRaw,
+          coins_number: coins,
+          qty,
+          unit_price: unit,
+          cost_price: cost,
+          total: coins * qty * unit,
+          total_cost: coins * qty * cost,
+          profit: (coins * qty * unit) - (coins * qty * cost),
+          issues,
+        };
+      });
 
-        if (lines.length > 0) {
-          await supabase.from("manual_sales_order_lines").insert(lines.map(l => ({ ...l, order_id: ins.id })));
-        }
-        created++;
-      }
-
-      toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped: ${skipped}` });
-      fetchOrders();
+      setPreviewRows(resolved);
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
     } finally {
@@ -198,6 +170,79 @@ const SalesOrderList = () => {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  const handleCommitImport = async () => {
+    if (!previewRows) return;
+    const valid = previewRows.filter(r => r.issues.length === 0);
+    if (valid.length === 0) {
+      toast({ title: "Nothing to import", description: "All rows have issues. Fix them and re-upload.", variant: "destructive" });
+      return;
+    }
+    setCommitting(true);
+    try {
+      // Group by order_number
+      const groups = new Map<string, any[]>();
+      valid.forEach(r => {
+        const arr = groups.get(r.order_number) || [];
+        arr.push(r); groups.set(r.order_number, arr);
+      });
+
+      let created = 0, skipped = 0;
+      for (const [orderNum, grp] of groups) {
+        const head = grp[0];
+        const { data: existing } = await supabase.from("manual_sales_orders").select("id").eq("order_number", orderNum).maybeSingle();
+        if (existing) { skipped++; continue; }
+
+        const totalAmount = grp.reduce((s, l) => s + l.total, 0);
+        const totalCost = grp.reduce((s, l) => s + l.total_cost, 0);
+        const totalCoins = grp.reduce((s, l) => s + (l.coins_number * l.qty), 0);
+
+        const { data: ins, error: insErr } = await supabase.from("manual_sales_orders").insert({
+          order_number: orderNum,
+          order_date: head.order_date,
+          customer_name: head.customer_name || null,
+          sales_reference: head.sales_reference || null,
+          sales_person: head.sales_person || null,
+          company: head.company || null,
+          notes: head.notes || null,
+          status: "draft",
+          total_amount: totalAmount,
+          total_cost: totalCost,
+          total_profit: totalAmount - totalCost,
+          total_coins: totalCoins,
+        }).select().single();
+        if (insErr || !ins) { skipped++; continue; }
+
+        const lineRows = grp.map((l, idx) => ({
+          order_id: ins.id,
+          line_number: idx + 1,
+          brand_id: l.brand_id,
+          brand_code: l.brand_code,
+          brand_name: l.brand_name,
+          product_id: l.product_id,
+          product_name: l.product_name,
+          coins_number: l.coins_number,
+          qty: l.qty,
+          unit_price: l.unit_price,
+          cost_price: l.cost_price,
+          total: l.total,
+          total_cost: l.total_cost,
+          profit: l.profit,
+        }));
+        await supabase.from("manual_sales_order_lines").insert(lineRows);
+        created++;
+      }
+
+      toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped (existing): ${skipped}` });
+      setPreviewRows(null);
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    } finally {
+      setCommitting(false);
+    }
+  };
+
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -334,6 +379,76 @@ const SalesOrderList = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!previewRows} onOpenChange={(o) => !o && !committing && setPreviewRows(null)}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'معاينة الاستيراد' : 'Import Preview'}
+              {previewRows && (
+                <span className="ml-3 text-sm font-normal text-muted-foreground">
+                  {previewRows.length} rows · {previewRows.filter(r => r.issues.length === 0).length} ready · {previewRows.filter(r => r.issues.length > 0).length} with issues
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto border rounded">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead className="w-10">#</TableHead>
+                  <TableHead>Order #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Brand</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Coins</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Unit</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(previewRows || []).map((r, i) => (
+                  <TableRow key={i} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
+                    <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
+                    <TableCell className="text-xs">{r.order_date}</TableCell>
+                    <TableCell className="text-xs">{r.customer_name}</TableCell>
+                    <TableCell className="text-xs">{r.brand_name}{r.brand_code ? <span className="text-muted-foreground"> ({r.brand_code})</span> : null}</TableCell>
+                    <TableCell className="text-xs">{r.product_name}</TableCell>
+                    <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-xs">{r.qty}</TableCell>
+                    <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
+                    <TableCell className="text-right text-xs">{Number(r.cost_price).toFixed(7)}</TableCell>
+                    <TableCell className="text-right text-xs font-medium">{Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell>
+                      {r.issues.length === 0 ? (
+                        <Badge variant="secondary" className="text-xs">OK</Badge>
+                      ) : (
+                        <span className="text-xs text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />{r.issues.join('; ')}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={committing} onClick={() => setPreviewRows(null)}>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button disabled={committing || !previewRows?.some(r => r.issues.length === 0)} onClick={handleCommitImport}>
+              {committing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {language === 'ar' ? 'تأكيد الاستيراد' : 'Confirm Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
