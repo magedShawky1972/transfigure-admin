@@ -953,7 +953,6 @@ const SalesOrderList = () => {
                   <TableHead className="w-10">#</TableHead>
                   {[
                     { key: 'sales_reference', label: 'Sales Ref' },
-                    { key: 'group_key', label: 'Group' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
                     { key: 'source_brand_name', label: 'Source (Excel)' },
@@ -1015,7 +1014,7 @@ const SalesOrderList = () => {
                     <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
                       <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
                       <TableCell className="text-xs font-medium">{r.sales_reference || <span className="text-muted-foreground">—</span>}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.group_key?.startsWith('__row_') ? <span className="text-muted-foreground">—</span> : r.group_key}</TableCell>
+                      
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
                       <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
