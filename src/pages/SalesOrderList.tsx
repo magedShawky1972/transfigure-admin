@@ -112,22 +112,40 @@ const SalesOrderList = () => {
     }
   };
 
-  const handleChangeRowProduct = (rowIdx: number, newProductId: string) => {
+  const handleChangeRowProduct = async (rowIdx: number, newProductId: string) => {
+    const newProduct = productsList.find(p => p.id === newProductId) || null;
+    let sourceProductName = "";
+    let sourceBrandName = "";
     setPreviewRows(prev => {
       if (!prev) return prev;
       const targetRow = prev[rowIdx];
-      const oldProductKey = String(targetRow.product_name || "").trim().toLowerCase();
-      const oldBrandKey = String(targetRow.brand_code || targetRow.brand_name || "").trim().toLowerCase();
-      const newProduct = productsList.find(p => p.id === newProductId) || null;
+      sourceProductName = String(targetRow.source_product_name || targetRow.product_name || "").trim();
+      sourceBrandName = String(targetRow.source_brand_name || targetRow.brand_name || "").trim();
+      const oldProductKey = sourceProductName.toLowerCase();
+      const oldBrandKey = sourceBrandName.toLowerCase();
       return prev.map(r => {
-        const sameBrand = String(r.brand_code || r.brand_name || "").trim().toLowerCase() === oldBrandKey;
-        const sameProduct = String(r.product_name || "").trim().toLowerCase() === oldProductKey;
-        if (!sameBrand || !sameProduct) return r;
+        const rowSrcBrand = String(r.source_brand_name || r.brand_name || "").trim().toLowerCase();
+        const rowSrcProd = String(r.source_product_name || r.product_name || "").trim().toLowerCase();
+        if (rowSrcBrand !== oldBrandKey || rowSrcProd !== oldProductKey) return r;
         const brand = brandsList.find(b => b.id === r.brand_id) || null;
         return recomputeRow({ ...r, product_name: newProduct?.product_name || r.product_name }, brand, newProduct);
       });
     });
     setProductPopoverIdx(null);
+
+    // Persist product mapping so future imports auto-resolve
+    if (sourceProductName && newProduct) {
+      try {
+        await supabase.from("sales_order_product_mappings").upsert({
+          source_brand_name: sourceBrandName,
+          source_product_name: sourceProductName,
+          purple_product_id: newProduct.id,
+          purple_product_name: newProduct.product_name,
+        }, { onConflict: "source_brand_name,source_product_name" });
+      } catch (e) {
+        // ignore — mapping is a convenience, not required
+      }
+    }
   };
 
   const toggleSort = (key: string, additive: boolean) => {
