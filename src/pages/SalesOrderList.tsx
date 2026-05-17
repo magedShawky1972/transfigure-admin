@@ -985,6 +985,7 @@ const SalesOrderList = () => {
                     { key: 'sales_reference', label: 'Sales Ref' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
+                    { key: 'sales_person', label: 'Sales Person' },
                     { key: 'source_brand_name', label: 'Source (Excel)' },
                     { key: 'vendor', label: 'Vendor' },
                     { key: 'brand_code', label: 'Brand Code' },
