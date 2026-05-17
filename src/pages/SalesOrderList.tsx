@@ -32,6 +32,99 @@ const SalesOrderList = () => {
   const [committing, setCommitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewRows, setPreviewRows] = useState<any[] | null>(null);
+  const [brandsList, setBrandsList] = useState<any[]>([]);
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
+  const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
+
+  const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
+    const coins = Number(product?.coins_number) || 0;
+    const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
+    const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
+    const unit = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product?.product_price ?? 0) || 0) / coins : 0);
+    const cost = costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0);
+    const qty = Number(row.qty) || 0;
+    const issues: string[] = [];
+    if (!brand) issues.push("Brand not found");
+    if (!product) issues.push("Product not found");
+    if (!row.order_number) issues.push("Missing order_number");
+    if (qty <= 0) issues.push("Qty must be > 0");
+    return {
+      ...row,
+      brand_id: brand?.id || null,
+      brand_code: brand?.brand_code || "",
+      brand_name: brand?.brand_name || row.brand_name || "",
+      product_id: product?.id || null,
+      product_name: product?.product_name || row.product_name || "",
+      coins_number: coins,
+      unit_price: unit,
+      cost_price: cost,
+      total: coins * qty * unit,
+      total_cost: coins * qty * cost,
+      profit: (coins * qty * unit) - (coins * qty * cost),
+      issues,
+    };
+  };
+
+  const findProductForBrand = (brand: any, productName: string) => {
+    const bk = String(brand?.brand_code || brand?.brand_name || "").trim().toLowerCase();
+    const nk = String(productName || "").trim().toLowerCase();
+    return productsList.find(p => {
+      const pbk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
+      const pnk = String(p.product_name || "").trim().toLowerCase();
+      return pbk === bk && pnk === nk;
+    }) || null;
+  };
+
+  const handleChangeRowBrand = (rowIdx: number, newBrandId: string) => {
+    setPreviewRows(prev => {
+      if (!prev) return prev;
+      const targetRow = prev[rowIdx];
+      const oldBrandKey = String(targetRow.brand_name || "").trim().toLowerCase();
+      const newBrand = brandsList.find(b => b.id === newBrandId) || null;
+      return prev.map(r => {
+        const sameOriginalBrand = String(r.brand_name || "").trim().toLowerCase() === oldBrandKey;
+        if (!sameOriginalBrand) return r;
+        const product = newBrand ? findProductForBrand(newBrand, r.product_name) : null;
+        return recomputeRow(r, newBrand, product);
+      });
+    });
+    setBrandPopoverIdx(null);
+  };
+
+  const toggleSort = (key: string, additive: boolean) => {
+    setSortConfig(prev => {
+      const existing = prev.find(s => s.key === key);
+      if (!additive) {
+        if (existing && prev.length === 1) {
+          return existing.dir === 'asc' ? [{ key, dir: 'desc' }] : [];
+        }
+        return [{ key, dir: 'asc' }];
+      }
+      if (existing) {
+        if (existing.dir === 'asc') return prev.map(s => s.key === key ? { ...s, dir: 'desc' } : s);
+        return prev.filter(s => s.key !== key);
+      }
+      return [...prev, { key, dir: 'asc' }];
+    });
+  };
+
+  const sortedPreview = (() => {
+    if (!previewRows) return null;
+    if (sortConfig.length === 0) return previewRows.map((r, i) => ({ ...r, __idx: i }));
+    const arr = previewRows.map((r, i) => ({ ...r, __idx: i }));
+    arr.sort((a, b) => {
+      for (const { key, dir } of sortConfig) {
+        const av = a[key]; const bv = b[key];
+        const an = typeof av === 'number' ? av : (av == null ? '' : String(av).toLowerCase());
+        const bn = typeof bv === 'number' ? bv : (bv == null ? '' : String(bv).toLowerCase());
+        if (an < bn) return dir === 'asc' ? -1 : 1;
+        if (an > bn) return dir === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+    return arr;
+  })();
 
   const COLUMNS = [
     "order_number","order_date","customer_name",
