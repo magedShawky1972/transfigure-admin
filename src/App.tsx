@@ -34,6 +34,7 @@ import BrandType from "./pages/BrandType";
 import ProductSetup from "./pages/ProductSetup";
 import ProductDetails from "./pages/ProductDetails";
 import PaymentMethodSetup from "./pages/PaymentMethodSetup";
+import CompanySetup from "./pages/CompanySetup";
 import PivotTable from "./pages/PivotTable";
 import OdooSetup from "./pages/OdooSetup";
 import Auth from "./pages/Auth";
