@@ -28,6 +28,7 @@ interface BrandAggregate {
   bank_fee: number;
   points_cost: number;
   qty: number;
+  coins: number;
   tx_count: number;
 }
 
@@ -54,6 +55,7 @@ const IncomeStatementReport = () => {
   const [includePointCost, setIncludePointCost] = useState(true);
 
   const [brands, setBrands] = useState<string[]>([]);
+  const [brandAbcMap, setBrandAbcMap] = useState<Record<string, string>>({});
   const [companies, setCompanies] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
@@ -63,7 +65,7 @@ const IncomeStatementReport = () => {
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillTitle, setDrillTitle] = useState("");
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
-  const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number }>>([]);
+  const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
   const [drillEpayment, setDrillEpayment] = useState<EPaymentRow[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
 
@@ -78,9 +80,15 @@ const IncomeStatementReport = () => {
     (async () => {
       const { data: bData } = await supabase
         .from("brands")
-        .select("brand_name")
+        .select("brand_name, abc_analysis")
         .order("brand_name");
-      setBrands((bData || []).map((b: any) => b.brand_name).filter(Boolean));
+      const list = (bData || []).map((b: any) => b.brand_name).filter(Boolean);
+      setBrands(list);
+      const map: Record<string, string> = {};
+      (bData || []).forEach((b: any) => {
+        if (b.brand_name) map[b.brand_name] = (b.abc_analysis || "").toString().toUpperCase();
+      });
+      setBrandAbcMap(map);
 
       const { data: cData } = await supabase
         .from("purpletransaction")
@@ -104,7 +112,7 @@ const IncomeStatementReport = () => {
       while (true) {
         let q = supabase
           .from("purpletransaction")
-          .select("brand_name, total, cost_sold, bank_fee, payment_method, qty, order_number, id")
+          .select("brand_name, total, cost_sold, bank_fee, payment_method, qty, coins_number, order_number, id")
           .gte("created_at_date_int", startInt)
           .lte("created_at_date_int", endInt);
         if (brandFilter !== "all") q = q.eq("brand_name", brandFilter);
@@ -131,6 +139,7 @@ const IncomeStatementReport = () => {
             bank_fee: 0,
             points_cost: 0,
             qty: 0,
+            coins: 0,
             tx_count: 0,
           });
         }
@@ -152,6 +161,7 @@ const IncomeStatementReport = () => {
           agg.cost_sold += Number(r.cost_sold) || 0;
           agg.bank_fee += Number(r.bank_fee) || 0;
           agg.qty += Number(r.qty) || 0;
+          agg.coins += Number(r.coins_number) || 0;
           agg.tx_count += 1;
         }
       }
@@ -210,18 +220,20 @@ const IncomeStatementReport = () => {
 
     if (row.drilldown === "brand" || row.drilldown === "points-brand") {
       setDrillType("brand");
-      let breakdown: Array<{ brand_name: string; value: number; percentage: number; tx_count: number }> = [];
+      let breakdown: Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }> = [];
       const baseTotal = row.value || 1;
+      const coinsFor = (a: BrandAggregate) =>
+        (brandAbcMap[a.brand_name] === "A") ? (a.coins || 0) : 0;
       if (row.key === "totalSales" || row.key === "salesPlusCoupon") {
-        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.total, percentage: (a.total / baseTotal) * 100, tx_count: a.tx_count }));
+        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.total, percentage: (a.total / baseTotal) * 100, tx_count: a.tx_count, coins: coinsFor(a) }));
       } else if (row.key === "costOfSales") {
-        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.cost_sold, percentage: (a.cost_sold / baseTotal) * 100, tx_count: a.tx_count }));
+        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.cost_sold, percentage: (a.cost_sold / baseTotal) * 100, tx_count: a.tx_count, coins: coinsFor(a) }));
       } else if (row.key === "pointsCost") {
-        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.points_cost, percentage: a.points_cost ? (a.points_cost / baseTotal) * 100 : 0, tx_count: a.tx_count }));
+        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.points_cost, percentage: a.points_cost ? (a.points_cost / baseTotal) * 100 : 0, tx_count: a.tx_count, coins: coinsFor(a) }));
       } else if (row.key === "netSales") {
         breakdown = aggregates.map((a) => {
           const v = a.total - a.cost_sold - (includePointCost ? a.points_cost : 0) - a.bank_fee;
-          return { brand_name: a.brand_name, value: v, percentage: a.total > 0 ? (v / a.total) * 100 : 0, tx_count: a.tx_count };
+          return { brand_name: a.brand_name, value: v, percentage: a.total > 0 ? (v / a.total) * 100 : 0, tx_count: a.tx_count, coins: coinsFor(a) };
         });
       }
       breakdown = breakdown.filter((b) => Math.abs(b.value) > 0.001).sort((a, b) => b.value - a.value);
@@ -430,6 +442,7 @@ const IncomeStatementReport = () => {
                 <TableRow>
                   <TableHead>{isRTL ? "العلامة التجارية" : "Brand"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "عدد المعاملات" : "Tx Count"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "النسبة" : "%"}</TableHead>
                   <TableHead className="text-right">{isRTL ? "القيمة" : "Value"}</TableHead>
                 </TableRow>
@@ -443,13 +456,14 @@ const IncomeStatementReport = () => {
                   >
                     <TableCell className="font-medium">{b.brand_name}</TableCell>
                     <TableCell className="text-right">{b.tx_count.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{(b.coins || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{b.percentage.toFixed(2)}%</TableCell>
                     <TableCell className="text-right font-semibold">{fmt(b.value)}</TableCell>
                   </TableRow>
                 ))}
                 {drillBrandData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       {isRTL ? "لا توجد بيانات" : "No data"}
                     </TableCell>
                   </TableRow>
