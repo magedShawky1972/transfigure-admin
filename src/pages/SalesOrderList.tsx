@@ -33,6 +33,9 @@ const SalesOrderList = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkConfirmProgress, setBulkConfirmProgress] = useState<{ current: number; total: number } | null>(null);
   const [importing, setImporting] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState<{ current: number; total: number } | null>(null);
