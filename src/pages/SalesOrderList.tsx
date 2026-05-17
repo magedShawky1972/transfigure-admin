@@ -28,7 +28,7 @@ const SalesOrderList = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const COLUMNS = [
-    "order_number","order_date","customer_name","customer_phone","payment_method",
+    "order_number","order_date","customer_name",
     "sales_reference","sales_person","company","notes","status",
     "brand_code","brand_name","product_id","product_name","coins_number","qty","unit_price","cost_price"
   ];
