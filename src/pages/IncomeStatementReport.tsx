@@ -223,7 +223,7 @@ const IncomeStatementReport = () => {
     { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "cost", parent: "costOfSales" },
     { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "cost", parent: "costOfSales" },
     { key: "pointsCost", label: isRTL ? "تكلفة النقاط" : "Point Cost", value: totals.pointsCost, percentage: pct(totals.pointsCost, totals.totalSales), drilldown: "points-brand" },
-    { key: "ePayment", label: isRTL ? "رسوم الدفع الإلكتروني" : "E-Payment Charges", value: totals.ePaymentCharges, percentage: pct(totals.ePaymentCharges, totals.totalSales), drilldown: "epayment" },
+    { key: "ePayment", label: isRTL ? "*** رسوم الدفع الإلكتروني ***" : "*** E-Payment Charges ***", value: totals.ePaymentCharges, percentage: pct(totals.ePaymentCharges, totals.totalSales), isTotal: true, drilldown: "epayment" },
     { key: "grossProfit", label: isRTL ? "*** الربح الإجمالي ***" : "*** Gross Profit ***", value: grossProfit, percentage: pct(grossProfit, totals.totalSales), isTotal: true, drilldown: "none" },
   ];
 
