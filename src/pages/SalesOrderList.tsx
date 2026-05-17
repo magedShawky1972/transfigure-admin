@@ -553,7 +553,7 @@ const SalesOrderList = () => {
                   return (
                     <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
                       <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.group_key?.startsWith('__row_') ? <span className="text-muted-foreground">—</span> : r.group_key}</TableCell>
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
