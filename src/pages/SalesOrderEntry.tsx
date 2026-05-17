@@ -52,6 +52,7 @@ function SearchableSelect({ value, onChange, options, placeholder, className }: 
 interface OrderLine {
   id: string;
   brand_id: string;
+  product_id: string;
   product_name: string;
   coins_number: number;
   qty: number;
@@ -163,6 +164,7 @@ const SalesOrderEntry = () => {
     setLines(prev => [...prev, {
       id: generateTempId(),
       brand_id: "",
+      product_id: "",
       product_name: "",
       coins_number: 0,
       qty: 1,
@@ -184,17 +186,19 @@ const SalesOrderEntry = () => {
       
       // When brand changes, reset product
       if (field === "brand_id") {
+        updated.product_id = "";
         updated.product_name = "";
         updated.unit_price = 0;
         updated.cost_price = 0;
       }
 
-      if (field === "product_name") {
-        const product = products.find(p => p.product_name === value);
+      if (field === "product_id") {
+        const product = products.find(p => p.id === value);
         if (product) {
-          updated.unit_price = parseFloat(product.product_price || "0") || 0;
-          updated.cost_price = parseFloat(product.product_cost || "0") || 0;
-          updated.coins_number = product.coins_number || 0;
+          updated.product_name = product.product_name;
+          updated.unit_price = parseFloat(product.product_price ?? "0") || 0;
+          updated.cost_price = parseFloat(product.product_cost ?? "0") || 0;
+          updated.coins_number = Number(product.coins_number) || 0;
         }
       }
 
@@ -464,9 +468,9 @@ const SalesOrderEntry = () => {
                       </TableCell>
                       <TableCell>
                         <SearchableSelect
-                          value={line.product_name}
-                          onChange={v => updateLine(line.id, "product_name", v)}
-                          options={getFilteredProducts(line.brand_id).map(p => ({ value: p.product_name, label: p.product_name }))}
+                          value={line.product_id}
+                          onChange={v => updateLine(line.id, "product_id", v)}
+                          options={getFilteredProducts(line.brand_id).map(p => ({ value: p.id, label: p.product_name }))}
                           placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'}
                           className="min-w-[200px]"
                         />
@@ -478,10 +482,10 @@ const SalesOrderEntry = () => {
                         <Input type="number" min={1} value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="0.01" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", Number(e.target.value))} />
+                        <Input type="number" step="0.001" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="0.01" value={line.cost_price} onChange={e => updateLine(line.id, "cost_price", Number(e.target.value))} />
+                        <Input type="number" step="0.001" value={line.cost_price} onChange={e => updateLine(line.id, "cost_price", Number(e.target.value))} />
                       </TableCell>
                       <TableCell className="font-medium">{(line.qty * line.cost_price).toFixed(2)}</TableCell>
                       <TableCell className="font-medium">{line.total.toFixed(2)}</TableCell>
