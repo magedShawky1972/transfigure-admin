@@ -670,7 +670,7 @@ const SalesOrderEntry = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="[&_td]:py-1 [&_td]:px-2 [&_th]:py-2 [&_th]:px-2">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8">#</TableHead>
