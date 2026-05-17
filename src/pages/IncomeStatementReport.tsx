@@ -520,6 +520,17 @@ const IncomeStatementReport = () => {
                     </TableRow>
                   ))}
                 </TableBody>
+                {txList.length > 0 && (
+                  <TableFooter>
+                    <TableRow className="font-bold bg-muted/50">
+                      <TableCell colSpan={5}>{isRTL ? `الإجمالي (${txList.length.toLocaleString()})` : `Total (${txList.length.toLocaleString()})`}</TableCell>
+                      <TableCell className="text-right">{txList.reduce((s, t) => s + (Number(t.qty) || 0), 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{fmt(txList.reduce((s, t) => s + (Number(t.total) || 0), 0))}</TableCell>
+                      <TableCell className="text-right">{fmt(txList.reduce((s, t) => s + (Number(t.cost_sold) || 0), 0))}</TableCell>
+                      <TableCell className="text-right">{fmt(txList.reduce((s, t) => s + (Number(t.bank_fee) || 0), 0))}</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
               </Table>
               {txList.length > 1000 && (
                 <p className="text-xs text-muted-foreground p-2">
