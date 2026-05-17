@@ -110,7 +110,7 @@ const CompanySetup = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6" dir={isAr ? "rtl" : "ltr"}>
-      <LoadingOverlay isVisible={loading || saving} message={t("جارٍ المعالجة...", "Processing...")} />
+      {(loading || saving) && <LoadingOverlay message={t("جارٍ المعالجة...", "Processing...")} />}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t("إعداد الشركات", "Company Setup")}</CardTitle>
