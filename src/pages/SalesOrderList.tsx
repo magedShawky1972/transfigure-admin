@@ -680,6 +680,120 @@ const SalesOrderList = () => {
     setBulkDeleteOpen(false);
   };
 
+  const confirmableSelectedIds = selectedIds.filter(id => {
+    const o = orders.find(x => x.id === id);
+    return o && o.status !== 'confirmed';
+  });
+
+  const handleBulkConfirm = async () => {
+    if (confirmableSelectedIds.length === 0) return;
+    setBulkConfirming(true);
+    const total = confirmableSelectedIds.length;
+    setBulkConfirmProgress({ current: 0, total });
+
+    try {
+      // Load lookups
+      const [{ data: brandsData }, { data: pmData }, { data: userRes }] = await Promise.all([
+        supabase.from("brands").select("id, brand_code, brand_name"),
+        supabase.from("payment_methods").select("payment_method, payment_type").eq("is_active", true),
+        supabase.auth.getUser(),
+      ]);
+      const brandByCode = new Map((brandsData || []).map((b: any) => [b.brand_code, b]));
+      const brandByName = new Map((brandsData || []).map((b: any) => [b.brand_name, b]));
+      const pmByName = new Map((pmData || []).map((pm: any) => [pm.payment_method, pm]));
+      const userEmail = userRes?.user?.email || "";
+
+      // Load lines for all selected orders in one go
+      const { data: allLines } = await supabase
+        .from("manual_sales_order_lines")
+        .select("*")
+        .in("order_id", confirmableSelectedIds);
+      const linesByOrder = new Map<string, any[]>();
+      (allLines || []).forEach((l: any) => {
+        const arr = linesByOrder.get(l.order_id) || [];
+        arr.push(l); linesByOrder.set(l.order_id, arr);
+      });
+
+      let confirmed = 0;
+      let skipped = 0;
+      let processed = 0;
+
+      for (const oid of confirmableSelectedIds) {
+        const order = orders.find(x => x.id === oid);
+        const oLines = linesByOrder.get(oid) || [];
+        if (!order || oLines.length === 0) {
+          skipped++; processed++;
+          if (processed % 5 === 0 || processed === total) {
+            setBulkConfirmProgress({ current: processed, total });
+            await new Promise(r => setTimeout(r, 0));
+          }
+          continue;
+        }
+        const selectedPM = pmByName.get(order.payment_method);
+        const orderDateObj = order.order_date ? new Date(order.order_date) : new Date();
+
+        const rows = oLines.map((line: any) => {
+          const lineBrand = brandByCode.get(line.brand_code) || brandByName.get(line.brand_name);
+          return {
+            brand_name: lineBrand?.brand_name || line.brand_name || "",
+            brand_code: lineBrand?.brand_code || line.brand_code || "",
+            customer_name: order.customer_name || null,
+            customer_phone: order.customer_phone || null,
+            product_name: line.product_name,
+            coins_number: Number(line.coins_number) || 0,
+            qty: Number(line.qty),
+            unit_price: Number(line.unit_price),
+            cost_price: Number(line.cost_price),
+            cost_sold: (Number(line.coins_number) || 0) * Number(line.qty) * Number(line.cost_price),
+            total: Number(line.total),
+            profit: Number(line.profit),
+            payment_method: selectedPM?.payment_type || order.payment_method || "Bank",
+            payment_brand: order.payment_method || "Bank Transfer",
+            order_number: order.order_number,
+            ordernumber: order.order_number,
+            user_name: userEmail,
+            sales_reference: order.sales_reference || null,
+            sales_person: order.sales_person || null,
+            trans_type: "manual",
+            company: order.company || "Purple",
+            created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
+            is_deleted: false,
+          };
+        });
+
+        const { error: insErr } = await supabase.from("purpletransaction").insert(rows);
+        if (insErr) {
+          console.error(`Confirm failed for ${order.order_number}:`, insErr);
+          skipped++;
+        } else {
+          await supabase.from("manual_sales_orders")
+            .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+            .eq("id", oid)
+            .select();
+          confirmed++;
+        }
+        processed++;
+        if (processed % 5 === 0 || processed === total) {
+          setBulkConfirmProgress({ current: processed, total });
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+
+      toast({
+        title: language === 'ar' ? 'تم التأكيد' : 'Confirmed',
+        description: `${language === 'ar' ? 'مؤكد' : 'Confirmed'}: ${confirmed}, ${language === 'ar' ? 'متخطى' : 'Skipped'}: ${skipped}`,
+      });
+      setSelectedIds([]);
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: language === 'ar' ? 'فشل التأكيد' : 'Confirm failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setBulkConfirming(false);
+      setBulkConfirmProgress(null);
+      setBulkConfirmOpen(false);
+    }
+  };
+
   const toggleSelectAll = () => {
     const eligibleIds = orders.filter(o => o.status !== 'confirmed').map(o => o.id);
     if (eligibleIds.every(id => selectedIds.includes(id)) && eligibleIds.length > 0) {
