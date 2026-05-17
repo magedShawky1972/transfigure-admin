@@ -716,6 +716,16 @@ const SalesOrderList = () => {
                 </span>
               )}
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto gap-1"
+              disabled={refreshingPreview}
+              onClick={handleRefreshPreview}
+            >
+              {refreshingPreview ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              {language === 'ar' ? 'تحديث' : 'Refresh'}
+            </Button>
           </div>
           <div className="flex-1 overflow-auto border rounded">
             <Table>
