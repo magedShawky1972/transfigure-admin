@@ -36,6 +36,7 @@ const SalesOrderList = () => {
   const [productsList, setProductsList] = useState<any[]>([]);
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
   const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
+  const [productPopoverIdx, setProductPopoverIdx] = useState<number | null>(null);
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
     const coins = Number(product?.coins_number) || 0;
