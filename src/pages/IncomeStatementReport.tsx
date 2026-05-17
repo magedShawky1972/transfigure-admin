@@ -254,6 +254,91 @@ const IncomeStatementReport = () => {
       return;
     }
 
+    if (row.drilldown === "company" && row.company) {
+      setDrillType("brand");
+      setDrillLoading(true);
+      setDrillOpen(true);
+      try {
+        const startInt = parseInt(appliedStartDate.replace(/-/g, ""));
+        const endInt = parseInt(appliedEndDate.replace(/-/g, ""));
+        const baseTotal = row.value || 1;
+        const map = new Map<string, { value: number; tx_count: number; coins: number }>();
+
+        if (row.company === "Asus") {
+          // From confirmed manual sales orders → line items grouped by brand
+          const { data: orders, error: oErr } = await supabase
+            .from("manual_sales_orders")
+            .select("id")
+            .eq("status", "confirmed")
+            .gte("order_date", appliedStartDate)
+            .lte("order_date", appliedEndDate);
+          if (oErr) throw oErr;
+          const orderIds = (orders || []).map((o: any) => o.id);
+          if (orderIds.length > 0) {
+            let from = 0;
+            while (true) {
+              const { data: lines, error: lErr } = await supabase
+                .from("manual_sales_order_lines")
+                .select("brand_id, product_name, qty, total, cost_price, coins_number")
+                .in("order_id", orderIds)
+                .range(from, from + PAGE_SIZE - 1);
+              if (lErr) throw lErr;
+              const batch = lines || [];
+              batch.forEach((l: any) => {
+                const brand = l.brand_id || "Unknown";
+                const cur = map.get(brand) || { value: 0, tx_count: 0, coins: 0 };
+                const v = row.metric === "cost" ? (Number(l.cost_price) || 0) * (Number(l.qty) || 0) : (Number(l.total) || 0);
+                cur.value += v;
+                cur.tx_count += 1;
+                cur.coins += Number(l.coins_number) || 0;
+                map.set(brand, cur);
+              });
+              if (batch.length < PAGE_SIZE) break;
+              from += PAGE_SIZE;
+            }
+          }
+        } else {
+          // Purple / Salla from purpletransaction grouped by brand_name
+          let from = 0;
+          while (true) {
+            let q = supabase
+              .from("purpletransaction")
+              .select("brand_name, total, cost_sold, coins_number")
+              .gte("created_at_date_int", startInt)
+              .lte("created_at_date_int", endInt)
+              .eq("revenue_source", row.company);
+            if (appliedBrandFilter !== "all") q = q.eq("brand_name", appliedBrandFilter);
+            if (appliedCompanyFilter !== "all") q = q.eq("company", appliedCompanyFilter);
+            const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
+            if (error) throw error;
+            const batch = data || [];
+            batch.forEach((r: any) => {
+              const brand = r.brand_name || "Unknown";
+              const cur = map.get(brand) || { value: 0, tx_count: 0, coins: 0 };
+              const v = row.metric === "cost" ? Number(r.cost_sold) || 0 : Number(r.total) || 0;
+              cur.value += v;
+              cur.tx_count += 1;
+              cur.coins += Number(r.coins_number) || 0;
+              map.set(brand, cur);
+            });
+            if (batch.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+          }
+        }
+
+        const breakdown = Array.from(map.entries())
+          .map(([brand_name, v]) => ({ brand_name, value: v.value, percentage: (v.value / baseTotal) * 100, tx_count: v.tx_count, coins: brandAbcMap[brand_name] === "A" ? v.coins : 0 }))
+          .filter((b) => Math.abs(b.value) > 0.001)
+          .sort((a, b) => b.value - a.value);
+        setDrillBrandData(breakdown);
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to load breakdown");
+      } finally {
+        setDrillLoading(false);
+      }
+      return;
+    }
+
     if (row.drilldown === "epayment") {
       setDrillType("epayment");
       setDrillLoading(true);
