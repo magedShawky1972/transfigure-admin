@@ -92,6 +92,24 @@ const SalesOrderList = () => {
     setBrandPopoverIdx(null);
   };
 
+  const handleChangeRowProduct = (rowIdx: number, newProductId: string) => {
+    setPreviewRows(prev => {
+      if (!prev) return prev;
+      const targetRow = prev[rowIdx];
+      const oldProductKey = String(targetRow.product_name || "").trim().toLowerCase();
+      const oldBrandKey = String(targetRow.brand_code || targetRow.brand_name || "").trim().toLowerCase();
+      const newProduct = productsList.find(p => p.id === newProductId) || null;
+      return prev.map(r => {
+        const sameBrand = String(r.brand_code || r.brand_name || "").trim().toLowerCase() === oldBrandKey;
+        const sameProduct = String(r.product_name || "").trim().toLowerCase() === oldProductKey;
+        if (!sameBrand || !sameProduct) return r;
+        const brand = brandsList.find(b => b.id === r.brand_id) || null;
+        return recomputeRow({ ...r, product_name: newProduct?.product_name || r.product_name }, brand, newProduct);
+      });
+    });
+    setProductPopoverIdx(null);
+  };
+
   const toggleSort = (key: string, additive: boolean) => {
     setSortConfig(prev => {
       const existing = prev.find(s => s.key === key);
