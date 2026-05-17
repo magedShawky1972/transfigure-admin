@@ -559,6 +559,7 @@ const SalesOrderList = () => {
                     { key: 'group_key', label: 'Group' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
+                    { key: 'source_brand_name', label: 'Source (Excel)' },
                     { key: 'brand_code', label: 'Brand Code' },
                     { key: 'brand_name', label: 'Brand' },
                     { key: 'product_id', label: 'Product ID' },
