@@ -937,7 +937,7 @@ const SalesOrderList = () => {
                   <TableRow>
                     <TableHead className="w-10">
                       {(() => {
-                        const eligibleIds = orders.filter(o => o.status !== 'confirmed').map(o => o.id);
+                        const eligibleIds = orders.map(o => o.id);
                         const allChecked = eligibleIds.length > 0 && eligibleIds.every(id => selectedIds.includes(id));
                         return (
                           <Checkbox
