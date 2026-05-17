@@ -72,6 +72,7 @@ const IncomeStatementReport = () => {
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
   const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
   const [drillEpayment, setDrillEpayment] = useState<EPaymentRow[]>([]);
+  const [epaySorts, setEpaySorts] = useState<Array<{ key: keyof EPaymentRow; dir: "asc" | "desc" }>>([]);
   const [drillLoading, setDrillLoading] = useState(false);
 
   // Second-level: transactions for a brand
@@ -465,19 +466,72 @@ const IncomeStatementReport = () => {
               )}
             </Table>
           ) : (
+            (() => {
+              const toggleSort = (key: keyof EPaymentRow, multi: boolean) => {
+                setEpaySorts((prev) => {
+                  const idx = prev.findIndex((s) => s.key === key);
+                  if (!multi) {
+                    if (idx === 0 && prev.length === 1) {
+                      return [{ key, dir: prev[0].dir === "asc" ? "desc" : "asc" }];
+                    }
+                    return [{ key, dir: "asc" }];
+                  }
+                  if (idx === -1) return [...prev, { key, dir: "asc" }];
+                  const next = [...prev];
+                  next[idx] = { key, dir: next[idx].dir === "asc" ? "desc" : "asc" };
+                  return next;
+                });
+              };
+              const sortIndicator = (key: keyof EPaymentRow) => {
+                const idx = epaySorts.findIndex((s) => s.key === key);
+                if (idx === -1) return null;
+                const s = epaySorts[idx];
+                return (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    {s.dir === "asc" ? "▲" : "▼"}
+                    {epaySorts.length > 1 ? <sup>{idx + 1}</sup> : null}
+                  </span>
+                );
+              };
+              const sorted = epaySorts.length === 0
+                ? drillEpayment
+                : [...drillEpayment].sort((a, b) => {
+                    for (const s of epaySorts) {
+                      const av = a[s.key];
+                      const bv = b[s.key];
+                      let cmp = 0;
+                      if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+                      else cmp = String(av ?? "").localeCompare(String(bv ?? ""));
+                      if (cmp !== 0) return s.dir === "asc" ? cmp : -cmp;
+                    }
+                    return 0;
+                  });
+              const headers: Array<{ key: keyof EPaymentRow; label: string; align: "left" | "right" }> = [
+                { key: "payment_method", label: isRTL ? "طريقة الدفع" : "Payment Method", align: "left" },
+                { key: "payment_brand", label: isRTL ? "بوابة الدفع" : "Payment Brand", align: "left" },
+                { key: "transaction_count", label: isRTL ? "عدد المعاملات" : "Tx Count", align: "right" },
+                { key: "total_sales", label: isRTL ? "إجمالي المبيعات" : "Total Sales", align: "right" },
+                { key: "percentage", label: isRTL ? "النسبة" : "%", align: "right" },
+                { key: "bank_fee", label: isRTL ? "الرسوم" : "Bank Fee", align: "right" },
+              ];
+              return (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{isRTL ? "طريقة الدفع" : "Payment Method"}</TableHead>
-                  <TableHead>{isRTL ? "بوابة الدفع" : "Payment Brand"}</TableHead>
-                  <TableHead className="text-right">{isRTL ? "عدد المعاملات" : "Tx Count"}</TableHead>
-                  <TableHead className="text-right">{isRTL ? "إجمالي المبيعات" : "Total Sales"}</TableHead>
-                  <TableHead className="text-right">{isRTL ? "النسبة" : "%"}</TableHead>
-                  <TableHead className="text-right">{isRTL ? "الرسوم" : "Bank Fee"}</TableHead>
+                  {headers.map((h) => (
+                    <TableHead
+                      key={h.key as string}
+                      className={`${h.align === "right" ? "text-right" : ""} cursor-pointer select-none hover:bg-muted/40`}
+                      onClick={(e) => toggleSort(h.key, e.shiftKey)}
+                      title={isRTL ? "Shift+نقر للفرز متعدد الأعمدة" : "Shift+Click for multi-column sort"}
+                    >
+                      {h.label}{sortIndicator(h.key)}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {drillEpayment.map((r, i) => (
+                {sorted.map((r, i) => (
                   <TableRow key={`${r.payment_method}-${r.payment_brand}-${i}`}>
                     <TableCell>{r.payment_method}</TableCell>
                     <TableCell>{r.payment_brand}</TableCell>
@@ -507,6 +561,8 @@ const IncomeStatementReport = () => {
                 </TableFooter>
               )}
             </Table>
+              );
+            })()
           )}
         </DialogContent>
       </Dialog>
