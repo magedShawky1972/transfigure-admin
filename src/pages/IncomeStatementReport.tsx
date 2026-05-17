@@ -149,8 +149,12 @@ const IncomeStatementReport = () => {
       );
       if (rsError) throw rsError;
       const rsMap: Record<string, number> = {};
+      const csMap: Record<string, number> = {};
       (rsData || []).forEach((r: any) => {
-        if (r.revenue_source) rsMap[r.revenue_source] = Number(r.total) || 0;
+        if (r.revenue_source) {
+          rsMap[r.revenue_source] = Number(r.total) || 0;
+          csMap[r.revenue_source] = Number(r.cost_sold) || 0;
+        }
       });
 
       // ASUS Sales from confirmed manual sales orders (Sales Order Entry)
@@ -166,11 +170,10 @@ const IncomeStatementReport = () => {
         const asusCost = (msoData || []).reduce((s: number, r: any) => s + (Number(r.total_cost) || 0), 0);
         // Manual sales orders are the source of truth for Asus — replace any value coming from purpletransaction to avoid double counting
         rsMap["Asus"] = asusTotal;
-        if (asusTotal > 0 || asusCost > 0) {
-          // Do NOT push to aggregates: purpletransaction already includes these rows, so adding them again would double Total Sales / Cost
-        }
+        csMap["Asus"] = asusCost;
       }
       setRevenueSources(rsMap);
+      setCostSources(csMap);
 
       setAppliedStartDate(startDate);
       setAppliedEndDate(endDate);
