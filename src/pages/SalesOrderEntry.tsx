@@ -194,10 +194,13 @@ const SalesOrderEntry = () => {
 
       if (field === "product_id") {
         const product = products.find(p => p.id === value);
+        console.log("[SalesOrderEntry] product selected:", value, product);
         if (product) {
+          const price = Number(product.product_price ?? 0) || 0;
+          const cost = Number(product.product_cost ?? 0) || 0;
           updated.product_name = product.product_name;
-          updated.unit_price = parseFloat(product.product_price ?? "0") || 0;
-          updated.cost_price = parseFloat(product.product_cost ?? "0") || 0;
+          updated.unit_price = price;
+          updated.cost_price = cost;
           updated.coins_number = Number(product.coins_number) || 0;
         }
       }
