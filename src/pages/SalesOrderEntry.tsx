@@ -556,25 +556,13 @@ const SalesOrderEntry = () => {
               <Input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} />
             </div>
 
-            <div className="space-y-2">
-              <Label>{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر طريقة الدفع' : 'Select Payment'} /></SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map(pm => (
-                    <SelectItem key={pm.id} value={pm.payment_method}>{pm.payment_method}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="space-y-2 md:col-span-2">
               <Label>{language === 'ar' ? 'العميل' : 'Customer'}</Label>
               <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" role="combobox" aria-expanded={customerOpen} className="w-full justify-between font-normal">
                     {customerName
-                      ? `${customerName}${customerPhone ? ` - ${customerPhone}` : ''}`
+                      ? customerName
                       : (language === 'ar' ? 'ابحث عن عميل...' : 'Search customer...')}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -608,9 +596,8 @@ const SalesOrderEntry = () => {
                                 setCustomerSearch("");
                               }}
                             >
-                              <Check className={cn("mr-2 h-4 w-4", customerPhone === c.customer_phone ? "opacity-100" : "opacity-0")} />
+                              <Check className={cn("mr-2 h-4 w-4", customerName === c.customer_name ? "opacity-100" : "opacity-0")} />
                               <span className="font-medium">{c.customer_name || '—'}</span>
-                              <span className="text-muted-foreground ml-2">{c.customer_phone || ''}</span>
                             </CommandItem>
                           ))}
                         </CommandGroup>
