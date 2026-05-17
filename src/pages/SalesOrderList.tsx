@@ -45,7 +45,7 @@ const SalesOrderList = () => {
   const [showUnitCostZero, setShowUnitCostZero] = useState(false);
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
-    const coins = Number(product?.coins_number) || 0;
+    const coins = Number(row.source_coins_number ?? row.coins_number) || 0;
     const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
     const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
     const srcUnit = Number(row.source_unit_price) || 0;
@@ -302,7 +302,7 @@ const SalesOrderList = () => {
         const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
         const product = productMappingByKey.get(`${brandNameRaw.toLowerCase()}::${productNameRaw.toLowerCase()}`)
           || productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
-        const coins = Number(product?.coins_number) || 0;
+        const coins = Number(r.coins_number) || 0;
         const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
         const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
         const srcUnit = Number(r.unit_price ?? r.unit ?? r.price) || 0;
@@ -322,6 +322,7 @@ const SalesOrderList = () => {
           group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
           source_brand_name: brandNameRaw,
           source_product_name: productNameRaw,
+          source_coins_number: coins,
           source_unit_price: srcUnit,
           source_cost_price: srcCost,
           order_date: orderDate,
@@ -409,7 +410,7 @@ const SalesOrderList = () => {
         const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
         const product = productMappingByKey.get(`${brandNameRaw.toLowerCase()}::${productNameRaw.toLowerCase()}`)
           || productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
-        const coins = Number(product?.coins_number) || 0;
+        const coins = Number(r.source_coins_number ?? r.coins_number) || 0;
         const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
         const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
         const srcUnit = Number(r.source_unit_price) || 0;
