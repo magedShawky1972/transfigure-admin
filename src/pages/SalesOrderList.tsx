@@ -48,8 +48,10 @@ const SalesOrderList = () => {
     const coins = Number(product?.coins_number) || 0;
     const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
     const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
-    const unit = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product?.product_price ?? 0) || 0) / coins : 0);
-    const cost = costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0);
+    const srcUnit = Number(row.source_unit_price) || 0;
+    const srcCost = Number(row.source_cost_price) || 0;
+    const unit = srcUnit > 0 ? srcUnit : (salesRate > 0 ? salesRate : (coins > 0 ? (Number(product?.product_price ?? 0) || 0) / coins : 0));
+    const cost = srcCost > 0 ? srcCost : (costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0));
     const qty = Number(row.qty) || 0;
     const issues: string[] = [];
     if (!brand) issues.push("Brand not found");
