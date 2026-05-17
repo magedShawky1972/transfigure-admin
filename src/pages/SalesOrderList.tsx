@@ -677,6 +677,17 @@ const SalesOrderList = () => {
               {previewRows && (
                 <span className="ml-3 text-sm font-normal text-muted-foreground">
                   {previewRows.length} rows · {previewRows.filter(r => r.issues.length === 0).length} ready · {previewRows.filter(r => r.issues.length > 0).length} with issues
+                  {(() => {
+                    const ready = previewRows.filter(r => r.issues.length === 0);
+                    const totalSales = ready.reduce((s, r) => s + (Number(r.total) || 0), 0);
+                    const totalCost = ready.reduce((s, r) => s + (Number(r.cost_price) || 0) * (Number(r.qty) || 0), 0);
+                    const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    return (
+                      <span className="ml-3">
+                        · <span className="text-foreground font-medium">Total Sales:</span> {fmt(totalSales)} · <span className="text-foreground font-medium">Total Cost:</span> {fmt(totalCost)} · <span className="text-foreground font-medium">Margin:</span> {fmt(totalSales - totalCost)}
+                      </span>
+                    );
+                  })()}
                 </span>
               )}
             </DialogTitle>
