@@ -35,6 +35,7 @@ const SalesOrderList = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [commitProgress, setCommitProgress] = useState<{ current: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewRows, setPreviewRows] = useState<any[] | null>(null);
   const [brandsList, setBrandsList] = useState<any[]>([]);
@@ -509,6 +510,9 @@ const SalesOrderList = () => {
       });
 
       let created = 0, skipped = 0;
+      const totalGroups = groups.size;
+      setCommitProgress({ current: 0, total: totalGroups });
+      let processed = 0;
       for (const [, grp] of groups) {
         const head = grp[0];
         maxSeq++;
@@ -532,7 +536,7 @@ const SalesOrderList = () => {
           total_profit: totalAmount - totalCost,
           total_coins: totalCoins,
         }).select().single();
-        if (insErr || !ins) { skipped++; continue; }
+        if (insErr || !ins) { skipped++; processed++; setCommitProgress({ current: processed, total: totalGroups }); continue; }
 
         const lineRows = grp.map((l, idx) => ({
           order_id: ins.id,
@@ -553,6 +557,8 @@ const SalesOrderList = () => {
         }));
         await supabase.from("manual_sales_order_lines").insert(lineRows);
         created++;
+        processed++;
+        setCommitProgress({ current: processed, total: totalGroups });
       }
 
       toast({ title: language === 'ar' ? 'تم الاستيراد' : 'Import complete', description: `Created: ${created}, Skipped: ${skipped}` });
@@ -562,6 +568,7 @@ const SalesOrderList = () => {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
     } finally {
       setCommitting(false);
+      setCommitProgress(null);
     }
   };
 
@@ -1197,7 +1204,9 @@ const SalesOrderList = () => {
             </Button>
             <Button disabled={committing || !previewRows?.some(r => r.issues.length === 0)} onClick={handleCommitImport}>
               {committing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-              {language === 'ar' ? 'تأكيد الاستيراد' : 'Confirm Import'}
+              {committing && commitProgress
+                ? (language === 'ar' ? `جاري الاستيراد ${commitProgress.current}/${commitProgress.total}` : `Importing ${commitProgress.current}/${commitProgress.total}`)
+                : (language === 'ar' ? 'تأكيد الاستيراد' : 'Confirm Import')}
             </Button>
           </DialogFooter>
         </DialogContent>
