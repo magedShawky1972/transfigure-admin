@@ -22,6 +22,7 @@ interface IncomeRow {
   drilldown: "brand" | "epayment" | "points-brand" | "company" | "none";
   company?: string;
   metric?: "sales" | "cost";
+  parent?: string;
 }
 
 interface BrandAggregate {
