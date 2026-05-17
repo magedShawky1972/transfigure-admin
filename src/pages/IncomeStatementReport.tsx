@@ -64,6 +64,7 @@ const IncomeStatementReport = () => {
 
   const [loading, setLoading] = useState(false);
   const [aggregates, setAggregates] = useState<BrandAggregate[]>([]);
+  const [revenueSources, setRevenueSources] = useState<Record<string, number>>({});
 
   // Drilldown state
   const [drillOpen, setDrillOpen] = useState(false);
@@ -132,6 +133,24 @@ const IncomeStatementReport = () => {
       }));
 
       setAggregates(list);
+
+      // Revenue source breakdown (Purple / Salla / Asus)
+      const { data: rsData, error: rsError } = await supabase.rpc(
+        "get_income_statement_revenue_source_aggregates",
+        {
+          p_start_int: startInt,
+          p_end_int: endInt,
+          p_brand_name: nextBrandFilter === "all" ? null : nextBrandFilter,
+          p_company: nextCompanyFilter === "all" ? null : nextCompanyFilter,
+        }
+      );
+      if (rsError) throw rsError;
+      const rsMap: Record<string, number> = {};
+      (rsData || []).forEach((r: any) => {
+        if (r.revenue_source) rsMap[r.revenue_source] = Number(r.total) || 0;
+      });
+      setRevenueSources(rsMap);
+
       setAppliedStartDate(startDate);
       setAppliedEndDate(endDate);
       setAppliedBrandFilter(nextBrandFilter);
@@ -165,6 +184,9 @@ const IncomeStatementReport = () => {
 
   const rows: IncomeRow[] = [
     { key: "totalSales", label: isRTL ? "إجمالي المبيعات (شامل الخصومات)" : "Total Sales (Including Discounts)", value: totals.totalSales, percentage: 100, drilldown: "brand" },
+    { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "none" },
+    { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "none" },
+    { key: "asusSales", label: isRTL ? "مبيعات Asus" : "ASUS Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "none" },
     { key: "couponSales", label: isRTL ? "كوبونات الخصم" : "Discount Coupons", value: totals.couponSales, percentage: pct(totals.couponSales, totals.totalSales), drilldown: "none" },
     { key: "salesPlusCoupon", label: isRTL ? "المبيعات + الكوبونات" : "Sales + Coupon", value: totals.totalSales + totals.couponSales, percentage: pct(totals.totalSales + totals.couponSales, totals.totalSales), drilldown: "brand" },
     { key: "costOfSales", label: isRTL ? "تكلفة المبيعات" : "Cost Of Sales", value: totals.costOfSales, percentage: pct(totals.costOfSales, totals.totalSales), drilldown: "brand" },

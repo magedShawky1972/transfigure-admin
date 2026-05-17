@@ -6578,6 +6578,7 @@ export type Database = {
           profit_center: string | null
           qty: number | null
           register_user_id: number | null
+          revenue_source: string | null
           sendodoo: boolean | null
           source: string
           status: number | null
@@ -6630,6 +6631,7 @@ export type Database = {
           profit_center?: string | null
           qty?: number | null
           register_user_id?: number | null
+          revenue_source?: string | null
           sendodoo?: boolean | null
           source?: string
           status?: number | null
@@ -6682,6 +6684,7 @@ export type Database = {
           profit_center?: string | null
           qty?: number | null
           register_user_id?: number | null
+          revenue_source?: string | null
           sendodoo?: boolean | null
           source?: string
           status?: number | null
@@ -11611,6 +11614,19 @@ export type Database = {
           cost_sold: number
           points_cost: number
           qty: number
+          total: number
+          tx_count: number
+        }[]
+      }
+      get_income_statement_revenue_source_aggregates: {
+        Args: {
+          p_brand_name?: string
+          p_company?: string
+          p_end_int: number
+          p_start_int: number
+        }
+        Returns: {
+          revenue_source: string
           total: number
           tx_count: number
         }[]
