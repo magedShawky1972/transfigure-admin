@@ -565,8 +565,43 @@ const SalesOrderList = () => {
     } else {
       toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted' });
       setOrders(prev => prev.filter(o => o.id !== deleteId));
+      setSelectedIds(prev => prev.filter(id => id !== deleteId));
     }
     setDeleteId(null);
+  };
+
+  const deletableSelectedIds = selectedIds.filter(id => {
+    const o = orders.find(x => x.id === id);
+    return o && o.status !== 'confirmed';
+  });
+
+  const handleBulkDelete = async () => {
+    if (deletableSelectedIds.length === 0) return;
+    setBulkDeleting(true);
+    const { error } = await supabase.from("manual_sales_orders").delete().in("id", deletableSelectedIds).select();
+    setBulkDeleting(false);
+    if (error) {
+      toast({ title: language === 'ar' ? 'خطأ في الحذف' : 'Delete failed', description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted', description: `${deletableSelectedIds.length}` });
+      const set = new Set(deletableSelectedIds);
+      setOrders(prev => prev.filter(o => !set.has(o.id)));
+      setSelectedIds([]);
+    }
+    setBulkDeleteOpen(false);
+  };
+
+  const toggleSelectAll = () => {
+    const eligibleIds = orders.filter(o => o.status !== 'confirmed').map(o => o.id);
+    if (eligibleIds.every(id => selectedIds.includes(id)) && eligibleIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(eligibleIds);
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   if (accessLoading) return null;
