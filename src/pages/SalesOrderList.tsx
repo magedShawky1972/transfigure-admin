@@ -267,6 +267,7 @@ const SalesOrderList = () => {
         return {
           row: idx + 2,
           group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
+          source_brand_name: brandNameRaw,
           order_date: orderDate,
           customer_name: r.customer_name || "",
           sales_reference: r.sales_reference || "",
