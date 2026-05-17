@@ -208,22 +208,21 @@ const IncomeStatementReport = () => {
 
   const pct = (v: number, base: number) => (base > 0 ? (v / base) * 100 : 0);
 
+  const totalCompanyCost = (costSources["Purple"] || 0) + (costSources["Salla"] || 0) + (costSources["Asus"] || 0);
+  const grossProfit = totals.totalSales - totalCompanyCost - totals.pointsCost - totals.ePaymentCharges;
+
   const rows: IncomeRow[] = [
-    { key: "totalSales", label: isRTL ? "إجمالي المبيعات (شامل الخصومات)" : "Total Sales (Including Discounts)", value: totals.totalSales, percentage: 100, drilldown: "brand" },
     { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "sales" },
     { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "sales" },
     { key: "asusSales", label: isRTL ? "مبيعات Asus" : "Asus Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "sales" },
-    { key: "couponSales", label: isRTL ? "كوبونات الخصم" : "Discount Coupons", value: totals.couponSales, percentage: pct(totals.couponSales, totals.totalSales), drilldown: "none" },
-    { key: "salesPlusCoupon", label: isRTL ? "المبيعات + الكوبونات" : "Sales + Coupon", value: totals.totalSales + totals.couponSales, percentage: pct(totals.totalSales + totals.couponSales, totals.totalSales), drilldown: "brand" },
-    { key: "costOfSales", label: isRTL ? "تكلفة المبيعات" : "Cost Of Sales", value: totals.costOfSales, percentage: pct(totals.costOfSales, totals.totalSales), drilldown: "brand" },
+    { key: "totalSales", label: isRTL ? "*** إجمالي المبيعات ***" : "*** Total Sales ***", value: totals.totalSales, percentage: 100, isTotal: true, drilldown: "brand" },
     { key: "purpleCost", label: isRTL ? "تكلفة Purple" : "Purple Cost", value: costSources["Purple"] || 0, percentage: pct(costSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "cost" },
     { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "cost" },
     { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "cost" },
-    { key: "pointsCost", label: isRTL ? "تكلفة النقاط" : "Points Cost", value: totals.pointsCost, percentage: pct(totals.pointsCost, totals.totalSales), drilldown: "points-brand" },
-    { key: "shipping", label: isRTL ? "الشحن" : "Shipping", value: totals.shipping, percentage: 0, drilldown: "none" },
-    { key: "taxes", label: isRTL ? "الضرائب" : "Taxes", value: totals.taxes, percentage: 0, drilldown: "none" },
+    { key: "costOfSales", label: isRTL ? "*** إجمالي التكلفة ***" : "*** Total Cost ***", value: totalCompanyCost, percentage: pct(totalCompanyCost, totals.totalSales), isTotal: true, drilldown: "brand" },
+    { key: "pointsCost", label: isRTL ? "تكلفة النقاط" : "Point Cost", value: totals.pointsCost, percentage: pct(totals.pointsCost, totals.totalSales), drilldown: "points-brand" },
     { key: "ePayment", label: isRTL ? "رسوم الدفع الإلكتروني" : "E-Payment Charges", value: totals.ePaymentCharges, percentage: pct(totals.ePaymentCharges, totals.totalSales), drilldown: "epayment" },
-    { key: "netSales", label: isRTL ? "صافي المبيعات" : "Net Sales", value: totals.netSales, percentage: pct(totals.netSales, totals.totalSales), isTotal: true, drilldown: "brand" },
+    { key: "grossProfit", label: isRTL ? "*** الربح الإجمالي ***" : "*** Gross Profit ***", value: grossProfit, percentage: pct(grossProfit, totals.totalSales), isTotal: true, drilldown: "none" },
   ];
 
   const openDrilldown = async (row: IncomeRow) => {
