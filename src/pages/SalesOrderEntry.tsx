@@ -113,16 +113,16 @@ const SalesOrderEntry = () => {
     if (didInitRef.current) return;
     didInitRef.current = true;
     (async () => {
-      await fetchLookups();
+      const lookupData = await fetchLookups();
       setLoadingLookups(false);
       fetchCurrentUser();
       if (isEditMode && orderIdParam) {
-        loadOrder(orderIdParam);
+        loadOrder(orderIdParam, lookupData.products);
       }
     })();
   }, []);
 
-  const loadOrder = async (id: string) => {
+  const loadOrder = async (id: string, availableProducts = products) => {
     setLoadingOrder(true);
     try {
       const [{ data: header }, { data: lineRows }] = await Promise.all([
@@ -146,12 +146,12 @@ const SalesOrderEntry = () => {
       setNotes(header.notes || "");
       setCompany(header.company || "");
       setLines((lineRows || []).map((r: any) => {
-        const prod = products.find(p => p.id === r.product_id)
-          || products.find(p => p.product_name === (r.product_name || r.product_id));
+        const prod = availableProducts.find((p: any) => p.id === r.product_id)
+          || availableProducts.find((p: any) => p.product_name === (r.product_name || r.product_id));
         return {
           id: r.id,
           brand_id: r.brand_id || "",
-          product_id: prod?.id || "",
+          product_id: r.product_id || prod?.id || "",
           product_name: r.product_name || prod?.product_name || "",
           coins_number: Number(r.coins_number) || 0,
           qty: Number(r.qty) || 0,
@@ -193,6 +193,13 @@ const SalesOrderEntry = () => {
     setProducts(prodRes.data || []);
     setSalesPeople(spRes.data || []);
     setCompanyOptions((coRes.data || []).map((c: any) => c.name));
+    return {
+      brands: brandsRes.data || [],
+      paymentMethods: pmRes.data || [],
+      products: prodRes.data || [],
+      salesPeople: spRes.data || [],
+      companies: (coRes.data || []).map((c: any) => c.name),
+    };
   };
 
   const searchCustomers = useCallback(async (query: string) => {
@@ -349,6 +356,7 @@ const SalesOrderEntry = () => {
           brand_id: line.brand_id || null,
           brand_code: lineBrand?.brand_code || null,
           brand_name: lineBrand?.brand_name || null,
+          product_id: line.product_id || null,
           product_name: line.product_name,
           coins_number: line.coins_number || 0,
           qty: line.qty,
