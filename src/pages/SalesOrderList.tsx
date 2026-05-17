@@ -814,6 +814,7 @@ const SalesOrderList = () => {
                     { key: 'unit_price', label: 'Unit', align: 'right' },
                     { key: 'cost_price', label: 'Cost', align: 'right' },
                     { key: 'total', label: 'Total', align: 'right' },
+                    { key: 'total_cost', label: 'Total Cost', align: 'right' },
                     { key: 'issuesKey', label: 'Status' },
                   ].map(col => {
                     const sortKey = col.key === 'issuesKey' ? 'issuesKey' : col.key;
