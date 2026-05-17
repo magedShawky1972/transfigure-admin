@@ -713,7 +713,8 @@ const SalesOrderEntry = () => {
                           onChange={v => updateLine(line.id, "vendor", v)}
                           options={suppliers.map((s: any) => ({ value: s.supplier_name, label: s.supplier_code ? `${s.supplier_name} (${s.supplier_code})` : s.supplier_name }))}
                           placeholder={language === 'ar' ? 'المورد' : 'Vendor'}
-                          className="min-w-[150px]"
+                          asLabel
+                          className="min-w-[80px] max-w-[160px]"
                         />
                       </TableCell>
                       <TableCell>
