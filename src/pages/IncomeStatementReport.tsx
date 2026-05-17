@@ -64,6 +64,7 @@ const IncomeStatementReport = () => {
 
   const [loading, setLoading] = useState(false);
   const [aggregates, setAggregates] = useState<BrandAggregate[]>([]);
+  const [revenueSources, setRevenueSources] = useState<Record<string, number>>({});
 
   // Drilldown state
   const [drillOpen, setDrillOpen] = useState(false);
@@ -132,6 +133,24 @@ const IncomeStatementReport = () => {
       }));
 
       setAggregates(list);
+
+      // Revenue source breakdown (Purple / Salla / Asus)
+      const { data: rsData, error: rsError } = await supabase.rpc(
+        "get_income_statement_revenue_source_aggregates",
+        {
+          p_start_int: startInt,
+          p_end_int: endInt,
+          p_brand_name: nextBrandFilter === "all" ? null : nextBrandFilter,
+          p_company: nextCompanyFilter === "all" ? null : nextCompanyFilter,
+        }
+      );
+      if (rsError) throw rsError;
+      const rsMap: Record<string, number> = {};
+      (rsData || []).forEach((r: any) => {
+        if (r.revenue_source) rsMap[r.revenue_source] = Number(r.total) || 0;
+      });
+      setRevenueSources(rsMap);
+
       setAppliedStartDate(startDate);
       setAppliedEndDate(endDate);
       setAppliedBrandFilter(nextBrandFilter);
