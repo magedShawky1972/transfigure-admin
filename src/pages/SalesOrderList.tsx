@@ -975,7 +975,6 @@ const SalesOrderList = () => {
                           <Checkbox
                             checked={selectedIds.includes(o.id)}
                             onCheckedChange={() => toggleSelectOne(o.id)}
-                            disabled={o.status === 'confirmed'}
                             aria-label={`Select ${o.order_number}`}
                           />
                         </TableCell>
