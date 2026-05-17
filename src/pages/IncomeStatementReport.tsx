@@ -117,6 +117,8 @@ const IncomeStatementReport = () => {
   const fetchReport = async () => {
     try {
       setLoading(true);
+      setEPaymentByMethod([]);
+      setExpanded(prev => ({ ...prev, ePayment: false }));
       const startInt = parseInt(startDate.replace(/-/g, ""));
       const endInt = parseInt(endDate.replace(/-/g, ""));
       const nextBrandFilter = brandFilter;
