@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle, ChevronsUpDown, ArrowUp, ArrowDown, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle, ChevronsUpDown, ArrowUp, ArrowDown, Copy, RefreshCw } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
@@ -351,6 +351,91 @@ const SalesOrderList = () => {
     }
   };
 
+  const [refreshingPreview, setRefreshingPreview] = useState(false);
+
+  const handleRefreshPreview = async () => {
+    if (!previewRows) return;
+    setRefreshingPreview(true);
+    try {
+      const [{ data: brandsData }, { data: productsData }, { data: mappingsData }, { data: productMappingsData }] = await Promise.all([
+        supabase.from("brands").select("id, brand_code, brand_name, sales_one_coins_sar, cost_one_coins_sar"),
+        supabase.from("products").select("id, product_name, product_price, product_cost, coins_number, brand_code, brand_name").eq("status", "active").limit(5000),
+        supabase.from("sales_order_brand_mappings").select("source_brand_name, purple_brand_id"),
+        supabase.from("sales_order_product_mappings").select("source_brand_name, source_product_name, purple_product_id"),
+      ]);
+      setBrandsList(brandsData || []);
+      setProductsList(productsData || []);
+      const brandById = new Map<string, any>();
+      const brandByName = new Map<string, any>();
+      const brandByCode = new Map<string, any>();
+      (brandsData || []).forEach((b: any) => {
+        brandById.set(b.id, b);
+        if (b.brand_name) brandByName.set(String(b.brand_name).trim().toLowerCase(), b);
+        if (b.brand_code) brandByCode.set(String(b.brand_code).trim().toLowerCase(), b);
+      });
+      const mappingBySource = new Map<string, any>();
+      (mappingsData || []).forEach((m: any) => {
+        const b = brandById.get(m.purple_brand_id);
+        if (b) mappingBySource.set(String(m.source_brand_name).trim().toLowerCase(), b);
+      });
+      const productById = new Map<string, any>();
+      const productsByBrandAndName = new Map<string, any>();
+      (productsData || []).forEach((p: any) => {
+        productById.set(p.id, p);
+        const bk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
+        const nk = String(p.product_name || "").trim().toLowerCase();
+        if (nk) productsByBrandAndName.set(`${bk}::${nk}`, p);
+      });
+      const productMappingByKey = new Map<string, any>();
+      (productMappingsData || []).forEach((m: any) => {
+        const p = productById.get(m.purple_product_id);
+        if (p) productMappingByKey.set(`${String(m.source_brand_name).trim().toLowerCase()}::${String(m.source_product_name).trim().toLowerCase()}`, p);
+      });
+
+      const reResolved = previewRows.map((r: any) => {
+        const brandNameRaw = String(r.source_brand_name || "").trim();
+        const brand = mappingBySource.get(brandNameRaw.toLowerCase())
+          || brandByName.get(brandNameRaw.toLowerCase())
+          || brandByCode.get(String(r.brand_code || "").trim().toLowerCase());
+        const productNameRaw = String(r.source_product_name || "").trim();
+        const bk = String(brand?.brand_code || brand?.brand_name || brandNameRaw).trim().toLowerCase();
+        const product = productMappingByKey.get(`${brandNameRaw.toLowerCase()}::${productNameRaw.toLowerCase()}`)
+          || productsByBrandAndName.get(`${bk}::${productNameRaw.toLowerCase()}`);
+        const coins = Number(product?.coins_number) || 0;
+        const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
+        const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
+        const unit = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product?.product_price ?? 0) || 0) / coins : 0);
+        const cost = costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0);
+        const qty = Number(r.qty) || 0;
+        const issues: string[] = [];
+        if (!brand) issues.push("Brand not found");
+        if (!product) issues.push("Product not found");
+        if (qty <= 0) issues.push("Qty must be > 0");
+        return {
+          ...r,
+          brand_id: brand?.id || null,
+          brand_code: brand?.brand_code || "",
+          brand_name: brand?.brand_name || brandNameRaw,
+          product_id: product?.id || null,
+          product_name: product?.product_name || productNameRaw,
+          coins_number: coins,
+          unit_price: unit,
+          cost_price: cost,
+          total: coins * qty * unit,
+          total_cost: coins * qty * cost,
+          profit: (coins * qty * unit) - (coins * qty * cost),
+          issues,
+        };
+      });
+      setPreviewRows(reResolved);
+      toast({ title: language === 'ar' ? 'تم التحديث' : 'Refreshed', description: language === 'ar' ? 'تم تحديث البيانات والتعيينات' : 'Data and mappings refreshed' });
+    } catch (err: any) {
+      toast({ title: language === 'ar' ? 'خطأ في التحديث' : 'Refresh failed', description: err.message, variant: "destructive" });
+    } finally {
+      setRefreshingPreview(false);
+    }
+  };
+
   const handleCommitImport = async () => {
     if (!previewRows) return;
     const valid = previewRows.filter(r => r.issues.length === 0);
@@ -631,6 +716,16 @@ const SalesOrderList = () => {
                 </span>
               )}
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto gap-1"
+              disabled={refreshingPreview}
+              onClick={handleRefreshPreview}
+            >
+              {refreshingPreview ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              {language === 'ar' ? 'تحديث' : 'Refresh'}
+            </Button>
           </div>
           <div className="flex-1 overflow-auto border rounded">
             <Table>
