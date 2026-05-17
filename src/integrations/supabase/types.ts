@@ -5218,6 +5218,7 @@ export type Database = {
           id: string
           line_number: number
           order_id: string
+          product_id: string | null
           product_name: string | null
           profit: number
           qty: number
@@ -5236,6 +5237,7 @@ export type Database = {
           id?: string
           line_number: number
           order_id: string
+          product_id?: string | null
           product_name?: string | null
           profit?: number
           qty?: number
@@ -5254,6 +5256,7 @@ export type Database = {
           id?: string
           line_number?: number
           order_id?: string
+          product_id?: string | null
           product_name?: string | null
           profit?: number
           qty?: number
