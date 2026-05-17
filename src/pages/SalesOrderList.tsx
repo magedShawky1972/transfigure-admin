@@ -894,6 +894,16 @@ const SalesOrderList = () => {
                 : (language === 'ar' ? `تأكيد (${confirmableSelectedIds.length})` : `Confirm (${confirmableSelectedIds.length})`)}
             </Button>
           )}
+          {rollbackableSelectedIds.length > 0 && (
+            <Button variant="secondary" disabled={bulkRollingBack} onClick={() => setBulkRollbackOpen(true)}>
+              {bulkRollingBack
+                ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                : <RefreshCw className="h-4 w-4 mr-1" />}
+              {bulkRollingBack && bulkRollbackProgress
+                ? `${language === 'ar' ? 'جاري إعادة الفتح' : 'Rolling back'} ${bulkRollbackProgress.current}/${bulkRollbackProgress.total}`
+                : (language === 'ar' ? `إعادة فتح (${rollbackableSelectedIds.length})` : `Rollback (${rollbackableSelectedIds.length})`)}
+            </Button>
+          )}
           {deletableSelectedIds.length > 0 && (
             <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
               <Trash2 className="h-4 w-4 mr-1" />
