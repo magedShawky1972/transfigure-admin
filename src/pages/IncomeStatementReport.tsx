@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, FileBarChart, Printer, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -420,6 +420,17 @@ const IncomeStatementReport = () => {
                   </TableRow>
                 )}
               </TableBody>
+              {drillBrandData.length > 0 && (
+                <TableFooter>
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell className="text-right">{drillBrandData.reduce((s, b) => s + (b.tx_count || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{drillBrandData.reduce((s, b) => s + (b.coins || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{drillBrandData.reduce((s, b) => s + (b.percentage || 0), 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right">{fmt(drillBrandData.reduce((s, b) => s + (b.value || 0), 0))}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           ) : (
             <Table>
@@ -452,6 +463,17 @@ const IncomeStatementReport = () => {
                   </TableRow>
                 )}
               </TableBody>
+              {drillEpayment.length > 0 && (
+                <TableFooter>
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell colSpan={2}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell className="text-right">{drillEpayment.reduce((s, r) => s + (r.transaction_count || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{fmt(drillEpayment.reduce((s, r) => s + (r.total_sales || 0), 0))}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{drillEpayment.reduce((s, r) => s + (r.percentage || 0), 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right">{fmt(drillEpayment.reduce((s, r) => s + (r.bank_fee || 0), 0))}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           )}
         </DialogContent>
@@ -498,6 +520,17 @@ const IncomeStatementReport = () => {
                     </TableRow>
                   ))}
                 </TableBody>
+                {txList.length > 0 && (
+                  <TableFooter>
+                    <TableRow className="font-bold bg-muted/50">
+                      <TableCell colSpan={5}>{isRTL ? `الإجمالي (${txList.length.toLocaleString()})` : `Total (${txList.length.toLocaleString()})`}</TableCell>
+                      <TableCell className="text-right">{txList.reduce((s, t) => s + (Number(t.qty) || 0), 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{fmt(txList.reduce((s, t) => s + (Number(t.total) || 0), 0))}</TableCell>
+                      <TableCell className="text-right">{fmt(txList.reduce((s, t) => s + (Number(t.cost_sold) || 0), 0))}</TableCell>
+                      <TableCell className="text-right">{fmt(txList.reduce((s, t) => s + (Number(t.bank_fee) || 0), 0))}</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
               </Table>
               {txList.length > 1000 && (
                 <p className="text-xs text-muted-foreground p-2">
