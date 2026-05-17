@@ -96,6 +96,7 @@ const SalesOrderEntry = () => {
 
   // Lookups
   const [brands, setBrands] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerLoading, setCustomerLoading] = useState(false);
