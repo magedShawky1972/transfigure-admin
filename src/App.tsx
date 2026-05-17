@@ -143,6 +143,7 @@ import SalesOrderDetailReport from "./pages/SalesOrderDetailReport";
 import DataComparisonReport from "./pages/DataComparisonReport";
 import CoinsComparisonReport from "./pages/CoinsComparisonReport";
 import MainProductSalesReport from "./pages/MainProductSalesReport";
+import IncomeStatementReport from "./pages/IncomeStatementReport";
 import FreeCoinsReport from "./pages/FreeCoinsReport";
 import ClassABalanceImagesReport from "./pages/ClassABalanceImagesReport";
 import ReceivingCoins from "./pages/ReceivingCoins";
@@ -308,6 +309,7 @@ const App = () => (
               <Route path="/payment-bank-link" element={<PaymentBankLink />} />
               <Route path="/reports/payment-whatif" element={<PaymentWhatIfScenario />} />
               <Route path="/reports/main-product-sales" element={<MainProductSalesReport />} />
+              <Route path="/reports/income-statement" element={<IncomeStatementReport />} />
               <Route path="/reports/free-coins" element={<FreeCoinsReport />} />
               <Route path="/reports/class-a-balance-images" element={<ClassABalanceImagesReport />} />
               <Route path="/reports/bank-balance-by-date" element={<BankBalanceByDateReport />} />

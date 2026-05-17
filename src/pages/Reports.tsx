@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['class-a-balance-images', 'revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins', 'brand-first-sale-date']);
+        setAllowedReports(['income-statement', 'class-a-balance-images', 'revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins', 'brand-first-sale-date']);
         setLoading(false);
         return;
       }
@@ -59,6 +59,15 @@ const Reports = () => {
   };
 
   const reports = [
+    {
+      id: "income-statement",
+      name: language === "ar" ? "قائمة الدخل" : "Income Statement",
+      description: language === "ar"
+        ? "تقرير قائمة الدخل مع التفصيل لكل بند (المبيعات، التكلفة، النقاط، الرسوم)"
+        : "Income statement report with drilldown per item (sales, cost, points, charges)",
+      icon: BarChart3,
+      route: "/reports/income-statement",
+    },
     {
       id: "revenue-by-brand-type",
       name: t("reports.revenueByBrandType.name"),
