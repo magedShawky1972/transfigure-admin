@@ -146,6 +146,7 @@ interface UserPermission {
         { key: "shiftGenerator", label: "مولّد الشيفتات", labelEn: "Shift Generator" },
         { key: "currencySetup", label: "إعداد العملات", labelEn: "Currency Setup" },
         { key: "userGroupSetup", label: "مجموعات المستخدمين", labelEn: "User Groups" },
+        { key: "companySetup", label: "إعداد الشركات", labelEn: "Company Setup" },
       ]
     },
     {
