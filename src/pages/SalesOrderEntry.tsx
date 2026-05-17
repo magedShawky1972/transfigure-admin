@@ -277,7 +277,9 @@ const SalesOrderEntry = () => {
           const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
           const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
           updated.product_name = product.product_name;
-          updated.coins_number = coins;
+          // Only overwrite coins if the product actually defines a coins quantity;
+          // otherwise preserve whatever the user already entered on the line.
+          if (coins > 0) updated.coins_number = coins;
           updated.unit_price = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product.product_price ?? 0) || 0) / coins : 0);
           updated.cost_price = costRate > 0 ? costRate : (coins > 0 ? (Number(product.product_cost ?? 0) || 0) / coins : 0);
         }
