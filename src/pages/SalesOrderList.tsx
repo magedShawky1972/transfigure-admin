@@ -580,10 +580,46 @@ const SalesOrderList = () => {
   useEffect(() => { fetchOrders(); }, []);
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("suppliers").select("supplier_name").eq("status", "active");
-      setSuppliersSet(new Set((data || []).map((s: any) => String(s.supplier_name || "").trim().toLowerCase()).filter(Boolean)));
+      const [{ data: sups }, { data: maps }] = await Promise.all([
+        supabase.from("suppliers").select("id, supplier_name, supplier_code, status").eq("status", "active").order("supplier_name"),
+        supabase.from("sales_order_supplier_mappings").select("source_vendor_name, supplier_name"),
+      ]);
+      setSuppliersList(sups || []);
+      const m: Record<string, string> = {};
+      (maps || []).forEach((x: any) => { if (x.source_vendor_name && x.supplier_name) m[String(x.source_vendor_name).trim().toLowerCase()] = x.supplier_name; });
+      setSupplierMappingsMap(m);
     })();
   }, []);
+
+  const suppliersSet = new Set(suppliersList.map((s: any) => String(s.supplier_name || "").trim().toLowerCase()).filter(Boolean));
+
+  const handleChangeRowVendor = async (rowIdx: number, newSupplierId: string) => {
+    const sup = suppliersList.find((s: any) => s.id === newSupplierId);
+    if (!sup) return;
+    let sourceVendor = "";
+    setPreviewRows(prev => {
+      if (!prev) return prev;
+      const target = prev[rowIdx];
+      sourceVendor = String(target.source_vendor_name || target.vendor || "").trim();
+      const key = sourceVendor.toLowerCase();
+      return prev.map(r => {
+        const rs = String(r.source_vendor_name || r.vendor || "").trim().toLowerCase();
+        if (rs !== key) return r;
+        return { ...r, vendor: sup.supplier_name };
+      });
+    });
+    setVendorPopoverIdx(null);
+    if (sourceVendor) {
+      try {
+        await supabase.from("sales_order_supplier_mappings").upsert({
+          source_vendor_name: sourceVendor,
+          supplier_id: sup.id,
+          supplier_name: sup.supplier_name,
+        }, { onConflict: "source_vendor_name" });
+        setSupplierMappingsMap(prev => ({ ...prev, [sourceVendor.toLowerCase()]: sup.supplier_name }));
+      } catch {}
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
