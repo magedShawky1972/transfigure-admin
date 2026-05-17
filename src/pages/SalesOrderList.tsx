@@ -235,11 +235,10 @@ const SalesOrderList = () => {
         const issues: string[] = [];
         if (!brand) issues.push("Brand not found");
         if (!product) issues.push("Product not found");
-        if (!r.order_number) issues.push("Missing order_number");
         if (qty <= 0) issues.push("Qty must be > 0");
         return {
           row: idx + 2,
-          order_number: String(r.order_number || "").trim(),
+          group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
           order_date: orderDate,
           customer_name: r.customer_name || "",
           sales_reference: r.sales_reference || "",
