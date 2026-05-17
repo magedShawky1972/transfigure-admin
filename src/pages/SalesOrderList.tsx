@@ -218,10 +218,25 @@ const SalesOrderList = () => {
         <h1 className="text-2xl font-bold text-foreground">
           {language === 'ar' ? 'أوامر البيع' : 'Sales Orders'}
         </h1>
-        <Button onClick={() => navigate("/sales-order-entry/new")}>
-          <Plus className="h-4 w-4 mr-1" />
-          {language === 'ar' ? 'إضافة جديد' : 'Add New'}
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }} />
+          <Button variant="outline" onClick={handleExportTemplate}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" />
+            {language === 'ar' ? 'قالب Excel' : 'Template'}
+          </Button>
+          <Button variant="outline" onClick={handleExportData}>
+            <Download className="h-4 w-4 mr-1" />
+            {language === 'ar' ? 'تصدير' : 'Export'}
+          </Button>
+          <Button variant="outline" disabled={importing} onClick={() => fileInputRef.current?.click()}>
+            {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+            {language === 'ar' ? 'استيراد' : 'Import'}
+          </Button>
+          <Button onClick={() => navigate("/sales-order-entry/new")}>
+            <Plus className="h-4 w-4 mr-1" />
+            {language === 'ar' ? 'إضافة جديد' : 'Add New'}
+          </Button>
+        </div>
       </div>
 
       <Card>
