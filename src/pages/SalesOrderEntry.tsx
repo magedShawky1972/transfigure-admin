@@ -352,6 +352,25 @@ const SalesOrderEntry = () => {
             </div>
 
             <div className="space-y-2">
+              <Label>{language === 'ar' ? 'مرجع البيع' : 'Sales Reference'}</Label>
+              <Input value={salesReference} onChange={e => setSalesReference(e.target.value)} placeholder={language === 'ar' ? 'رقم مرجع البيع' : 'Sales reference'} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'مندوب البيع' : 'Sales Person'}</Label>
+              <Select value={salesPerson} onValueChange={setSalesPerson}>
+                <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر مندوب البيع' : 'Select sales person'} /></SelectTrigger>
+                <SelectContent>
+                  {salesPeople.map(sp => (
+                    <SelectItem key={sp.user_id} value={sp.user_name || ""}>
+                      {sp.user_name}{sp.salesman_code ? ` (${sp.salesman_code})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 md:col-span-3">
               <Label>{language === 'ar' ? 'ملاحظات' : 'Notes'}</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={1} />
             </div>
