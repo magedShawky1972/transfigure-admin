@@ -527,7 +527,7 @@ const BrandEdit = () => {
               <Input
                 id="cost_one_coins_sar"
                 type="text"
-                value={formatNumber((parseFloat(formData.usd_value_for_coins) || 0) * 3.75)}
+                value={((parseFloat(formData.usd_value_for_coins) || 0) * 3.75).toLocaleString('en-US', { minimumFractionDigits: 8, maximumFractionDigits: 8 })}
                 disabled
                 className="bg-muted"
               />
