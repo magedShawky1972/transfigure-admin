@@ -615,6 +615,12 @@ const SalesOrderList = () => {
         </h1>
         <div className="flex gap-2 flex-wrap">
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }} />
+          {deletableSelectedIds.length > 0 && (
+            <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              {language === 'ar' ? `حذف (${deletableSelectedIds.length})` : `Delete (${deletableSelectedIds.length})`}
+            </Button>
+          )}
           <Button variant="outline" onClick={handleExportTemplate}>
             <FileSpreadsheet className="h-4 w-4 mr-1" />
             {language === 'ar' ? 'قالب Excel' : 'Template'}
@@ -650,6 +656,20 @@ const SalesOrderList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      {(() => {
+                        const eligibleIds = orders.filter(o => o.status !== 'confirmed').map(o => o.id);
+                        const allChecked = eligibleIds.length > 0 && eligibleIds.every(id => selectedIds.includes(id));
+                        return (
+                          <Checkbox
+                            checked={allChecked}
+                            onCheckedChange={toggleSelectAll}
+                            disabled={eligibleIds.length === 0}
+                            aria-label="Select all"
+                          />
+                        );
+                      })()}
+                    </TableHead>
                     <TableHead>#</TableHead>
                     <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Order #'}</TableHead>
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
@@ -665,13 +685,21 @@ const SalesOrderList = () => {
                 <TableBody>
                   {orders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                         {language === 'ar' ? 'لا توجد طلبات' : 'No orders yet'}
                       </TableCell>
                     </TableRow>
                   ) : (
                     orders.map((o, idx) => (
-                      <TableRow key={o.id}>
+                      <TableRow key={o.id} data-state={selectedIds.includes(o.id) ? 'selected' : undefined}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(o.id)}
+                            onCheckedChange={() => toggleSelectOne(o.id)}
+                            disabled={o.status === 'confirmed'}
+                            aria-label={`Select ${o.order_number}`}
+                          />
+                        </TableCell>
                         <TableCell>{idx + 1}</TableCell>
                         <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
                         <TableCell>{o.order_date ? format(new Date(o.order_date), "yyyy-MM-dd") : ''}</TableCell>
