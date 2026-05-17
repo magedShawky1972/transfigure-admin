@@ -39,10 +39,12 @@ const SalesOrderList = () => {
   const [previewRows, setPreviewRows] = useState<any[] | null>(null);
   const [brandsList, setBrandsList] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<any[]>([]);
-  const [suppliersSet, setSuppliersSet] = useState<Set<string>>(new Set());
+  const [suppliersList, setSuppliersList] = useState<any[]>([]);
+  const [supplierMappingsMap, setSupplierMappingsMap] = useState<Record<string, string>>({});
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
   const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
   const [productPopoverIdx, setProductPopoverIdx] = useState<number | null>(null);
+  const [vendorPopoverIdx, setVendorPopoverIdx] = useState<number | null>(null);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
   const [showBrandErrorsOnly, setShowBrandErrorsOnly] = useState(false);
   const [showProductErrorsOnly, setShowProductErrorsOnly] = useState(false);
