@@ -496,44 +496,101 @@ const SalesOrderList = () => {
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
-                  <TableHead>Order #</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Brand</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Coins</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Status</TableHead>
+                  {[
+                    { key: 'order_number', label: 'Order #' },
+                    { key: 'order_date', label: 'Date' },
+                    { key: 'customer_name', label: 'Customer' },
+                    { key: 'brand_name', label: 'Brand' },
+                    { key: 'product_name', label: 'Product' },
+                    { key: 'coins_number', label: 'Coins', align: 'right' },
+                    { key: 'qty', label: 'Qty', align: 'right' },
+                    { key: 'unit_price', label: 'Unit', align: 'right' },
+                    { key: 'cost_price', label: 'Cost', align: 'right' },
+                    { key: 'total', label: 'Total', align: 'right' },
+                    { key: 'issuesKey', label: 'Status' },
+                  ].map(col => {
+                    const sortKey = col.key === 'issuesKey' ? 'issuesKey' : col.key;
+                    const cfgIdx = sortConfig.findIndex(s => s.key === sortKey);
+                    const cfg = cfgIdx >= 0 ? sortConfig[cfgIdx] : null;
+                    return (
+                      <TableHead
+                        key={col.key}
+                        className={cn('cursor-pointer select-none', col.align === 'right' ? 'text-right' : '')}
+                        onClick={(e) => toggleSort(sortKey, e.shiftKey)}
+                        title="Click to sort, Shift+Click to add"
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          {cfg && (cfg.dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                          {cfg && sortConfig.length > 1 && (
+                            <span className="text-[10px] text-muted-foreground">{cfgIdx + 1}</span>
+                          )}
+                        </span>
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(previewRows || []).map((r, i) => (
-                  <TableRow key={i} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
-                    <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
-                    <TableCell className="text-xs">{r.order_date}</TableCell>
-                    <TableCell className="text-xs">{r.customer_name}</TableCell>
-                    <TableCell className="text-xs">{r.brand_name}{r.brand_code ? <span className="text-muted-foreground"> ({r.brand_code})</span> : null}</TableCell>
-                    <TableCell className="text-xs">{r.product_name}</TableCell>
-                    <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-xs">{r.qty}</TableCell>
-                    <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
-                    <TableCell className="text-right text-xs">{Number(r.cost_price).toFixed(7)}</TableCell>
-                    <TableCell className="text-right text-xs font-medium">{Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell>
-                      {r.issues.length === 0 ? (
-                        <Badge variant="secondary" className="text-xs">OK</Badge>
-                      ) : (
-                        <span className="text-xs text-destructive flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />{r.issues.join('; ')}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {(sortedPreview || []).map((r: any) => {
+                  const origIdx = r.__idx;
+                  return (
+                    <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
+                      <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
+                      <TableCell className="text-xs">{r.order_date}</TableCell>
+                      <TableCell className="text-xs">{r.customer_name}</TableCell>
+                      <TableCell className="text-xs">
+                        <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal justify-between min-w-[140px]">
+                              <span className="truncate">
+                                {r.brand_name || <span className="text-muted-foreground">Select brand</span>}
+                                {r.brand_code ? <span className="text-muted-foreground"> ({r.brand_code})</span> : null}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-[260px]" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search brand..." />
+                              <CommandList>
+                                <CommandEmpty>No brand found.</CommandEmpty>
+                                <CommandGroup>
+                                  {brandsList.map(b => (
+                                    <CommandItem
+                                      key={b.id}
+                                      value={`${b.brand_name} ${b.brand_code}`}
+                                      onSelect={() => handleChangeRowBrand(origIdx, b.id)}
+                                    >
+                                      <span className="font-medium">{b.brand_name}</span>
+                                      {b.brand_code && <span className="ml-2 text-xs text-muted-foreground">({b.brand_code})</span>}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
+                      <TableCell className="text-xs">{r.product_name}</TableCell>
+                      <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-xs">{r.qty}</TableCell>
+                      <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
+                      <TableCell className="text-right text-xs">{Number(r.cost_price).toFixed(7)}</TableCell>
+                      <TableCell className="text-right text-xs font-medium">{Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell>
+                        {r.issues.length === 0 ? (
+                          <Badge variant="secondary" className="text-xs">OK</Badge>
+                        ) : (
+                          <span className="text-xs text-destructive flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />{r.issues.join('; ')}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
