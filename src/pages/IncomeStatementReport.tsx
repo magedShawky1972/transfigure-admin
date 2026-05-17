@@ -166,7 +166,7 @@ const IncomeStatementReport = () => {
         if (asusTotal > 0 || asusCost > 0) {
           rsMap["Asus"] = (rsMap["Asus"] || 0) + asusTotal;
           list.push({
-            brand_name: "ASUS Manual Sales",
+            brand_name: "Asus Sales",
             total: asusTotal,
             cost_sold: asusCost,
             bank_fee: 0,
@@ -215,7 +215,7 @@ const IncomeStatementReport = () => {
     { key: "totalSales", label: isRTL ? "إجمالي المبيعات (شامل الخصومات)" : "Total Sales (Including Discounts)", value: totals.totalSales, percentage: 100, drilldown: "brand" },
     { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "none" },
     { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "none" },
-    { key: "asusSales", label: isRTL ? "مبيعات Asus" : "ASUS Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "none" },
+    { key: "asusSales", label: isRTL ? "مبيعات Asus" : "Asus Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "none" },
     { key: "couponSales", label: isRTL ? "كوبونات الخصم" : "Discount Coupons", value: totals.couponSales, percentage: pct(totals.couponSales, totals.totalSales), drilldown: "none" },
     { key: "salesPlusCoupon", label: isRTL ? "المبيعات + الكوبونات" : "Sales + Coupon", value: totals.totalSales + totals.couponSales, percentage: pct(totals.totalSales + totals.couponSales, totals.totalSales), drilldown: "brand" },
     { key: "costOfSales", label: isRTL ? "تكلفة المبيعات" : "Cost Of Sales", value: totals.costOfSales, percentage: pct(totals.costOfSales, totals.totalSales), drilldown: "brand" },
