@@ -553,6 +553,47 @@ const IncomeStatementReport = () => {
                                   setEPaymentByMethodLoading(false);
                                 }
                               }
+                              if (row.key === "pointsCost" && willOpen && pointsByCompany.length === 0 && !pointsByCompanyLoading) {
+                                setPointsByCompanyLoading(true);
+                                try {
+                                  const startInt = parseInt(appliedStartDate.replace(/-/g, ""));
+                                  const endInt = parseInt(appliedEndDate.replace(/-/g, ""));
+                                  let q = supabase
+                                    .from("purpletransaction")
+                                    .select("company, points_cost")
+                                    .eq("is_deleted", false)
+                                    .gte("order_date_int_utc", startInt)
+                                    .lte("order_date_int_utc", endInt);
+                                  if (appliedBrandFilter !== "all") q = q.eq("brand_name", appliedBrandFilter);
+                                  if (appliedCompanyFilter !== "all") q = q.eq("company", appliedCompanyFilter);
+                                  const agg: Record<string, number> = {};
+                                  let from = 0;
+                                  while (true) {
+                                    const { data, error } = await q.range(from, from + 999);
+                                    if (error) throw error;
+                                    (data || []).forEach((r: any) => {
+                                      const k = r.company || "Unknown";
+                                      agg[k] = (agg[k] || 0) + (Number(r.points_cost) || 0);
+                                    });
+                                    if (!data || data.length < 1000) break;
+                                    from += 1000;
+                                  }
+                                  const totalPts = totals.pointsCost || 1;
+                                  const list = Object.entries(agg)
+                                    .filter(([, v]) => Math.abs(v) > 0.001)
+                                    .map(([company, points_cost]) => ({
+                                      company,
+                                      points_cost,
+                                      percentage: (points_cost / totalPts) * 100,
+                                    }))
+                                    .sort((a, b) => b.points_cost - a.points_cost);
+                                  setPointsByCompany(list);
+                                } catch (err: any) {
+                                  toast.error(err?.message || "Failed to load breakdown");
+                                } finally {
+                                  setPointsByCompanyLoading(false);
+                                }
+                              }
                             }}
                             className="p-0.5 rounded hover:bg-muted"
                             aria-label={isOpen ? "Collapse" : "Expand"}
