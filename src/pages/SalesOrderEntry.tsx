@@ -53,6 +53,7 @@ function SearchableSelect({ value, onChange, options, placeholder, className }: 
 interface OrderLine {
   id: string;
   brand_id: string;
+  vendor: string;
   product_id: string;
   product_name: string;
   coins_number: number;
