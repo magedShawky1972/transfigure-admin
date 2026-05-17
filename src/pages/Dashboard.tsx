@@ -434,16 +434,16 @@ const Dashboard = () => {
         const avgOrderValue = transactionCount > 0 ? totalSales / transactionCount : 0;
 
         // Use optimized RPC functions for fast aggregation with brand filter
-        const [cogsResult, chargesResult, pointsResult] = await Promise.all([
+        const [cogsResult, chargesBreakdownResult, pointsResult] = await Promise.all([
           supabase.rpc('get_cost_of_sales', {
             date_from: startDate,
             date_to: endDate,
             p_brand_name: brandParam,
             p_company: companyParam
           }),
-          supabase.rpc('get_epayment_charges', {
-            date_from: startDate,
-            date_to: endDate,
+          supabase.rpc('get_epayment_charges_breakdown', {
+            p_date_from: startDate,
+            p_date_to: endDate,
             p_brand_name: brandParam,
             p_company: companyParam
           }),
@@ -456,11 +456,14 @@ const Dashboard = () => {
         ]);
 
         if (cogsResult.error) throw cogsResult.error;
-        if (chargesResult.error) throw chargesResult.error;
+        if (chargesBreakdownResult.error) throw chargesBreakdownResult.error;
         if (pointsResult.error) throw pointsResult.error;
 
         const costOfSales = Number(cogsResult.data || 0);
-        const ePaymentCharges = Number(chargesResult.data || 0);
+        const ePaymentCharges = (chargesBreakdownResult.data || []).reduce(
+          (sum: number, row: any) => sum + (Number(row.bank_fee) || 0),
+          0
+        );
         const pointsData = pointsResult.data && pointsResult.data.length > 0 ? pointsResult.data[0] : { total_sales: 0, total_cost: 0 };
         const totalPointsSales = Number(pointsData.total_sales || 0);
         const totalPointsCost = Number(pointsData.total_cost || 0);
