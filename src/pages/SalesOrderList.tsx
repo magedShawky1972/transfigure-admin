@@ -357,7 +357,11 @@ const SalesOrderList = () => {
           sales_reference: r.sales_reference || "",
           sales_person: r.sales_person || "",
           company: r.company || "",
-          vendor: r.vendor || r.Vendor || r.supplier || r.Supplier || "",
+          source_vendor_name: String(r.vendor || r.Vendor || r.supplier || r.Supplier || "").trim(),
+          vendor: (() => {
+            const raw = String(r.vendor || r.Vendor || r.supplier || r.Supplier || "").trim();
+            return supplierMappingsMap[raw.toLowerCase()] || raw;
+          })(),
           notes: r.notes || "",
           brand_id: brand?.id || null,
           brand_code: brand?.brand_code || "",
