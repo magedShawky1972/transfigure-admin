@@ -140,6 +140,7 @@ const SalesOrderEntry = () => {
       setSalesReference(header.sales_reference || "");
       setSalesPerson(header.sales_person || "");
       setNotes(header.notes || "");
+      setCompany(header.company || "");
       setLines((lineRows || []).map((r: any) => ({
         id: r.id,
         brand_id: r.brand_id || "",
@@ -294,6 +295,7 @@ const SalesOrderEntry = () => {
       sales_reference: salesReference || null,
       sales_person: salesPerson || null,
       notes: notes || null,
+      company: company || null,
       total_amount: orderTotal,
       total_cost: orderCost,
       total_profit: orderProfit,
@@ -416,7 +418,7 @@ const SalesOrderEntry = () => {
           sales_reference: salesReference || null,
           sales_person: salesPerson || null,
           trans_type: "manual",
-          company: "SupPurple",
+          company: company || "Purple",
           created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
           is_deleted: false,
         };
@@ -454,6 +456,7 @@ const SalesOrderEntry = () => {
     setSalesReference("");
     setSalesPerson("");
     setNotes("");
+    setCompany("");
     setLines([]);
   };
 
