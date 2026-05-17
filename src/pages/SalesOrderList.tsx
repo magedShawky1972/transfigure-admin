@@ -9,11 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Plus, Pencil, Trash2, Loader2, Download, Upload, FileSpreadsheet, AlertCircle, ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
+import { cn } from "@/lib/utils";
 
 
 const SalesOrderList = () => {
@@ -29,6 +32,100 @@ const SalesOrderList = () => {
   const [committing, setCommitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewRows, setPreviewRows] = useState<any[] | null>(null);
+  const [brandsList, setBrandsList] = useState<any[]>([]);
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
+  const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
+
+  const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
+    const coins = Number(product?.coins_number) || 0;
+    const salesRate = Number(brand?.sales_one_coins_sar ?? 0) || 0;
+    const costRate = Number(brand?.cost_one_coins_sar ?? 0) || 0;
+    const unit = salesRate > 0 ? salesRate : (coins > 0 ? (Number(product?.product_price ?? 0) || 0) / coins : 0);
+    const cost = costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0);
+    const qty = Number(row.qty) || 0;
+    const issues: string[] = [];
+    if (!brand) issues.push("Brand not found");
+    if (!product) issues.push("Product not found");
+    if (!row.order_number) issues.push("Missing order_number");
+    if (qty <= 0) issues.push("Qty must be > 0");
+    return {
+      ...row,
+      brand_id: brand?.id || null,
+      brand_code: brand?.brand_code || "",
+      brand_name: brand?.brand_name || row.brand_name || "",
+      product_id: product?.id || null,
+      product_name: product?.product_name || row.product_name || "",
+      coins_number: coins,
+      unit_price: unit,
+      cost_price: cost,
+      total: coins * qty * unit,
+      total_cost: coins * qty * cost,
+      profit: (coins * qty * unit) - (coins * qty * cost),
+      issues,
+    };
+  };
+
+  const findProductForBrand = (brand: any, productName: string) => {
+    const bk = String(brand?.brand_code || brand?.brand_name || "").trim().toLowerCase();
+    const nk = String(productName || "").trim().toLowerCase();
+    return productsList.find(p => {
+      const pbk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
+      const pnk = String(p.product_name || "").trim().toLowerCase();
+      return pbk === bk && pnk === nk;
+    }) || null;
+  };
+
+  const handleChangeRowBrand = (rowIdx: number, newBrandId: string) => {
+    setPreviewRows(prev => {
+      if (!prev) return prev;
+      const targetRow = prev[rowIdx];
+      const oldBrandKey = String(targetRow.brand_name || "").trim().toLowerCase();
+      const newBrand = brandsList.find(b => b.id === newBrandId) || null;
+      return prev.map(r => {
+        const sameOriginalBrand = String(r.brand_name || "").trim().toLowerCase() === oldBrandKey;
+        if (!sameOriginalBrand) return r;
+        const product = newBrand ? findProductForBrand(newBrand, r.product_name) : null;
+        return recomputeRow(r, newBrand, product);
+      });
+    });
+    setBrandPopoverIdx(null);
+  };
+
+  const toggleSort = (key: string, additive: boolean) => {
+    setSortConfig(prev => {
+      const existing = prev.find(s => s.key === key);
+      if (!additive) {
+        if (existing && prev.length === 1) {
+          return existing.dir === 'asc' ? [{ key, dir: 'desc' }] : [];
+        }
+        return [{ key, dir: 'asc' }];
+      }
+      if (existing) {
+        if (existing.dir === 'asc') return prev.map(s => s.key === key ? { ...s, dir: 'desc' } : s);
+        return prev.filter(s => s.key !== key);
+      }
+      return [...prev, { key, dir: 'asc' }];
+    });
+  };
+
+  const sortedPreview = (() => {
+    if (!previewRows) return null;
+    if (sortConfig.length === 0) return previewRows.map((r, i) => ({ ...r, __idx: i }));
+    const arr = previewRows.map((r, i) => ({ ...r, __idx: i }));
+    arr.sort((a, b) => {
+      for (const { key, dir } of sortConfig) {
+        const av = key === 'issuesKey' ? (a.issues?.length || 0) : a[key];
+        const bv = key === 'issuesKey' ? (b.issues?.length || 0) : b[key];
+        const an = typeof av === 'number' ? av : (av == null ? '' : String(av).toLowerCase());
+        const bn = typeof bv === 'number' ? bv : (bv == null ? '' : String(bv).toLowerCase());
+        if (an < bn) return dir === 'asc' ? -1 : 1;
+        if (an > bn) return dir === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+    return arr;
+  })();
 
   const COLUMNS = [
     "order_number","order_date","customer_name",
@@ -104,6 +201,8 @@ const SalesOrderList = () => {
         supabase.from("brands").select("id, brand_code, brand_name, sales_one_coins_sar, cost_one_coins_sar"),
         supabase.from("products").select("id, product_name, product_price, product_cost, coins_number, brand_code, brand_name").eq("status", "active").limit(5000),
       ]);
+      setBrandsList(brandsData || []);
+      setProductsList(productsData || []);
       const brandByName = new Map<string, any>();
       const brandByCode = new Map<string, any>();
       (brandsData || []).forEach((b: any) => {
@@ -162,6 +261,7 @@ const SalesOrderList = () => {
         };
       });
 
+      setSortConfig([]);
       setPreviewRows(resolved);
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
@@ -397,44 +497,101 @@ const SalesOrderList = () => {
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
-                  <TableHead>Order #</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Brand</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Coins</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Status</TableHead>
+                  {[
+                    { key: 'order_number', label: 'Order #' },
+                    { key: 'order_date', label: 'Date' },
+                    { key: 'customer_name', label: 'Customer' },
+                    { key: 'brand_name', label: 'Brand' },
+                    { key: 'product_name', label: 'Product' },
+                    { key: 'coins_number', label: 'Coins', align: 'right' },
+                    { key: 'qty', label: 'Qty', align: 'right' },
+                    { key: 'unit_price', label: 'Unit', align: 'right' },
+                    { key: 'cost_price', label: 'Cost', align: 'right' },
+                    { key: 'total', label: 'Total', align: 'right' },
+                    { key: 'issuesKey', label: 'Status' },
+                  ].map(col => {
+                    const sortKey = col.key === 'issuesKey' ? 'issuesKey' : col.key;
+                    const cfgIdx = sortConfig.findIndex(s => s.key === sortKey);
+                    const cfg = cfgIdx >= 0 ? sortConfig[cfgIdx] : null;
+                    return (
+                      <TableHead
+                        key={col.key}
+                        className={cn('cursor-pointer select-none', col.align === 'right' ? 'text-right' : '')}
+                        onClick={(e) => toggleSort(sortKey, e.shiftKey)}
+                        title="Click to sort, Shift+Click to add"
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {col.label}
+                          {cfg && (cfg.dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                          {cfg && sortConfig.length > 1 && (
+                            <span className="text-[10px] text-muted-foreground">{cfgIdx + 1}</span>
+                          )}
+                        </span>
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(previewRows || []).map((r, i) => (
-                  <TableRow key={i} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
-                    <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
-                    <TableCell className="text-xs">{r.order_date}</TableCell>
-                    <TableCell className="text-xs">{r.customer_name}</TableCell>
-                    <TableCell className="text-xs">{r.brand_name}{r.brand_code ? <span className="text-muted-foreground"> ({r.brand_code})</span> : null}</TableCell>
-                    <TableCell className="text-xs">{r.product_name}</TableCell>
-                    <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-xs">{r.qty}</TableCell>
-                    <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
-                    <TableCell className="text-right text-xs">{Number(r.cost_price).toFixed(7)}</TableCell>
-                    <TableCell className="text-right text-xs font-medium">{Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell>
-                      {r.issues.length === 0 ? (
-                        <Badge variant="secondary" className="text-xs">OK</Badge>
-                      ) : (
-                        <span className="text-xs text-destructive flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />{r.issues.join('; ')}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {(sortedPreview || []).map((r: any) => {
+                  const origIdx = r.__idx;
+                  return (
+                    <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
+                      <TableCell className="text-xs text-muted-foreground">{r.row}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
+                      <TableCell className="text-xs">{r.order_date}</TableCell>
+                      <TableCell className="text-xs">{r.customer_name}</TableCell>
+                      <TableCell className="text-xs">
+                        <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal justify-between min-w-[140px]">
+                              <span className="truncate">
+                                {r.brand_name || <span className="text-muted-foreground">Select brand</span>}
+                                {r.brand_code ? <span className="text-muted-foreground"> ({r.brand_code})</span> : null}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-[260px]" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search brand..." />
+                              <CommandList>
+                                <CommandEmpty>No brand found.</CommandEmpty>
+                                <CommandGroup>
+                                  {brandsList.map(b => (
+                                    <CommandItem
+                                      key={b.id}
+                                      value={`${b.brand_name} ${b.brand_code}`}
+                                      onSelect={() => handleChangeRowBrand(origIdx, b.id)}
+                                    >
+                                      <span className="font-medium">{b.brand_name}</span>
+                                      {b.brand_code && <span className="ml-2 text-xs text-muted-foreground">({b.brand_code})</span>}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
+                      <TableCell className="text-xs">{r.product_name}</TableCell>
+                      <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-xs">{r.qty}</TableCell>
+                      <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
+                      <TableCell className="text-right text-xs">{Number(r.cost_price).toFixed(7)}</TableCell>
+                      <TableCell className="text-right text-xs font-medium">{Number(r.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell>
+                        {r.issues.length === 0 ? (
+                          <Badge variant="secondary" className="text-xs">OK</Badge>
+                        ) : (
+                          <span className="text-xs text-destructive flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />{r.issues.join('; ')}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
