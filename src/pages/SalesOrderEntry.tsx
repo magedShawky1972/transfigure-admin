@@ -194,10 +194,13 @@ const SalesOrderEntry = () => {
 
       if (field === "product_id") {
         const product = products.find(p => p.id === value);
+        console.log("[SalesOrderEntry] product selected:", value, product);
         if (product) {
+          const price = Number(product.product_price ?? 0) || 0;
+          const cost = Number(product.product_cost ?? 0) || 0;
           updated.product_name = product.product_name;
-          updated.unit_price = parseFloat(product.product_price ?? "0") || 0;
-          updated.cost_price = parseFloat(product.product_cost ?? "0") || 0;
+          updated.unit_price = price;
+          updated.cost_price = cost;
           updated.coins_number = Number(product.coins_number) || 0;
         }
       }
@@ -482,10 +485,10 @@ const SalesOrderEntry = () => {
                         <Input type="number" min={1} value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="0.001" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", Number(e.target.value))} />
+                        <Input type="number" step="any" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="0.001" value={line.cost_price} onChange={e => updateLine(line.id, "cost_price", Number(e.target.value))} />
+                        <Input type="number" step="any" value={line.cost_price} onChange={e => updateLine(line.id, "cost_price", Number(e.target.value))} />
                       </TableCell>
                       <TableCell className="font-medium">{(line.qty * line.cost_price).toFixed(2)}</TableCell>
                       <TableCell className="font-medium">{line.total.toFixed(2)}</TableCell>
