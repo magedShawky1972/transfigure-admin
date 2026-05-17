@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileBarChart, Printer, ChevronRight } from "lucide-react";
+import { Loader2, FileBarChart, Printer, ChevronRight, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
@@ -414,7 +415,39 @@ const IncomeStatementReport = () => {
       <Dialog open={drillOpen} onOpenChange={setDrillOpen}>
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{drillTitle}</DialogTitle>
+            <div className="flex items-center justify-between gap-2 pr-6">
+              <DialogTitle>{drillTitle}</DialogTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const rows = drillType === "brand"
+                    ? drillBrandData.map((b) => ({
+                        Brand: b.brand_name,
+                        "Tx Count": b.tx_count,
+                        Coins: b.coins,
+                        "%": Number(b.percentage.toFixed(2)),
+                        Value: Number(b.value.toFixed(2)),
+                      }))
+                    : drillEpayment.map((r) => ({
+                        "Payment Method": r.payment_method,
+                        "Payment Brand": r.payment_brand,
+                        "Tx Count": r.transaction_count,
+                        "Total Sales": Number(r.total_sales.toFixed(2)),
+                        "%": Number(r.percentage.toFixed(2)),
+                        "Bank Fee": Number(r.bank_fee.toFixed(2)),
+                      }));
+                  const ws = XLSX.utils.json_to_sheet(rows);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Data");
+                  XLSX.writeFile(wb, `${drillTitle.replace(/[^a-z0-9]/gi, "_")}_${appliedStartDate}_${appliedEndDate}.xlsx`);
+                }}
+                disabled={drillLoading || (drillType === "brand" ? drillBrandData.length === 0 : drillEpayment.length === 0)}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                {isRTL ? "تصدير Excel" : "Export Excel"}
+              </Button>
+            </div>
           </DialogHeader>
           {drillLoading ? (
             <div className="flex items-center justify-center py-16">
@@ -571,7 +604,36 @@ const IncomeStatementReport = () => {
       <Dialog open={txDialogOpen} onOpenChange={setTxDialogOpen}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto" dir={isRTL ? "rtl" : "ltr"}>
           <DialogHeader>
-            <DialogTitle>{txTitle}</DialogTitle>
+            <div className="flex items-center justify-between gap-2 pr-6">
+              <DialogTitle>{txTitle}</DialogTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const rows = txList.map((t) => ({
+                    Order: t.order_number,
+                    Date: t.created_at_date,
+                    Customer: t.customer_name,
+                    Phone: t.customer_phone,
+                    Brand: t.brand_name,
+                    Product: t.product_name,
+                    Payment: t.payment_method,
+                    Qty: Number(t.qty) || 0,
+                    Total: Number(t.total) || 0,
+                    Cost: Number(t.cost_sold) || 0,
+                    Fee: Number(t.bank_fee) || 0,
+                  }));
+                  const ws = XLSX.utils.json_to_sheet(rows);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Transactions");
+                  XLSX.writeFile(wb, `${txTitle.replace(/[^a-z0-9]/gi, "_")}.xlsx`);
+                }}
+                disabled={txLoading || txList.length === 0}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                {isRTL ? "تصدير Excel" : "Export Excel"}
+              </Button>
+            </div>
           </DialogHeader>
           {txLoading ? (
             <div className="flex items-center justify-center py-16">
