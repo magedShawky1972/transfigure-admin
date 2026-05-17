@@ -499,48 +499,115 @@ const IncomeStatementReport = () => {
             <div className="divide-y">
               {rows.filter(r => !r.parent || expanded[r.parent]).map((row) => {
                 const clickable = row.drilldown !== "none" && Math.abs(row.value) > 0.001;
-                const isExpandable = row.key === "totalSales" || row.key === "costOfSales";
+                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment";
                 const isOpen = isExpandable && expanded[row.key];
+                const splitClick = row.key === "ePayment"; // chevron expands, amount opens popup
                 return (
-                  <div
-                    key={row.key}
-                    onClick={() => clickable && openDrilldown(row)}
-                    className={[
-                      "flex items-center justify-between py-3 px-2 transition-colors",
-                      row.isTotal ? "font-bold text-lg border-t-2 mt-2 pt-4" : "",
-                      row.parent ? "pl-8" : "",
-                      clickable ? "cursor-pointer hover:bg-muted/50 rounded-md" : "",
-                    ].join(" ")}
-                  >
-                    <span className="flex items-center gap-2">
-                      {isExpandable ? (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [row.key]: !prev[row.key] })); }}
-                          className="p-0.5 rounded hover:bg-muted"
-                          aria-label={isOpen ? "Collapse" : "Expand"}
-                        >
-                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                      ) : (
-                        clickable && <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      {row.label}
-                    </span>
-                    <div className="flex items-center gap-6">
-                      {row.percentage !== 0 && row.percentage !== 100 && (
+                  <>
+                    <div
+                      key={row.key}
+                      onClick={() => !splitClick && clickable && openDrilldown(row)}
+                      className={[
+                        "flex items-center justify-between py-3 px-2 transition-colors",
+                        row.isTotal ? "font-bold text-lg border-t-2 mt-2 pt-4" : "",
+                        row.parent ? "pl-8" : "",
+                        clickable && !splitClick ? "cursor-pointer hover:bg-muted/50 rounded-md" : "",
+                      ].join(" ")}
+                    >
+                      <span className="flex items-center gap-2">
+                        {isExpandable ? (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const willOpen = !expanded[row.key];
+                              setExpanded(prev => ({ ...prev, [row.key]: willOpen }));
+                              if (row.key === "ePayment" && willOpen && ePaymentByMethod.length === 0 && !ePaymentByMethodLoading) {
+                                setEPaymentByMethodLoading(true);
+                                try {
+                                  const { data, error } = await supabase.rpc("get_epayment_charges_breakdown", {
+                                    p_date_from: appliedStartDate,
+                                    p_date_to: appliedEndDate,
+                                    p_brand_name: appliedBrandFilter === "all" ? null : appliedBrandFilter,
+                                    p_company: appliedCompanyFilter === "all" ? null : appliedCompanyFilter,
+                                  });
+                                  if (error) throw error;
+                                  const agg: Record<string, number> = {};
+                                  (data || []).forEach((i: any) => {
+                                    const k = i.payment_method || "Unknown";
+                                    agg[k] = (agg[k] || 0) + (Number(i.bank_fee) || 0);
+                                  });
+                                  const totalFee = totals.ePaymentCharges || 1;
+                                  const list = Object.entries(agg).map(([payment_method, bank_fee]) => ({
+                                    payment_method,
+                                    bank_fee,
+                                    percentage: (bank_fee / totalFee) * 100,
+                                  })).sort((a, b) => b.bank_fee - a.bank_fee);
+                                  setEPaymentByMethod(list);
+                                } catch (err: any) {
+                                  toast.error(err?.message || "Failed to load breakdown");
+                                } finally {
+                                  setEPaymentByMethodLoading(false);
+                                }
+                              }
+                            }}
+                            className="p-0.5 rounded hover:bg-muted"
+                            aria-label={isOpen ? "Collapse" : "Expand"}
+                          >
+                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                        ) : (
+                          clickable && <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        {row.label}
+                      </span>
+                      <div className="flex items-center gap-6">
+                        {row.percentage !== 0 && row.percentage !== 100 && (
+                          <span
+                            className={[
+                              "text-sm",
+                              row.percentage < 0 ? "text-red-500" : row.key === "netSales" && row.percentage > 20 ? "text-green-500" : "text-muted-foreground",
+                            ].join(" ")}
+                          >
+                            {row.percentage.toFixed(2)}%
+                          </span>
+                        )}
                         <span
                           className={[
-                            "text-sm",
-                            row.percentage < 0 ? "text-red-500" : row.key === "netSales" && row.percentage > 20 ? "text-green-500" : "text-muted-foreground",
+                            row.isTotal ? "text-lg" : "",
+                            splitClick && clickable ? "cursor-pointer hover:underline" : "",
                           ].join(" ")}
+                          onClick={(e) => {
+                            if (splitClick && clickable) {
+                              e.stopPropagation();
+                              openDrilldown(row);
+                            }
+                          }}
                         >
-                          {row.percentage.toFixed(2)}%
+                          {fmt(row.value)}
                         </span>
-                      )}
-                      <span className={row.isTotal ? "text-lg" : ""}>{fmt(row.value)}</span>
+                      </div>
                     </div>
-                  </div>
+                    {row.key === "ePayment" && isOpen && (
+                      <>
+                        {ePaymentByMethodLoading ? (
+                          <div className="flex items-center gap-2 py-2 pl-8 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" /> {isRTL ? "جاري التحميل" : "Loading"}…
+                          </div>
+                        ) : ePaymentByMethod.length === 0 ? (
+                          <div className="py-2 pl-8 text-sm text-muted-foreground">{isRTL ? "لا توجد بيانات" : "No data"}</div>
+                        ) : ePaymentByMethod.map((pm) => (
+                          <div key={`pm-${pm.payment_method}`} className="flex items-center justify-between py-3 px-2 pl-8">
+                            <span>{pm.payment_method}</span>
+                            <div className="flex items-center gap-6">
+                              <span className="text-sm text-muted-foreground">{pm.percentage.toFixed(2)}%</span>
+                              <span>{fmt(pm.bank_fee)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </>
                 );
               })}
             </div>
