@@ -787,12 +787,21 @@ const SalesOrderEntry = () => {
             ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
             : (language === 'ar' ? 'حفظ' : 'Save')}
         </Button>
-        <Button onClick={handleConfirm} disabled={submitting || saving || isConfirmed || lines.length === 0}>
-          <Check className="h-4 w-4 mr-1" />
-          {submitting
-            ? (language === 'ar' ? 'جاري التأكيد...' : 'Confirming...')
-            : (language === 'ar' ? 'تأكيد الطلب' : 'Confirm Order')}
-        </Button>
+        {isConfirmed && isEditMode ? (
+          <Button variant="destructive" onClick={handleRollback} disabled={submitting}>
+            <RotateCcw className="h-4 w-4 mr-1" />
+            {submitting
+              ? (language === 'ar' ? 'جاري إعادة الفتح...' : 'Reopening...')
+              : (language === 'ar' ? 'إعادة فتح الطلب' : 'Rollback / Reopen')}
+          </Button>
+        ) : (
+          <Button onClick={handleConfirm} disabled={submitting || saving || isConfirmed || lines.length === 0}>
+            <Check className="h-4 w-4 mr-1" />
+            {submitting
+              ? (language === 'ar' ? 'جاري التأكيد...' : 'Confirming...')
+              : (language === 'ar' ? 'تأكيد الطلب' : 'Confirm Order')}
+          </Button>
+        )}
       </div>
     </div>
   );
