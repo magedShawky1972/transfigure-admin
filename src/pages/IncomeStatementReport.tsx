@@ -166,7 +166,7 @@ const IncomeStatementReport = () => {
         if (asusTotal > 0 || asusCost > 0) {
           rsMap["Asus"] = (rsMap["Asus"] || 0) + asusTotal;
           list.push({
-            brand_name: "ASUS Manual Sales",
+            brand_name: "Asus Sales",
             total: asusTotal,
             cost_sold: asusCost,
             bank_fee: 0,
