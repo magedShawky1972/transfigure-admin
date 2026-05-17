@@ -455,7 +455,7 @@ const SalesOrderEntry = () => {
   };
 
   const handleRollback = async () => {
-    if (!savedId || !orderNumber) return;
+    if (!orderId || !orderNumber) return;
     if (!window.confirm(language === 'ar'
       ? 'هل تريد إعادة فتح هذا الطلب؟ سيتم حذف الحركات المسجلة.'
       : 'Reopen this order? Posted transactions will be removed.')) return;
@@ -471,7 +471,7 @@ const SalesOrderEntry = () => {
       const { error: updErr } = await supabase
         .from("manual_sales_orders")
         .update({ status: 'draft', confirmed_at: null })
-        .eq("id", savedId)
+        .eq("id", orderId)
         .select();
       if (updErr) throw updErr;
 
