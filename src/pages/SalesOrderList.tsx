@@ -648,7 +648,16 @@ const SalesOrderList = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(sortedPreview || []).filter((r: any) => !showErrorsOnly || r.issues.length > 0).map((r: any) => {
+                {(sortedPreview || []).filter((r: any) => {
+                  const hasAnyIssue = r.issues.length > 0;
+                  const hasBrandError = r.issues.some((i: string) => i.includes('Brand not found'));
+                  const hasProductError = r.issues.some((i: string) => i.includes('Product not found'));
+                  if (!showErrorsOnly && !showBrandErrorsOnly && !showProductErrorsOnly) return true;
+                  if (showErrorsOnly && hasAnyIssue) return true;
+                  if (showBrandErrorsOnly && hasBrandError) return true;
+                  if (showProductErrorsOnly && hasProductError) return true;
+                  return false;
+                }).map((r: any) => {
                   const origIdx = r.__idx;
                   return (
                     <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
