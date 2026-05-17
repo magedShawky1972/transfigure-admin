@@ -216,17 +216,25 @@ const SalesOrderList = () => {
       if (raw.length === 0) throw new Error("Empty file");
 
       // Lookups
-      const [{ data: brandsData }, { data: productsData }] = await Promise.all([
+      const [{ data: brandsData }, { data: productsData }, { data: mappingsData }] = await Promise.all([
         supabase.from("brands").select("id, brand_code, brand_name, sales_one_coins_sar, cost_one_coins_sar"),
         supabase.from("products").select("id, product_name, product_price, product_cost, coins_number, brand_code, brand_name").eq("status", "active").limit(5000),
+        supabase.from("sales_order_brand_mappings").select("source_brand_name, purple_brand_id"),
       ]);
       setBrandsList(brandsData || []);
       setProductsList(productsData || []);
+      const brandById = new Map<string, any>();
       const brandByName = new Map<string, any>();
       const brandByCode = new Map<string, any>();
       (brandsData || []).forEach((b: any) => {
+        brandById.set(b.id, b);
         if (b.brand_name) brandByName.set(String(b.brand_name).trim().toLowerCase(), b);
         if (b.brand_code) brandByCode.set(String(b.brand_code).trim().toLowerCase(), b);
+      });
+      const mappingBySource = new Map<string, any>();
+      (mappingsData || []).forEach((m: any) => {
+        const b = brandById.get(m.purple_brand_id);
+        if (b) mappingBySource.set(String(m.source_brand_name).trim().toLowerCase(), b);
       });
       const productsByBrandAndName = new Map<string, any>();
       (productsData || []).forEach((p: any) => {
