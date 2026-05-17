@@ -58,6 +58,7 @@ const SalesOrderEntry = () => {
   const [customerLoading, setCustomerLoading] = useState(false);
   const customerSearchTimer = useRef<NodeJS.Timeout | null>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [salesPeople, setSalesPeople] = useState<any[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
