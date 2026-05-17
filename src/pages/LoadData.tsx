@@ -1471,7 +1471,16 @@ const LoadData = () => {
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {reconcileExcelDataRef.current.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={downloadUploadSummaryReport}
+                className="flex-1"
+              >
+                Download Summary Report
+              </Button>
+            )}
             {lastUploadTargetTable?.toLowerCase() === 'purpletransaction' && canReconcile && (
               <Button 
                 variant="outline"
