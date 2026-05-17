@@ -651,6 +651,25 @@ const IncomeStatementReport = () => {
                         ))}
                       </>
                     )}
+                    {row.key === "pointsCost" && isOpen && (
+                      <>
+                        {pointsByCompanyLoading ? (
+                          <div className="flex items-center gap-2 py-2 pl-8 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" /> {isRTL ? "جاري التحميل" : "Loading"}…
+                          </div>
+                        ) : pointsByCompany.length === 0 ? (
+                          <div className="py-2 pl-8 text-sm text-muted-foreground">{isRTL ? "لا توجد بيانات" : "No data"}</div>
+                        ) : pointsByCompany.map((pc) => (
+                          <div key={`pc-${pc.company}`} className="flex items-center justify-between py-3 px-2 pl-8">
+                            <span>{pc.company}</span>
+                            <div className="flex items-center gap-6">
+                              <span className="text-sm text-muted-foreground">{pc.percentage.toFixed(2)}%</span>
+                              <span>{fmt(pc.points_cost)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </Fragment>
                 );
               })}
