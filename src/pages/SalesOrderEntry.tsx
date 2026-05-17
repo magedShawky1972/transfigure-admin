@@ -87,6 +87,8 @@ const SalesOrderEntry = () => {
   const [salesReference, setSalesReference] = useState("");
   const [salesPerson, setSalesPerson] = useState("");
   const [notes, setNotes] = useState("");
+  const [company, setCompany] = useState("");
+  const companyOptions = ["Purple", "Ish7an"];
 
   // Lines state
   const [lines, setLines] = useState<OrderLine[]>([]);
@@ -138,6 +140,7 @@ const SalesOrderEntry = () => {
       setSalesReference(header.sales_reference || "");
       setSalesPerson(header.sales_person || "");
       setNotes(header.notes || "");
+      setCompany(header.company || "");
       setLines((lineRows || []).map((r: any) => ({
         id: r.id,
         brand_id: r.brand_id || "",
@@ -292,6 +295,7 @@ const SalesOrderEntry = () => {
       sales_reference: salesReference || null,
       sales_person: salesPerson || null,
       notes: notes || null,
+      company: company || null,
       total_amount: orderTotal,
       total_cost: orderCost,
       total_profit: orderProfit,
@@ -414,7 +418,7 @@ const SalesOrderEntry = () => {
           sales_reference: salesReference || null,
           sales_person: salesPerson || null,
           trans_type: "manual",
-          company: "SupPurple",
+          company: company || "Purple",
           created_at_date: orderDateObj.toISOString().replace("T", " ").substring(0, 19),
           is_deleted: false,
         };
@@ -452,6 +456,7 @@ const SalesOrderEntry = () => {
     setSalesReference("");
     setSalesPerson("");
     setNotes("");
+    setCompany("");
     setLines([]);
   };
 
@@ -563,6 +568,18 @@ const SalesOrderEntry = () => {
                   </Command>
                 </PopoverContent>
               </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'الشركة' : 'Company'}</Label>
+              <Select value={company} onValueChange={setCompany}>
+                <SelectTrigger><SelectValue placeholder={language === 'ar' ? 'اختر الشركة' : 'Select Company'} /></SelectTrigger>
+                <SelectContent>
+                  {companyOptions.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

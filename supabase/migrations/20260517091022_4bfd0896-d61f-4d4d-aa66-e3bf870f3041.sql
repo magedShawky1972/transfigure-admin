@@ -1,0 +1,1 @@
+ALTER TABLE public.manual_sales_orders ADD COLUMN IF NOT EXISTS company text;
