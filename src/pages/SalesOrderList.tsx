@@ -818,6 +818,16 @@ const SalesOrderList = () => {
         </h1>
         <div className="flex gap-2 flex-wrap">
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }} />
+          {confirmableSelectedIds.length > 0 && (
+            <Button variant="default" disabled={bulkConfirming} onClick={() => setBulkConfirmOpen(true)}>
+              {bulkConfirming
+                ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                : <Check className="h-4 w-4 mr-1" />}
+              {bulkConfirming && bulkConfirmProgress
+                ? `${language === 'ar' ? 'جاري التأكيد' : 'Confirming'} ${bulkConfirmProgress.current}/${bulkConfirmProgress.total}`
+                : (language === 'ar' ? `تأكيد (${confirmableSelectedIds.length})` : `Confirm (${confirmableSelectedIds.length})`)}
+            </Button>
+          )}
           {deletableSelectedIds.length > 0 && (
             <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
               <Trash2 className="h-4 w-4 mr-1" />
