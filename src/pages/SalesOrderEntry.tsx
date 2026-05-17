@@ -454,6 +454,37 @@ const SalesOrderEntry = () => {
     }
   };
 
+  const handleRollback = async () => {
+    if (!orderId || !orderNumber) return;
+    if (!window.confirm(language === 'ar'
+      ? 'هل تريد إعادة فتح هذا الطلب؟ سيتم حذف الحركات المسجلة.'
+      : 'Reopen this order? Posted transactions will be removed.')) return;
+    setSubmitting(true);
+    try {
+      const { error: delErr } = await supabase
+        .from("purpletransaction")
+        .delete()
+        .eq("ordernumber", orderNumber)
+        .eq("trans_type", "manual");
+      if (delErr) throw delErr;
+
+      const { error: updErr } = await supabase
+        .from("manual_sales_orders")
+        .update({ status: 'draft', confirmed_at: null })
+        .eq("id", orderId)
+        .select();
+      if (updErr) throw updErr;
+
+      setOrderStatus('draft');
+      toast({ title: language === 'ar' ? 'تم إعادة فتح الطلب' : 'Order reopened' });
+    } catch (error: any) {
+      console.error("Error rolling back order:", error);
+      toast({ title: language === 'ar' ? 'خطأ في إعادة الفتح' : 'Error reopening order', description: error.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleReset = () => {
     setCustomerName("");
     setCustomerPhone("");
@@ -756,12 +787,21 @@ const SalesOrderEntry = () => {
             ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
             : (language === 'ar' ? 'حفظ' : 'Save')}
         </Button>
-        <Button onClick={handleConfirm} disabled={submitting || saving || isConfirmed || lines.length === 0}>
-          <Check className="h-4 w-4 mr-1" />
-          {submitting
-            ? (language === 'ar' ? 'جاري التأكيد...' : 'Confirming...')
-            : (language === 'ar' ? 'تأكيد الطلب' : 'Confirm Order')}
-        </Button>
+        {isConfirmed && isEditMode ? (
+          <Button variant="destructive" onClick={handleRollback} disabled={submitting}>
+            <RotateCcw className="h-4 w-4 mr-1" />
+            {submitting
+              ? (language === 'ar' ? 'جاري إعادة الفتح...' : 'Reopening...')
+              : (language === 'ar' ? 'إعادة فتح الطلب' : 'Rollback / Reopen')}
+          </Button>
+        ) : (
+          <Button onClick={handleConfirm} disabled={submitting || saving || isConfirmed || lines.length === 0}>
+            <Check className="h-4 w-4 mr-1" />
+            {submitting
+              ? (language === 'ar' ? 'جاري التأكيد...' : 'Confirming...')
+              : (language === 'ar' ? 'تأكيد الطلب' : 'Confirm Order')}
+          </Button>
+        )}
       </div>
     </div>
   );
