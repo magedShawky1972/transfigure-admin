@@ -212,14 +212,14 @@ const IncomeStatementReport = () => {
   const grossProfit = totals.totalSales - totalCompanyCost - totals.pointsCost - totals.ePaymentCharges;
 
   const rows: IncomeRow[] = [
+    { key: "totalSales", label: isRTL ? "*** إجمالي المبيعات ***" : "*** Total Sales ***", value: totals.totalSales, percentage: 100, isTotal: true, drilldown: "brand" },
     { key: "purpleSales", label: isRTL ? "مبيعات Purple" : "Purple Sales", value: revenueSources["Purple"] || 0, percentage: pct(revenueSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "sales" },
     { key: "sallaSales", label: isRTL ? "مبيعات Salla" : "Salla Sales", value: revenueSources["Salla"] || 0, percentage: pct(revenueSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "sales" },
     { key: "asusSales", label: isRTL ? "مبيعات Asus" : "Asus Sales", value: revenueSources["Asus"] || 0, percentage: pct(revenueSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "sales" },
-    { key: "totalSales", label: isRTL ? "*** إجمالي المبيعات ***" : "*** Total Sales ***", value: totals.totalSales, percentage: 100, isTotal: true, drilldown: "brand" },
+    { key: "costOfSales", label: isRTL ? "*** إجمالي التكلفة ***" : "*** Total Cost ***", value: totalCompanyCost, percentage: pct(totalCompanyCost, totals.totalSales), isTotal: true, drilldown: "brand" },
     { key: "purpleCost", label: isRTL ? "تكلفة Purple" : "Purple Cost", value: costSources["Purple"] || 0, percentage: pct(costSources["Purple"] || 0, totals.totalSales), drilldown: "company", company: "Purple", metric: "cost" },
     { key: "sallaCost", label: isRTL ? "تكلفة Salla" : "Salla Cost", value: costSources["Salla"] || 0, percentage: pct(costSources["Salla"] || 0, totals.totalSales), drilldown: "company", company: "Salla", metric: "cost" },
     { key: "asusCost", label: isRTL ? "تكلفة Asus" : "Asus Cost", value: costSources["Asus"] || 0, percentage: pct(costSources["Asus"] || 0, totals.totalSales), drilldown: "company", company: "Asus", metric: "cost" },
-    { key: "costOfSales", label: isRTL ? "*** إجمالي التكلفة ***" : "*** Total Cost ***", value: totalCompanyCost, percentage: pct(totalCompanyCost, totals.totalSales), isTotal: true, drilldown: "brand" },
     { key: "pointsCost", label: isRTL ? "تكلفة النقاط" : "Point Cost", value: totals.pointsCost, percentage: pct(totals.pointsCost, totals.totalSales), drilldown: "points-brand" },
     { key: "ePayment", label: isRTL ? "رسوم الدفع الإلكتروني" : "E-Payment Charges", value: totals.ePaymentCharges, percentage: pct(totals.ePaymentCharges, totals.totalSales), drilldown: "epayment" },
     { key: "grossProfit", label: isRTL ? "*** الربح الإجمالي ***" : "*** Gross Profit ***", value: grossProfit, percentage: pct(grossProfit, totals.totalSales), isTotal: true, drilldown: "none" },
