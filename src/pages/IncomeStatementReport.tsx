@@ -220,18 +220,20 @@ const IncomeStatementReport = () => {
 
     if (row.drilldown === "brand" || row.drilldown === "points-brand") {
       setDrillType("brand");
-      let breakdown: Array<{ brand_name: string; value: number; percentage: number; tx_count: number }> = [];
+      let breakdown: Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }> = [];
       const baseTotal = row.value || 1;
+      const coinsFor = (a: BrandAggregate) =>
+        (brandAbcMap[a.brand_name] === "A") ? (a.coins || 0) : 0;
       if (row.key === "totalSales" || row.key === "salesPlusCoupon") {
-        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.total, percentage: (a.total / baseTotal) * 100, tx_count: a.tx_count }));
+        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.total, percentage: (a.total / baseTotal) * 100, tx_count: a.tx_count, coins: coinsFor(a) }));
       } else if (row.key === "costOfSales") {
-        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.cost_sold, percentage: (a.cost_sold / baseTotal) * 100, tx_count: a.tx_count }));
+        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.cost_sold, percentage: (a.cost_sold / baseTotal) * 100, tx_count: a.tx_count, coins: coinsFor(a) }));
       } else if (row.key === "pointsCost") {
-        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.points_cost, percentage: a.points_cost ? (a.points_cost / baseTotal) * 100 : 0, tx_count: a.tx_count }));
+        breakdown = aggregates.map((a) => ({ brand_name: a.brand_name, value: a.points_cost, percentage: a.points_cost ? (a.points_cost / baseTotal) * 100 : 0, tx_count: a.tx_count, coins: coinsFor(a) }));
       } else if (row.key === "netSales") {
         breakdown = aggregates.map((a) => {
           const v = a.total - a.cost_sold - (includePointCost ? a.points_cost : 0) - a.bank_fee;
-          return { brand_name: a.brand_name, value: v, percentage: a.total > 0 ? (v / a.total) * 100 : 0, tx_count: a.tx_count };
+          return { brand_name: a.brand_name, value: v, percentage: a.total > 0 ? (v / a.total) * 100 : 0, tx_count: a.tx_count, coins: coinsFor(a) };
         });
       }
       breakdown = breakdown.filter((b) => Math.abs(b.value) > 0.001).sort((a, b) => b.value - a.value);
