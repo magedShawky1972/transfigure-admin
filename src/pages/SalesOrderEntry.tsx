@@ -145,18 +145,22 @@ const SalesOrderEntry = () => {
       setSalesPerson(header.sales_person || "");
       setNotes(header.notes || "");
       setCompany(header.company || "");
-      setLines((lineRows || []).map((r: any) => ({
-        id: r.id,
-        brand_id: r.brand_id || "",
-        product_id: "",
-        product_name: r.product_name || "",
-        coins_number: Number(r.coins_number) || 0,
-        qty: Number(r.qty) || 0,
-        unit_price: Number(r.unit_price) || 0,
-        cost_price: Number(r.cost_price) || 0,
-        total: Number(r.total) || 0,
-        profit: Number(r.profit) || 0,
-      })));
+      setLines((lineRows || []).map((r: any) => {
+        const prod = products.find(p => p.id === r.product_id)
+          || products.find(p => p.product_name === (r.product_name || r.product_id));
+        return {
+          id: r.id,
+          brand_id: r.brand_id || "",
+          product_id: prod?.id || "",
+          product_name: r.product_name || prod?.product_name || "",
+          coins_number: Number(r.coins_number) || 0,
+          qty: Number(r.qty) || 0,
+          unit_price: Number(r.unit_price) || 0,
+          cost_price: Number(r.cost_price) || 0,
+          total: Number(r.total) || 0,
+          profit: Number(r.profit) || 0,
+        };
+      }));
     } catch (e: any) {
       toast({ title: 'Error loading order', description: e.message, variant: "destructive" });
     } finally {
