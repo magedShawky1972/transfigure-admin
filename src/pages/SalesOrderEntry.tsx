@@ -485,10 +485,32 @@ const SalesOrderEntry = () => {
                         <Input type="number" min={1} value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value))} />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="any" value={line.unit_price} onChange={e => updateLine(line.id, "unit_price", Number(e.target.value))} />
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={line.unit_price === 0 ? "" : String(line.unit_price)}
+                          onChange={e => {
+                            const v = e.target.value.replace(/[^0-9.]/g, "");
+                            const parts = v.split(".");
+                            const clean = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 6)}` : v;
+                            updateLine(line.id, "unit_price", clean === "" || clean === "." ? 0 : Number(clean));
+                          }}
+                          placeholder="0.000000"
+                        />
                       </TableCell>
                       <TableCell>
-                        <Input type="number" step="any" value={line.cost_price} onChange={e => updateLine(line.id, "cost_price", Number(e.target.value))} />
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={line.cost_price === 0 ? "" : String(line.cost_price)}
+                          onChange={e => {
+                            const v = e.target.value.replace(/[^0-9.]/g, "");
+                            const parts = v.split(".");
+                            const clean = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join("").slice(0, 6)}` : v;
+                            updateLine(line.id, "cost_price", clean === "" || clean === "." ? 0 : Number(clean));
+                          }}
+                          placeholder="0.000000"
+                        />
                       </TableCell>
                       <TableCell className="font-medium">{(line.qty * line.cost_price).toFixed(2)}</TableCell>
                       <TableCell className="font-medium">{line.total.toFixed(2)}</TableCell>
