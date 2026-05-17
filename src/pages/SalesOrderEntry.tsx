@@ -670,7 +670,7 @@ const SalesOrderEntry = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="[&_td]:py-1 [&_td]:px-2 [&_th]:py-2 [&_th]:px-2">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8">#</TableHead>
@@ -704,7 +704,7 @@ const SalesOrderEntry = () => {
                           onChange={v => updateLine(line.id, "brand_id", v)}
                           options={brands.map(b => ({ value: b.id, label: b.brand_name }))}
                           placeholder={language === 'ar' ? 'العلامة' : 'Brand'}
-                          className="min-w-[150px]"
+                          className="min-w-[150px] h-8 border-transparent bg-transparent shadow-none hover:border-input focus:border-input"
                         />
                       </TableCell>
                       <TableCell>
@@ -723,14 +723,14 @@ const SalesOrderEntry = () => {
                           onChange={v => updateLine(line.id, "product_id", v)}
                           options={getFilteredProducts(line.brand_id).map(p => ({ value: p.id, label: p.product_name }))}
                           placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'}
-                          className="min-w-[200px]"
+                          className="min-w-[200px] h-8 border-transparent bg-transparent shadow-none hover:border-input focus:border-input"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="text"
                           inputMode="decimal"
-                          className="min-w-[90px] text-right"
+                          className="min-w-[90px] h-8 text-right border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input focus-visible:bg-background"
                           value={line.coins_number === 0 ? "" : String(line.coins_number)}
                           onChange={e => {
                             const clean = e.target.value.replace(/[^0-9.]/g, "");
@@ -739,13 +739,13 @@ const SalesOrderEntry = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input type="text" inputMode="numeric" className="min-w-[70px] text-right" value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value) || 0)} />
+                        <Input type="text" inputMode="numeric" className="min-w-[70px] h-8 text-right border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input focus-visible:bg-background" value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value) || 0)} />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="text"
                           inputMode="decimal"
-                          className="min-w-[110px] text-right"
+                          className="min-w-[110px] h-8 text-right border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input focus-visible:bg-background"
                            value={line.unit_price === 0 ? "" : String(line.unit_price)}
                            onChange={e => {
                              const v = e.target.value.replace(/[^0-9.]/g, "");
@@ -760,7 +760,7 @@ const SalesOrderEntry = () => {
                         <Input
                           type="text"
                           inputMode="decimal"
-                          className="min-w-[110px] text-right"
+                          className="min-w-[110px] h-8 text-right border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input focus-visible:bg-background"
                           value={line.cost_price === 0 ? "" : String(line.cost_price)}
                            onChange={e => {
                              const v = e.target.value.replace(/[^0-9.]/g, "");
