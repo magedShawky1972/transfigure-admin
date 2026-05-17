@@ -169,18 +169,6 @@ const SalesOrderEntry = () => {
     }
   };
 
-  const fetchCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("user_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setCurrentUser({ id: user.id, name: profile?.user_name || user.email });
-    }
-  };
-
   const fetchLookups = async () => {
     const [brandsRes, pmRes, prodRes, spRes] = await Promise.all([
       supabase.from("brands").select("id, brand_name, brand_code, sales_one_coins_sar, cost_one_coins_sar").eq("status", "active").order("brand_name"),
