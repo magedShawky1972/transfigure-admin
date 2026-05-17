@@ -265,6 +265,11 @@ const IncomeStatementReport = () => {
         const map = new Map<string, { value: number; tx_count: number; coins: number }>();
 
         if (row.company === "Asus") {
+          // Load brand id → name map to display readable names
+          const { data: brandsData } = await supabase.from("brands").select("id, brand_name");
+          const brandNameMap: Record<string, string> = {};
+          (brandsData || []).forEach((b: any) => { brandNameMap[b.id] = b.brand_name; });
+
           // From confirmed manual sales orders → line items grouped by brand
           const { data: orders, error: oErr } = await supabase
             .from("manual_sales_orders")
@@ -285,12 +290,12 @@ const IncomeStatementReport = () => {
               if (lErr) throw lErr;
               const batch = lines || [];
               batch.forEach((l: any) => {
-                const brand = l.brand_id || "Unknown";
+                const brand = brandNameMap[l.brand_id] || l.brand_id || "Unknown";
                 const cur = map.get(brand) || { value: 0, tx_count: 0, coins: 0 };
-                const v = row.metric === "cost" ? (Number(l.cost_price) || 0) * (Number(l.qty) || 0) : (Number(l.total) || 0);
+                const v = row.metric === "cost" ? (Number(l.cost_price) || 0) * (Number(l.qty) || 0) * (Number(l.coins_number) || 0) : (Number(l.total) || 0);
                 cur.value += v;
                 cur.tx_count += 1;
-                cur.coins += Number(l.coins_number) || 0;
+                cur.coins += (Number(l.coins_number) || 0) * (Number(l.qty) || 0);
                 map.set(brand, cur);
               });
               if (batch.length < PAGE_SIZE) break;
@@ -327,7 +332,7 @@ const IncomeStatementReport = () => {
         }
 
         const breakdown = Array.from(map.entries())
-          .map(([brand_name, v]) => ({ brand_name, value: v.value, percentage: (v.value / baseTotal) * 100, tx_count: v.tx_count, coins: brandAbcMap[brand_name] === "A" ? v.coins : 0 }))
+          .map(([brand_name, v]) => ({ brand_name, value: v.value, percentage: (v.value / baseTotal) * 100, tx_count: v.tx_count, coins: row.company === "Asus" ? v.coins : (brandAbcMap[brand_name] === "A" ? v.coins : 0) }))
           .filter((b) => Math.abs(b.value) > 0.001)
           .sort((a, b) => b.value - a.value);
         setDrillBrandData(breakdown);
