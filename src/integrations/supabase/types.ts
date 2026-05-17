@@ -5183,6 +5183,137 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_sales_order_lines: {
+        Row: {
+          brand_code: string | null
+          brand_id: string | null
+          brand_name: string | null
+          coins_number: number
+          cost_price: number
+          created_at: string
+          id: string
+          line_number: number
+          order_id: string
+          product_name: string | null
+          profit: number
+          qty: number
+          total: number
+          total_cost: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          brand_code?: string | null
+          brand_id?: string | null
+          brand_name?: string | null
+          coins_number?: number
+          cost_price?: number
+          created_at?: string
+          id?: string
+          line_number: number
+          order_id: string
+          product_name?: string | null
+          profit?: number
+          qty?: number
+          total?: number
+          total_cost?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_code?: string | null
+          brand_id?: string | null
+          brand_name?: string | null
+          coins_number?: number
+          cost_price?: number
+          created_at?: string
+          id?: string
+          line_number?: number
+          order_id?: string
+          product_name?: string | null
+          profit?: number
+          qty?: number
+          total?: number
+          total_cost?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_sales_order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "manual_sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_sales_orders: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          order_number: string
+          payment_method: string | null
+          sales_person: string | null
+          sales_reference: string | null
+          status: string
+          total_amount: number
+          total_coins: number
+          total_cost: number
+          total_profit: number
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number: string
+          payment_method?: string | null
+          sales_person?: string | null
+          sales_reference?: string | null
+          status?: string
+          total_amount?: number
+          total_coins?: number
+          total_cost?: number
+          total_profit?: number
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number?: string
+          payment_method?: string | null
+          sales_person?: string | null
+          sales_reference?: string | null
+          status?: string
+          total_amount?: number
+          total_coins?: number
+          total_cost?: number
+          total_profit?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       medical_insurance_plans: {
         Row: {
           coverage_type: string | null
