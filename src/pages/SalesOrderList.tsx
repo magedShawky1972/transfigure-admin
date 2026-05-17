@@ -200,6 +200,8 @@ const SalesOrderList = () => {
         supabase.from("brands").select("id, brand_code, brand_name, sales_one_coins_sar, cost_one_coins_sar"),
         supabase.from("products").select("id, product_name, product_price, product_cost, coins_number, brand_code, brand_name").eq("status", "active").limit(5000),
       ]);
+      setBrandsList(brandsData || []);
+      setProductsList(productsData || []);
       const brandByName = new Map<string, any>();
       const brandByCode = new Map<string, any>();
       (brandsData || []).forEach((b: any) => {
