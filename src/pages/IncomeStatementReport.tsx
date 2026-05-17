@@ -493,8 +493,10 @@ const IncomeStatementReport = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {rows.map((row) => {
+              {rows.filter(r => !r.parent || expanded[r.parent]).map((row) => {
                 const clickable = row.drilldown !== "none" && Math.abs(row.value) > 0.001;
+                const isExpandable = row.key === "totalSales" || row.key === "costOfSales";
+                const isOpen = isExpandable && expanded[row.key];
                 return (
                   <div
                     key={row.key}
@@ -502,11 +504,23 @@ const IncomeStatementReport = () => {
                     className={[
                       "flex items-center justify-between py-3 px-2 transition-colors",
                       row.isTotal ? "font-bold text-lg border-t-2 mt-2 pt-4" : "",
+                      row.parent ? "pl-8" : "",
                       clickable ? "cursor-pointer hover:bg-muted/50 rounded-md" : "",
                     ].join(" ")}
                   >
                     <span className="flex items-center gap-2">
-                      {clickable && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      {isExpandable ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [row.key]: !prev[row.key] })); }}
+                          className="p-0.5 rounded hover:bg-muted"
+                          aria-label={isOpen ? "Collapse" : "Expand"}
+                        >
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                      ) : (
+                        clickable && <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
                       {row.label}
                     </span>
                     <div className="flex items-center gap-6">
