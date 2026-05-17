@@ -115,7 +115,8 @@ const SalesOrderList = () => {
     const arr = previewRows.map((r, i) => ({ ...r, __idx: i }));
     arr.sort((a, b) => {
       for (const { key, dir } of sortConfig) {
-        const av = a[key]; const bv = b[key];
+        const av = key === 'issuesKey' ? (a.issues?.length || 0) : a[key];
+        const bv = key === 'issuesKey' ? (b.issues?.length || 0) : b[key];
         const an = typeof av === 'number' ? av : (av == null ? '' : String(av).toLowerCase());
         const bn = typeof bv === 'number' ? bv : (bv == null ? '' : String(bv).toLowerCase());
         if (an < bn) return dir === 'asc' ? -1 : 1;
