@@ -884,7 +884,7 @@ const PaymentMethodSetup = () => {
                 </div>
                 <div></div>
                 <div></div>
-                <Button onClick={handleAddMethod} size="icon">
+                <Button onClick={() => { void handleAddMethod(); }} size="icon">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
