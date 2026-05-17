@@ -5226,6 +5226,7 @@ export type Database = {
           total_cost: number
           unit_price: number
           updated_at: string
+          vendor: string | null
         }
         Insert: {
           brand_code?: string | null
@@ -5245,6 +5246,7 @@ export type Database = {
           total_cost?: number
           unit_price?: number
           updated_at?: string
+          vendor?: string | null
         }
         Update: {
           brand_code?: string | null
@@ -5264,6 +5266,7 @@ export type Database = {
           total_cost?: number
           unit_price?: number
           updated_at?: string
+          vendor?: string | null
         }
         Relationships: [
           {

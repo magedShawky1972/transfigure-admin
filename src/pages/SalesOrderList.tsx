@@ -330,6 +330,7 @@ const SalesOrderList = () => {
           sales_reference: r.sales_reference || "",
           sales_person: r.sales_person || "",
           company: r.company || "",
+          vendor: r.vendor || r.Vendor || r.supplier || r.Supplier || "",
           notes: r.notes || "",
           brand_id: brand?.id || null,
           brand_code: brand?.brand_code || "",
@@ -508,6 +509,7 @@ const SalesOrderList = () => {
           brand_id: l.brand_id,
           brand_code: l.brand_code,
           brand_name: l.brand_name,
+          vendor: l.vendor || null,
           product_id: l.product_id,
           product_name: l.product_name,
           coins_number: l.coins_number,
@@ -805,6 +807,7 @@ const SalesOrderList = () => {
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
                     { key: 'source_brand_name', label: 'Source (Excel)' },
+                    { key: 'vendor', label: 'Vendor' },
                     { key: 'brand_code', label: 'Brand Code' },
                     { key: 'brand_name', label: 'Brand' },
                     { key: 'product_id', label: 'Product ID' },
@@ -863,6 +866,7 @@ const SalesOrderList = () => {
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
                       <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className="text-xs">{r.vendor || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>

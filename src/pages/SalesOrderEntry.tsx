@@ -53,6 +53,7 @@ function SearchableSelect({ value, onChange, options, placeholder, className }: 
 interface OrderLine {
   id: string;
   brand_id: string;
+  vendor: string;
   product_id: string;
   product_name: string;
   coins_number: number;
@@ -151,6 +152,7 @@ const SalesOrderEntry = () => {
         return {
           id: r.id,
           brand_id: r.brand_id || "",
+          vendor: r.vendor || "",
           product_id: r.product_id || prod?.id || "",
           product_name: r.product_name || prod?.product_name || "",
           coins_number: Number(r.coins_number) || 0,
@@ -240,6 +242,7 @@ const SalesOrderEntry = () => {
     setLines(prev => [...prev, {
       id: generateTempId(),
       brand_id: "",
+      vendor: "",
       product_id: "",
       product_name: "",
       coins_number: 0,
@@ -358,6 +361,7 @@ const SalesOrderEntry = () => {
           brand_id: line.brand_id || null,
           brand_code: lineBrand?.brand_code || null,
           brand_name: lineBrand?.brand_name || null,
+          vendor: line.vendor || null,
           product_id: line.product_id || null,
           product_name: line.product_name,
           coins_number: line.coins_number || 0,
@@ -662,6 +666,7 @@ const SalesOrderEntry = () => {
                 <TableRow>
                   <TableHead className="w-8">#</TableHead>
                   <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
+                  <TableHead className="w-32">{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
                   <TableHead className="w-28">{language === 'ar' ? 'عدد الكوينز' : 'Coins #'}</TableHead>
                   <TableHead className="w-24">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
@@ -676,7 +681,7 @@ const SalesOrderEntry = () => {
               <TableBody>
                 {lines.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       {language === 'ar' ? 'لا توجد بنود. اضغط "إضافة سطر" لبدء الإدخال.' : 'No lines. Click "Add Line" to start.'}
                     </TableCell>
                   </TableRow>
@@ -691,6 +696,15 @@ const SalesOrderEntry = () => {
                           options={brands.map(b => ({ value: b.id, label: b.brand_name }))}
                           placeholder={language === 'ar' ? 'العلامة' : 'Brand'}
                           className="min-w-[150px]"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="text"
+                          value={line.vendor}
+                          onChange={e => updateLine(line.id, "vendor", e.target.value)}
+                          placeholder={language === 'ar' ? 'المورد' : 'Vendor'}
+                          className="min-w-[120px]"
                         />
                       </TableCell>
                       <TableCell>
