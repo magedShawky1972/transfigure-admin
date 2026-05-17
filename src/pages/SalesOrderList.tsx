@@ -41,6 +41,8 @@ const SalesOrderList = () => {
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
   const [showBrandErrorsOnly, setShowBrandErrorsOnly] = useState(false);
   const [showProductErrorsOnly, setShowProductErrorsOnly] = useState(false);
+  const [showUnitPriceZero, setShowUnitPriceZero] = useState(false);
+  const [showUnitCostZero, setShowUnitCostZero] = useState(false);
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
     const coins = Number(product?.coins_number) || 0;
@@ -716,6 +718,36 @@ const SalesOrderList = () => {
                 </span>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showUnitPriceZero"
+                checked={showUnitPriceZero}
+                onCheckedChange={(c) => setShowUnitPriceZero(c === true)}
+              />
+              <label htmlFor="showUnitPriceZero" className="text-sm cursor-pointer">
+                {language === 'ar' ? 'سعر الوحدة صفر فقط' : 'Unit Price Zero'}
+              </label>
+              {showUnitPriceZero && previewRows && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {(sortedPreview || []).filter((r: any) => !Number(r.unit_price)).length} rows
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showUnitCostZero"
+                checked={showUnitCostZero}
+                onCheckedChange={(c) => setShowUnitCostZero(c === true)}
+              />
+              <label htmlFor="showUnitCostZero" className="text-sm cursor-pointer">
+                {language === 'ar' ? 'تكلفة الوحدة صفر فقط' : 'Unit Cost Zero'}
+              </label>
+              {showUnitCostZero && previewRows && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {(sortedPreview || []).filter((r: any) => !Number(r.cost_price)).length} rows
+                </span>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -775,10 +807,15 @@ const SalesOrderList = () => {
                   const hasAnyIssue = r.issues.length > 0;
                   const hasBrandError = r.issues.some((i: string) => i.includes('Brand not found'));
                   const hasProductError = r.issues.some((i: string) => i.includes('Product not found'));
-                  if (!showErrorsOnly && !showBrandErrorsOnly && !showProductErrorsOnly) return true;
+                  const unitPriceZero = !Number(r.unit_price);
+                  const unitCostZero = !Number(r.cost_price);
+                  const anyFilter = showErrorsOnly || showBrandErrorsOnly || showProductErrorsOnly || showUnitPriceZero || showUnitCostZero;
+                  if (!anyFilter) return true;
                   if (showErrorsOnly && hasAnyIssue) return true;
                   if (showBrandErrorsOnly && hasBrandError) return true;
                   if (showProductErrorsOnly && hasProductError) return true;
+                  if (showUnitPriceZero && unitPriceZero) return true;
+                  if (showUnitCostZero && unitCostZero) return true;
                   return false;
                 }).map((r: any) => {
                   const origIdx = r.__idx;
