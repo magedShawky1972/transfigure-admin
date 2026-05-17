@@ -846,6 +846,36 @@ const SalesOrderList = () => {
               </div>
             );
           })()}
+          {previewRows && (() => {
+            const brandErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Brand not found'))).length;
+            const productErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Product not found'))).length;
+            const qtyErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Qty'))).length;
+            const vendorErr = previewRows.filter(r => r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase())).length;
+            const unitZero = previewRows.filter(r => !Number(r.unit_price)).length;
+            const costZero = previewRows.filter(r => !Number(r.cost_price)).length;
+            const items = [
+              { label: language === 'ar' ? 'الماركة غير موجودة' : 'Brand not found', count: brandErr },
+              { label: language === 'ar' ? 'المنتج غير موجود' : 'Product not found', count: productErr },
+              { label: language === 'ar' ? 'المورد غير مسجل' : 'Vendor not registered', count: vendorErr },
+              { label: language === 'ar' ? 'الكمية ≤ 0' : 'Qty ≤ 0', count: qtyErr },
+              { label: language === 'ar' ? 'سعر الوحدة = 0' : 'Unit price = 0', count: unitZero },
+              { label: language === 'ar' ? 'التكلفة = 0' : 'Cost = 0', count: costZero },
+            ].filter(i => i.count > 0);
+            if (items.length === 0) return null;
+            return (
+              <div className="flex items-start gap-2 rounded border border-destructive/40 bg-destructive/5 text-destructive px-3 py-2 mb-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  <span className="font-semibold">{language === 'ar' ? 'مشاكل تم اكتشافها:' : 'Issues detected:'}</span>
+                  {items.map(i => (
+                    <span key={i.label}>
+                      <span className="font-semibold">{i.count}</span> {i.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           <div className="flex items-center gap-4 py-2 flex-wrap">
             <div className="flex items-center gap-2">
               <Checkbox
