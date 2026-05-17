@@ -105,18 +105,22 @@ const SalesOrderEntry = () => {
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingOrder, setLoadingOrder] = useState(isEditMode);
+  const [loadingLookups, setLoadingLookups] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const didInitRef = useRef(false);
 
   useEffect(() => {
-    fetchLookups();
-    fetchCurrentUser();
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    (async () => {
+      await fetchLookups();
+      setLoadingLookups(false);
+      fetchCurrentUser();
+      if (isEditMode && orderIdParam) {
+        loadOrder(orderIdParam);
+      }
+    })();
   }, []);
-
-  useEffect(() => {
-    if (isEditMode && orderIdParam) {
-      loadOrder(orderIdParam);
-    }
-  }, [orderIdParam]);
 
   const loadOrder = async (id: string) => {
     setLoadingOrder(true);
@@ -462,7 +466,7 @@ const SalesOrderEntry = () => {
     setLines([]);
   };
 
-  if (accessLoading || loadingOrder) {
+  if (accessLoading || loadingOrder || loadingLookups) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
