@@ -152,6 +152,7 @@ const SalesOrderEntry = () => {
         return {
           id: r.id,
           brand_id: r.brand_id || "",
+          vendor: r.vendor || "",
           product_id: r.product_id || prod?.id || "",
           product_name: r.product_name || prod?.product_name || "",
           coins_number: Number(r.coins_number) || 0,
