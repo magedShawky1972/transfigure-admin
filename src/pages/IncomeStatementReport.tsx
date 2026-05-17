@@ -173,10 +173,6 @@ const IncomeStatementReport = () => {
     }
   };
 
-  useEffect(() => {
-    fetchReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const totals = useMemo(() => {
     const totalSales = aggregates.reduce((s, a) => s + a.total, 0);
