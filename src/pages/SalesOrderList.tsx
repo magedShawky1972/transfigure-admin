@@ -718,6 +718,36 @@ const SalesOrderList = () => {
                 </span>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showUnitPriceZero"
+                checked={showUnitPriceZero}
+                onCheckedChange={(c) => setShowUnitPriceZero(c === true)}
+              />
+              <label htmlFor="showUnitPriceZero" className="text-sm cursor-pointer">
+                {language === 'ar' ? 'سعر الوحدة صفر فقط' : 'Unit Price Zero'}
+              </label>
+              {showUnitPriceZero && previewRows && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {(sortedPreview || []).filter((r: any) => !Number(r.unit_price)).length} rows
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="showUnitCostZero"
+                checked={showUnitCostZero}
+                onCheckedChange={(c) => setShowUnitCostZero(c === true)}
+              />
+              <label htmlFor="showUnitCostZero" className="text-sm cursor-pointer">
+                {language === 'ar' ? 'تكلفة الوحدة صفر فقط' : 'Unit Cost Zero'}
+              </label>
+              {showUnitCostZero && previewRows && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {(sortedPreview || []).filter((r: any) => !Number(r.cost_price)).length} rows
+                </span>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
