@@ -163,19 +163,10 @@ const IncomeStatementReport = () => {
         if (msoError) throw msoError;
         const asusTotal = (msoData || []).reduce((s: number, r: any) => s + (Number(r.total_amount) || 0), 0);
         const asusCost = (msoData || []).reduce((s: number, r: any) => s + (Number(r.total_cost) || 0), 0);
+        // Manual sales orders are the source of truth for Asus — replace any value coming from purpletransaction to avoid double counting
+        rsMap["Asus"] = asusTotal;
         if (asusTotal > 0 || asusCost > 0) {
-          rsMap["Asus"] = (rsMap["Asus"] || 0) + asusTotal;
-          list.push({
-            brand_name: "Asus Sales",
-            total: asusTotal,
-            cost_sold: asusCost,
-            bank_fee: 0,
-            points_cost: 0,
-            qty: 0,
-            coins: 0,
-            tx_count: (msoData || []).length,
-          });
-          setAggregates([...list]);
+          // Do NOT push to aggregates: purpletransaction already includes these rows, so adding them again would double Total Sales / Cost
         }
       }
       setRevenueSources(rsMap);
