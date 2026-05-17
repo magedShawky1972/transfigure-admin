@@ -340,7 +340,9 @@ const App = () => (
               <Route path="/coins-workflow-setup" element={<CoinsWorkflowSetup />} />
               <Route path="/coins-purchase-followup" element={<CoinsPurchaseFollowUp />} />
               <Route path="/missing-shift-images" element={<MissingShiftImages />} />
-              <Route path="/sales-order-entry" element={<SalesOrderEntry />} />
+              <Route path="/sales-order-entry" element={<SalesOrderList />} />
+              <Route path="/sales-order-entry/new" element={<SalesOrderEntry />} />
+              <Route path="/sales-order-entry/:id" element={<SalesOrderEntry />} />
               <Route path="/coins-transaction-guide" element={<CoinsTransactionGuide />} />
               <Route path="/supplier-advance-payment" element={<SupplierAdvancePayment />} />
               <Route path="/auto-upload" element={<AutoUpload />} />
