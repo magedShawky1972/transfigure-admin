@@ -48,7 +48,6 @@ const SalesOrderList = () => {
     const issues: string[] = [];
     if (!brand) issues.push("Brand not found");
     if (!product) issues.push("Product not found");
-    if (!row.order_number) issues.push("Missing order_number");
     if (qty <= 0) issues.push("Qty must be > 0");
     return {
       ...row,
