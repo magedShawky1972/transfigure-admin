@@ -43,8 +43,8 @@ const SalesOrderList = () => {
   const handleExportTemplate = () => {
     const sample = [{
       order_number: "SO-20260101-0001", order_date: "2026-01-01",
-      customer_name: "Sample Customer", customer_phone: "0500000000",
-      payment_method: "Cash", sales_reference: "REF-1", sales_person: "John",
+      customer_name: "Sample Customer",
+      sales_reference: "REF-1", sales_person: "John",
       company: "Asus", notes: "", status: "draft",
       brand_code: "HC", brand_name: "Hawa Chat", product_id: "00000000-0000-0000-0000-000000000000", product_name: "1 Coin",
       coins_number: 100, qty: 1, unit_price: 0.0025, cost_price: 0.0020,
@@ -67,12 +67,12 @@ const SalesOrderList = () => {
     (ords || []).forEach((o: any) => {
       const oLines = linesByOrder.get(o.id) || [];
       if (oLines.length === 0) {
-        rows.push({ order_number: o.order_number, order_date: o.order_date, customer_name: o.customer_name, customer_phone: o.customer_phone, payment_method: o.payment_method, sales_reference: o.sales_reference, sales_person: o.sales_person, company: o.company, notes: o.notes, status: o.status });
+        rows.push({ order_number: o.order_number, order_date: o.order_date, customer_name: o.customer_name, sales_reference: o.sales_reference, sales_person: o.sales_person, company: o.company, notes: o.notes, status: o.status });
       } else {
         oLines.forEach((l: any) => rows.push({
           order_number: o.order_number, order_date: o.order_date,
-          customer_name: o.customer_name, customer_phone: o.customer_phone,
-          payment_method: o.payment_method, sales_reference: o.sales_reference,
+          customer_name: o.customer_name,
+          sales_reference: o.sales_reference,
           sales_person: o.sales_person, company: o.company, notes: o.notes, status: o.status,
           brand_code: l.brand_code, brand_name: l.brand_name, product_id: l.product_id, product_name: l.product_name,
           coins_number: Number(l.coins_number), qty: Number(l.qty),
