@@ -818,6 +818,7 @@ const SalesOrderList = () => {
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   {[
+                    { key: 'sales_reference', label: 'Sales Ref' },
                     { key: 'group_key', label: 'Group' },
                     { key: 'order_date', label: 'Date' },
                     { key: 'customer_name', label: 'Customer' },
