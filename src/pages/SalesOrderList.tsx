@@ -602,6 +602,7 @@ const SalesOrderList = () => {
                       <TableCell className="font-mono text-xs">{r.group_key?.startsWith('__row_') ? <span className="text-muted-foreground">—</span> : r.group_key}</TableCell>
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
+                      <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>
