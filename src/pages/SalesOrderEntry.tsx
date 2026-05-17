@@ -666,6 +666,7 @@ const SalesOrderEntry = () => {
                 <TableRow>
                   <TableHead className="w-8">#</TableHead>
                   <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
+                  <TableHead className="w-32">{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
                   <TableHead className="w-28">{language === 'ar' ? 'عدد الكوينز' : 'Coins #'}</TableHead>
                   <TableHead className="w-24">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
