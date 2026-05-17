@@ -702,12 +702,12 @@ const SalesOrderEntry = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="text"
+                        <SearchableSelect
                           value={line.vendor}
-                          onChange={e => updateLine(line.id, "vendor", e.target.value)}
+                          onChange={v => updateLine(line.id, "vendor", v)}
+                          options={suppliers.map((s: any) => ({ value: s.supplier_name, label: s.supplier_code ? `${s.supplier_name} (${s.supplier_code})` : s.supplier_name }))}
                           placeholder={language === 'ar' ? 'المورد' : 'Vendor'}
-                          className="min-w-[120px]"
+                          className="min-w-[150px]"
                         />
                       </TableCell>
                       <TableCell>
