@@ -463,6 +463,17 @@ const IncomeStatementReport = () => {
                   </TableRow>
                 )}
               </TableBody>
+              {drillEpayment.length > 0 && (
+                <TableFooter>
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell colSpan={2}>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell className="text-right">{drillEpayment.reduce((s, r) => s + (r.transaction_count || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{fmt(drillEpayment.reduce((s, r) => s + (r.total_sales || 0), 0))}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{drillEpayment.reduce((s, r) => s + (r.percentage || 0), 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right">{fmt(drillEpayment.reduce((s, r) => s + (r.bank_fee || 0), 0))}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           )}
         </DialogContent>
