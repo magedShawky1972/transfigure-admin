@@ -145,6 +145,8 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/menu-customization": "menuCustomization",
   "/integrations": "integrations",
   "/shift-generator": "shiftGenerator",
+  "/shift-setup": "shiftSetup",
+  "/shift-calendar": "shiftCalendar",
   "/sql-query-runner": "sqlQueryRunner",
   "/data-loading-status": "dataLoadingStatus",
 };
