@@ -36,6 +36,7 @@ const SalesOrderList = () => {
   const [productsList, setProductsList] = useState<any[]>([]);
   const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }[]>([]);
   const [brandPopoverIdx, setBrandPopoverIdx] = useState<number | null>(null);
+  const [productPopoverIdx, setProductPopoverIdx] = useState<number | null>(null);
 
   const recomputeRow = (row: any, brand: any | null, product: any | null): any => {
     const coins = Number(product?.coins_number) || 0;
@@ -47,7 +48,6 @@ const SalesOrderList = () => {
     const issues: string[] = [];
     if (!brand) issues.push("Brand not found");
     if (!product) issues.push("Product not found");
-    if (!row.order_number) issues.push("Missing order_number");
     if (qty <= 0) issues.push("Qty must be > 0");
     return {
       ...row,
@@ -90,6 +90,24 @@ const SalesOrderList = () => {
       });
     });
     setBrandPopoverIdx(null);
+  };
+
+  const handleChangeRowProduct = (rowIdx: number, newProductId: string) => {
+    setPreviewRows(prev => {
+      if (!prev) return prev;
+      const targetRow = prev[rowIdx];
+      const oldProductKey = String(targetRow.product_name || "").trim().toLowerCase();
+      const oldBrandKey = String(targetRow.brand_code || targetRow.brand_name || "").trim().toLowerCase();
+      const newProduct = productsList.find(p => p.id === newProductId) || null;
+      return prev.map(r => {
+        const sameBrand = String(r.brand_code || r.brand_name || "").trim().toLowerCase() === oldBrandKey;
+        const sameProduct = String(r.product_name || "").trim().toLowerCase() === oldProductKey;
+        if (!sameBrand || !sameProduct) return r;
+        const brand = brandsList.find(b => b.id === r.brand_id) || null;
+        return recomputeRow({ ...r, product_name: newProduct?.product_name || r.product_name }, brand, newProduct);
+      });
+    });
+    setProductPopoverIdx(null);
   };
 
   const toggleSort = (key: string, additive: boolean) => {
@@ -590,7 +608,43 @@ const SalesOrderList = () => {
                         </Popover>
                       </TableCell>
                       <TableCell className="text-[10px] font-mono text-muted-foreground" title={r.product_id || ''}>{r.product_id ? String(r.product_id).slice(0, 8) + '…' : <span className="text-destructive">—</span>}</TableCell>
-                      <TableCell className="text-xs">{r.product_name}</TableCell>
+                      <TableCell className="text-xs">
+                        <Popover open={productPopoverIdx === origIdx} onOpenChange={(o) => setProductPopoverIdx(o ? origIdx : null)}>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal justify-between min-w-[160px]">
+                              <span className="truncate">
+                                {r.product_name || <span className="text-muted-foreground">Select product</span>}
+                              </span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-[320px]" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search product..." />
+                              <CommandList>
+                                <CommandEmpty>No product found.</CommandEmpty>
+                                <CommandGroup>
+                                  {productsList
+                                    .filter(p => {
+                                      const bk = String(r.brand_code || r.brand_name || "").trim().toLowerCase();
+                                      const pbk = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
+                                      return !bk || pbk === bk;
+                                    })
+                                    .map(p => (
+                                      <CommandItem
+                                        key={p.id}
+                                        value={`${p.product_name} ${p.coins_number}`}
+                                        onSelect={() => handleChangeRowProduct(origIdx, p.id)}
+                                      >
+                                        <span className="font-medium">{p.product_name}</span>
+                                        {p.coins_number != null && <span className="ml-2 text-xs text-muted-foreground">({p.coins_number} coins)</span>}
+                                      </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
                       <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
                       <TableCell className="text-right text-xs">{r.qty}</TableCell>
                       <TableCell className="text-right text-xs">{Number(r.unit_price).toFixed(7)}</TableCell>
