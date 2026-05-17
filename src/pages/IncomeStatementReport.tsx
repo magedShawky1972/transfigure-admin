@@ -73,7 +73,9 @@ const IncomeStatementReport = () => {
 
   // Drilldown state
   const [drillOpen, setDrillOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ totalSales: false, costOfSales: false });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ totalSales: false, costOfSales: false, ePayment: false });
+  const [ePaymentByMethod, setEPaymentByMethod] = useState<Array<{ payment_method: string; bank_fee: number; percentage: number }>>([]);
+  const [ePaymentByMethodLoading, setEPaymentByMethodLoading] = useState(false);
   const [drillTitle, setDrillTitle] = useState("");
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
   const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
