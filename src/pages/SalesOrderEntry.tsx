@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, Trash2, Check, RotateCcw, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, RotateCcw, ChevronsUpDown, Loader2, Save, ArrowLeft } from "lucide-react";
 import { usePageAccess } from "@/hooks/usePageAccess";
 import { AccessDenied } from "@/components/AccessDenied";
 import { format } from "date-fns";
@@ -67,9 +68,15 @@ const generateTempId = () => crypto.randomUUID();
 const SalesOrderEntry = () => {
   const { language } = useLanguage();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { id: orderIdParam } = useParams();
+  const isEditMode = !!orderIdParam;
   const { hasAccess, isLoading: accessLoading } = usePageAccess();
 
   // Header state
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string>("");
+  const [orderStatus, setOrderStatus] = useState<'draft' | 'confirmed'>('draft');
   const [orderDate, setOrderDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -94,12 +101,73 @@ const SalesOrderEntry = () => {
   const [salesPeople, setSalesPeople] = useState<any[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingOrder, setLoadingOrder] = useState(isEditMode);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     fetchLookups();
     fetchCurrentUser();
   }, []);
+
+  useEffect(() => {
+    if (isEditMode && orderIdParam) {
+      loadOrder(orderIdParam);
+    }
+  }, [orderIdParam]);
+
+  const loadOrder = async (id: string) => {
+    setLoadingOrder(true);
+    try {
+      const [{ data: header }, { data: lineRows }] = await Promise.all([
+        supabase.from("manual_sales_orders").select("*").eq("id", id).maybeSingle(),
+        supabase.from("manual_sales_order_lines").select("*").eq("order_id", id).order("line_number"),
+      ]);
+      if (!header) {
+        toast({ title: language === 'ar' ? 'لم يتم العثور على الطلب' : 'Order not found', variant: "destructive" });
+        navigate("/sales-order-entry");
+        return;
+      }
+      setOrderId(header.id);
+      setOrderNumber(header.order_number);
+      setOrderStatus((header.status as 'draft' | 'confirmed') || 'draft');
+      setOrderDate(header.order_date);
+      setCustomerName(header.customer_name || "");
+      setCustomerPhone(header.customer_phone || "");
+      setPaymentMethod(header.payment_method || "");
+      setSalesReference(header.sales_reference || "");
+      setSalesPerson(header.sales_person || "");
+      setNotes(header.notes || "");
+      setLines((lineRows || []).map((r: any) => ({
+        id: r.id,
+        brand_id: r.brand_id || "",
+        product_id: "",
+        product_name: r.product_name || "",
+        coins_number: Number(r.coins_number) || 0,
+        qty: Number(r.qty) || 0,
+        unit_price: Number(r.unit_price) || 0,
+        cost_price: Number(r.cost_price) || 0,
+        total: Number(r.total) || 0,
+        profit: Number(r.profit) || 0,
+      })));
+    } catch (e: any) {
+      toast({ title: 'Error loading order', description: e.message, variant: "destructive" });
+    } finally {
+      setLoadingOrder(false);
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setCurrentUser({ id: user.id, name: profile?.user_name || user.email });
+    }
+  };
 
   const fetchCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
