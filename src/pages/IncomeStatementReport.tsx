@@ -52,6 +52,10 @@ const IncomeStatementReport = () => {
   const [endDate, setEndDate] = useState(format(endOfMonth(today), "yyyy-MM-dd"));
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [appliedStartDate, setAppliedStartDate] = useState(format(startOfMonth(today), "yyyy-MM-dd"));
+  const [appliedEndDate, setAppliedEndDate] = useState(format(endOfMonth(today), "yyyy-MM-dd"));
+  const [appliedBrandFilter, setAppliedBrandFilter] = useState<string>("all");
+  const [appliedCompanyFilter, setAppliedCompanyFilter] = useState<string>("all");
   const [includePointCost, setIncludePointCost] = useState(true);
 
   const [brands, setBrands] = useState<string[]>([]);
@@ -105,12 +109,14 @@ const IncomeStatementReport = () => {
       setLoading(true);
       const startInt = parseInt(startDate.replace(/-/g, ""));
       const endInt = parseInt(endDate.replace(/-/g, ""));
+      const nextBrandFilter = brandFilter;
+      const nextCompanyFilter = companyFilter;
 
       const { data, error } = await supabase.rpc("get_income_statement_brand_aggregates", {
         p_start_int: startInt,
         p_end_int: endInt,
-        p_brand_name: brandFilter === "all" ? null : brandFilter,
-        p_company: companyFilter === "all" ? null : companyFilter,
+        p_brand_name: nextBrandFilter === "all" ? null : nextBrandFilter,
+        p_company: nextCompanyFilter === "all" ? null : nextCompanyFilter,
       });
       if (error) throw error;
 
@@ -126,6 +132,10 @@ const IncomeStatementReport = () => {
       }));
 
       setAggregates(list);
+      setAppliedStartDate(startDate);
+      setAppliedEndDate(endDate);
+      setAppliedBrandFilter(nextBrandFilter);
+      setAppliedCompanyFilter(nextCompanyFilter);
     } catch (e: any) {
       console.error("IncomeStatementReport fetch error", e);
       toast.error(e?.message || "Failed to load report");
@@ -199,10 +209,10 @@ const IncomeStatementReport = () => {
       setDrillOpen(true);
       try {
         const { data, error } = await supabase.rpc("get_epayment_charges_breakdown", {
-          p_date_from: startDate,
-          p_date_to: endDate,
-          p_brand_name: brandFilter === "all" ? null : brandFilter,
-          p_company: companyFilter === "all" ? null : companyFilter,
+          p_date_from: appliedStartDate,
+          p_date_to: appliedEndDate,
+          p_brand_name: appliedBrandFilter === "all" ? null : appliedBrandFilter,
+          p_company: appliedCompanyFilter === "all" ? null : appliedCompanyFilter,
         });
         if (error) throw error;
         const items: EPaymentRow[] = (data || []).map((i: any) => ({
@@ -227,8 +237,8 @@ const IncomeStatementReport = () => {
     setTxDialogOpen(true);
     setTxLoading(true);
     try {
-      const startInt = parseInt(startDate.replace(/-/g, ""));
-      const endInt = parseInt(endDate.replace(/-/g, ""));
+      const startInt = parseInt(appliedStartDate.replace(/-/g, ""));
+      const endInt = parseInt(appliedEndDate.replace(/-/g, ""));
       let from = 0;
       let all: any[] = [];
       while (true) {
@@ -238,7 +248,7 @@ const IncomeStatementReport = () => {
           .gte("created_at_date_int", startInt)
           .lte("created_at_date_int", endInt)
           .eq("brand_name", brandName);
-        if (companyFilter !== "all") q = q.eq("company", companyFilter);
+        if (appliedCompanyFilter !== "all") q = q.eq("company", appliedCompanyFilter);
         const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
         const batch = data || [];
