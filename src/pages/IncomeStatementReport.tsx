@@ -106,75 +106,26 @@ const IncomeStatementReport = () => {
       const startInt = parseInt(startDate.replace(/-/g, ""));
       const endInt = parseInt(endDate.replace(/-/g, ""));
 
-      // Fetch ALL transactions for date range, paginated
-      let from = 0;
-      let all: any[] = [];
-      while (true) {
-        let q = supabase
-          .from("purpletransaction")
-          .select("brand_name, total, cost_sold, bank_fee, payment_method, qty, coins_number, order_number, id")
-          .gte("created_at_date_int", startInt)
-          .lte("created_at_date_int", endInt);
-        if (brandFilter !== "all") q = q.eq("brand_name", brandFilter);
-        if (companyFilter !== "all") q = q.eq("company", companyFilter);
-        const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
-        if (error) throw error;
-        const batch = data || [];
-        all = all.concat(batch);
-        if (batch.length < PAGE_SIZE) break;
-        from += PAGE_SIZE;
-      }
+      const { data, error } = await supabase.rpc("get_income_statement_brand_aggregates", {
+        p_start_int: startInt,
+        p_end_int: endInt,
+        p_brand_name: brandFilter === "all" ? null : brandFilter,
+        p_company: companyFilter === "all" ? null : companyFilter,
+      });
+      if (error) throw error;
 
-      // Group points cost by order_number to avoid double counting
-      const pointsByOrderByBrand = new Map<string, Map<string, number>>(); // brand -> orderKey -> total
+      const list: BrandAggregate[] = (data || []).map((r: any) => ({
+        brand_name: r.brand_name || "Unknown",
+        total: Number(r.total) || 0,
+        cost_sold: Number(r.cost_sold) || 0,
+        bank_fee: Number(r.bank_fee) || 0,
+        points_cost: Number(r.points_cost) || 0,
+        qty: Number(r.qty) || 0,
+        coins: Number(r.coins) || 0,
+        tx_count: Number(r.tx_count) || 0,
+      }));
 
-      const brandMap = new Map<string, BrandAggregate>();
-      const getBrand = (name: string) => {
-        const key = name || "Unknown";
-        if (!brandMap.has(key)) {
-          brandMap.set(key, {
-            brand_name: key,
-            total: 0,
-            cost_sold: 0,
-            bank_fee: 0,
-            points_cost: 0,
-            qty: 0,
-            coins: 0,
-            tx_count: 0,
-          });
-        }
-        return brandMap.get(key)!;
-      };
-
-      for (const r of all) {
-        const isPoint = (r.payment_method || "").toLowerCase() === "point";
-        const brandKey = r.brand_name || "Unknown";
-        const total = Number(r.total) || 0;
-        if (isPoint) {
-          if (!pointsByOrderByBrand.has(brandKey)) pointsByOrderByBrand.set(brandKey, new Map());
-          const m = pointsByOrderByBrand.get(brandKey)!;
-          const orderKey = r.order_number || r.id;
-          m.set(orderKey, (m.get(orderKey) || 0) + total);
-        } else {
-          const agg = getBrand(brandKey);
-          agg.total += total;
-          agg.cost_sold += Number(r.cost_sold) || 0;
-          agg.bank_fee += Number(r.bank_fee) || 0;
-          agg.qty += Number(r.qty) || 0;
-          agg.coins += Number(r.coins_number) || 0;
-          agg.tx_count += 1;
-        }
-      }
-
-      // Apply points cost grouped by order
-      for (const [brandKey, orderMap] of pointsByOrderByBrand.entries()) {
-        const agg = getBrand(brandKey);
-        for (const v of orderMap.values()) {
-          agg.points_cost += v;
-        }
-      }
-
-      setAggregates(Array.from(brandMap.values()));
+      setAggregates(list);
     } catch (e: any) {
       console.error("IncomeStatementReport fetch error", e);
       toast.error(e?.message || "Failed to load report");
