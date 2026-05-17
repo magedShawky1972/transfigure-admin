@@ -30,7 +30,7 @@ const SalesOrderList = () => {
   const COLUMNS = [
     "order_number","order_date","customer_name","customer_phone","payment_method",
     "sales_reference","sales_person","company","notes","status",
-    "brand_code","brand_name","product_name","coins_number","qty","unit_price","cost_price"
+    "brand_code","brand_name","product_id","product_name","coins_number","qty","unit_price","cost_price"
   ];
 
   const downloadXlsx = (rows: any[], filename: string) => {
@@ -46,7 +46,7 @@ const SalesOrderList = () => {
       customer_name: "Sample Customer", customer_phone: "0500000000",
       payment_method: "Cash", sales_reference: "REF-1", sales_person: "John",
       company: "Asus", notes: "", status: "draft",
-      brand_code: "HC", brand_name: "Hawa Chat", product_name: "1 Coin",
+      brand_code: "HC", brand_name: "Hawa Chat", product_id: "00000000-0000-0000-0000-000000000000", product_name: "1 Coin",
       coins_number: 100, qty: 1, unit_price: 0.0025, cost_price: 0.0020,
     }];
     downloadXlsx(sample, "sales_orders_template.xlsx");
@@ -74,7 +74,7 @@ const SalesOrderList = () => {
           customer_name: o.customer_name, customer_phone: o.customer_phone,
           payment_method: o.payment_method, sales_reference: o.sales_reference,
           sales_person: o.sales_person, company: o.company, notes: o.notes, status: o.status,
-          brand_code: l.brand_code, brand_name: l.brand_name, product_name: l.product_name,
+          brand_code: l.brand_code, brand_name: l.brand_name, product_id: l.product_id, product_name: l.product_name,
           coins_number: Number(l.coins_number), qty: Number(l.qty),
           unit_price: Number(l.unit_price), cost_price: Number(l.cost_price),
         }));
@@ -93,12 +93,26 @@ const SalesOrderList = () => {
       if (raw.length === 0) throw new Error("Empty file");
 
       // Resolve brands
-      const { data: brandsData } = await supabase.from("brands").select("id, brand_code, brand_name");
+      const [{ data: brandsData }, { data: productsData }] = await Promise.all([
+        supabase.from("brands").select("id, brand_code, brand_name"),
+        supabase.from("products").select("id, product_name, brand_code, brand_name").eq("status", "active").limit(5000),
+      ]);
       const brandByCode = new Map<string, any>();
       const brandByName = new Map<string, any>();
+      const productsById = new Map<string, any>();
+      const productsByBrandAndName = new Map<string, any>();
       (brandsData || []).forEach((b: any) => {
         if (b.brand_code) brandByCode.set(String(b.brand_code).trim().toLowerCase(), b);
         if (b.brand_name) brandByName.set(String(b.brand_name).trim().toLowerCase(), b);
+      });
+      (productsData || []).forEach((p: any) => {
+        if (p.id) productsById.set(String(p.id), p);
+        const productBrandKey = String(p.brand_code || p.brand_name || "").trim().toLowerCase();
+        const productNameKey = String(p.product_name || "").trim().toLowerCase();
+        const key = `${productBrandKey}::${productNameKey}`;
+        if (productNameKey && !productsByBrandAndName.has(key)) {
+          productsByBrandAndName.set(key, p);
+        }
       });
 
       // Group by order_number
@@ -121,6 +135,10 @@ const SalesOrderList = () => {
           const code = String(r.brand_code || "").trim().toLowerCase();
           const name = String(r.brand_name || "").trim().toLowerCase();
           const brand = brandByCode.get(code) || brandByName.get(name);
+          const productId = String(r.product_id || "").trim();
+          const productBrandKey = String(brand?.brand_code || brand?.brand_name || r.brand_code || r.brand_name || "").trim().toLowerCase();
+          const productNameKey = String(r.product_name || "").trim().toLowerCase();
+          const matchedProduct = (productId && productsById.get(productId)) || productsByBrandAndName.get(`${productBrandKey}::${productNameKey}`);
           const coins = Number(r.coins_number) || 0;
           const qty = Number(r.qty) || 0;
           const unit = Number(r.unit_price) || 0;
@@ -130,7 +148,8 @@ const SalesOrderList = () => {
             brand_id: brand?.id || null,
             brand_code: brand?.brand_code || r.brand_code || null,
             brand_name: brand?.brand_name || r.brand_name || null,
-            product_name: r.product_name || "",
+            product_id: matchedProduct?.id || null,
+            product_name: r.product_name || matchedProduct?.product_name || "",
             coins_number: coins, qty, unit_price: unit, cost_price: cost,
             total: coins * qty * unit,
             total_cost: coins * qty * cost,
