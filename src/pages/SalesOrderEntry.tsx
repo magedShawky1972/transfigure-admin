@@ -239,8 +239,9 @@ const SalesOrderEntry = () => {
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod("");
-      setPaymentMethod("");
       setPaymentBrand("");
+      setSalesReference("");
+      setSalesPerson("");
       setNotes("");
       setLines([]);
     } catch (error: any) {
@@ -256,6 +257,8 @@ const SalesOrderEntry = () => {
     setCustomerPhone("");
     setPaymentMethod("");
     setPaymentBrand("");
+    setSalesReference("");
+    setSalesPerson("");
     setNotes("");
     setLines([]);
   };
