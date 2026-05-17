@@ -612,7 +612,7 @@ const SalesOrderList = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(sortedPreview || []).map((r: any) => {
+                {(sortedPreview || []).filter((r: any) => !showErrorsOnly || r.issues.length > 0).map((r: any) => {
                   const origIdx = r.__idx;
                   return (
                     <TableRow key={origIdx} className={r.issues.length > 0 ? 'bg-destructive/5' : ''}>
