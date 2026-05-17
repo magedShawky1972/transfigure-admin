@@ -503,7 +503,7 @@ const IncomeStatementReport = () => {
                 const isOpen = isExpandable && expanded[row.key];
                 const splitClick = row.key === "ePayment"; // chevron expands, amount opens popup
                 return (
-                  <>
+                  <Fragment key={row.key}>
                     <div
                       key={row.key}
                       onClick={() => !splitClick && clickable && openDrilldown(row)}
