@@ -361,6 +361,7 @@ const SalesOrderEntry = () => {
           brand_id: line.brand_id || null,
           brand_code: lineBrand?.brand_code || null,
           brand_name: lineBrand?.brand_name || null,
+          vendor: line.vendor || null,
           product_id: line.product_id || null,
           product_name: line.product_name,
           coins_number: line.coins_number || 0,
