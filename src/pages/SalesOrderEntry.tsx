@@ -448,28 +448,22 @@ const SalesOrderEntry = () => {
                     <TableRow key={line.id}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
-                        <Select value={line.brand_id} onValueChange={v => updateLine(line.id, "brand_id", v)}>
-                          <SelectTrigger className="min-w-[150px]">
-                            <SelectValue placeholder={language === 'ar' ? 'العلامة' : 'Brand'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {brands.map(b => (
-                              <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          value={line.brand_id}
+                          onChange={v => updateLine(line.id, "brand_id", v)}
+                          options={brands.map(b => ({ value: b.id, label: b.brand_name }))}
+                          placeholder={language === 'ar' ? 'العلامة' : 'Brand'}
+                          className="min-w-[150px]"
+                        />
                       </TableCell>
                       <TableCell>
-                        <Select value={line.product_name} onValueChange={v => updateLine(line.id, "product_name", v)}>
-                          <SelectTrigger className="min-w-[200px]">
-                            <SelectValue placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {getFilteredProducts(line.brand_id).map(p => (
-                              <SelectItem key={p.id} value={p.product_name}>{p.product_name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          value={line.product_name}
+                          onChange={v => updateLine(line.id, "product_name", v)}
+                          options={getFilteredProducts(line.brand_id).map(p => ({ value: p.product_name, label: p.product_name }))}
+                          placeholder={language === 'ar' ? 'اختر المنتج' : 'Select Product'}
+                          className="min-w-[200px]"
+                        />
                       </TableCell>
                       <TableCell>
                         <Input type="number" step="0.001" value={line.coins_number} onChange={e => updateLine(line.id, "coins_number", Number(e.target.value))} />
