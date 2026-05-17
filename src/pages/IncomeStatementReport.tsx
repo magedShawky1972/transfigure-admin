@@ -65,7 +65,7 @@ const IncomeStatementReport = () => {
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillTitle, setDrillTitle] = useState("");
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
-  const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number }>>([]);
+  const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
   const [drillEpayment, setDrillEpayment] = useState<EPaymentRow[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
 
