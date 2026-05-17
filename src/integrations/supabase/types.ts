@@ -7623,6 +7623,44 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_order_product_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          purple_product_id: string | null
+          purple_product_name: string | null
+          source_brand_name: string
+          source_product_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          purple_product_id?: string | null
+          purple_product_name?: string | null
+          source_brand_name?: string
+          source_product_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          purple_product_id?: string | null
+          purple_product_name?: string | null
+          source_brand_name?: string
+          source_product_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_product_mappings_purple_product_id_fkey"
+            columns: ["purple_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_sheet_line_attachments: {
         Row: {
           created_at: string
