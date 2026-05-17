@@ -568,6 +568,7 @@ const SalesOrderList = () => {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
     } finally {
       setCommitting(false);
+      setCommitProgress(null);
     }
   };
 
