@@ -699,6 +699,15 @@ const SalesOrderEntry = () => {
                         />
                       </TableCell>
                       <TableCell>
+                        <Input
+                          type="text"
+                          value={line.vendor}
+                          onChange={e => updateLine(line.id, "vendor", e.target.value)}
+                          placeholder={language === 'ar' ? 'المورد' : 'Vendor'}
+                          className="min-w-[120px]"
+                        />
+                      </TableCell>
+                      <TableCell>
                         <SearchableSelect
                           value={line.product_id}
                           onChange={v => updateLine(line.id, "product_id", v)}
