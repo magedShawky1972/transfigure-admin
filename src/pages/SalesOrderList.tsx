@@ -787,6 +787,19 @@ const SalesOrderList = () => {
                 </span>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={salesRefFilter}
+                onChange={(e) => setSalesRefFilter(e.target.value)}
+                placeholder={language === 'ar' ? 'بحث برقم المرجع' : 'Filter sales ref'}
+                className="h-8 w-44 text-xs"
+              />
+              {salesRefFilter && (
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSalesRefFilter("")}>
+                  ✕
+                </Button>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
