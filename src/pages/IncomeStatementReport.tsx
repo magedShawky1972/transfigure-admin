@@ -420,8 +420,18 @@ const IncomeStatementReport = () => {
                   </TableRow>
                 )}
               </TableBody>
+              {drillBrandData.length > 0 && (
+                <TableFooter>
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell className="text-right">{drillBrandData.reduce((s, b) => s + (b.tx_count || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{drillBrandData.reduce((s, b) => s + (b.coins || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{drillBrandData.reduce((s, b) => s + (b.percentage || 0), 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right">{fmt(drillBrandData.reduce((s, b) => s + (b.value || 0), 0))}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
-          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
