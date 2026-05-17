@@ -1176,6 +1176,109 @@ const LoadData = () => {
     setFileItems(prev => prev.filter(f => f.status !== 'completed' && f.status !== 'error'));
   };
 
+  const downloadUploadSummaryReport = () => {
+    const rows = reconcileExcelDataRef.current || [];
+    if (rows.length === 0) {
+      toast({ title: 'No data', description: 'Nothing to export', variant: 'destructive' });
+      return;
+    }
+    const keys = Object.keys(rows[0]);
+    const findKey = (...patterns: string[]) => {
+      const norm = (s: string) => s.toLowerCase().replace(/[_\s-]/g, '');
+      return keys.find(k => patterns.some(p => norm(k) === norm(p)))
+        || keys.find(k => patterns.some(p => norm(k).includes(norm(p))));
+    };
+    const kBrand = findKey('brand_name', 'brand');
+    const kUser = findKey('user_name', 'user', 'salesperson');
+    const kTotal = findKey('total', 'amount', 'totalsales');
+    const kQty = findKey('qty', 'quantity');
+    const kCost = findKey('cost_sold', 'totalcost', 'cost');
+    const kDate = findKey('created_at_date', 'order_date', 'date');
+    const kOrder = findKey('order_number', 'ordernumber');
+    const kProduct = findKey('product_name', 'product');
+    const num = (v: any) => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+    const dateStr = (v: any) => {
+      if (!v) return '';
+      const s = String(v);
+      const m = s.match(/\d{4}-\d{2}-\d{2}/);
+      if (m) return m[0];
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? s : d.toISOString().slice(0, 10);
+    };
+
+    const agg = (keyField: string | undefined) => {
+      const map = new Map<string, { count: number; qty: number; total: number; cost: number }>();
+      rows.forEach((r: any) => {
+        const k = keyField ? String(r[keyField] ?? '(blank)') : '(all)';
+        const e = map.get(k) || { count: 0, qty: 0, total: 0, cost: 0 };
+        e.count++;
+        e.qty += kQty ? num(r[kQty]) : 0;
+        e.total += kTotal ? num(r[kTotal]) : 0;
+        e.cost += kCost ? num(r[kCost]) : 0;
+        map.set(k, e);
+      });
+      return [...map.entries()].sort((a, b) => b[1].total - a[1].total);
+    };
+
+    const byBrand = agg(kBrand);
+    const byUser = agg(kUser);
+    const byDate = kDate ? (() => {
+      const m = new Map<string, { count: number; total: number }>();
+      rows.forEach((r: any) => {
+        const k = dateStr(r[kDate]);
+        const e = m.get(k) || { count: 0, total: 0 };
+        e.count++;
+        e.total += kTotal ? num(r[kTotal]) : 0;
+        m.set(k, e);
+      });
+      return [...m.entries()].sort();
+    })() : [];
+
+    const wb = XLSX.utils.book_new();
+
+    const grandTotal = rows.reduce((s: number, r: any) => s + (kTotal ? num(r[kTotal]) : 0), 0);
+    const grandQty = rows.reduce((s: number, r: any) => s + (kQty ? num(r[kQty]) : 0), 0);
+    const grandCost = rows.reduce((s: number, r: any) => s + (kCost ? num(r[kCost]) : 0), 0);
+
+    const summary: any[][] = [
+      ['Upload Summary Report'],
+      ['Generated', new Date().toISOString().replace('T', ' ').slice(0, 19)],
+      ['Total Rows', rows.length],
+      ['Total Qty', grandQty],
+      ['Total Sales', grandTotal],
+      ['Total Cost', grandCost],
+      [],
+      ['By User'],
+      ['User', 'Rows', 'Qty', 'Total Sales', 'Cost'],
+      ...byUser.map(([k, v]) => [k, v.count, v.qty, v.total, v.cost]),
+      [],
+      ['By Brand'],
+      ['Brand', 'Rows', 'Qty', 'Total Sales', 'Cost'],
+      ...byBrand.map(([k, v]) => [k, v.count, v.qty, v.total, v.cost]),
+    ];
+    if (byDate.length) {
+      summary.push([], ['By Date'], ['Date', 'Rows', 'Total Sales'],
+        ...byDate.map(([k, v]) => [k, v.count, v.total]));
+    }
+    const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+    wsSummary['!cols'] = [{ wch: 36 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+    const detailCols = [kOrder, kDate, kUser, kBrand, kProduct, kQty, kTotal, kCost].filter(Boolean) as string[];
+    const detail = rows.map((r: any) => {
+      const o: any = {};
+      detailCols.forEach(c => { o[c] = r[c]; });
+      return o;
+    });
+    const wsDetail = XLSX.utils.json_to_sheet(detail);
+    XLSX.utils.book_append_sheet(wb, wsDetail, 'Detail');
+
+    const filename = `upload_summary_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    toast({ title: 'Report downloaded', description: filename });
+  };
+
+
   const getSheetName = (sheetId: string) => {
     const sheet = availableSheets.find(s => s.id === sheetId);
     return sheet ? `${sheet.sheet_name} (${sheet.sheet_code})` : '';
