@@ -194,13 +194,14 @@ const SalesOrderList = () => {
 
   const COLUMNS = [
     "order_date","customer_name",
-    "sales_reference","sales_person","company","notes",
-    "brand_name","product_name","qty","group_key"
+    "sales_reference","sales_person","company","vendor","notes",
+    "brand_code","brand_name","product_id","product_name",
+    "coins_number","qty","unit_price","cost_price","group_key"
   ];
 
   const EXPORT_COLUMNS = [
     ...COLUMNS,
-    "status","brand_code","product_id","coins_number","unit_price","cost_price"
+    "status"
   ];
 
   const downloadXlsx = (rows: any[], filename: string, headers: string[] = COLUMNS) => {
@@ -214,9 +215,19 @@ const SalesOrderList = () => {
     const sample = [{
       order_date: "2026-01-01",
       customer_name: "Sample Customer",
-      sales_reference: "REF-1", sales_person: "John",
-      company: "Asus", notes: "",
-      brand_name: "Hawa Chat", product_name: "1 Coin", qty: 1,
+      sales_reference: "REF-1",
+      sales_person: "John",
+      company: "Asus",
+      vendor: "Sample Vendor",
+      notes: "",
+      brand_code: "HC",
+      brand_name: "Hawa Chat",
+      product_id: "",
+      product_name: "1 Coin",
+      coins_number: 1,
+      qty: 1,
+      unit_price: 0,
+      cost_price: 0,
       group_key: "G1",
     }];
     downloadXlsx(sample, "sales_orders_template.xlsx");
