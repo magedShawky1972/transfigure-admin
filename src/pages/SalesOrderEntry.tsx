@@ -105,18 +105,22 @@ const SalesOrderEntry = () => {
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingOrder, setLoadingOrder] = useState(isEditMode);
+  const [loadingLookups, setLoadingLookups] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const didInitRef = useRef(false);
 
   useEffect(() => {
-    fetchLookups();
-    fetchCurrentUser();
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    (async () => {
+      await fetchLookups();
+      setLoadingLookups(false);
+      fetchCurrentUser();
+      if (isEditMode && orderIdParam) {
+        loadOrder(orderIdParam);
+      }
+    })();
   }, []);
-
-  useEffect(() => {
-    if (isEditMode && orderIdParam) {
-      loadOrder(orderIdParam);
-    }
-  }, [orderIdParam]);
 
   const loadOrder = async (id: string) => {
     setLoadingOrder(true);
