@@ -757,10 +757,10 @@ const SalesOrderEntry = () => {
                            placeholder="0.0000000"
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{((line.coins_number || 0) * line.qty * line.cost_price).toFixed(2)}</TableCell>
-                      <TableCell className="font-medium">{line.total.toFixed(2)}</TableCell>
+                      <TableCell className="font-medium">{((line.coins_number || 0) * line.qty * line.cost_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="font-medium">{line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell className={`font-medium ${line.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {line.profit.toFixed(2)}
+                        {line.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeLine(line.id)}>
@@ -778,19 +778,19 @@ const SalesOrderEntry = () => {
             <div className="flex flex-wrap justify-end gap-6 mt-4 p-4 bg-muted/50 rounded-lg">
               <div className="text-sm">
                 <span className="text-muted-foreground">{language === 'ar' ? 'إجمالي الكوينز:' : 'Total Coins:'}</span>
-                <span className="font-bold text-foreground ml-2">{orderCoins.toFixed(2)}</span>
+                <span className="font-bold text-foreground ml-2">{orderCoins.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">{language === 'ar' ? 'إجمالي التكلفة:' : 'Total Cost:'}</span>
-                <span className="font-bold text-foreground ml-2">{orderCost.toFixed(2)} SAR</span>
+                <span className="font-bold text-foreground ml-2">{orderCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</span>
               </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">{language === 'ar' ? 'الإجمالي:' : 'Total:'}</span>
-                <span className="font-bold text-foreground ml-2">{orderTotal.toFixed(2)} SAR</span>
+                <span className="font-bold text-foreground ml-2">{orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</span>
               </div>
               <div className="text-sm">
                 <span className="text-muted-foreground">{language === 'ar' ? 'الربح:' : 'Profit:'}</span>
-                <span className={`font-bold ml-2 ${orderProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{orderProfit.toFixed(2)} SAR</span>
+                <span className={`font-bold ml-2 ${orderProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{orderProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</span>
               </div>
             </div>
           )}
