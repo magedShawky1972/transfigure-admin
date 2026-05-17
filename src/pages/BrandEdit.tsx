@@ -379,6 +379,7 @@ const BrandEdit = () => {
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             cost_one_coins_sar: (formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0) * 3.75,
             sales_usd_value_for_coins: formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0,
+            sales_one_coins_sar: (formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0) * 3.75,
             one_usd_to_coins: formData.one_usd_to_coins ? parseFloat(formData.one_usd_to_coins) : null,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
@@ -413,6 +414,7 @@ const BrandEdit = () => {
             usd_value_for_coins: formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0,
             cost_one_coins_sar: (formData.usd_value_for_coins ? parseFloat(formData.usd_value_for_coins) : 0) * 3.75,
             sales_usd_value_for_coins: formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0,
+            sales_one_coins_sar: (formData.sales_usd_value_for_coins ? parseFloat(formData.sales_usd_value_for_coins) : 0) * 3.75,
             one_usd_to_coins: formData.one_usd_to_coins ? parseFloat(formData.one_usd_to_coins) : null,
             recharge_usd_value: formData.recharge_usd_value ? parseFloat(formData.recharge_usd_value) : 0,
             leadtime: formData.leadtime ? parseFloat(formData.leadtime) : 0,
@@ -544,6 +546,17 @@ const BrandEdit = () => {
                   setFormData({ ...formData, sales_usd_value_for_coins: e.target.value })
                 }
                 placeholder="Enter sales USD value per coin"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sales_one_coins_sar">Sales One Coins = SAR (USD × 3.75)</Label>
+              <Input
+                id="sales_one_coins_sar"
+                type="number"
+                value={((parseFloat(formData.sales_usd_value_for_coins) || 0) * 3.75).toFixed(4)}
+                readOnly
+                className="bg-muted"
               />
             </div>
 
