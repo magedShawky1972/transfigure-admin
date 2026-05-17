@@ -106,7 +106,7 @@ const PaymentMethodSetup = () => {
         vat_fee: method.vat_fee,
       });
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("payment_methods")
         .update({
           payment_type: method.payment_type,
@@ -116,9 +116,13 @@ const PaymentMethodSetup = () => {
           vat_fee: method.vat_fee,
           is_active: method.is_active,
         })
-        .eq("id", method.id);
+        .eq("id", method.id)
+        .select("id");
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error(language === "ar" ? "لا تملك صلاحية التعديل" : "You don't have permission to update this payment method");
+      }
 
       toast({
         title: language === "ar" ? "نجاح" : "Success",
@@ -153,11 +157,15 @@ const PaymentMethodSetup = () => {
       // Validate input
       paymentMethodSchema.parse(newMethod);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("payment_methods")
-        .insert([newMethod]);
+        .insert([{ ...newMethod, is_active: true }])
+        .select("id, payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active");
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error(language === "ar" ? "لا تملك صلاحية الإضافة" : "You don't have permission to add this payment method");
+      }
 
       toast({
         title: language === "ar" ? "نجاح" : "Success",
@@ -175,7 +183,7 @@ const PaymentMethodSetup = () => {
         vat_fee: 0,
       });
 
-      fetchPaymentMethods();
+      setPaymentMethods((prev) => [...data, ...prev]);
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
@@ -199,12 +207,16 @@ const PaymentMethodSetup = () => {
 
   const handleDeleteMethod = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("payment_methods")
         .update({ is_active: false })
-        .eq("id", id);
+        .eq("id", id)
+        .select("id");
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error(language === "ar" ? "لا تملك صلاحية الحذف" : "You don't have permission to delete this payment method");
+      }
 
       toast({
         title: language === "ar" ? "نجاح" : "Success",
