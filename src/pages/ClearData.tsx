@@ -95,10 +95,10 @@ const ClearData = () => {
 
       console.log('Clearing data:', { tableName, dateColumn, fromDateValue, toDateValue });
 
-      // Delete data within the date range
+      // Delete data within the date range (skip exact count for speed)
       let deleteQuery = (supabase as any)
         .from(tableName)
-        .delete({ count: 'exact' })
+        .delete()
         .gte(dateColumn, fromDateValue)
         .lte(dateColumn, toDateValue);
 
@@ -106,44 +106,36 @@ const ClearData = () => {
         deleteQuery = deleteQuery.eq('company', selectedCompany);
       }
 
-      const { error, count } = await deleteQuery;
-
-      if (error) {
-        console.error('Delete error:', error);
-        throw error;
-      }
-
-      console.log('Records deleted:', count);
-
-      // If clearing purpletransaction, also clear related ordertotals and bank_ledger
+      // For purpletransaction, fan out related deletes in parallel
       if (tableName === 'purpletransaction') {
         const fromInt = parseInt(format(fromDate, 'yyyyMMdd'));
         const toInt = parseInt(format(toDate, 'yyyyMMdd'));
 
-        // Clear ordertotals for the date range
-        const { error: otError, count: otCount } = await (supabase as any)
-          .from('ordertotals')
-          .delete({ count: 'exact' })
-          .gte('order_date_int', fromInt)
-          .lte('order_date_int', toInt);
+        const [mainRes, otRes, blRes] = await Promise.all([
+          deleteQuery,
+          (supabase as any)
+            .from('ordertotals')
+            .delete()
+            .gte('order_date_int', fromInt)
+            .lte('order_date_int', toInt),
+          (supabase as any)
+            .from('bank_ledger')
+            .delete()
+            .gte('entry_date_int', fromInt)
+            .lte('entry_date_int', toInt),
+        ]);
 
-        if (otError) {
-          console.error('Error clearing ordertotals:', otError);
-        } else {
-          console.log('OrderTotals deleted:', otCount);
+        if (mainRes.error) {
+          console.error('Delete error:', mainRes.error);
+          throw mainRes.error;
         }
-
-        // Clear bank_ledger for the date range
-        const { error: blError, count: blCount } = await (supabase as any)
-          .from('bank_ledger')
-          .delete({ count: 'exact' })
-          .gte('entry_date_int', fromInt)
-          .lte('entry_date_int', toInt);
-
-        if (blError) {
-          console.error('Error clearing bank_ledger:', blError);
-        } else {
-          console.log('Bank ledger deleted:', blCount);
+        if (otRes.error) console.error('Error clearing ordertotals:', otRes.error);
+        if (blRes.error) console.error('Error clearing bank_ledger:', blRes.error);
+      } else {
+        const { error } = await deleteQuery;
+        if (error) {
+          console.error('Delete error:', error);
+          throw error;
         }
       }
 
