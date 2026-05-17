@@ -553,6 +553,21 @@ const SalesOrderList = () => {
               )}
             </DialogTitle>
           </DialogHeader>
+          <div className="flex items-center gap-2 py-2">
+            <Checkbox
+              id="showErrorsOnly"
+              checked={showErrorsOnly}
+              onCheckedChange={(c) => setShowErrorsOnly(c === true)}
+            />
+            <label htmlFor="showErrorsOnly" className="text-sm cursor-pointer">
+              {language === 'ar' ? 'إظهار الأخطاء فقط' : 'Show Errors Only'}
+            </label>
+            {showErrorsOnly && previewRows && (
+              <span className="text-xs text-muted-foreground ml-2">
+                {(sortedPreview || []).filter((r: any) => r.issues.length > 0).length} rows
+              </span>
+            )}
+          </div>
           <div className="flex-1 overflow-auto border rounded">
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
