@@ -543,13 +543,13 @@ const SalesOrderList = () => {
                       <TableCell className="font-mono text-xs">{r.order_number}</TableCell>
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
+                      <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>
                           <PopoverTrigger asChild>
                             <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs font-normal justify-between min-w-[140px]">
                               <span className="truncate">
                                 {r.brand_name || <span className="text-muted-foreground">Select brand</span>}
-                                {r.brand_code ? <span className="text-muted-foreground"> ({r.brand_code})</span> : null}
                               </span>
                               <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
                             </Button>
@@ -576,6 +576,7 @@ const SalesOrderList = () => {
                           </PopoverContent>
                         </Popover>
                       </TableCell>
+                      <TableCell className="text-[10px] font-mono text-muted-foreground" title={r.product_id || ''}>{r.product_id ? String(r.product_id).slice(0, 8) + '…' : <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">{r.product_name}</TableCell>
                       <TableCell className="text-right text-xs">{Number(r.coins_number).toLocaleString()}</TableCell>
                       <TableCell className="text-right text-xs">{r.qty}</TableCell>
