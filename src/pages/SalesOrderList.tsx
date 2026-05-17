@@ -309,6 +309,7 @@ const SalesOrderList = () => {
       });
 
       setSortConfig([]);
+      setShowErrorsOnly(false);
       setPreviewRows(resolved);
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
