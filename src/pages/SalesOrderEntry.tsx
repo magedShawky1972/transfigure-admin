@@ -44,6 +44,8 @@ const SalesOrderEntry = () => {
   const [customerOpen, setCustomerOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentBrand, setPaymentBrand] = useState("");
+  const [salesReference, setSalesReference] = useState("");
+  const [salesPerson, setSalesPerson] = useState("");
   const [notes, setNotes] = useState("");
 
   // Lines state
