@@ -151,6 +151,33 @@ const IncomeStatementReport = () => {
       (rsData || []).forEach((r: any) => {
         if (r.revenue_source) rsMap[r.revenue_source] = Number(r.total) || 0;
       });
+
+      // ASUS Sales from confirmed manual sales orders (Sales Order Entry)
+      if (nextCompanyFilter === "all" || nextCompanyFilter.toLowerCase() === "asus") {
+        const { data: msoData, error: msoError } = await supabase
+          .from("manual_sales_orders")
+          .select("total_amount, total_cost")
+          .eq("status", "confirmed")
+          .gte("order_date", startDate)
+          .lte("order_date", endDate);
+        if (msoError) throw msoError;
+        const asusTotal = (msoData || []).reduce((s: number, r: any) => s + (Number(r.total_amount) || 0), 0);
+        const asusCost = (msoData || []).reduce((s: number, r: any) => s + (Number(r.total_cost) || 0), 0);
+        if (asusTotal > 0 || asusCost > 0) {
+          rsMap["Asus"] = (rsMap["Asus"] || 0) + asusTotal;
+          list.push({
+            brand_name: "ASUS Manual Sales",
+            total: asusTotal,
+            cost_sold: asusCost,
+            bank_fee: 0,
+            points_cost: 0,
+            qty: 0,
+            coins: 0,
+            tx_count: (msoData || []).length,
+          });
+          setAggregates([...list]);
+        }
+      }
       setRevenueSources(rsMap);
 
       setAppliedStartDate(startDate);
