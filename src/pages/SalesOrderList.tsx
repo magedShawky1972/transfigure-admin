@@ -36,6 +36,9 @@ const SalesOrderList = () => {
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkConfirming, setBulkConfirming] = useState(false);
   const [bulkConfirmProgress, setBulkConfirmProgress] = useState<{ current: number; total: number } | null>(null);
+  const [bulkRollbackOpen, setBulkRollbackOpen] = useState(false);
+  const [bulkRollingBack, setBulkRollingBack] = useState(false);
+  const [bulkRollbackProgress, setBulkRollbackProgress] = useState<{ current: number; total: number } | null>(null);
   const [importing, setImporting] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [commitProgress, setCommitProgress] = useState<{ current: number; total: number } | null>(null);
@@ -794,8 +797,71 @@ const SalesOrderList = () => {
     }
   };
 
+  const rollbackableSelectedIds = selectedIds.filter(id => {
+    const o = orders.find(x => x.id === id);
+    return o && o.status === 'confirmed';
+  });
+
+  const handleBulkRollback = async () => {
+    if (rollbackableSelectedIds.length === 0) return;
+    setBulkRollingBack(true);
+    const total = rollbackableSelectedIds.length;
+    setBulkRollbackProgress({ current: 0, total });
+
+    let rolled = 0;
+    let skipped = 0;
+    let processed = 0;
+
+    try {
+      for (const oid of rollbackableSelectedIds) {
+        const order = orders.find(x => x.id === oid);
+        if (!order || !order.order_number) {
+          skipped++; processed++;
+          if (processed % 5 === 0 || processed === total) {
+            setBulkRollbackProgress({ current: processed, total });
+            await new Promise(r => setTimeout(r, 0));
+          }
+          continue;
+        }
+        const { error: delErr } = await supabase
+          .from("purpletransaction")
+          .delete()
+          .eq("ordernumber", order.order_number)
+          .eq("trans_type", "manual");
+        if (delErr) {
+          console.error(`Rollback failed for ${order.order_number}:`, delErr);
+          skipped++;
+        } else {
+          await supabase.from("manual_sales_orders")
+            .update({ status: 'draft', confirmed_at: null })
+            .eq("id", oid)
+            .select();
+          rolled++;
+        }
+        processed++;
+        if (processed % 5 === 0 || processed === total) {
+          setBulkRollbackProgress({ current: processed, total });
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+
+      toast({
+        title: language === 'ar' ? 'تم إعادة الفتح' : 'Rolled back',
+        description: `${language === 'ar' ? 'تم' : 'Done'}: ${rolled}, ${language === 'ar' ? 'متخطى' : 'Skipped'}: ${skipped}`,
+      });
+      setSelectedIds([]);
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: language === 'ar' ? 'فشل إعادة الفتح' : 'Rollback failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setBulkRollingBack(false);
+      setBulkRollbackProgress(null);
+      setBulkRollbackOpen(false);
+    }
+  };
+
   const toggleSelectAll = () => {
-    const eligibleIds = orders.filter(o => o.status !== 'confirmed').map(o => o.id);
+    const eligibleIds = orders.map(o => o.id);
     if (eligibleIds.every(id => selectedIds.includes(id)) && eligibleIds.length > 0) {
       setSelectedIds([]);
     } else {
@@ -826,6 +892,16 @@ const SalesOrderList = () => {
               {bulkConfirming && bulkConfirmProgress
                 ? `${language === 'ar' ? 'جاري التأكيد' : 'Confirming'} ${bulkConfirmProgress.current}/${bulkConfirmProgress.total}`
                 : (language === 'ar' ? `تأكيد (${confirmableSelectedIds.length})` : `Confirm (${confirmableSelectedIds.length})`)}
+            </Button>
+          )}
+          {rollbackableSelectedIds.length > 0 && (
+            <Button variant="secondary" disabled={bulkRollingBack} onClick={() => setBulkRollbackOpen(true)}>
+              {bulkRollingBack
+                ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                : <RefreshCw className="h-4 w-4 mr-1" />}
+              {bulkRollingBack && bulkRollbackProgress
+                ? `${language === 'ar' ? 'جاري إعادة الفتح' : 'Rolling back'} ${bulkRollbackProgress.current}/${bulkRollbackProgress.total}`
+                : (language === 'ar' ? `إعادة فتح (${rollbackableSelectedIds.length})` : `Rollback (${rollbackableSelectedIds.length})`)}
             </Button>
           )}
           {deletableSelectedIds.length > 0 && (
@@ -871,7 +947,7 @@ const SalesOrderList = () => {
                   <TableRow>
                     <TableHead className="w-10">
                       {(() => {
-                        const eligibleIds = orders.filter(o => o.status !== 'confirmed').map(o => o.id);
+                        const eligibleIds = orders.map(o => o.id);
                         const allChecked = eligibleIds.length > 0 && eligibleIds.every(id => selectedIds.includes(id));
                         return (
                           <Checkbox
@@ -909,7 +985,6 @@ const SalesOrderList = () => {
                           <Checkbox
                             checked={selectedIds.includes(o.id)}
                             onCheckedChange={() => toggleSelectOne(o.id)}
-                            disabled={o.status === 'confirmed'}
                             aria-label={`Select ${o.order_number}`}
                           />
                         </TableCell>
@@ -1400,6 +1475,26 @@ const SalesOrderList = () => {
             <AlertDialogAction onClick={handleBulkConfirm} disabled={bulkConfirming}>
               {bulkConfirming ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
               {language === 'ar' ? 'تأكيد' : 'Confirm'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkRollbackOpen} onOpenChange={(o) => !o && !bulkRollingBack && setBulkRollbackOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === 'ar' ? 'إعادة فتح متعدد' : 'Rollback Selected'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar'
+                ? `سيتم إعادة فتح ${rollbackableSelectedIds.length} طلب وحذف الحركات المرتبطة بها.`
+                : `${rollbackableSelectedIds.length} order(s) will be reopened and their posted transactions removed.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkRollingBack}>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkRollback} disabled={bulkRollingBack}>
+              {bulkRollingBack ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {language === 'ar' ? 'إعادة الفتح' : 'Rollback'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
