@@ -242,6 +242,7 @@ const SalesOrderEntry = () => {
     setLines(prev => [...prev, {
       id: generateTempId(),
       brand_id: "",
+      vendor: "",
       product_id: "",
       product_name: "",
       coins_number: 0,
