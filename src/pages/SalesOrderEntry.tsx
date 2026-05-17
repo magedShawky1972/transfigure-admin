@@ -702,7 +702,15 @@ const SalesOrderEntry = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input type="text" inputMode="decimal" value={line.coins_number} onChange={e => updateLine(line.id, "coins_number", Number(e.target.value) || 0)} />
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={line.coins_number === 0 ? "" : String(line.coins_number)}
+                          onChange={e => {
+                            const clean = e.target.value.replace(/[^0-9.]/g, "");
+                            updateLine(line.id, "coins_number", clean === "" || clean === "." ? 0 : Number(clean));
+                          }}
+                        />
                       </TableCell>
                       <TableCell>
                         <Input type="text" inputMode="numeric" value={line.qty} onChange={e => updateLine(line.id, "qty", Number(e.target.value) || 0)} />
