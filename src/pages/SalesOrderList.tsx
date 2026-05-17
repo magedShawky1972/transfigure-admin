@@ -88,6 +88,7 @@ const SalesOrderList = () => {
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                     <TableHead>{language === 'ar' ? 'العميل' : 'Customer'}</TableHead>
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
+                    <TableHead className="text-right">{language === 'ar' ? 'الكوينز' : 'Coins'}</TableHead>
                     <TableHead className="text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
                     <TableHead className="text-right">{language === 'ar' ? 'الربح' : 'Profit'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
@@ -97,7 +98,7 @@ const SalesOrderList = () => {
                 <TableBody>
                   {orders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                         {language === 'ar' ? 'لا توجد طلبات' : 'No orders yet'}
                       </TableCell>
                     </TableRow>
@@ -109,6 +110,7 @@ const SalesOrderList = () => {
                         <TableCell>{o.order_date ? format(new Date(o.order_date), "yyyy-MM-dd") : ''}</TableCell>
                         <TableCell>{o.customer_name || '—'}{o.customer_phone ? ` (${o.customer_phone})` : ''}</TableCell>
                         <TableCell>{o.payment_method || '—'}</TableCell>
+                        <TableCell className="text-right font-medium">{Number(o.total_coins || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-right font-medium">{Number(o.total_amount || 0).toFixed(2)}</TableCell>
                         <TableCell className={`text-right font-medium ${Number(o.total_profit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {Number(o.total_profit || 0).toFixed(2)}
