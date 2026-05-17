@@ -148,7 +148,7 @@ const SalesOrderEntry = () => {
       setLines((lineRows || []).map((r: any) => ({
         id: r.id,
         brand_id: r.brand_id || "",
-        product_id: "",
+        product_id: r.product_id || "",
         product_name: r.product_name || "",
         coins_number: Number(r.coins_number) || 0,
         qty: Number(r.qty) || 0,
