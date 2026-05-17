@@ -1019,7 +1019,38 @@ const SalesOrderList = () => {
                       <TableCell className="text-xs">{r.order_date}</TableCell>
                       <TableCell className="text-xs">{r.customer_name}</TableCell>
                       <TableCell className="text-xs">{r.source_brand_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                      <TableCell className={`text-xs ${r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase()) ? 'text-destructive font-medium' : ''}`}>{r.vendor || <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className="text-xs">
+                        <Popover open={vendorPopoverIdx === origIdx} onOpenChange={(o) => setVendorPopoverIdx(o ? origIdx : null)}>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className={`h-7 px-2 text-xs font-normal justify-between min-w-[140px] ${r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase()) ? 'text-destructive border-destructive' : ''}`}>
+                              <span className="truncate">
+                                {r.vendor || <span className="text-muted-foreground">Select vendor</span>}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="p-0 w-[260px]" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search vendor..." />
+                              <CommandList>
+                                <CommandEmpty>No vendor found.</CommandEmpty>
+                                <CommandGroup>
+                                  {suppliersList.map((s: any) => (
+                                    <CommandItem
+                                      key={s.id}
+                                      value={`${s.supplier_name} ${s.supplier_code || ''}`}
+                                      onSelect={() => handleChangeRowVendor(origIdx, s.id)}
+                                    >
+                                      <span className="font-medium">{s.supplier_name}</span>
+                                      {s.supplier_code && <span className="ml-2 text-xs text-muted-foreground">({s.supplier_code})</span>}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
                       <TableCell className="text-xs font-mono">{r.brand_code || <span className="text-destructive">—</span>}</TableCell>
                       <TableCell className="text-xs">
                         <Popover open={brandPopoverIdx === origIdx} onOpenChange={(o) => setBrandPopoverIdx(o ? origIdx : null)}>
