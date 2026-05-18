@@ -4195,6 +4195,126 @@ export type Database = {
           },
         ]
       }
+      expense_requests_archived: {
+        Row: {
+          amount: number | null
+          approved_at: string | null
+          approved_by: string | null
+          archive_reason: string | null
+          archived_at: string
+          archived_by: string | null
+          bank_id: string | null
+          base_currency_amount: number | null
+          classified_at: string | null
+          classified_by: string | null
+          cost_center_id: string | null
+          currency_id: string | null
+          description: string | null
+          employee_request_id: string | null
+          exchange_rate: number | null
+          expense_type_id: string | null
+          id: string
+          is_asset: boolean | null
+          net_total: number | null
+          notes: string | null
+          original_created_at: string | null
+          original_id: string
+          original_updated_at: string | null
+          paid_at: string | null
+          paid_by: string | null
+          payment_method: string | null
+          purchase_item_id: string | null
+          quantity: number | null
+          request_date: string | null
+          request_number: string
+          requester_id: string | null
+          status: string | null
+          tax_percent: number | null
+          ticket_id: string | null
+          treasury_id: string | null
+          unit_price: number | null
+          uom_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archive_reason?: string | null
+          archived_at?: string
+          archived_by?: string | null
+          bank_id?: string | null
+          base_currency_amount?: number | null
+          classified_at?: string | null
+          classified_by?: string | null
+          cost_center_id?: string | null
+          currency_id?: string | null
+          description?: string | null
+          employee_request_id?: string | null
+          exchange_rate?: number | null
+          expense_type_id?: string | null
+          id?: string
+          is_asset?: boolean | null
+          net_total?: number | null
+          notes?: string | null
+          original_created_at?: string | null
+          original_id: string
+          original_updated_at?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_method?: string | null
+          purchase_item_id?: string | null
+          quantity?: number | null
+          request_date?: string | null
+          request_number: string
+          requester_id?: string | null
+          status?: string | null
+          tax_percent?: number | null
+          ticket_id?: string | null
+          treasury_id?: string | null
+          unit_price?: number | null
+          uom_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archive_reason?: string | null
+          archived_at?: string
+          archived_by?: string | null
+          bank_id?: string | null
+          base_currency_amount?: number | null
+          classified_at?: string | null
+          classified_by?: string | null
+          cost_center_id?: string | null
+          currency_id?: string | null
+          description?: string | null
+          employee_request_id?: string | null
+          exchange_rate?: number | null
+          expense_type_id?: string | null
+          id?: string
+          is_asset?: boolean | null
+          net_total?: number | null
+          notes?: string | null
+          original_created_at?: string | null
+          original_id?: string
+          original_updated_at?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          payment_method?: string | null
+          purchase_item_id?: string | null
+          quantity?: number | null
+          request_date?: string | null
+          request_number?: string
+          requester_id?: string | null
+          status?: string | null
+          tax_percent?: number | null
+          ticket_id?: string | null
+          treasury_id?: string | null
+          unit_price?: number | null
+          uom_id?: string | null
+        }
+        Relationships: []
+      }
       expense_types: {
         Row: {
           category_id: string | null
