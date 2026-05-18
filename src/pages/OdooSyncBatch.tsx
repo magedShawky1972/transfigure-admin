@@ -2887,6 +2887,7 @@ const OdooSyncBatch = () => {
               )}
             </div>
           ) : (
+            <TopHorizontalScrollbar>
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader>
