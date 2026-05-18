@@ -99,15 +99,20 @@ const IncomeStatementReport = () => {
     (async () => {
       const { data: bData } = await supabase
         .from("brands")
-        .select("brand_name, abc_analysis")
+        .select("brand_name, abc_analysis, brand_type:brand_type_id(type_name)")
         .order("brand_name");
       const list = (bData || []).map((b: any) => b.brand_name).filter(Boolean);
       setBrands(list);
       const map: Record<string, string> = {};
+      const typeMap: Record<string, string> = {};
       (bData || []).forEach((b: any) => {
-        if (b.brand_name) map[b.brand_name] = (b.abc_analysis || "").toString().toUpperCase();
+        if (b.brand_name) {
+          map[b.brand_name] = (b.abc_analysis || "").toString().toUpperCase();
+          typeMap[b.brand_name] = b.brand_type?.type_name || "Unclassified";
+        }
       });
       setBrandAbcMap(map);
+      setBrandTypeMap(typeMap);
 
       const { data: cData } = await supabase
         .from("purpletransaction")
