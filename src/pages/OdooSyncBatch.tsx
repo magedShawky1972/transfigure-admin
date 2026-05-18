@@ -2793,6 +2793,9 @@ const OdooSyncBatch = () => {
                         {invoice.vendorName || '-'}
                       </TableCell>
                        <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
+                       <TableCell className="text-xs font-semibold">
+                         {invoice.productLines.reduce((s, pl: any) => s + (pl.costSold || 0), 0).toFixed(2)} SAR
+                       </TableCell>
                        <TableCell className="text-xs text-center font-semibold">
                          {(() => {
                            const totalCoins = invoice.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0);
