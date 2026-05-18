@@ -41,7 +41,7 @@ const ExpenseTypeSetup = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<ExpenseType | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([]);
+  const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([{ key: "expense_code", dir: "asc" }]);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "tree">("tree");
