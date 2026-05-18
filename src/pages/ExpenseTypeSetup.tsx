@@ -41,7 +41,7 @@ const ExpenseTypeSetup = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<ExpenseType | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([]);
+  const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([{ key: "expense_code", dir: "asc" }]);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"list" | "tree">("tree");
@@ -293,7 +293,15 @@ const ExpenseTypeSetup = () => {
     { key: "is_asset", label: language === "ar" ? "أصل" : "Asset" },
     { key: "status", label: language === "ar" ? "الحالة" : "Status" },
   ];
+  const codeSortKey = (code: string) => {
+    const m = /^([^\d]*)(\d+)?(.*)$/.exec(String(code || "").trim());
+    const prefix = (m?.[1] || "").toLowerCase();
+    const num = m?.[2] ? parseInt(m[2], 10) : -1;
+    const rest = (m?.[3] || "").toLowerCase();
+    return `${prefix}|${String(num + 1).padStart(12, "0")}|${rest}`;
+  };
   const getVal = (t: ExpenseType, k: SortKey) => {
+    if (k === "expense_code") return codeSortKey(t.expense_code);
     if (k === "category") return getCategoryName(t.category_id).toLowerCase();
     if (k === "status") return t.is_active ? "active" : "inactive";
     if (k === "is_asset") return t.is_asset ? "yes" : "no";
