@@ -34,7 +34,7 @@ const ExpenseCategorySetup = () => {
   const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"list" | "tree">("list");
+  const [viewMode, setViewMode] = useState<"list" | "tree">("tree");
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     category_code: "",
