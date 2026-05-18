@@ -56,7 +56,6 @@ interface OrderGroup {
   brandNames: string[];
   skus: string[];
   totalAmount: number;
-  totalCost: number;
   paymentMethod: string;
   paymentBrand: string;
   selected: boolean;
