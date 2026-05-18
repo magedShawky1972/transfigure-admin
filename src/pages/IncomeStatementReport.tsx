@@ -78,6 +78,9 @@ const IncomeStatementReport = () => {
   const [ePaymentByMethodLoading, setEPaymentByMethodLoading] = useState(false);
   const [pointsByCompany, setPointsByCompany] = useState<Array<{ company: string; points_cost: number; percentage: number }>>([]);
   const [pointsByCompanyLoading, setPointsByCompanyLoading] = useState(false);
+  const [brandTypeMap, setBrandTypeMap] = useState<Record<string, string>>({});
+  const [companyByType, setCompanyByType] = useState<Record<string, Array<{ brand_type: string; value: number; percentage: number }>>>({});
+  const [companyByTypeLoading, setCompanyByTypeLoading] = useState<Record<string, boolean>>({});
   const [drillTitle, setDrillTitle] = useState("");
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
   const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
