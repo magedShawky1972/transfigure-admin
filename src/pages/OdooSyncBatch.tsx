@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -2674,6 +2675,7 @@ const OdooSyncBatch = () => {
               )}
             </div>
           ) : aggregateMode && filteredAggregatedInvoices.length > 0 ? (
+            <TopHorizontalScrollbar>
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader>
@@ -2874,6 +2876,7 @@ const OdooSyncBatch = () => {
                 </TableBody>
               </Table>
             </ScrollArea>
+            </TopHorizontalScrollbar>
           ) : !aggregateMode && filteredOrderGroups.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               {language === 'ar' ? 'لا توجد نتائج مطابقة للفلتر' : 'No results match the filter criteria'}
@@ -2884,6 +2887,7 @@ const OdooSyncBatch = () => {
               )}
             </div>
           ) : (
+            <TopHorizontalScrollbar>
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader>
@@ -3019,6 +3023,7 @@ const OdooSyncBatch = () => {
                 </TableBody>
               </Table>
             </ScrollArea>
+            </TopHorizontalScrollbar>
           )}
         </CardContent>
       </Card>
