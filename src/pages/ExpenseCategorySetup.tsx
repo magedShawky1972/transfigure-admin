@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ const ExpenseCategorySetup = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     category_code: "",
     category_name: "",
@@ -248,13 +249,11 @@ const ExpenseCategorySetup = () => {
             <Download className="h-4 w-4" />
             {language === "ar" ? "تصدير" : "Export"}
           </Button>
-          <Button variant="outline" className="gap-2" asChild>
-            <label>
-              <Upload className="h-4 w-4" />
-              {language === "ar" ? "استيراد" : "Import"}
-              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-            </label>
+          <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4" />
+            {language === "ar" ? "استيراد" : "Import"}
           </Button>
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
