@@ -1026,6 +1026,7 @@ const ExpenseRequests = () => {
     }
   };
 
+  const filteredRequests = requests.filter(r => {
     if (activeTab === "pending") return r.status === "pending";
     if (activeTab === "classified") return r.status === "classified";
     if (activeTab === "approved") return r.status === "approved";
