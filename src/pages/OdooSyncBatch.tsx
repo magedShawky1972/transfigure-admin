@@ -2876,6 +2876,7 @@ const OdooSyncBatch = () => {
                 </TableBody>
               </Table>
             </ScrollArea>
+            </TopHorizontalScrollbar>
           ) : !aggregateMode && filteredOrderGroups.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               {language === 'ar' ? 'لا توجد نتائج مطابقة للفلتر' : 'No results match the filter criteria'}
