@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Edit, Trash2, FolderTree, Save, Download, Upload, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, X } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import * as XLSX from "xlsx";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ExpenseCategory {
   id: string;
@@ -32,6 +33,7 @@ const ExpenseCategorySetup = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     category_code: "",
     category_name: "",
@@ -119,6 +121,22 @@ const ExpenseCategorySetup = () => {
     } catch (error: any) {
       console.error("Error deleting category:", error);
       toast.error(error.message || (language === "ar" ? "خطأ في حذف التصنيف" : "Error deleting category"));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!confirm(language === "ar" ? `حذف ${ids.length} تصنيف؟` : `Delete ${ids.length} categories?`)) return;
+    try {
+      const { error } = await supabase.from("expense_categories").delete().in("id", ids);
+      if (error) throw error;
+      toast.success(language === "ar" ? `تم حذف ${ids.length} تصنيف` : `${ids.length} categories deleted`);
+      setSelected(new Set());
+      fetchData();
+    } catch (error: any) {
+      console.error("Bulk delete error:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في الحذف" : "Error deleting"));
     }
   };
 
@@ -378,18 +396,44 @@ const ExpenseCategorySetup = () => {
         return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{language === "ar" ? "قائمة التصنيفات" : "Categories List"}</CardTitle>
-          {(sorts.length > 0 || Object.values(filters).some((v) => v)) && (
-            <Button variant="ghost" size="sm" onClick={() => { setSorts([]); setFilters({}); }} className="gap-1">
-              <X className="h-3 w-3" />
-              {language === "ar" ? "مسح" : "Clear"}
-            </Button>
-          )}
+          <CardTitle className="flex items-center gap-3">
+            {language === "ar" ? "قائمة التصنيفات" : "Categories List"}
+            {selected.size > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({selected.size} {language === "ar" ? "محدد" : "selected"})
+              </span>
+            )}
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="gap-1">
+                <Trash2 className="h-3 w-3" />
+                {language === "ar" ? `حذف المحدد (${selected.size})` : `Delete Selected (${selected.size})`}
+              </Button>
+            )}
+            {(sorts.length > 0 || Object.values(filters).some((v) => v)) && (
+              <Button variant="ghost" size="sm" onClick={() => { setSorts([]); setFilters({}); }} className="gap-1">
+                <X className="h-3 w-3" />
+                {language === "ar" ? "مسح" : "Clear"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={sorted.length > 0 && sorted.every((c) => selected.has(c.id))}
+                    onCheckedChange={(v) => {
+                      const next = new Set(selected);
+                      if (v) sorted.forEach((c) => next.add(c.id));
+                      else sorted.forEach((c) => next.delete(c.id));
+                      setSelected(next);
+                    }}
+                  />
+                </TableHead>
                 {cols.map((col) => {
                   const s = sorts.find((x) => x.key === col.key);
                   const idx = sorts.findIndex((x) => x.key === col.key);
@@ -410,6 +454,7 @@ const ExpenseCategorySetup = () => {
                 <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
               <TableRow>
+                <TableHead />
                 {cols.map((col) => (
                   <TableHead key={col.key} className="py-1">
                     <Input
@@ -425,7 +470,17 @@ const ExpenseCategorySetup = () => {
             </TableHeader>
             <TableBody>
               {sorted.map((category) => (
-                <TableRow key={category.id}>
+                <TableRow key={category.id} data-state={selected.has(category.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(category.id)}
+                      onCheckedChange={(v) => {
+                        const next = new Set(selected);
+                        if (v) next.add(category.id); else next.delete(category.id);
+                        setSelected(next);
+                      }}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono">{category.category_code}</TableCell>
                   <TableCell>{category.category_name}</TableCell>
                   <TableCell dir="rtl">{category.category_name_ar || "-"}</TableCell>
@@ -449,7 +504,7 @@ const ExpenseCategorySetup = () => {
               ))}
               {sorted.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد تصنيفات" : "No categories found"}
                   </TableCell>
                 </TableRow>
