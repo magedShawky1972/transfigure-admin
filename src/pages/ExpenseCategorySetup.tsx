@@ -22,6 +22,8 @@ interface ExpenseCategory {
   category_name_ar: string | null;
   parent_category_id: string | null;
   is_active: boolean;
+  is_parent: boolean;
+  code_prefix: string | null;
 }
 
 const ExpenseCategorySetup = () => {
