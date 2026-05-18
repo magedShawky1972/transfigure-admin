@@ -771,6 +771,25 @@ const IncomeStatementReport = () => {
                         ))}
                       </>
                     )}
+                    {isCompanyRow && isOpen && (
+                      <>
+                        {companyByTypeLoading[row.key] ? (
+                          <div className="flex items-center gap-2 py-2 pl-16 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" /> {isRTL ? "جاري التحميل" : "Loading"}…
+                          </div>
+                        ) : !companyByType[row.key] || companyByType[row.key].length === 0 ? (
+                          <div className="py-2 pl-16 text-sm text-muted-foreground">{isRTL ? "لا توجد بيانات" : "No data"}</div>
+                        ) : companyByType[row.key].map((bt) => (
+                          <div key={`${row.key}-bt-${bt.brand_type}`} className="flex items-center justify-between py-2 px-2 pl-16 text-sm bg-muted/20">
+                            <span className="text-muted-foreground">{bt.brand_type}</span>
+                            <div className="flex items-center gap-6">
+                              <span className="text-xs text-muted-foreground">{bt.percentage.toFixed(2)}%</span>
+                              <span>{fmt(bt.value)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </Fragment>
                 );
               })}
