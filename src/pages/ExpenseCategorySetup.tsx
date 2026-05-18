@@ -316,6 +316,7 @@ const ExpenseCategorySetup = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
