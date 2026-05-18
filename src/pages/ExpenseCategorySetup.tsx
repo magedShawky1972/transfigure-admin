@@ -71,18 +71,39 @@ const ExpenseCategorySetup = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.category_code || !formData.category_name) {
+    if (!formData.category_name) {
       toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
       return;
     }
 
     try {
+      let code = formData.category_code.trim();
+      // Auto-generate child code from parent's prefix
+      if (!editingCategory && formData.parent_category_id) {
+        const parent = categories.find((c) => c.id === formData.parent_category_id);
+        if (parent?.is_parent && parent.code_prefix) {
+          const prefix = parent.code_prefix.trim();
+          const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\d{4})$`, "i");
+          const maxSeq = categories.reduce((m, c) => {
+            const mt = re.exec(c.category_code || "");
+            return mt ? Math.max(m, parseInt(mt[1], 10)) : m;
+          }, 0);
+          code = `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+        }
+      }
+      if (!code) {
+        toast.error(language === "ar" ? "كود التصنيف مطلوب" : "Category code is required");
+        return;
+      }
+
       const payload = {
-        category_code: formData.category_code,
+        category_code: code,
         category_name: formData.category_name,
         category_name_ar: formData.category_name_ar || null,
         parent_category_id: formData.parent_category_id || null,
         is_active: formData.is_active,
+        is_parent: formData.is_parent,
+        code_prefix: formData.is_parent ? (formData.code_prefix.trim() || null) : null,
       };
 
       if (editingCategory) {
