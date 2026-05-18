@@ -740,6 +740,7 @@ const OdooSyncAll = () => {
                       <TableHead>Brand</TableHead>
                       <TableHead>Products</TableHead>
                       <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Cost</TableHead>
                       <TableHead>Steps</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Skip</TableHead>
