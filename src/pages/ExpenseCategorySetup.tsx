@@ -196,6 +196,8 @@ const ExpenseCategorySetup = () => {
       parent_category_code: c.parent_category_id
         ? categories.find((p) => p.id === c.parent_category_id)?.category_code || ""
         : "",
+      is_parent: c.is_parent ? "TRUE" : "FALSE",
+      code_prefix: c.code_prefix || "",
       is_active: c.is_active ? "TRUE" : "FALSE",
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -207,10 +209,21 @@ const ExpenseCategorySetup = () => {
   const handleTemplate = () => {
     const ws = XLSX.utils.json_to_sheet([
       {
-        category_code: "CAT001",
+        category_code: "OFF",
+        category_name: "Office",
+        category_name_ar: "مكتب",
+        parent_category_code: "",
+        is_parent: "TRUE",
+        code_prefix: "OFF",
+        is_active: "TRUE",
+      },
+      {
+        category_code: "",
         category_name: "Office Supplies",
         category_name_ar: "مستلزمات مكتبية",
-        parent_category_code: "",
+        parent_category_code: "OFF",
+        is_parent: "FALSE",
+        code_prefix: "",
         is_active: "TRUE",
       },
     ]);
