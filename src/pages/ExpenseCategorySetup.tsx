@@ -32,6 +32,7 @@ const ExpenseCategorySetup = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     category_code: "",
     category_name: "",
