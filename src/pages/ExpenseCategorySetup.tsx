@@ -112,6 +112,8 @@ const ExpenseCategorySetup = () => {
       category_name_ar: category.category_name_ar || "",
       parent_category_id: category.parent_category_id || "",
       is_active: category.is_active,
+      is_parent: category.is_parent || false,
+      code_prefix: category.code_prefix || "",
     });
     setDialogOpen(true);
   };
