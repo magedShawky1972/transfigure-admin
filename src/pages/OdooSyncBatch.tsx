@@ -3023,6 +3023,7 @@ const OdooSyncBatch = () => {
                 </TableBody>
               </Table>
             </ScrollArea>
+            </TopHorizontalScrollbar>
           )}
         </CardContent>
       </Card>
