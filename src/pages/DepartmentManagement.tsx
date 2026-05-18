@@ -346,7 +346,7 @@ const DepartmentManagement = () => {
         // Join the data
         const adminsWithProfiles = adminsData.map(admin => ({
           ...admin,
-          profiles: profilesData?.find(p => p.user_id === admin.user_id) || null
+          profiles: profilesData?.find(p => p.user_id === admin.user_id) || { user_name: "Unknown", email: "" }
         }));
 
         setAdmins(adminsWithProfiles as any);
