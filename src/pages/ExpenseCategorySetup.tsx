@@ -44,6 +44,8 @@ const ExpenseCategorySetup = () => {
     category_name_ar: "",
     parent_category_id: "",
     is_active: true,
+    is_parent: false,
+    code_prefix: "",
   });
 
   useEffect(() => {
