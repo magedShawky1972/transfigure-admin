@@ -395,7 +395,7 @@ const ExpenseTypeSetup = () => {
       return sorted.map((t) => renderTypeRow(t));
     }
 
-    // Tree mode: group by category
+    // Tree mode: nested category hierarchy with expense types as leaves
     const byCategory = new Map<string | null, ExpenseType[]>();
     sorted.forEach((t) => {
       const key = t.category_id || null;
@@ -403,19 +403,33 @@ const ExpenseTypeSetup = () => {
       byCategory.get(key)!.push(t);
     });
 
-    const rows: JSX.Element[] = [];
-    const groupKeys = Array.from(byCategory.keys()).sort((a, b) => {
-      const an = a ? getCategoryName(a) : "~uncategorized";
-      const bn = b ? getCategoryName(b) : "~uncategorized";
-      return an.localeCompare(bn);
-    });
+    const childCatsOf = (parentId: string | null) =>
+      categories
+        .filter((c) => (c.parent_category_id || null) === parentId)
+        .sort((a, b) => {
+          const an = (language === "ar" && a.category_name_ar) ? a.category_name_ar : a.category_name;
+          const bn = (language === "ar" && b.category_name_ar) ? b.category_name_ar : b.category_name;
+          return an.localeCompare(bn);
+        });
 
-    for (const catId of groupKeys) {
-      const groupId = `cat:${catId ?? "none"}`;
-      const types = byCategory.get(catId)!;
+    // Collect all expense types descending from a category (incl. nested subcategories)
+    const collectTypes = (catId: string): ExpenseType[] => {
+      const out: ExpenseType[] = [...(byCategory.get(catId) || [])];
+      childCatsOf(catId).forEach((c) => out.push(...collectTypes(c.id)));
+      return out;
+    };
+
+    const rows: JSX.Element[] = [];
+
+    const renderCategoryNode = (cat: ExpenseCategory, depth: number) => {
+      const groupId = `cat:${cat.id}`;
       const isExp = expandedNodes.has(groupId);
-      const allSelected = types.every((t) => selected.has(t.id));
-      const someSelected = types.some((t) => selected.has(t.id));
+      const descTypes = collectTypes(cat.id);
+      const subCats = childCatsOf(cat.id);
+      const directTypes = byCategory.get(cat.id) || [];
+      if (descTypes.length === 0 && subCats.length === 0) return;
+      const allSelected = descTypes.length > 0 && descTypes.every((t) => selected.has(t.id));
+      const someSelected = descTypes.some((t) => selected.has(t.id));
       rows.push(
         <TableRow key={groupId} className="bg-muted/40 font-medium">
           <TableCell>
@@ -423,8 +437,57 @@ const ExpenseTypeSetup = () => {
               checked={allSelected ? true : someSelected ? "indeterminate" : false}
               onCheckedChange={(v) => {
                 const next = new Set(selected);
-                if (v) types.forEach((t) => next.add(t.id));
-                else types.forEach((t) => next.delete(t.id));
+                if (v) descTypes.forEach((t) => next.add(t.id));
+                else descTypes.forEach((t) => next.delete(t.id));
+                setSelected(next);
+              }}
+            />
+          </TableCell>
+          <TableCell colSpan={7}>
+            <div style={{ paddingLeft: `${depth * 20}px` }}>
+              <button
+                onClick={() => {
+                  const next = new Set(expandedNodes);
+                  if (next.has(groupId)) next.delete(groupId); else next.add(groupId);
+                  setExpandedNodes(next);
+                }}
+                className="flex items-center gap-2 hover:text-foreground"
+              >
+                {isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <FolderTree className="h-4 w-4 text-primary" />
+                <span>{language === "ar" && cat.category_name_ar ? cat.category_name_ar : cat.category_name}</span>
+                <span className="text-xs text-muted-foreground font-mono">({cat.category_code})</span>
+                <span className="text-xs text-muted-foreground">— {descTypes.length}</span>
+              </button>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+      if (isExp) {
+        subCats.forEach((sc) => renderCategoryNode(sc, depth + 1));
+        directTypes.forEach((t) => rows.push(renderTypeRow(t, depth + 1)));
+      }
+    };
+
+    // Root categories (no parent)
+    childCatsOf(null).forEach((c) => renderCategoryNode(c, 0));
+
+    // Uncategorized types (no category_id)
+    const uncategorized = byCategory.get(null) || [];
+    if (uncategorized.length > 0) {
+      const groupId = `cat:none`;
+      const isExp = expandedNodes.has(groupId);
+      const allSelected = uncategorized.every((t) => selected.has(t.id));
+      const someSelected = uncategorized.some((t) => selected.has(t.id));
+      rows.push(
+        <TableRow key={groupId} className="bg-muted/40 font-medium">
+          <TableCell>
+            <Checkbox
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              onCheckedChange={(v) => {
+                const next = new Set(selected);
+                if (v) uncategorized.forEach((t) => next.add(t.id));
+                else uncategorized.forEach((t) => next.delete(t.id));
                 setSelected(next);
               }}
             />
@@ -440,17 +503,13 @@ const ExpenseTypeSetup = () => {
             >
               {isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               <FolderTree className="h-4 w-4 text-primary" />
-              <span>
-                {catId ? getCategoryName(catId) : (language === "ar" ? "بدون تصنيف" : "Uncategorized")}
-              </span>
-              <span className="text-xs text-muted-foreground">({types.length})</span>
+              <span>{language === "ar" ? "بدون تصنيف" : "Uncategorized"}</span>
+              <span className="text-xs text-muted-foreground">({uncategorized.length})</span>
             </button>
           </TableCell>
         </TableRow>
       );
-      if (isExp) {
-        types.forEach((t) => rows.push(renderTypeRow(t, 1)));
-      }
+      if (isExp) uncategorized.forEach((t) => rows.push(renderTypeRow(t, 1)));
     }
 
     if (!rows.length) {
