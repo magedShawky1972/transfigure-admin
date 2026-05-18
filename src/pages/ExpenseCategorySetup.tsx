@@ -321,14 +321,28 @@ const ExpenseCategorySetup = () => {
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label>{language === "ar" ? "كود التصنيف *" : "Category Code *"}</Label>
-                <Input
-                  value={formData.category_code}
-                  onChange={(e) => setFormData({ ...formData, category_code: e.target.value })}
-                  placeholder="CAT001"
-                />
-              </div>
+              {(() => {
+                const selectedParent = categories.find((c) => c.id === formData.parent_category_id);
+                const autoCode = !editingCategory && selectedParent?.is_parent && selectedParent.code_prefix;
+                return (
+                  <div className="space-y-2">
+                    <Label>
+                      {language === "ar" ? "كود التصنيف" : "Category Code"}
+                      {autoCode && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {language === "ar" ? "(تلقائي)" : "(auto-generated)"}
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      value={autoCode ? `${selectedParent!.code_prefix}#### ${language === "ar" ? "(تلقائي)" : ""}` : formData.category_code}
+                      onChange={(e) => setFormData({ ...formData, category_code: e.target.value })}
+                      placeholder="CAT001"
+                      disabled={!!autoCode}
+                    />
+                  </div>
+                );
+              })()}
               <div className="space-y-2">
                 <Label>{language === "ar" ? "اسم التصنيف *" : "Category Name *"}</Label>
                 <Input
@@ -347,7 +361,7 @@ const ExpenseCategorySetup = () => {
               <div className="space-y-2">
                 <Label>{language === "ar" ? "التصنيف الأب" : "Parent Category"}</Label>
                 <Select 
-                  value={formData.parent_category_id} 
+                  value={formData.parent_category_id || "none"} 
                   onValueChange={(v) => setFormData({ ...formData, parent_category_id: v === "none" ? "" : v })}
                 >
                   <SelectTrigger>
@@ -355,14 +369,38 @@ const ExpenseCategorySetup = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">{language === "ar" ? "بدون أب" : "No Parent"}</SelectItem>
-                    {categories.filter(c => c.id !== editingCategory?.id).map((c) => (
+                    {categories.filter(c => c.id !== editingCategory?.id && c.is_parent).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {language === "ar" && c.category_name_ar ? c.category_name_ar : c.category_name}
+                        {c.code_prefix ? ` (${c.code_prefix})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={formData.is_parent}
+                  onCheckedChange={(v) => setFormData({ ...formData, is_parent: v })}
+                />
+                <Label>{language === "ar" ? "تصنيف أب (مجموعة)" : "Is Parent (Group)"}</Label>
+              </div>
+              {formData.is_parent && (
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "بادئة الكود" : "Code Prefix"}</Label>
+                  <Input
+                    value={formData.code_prefix}
+                    onChange={(e) => setFormData({ ...formData, code_prefix: e.target.value.toUpperCase() })}
+                    placeholder="OFF"
+                    maxLength={10}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar"
+                      ? "سيتم توليد أكواد الأبناء تلقائياً بهذه البادئة + 4 أرقام (مثال: OFF0001)"
+                      : "Child codes will auto-generate using this prefix + 4 digits (e.g. OFF0001)"}
+                  </p>
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <Switch
                   checked={formData.is_active}
