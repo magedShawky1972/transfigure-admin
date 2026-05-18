@@ -368,8 +368,8 @@ const ExpenseCategorySetup = () => {
         );
         const sorted = [...filtered].sort((a, b) => {
           for (const s of sorts) {
-            const av = getVal(a, s.key);
-            const bv = getVal(b, s.key);
+            const av = getVal(a, s.key as SortKey);
+            const bv = getVal(b, s.key as SortKey);
             if (av < bv) return s.dir === "asc" ? -1 : 1;
             if (av > bv) return s.dir === "asc" ? 1 : -1;
           }
