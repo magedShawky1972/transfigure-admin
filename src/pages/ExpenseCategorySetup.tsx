@@ -331,24 +331,98 @@ const ExpenseCategorySetup = () => {
         </div>
       </div>
 
+      {(() => {
+        type SortKey = "category_code" | "category_name" | "category_name_ar" | "parent" | "status";
+        const cols: { key: SortKey; label: string }[] = [
+          { key: "category_code", label: language === "ar" ? "الكود" : "Code" },
+          { key: "category_name", label: language === "ar" ? "الاسم" : "Name" },
+          { key: "category_name_ar", label: language === "ar" ? "الاسم (عربي)" : "Name (Arabic)" },
+          { key: "parent", label: language === "ar" ? "التصنيف الأب" : "Parent" },
+          { key: "status", label: language === "ar" ? "الحالة" : "Status" },
+        ];
+        const getVal = (c: ExpenseCategory, k: SortKey) => {
+          if (k === "parent") return getParentName(c.parent_category_id).toLowerCase();
+          if (k === "status") return c.is_active ? "active" : "inactive";
+          return String((c as any)[k] || "").toLowerCase();
+        };
+        const handleSort = (k: SortKey, e: React.MouseEvent) => {
+          const multi = e.shiftKey;
+          const existing = sorts.find((s) => s.key === k);
+          let next = multi ? [...sorts] : existing ? [existing] : [];
+          if (existing) {
+            if (existing.dir === "asc") existing.dir = "desc";
+            else next = next.filter((s) => s.key !== k);
+          } else {
+            next.push({ key: k, dir: "asc" });
+          }
+          setSorts(next);
+        };
+        const filtered = categories.filter((c) =>
+          cols.every((col) => {
+            const f = (filters[col.key] || "").trim().toLowerCase();
+            if (!f) return true;
+            return getVal(c, col.key).includes(f);
+          })
+        );
+        const sorted = [...filtered].sort((a, b) => {
+          for (const s of sorts) {
+            const av = getVal(a, s.key);
+            const bv = getVal(b, s.key);
+            if (av < bv) return s.dir === "asc" ? -1 : 1;
+            if (av > bv) return s.dir === "asc" ? 1 : -1;
+          }
+          return 0;
+        });
+        return (
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{language === "ar" ? "قائمة التصنيفات" : "Categories List"}</CardTitle>
+          {(sorts.length > 0 || Object.values(filters).some((v) => v)) && (
+            <Button variant="ghost" size="sm" onClick={() => { setSorts([]); setFilters({}); }} className="gap-1">
+              <X className="h-3 w-3" />
+              {language === "ar" ? "مسح" : "Clear"}
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{language === "ar" ? "الكود" : "Code"}</TableHead>
-                <TableHead>{language === "ar" ? "الاسم" : "Name"}</TableHead>
-                <TableHead>{language === "ar" ? "الاسم (عربي)" : "Name (Arabic)"}</TableHead>
-                <TableHead>{language === "ar" ? "التصنيف الأب" : "Parent"}</TableHead>
-                <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                {cols.map((col) => {
+                  const s = sorts.find((x) => x.key === col.key);
+                  const idx = sorts.findIndex((x) => x.key === col.key);
+                  return (
+                    <TableHead key={col.key}>
+                      <button
+                        onClick={(e) => handleSort(col.key, e)}
+                        className="flex items-center gap-1 hover:text-foreground"
+                        title={language === "ar" ? "Shift+النقر للفرز المتعدد" : "Shift+Click for multi-sort"}
+                      >
+                        {col.label}
+                        {s ? (s.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                        {s && sorts.length > 1 && <span className="text-xs text-muted-foreground">{idx + 1}</span>}
+                      </button>
+                    </TableHead>
+                  );
+                })}
                 <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
+              </TableRow>
+              <TableRow>
+                {cols.map((col) => (
+                  <TableHead key={col.key} className="py-1">
+                    <Input
+                      value={filters[col.key] || ""}
+                      onChange={(e) => setFilters({ ...filters, [col.key]: e.target.value })}
+                      placeholder={language === "ar" ? "تصفية..." : "Filter..."}
+                      className="h-7 text-xs"
+                    />
+                  </TableHead>
+                ))}
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category) => (
+              {sorted.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell className="font-mono">{category.category_code}</TableCell>
                   <TableCell>{category.category_name}</TableCell>
@@ -371,7 +445,7 @@ const ExpenseCategorySetup = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {categories.length === 0 && (
+              {sorted.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد تصنيفات" : "No categories found"}
@@ -382,6 +456,8 @@ const ExpenseCategorySetup = () => {
           </Table>
         </CardContent>
       </Card>
+        );
+      })()}
     </div>
   );
 };
