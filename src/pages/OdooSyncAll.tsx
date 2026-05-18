@@ -201,6 +201,7 @@ const OdooSyncAll = () => {
         const brandNames = [...new Set(lines.map(l => l.brand_name))].filter(Boolean);
         const skus = [...new Set(lines.map(l => l.sku || l.product_id))].filter(Boolean) as string[];
         const totalAmount = lines.reduce((sum, l) => sum + (l.total || 0), 0);
+        const totalCost = lines.reduce((sum, l) => sum + (l.cost_sold || 0), 0);
         
         // Check if any product is non-stock
         const hasNonStock = lines.some(l => {
