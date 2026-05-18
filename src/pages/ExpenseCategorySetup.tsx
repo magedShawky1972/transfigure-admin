@@ -123,6 +123,22 @@ const ExpenseCategorySetup = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!confirm(language === "ar" ? `حذف ${ids.length} تصنيف؟` : `Delete ${ids.length} categories?`)) return;
+    try {
+      const { error } = await supabase.from("expense_categories").delete().in("id", ids);
+      if (error) throw error;
+      toast.success(language === "ar" ? `تم حذف ${ids.length} تصنيف` : `${ids.length} categories deleted`);
+      setSelected(new Set());
+      fetchData();
+    } catch (error: any) {
+      console.error("Bulk delete error:", error);
+      toast.error(error.message || (language === "ar" ? "خطأ في الحذف" : "Error deleting"));
+    }
+  };
+
   const resetForm = () => {
     setEditingCategory(null);
     setFormData({
