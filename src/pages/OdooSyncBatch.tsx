@@ -2675,6 +2675,7 @@ const OdooSyncBatch = () => {
               )}
             </div>
           ) : aggregateMode && filteredAggregatedInvoices.length > 0 ? (
+            <TopHorizontalScrollbar>
             <ScrollArea className="h-[600px]">
               <Table>
                 <TableHeader>
