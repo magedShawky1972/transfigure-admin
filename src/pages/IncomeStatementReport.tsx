@@ -589,15 +589,25 @@ const IncomeStatementReport = () => {
           ) : (
             <div className="divide-y">
               {rows.filter(r => !r.parent || expanded[r.parent]).map((row) => {
+                const isCompanyRow = row.drilldown === "company";
                 const clickable = row.drilldown !== "none" && Math.abs(row.value) > 0.001;
-                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment" || row.key === "pointsCost";
+                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment" || row.key === "pointsCost" || isCompanyRow;
                 const isOpen = isExpandable && expanded[row.key];
                 const splitClick = row.key === "ePayment" || row.key === "pointsCost"; // chevron expands, amount opens popup
+                const inlineOnly = isCompanyRow; // no popup for company rows; click row to expand
                 return (
                   <Fragment key={row.key}>
                     <div
                       key={row.key}
-                      onClick={() => !splitClick && clickable && openDrilldown(row)}
+                      onClick={() => {
+                        if (inlineOnly && clickable) {
+                          const willOpen = !expanded[row.key];
+                          setExpanded(prev => ({ ...prev, [row.key]: willOpen }));
+                          if (willOpen && !companyByType[row.key] && !companyByTypeLoading[row.key]) loadCompanyByType(row);
+                        } else if (!splitClick && clickable) {
+                          openDrilldown(row);
+                        }
+                      }}
                       className={[
                         "flex items-center justify-between py-3 px-2 transition-colors",
                         row.isTotal ? "font-bold text-lg border-t-2 mt-2 pt-4" : "",
