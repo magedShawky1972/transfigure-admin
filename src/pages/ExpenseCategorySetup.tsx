@@ -396,18 +396,44 @@ const ExpenseCategorySetup = () => {
         return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{language === "ar" ? "قائمة التصنيفات" : "Categories List"}</CardTitle>
-          {(sorts.length > 0 || Object.values(filters).some((v) => v)) && (
-            <Button variant="ghost" size="sm" onClick={() => { setSorts([]); setFilters({}); }} className="gap-1">
-              <X className="h-3 w-3" />
-              {language === "ar" ? "مسح" : "Clear"}
-            </Button>
-          )}
+          <CardTitle className="flex items-center gap-3">
+            {language === "ar" ? "قائمة التصنيفات" : "Categories List"}
+            {selected.size > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({selected.size} {language === "ar" ? "محدد" : "selected"})
+              </span>
+            )}
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {selected.size > 0 && (
+              <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="gap-1">
+                <Trash2 className="h-3 w-3" />
+                {language === "ar" ? `حذف المحدد (${selected.size})` : `Delete Selected (${selected.size})`}
+              </Button>
+            )}
+            {(sorts.length > 0 || Object.values(filters).some((v) => v)) && (
+              <Button variant="ghost" size="sm" onClick={() => { setSorts([]); setFilters({}); }} className="gap-1">
+                <X className="h-3 w-3" />
+                {language === "ar" ? "مسح" : "Clear"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={sorted.length > 0 && sorted.every((c) => selected.has(c.id))}
+                    onCheckedChange={(v) => {
+                      const next = new Set(selected);
+                      if (v) sorted.forEach((c) => next.add(c.id));
+                      else sorted.forEach((c) => next.delete(c.id));
+                      setSelected(next);
+                    }}
+                  />
+                </TableHead>
                 {cols.map((col) => {
                   const s = sorts.find((x) => x.key === col.key);
                   const idx = sorts.findIndex((x) => x.key === col.key);
@@ -428,6 +454,7 @@ const ExpenseCategorySetup = () => {
                 <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
               </TableRow>
               <TableRow>
+                <TableHead />
                 {cols.map((col) => (
                   <TableHead key={col.key} className="py-1">
                     <Input
@@ -443,7 +470,17 @@ const ExpenseCategorySetup = () => {
             </TableHeader>
             <TableBody>
               {sorted.map((category) => (
-                <TableRow key={category.id}>
+                <TableRow key={category.id} data-state={selected.has(category.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(category.id)}
+                      onCheckedChange={(v) => {
+                        const next = new Set(selected);
+                        if (v) next.add(category.id); else next.delete(category.id);
+                        setSelected(next);
+                      }}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono">{category.category_code}</TableCell>
                   <TableCell>{category.category_name}</TableCell>
                   <TableCell dir="rtl">{category.category_name_ar || "-"}</TableCell>
@@ -467,7 +504,7 @@ const ExpenseCategorySetup = () => {
               ))}
               {sorted.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     {language === "ar" ? "لا توجد تصنيفات" : "No categories found"}
                   </TableCell>
                 </TableRow>
