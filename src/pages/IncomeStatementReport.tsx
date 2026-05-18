@@ -78,6 +78,9 @@ const IncomeStatementReport = () => {
   const [ePaymentByMethodLoading, setEPaymentByMethodLoading] = useState(false);
   const [pointsByCompany, setPointsByCompany] = useState<Array<{ company: string; points_cost: number; percentage: number }>>([]);
   const [pointsByCompanyLoading, setPointsByCompanyLoading] = useState(false);
+  const [brandTypeMap, setBrandTypeMap] = useState<Record<string, string>>({});
+  const [companyByType, setCompanyByType] = useState<Record<string, Array<{ brand_type: string; value: number; percentage: number }>>>({});
+  const [companyByTypeLoading, setCompanyByTypeLoading] = useState<Record<string, boolean>>({});
   const [drillTitle, setDrillTitle] = useState("");
   const [drillType, setDrillType] = useState<"brand" | "epayment">("brand");
   const [drillBrandData, setDrillBrandData] = useState<Array<{ brand_name: string; value: number; percentage: number; tx_count: number; coins: number }>>([]);
@@ -96,15 +99,20 @@ const IncomeStatementReport = () => {
     (async () => {
       const { data: bData } = await supabase
         .from("brands")
-        .select("brand_name, abc_analysis")
+        .select("brand_name, abc_analysis, brand_type:brand_type_id(type_name)")
         .order("brand_name");
       const list = (bData || []).map((b: any) => b.brand_name).filter(Boolean);
       setBrands(list);
       const map: Record<string, string> = {};
+      const typeMap: Record<string, string> = {};
       (bData || []).forEach((b: any) => {
-        if (b.brand_name) map[b.brand_name] = (b.abc_analysis || "").toString().toUpperCase();
+        if (b.brand_name) {
+          map[b.brand_name] = (b.abc_analysis || "").toString().toUpperCase();
+          typeMap[b.brand_name] = b.brand_type?.type_name || "Unclassified";
+        }
       });
       setBrandAbcMap(map);
+      setBrandTypeMap(typeMap);
 
       const { data: cData } = await supabase
         .from("purpletransaction")
@@ -121,7 +129,9 @@ const IncomeStatementReport = () => {
       setLoading(true);
       setEPaymentByMethod([]);
       setPointsByCompany([]);
-      setExpanded(prev => ({ ...prev, ePayment: false, pointsCost: false }));
+      setCompanyByType({});
+      setCompanyByTypeLoading({});
+      setExpanded(prev => ({ ...prev, ePayment: false, pointsCost: false, purpleSales: false, sallaSales: false, asusSales: false, purpleCost: false, sallaCost: false, asusCost: false }));
       const startInt = parseInt(startDate.replace(/-/g, ""));
       const endInt = parseInt(endDate.replace(/-/g, ""));
       const nextBrandFilter = brandFilter;
@@ -233,6 +243,86 @@ const IncomeStatementReport = () => {
     { key: "ePayment", label: isRTL ? "*** رسوم الدفع الإلكتروني ***" : "*** E-Payment Charges ***", value: totals.ePaymentCharges, percentage: pct(totals.ePaymentCharges, totals.totalSales), isTotal: true, drilldown: "epayment" },
     { key: "grossProfit", label: isRTL ? "*** الربح الإجمالي ***" : "*** Gross Profit ***", value: grossProfit, percentage: pct(grossProfit, totals.totalSales), isTotal: true, drilldown: "none" },
   ];
+
+  const loadCompanyByType = async (row: IncomeRow) => {
+    if (!row.company || !row.metric) return;
+    setCompanyByTypeLoading((p) => ({ ...p, [row.key]: true }));
+    try {
+      const startInt = parseInt(appliedStartDate.replace(/-/g, ""));
+      const endInt = parseInt(appliedEndDate.replace(/-/g, ""));
+      const baseTotal = row.value || 1;
+      const byBrand = new Map<string, number>();
+
+      if (row.company === "Asus") {
+        const { data: brandsData } = await supabase.from("brands").select("id, brand_name");
+        const brandNameMap: Record<string, string> = {};
+        (brandsData || []).forEach((b: any) => { brandNameMap[b.id] = b.brand_name; });
+
+        const { data: orders, error: oErr } = await supabase
+          .from("manual_sales_orders").select("id").eq("status", "confirmed")
+          .gte("order_date", appliedStartDate).lte("order_date", appliedEndDate);
+        if (oErr) throw oErr;
+        const orderIds = (orders || []).map((o: any) => o.id);
+        if (orderIds.length > 0) {
+          let from = 0;
+          while (true) {
+            const { data: lines, error: lErr } = await supabase
+              .from("manual_sales_order_lines")
+              .select("brand_id, qty, total, total_cost, cost_price, coins_number")
+              .in("order_id", orderIds)
+              .range(from, from + PAGE_SIZE - 1);
+            if (lErr) throw lErr;
+            const batch = lines || [];
+            batch.forEach((l: any) => {
+              const brand = brandNameMap[l.brand_id] || l.brand_id || "Unknown";
+              const computedCost = (Number(l.cost_price) || 0) * (Number(l.qty) || 0) * (Number(l.coins_number) || 0);
+              const v = row.metric === "cost" ? (Number(l.total_cost) || computedCost) : (Number(l.total) || 0);
+              byBrand.set(brand, (byBrand.get(brand) || 0) + v);
+            });
+            if (batch.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+          }
+        }
+      } else {
+        let from = 0;
+        while (true) {
+          let q = supabase
+            .from("purpletransaction")
+            .select("brand_name, total, cost_sold")
+            .gte("created_at_date_int", startInt)
+            .lte("created_at_date_int", endInt)
+            .eq("revenue_source", row.company);
+          if (appliedBrandFilter !== "all") q = q.eq("brand_name", appliedBrandFilter);
+          if (appliedCompanyFilter !== "all") q = q.eq("company", appliedCompanyFilter);
+          const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          const batch = data || [];
+          batch.forEach((r: any) => {
+            const brand = r.brand_name || "Unknown";
+            const v = row.metric === "cost" ? Number(r.cost_sold) || 0 : Number(r.total) || 0;
+            byBrand.set(brand, (byBrand.get(brand) || 0) + v);
+          });
+          if (batch.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+      }
+
+      const byType = new Map<string, number>();
+      byBrand.forEach((v, brand) => {
+        const t = brandTypeMap[brand] || "Unclassified";
+        byType.set(t, (byType.get(t) || 0) + v);
+      });
+      const list = Array.from(byType.entries())
+        .map(([brand_type, value]) => ({ brand_type, value, percentage: (value / baseTotal) * 100 }))
+        .filter((x) => Math.abs(x.value) > 0.001)
+        .sort((a, b) => b.value - a.value);
+      setCompanyByType((p) => ({ ...p, [row.key]: list }));
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load breakdown");
+    } finally {
+      setCompanyByTypeLoading((p) => ({ ...p, [row.key]: false }));
+    }
+  };
 
   const openDrilldown = async (row: IncomeRow) => {
     if (row.drilldown === "none") return;
@@ -501,15 +591,25 @@ const IncomeStatementReport = () => {
           ) : (
             <div className="divide-y">
               {rows.filter(r => !r.parent || expanded[r.parent]).map((row) => {
+                const isCompanyRow = row.drilldown === "company";
                 const clickable = row.drilldown !== "none" && Math.abs(row.value) > 0.001;
-                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment" || row.key === "pointsCost";
+                const isExpandable = row.key === "totalSales" || row.key === "costOfSales" || row.key === "ePayment" || row.key === "pointsCost" || isCompanyRow;
                 const isOpen = isExpandable && expanded[row.key];
                 const splitClick = row.key === "ePayment" || row.key === "pointsCost"; // chevron expands, amount opens popup
+                const inlineOnly = isCompanyRow; // no popup for company rows; click row to expand
                 return (
                   <Fragment key={row.key}>
                     <div
                       key={row.key}
-                      onClick={() => !splitClick && clickable && openDrilldown(row)}
+                      onClick={() => {
+                        if (inlineOnly && clickable) {
+                          const willOpen = !expanded[row.key];
+                          setExpanded(prev => ({ ...prev, [row.key]: willOpen }));
+                          if (willOpen && !companyByType[row.key] && !companyByTypeLoading[row.key]) loadCompanyByType(row);
+                        } else if (!splitClick && clickable) {
+                          openDrilldown(row);
+                        }
+                      }}
                       className={[
                         "flex items-center justify-between py-3 px-2 transition-colors",
                         row.isTotal ? "font-bold text-lg border-t-2 mt-2 pt-4" : "",
@@ -594,6 +694,9 @@ const IncomeStatementReport = () => {
                                   setPointsByCompanyLoading(false);
                                 }
                               }
+                              if (isCompanyRow && willOpen && !companyByType[row.key] && !companyByTypeLoading[row.key]) {
+                                loadCompanyByType(row);
+                              }
                             }}
                             className="p-0.5 rounded hover:bg-muted"
                             aria-label={isOpen ? "Collapse" : "Expand"}
@@ -665,6 +768,25 @@ const IncomeStatementReport = () => {
                             <div className="flex items-center gap-6">
                               <span className="text-sm text-muted-foreground">{pc.percentage.toFixed(2)}%</span>
                               <span>{fmt(pc.points_cost)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {isCompanyRow && isOpen && (
+                      <>
+                        {companyByTypeLoading[row.key] ? (
+                          <div className="flex items-center gap-2 py-2 pl-16 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" /> {isRTL ? "جاري التحميل" : "Loading"}…
+                          </div>
+                        ) : !companyByType[row.key] || companyByType[row.key].length === 0 ? (
+                          <div className="py-2 pl-16 text-sm text-muted-foreground">{isRTL ? "لا توجد بيانات" : "No data"}</div>
+                        ) : companyByType[row.key].map((bt) => (
+                          <div key={`${row.key}-bt-${bt.brand_type}`} className="flex items-center justify-between py-2 px-2 pl-16 text-sm bg-muted/20">
+                            <span className="text-muted-foreground">{bt.brand_type}</span>
+                            <div className="flex items-center gap-6">
+                              <span className="text-xs text-muted-foreground">{bt.percentage.toFixed(2)}%</span>
+                              <span>{fmt(bt.value)}</span>
                             </div>
                           </div>
                         ))}
