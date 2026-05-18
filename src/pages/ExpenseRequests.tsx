@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus, Printer, Edit, Undo2 } from "lucide-react";
+import { FileText, Check, X, DollarSign, Building2, Vault, Package, Receipt, Plus, Printer, Edit, Undo2, Trash2 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
