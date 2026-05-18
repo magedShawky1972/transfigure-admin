@@ -181,11 +181,24 @@ const ExpenseCategorySetup = () => {
         return;
       }
       const codeMap = new Map(categories.map((c) => [c.category_code, c.id]));
+      let nextSeq = categories.reduce((max, c) => {
+        const m = /^CAT(\d+)$/i.exec(c.category_code.trim());
+        return m ? Math.max(max, parseInt(m[1], 10)) : max;
+      }, 0);
+      const genCode = () => {
+        let code = "";
+        do {
+          nextSeq++;
+          code = `CAT${String(nextSeq).padStart(4, "0")}`;
+        } while (codeMap.has(code));
+        return code;
+      };
       let inserted = 0, updated = 0, failed = 0;
       for (const r of rows) {
-        const code = String(r.category_code || "").trim();
+        let code = String(r.category_code || "").trim();
         const name = String(r.category_name || "").trim();
-        if (!code || !name) { failed++; continue; }
+        if (!name) { failed++; continue; }
+        if (!code) code = genCode();
         const parentCode = String(r.parent_category_code || "").trim();
         const parent_category_id = parentCode ? codeMap.get(parentCode) || null : null;
         const isActiveRaw = String(r.is_active ?? "TRUE").trim().toUpperCase();
