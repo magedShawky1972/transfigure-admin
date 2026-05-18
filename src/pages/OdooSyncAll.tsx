@@ -56,7 +56,6 @@ interface OrderGroup {
   brandNames: string[];
   skus: string[];
   totalAmount: number;
-  totalCost: number;
   paymentMethod: string;
   paymentBrand: string;
   selected: boolean;
@@ -201,7 +200,6 @@ const OdooSyncAll = () => {
         const brandNames = [...new Set(lines.map(l => l.brand_name))].filter(Boolean);
         const skus = [...new Set(lines.map(l => l.sku || l.product_id))].filter(Boolean) as string[];
         const totalAmount = lines.reduce((sum, l) => sum + (l.total || 0), 0);
-        const totalCost = lines.reduce((sum, l) => sum + (l.cost_sold || 0), 0);
         
         // Check if any product is non-stock
         const hasNonStock = lines.some(l => {
@@ -218,7 +216,6 @@ const OdooSyncAll = () => {
           brandNames,
           skus,
           totalAmount,
-          totalCost,
           paymentMethod: firstLine.payment_method || '',
           paymentBrand: firstLine.payment_brand || '',
           selected: true,
@@ -740,7 +737,6 @@ const OdooSyncAll = () => {
                       <TableHead>Brand</TableHead>
                       <TableHead>Products</TableHead>
                       <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Cost</TableHead>
                       <TableHead>Steps</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Skip</TableHead>
@@ -777,9 +773,6 @@ const OdooSyncAll = () => {
                         </TableCell>
                         <TableCell className="text-right font-mono">
                           {group.totalAmount.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {group.totalCost.toFixed(2)}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">

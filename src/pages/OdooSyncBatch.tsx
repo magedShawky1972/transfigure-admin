@@ -2694,7 +2694,8 @@ const OdooSyncBatch = () => {
                     <TableHead className="text-center">ABC</TableHead>
                     <TableHead>{language === 'ar' ? 'المورد' : 'Vendor'}</TableHead>
                      <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
-                     <TableHead className="text-center">{language === 'ar' ? 'الكوينز' : 'Coins'}</TableHead>
+                     <TableHead>{language === 'ar' ? 'التكلفة' : 'Cost'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'الكوينز' : 'Coins'}</TableHead>
                      <TableHead>{language === 'ar' ? 'تخطي' : 'Skip'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'العميل' : 'Customer'}</TableHead>
@@ -2792,6 +2793,9 @@ const OdooSyncBatch = () => {
                         {invoice.vendorName || '-'}
                       </TableCell>
                        <TableCell className="text-xs font-bold">{invoice.grandTotal.toFixed(2)} SAR</TableCell>
+                       <TableCell className="text-xs font-semibold">
+                         {invoice.productLines.reduce((s, pl: any) => s + (pl.costSold || 0), 0).toFixed(2)} SAR
+                       </TableCell>
                        <TableCell className="text-xs text-center font-semibold">
                          {(() => {
                            const totalCoins = invoice.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0);
@@ -2858,6 +2862,9 @@ const OdooSyncBatch = () => {
                     </TableCell>
                      <TableCell className="text-lg">
                        {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                     </TableCell>
+                     <TableCell className="text-lg">
+                       {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.costSold || 0), 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
                      </TableCell>
                      <TableCell className="text-center text-lg">
                        {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0), 0).toLocaleString('en-US')}
