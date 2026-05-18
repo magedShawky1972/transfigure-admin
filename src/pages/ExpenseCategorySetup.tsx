@@ -30,6 +30,8 @@ const ExpenseCategorySetup = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sorts, setSorts] = useState<{ key: string; dir: "asc" | "desc" }[]>([]);
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     category_code: "",
     category_name: "",
