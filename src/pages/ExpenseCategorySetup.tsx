@@ -407,6 +407,17 @@ const ExpenseCategorySetup = () => {
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewMode(viewMode === "list" ? "tree" : "list")}
+              className="gap-1"
+            >
+              {viewMode === "list" ? <FolderTree className="h-3 w-3" /> : <List className="h-3 w-3" />}
+              {viewMode === "list"
+                ? (language === "ar" ? "عرض شجري" : "Tree View")
+                : (language === "ar" ? "عرض قائمة" : "List View")}
+            </Button>
             {selected.size > 0 && (
               <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="gap-1">
                 <Trash2 className="h-3 w-3" />
