@@ -482,46 +482,103 @@ const ExpenseCategorySetup = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sorted.map((category) => (
-                <TableRow key={category.id} data-state={selected.has(category.id) ? "selected" : undefined}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(category.id)}
-                      onCheckedChange={(v) => {
-                        const next = new Set(selected);
-                        if (v) next.add(category.id); else next.delete(category.id);
-                        setSelected(next);
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell className="font-mono">{category.category_code}</TableCell>
-                  <TableCell>{category.category_name}</TableCell>
-                  <TableCell dir="rtl">{category.category_name_ar || "-"}</TableCell>
-                  <TableCell>{getParentName(category.parent_category_id)}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${category.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                      {category.is_active ? (language === "ar" ? "نشط" : "Active") : (language === "ar" ? "غير نشط" : "Inactive")}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleEdit(category)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => handleDelete(category.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {sorted.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    {language === "ar" ? "لا توجد تصنيفات" : "No categories found"}
-                  </TableCell>
-                </TableRow>
-              )}
+              {(() => {
+                const renderListRow = (category: ExpenseCategory, depth = 0, hasChildren = false, isExpanded = false, onToggle?: () => void) => (
+                  <TableRow key={category.id} data-state={selected.has(category.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(category.id)}
+                        onCheckedChange={(v) => {
+                          const next = new Set(selected);
+                          if (v) next.add(category.id); else next.delete(category.id);
+                          setSelected(next);
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono">
+                      <div className="flex items-center gap-1" style={{ paddingLeft: `${depth * 20}px` }}>
+                        {viewMode === "tree" ? (
+                          hasChildren ? (
+                            <button onClick={onToggle} className="hover:text-foreground">
+                              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                            </button>
+                          ) : (
+                            <span className="w-3" />
+                          )
+                        ) : null}
+                        {category.category_code}
+                      </div>
+                    </TableCell>
+                    <TableCell>{category.category_name}</TableCell>
+                    <TableCell dir="rtl">{category.category_name_ar || "-"}</TableCell>
+                    <TableCell>{getParentName(category.parent_category_id)}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded text-xs ${category.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                        {category.is_active ? (language === "ar" ? "نشط" : "Active") : (language === "ar" ? "غير نشط" : "Inactive")}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleEdit(category)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleDelete(category.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+
+                if (viewMode === "list") {
+                  return (
+                    <>
+                      {sorted.map((c) => renderListRow(c))}
+                      {sorted.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                            {language === "ar" ? "لا توجد تصنيفات" : "No categories found"}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
+                  );
+                }
+
+                // Tree mode: build hierarchy from `sorted` set
+                const visibleIds = new Set(sorted.map((c) => c.id));
+                const childrenMap = new Map<string | null, ExpenseCategory[]>();
+                sorted.forEach((c) => {
+                  const pid = c.parent_category_id && visibleIds.has(c.parent_category_id) ? c.parent_category_id : null;
+                  if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+                  childrenMap.get(pid)!.push(c);
+                });
+                const rows: JSX.Element[] = [];
+                const walk = (parentId: string | null, depth: number) => {
+                  const kids = childrenMap.get(parentId) || [];
+                  for (const c of kids) {
+                    const kidsOfThis = childrenMap.get(c.id) || [];
+                    const hasKids = kidsOfThis.length > 0;
+                    const isExp = expandedNodes.has(c.id);
+                    rows.push(
+                      renderListRow(c, depth, hasKids, isExp, () => {
+                        const next = new Set(expandedNodes);
+                        if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                        setExpandedNodes(next);
+                      })
+                    );
+                    if (hasKids && isExp) walk(c.id, depth + 1);
+                  }
+                };
+                walk(null, 0);
+                return rows.length > 0 ? rows : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      {language === "ar" ? "لا توجد تصنيفات" : "No categories found"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })()}
             </TableBody>
           </Table>
         </CardContent>
