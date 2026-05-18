@@ -1309,8 +1309,8 @@ const OdooSyncBatch = () => {
       payment_method: invoice.paymentMethod,
       payment_brand: invoice.paymentBrand,
       user_name: invoice.userName,
-      cost_price: firstOriginalLine?.cost_price || 0,
-      cost_sold: firstOriginalLine?.cost_sold || 0,
+      cost_price: (pl as any).costPrice ?? (firstOriginalLine?.cost_price || 0),
+      cost_sold: (pl as any).costSold ?? (firstOriginalLine?.cost_sold || 0),
       vendor_name: firstOriginalLine?.vendor_name || '',
       company: firstOriginalLine?.company || '',
     }));
