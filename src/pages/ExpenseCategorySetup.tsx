@@ -245,12 +245,54 @@ const ExpenseCategorySetup = () => {
         toast.error(language === "ar" ? "الملف فارغ" : "Empty file");
         return;
       }
+
+      const truthy = (v: any) => !["FALSE", "0", "NO", ""].includes(String(v ?? "").trim().toUpperCase());
+
+      // Lookup maps from existing data
       const codeMap = new Map(categories.map((c) => [c.category_code, c.id]));
+      const parentInfo = new Map<string, { is_parent: boolean; code_prefix: string | null }>();
+      categories.forEach((c) => parentInfo.set(c.category_code, { is_parent: c.is_parent, code_prefix: c.code_prefix }));
+
+      // Merge parent info declared in the import rows so child rows can resolve them
+      for (const r of rows) {
+        const code = String(r.category_code || "").trim();
+        if (!code) continue;
+        const isP = truthy(r.is_parent);
+        const prefix = String(r.code_prefix || "").trim() || null;
+        if (isP || prefix) {
+          parentInfo.set(code, { is_parent: isP, code_prefix: prefix });
+        }
+      }
+
+      // Per-prefix sequence counters, seeded from existing categories
+      const prefixSeq = new Map<string, number>();
+      const seedPrefix = (prefix: string) => {
+        if (prefixSeq.has(prefix)) return;
+        const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\d{4})$`, "i");
+        let max = 0;
+        categories.forEach((c) => {
+          const m = re.exec(c.category_code || "");
+          if (m) max = Math.max(max, parseInt(m[1], 10));
+        });
+        prefixSeq.set(prefix, max);
+      };
+      const nextChildCode = (prefix: string) => {
+        seedPrefix(prefix);
+        let code = "";
+        do {
+          const n = (prefixSeq.get(prefix) || 0) + 1;
+          prefixSeq.set(prefix, n);
+          code = `${prefix}${String(n).padStart(4, "0")}`;
+        } while (codeMap.has(code));
+        return code;
+      };
+
+      // Fallback generic CAT#### counter
       let nextSeq = categories.reduce((max, c) => {
         const m = /^CAT(\d+)$/i.exec(c.category_code.trim());
         return m ? Math.max(max, parseInt(m[1], 10)) : max;
       }, 0);
-      const genCode = () => {
+      const genFallback = () => {
         let code = "";
         do {
           nextSeq++;
@@ -258,21 +300,34 @@ const ExpenseCategorySetup = () => {
         } while (codeMap.has(code));
         return code;
       };
+
       let inserted = 0, updated = 0, failed = 0;
       for (const r of rows) {
-        let code = String(r.category_code || "").trim();
         const name = String(r.category_name || "").trim();
         if (!name) { failed++; continue; }
-        if (!code) code = genCode();
         const parentCode = String(r.parent_category_code || "").trim();
+        const parent = parentCode ? parentInfo.get(parentCode) : null;
         const parent_category_id = parentCode ? codeMap.get(parentCode) || null : null;
-        const isActiveRaw = String(r.is_active ?? "TRUE").trim().toUpperCase();
+
+        let code = String(r.category_code || "").trim();
+        if (!code) {
+          if (parent?.is_parent && parent.code_prefix) {
+            code = nextChildCode(parent.code_prefix);
+          } else {
+            code = genFallback();
+          }
+        }
+
+        const isParent = truthy(r.is_parent);
+        const prefix = String(r.code_prefix || "").trim() || null;
         const payload = {
           category_code: code,
           category_name: name,
           category_name_ar: String(r.category_name_ar || "").trim() || null,
           parent_category_id,
-          is_active: !["FALSE", "0", "NO"].includes(isActiveRaw),
+          is_active: !["FALSE", "0", "NO"].includes(String(r.is_active ?? "TRUE").trim().toUpperCase()),
+          is_parent: isParent,
+          code_prefix: isParent ? prefix : null,
         };
         const existingId = codeMap.get(code);
         if (existingId) {
