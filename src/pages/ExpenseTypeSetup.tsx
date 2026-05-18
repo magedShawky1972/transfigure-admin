@@ -31,6 +31,7 @@ interface ExpenseCategory {
   category_code: string;
   category_name: string;
   category_name_ar: string | null;
+  parent_category_id: string | null;
 }
 
 const ExpenseTypeSetup = () => {
