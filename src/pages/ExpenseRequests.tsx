@@ -947,7 +947,85 @@ const ExpenseRequests = () => {
     });
   };
 
-  const filteredRequests = requests.filter(r => {
+  const handleArchiveDelete = async (request: ExpenseRequest) => {
+    if (request.status !== "pending") {
+      toast.error(language === "ar" ? "يمكن حذف الطلبات في الانتظار فقط" : "Only pending requests can be deleted");
+      return;
+    }
+    const reason = window.prompt(
+      language === "ar"
+        ? "سيتم نقل الطلب إلى الأرشيف. سبب الحذف (اختياري):"
+        : "This request will be moved to archive. Reason (optional):",
+      ""
+    );
+    if (reason === null) return; // cancelled
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const archivePayload = {
+        original_id: request.id,
+        request_number: request.request_number,
+        ticket_id: request.ticket_id,
+        request_date: request.request_date,
+        description: request.description,
+        amount: request.amount,
+        currency_id: request.currency_id,
+        expense_type_id: request.expense_type_id,
+        is_asset: request.is_asset,
+        payment_method: request.payment_method,
+        bank_id: request.bank_id,
+        treasury_id: request.treasury_id,
+        status: request.status,
+        classified_by: request.classified_by,
+        classified_at: request.classified_at,
+        approved_by: request.approved_by,
+        approved_at: request.approved_at,
+        paid_by: request.paid_by,
+        paid_at: request.paid_at,
+        requester_id: request.requester_id,
+        notes: request.notes,
+        original_created_at: (request as any).created_at ?? null,
+        original_updated_at: (request as any).updated_at ?? null,
+        purchase_item_id: (request as any).purchase_item_id ?? null,
+        quantity: (request as any).quantity ?? null,
+        uom_id: (request as any).uom_id ?? null,
+        unit_price: (request as any).unit_price ?? null,
+        tax_percent: (request as any).tax_percent ?? null,
+        net_total: (request as any).net_total ?? null,
+        exchange_rate: request.exchange_rate,
+        base_currency_amount: request.base_currency_amount,
+        cost_center_id: request.cost_center_id,
+        employee_request_id: (request as any).employee_request_id ?? null,
+        archived_by: user?.id ?? null,
+        archive_reason: reason || null,
+      };
+
+      const { error: archiveError } = await supabase
+        .from("expense_requests_archived" as any)
+        .insert(archivePayload);
+      if (archiveError) throw archiveError;
+
+      const { error: deleteError, data: deleted } = await supabase
+        .from("expense_requests")
+        .delete()
+        .eq("id", request.id)
+        .eq("status", "pending")
+        .select("id");
+      if (deleteError) throw deleteError;
+      if (!deleted || deleted.length === 0) {
+        toast.error(language === "ar" ? "لم يتم الحذف، تحقق من الصلاحيات أو الحالة" : "Not deleted — check permissions or status");
+        return;
+      }
+
+      toast.success(language === "ar" ? "تم نقل الطلب إلى الأرشيف" : "Request moved to archive");
+      fetchData();
+    } catch (err: any) {
+      console.error("Archive/delete error:", err);
+      toast.error(err.message || (language === "ar" ? "فشل الحذف" : "Failed to delete"));
+    }
+  };
+
     if (activeTab === "pending") return r.status === "pending";
     if (activeTab === "classified") return r.status === "classified";
     if (activeTab === "approved") return r.status === "approved";
