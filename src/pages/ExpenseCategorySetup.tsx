@@ -10,8 +10,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, FolderTree, Save } from "lucide-react";
+import { Plus, Edit, Trash2, FolderTree, Save, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import * as XLSX from "xlsx";
 
 interface ExpenseCategory {
   id: string;
@@ -135,6 +136,87 @@ const ExpenseCategorySetup = () => {
     return parent ? (language === "ar" && parent.category_name_ar ? parent.category_name_ar : parent.category_name) : "-";
   };
 
+  const handleExport = () => {
+    const rows = categories.map((c) => ({
+      category_code: c.category_code,
+      category_name: c.category_name,
+      category_name_ar: c.category_name_ar || "",
+      parent_category_code: c.parent_category_id
+        ? categories.find((p) => p.id === c.parent_category_id)?.category_code || ""
+        : "",
+      is_active: c.is_active ? "TRUE" : "FALSE",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "ExpenseCategories");
+    XLSX.writeFile(wb, "expense_categories.xlsx");
+  };
+
+  const handleTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        category_code: "CAT001",
+        category_name: "Office Supplies",
+        category_name_ar: "مستلزمات مكتبية",
+        parent_category_code: "",
+        is_active: "TRUE",
+      },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "expense_categories_template.xlsx");
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      if (!rows.length) {
+        toast.error(language === "ar" ? "الملف فارغ" : "Empty file");
+        return;
+      }
+      const codeMap = new Map(categories.map((c) => [c.category_code, c.id]));
+      let inserted = 0, updated = 0, failed = 0;
+      for (const r of rows) {
+        const code = String(r.category_code || "").trim();
+        const name = String(r.category_name || "").trim();
+        if (!code || !name) { failed++; continue; }
+        const parentCode = String(r.parent_category_code || "").trim();
+        const parent_category_id = parentCode ? codeMap.get(parentCode) || null : null;
+        const isActiveRaw = String(r.is_active ?? "TRUE").trim().toUpperCase();
+        const payload = {
+          category_code: code,
+          category_name: name,
+          category_name_ar: String(r.category_name_ar || "").trim() || null,
+          parent_category_id,
+          is_active: !["FALSE", "0", "NO"].includes(isActiveRaw),
+        };
+        const existingId = codeMap.get(code);
+        if (existingId) {
+          const { error } = await supabase.from("expense_categories").update(payload).eq("id", existingId);
+          if (error) failed++; else updated++;
+        } else {
+          const { data, error } = await supabase.from("expense_categories").insert([payload]).select("id").single();
+          if (error) failed++; else { inserted++; if (data) codeMap.set(code, data.id); }
+        }
+      }
+      toast.success(
+        language === "ar"
+          ? `تم: ${inserted} إضافة، ${updated} تحديث، ${failed} فشل`
+          : `Done: ${inserted} added, ${updated} updated, ${failed} failed`
+      );
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || (language === "ar" ? "فشل الاستيراد" : "Import failed"));
+    }
+  };
+
   if (loading) return <LoadingOverlay message={language === "ar" ? "جاري التحميل..." : "Loading..."} />;
 
   return (
@@ -144,7 +226,23 @@ const ExpenseCategorySetup = () => {
           <FolderTree className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-bold">{language === "ar" ? "تصنيفات المصروفات" : "Expense Categories"}</h1>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleTemplate}>
+            <FileSpreadsheet className="h-4 w-4" />
+            {language === "ar" ? "قالب" : "Template"}
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            {language === "ar" ? "تصدير" : "Export"}
+          </Button>
+          <Button variant="outline" className="gap-2" asChild>
+            <label>
+              <Upload className="h-4 w-4" />
+              {language === "ar" ? "استيراد" : "Import"}
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+            </label>
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
@@ -218,6 +316,7 @@ const ExpenseCategorySetup = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
