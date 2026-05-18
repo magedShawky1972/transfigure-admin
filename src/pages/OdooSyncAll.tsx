@@ -778,6 +778,9 @@ const OdooSyncAll = () => {
                         <TableCell className="text-right font-mono">
                           {group.totalAmount.toFixed(2)}
                         </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {group.totalCost.toFixed(2)}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <TooltipProvider>
