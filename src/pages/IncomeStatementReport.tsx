@@ -242,6 +242,86 @@ const IncomeStatementReport = () => {
     { key: "grossProfit", label: isRTL ? "*** الربح الإجمالي ***" : "*** Gross Profit ***", value: grossProfit, percentage: pct(grossProfit, totals.totalSales), isTotal: true, drilldown: "none" },
   ];
 
+  const loadCompanyByType = async (row: IncomeRow) => {
+    if (!row.company || !row.metric) return;
+    setCompanyByTypeLoading((p) => ({ ...p, [row.key]: true }));
+    try {
+      const startInt = parseInt(appliedStartDate.replace(/-/g, ""));
+      const endInt = parseInt(appliedEndDate.replace(/-/g, ""));
+      const baseTotal = row.value || 1;
+      const byBrand = new Map<string, number>();
+
+      if (row.company === "Asus") {
+        const { data: brandsData } = await supabase.from("brands").select("id, brand_name");
+        const brandNameMap: Record<string, string> = {};
+        (brandsData || []).forEach((b: any) => { brandNameMap[b.id] = b.brand_name; });
+
+        const { data: orders, error: oErr } = await supabase
+          .from("manual_sales_orders").select("id").eq("status", "confirmed")
+          .gte("order_date", appliedStartDate).lte("order_date", appliedEndDate);
+        if (oErr) throw oErr;
+        const orderIds = (orders || []).map((o: any) => o.id);
+        if (orderIds.length > 0) {
+          let from = 0;
+          while (true) {
+            const { data: lines, error: lErr } = await supabase
+              .from("manual_sales_order_lines")
+              .select("brand_id, qty, total, total_cost, cost_price, coins_number")
+              .in("order_id", orderIds)
+              .range(from, from + PAGE_SIZE - 1);
+            if (lErr) throw lErr;
+            const batch = lines || [];
+            batch.forEach((l: any) => {
+              const brand = brandNameMap[l.brand_id] || l.brand_id || "Unknown";
+              const computedCost = (Number(l.cost_price) || 0) * (Number(l.qty) || 0) * (Number(l.coins_number) || 0);
+              const v = row.metric === "cost" ? (Number(l.total_cost) || computedCost) : (Number(l.total) || 0);
+              byBrand.set(brand, (byBrand.get(brand) || 0) + v);
+            });
+            if (batch.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+          }
+        }
+      } else {
+        let from = 0;
+        while (true) {
+          let q = supabase
+            .from("purpletransaction")
+            .select("brand_name, total, cost_sold")
+            .gte("created_at_date_int", startInt)
+            .lte("created_at_date_int", endInt)
+            .eq("revenue_source", row.company);
+          if (appliedBrandFilter !== "all") q = q.eq("brand_name", appliedBrandFilter);
+          if (appliedCompanyFilter !== "all") q = q.eq("company", appliedCompanyFilter);
+          const { data, error } = await q.range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          const batch = data || [];
+          batch.forEach((r: any) => {
+            const brand = r.brand_name || "Unknown";
+            const v = row.metric === "cost" ? Number(r.cost_sold) || 0 : Number(r.total) || 0;
+            byBrand.set(brand, (byBrand.get(brand) || 0) + v);
+          });
+          if (batch.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+      }
+
+      const byType = new Map<string, number>();
+      byBrand.forEach((v, brand) => {
+        const t = brandTypeMap[brand] || "Unclassified";
+        byType.set(t, (byType.get(t) || 0) + v);
+      });
+      const list = Array.from(byType.entries())
+        .map(([brand_type, value]) => ({ brand_type, value, percentage: (value / baseTotal) * 100 }))
+        .filter((x) => Math.abs(x.value) > 0.001)
+        .sort((a, b) => b.value - a.value);
+      setCompanyByType((p) => ({ ...p, [row.key]: list }));
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load breakdown");
+    } finally {
+      setCompanyByTypeLoading((p) => ({ ...p, [row.key]: false }));
+    }
+  };
+
   const openDrilldown = async (row: IncomeRow) => {
     if (row.drilldown === "none") return;
     setDrillTitle(row.label);
