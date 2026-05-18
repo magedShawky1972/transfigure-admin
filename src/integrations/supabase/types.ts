@@ -3817,9 +3817,11 @@ export type Database = {
           category_code: string
           category_name: string
           category_name_ar: string | null
+          code_prefix: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
+          is_parent: boolean
           parent_category_id: string | null
           updated_at: string | null
         }
@@ -3827,9 +3829,11 @@ export type Database = {
           category_code: string
           category_name: string
           category_name_ar?: string | null
+          code_prefix?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_parent?: boolean
           parent_category_id?: string | null
           updated_at?: string | null
         }
@@ -3837,9 +3841,11 @@ export type Database = {
           category_code?: string
           category_name?: string
           category_name_ar?: string | null
+          code_prefix?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_parent?: boolean
           parent_category_id?: string | null
           updated_at?: string | null
         }

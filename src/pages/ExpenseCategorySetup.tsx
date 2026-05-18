@@ -22,6 +22,8 @@ interface ExpenseCategory {
   category_name_ar: string | null;
   parent_category_id: string | null;
   is_active: boolean;
+  is_parent: boolean;
+  code_prefix: string | null;
 }
 
 const ExpenseCategorySetup = () => {
@@ -42,6 +44,8 @@ const ExpenseCategorySetup = () => {
     category_name_ar: "",
     parent_category_id: "",
     is_active: true,
+    is_parent: false,
+    code_prefix: "",
   });
 
   useEffect(() => {
@@ -67,18 +71,39 @@ const ExpenseCategorySetup = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.category_code || !formData.category_name) {
+    if (!formData.category_name) {
       toast.error(language === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill required fields");
       return;
     }
 
     try {
+      let code = formData.category_code.trim();
+      // Auto-generate child code from parent's prefix
+      if (!editingCategory && formData.parent_category_id) {
+        const parent = categories.find((c) => c.id === formData.parent_category_id);
+        if (parent?.is_parent && parent.code_prefix) {
+          const prefix = parent.code_prefix.trim();
+          const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\d{4})$`, "i");
+          const maxSeq = categories.reduce((m, c) => {
+            const mt = re.exec(c.category_code || "");
+            return mt ? Math.max(m, parseInt(mt[1], 10)) : m;
+          }, 0);
+          code = `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+        }
+      }
+      if (!code) {
+        toast.error(language === "ar" ? "كود التصنيف مطلوب" : "Category code is required");
+        return;
+      }
+
       const payload = {
-        category_code: formData.category_code,
+        category_code: code,
         category_name: formData.category_name,
         category_name_ar: formData.category_name_ar || null,
         parent_category_id: formData.parent_category_id || null,
         is_active: formData.is_active,
+        is_parent: formData.is_parent,
+        code_prefix: formData.is_parent ? (formData.code_prefix.trim() || null) : null,
       };
 
       if (editingCategory) {
@@ -108,6 +133,8 @@ const ExpenseCategorySetup = () => {
       category_name_ar: category.category_name_ar || "",
       parent_category_id: category.parent_category_id || "",
       is_active: category.is_active,
+      is_parent: category.is_parent || false,
+      code_prefix: category.code_prefix || "",
     });
     setDialogOpen(true);
   };
@@ -150,6 +177,8 @@ const ExpenseCategorySetup = () => {
       category_name_ar: "",
       parent_category_id: "",
       is_active: true,
+      is_parent: false,
+      code_prefix: "",
     });
   };
 
@@ -292,14 +321,28 @@ const ExpenseCategorySetup = () => {
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label>{language === "ar" ? "كود التصنيف *" : "Category Code *"}</Label>
-                <Input
-                  value={formData.category_code}
-                  onChange={(e) => setFormData({ ...formData, category_code: e.target.value })}
-                  placeholder="CAT001"
-                />
-              </div>
+              {(() => {
+                const selectedParent = categories.find((c) => c.id === formData.parent_category_id);
+                const autoCode = !editingCategory && selectedParent?.is_parent && selectedParent.code_prefix;
+                return (
+                  <div className="space-y-2">
+                    <Label>
+                      {language === "ar" ? "كود التصنيف" : "Category Code"}
+                      {autoCode && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {language === "ar" ? "(تلقائي)" : "(auto-generated)"}
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      value={autoCode ? `${selectedParent!.code_prefix}#### ${language === "ar" ? "(تلقائي)" : ""}` : formData.category_code}
+                      onChange={(e) => setFormData({ ...formData, category_code: e.target.value })}
+                      placeholder="CAT001"
+                      disabled={!!autoCode}
+                    />
+                  </div>
+                );
+              })()}
               <div className="space-y-2">
                 <Label>{language === "ar" ? "اسم التصنيف *" : "Category Name *"}</Label>
                 <Input
@@ -318,7 +361,7 @@ const ExpenseCategorySetup = () => {
               <div className="space-y-2">
                 <Label>{language === "ar" ? "التصنيف الأب" : "Parent Category"}</Label>
                 <Select 
-                  value={formData.parent_category_id} 
+                  value={formData.parent_category_id || "none"} 
                   onValueChange={(v) => setFormData({ ...formData, parent_category_id: v === "none" ? "" : v })}
                 >
                   <SelectTrigger>
@@ -326,14 +369,38 @@ const ExpenseCategorySetup = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">{language === "ar" ? "بدون أب" : "No Parent"}</SelectItem>
-                    {categories.filter(c => c.id !== editingCategory?.id).map((c) => (
+                    {categories.filter(c => c.id !== editingCategory?.id && c.is_parent).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {language === "ar" && c.category_name_ar ? c.category_name_ar : c.category_name}
+                        {c.code_prefix ? ` (${c.code_prefix})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={formData.is_parent}
+                  onCheckedChange={(v) => setFormData({ ...formData, is_parent: v })}
+                />
+                <Label>{language === "ar" ? "تصنيف أب (مجموعة)" : "Is Parent (Group)"}</Label>
+              </div>
+              {formData.is_parent && (
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "بادئة الكود" : "Code Prefix"}</Label>
+                  <Input
+                    value={formData.code_prefix}
+                    onChange={(e) => setFormData({ ...formData, code_prefix: e.target.value.toUpperCase() })}
+                    placeholder="OFF"
+                    maxLength={10}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar"
+                      ? "سيتم توليد أكواد الأبناء تلقائياً بهذه البادئة + 4 أرقام (مثال: OFF0001)"
+                      : "Child codes will auto-generate using this prefix + 4 digits (e.g. OFF0001)"}
+                  </p>
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <Switch
                   checked={formData.is_active}
