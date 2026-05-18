@@ -1204,9 +1204,19 @@ const ExpenseRequests = () => {
                       )}
                       
                       {request.status === "pending" && (
-                        <Button variant="outline" size="sm" onClick={() => openClassifyDialog(request)}>
-                          {language === "ar" ? "تصنيف" : "Classify"}
-                        </Button>
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => openClassifyDialog(request)}>
+                            {language === "ar" ? "تصنيف" : "Classify"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleArchiveDelete(request)}
+                            title={language === "ar" ? "حذف ونقل للأرشيف" : "Delete (archive)"}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
                       )}
                       {request.status === "classified" && (
                         <>
