@@ -216,7 +216,6 @@ const OdooSyncAll = () => {
           brandNames,
           skus,
           totalAmount,
-          totalCost,
           paymentMethod: firstLine.payment_method || '',
           paymentBrand: firstLine.payment_brand || '',
           selected: true,
