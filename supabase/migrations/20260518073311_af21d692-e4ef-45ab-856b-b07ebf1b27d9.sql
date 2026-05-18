@@ -1,0 +1,1 @@
+CREATE POLICY "Users can delete pending expense_requests" ON public.expense_requests FOR DELETE TO authenticated USING (status = 'pending');
