@@ -129,7 +129,9 @@ const IncomeStatementReport = () => {
       setLoading(true);
       setEPaymentByMethod([]);
       setPointsByCompany([]);
-      setExpanded(prev => ({ ...prev, ePayment: false, pointsCost: false }));
+      setCompanyByType({});
+      setCompanyByTypeLoading({});
+      setExpanded(prev => ({ ...prev, ePayment: false, pointsCost: false, purpleSales: false, sallaSales: false, asusSales: false, purpleCost: false, sallaCost: false, asusCost: false }));
       const startInt = parseInt(startDate.replace(/-/g, ""));
       const endInt = parseInt(endDate.replace(/-/g, ""));
       const nextBrandFilter = brandFilter;
