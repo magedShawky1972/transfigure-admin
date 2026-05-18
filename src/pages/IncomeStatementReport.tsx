@@ -696,6 +696,7 @@ const IncomeStatementReport = () => {
                                 loadCompanyByType(row);
                               }
                             }}
+                            className="p-0.5 rounded hover:bg-muted"
                             aria-label={isOpen ? "Collapse" : "Expand"}
                           >
                             {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
