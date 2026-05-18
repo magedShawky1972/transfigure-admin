@@ -66,7 +66,7 @@ const ExpenseTypeSetup = () => {
     try {
       const [typesRes, categoriesRes] = await Promise.all([
         supabase.from("expense_types").select("*").order("expense_name"),
-        supabase.from("expense_categories").select("id, category_code, category_name, category_name_ar").eq("is_active", true),
+        supabase.from("expense_categories").select("id, category_code, category_name, category_name_ar, parent_category_id").eq("is_active", true),
       ]);
 
       if (typesRes.error) throw typesRes.error;
