@@ -231,14 +231,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             .eq("user_id", user.id)
             .maybeSingle();
           if (prof?.is_external_guest) {
-            if (!location.pathname.startsWith("/guest/")) {
+            if (!location.pathname.startsWith("/guest/") && location.pathname !== "/projects-tasks") {
               const { data: guests } = await supabase
                 .from("project_guests")
                 .select("project_id")
                 .eq("user_id", user.id)
                 .limit(1);
               const pid = guests?.[0]?.project_id;
-              if (pid) navigate(`/guest/project/${pid}`, { replace: true });
+              if (pid) navigate(`/projects-tasks?projectId=${pid}`, { replace: true });
             }
           }
         } catch (e) {
