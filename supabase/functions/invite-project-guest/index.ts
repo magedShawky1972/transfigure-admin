@@ -146,8 +146,20 @@ Deno.serve(async (req) => {
     let invite_token: string;
     if (existing) {
       if (existing.accepted_at) {
-        return new Response(JSON.stringify({ error: "Guest already accepted" }), {
-          status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const { error: acceptedUpdateErr } = await supaAdmin
+          .from("project_guests")
+          .update({ role, invited_by: user.id, invited_at: new Date().toISOString() })
+          .eq("id", existing.id);
+        if (acceptedUpdateErr) throw acceptedUpdateErr;
+
+        return new Response(JSON.stringify({
+          ok: true,
+          alreadyAccepted: true,
+          signupUrl: `${APP_BASE_URL}/auth`,
+          emailSent: false,
+          emailError: null,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const { data: upd, error: updErr } = await supaAdmin
