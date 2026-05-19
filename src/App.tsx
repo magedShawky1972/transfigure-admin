@@ -188,8 +188,10 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Layout>
-            <Routes>
+          <Routes>
+            <Route path="/guest-signup" element={<GuestSignup />} />
+            <Route path="/guest/project/:projectId" element={<GuestProject />} />
+            <Route path="*" element={<Layout><Routes>
               <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/reports" element={<Reports />} />
