@@ -185,6 +185,9 @@ const ProjectsTasks = () => {
   const [projectPhases, setProjectPhases] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserPositionLevel, setCurrentUserPositionLevel] = useState<number | null>(null);
+  const [isExternalGuest, setIsExternalGuest] = useState(false);
+  const [guestProjectId, setGuestProjectId] = useState<string | null>(null);
+  const [guestRole, setGuestRole] = useState<"editor" | "viewer" | null>(null);
   const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false, managedProjectIds: [] });
   const [loading, setLoading] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -406,6 +409,28 @@ const ProjectsTasks = () => {
       if (!user) return;
       setCurrentUserId(user.id);
 
+      const forcedProjectId = searchParams.get('projectId');
+
+      const [{ data: profileRow }, { data: guestRows }] = await Promise.all([
+        supabase.from('profiles').select('is_external_guest').eq('user_id', user.id).maybeSingle(),
+        supabase.from('project_guests').select('project_id, role, accepted_at').eq('user_id', user.id).not('accepted_at', 'is', null)
+      ]);
+
+      const externalGuest = !!profileRow?.is_external_guest;
+      const activeGuest = guestRows?.[0] || null;
+      setIsExternalGuest(externalGuest);
+      setGuestProjectId(activeGuest?.project_id || null);
+      setGuestRole((activeGuest?.role as "editor" | "viewer" | null) || null);
+
+      if (externalGuest) {
+        if (activeGuest?.project_id && forcedProjectId !== activeGuest.project_id) {
+          setSearchParams({ projectId: activeGuest.project_id });
+          setSelectedProject(activeGuest.project_id);
+        } else if (activeGuest?.project_id) {
+          setSelectedProject(activeGuest.project_id);
+        }
+      }
+
       // Get user's department access (admin and member)
       const [adminDepsRes, memberDepsRes, userRolesRes, profileRes, allDepsRes] = await Promise.all([
         supabase.from('department_admins').select('department_id').eq('user_id', user.id),
@@ -561,12 +586,15 @@ const ProjectsTasks = () => {
       if (projectsRes.data) {
         // Admins see all projects, others see filtered (including projects where user is a member)
         const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
-        const filteredProjects = isAdmin 
+        const baseProjects = isAdmin 
           ? projectsRes.data 
           : projectsRes.data.filter(p => 
               accessibleDeptIds.includes(p.department_id) || 
               projectMemberProjectIds.includes(p.id)
             );
+        const filteredProjects = externalGuest && activeGuest?.project_id
+          ? baseProjects.filter(p => p.id === activeGuest.project_id)
+          : baseProjects;
         
         // Attach members to projects
         const projectsWithMembers = filteredProjects.map(p => ({
@@ -652,7 +680,9 @@ const ProjectsTasks = () => {
         // Only employees can be assigned tasks
         const employeeOnly = usersWithDepts.filter(u => u.isEmployee);
         // Admins see all employees, others see filtered by accessible departments
-        const filteredUsers = isAdmin ? employeeOnly : employeeOnly.filter(u => 
+        const filteredUsers = externalGuest
+          ? employeeOnly.filter(u => u.user_id === user.id)
+          : isAdmin ? employeeOnly : employeeOnly.filter(u => 
           u.departmentMemberships.some(deptId => accessibleDeptIds.includes(deptId))
         );
         
@@ -664,7 +694,9 @@ const ProjectsTasks = () => {
         const timeEntries = (timeEntriesRes.data || []) as TimeEntry[];
         
         // Filter tasks based on user access - admins see all tasks
-        const filteredTasks = isAdmin ? tasksRes.data : tasksRes.data.filter(task => {
+        const filteredTasks = externalGuest && activeGuest?.project_id
+          ? tasksRes.data.filter(task => task.project_id === activeGuest.project_id)
+          : isAdmin ? tasksRes.data : tasksRes.data.filter(task => {
           const taskAssignees = assigneesMap.get(task.id) || [];
           // Department admin sees all tasks in their departments
           if (adminDeptIds.includes(task.department_id)) return true;
@@ -706,7 +738,7 @@ const ProjectsTasks = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [selectedDepartment]);
+  }, [searchParams, selectedDepartment, setSearchParams]);
 
   // Timer update effect
   useEffect(() => {
