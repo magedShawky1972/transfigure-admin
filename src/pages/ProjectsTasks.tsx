@@ -185,6 +185,9 @@ const ProjectsTasks = () => {
   const [projectPhases, setProjectPhases] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserPositionLevel, setCurrentUserPositionLevel] = useState<number | null>(null);
+  const [isExternalGuest, setIsExternalGuest] = useState(false);
+  const [guestProjectId, setGuestProjectId] = useState<string | null>(null);
+  const [guestRole, setGuestRole] = useState<"editor" | "viewer" | null>(null);
   const [userAccess, setUserAccess] = useState<UserDepartmentAccess>({ adminDepartments: [], memberDepartments: [], isSystemAdmin: false, managedProjectIds: [] });
   const [loading, setLoading] = useState(true);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -406,6 +409,67 @@ const ProjectsTasks = () => {
       if (!user) return;
       setCurrentUserId(user.id);
 
+      const forcedProjectId = searchParams.get('projectId');
+
+      const [{ data: profileRow }, { data: guestRows }] = await Promise.all([
+        supabase.from('profiles').select('is_external_guest').eq('user_id', user.id).maybeSingle(),
+        supabase.from('project_guests').select('project_id, role, accepted_at').eq('user_id', user.id).not('accepted_at', 'is', null)
+      ]);
+
+      const externalGuest = !!profileRow?.is_external_guest;
+      const activeGuest = guestRows?.[0] || null;
+      setIsExternalGuest(externalGuest);
+      setGuestProjectId(activeGuest?.project_id || null);
+      setGuestRole((activeGuest?.role as "editor" | "viewer" | null) || null);
+
+      if (externalGuest) {
+        if (activeGuest?.project_id && forcedProjectId !== activeGuest.project_id) {
+          setSearchParams({ projectId: activeGuest.project_id });
+          setSelectedProject(activeGuest.project_id);
+        } else if (activeGuest?.project_id) {
+          setSelectedProject(activeGuest.project_id);
+        }
+      }
+
+      if (externalGuest && activeGuest?.project_id) {
+        const [{ data: guestProject }, { data: guestTasks }, { data: guestProjectMembers }] = await Promise.all([
+          supabase.from('projects').select('*, departments(department_name)').eq('id', activeGuest.project_id).maybeSingle(),
+          supabase.from('tasks').select('*, projects(name), departments(department_name)').eq('project_id', activeGuest.project_id).order('seq_number', { ascending: true }),
+          supabase.from('project_members').select('*').eq('project_id', activeGuest.project_id)
+        ]);
+
+        if (guestProject) {
+          setProjects([{ ...guestProject, members: (guestProjectMembers || []) as ProjectMember[] }] as Project[]);
+          setSelectedDepartment(guestProject.department_id);
+          setAccessibleDepartments(guestProject.departments ? [{
+            id: guestProject.department_id,
+            department_name: (guestProject.departments as any).department_name,
+          }] as Department[] : []);
+        } else {
+          setProjects([]);
+          setAccessibleDepartments([]);
+        }
+
+        setDepartments([]);
+        setAllProjectUsers([]);
+        setUsers([{ user_id: user.id, user_name: user.email || 'Guest User', default_department_id: guestProject?.department_id || '', avatar_url: null, job_position_id: null, position_level: null, departmentMemberships: guestProject?.department_id ? [guestProject.department_id] : [] }] as Profile[]);
+        setTaskPhases([]);
+        setUserAccess({ adminDepartments: [], memberDepartments: guestProject?.department_id ? [guestProject.department_id] : [], isSystemAdmin: false, managedProjectIds: [] });
+        setCurrentUserPositionLevel(null);
+        setTasks(((guestTasks || []) as any[]).map(task => ({
+          ...task,
+          file_attachments: (task.file_attachments as unknown as FileAttachment[]) || [],
+          video_attachments: (task.video_attachments as unknown as FileAttachment[]) || [],
+          external_links: task.external_links || [],
+          profiles: null,
+          time_entries: [],
+          total_time_minutes: 0,
+          active_timer: null,
+          assignees: task.assigned_to ? [task.assigned_to] : []
+        })) as unknown as Task[]);
+        return;
+      }
+
       // Get user's department access (admin and member)
       const [adminDepsRes, memberDepsRes, userRolesRes, profileRes, allDepsRes] = await Promise.all([
         supabase.from('department_admins').select('department_id').eq('user_id', user.id),
@@ -561,12 +625,15 @@ const ProjectsTasks = () => {
       if (projectsRes.data) {
         // Admins see all projects, others see filtered (including projects where user is a member)
         const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
-        const filteredProjects = isAdmin 
+        const baseProjects = isAdmin 
           ? projectsRes.data 
           : projectsRes.data.filter(p => 
               accessibleDeptIds.includes(p.department_id) || 
               projectMemberProjectIds.includes(p.id)
             );
+        const filteredProjects = externalGuest && activeGuest?.project_id
+          ? baseProjects.filter(p => p.id === activeGuest.project_id)
+          : baseProjects;
         
         // Attach members to projects
         const projectsWithMembers = filteredProjects.map(p => ({
@@ -652,7 +719,9 @@ const ProjectsTasks = () => {
         // Only employees can be assigned tasks
         const employeeOnly = usersWithDepts.filter(u => u.isEmployee);
         // Admins see all employees, others see filtered by accessible departments
-        const filteredUsers = isAdmin ? employeeOnly : employeeOnly.filter(u => 
+        const filteredUsers = externalGuest
+          ? employeeOnly.filter(u => u.user_id === user.id)
+          : isAdmin ? employeeOnly : employeeOnly.filter(u => 
           u.departmentMemberships.some(deptId => accessibleDeptIds.includes(deptId))
         );
         
@@ -664,7 +733,9 @@ const ProjectsTasks = () => {
         const timeEntries = (timeEntriesRes.data || []) as TimeEntry[];
         
         // Filter tasks based on user access - admins see all tasks
-        const filteredTasks = isAdmin ? tasksRes.data : tasksRes.data.filter(task => {
+        const filteredTasks = externalGuest && activeGuest?.project_id
+          ? tasksRes.data.filter(task => task.project_id === activeGuest.project_id)
+          : isAdmin ? tasksRes.data : tasksRes.data.filter(task => {
           const taskAssignees = assigneesMap.get(task.id) || [];
           // Department admin sees all tasks in their departments
           if (adminDeptIds.includes(task.department_id)) return true;
@@ -706,7 +777,7 @@ const ProjectsTasks = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [selectedDepartment]);
+  }, [searchParams, selectedDepartment, setSearchParams]);
 
   // Timer update effect
   useEffect(() => {
@@ -858,9 +929,14 @@ const ProjectsTasks = () => {
   
   // Can assign tasks if admin, dept admin, or project manager
   const canAssignTasks = isAdminOfSelectedDepartment || isProjectManagerInDepartment;
+  const guestCanEdit = isExternalGuest && guestRole === 'editor';
+  const canManageProjects = !isExternalGuest;
+  const canCreateOrEditTasks = isExternalGuest ? guestCanEdit : true;
+  const canReassignTasks = !isExternalGuest;
 
   // Filter users based on selected department (users in that department)
   const departmentUsers = users.filter(u => {
+    if (isExternalGuest) return u.user_id === currentUserId;
     // If system admin, department admin, or project manager, show all users in the department
     if (canAssignTasks) {
       return u.default_department_id === selectedDepartment || 
@@ -871,7 +947,9 @@ const ProjectsTasks = () => {
   });
 
   // For task assignment, admins and project managers can assign to any user in their departments
-  const assignableUsers = canAssignTasks 
+  const assignableUsers = isExternalGuest
+    ? users.filter(u => u.user_id === currentUserId)
+    : canAssignTasks 
     ? users.filter(u => u.default_department_id === selectedDepartment || (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment)))
     : users.filter(u => u.user_id === currentUserId);
 
@@ -1193,6 +1271,7 @@ const ProjectsTasks = () => {
   };
 
   const handleDeleteTask = async (taskId: string) => {
+    if (!canCreateOrEditTasks) return;
     try {
       await supabase.from('tasks').delete().eq('id', taskId);
       toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted' });
@@ -1204,6 +1283,7 @@ const ProjectsTasks = () => {
   };
 
   const handleAssignTask = async (taskId: string, userIds: string[]) => {
+    if (!canReassignTasks) return;
     const finalIds = userIds.length > 0 ? userIds : [];
     // Optimistic local update so the popover stays open and UI updates immediately
     setTasks(prev => prev.map(t => t.id === taskId
@@ -1228,6 +1308,7 @@ const ProjectsTasks = () => {
   };
 
   const handleDeleteProject = async (projectId: string) => {
+    if (!canManageProjects) return;
     try {
       // First check if project has any tasks
       const { data: projectTasks } = await supabase.from('tasks').select('id').eq('project_id', projectId);
@@ -1251,6 +1332,7 @@ const ProjectsTasks = () => {
   };
 
   const handleInlineCreateTask = async (phaseKey: string) => {
+    if (!canCreateOrEditTasks) return;
     const title = inlineTitle.trim();
     if (!title || !currentUserId || !selectedDepartment) return;
     const assignees = inlineAssignees.length > 0 ? inlineAssignees : [currentUserId];
@@ -1284,6 +1366,7 @@ const ProjectsTasks = () => {
   };
 
   const handleEditTask = (task: Task) => {
+    if (!canCreateOrEditTasks) return;
     setEditingTask(task);
     setTaskForm({
       title: task.title,
@@ -1310,6 +1393,7 @@ const ProjectsTasks = () => {
   };
 
   const handleEditProject = async (project: Project) => {
+    if (!canManageProjects) return;
     setEditingProject(project);
     const manager = project.members?.find(m => m.role === 'manager');
     const memberIds = project.members?.filter(m => m.role === 'member').map(m => m.user_id) || [];
@@ -1411,7 +1495,7 @@ const ProjectsTasks = () => {
             
             <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
               {/* Department Selector */}
-              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment} disabled={isExternalGuest}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder={t.selectDepartment} />
                 </SelectTrigger>
@@ -1423,12 +1507,12 @@ const ProjectsTasks = () => {
               </Select>
 
               {/* Import from Excel */}
-              <Button variant="outline" size="sm" onClick={() => setExcelImportDialogOpen(true)}>
+              {!isExternalGuest && <Button variant="outline" size="sm" onClick={() => setExcelImportDialogOpen(true)}>
                 <FileSpreadsheet className="h-4 w-4 mr-1" />{language === 'ar' ? 'استيراد Excel' : 'Import Excel'}
-              </Button>
+              </Button>}
 
               {/* Add buttons */}
-              <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
+              {canManageProjects && <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t.addProject}</Button>
                 </DialogTrigger>
@@ -1595,9 +1679,9 @@ const ProjectsTasks = () => {
                     </div>
                   </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
 
-              <Dialog open={taskDialogOpen} onOpenChange={(o) => { setTaskDialogOpen(o); if (!o) resetTaskForm(); }}>
+              {canCreateOrEditTasks && <Dialog open={taskDialogOpen} onOpenChange={(o) => { setTaskDialogOpen(o); if (!o) resetTaskForm(); }}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
                 </DialogTrigger>
@@ -1940,7 +2024,7 @@ const ProjectsTasks = () => {
                       <Button onClick={handleSaveTask}>{t.save}</Button>
                     </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
           </div>
 
@@ -2114,12 +2198,12 @@ const ProjectsTasks = () => {
                     <div key={project.id} className="inline-flex items-center gap-1">
                       <Badge
                         variant="outline"
-                        className="gap-1 pr-1 cursor-pointer hover:bg-muted"
-                        onClick={() => handleEditProject(project)}
+                        className={cn("gap-1 pr-1", canManageProjects && "cursor-pointer hover:bg-muted")}
+                        onClick={() => canManageProjects && handleEditProject(project)}
                       >
                         <FolderKanban className="h-3 w-3" />
                         {project.name}
-                        <Button
+                        {canManageProjects && <Button
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 hover:bg-destructive/20 hover:text-destructive ml-1"
@@ -2129,7 +2213,7 @@ const ProjectsTasks = () => {
                           }}
                         >
                           <X className="h-3 w-3" />
-                        </Button>
+                        </Button>}
                       </Badge>
                       <Button
                         variant="outline"
@@ -2223,7 +2307,7 @@ const ProjectsTasks = () => {
                       {phaseTasks.map((task) => (
                         <DraggableTask key={task.id} task={task}>
                           {({ listeners }) => (
-                            <Card className="group hover:shadow-md transition-all cursor-pointer bg-card" onDoubleClick={() => handleEditTask(task)}>
+                            <Card className={cn("group transition-all bg-card", canCreateOrEditTasks && "hover:shadow-md cursor-pointer")} onDoubleClick={() => canCreateOrEditTasks && handleEditTask(task)}>
                               <CardContent className="p-3">
                                 <div className="flex items-start gap-2">
                                   <button {...listeners} className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
@@ -2233,12 +2317,12 @@ const ProjectsTasks = () => {
                                     <div className="flex items-start justify-between gap-2">
                                       <h4 className="font-medium text-sm leading-tight">{task.title}</h4>
                                       <div className="flex items-center gap-1 shrink-0">
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleEditTask(task)}>
+                                        {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleEditTask(task)}>
                                           <Edit className="h-3 w-3" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDeleteTask(task.id)}>
+                                        </Button>}
+                                        {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDeleteTask(task.id)}>
                                           <Trash2 className="h-3 w-3" />
-                                        </Button>
+                                        </Button>}
                                       </div>
                                     </div>
 
@@ -2334,7 +2418,7 @@ const ProjectsTasks = () => {
                                           return names.length > 0 ? names.join(', ') : t.selectUser;
                                         })()}
                                       </span>
-                                      <Popover>
+                                      {canReassignTasks && <Popover>
                                         <PopoverTrigger asChild>
                                           <Button
                                             variant="ghost"
@@ -2391,7 +2475,7 @@ const ProjectsTasks = () => {
                                             </div>
                                           </ScrollArea>
                                         </PopoverContent>
-                                      </Popover>
+                                      </Popover>}
                                     </div>
                                   </div>
                                 </div>
@@ -2409,7 +2493,7 @@ const ProjectsTasks = () => {
                       )}
 
                       {/* Inline Add Task at end of phase */}
-                      {inlineCreatePhase === phase.phase_key ? (
+                      {canCreateOrEditTasks && inlineCreatePhase === phase.phase_key ? (
                         <Card className="border-dashed border-primary/50">
                           <CardContent className="p-2 space-y-2">
                             <Input
@@ -2468,7 +2552,7 @@ const ProjectsTasks = () => {
                             </div>
                           </CardContent>
                         </Card>
-                      ) : (
+                      ) : canCreateOrEditTasks ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -2478,7 +2562,7 @@ const ProjectsTasks = () => {
                           <Plus className="h-3.5 w-3.5 mr-1" />
                           {language === 'ar' ? 'إضافة مهمة' : 'Add task'}
                         </Button>
-                      )}
+                      ) : null}
                     </div>
                   </DroppableColumn>
                 );

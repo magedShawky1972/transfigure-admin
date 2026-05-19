@@ -57,7 +57,7 @@ export default function GuestSignup() {
       setSubmitting(false);
       return;
     }
-    navigate(`/guest/project/${(data as any).project_id}`, { replace: true });
+    navigate(`/projects-tasks?projectId=${(data as any).project_id}`, { replace: true });
   };
 
   if (loading) {
@@ -76,7 +76,7 @@ export default function GuestSignup() {
           ) : info?.accepted ? (
             <div className="space-y-3">
               <p>This invitation has already been used.</p>
-              <Button onClick={() => navigate("/auth")} className="w-full">Sign in</Button>
+              <Button onClick={() => navigate("/auth", { replace: true })} className="w-full">Sign in</Button>
             </div>
           ) : info ? (
             <>
