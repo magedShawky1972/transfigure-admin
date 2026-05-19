@@ -1232,6 +1232,7 @@ const ProjectsTasks = () => {
   };
 
   const handleDeleteTask = async (taskId: string) => {
+    if (!canCreateOrEditTasks) return;
     try {
       await supabase.from('tasks').delete().eq('id', taskId);
       toast({ title: language === 'ar' ? 'تم الحذف' : 'Deleted' });
@@ -1243,6 +1244,7 @@ const ProjectsTasks = () => {
   };
 
   const handleAssignTask = async (taskId: string, userIds: string[]) => {
+    if (!canReassignTasks) return;
     const finalIds = userIds.length > 0 ? userIds : [];
     // Optimistic local update so the popover stays open and UI updates immediately
     setTasks(prev => prev.map(t => t.id === taskId
@@ -1267,6 +1269,7 @@ const ProjectsTasks = () => {
   };
 
   const handleDeleteProject = async (projectId: string) => {
+    if (!canManageProjects) return;
     try {
       // First check if project has any tasks
       const { data: projectTasks } = await supabase.from('tasks').select('id').eq('project_id', projectId);
@@ -1290,6 +1293,7 @@ const ProjectsTasks = () => {
   };
 
   const handleInlineCreateTask = async (phaseKey: string) => {
+    if (!canCreateOrEditTasks) return;
     const title = inlineTitle.trim();
     if (!title || !currentUserId || !selectedDepartment) return;
     const assignees = inlineAssignees.length > 0 ? inlineAssignees : [currentUserId];
@@ -1323,6 +1327,7 @@ const ProjectsTasks = () => {
   };
 
   const handleEditTask = (task: Task) => {
+    if (!canCreateOrEditTasks) return;
     setEditingTask(task);
     setTaskForm({
       title: task.title,
@@ -1349,6 +1354,7 @@ const ProjectsTasks = () => {
   };
 
   const handleEditProject = async (project: Project) => {
+    if (!canManageProjects) return;
     setEditingProject(project);
     const manager = project.members?.find(m => m.role === 'manager');
     const memberIds = project.members?.filter(m => m.role === 'member').map(m => m.user_id) || [];
