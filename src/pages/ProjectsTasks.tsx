@@ -890,9 +890,14 @@ const ProjectsTasks = () => {
   
   // Can assign tasks if admin, dept admin, or project manager
   const canAssignTasks = isAdminOfSelectedDepartment || isProjectManagerInDepartment;
+  const guestCanEdit = isExternalGuest && guestRole === 'editor';
+  const canManageProjects = !isExternalGuest;
+  const canCreateOrEditTasks = isExternalGuest ? guestCanEdit : true;
+  const canReassignTasks = !isExternalGuest;
 
   // Filter users based on selected department (users in that department)
   const departmentUsers = users.filter(u => {
+    if (isExternalGuest) return u.user_id === currentUserId;
     // If system admin, department admin, or project manager, show all users in the department
     if (canAssignTasks) {
       return u.default_department_id === selectedDepartment || 
@@ -903,7 +908,9 @@ const ProjectsTasks = () => {
   });
 
   // For task assignment, admins and project managers can assign to any user in their departments
-  const assignableUsers = canAssignTasks 
+  const assignableUsers = isExternalGuest
+    ? users.filter(u => u.user_id === currentUserId)
+    : canAssignTasks 
     ? users.filter(u => u.default_department_id === selectedDepartment || (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment)))
     : users.filter(u => u.user_id === currentUserId);
 
