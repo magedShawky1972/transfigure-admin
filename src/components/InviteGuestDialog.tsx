@@ -154,11 +154,9 @@ export default function InviteGuestDialog({ open, onOpenChange, projectId, proje
                         </Badge>
                       </div>
                     </div>
-                    {!g.accepted_at && (
-                      <Button size="icon" variant="ghost" onClick={() => copyLink(g.invite_token)} title={t.copyLink}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button size="icon" variant="ghost" onClick={() => copyLink(g.invite_token)} title={t.copyLink}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => revoke(g.id)} title={t.revoke}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
