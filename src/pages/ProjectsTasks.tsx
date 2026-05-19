@@ -1456,7 +1456,7 @@ const ProjectsTasks = () => {
             
             <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
               {/* Department Selector */}
-              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment} disabled={isExternalGuest}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder={t.selectDepartment} />
                 </SelectTrigger>
@@ -1468,12 +1468,12 @@ const ProjectsTasks = () => {
               </Select>
 
               {/* Import from Excel */}
-              <Button variant="outline" size="sm" onClick={() => setExcelImportDialogOpen(true)}>
+              {!isExternalGuest && <Button variant="outline" size="sm" onClick={() => setExcelImportDialogOpen(true)}>
                 <FileSpreadsheet className="h-4 w-4 mr-1" />{language === 'ar' ? 'استيراد Excel' : 'Import Excel'}
-              </Button>
+              </Button>}
 
               {/* Add buttons */}
-              <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
+              {canManageProjects && <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />{t.addProject}</Button>
                 </DialogTrigger>
@@ -1640,9 +1640,9 @@ const ProjectsTasks = () => {
                     </div>
                   </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
 
-              <Dialog open={taskDialogOpen} onOpenChange={(o) => { setTaskDialogOpen(o); if (!o) resetTaskForm(); }}>
+              {canCreateOrEditTasks && <Dialog open={taskDialogOpen} onOpenChange={(o) => { setTaskDialogOpen(o); if (!o) resetTaskForm(); }}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
                 </DialogTrigger>
@@ -1985,7 +1985,7 @@ const ProjectsTasks = () => {
                       <Button onClick={handleSaveTask}>{t.save}</Button>
                     </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
           </div>
 
