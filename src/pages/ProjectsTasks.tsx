@@ -1967,7 +1967,7 @@ const ProjectsTasks = () => {
               </SelectContent>
             </Select>
             {selectedProject !== 'all' && (
-              <InviteGuestDialog
+              <InviteGuestButton
                 projectId={selectedProject}
                 projectName={projects.find(p => p.id === selectedProject)?.name || ''}
               />
