@@ -2454,7 +2454,7 @@ const ProjectsTasks = () => {
                       )}
 
                       {/* Inline Add Task at end of phase */}
-                      {inlineCreatePhase === phase.phase_key ? (
+                      {canCreateOrEditTasks && inlineCreatePhase === phase.phase_key ? (
                         <Card className="border-dashed border-primary/50">
                           <CardContent className="p-2 space-y-2">
                             <Input
@@ -2513,7 +2513,7 @@ const ProjectsTasks = () => {
                             </div>
                           </CardContent>
                         </Card>
-                      ) : (
+                      ) : canCreateOrEditTasks ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -2523,7 +2523,7 @@ const ProjectsTasks = () => {
                           <Plus className="h-3.5 w-3.5 mr-1" />
                           {language === 'ar' ? 'إضافة مهمة' : 'Add task'}
                         </Button>
-                      )}
+                      ) : null}
                     </div>
                   </DroppableColumn>
                 );
