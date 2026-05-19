@@ -34,7 +34,7 @@ import TaskMessages from "@/components/TaskMessages";
 import ProjectTaskPhases from "@/components/ProjectTaskPhases";
 import WireframeBoard, { type Wireframe } from "@/components/WireframeBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import InviteGuestDialog from "@/components/InviteGuestDialog";
+import InviteGuestButton from "@/components/InviteGuestButton";
 
 interface ProjectMember {
   id: string;
