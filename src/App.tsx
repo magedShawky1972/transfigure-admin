@@ -368,8 +368,8 @@ const App = () => (
               <Route path="/sql-query-runner" element={<SqlQueryRunner />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Layout>
+            </Routes></Layout>} />
+          </Routes>
         </BrowserRouter>
       </LanguageProvider>
     </TooltipProvider>
