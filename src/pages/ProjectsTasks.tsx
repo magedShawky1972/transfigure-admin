@@ -444,7 +444,6 @@ const ProjectsTasks = () => {
           setAccessibleDepartments(guestProject.departments ? [{
             id: guestProject.department_id,
             department_name: (guestProject.departments as any).department_name,
-            parent_department_id: null,
           }] as Department[] : []);
         } else {
           setProjects([]);
@@ -453,7 +452,7 @@ const ProjectsTasks = () => {
 
         setDepartments([]);
         setAllProjectUsers([]);
-        setUsers([{ user_id: user.id, user_name: user.email || 'Guest User', default_department_id: guestProject?.department_id || '', avatar_url: null, job_position_id: null, position_level: null, departmentMemberships: guestProject?.department_id ? [guestProject.department_id] : [], isEmployee: true }] as Profile[]);
+        setUsers([{ user_id: user.id, user_name: user.email || 'Guest User', default_department_id: guestProject?.department_id || '', avatar_url: null, job_position_id: null, position_level: null, departmentMemberships: guestProject?.department_id ? [guestProject.department_id] : [] }] as Profile[]);
         setTaskPhases([]);
         setUserAccess({ adminDepartments: [], memberDepartments: guestProject?.department_id ? [guestProject.department_id] : [], isSystemAdmin: false, managedProjectIds: [] });
         setCurrentUserPositionLevel(null);
