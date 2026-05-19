@@ -1966,6 +1966,12 @@ const ProjectsTasks = () => {
                 ))}
               </SelectContent>
             </Select>
+            {selectedProject !== 'all' && (
+              <InviteGuestDialog
+                projectId={selectedProject}
+                projectName={projects.find(p => p.id === selectedProject)?.name || ''}
+              />
+            )}
             <Select value={selectedUser} onValueChange={setSelectedUser}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder={t.filterByUser} />
