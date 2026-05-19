@@ -2159,12 +2159,12 @@ const ProjectsTasks = () => {
                     <div key={project.id} className="inline-flex items-center gap-1">
                       <Badge
                         variant="outline"
-                        className="gap-1 pr-1 cursor-pointer hover:bg-muted"
-                        onClick={() => handleEditProject(project)}
+                        className={cn("gap-1 pr-1", canManageProjects && "cursor-pointer hover:bg-muted")}
+                        onClick={() => canManageProjects && handleEditProject(project)}
                       >
                         <FolderKanban className="h-3 w-3" />
                         {project.name}
-                        <Button
+                        {canManageProjects && <Button
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 hover:bg-destructive/20 hover:text-destructive ml-1"
@@ -2174,7 +2174,7 @@ const ProjectsTasks = () => {
                           }}
                         >
                           <X className="h-3 w-3" />
-                        </Button>
+                        </Button>}
                       </Badge>
                       <Button
                         variant="outline"
