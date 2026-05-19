@@ -26,6 +26,8 @@ interface GuestRow {
   invite_token: string;
 }
 
+const GUEST_SIGNUP_BASE_URL = "https://edaraasus.com";
+
 export default function InviteGuestDialog({ open, onOpenChange, projectId, projectName }: Props) {
   const { language } = useLanguage();
   const isRTL = language === "ar";
@@ -98,7 +100,7 @@ export default function InviteGuestDialog({ open, onOpenChange, projectId, proje
   };
 
   const copyLink = (token: string) => {
-    const url = `${window.location.origin}/guest-signup?token=${token}`;
+    const url = `${GUEST_SIGNUP_BASE_URL}/guest-signup?token=${token}`;
     navigator.clipboard.writeText(url);
     toast({ title: t.linkCopied, description: url });
   };
