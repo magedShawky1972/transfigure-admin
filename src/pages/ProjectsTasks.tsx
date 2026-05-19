@@ -431,6 +431,46 @@ const ProjectsTasks = () => {
         }
       }
 
+      if (externalGuest && activeGuest?.project_id) {
+        const [{ data: guestProject }, { data: guestTasks }, { data: guestProjectMembers }] = await Promise.all([
+          supabase.from('projects').select('*, departments(department_name)').eq('id', activeGuest.project_id).maybeSingle(),
+          supabase.from('tasks').select('*, projects(name), departments(department_name)').eq('project_id', activeGuest.project_id).order('seq_number', { ascending: true }),
+          supabase.from('project_members').select('*').eq('project_id', activeGuest.project_id)
+        ]);
+
+        if (guestProject) {
+          setProjects([{ ...guestProject, members: (guestProjectMembers || []) as ProjectMember[] }] as Project[]);
+          setSelectedDepartment(guestProject.department_id);
+          setAccessibleDepartments(guestProject.departments ? [{
+            id: guestProject.department_id,
+            department_name: (guestProject.departments as any).department_name,
+            parent_department_id: null,
+          }] as Department[] : []);
+        } else {
+          setProjects([]);
+          setAccessibleDepartments([]);
+        }
+
+        setDepartments([]);
+        setAllProjectUsers([]);
+        setUsers([{ user_id: user.id, user_name: user.email || 'Guest User', default_department_id: guestProject?.department_id || '', avatar_url: null, job_position_id: null, position_level: null, departmentMemberships: guestProject?.department_id ? [guestProject.department_id] : [], isEmployee: true }] as Profile[]);
+        setTaskPhases([]);
+        setUserAccess({ adminDepartments: [], memberDepartments: guestProject?.department_id ? [guestProject.department_id] : [], isSystemAdmin: false, managedProjectIds: [] });
+        setCurrentUserPositionLevel(null);
+        setTasks(((guestTasks || []) as any[]).map(task => ({
+          ...task,
+          file_attachments: (task.file_attachments as unknown as FileAttachment[]) || [],
+          video_attachments: (task.video_attachments as unknown as FileAttachment[]) || [],
+          external_links: task.external_links || [],
+          profiles: null,
+          time_entries: [],
+          total_time_minutes: 0,
+          active_timer: null,
+          assignees: task.assigned_to ? [task.assigned_to] : []
+        })) as unknown as Task[]);
+        return;
+      }
+
       // Get user's department access (admin and member)
       const [adminDepsRes, memberDepsRes, userRolesRes, profileRes, allDepsRes] = await Promise.all([
         supabase.from('department_admins').select('department_id').eq('user_id', user.id),
