@@ -185,3 +185,6 @@ verify_jwt = false
 
 [functions.api-brand-balance]
 verify_jwt = false
+
+[functions.accept-project-guest]
+verify_jwt = false
