@@ -34,6 +34,7 @@ import TaskMessages from "@/components/TaskMessages";
 import ProjectTaskPhases from "@/components/ProjectTaskPhases";
 import WireframeBoard, { type Wireframe } from "@/components/WireframeBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import InviteGuestButton from "@/components/InviteGuestButton";
 
 interface ProjectMember {
   id: string;
@@ -1965,6 +1966,12 @@ const ProjectsTasks = () => {
                 ))}
               </SelectContent>
             </Select>
+            {selectedProject !== 'all' && (
+              <InviteGuestButton
+                projectId={selectedProject}
+                projectName={projects.find(p => p.id === selectedProject)?.name || ''}
+              />
+            )}
             <Select value={selectedUser} onValueChange={setSelectedUser}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder={t.filterByUser} />
