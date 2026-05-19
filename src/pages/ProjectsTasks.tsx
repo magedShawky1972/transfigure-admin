@@ -2379,7 +2379,7 @@ const ProjectsTasks = () => {
                                           return names.length > 0 ? names.join(', ') : t.selectUser;
                                         })()}
                                       </span>
-                                      <Popover>
+                                      {canReassignTasks && <Popover>
                                         <PopoverTrigger asChild>
                                           <Button
                                             variant="ghost"
@@ -2436,7 +2436,7 @@ const ProjectsTasks = () => {
                                             </div>
                                           </ScrollArea>
                                         </PopoverContent>
-                                      </Popover>
+                                      </Popover>}
                                     </div>
                                   </div>
                                 </div>
