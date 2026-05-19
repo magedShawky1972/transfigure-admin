@@ -133,8 +133,9 @@ Deno.serve(async (req) => {
       invite_token = ins.invite_token;
     }
 
-    const origin = req.headers.get("origin") || req.headers.get("referer")?.split("/").slice(0, 3).join("/") || "";
-    const signupUrl = `${origin}/guest-signup?token=${invite_token}`;
+    // Always use production URL for invitation links so guests land on the live app
+    const PROD_URL = "https://edaraasus.com";
+    const signupUrl = `${PROD_URL}/guest-signup?token=${invite_token}`;
     const { data: project } = await supaAdmin.from("projects").select("name").eq("id", project_id).maybeSingle();
     const projectName = project?.name || "a project";
 
