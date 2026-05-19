@@ -6558,6 +6558,7 @@ export type Database = {
           email_password: string | null
           id: string
           is_active: boolean
+          is_external_guest: boolean
           job_position_id: string | null
           mail_type_id: string | null
           mobile_number: string | null
@@ -6579,6 +6580,7 @@ export type Database = {
           email_password?: string | null
           id?: string
           is_active?: boolean
+          is_external_guest?: boolean
           job_position_id?: string | null
           mail_type_id?: string | null
           mobile_number?: string | null
@@ -6600,6 +6602,7 @@ export type Database = {
           email_password?: string | null
           id?: string
           is_active?: boolean
+          is_external_guest?: boolean
           job_position_id?: string | null
           mail_type_id?: string | null
           mobile_number?: string | null
@@ -6665,6 +6668,50 @@ export type Database = {
           },
           {
             foreignKeyName: "project_departments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_guests: {
+        Row: {
+          accepted_at: string | null
+          email: string
+          id: string
+          invite_token: string
+          invited_at: string
+          invited_by: string
+          project_id: string
+          role: string
+          user_id: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          email: string
+          id?: string
+          invite_token?: string
+          invited_at?: string
+          invited_by: string
+          project_id: string
+          role: string
+          user_id?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          email?: string
+          id?: string
+          invite_token?: string
+          invited_at?: string
+          invited_by?: string
+          project_id?: string
+          role?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_guests_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -11811,6 +11858,7 @@ export type Database = {
           transaction_count: number
         }[]
       }
+      current_user_is_external_guest: { Args: never; Returns: boolean }
       customer_stats: {
         Args: never
         Returns: {
@@ -12195,6 +12243,10 @@ export type Database = {
         }[]
       }
       get_user_email_password: { Args: { email_id: string }; Returns: string }
+      guest_can_edit_project: {
+        Args: { p_project_id: string; p_user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -12205,6 +12257,10 @@ export type Database = {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_conversation_participant: {
         Args: { p_conversation_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_project_guest: {
+        Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
       }
       is_project_manager: {
@@ -12218,6 +12274,10 @@ export type Database = {
       log_password_access: {
         Args: { p_accessed_record_id?: string; p_accessed_table: string }
         Returns: undefined
+      }
+      project_guest_role: {
+        Args: { p_project_id: string; p_user_id: string }
+        Returns: string
       }
       revenue_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }

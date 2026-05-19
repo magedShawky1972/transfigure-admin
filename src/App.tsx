@@ -178,6 +178,8 @@ import ShiftGenerator from "./pages/ShiftGenerator";
 import IntegrationAccessControl from "./pages/IntegrationAccessControl";
 import SqlQueryRunner from "./pages/SqlQueryRunner";
 import { GlobalMigrationRecovery } from "./components/GlobalMigrationRecovery";
+import GuestSignup from "./pages/GuestSignup";
+import GuestProject from "./pages/GuestProject";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -188,8 +190,10 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Layout>
-            <Routes>
+          <Routes>
+            <Route path="/guest-signup" element={<GuestSignup />} />
+            <Route path="/guest/project/:projectId" element={<GuestProject />} />
+            <Route path="*" element={<Layout><Routes>
               <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/reports" element={<Reports />} />
@@ -366,8 +370,8 @@ const App = () => (
               <Route path="/sql-query-runner" element={<SqlQueryRunner />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Layout>
+            </Routes></Layout>} />
+          </Routes>
         </BrowserRouter>
       </LanguageProvider>
     </TooltipProvider>
