@@ -222,8 +222,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user?.id) {
       fetchUserProfile(user.id);
+      // Guard: external guests can only access their guest project routes
+      (async () => {
+        try {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("is_external_guest")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (prof?.is_external_guest) {
+            if (!location.pathname.startsWith("/guest/")) {
+              const { data: guests } = await supabase
+                .from("project_guests")
+                .select("project_id")
+                .eq("user_id", user.id)
+                .limit(1);
+              const pid = guests?.[0]?.project_id;
+              if (pid) navigate(`/guest/project/${pid}`, { replace: true });
+            }
+          }
+        } catch (e) {
+          console.error("Guest guard failed:", e);
+        }
+      })();
     }
-  }, [user?.id]);
+  }, [user?.id, location.pathname, navigate]);
 
   const fetchUserProfile = async (userId: string) => {
     try {
