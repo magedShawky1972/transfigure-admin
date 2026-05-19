@@ -87,7 +87,16 @@ export default function InviteGuestDialog({ open, onOpenChange, projectId, proje
       toast({ title: "Error", description: (data as any)?.error || error?.message, variant: "destructive" });
       return;
     }
-    toast({ title: t.sent, description: (data as any)?.signupUrl ? "Link ready to copy below." : "" });
+    const d = (data as any) || {};
+    if (d.emailSent) {
+      toast({ title: t.sent, description: d.signupUrl || "" });
+    } else {
+      toast({
+        title: isRTL ? "تم إنشاء الدعوة لكن فشل إرسال البريد" : "Invite created but email failed",
+        description: (d.emailError ? `${d.emailError}. ` : "") + (isRTL ? "انسخ الرابط يدويًا أدناه." : "Copy the link manually below."),
+        variant: "destructive",
+      });
+    }
     setEmail("");
     loadGuests();
   };
