@@ -7,6 +7,29 @@ const corsHeaders = {
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function resolveAppUrl(req: Request): string | null {
+  const origin = req.headers.get("origin");
+  if (origin) return origin.replace(/\/$/, "");
+
+  const referer = req.headers.get("referer");
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      return `${url.protocol}//${url.host}`;
+    } catch {
+      // ignore invalid referer
+    }
+  }
+
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  if (forwardedHost) {
+    const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return null;
+}
+
 function encodeSubject(subject: string): string {
   const bytes = new TextEncoder().encode(subject);
   const base64 = btoa(String.fromCharCode(...bytes));
@@ -164,9 +187,15 @@ Deno.serve(async (req) => {
       invite_token = ins.invite_token;
     }
 
-    // Always use production URL for invitation links so guests land on the live app
-    const PROD_URL = "https://edaraasus.com";
-    const signupUrl = `${PROD_URL}/guest-signup?token=${invite_token}`;
+    const appUrl = resolveAppUrl(req);
+    if (!appUrl) {
+      return new Response(JSON.stringify({ error: "Could not determine app URL for guest invite" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const signupUrl = `${appUrl}/guest-signup?token=${invite_token}`;
     const { data: project } = await supaAdmin.from("projects").select("name").eq("id", project_id).maybeSingle();
     const projectName = project?.name || "a project";
 
