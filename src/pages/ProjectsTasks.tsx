@@ -2268,7 +2268,7 @@ const ProjectsTasks = () => {
                       {phaseTasks.map((task) => (
                         <DraggableTask key={task.id} task={task}>
                           {({ listeners }) => (
-                            <Card className="group hover:shadow-md transition-all cursor-pointer bg-card" onDoubleClick={() => handleEditTask(task)}>
+                            <Card className={cn("group transition-all bg-card", canCreateOrEditTasks && "hover:shadow-md cursor-pointer")} onDoubleClick={() => canCreateOrEditTasks && handleEditTask(task)}>
                               <CardContent className="p-3">
                                 <div className="flex items-start gap-2">
                                   <button {...listeners} className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
@@ -2278,12 +2278,12 @@ const ProjectsTasks = () => {
                                     <div className="flex items-start justify-between gap-2">
                                       <h4 className="font-medium text-sm leading-tight">{task.title}</h4>
                                       <div className="flex items-center gap-1 shrink-0">
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleEditTask(task)}>
+                                        {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleEditTask(task)}>
                                           <Edit className="h-3 w-3" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDeleteTask(task.id)}>
+                                        </Button>}
+                                        {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDeleteTask(task.id)}>
                                           <Trash2 className="h-3 w-3" />
-                                        </Button>
+                                        </Button>}
                                       </div>
                                     </div>
 
