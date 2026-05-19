@@ -178,6 +178,8 @@ import ShiftGenerator from "./pages/ShiftGenerator";
 import IntegrationAccessControl from "./pages/IntegrationAccessControl";
 import SqlQueryRunner from "./pages/SqlQueryRunner";
 import { GlobalMigrationRecovery } from "./components/GlobalMigrationRecovery";
+import GuestSignup from "./pages/GuestSignup";
+import GuestProject from "./pages/GuestProject";
 const queryClient = new QueryClient();
 
 const App = () => (
