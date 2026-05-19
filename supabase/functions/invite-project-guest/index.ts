@@ -203,7 +203,8 @@ Deno.serve(async (req) => {
   </div>
 </body></html>`;
 
-      const raw = buildRawEmail(fromAddress, email, `Invitation to project: ${projectName}`, html);
+      const textBody = `You've been invited to collaborate on the project "${projectName}" in Edara.\n\nYour access: ${roleLabel}\n\nAccept the invitation:\n${signupUrl}\n\nIf you did not expect this invitation, you can ignore this email.\n\n— Edara, Projects & Tasks`;
+      const raw = buildRawEmail(fromAddress, smtpUsername, email, `Invitation to project: ${projectName}`, html, textBody, signupUrl);
       await sendRawEmail(smtpHost, smtpPort, smtpUsername, smtpPassword, fromAddress, email, raw);
       emailSent = true;
     } catch (e) {
