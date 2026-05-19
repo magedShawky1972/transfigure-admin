@@ -13,21 +13,52 @@ function encodeSubject(subject: string): string {
   return `=?UTF-8?B?${base64}?=`;
 }
 
-function buildRawEmail(from: string, to: string, subject: string, htmlBody: string): string {
+function buildRawEmail(from: string, fromAddr: string, to: string, subject: string, htmlBody: string, textBody: string, unsubscribeUrl: string): string {
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const messageId = `<${crypto.randomUUID()}@asuscards.com>`;
+  const date = new Date().toUTCString();
+
   const headers = [
     `From: ${from}`,
     `To: ${to}`,
+    `Reply-To: ${fromAddr}`,
     `Subject: ${encodeSubject(subject)}`,
+    `Date: ${date}`,
+    `Message-ID: ${messageId}`,
+    `List-Unsubscribe: <mailto:${fromAddr}?subject=unsubscribe>`,
+    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
     `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "",
+  ].join("\r\n");
+
+  const encodeB64 = (s: string) => {
+    const bytes = new TextEncoder().encode(s);
+    const b64 = btoa(String.fromCharCode(...bytes));
+    return (b64.match(/.{1,76}/g) || []).join("\r\n");
+  };
+
+  const body = [
+    "",
+    `--${boundary}`,
+    `Content-Type: text/plain; charset=UTF-8`,
+    `Content-Transfer-Encoding: base64`,
+    "",
+    encodeB64(textBody),
+    "",
+    `--${boundary}`,
     `Content-Type: text/html; charset=UTF-8`,
     `Content-Transfer-Encoding: base64`,
     "",
+    encodeB64(htmlBody),
+    "",
+    `--${boundary}--`,
+    "",
   ].join("\r\n");
-  const htmlBytes = new TextEncoder().encode(htmlBody);
-  const htmlBase64 = btoa(String.fromCharCode(...htmlBytes));
-  const lines = htmlBase64.match(/.{1,76}/g) || [];
-  return headers + "\r\n" + lines.join("\r\n");
+
+  return headers + "\r\n" + body;
 }
+
 
 async function sendRawEmail(host: string, port: number, username: string, password: string, from: string, to: string, rawMessage: string) {
   const conn = await Deno.connectTls({ hostname: host, port });
