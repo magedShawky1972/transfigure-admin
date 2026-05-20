@@ -418,6 +418,9 @@ const ProjectsTasks = () => {
       if (!user) return;
       setCurrentUserId(user.id);
 
+      const searchParams = searchParamsRef.current;
+      const setSearchParams = setSearchParamsRef.current;
+      const selectedDepartment = selectedDepartmentRef.current;
       const forcedProjectId = searchParams.get('projectId');
 
       const [{ data: profileRow }, { data: guestRows }] = await Promise.all([
