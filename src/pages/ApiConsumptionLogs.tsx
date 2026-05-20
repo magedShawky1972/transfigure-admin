@@ -176,6 +176,48 @@ const ApiConsumptionLogs = () => {
     }
   };
 
+  const [clearLogsOpen, setClearLogsOpen] = useState(false);
+  const [clearLogsFrom, setClearLogsFrom] = useState<Date | undefined>(undefined);
+  const [clearLogsTo, setClearLogsTo] = useState<Date | undefined>(undefined);
+  const [clearingLogsRange, setClearingLogsRange] = useState(false);
+
+  const handleClearLogsByRange = async () => {
+    if (!clearLogsFrom || !clearLogsTo) return;
+    setClearingLogsRange(true);
+    try {
+      const fromIso = new Date(clearLogsFrom);
+      fromIso.setHours(0, 0, 0, 0);
+      const toIso = new Date(clearLogsTo);
+      toIso.setHours(23, 59, 59, 999);
+      const { error, count } = await (supabase as any)
+        .from("api_consumption_logs")
+        .delete({ count: "exact" })
+        .gte("created_at", fromIso.toISOString())
+        .lte("created_at", toIso.toISOString());
+      if (error) throw error;
+      toast({
+        title: language === "ar" ? "تم المسح" : "Cleared",
+        description:
+          language === "ar"
+            ? `تم حذف ${count || 0} سجل`
+            : `Deleted ${count || 0} log(s)`,
+      });
+      setClearLogsOpen(false);
+      setClearLogsFrom(undefined);
+      setClearLogsTo(undefined);
+      fetchLogs();
+    } catch (e: any) {
+      console.error("Error clearing api_consumption_logs:", e);
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: e?.message || (language === "ar" ? "فشل المسح" : "Failed to clear"),
+      });
+    } finally {
+      setClearingLogsRange(false);
+    }
+  };
+
   // DB-fetched order date map: order_number -> { orderDate, orderDateInt }
   const [orderDateMap, setOrderDateMap] = useState<Map<string, { orderDate: string; orderDateInt: string }>>(new Map());
 
