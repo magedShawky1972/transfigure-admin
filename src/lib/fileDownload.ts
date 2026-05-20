@@ -32,6 +32,7 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
     }
 
     const sanitizedFallbackName = getSafeFilename(fallbackName) || "download";
+    const fallbackExt = getExtensionFromName(sanitizedFallbackName);
 
     // If no filename from header, use fallbackName
     if (!filename) {
@@ -40,8 +41,14 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
 
     filename = getSafeFilename(filename) || sanitizedFallbackName;
 
-    // If filename has no extension, add one based on content-type or URL hints
-    if (!filename.includes(".")) {
+    // Always prefer the original fallback name's extension when available
+    // so any file (docx, xlsx, txt, csv, etc.) keeps its real extension.
+    const currentExt = getExtensionFromName(filename);
+    if (fallbackExt && currentExt !== fallbackExt) {
+      // Strip existing extension if present, then append the correct one
+      const base = currentExt ? filename.slice(0, -currentExt.length) : filename;
+      filename = base + fallbackExt;
+    } else if (!currentExt) {
       const mimeToExt: Record<string, string> = {
         "application/pdf": ".pdf",
         "image/png": ".png",
@@ -53,6 +60,8 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
         "application/vnd.ms-excel": ".xls",
         "application/msword": ".doc",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+        "application/vnd.ms-powerpoint": ".ppt",
         "text/plain": ".txt",
         "text/csv": ".csv",
       };
