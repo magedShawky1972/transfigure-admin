@@ -1123,6 +1123,14 @@ const ApiConsumptionLogs = () => {
             <Trash2 className="h-4 w-4 mr-2" />
             {language === "ar" ? "مسح ربط الطلبات المجمعة" : "Clear Aggregated Mapping"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setClearLogsOpen(true)}
+            className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {language === "ar" ? "مسح السجلات حسب التاريخ" : "Clear Logs by Date"}
+          </Button>
         </div>
       </div>
 
