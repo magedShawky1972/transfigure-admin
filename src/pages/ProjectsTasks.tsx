@@ -2320,8 +2320,9 @@ const ProjectsTasks = () => {
       {/* Kanban Board */}
       <div className="p-4">
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <ScrollArea className="w-full">
-            <div className="flex gap-4 pb-4" style={{ minWidth: activePhases.length * 320 }}>
+          <ScrollArea className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            <div className="flex gap-4 pb-4" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minWidth: activePhases.length * 320 }}>
+
               {activePhases.map((phase) => {
                 const phaseSearch = phaseSearchTerms[phase.phase_key] || '';
                 const phaseTasks = filteredTasks.filter(t => {
