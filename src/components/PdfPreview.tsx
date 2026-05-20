@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2, Download, FileText, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Download, FileText, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadFile } from "@/lib/fileDownload";
 
@@ -27,15 +27,71 @@ const buildCandidateUrls = (url: string): string[] => {
 
 export const PdfPreview = ({ url, name, language }: PdfPreviewProps) => {
   const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [pageImages, setPageImages] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const openUrl = useMemo(() => src || url, [src, url]);
 
   useEffect(() => {
-    setFailed(false);
-    // Pick the first candidate immediately; the browser's native PDF viewer
-    // will render it. We can't reliably detect iframe load failures across
-    // origins, so we trust the first viable URL.
-    const [first] = buildCandidateUrls(url);
-    setSrc(first);
+    let cancelled = false;
+
+    const renderPdf = async () => {
+      setLoading(true);
+      setFailed(false);
+      setPageImages([]);
+      setCurrentPage(0);
+
+      const [first] = buildCandidateUrls(url);
+      setSrc(first);
+
+      try {
+        const response = await fetch(first);
+        if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
+
+        const arrayBuffer = await response.arrayBuffer();
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const renderedPages: string[] = [];
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          const page = await pdf.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: 1.4 });
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+
+          if (!context) throw new Error("Could not create PDF canvas context");
+
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          await page.render({ canvasContext: context, viewport }).promise;
+          renderedPages.push(canvas.toDataURL("image/png"));
+        }
+
+        if (!cancelled) {
+          setPageImages(renderedPages);
+        }
+      } catch (error) {
+        console.error("PDF preview failed:", error);
+        if (!cancelled) {
+          setFailed(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void renderPdf();
+
+    return () => {
+      cancelled = true;
+    };
   }, [url]);
 
   if (failed) {
@@ -50,7 +106,7 @@ export const PdfPreview = ({ url, name, language }: PdfPreviewProps) => {
               : "Your browser blocked the inline preview. Open it in a new tab or download it."}
           </p>
           <div className="flex gap-2 mt-2">
-            <Button variant="outline" size="sm" onClick={() => window.open(src || url, "_blank", "noopener,noreferrer")}>
+            <Button variant="outline" size="sm" onClick={() => window.open(openUrl, "_blank", "noopener,noreferrer")}>
               <ExternalLink className="h-4 w-4 mr-1" />
               {language === "ar" ? "فتح في تبويب جديد" : "Open in new tab"}
             </Button>
@@ -67,16 +123,47 @@ export const PdfPreview = ({ url, name, language }: PdfPreviewProps) => {
   return (
     <div className="w-full">
       <div className="relative w-full h-[80vh] rounded border bg-muted/30 overflow-hidden">
-        {src ? (
-          <object data={src} type="application/pdf" className="w-full h-full">
-            {/* Fallback when <object> can't render: try Google's viewer */}
-            <iframe
-              src={`https://docs.google.com/gview?url=${encodeURIComponent(src)}&embedded=true`}
-              title={name}
-              className="w-full h-full"
-              onError={() => setFailed(true)}
-            />
-          </object>
+        {loading ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : pageImages.length > 0 ? (
+          <div className="h-full overflow-auto bg-background/80">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 px-3 py-2 backdrop-blur">
+              <div className="text-sm font-medium truncate">{name}</div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 0))}
+                  disabled={currentPage === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="min-w-20 text-center text-sm text-muted-foreground">
+                  {currentPage + 1} / {pageImages.length}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, pageImages.length - 1))}
+                  disabled={currentPage === pageImages.length - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex min-h-full items-start justify-center p-4">
+              <img
+                src={pageImages[currentPage]}
+                alt={`${name} page ${currentPage + 1}`}
+                className="h-auto max-w-full rounded border bg-background shadow-sm"
+                loading="eager"
+              />
+            </div>
+          </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -84,7 +171,7 @@ export const PdfPreview = ({ url, name, language }: PdfPreviewProps) => {
         )}
       </div>
       <div className="mt-2 flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={() => window.open(src || url, "_blank", "noopener,noreferrer")}>
+        <Button variant="outline" size="sm" onClick={() => window.open(openUrl, "_blank", "noopener,noreferrer")}>
           <ExternalLink className="h-4 w-4 mr-1" />
           {language === "ar" ? "فتح في تبويب جديد" : "Open in new tab"}
         </Button>
