@@ -1506,6 +1506,24 @@ const ProjectsTasks = () => {
     }
   };
 
+  const removeAttachment = async (type: 'file' | 'video', index: number) => {
+    const currentList = type === 'file' ? taskForm.file_attachments : taskForm.video_attachments;
+    const newList = currentList.filter((_, idx) => idx !== index);
+    if (type === 'file') setTaskForm(prev => ({ ...prev, file_attachments: newList }));
+    else setTaskForm(prev => ({ ...prev, video_attachments: newList }));
+    if (editingTask?.id) {
+      const payload = type === 'file'
+        ? { file_attachments: newList as unknown as Json }
+        : { video_attachments: newList as unknown as Json };
+      const { error } = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
+      if (error) {
+        toast({ title: language === 'ar' ? 'فشل الحذف' : 'Remove failed', variant: 'destructive' });
+        return;
+      }
+      await fetchData(true);
+    }
+  };
+
   const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
 
   if (loading) {
