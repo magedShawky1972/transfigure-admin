@@ -190,7 +190,7 @@ const ApiConsumptionLogs = () => {
       const toIso = new Date(clearLogsTo);
       toIso.setHours(23, 59, 59, 999);
 
-      const BATCH = 1000;
+      const BATCH = 200;
       let totalDeleted = 0;
       // Loop: fetch a batch of IDs in the range, then delete by IDs to avoid statement timeout.
       while (true) {
