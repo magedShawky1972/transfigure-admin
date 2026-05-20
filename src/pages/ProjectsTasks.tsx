@@ -28,6 +28,7 @@ import {
 import { downloadFile } from "@/lib/fileDownload";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { ProjectSummaryDialog } from "@/components/ProjectSummaryDialog";
+import { PdfPreview } from "@/components/PdfPreview";
 import { ProjectSummaryDialogLoader } from "@/components/ProjectSummaryDialogLoader";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
