@@ -2793,23 +2793,7 @@ const ProjectsTasks = () => {
                 );
               }
               if (isPdf) {
-                return (
-                  <div className="w-full">
-                    <object data={previewFile.url} type="application/pdf" className="w-full h-[80vh] rounded">
-                      <iframe
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`}
-                        title={previewFile.name}
-                        className="w-full h-[80vh] rounded"
-                      />
-                    </object>
-                    <div className="mt-2 flex justify-end">
-                      <Button variant="outline" size="sm" onClick={() => downloadFile(previewFile.url, previewFile.name)}>
-                        <Download className="h-4 w-4 mr-1" />
-                        {language === 'ar' ? 'تنزيل' : 'Download'}
-                      </Button>
-                    </div>
-                  </div>
-                );
+                return <PdfPreview url={previewFile.url} name={previewFile.name} language={language} />;
               }
               // Office and other non-previewable types fall through to the download fallback below
               // Fallback: unknown type
