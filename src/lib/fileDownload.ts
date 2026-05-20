@@ -31,10 +31,14 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
       if (match?.[2]) filename = decodeURIComponent(match[2]);
     }
 
+    const sanitizedFallbackName = getSafeFilename(fallbackName) || "download";
+
     // If no filename from header, use fallbackName
     if (!filename) {
-      filename = fallbackName;
+      filename = sanitizedFallbackName;
     }
+
+    filename = getSafeFilename(filename) || sanitizedFallbackName;
 
     // If filename has no extension, add one based on content-type or URL hints
     if (!filename.includes(".")) {
@@ -57,7 +61,7 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
 
       // If still no extension (octet-stream), try to detect from magic bytes
       if (!ext || baseMime === "application/octet-stream") {
-        const detectedExt = await detectFileTypeFromBlob(blob);
+        const detectedExt = await detectFileTypeFromBlob(blob, sanitizedFallbackName);
         if (detectedExt) ext = detectedExt;
       }
 
@@ -80,7 +84,7 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
 /**
  * Detect file type from the first few bytes (magic bytes) of a blob.
  */
-async function detectFileTypeFromBlob(blob: Blob): Promise<string> {
+async function detectFileTypeFromBlob(blob: Blob, fallbackName = ""): Promise<string> {
   try {
     const slice = blob.slice(0, 8);
     const buffer = await slice.arrayBuffer();
@@ -102,12 +106,24 @@ async function detectFileTypeFromBlob(blob: Blob): Promise<string> {
     if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) {
       return ".gif";
     }
-    // XLSX/DOCX (ZIP): 50 4B 03 04
+    // XLSX/DOCX/PPTX and other ZIP-based files: 50 4B 03 04
     if (bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04) {
-      return ".zip"; // Could be xlsx/docx but zip is safest
+      const fallbackExt = getExtensionFromName(fallbackName);
+      if (fallbackExt) return fallbackExt;
+      return ".zip";
     }
   } catch {
     // ignore
   }
   return "";
+}
+
+function getSafeFilename(name: string) {
+  return name.split(/[?#]/)[0].split("/").pop()?.trim() || "";
+}
+
+function getExtensionFromName(name: string) {
+  const safeName = getSafeFilename(name);
+  const match = safeName.match(/(\.[a-z0-9]+)$/i);
+  return match?.[1]?.toLowerCase() || "";
 }
