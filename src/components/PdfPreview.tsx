@@ -43,14 +43,29 @@ export const PdfPreview = ({ url, name, language }: PdfPreviewProps) => {
       setPageImages([]);
       setCurrentPage(0);
 
-      const [first] = buildCandidateUrls(url);
-      setSrc(first);
+      const candidates = buildCandidateUrls(url);
 
       try {
-        const response = await fetch(first);
-        if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
+        let arrayBuffer: ArrayBuffer | null = null;
+        let resolvedSrc: string | null = null;
 
-        const arrayBuffer = await response.arrayBuffer();
+        for (const candidate of candidates) {
+          try {
+            const response = await fetch(candidate);
+            if (!response.ok) continue;
+            arrayBuffer = await response.arrayBuffer();
+            resolvedSrc = candidate;
+            break;
+          } catch {
+            continue;
+          }
+        }
+
+        if (!arrayBuffer || !resolvedSrc) {
+          throw new Error("No previewable PDF source was reachable");
+        }
+
+        setSrc(resolvedSrc);
         const pdfjsLib = await import("pdfjs-dist");
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
