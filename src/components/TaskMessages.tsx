@@ -240,7 +240,7 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
                       </button>
                     )}
                   </div>
-                  <div className="whitespace-pre-wrap break-words">{renderMessage(m.message)}</div>
+                  <div className="whitespace-pre-wrap break-words">{renderMessage(m.message, mine)}</div>
                 </div>
               </div>
             );
