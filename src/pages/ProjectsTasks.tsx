@@ -1474,18 +1474,53 @@ const ProjectsTasks = () => {
         uploadedFiles.push({ url: data.url, name: file.name, type: file.type });
       }
       
+      let newFileList = taskForm.file_attachments;
+      let newVideoList = taskForm.video_attachments;
       if (type === 'file') {
-        setTaskForm(prev => ({ ...prev, file_attachments: [...prev.file_attachments, ...uploadedFiles] }));
+        newFileList = [...taskForm.file_attachments, ...uploadedFiles];
+        setTaskForm(prev => ({ ...prev, file_attachments: newFileList }));
       } else {
-        setTaskForm(prev => ({ ...prev, video_attachments: [...prev.video_attachments, ...uploadedFiles] }));
+        newVideoList = [...taskForm.video_attachments, ...uploadedFiles];
+        setTaskForm(prev => ({ ...prev, video_attachments: newVideoList }));
       }
-      
+
+      // Auto-save to DB if editing an existing task
+      if (editingTask?.id) {
+        const { error: updErr } = await supabase
+          .from('tasks')
+          .update({
+            file_attachments: newFileList as unknown as Json,
+            video_attachments: newVideoList as unknown as Json,
+          })
+          .eq('id', editingTask.id);
+        if (updErr) throw updErr;
+        await fetchData(true);
+      }
+
       toast({ title: language === 'ar' ? 'تم الرفع بنجاح' : 'Upload successful' });
     } catch (error) {
       console.error('Upload error:', error);
       toast({ title: language === 'ar' ? 'فشل الرفع' : 'Upload failed', variant: 'destructive' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const removeAttachment = async (type: 'file' | 'video', index: number) => {
+    const currentList = type === 'file' ? taskForm.file_attachments : taskForm.video_attachments;
+    const newList = currentList.filter((_, idx) => idx !== index);
+    if (type === 'file') setTaskForm(prev => ({ ...prev, file_attachments: newList }));
+    else setTaskForm(prev => ({ ...prev, video_attachments: newList }));
+    if (editingTask?.id) {
+      const payload = type === 'file'
+        ? { file_attachments: newList as unknown as Json }
+        : { video_attachments: newList as unknown as Json };
+      const { error } = await supabase.from('tasks').update(payload).eq('id', editingTask.id);
+      if (error) {
+        toast({ title: language === 'ar' ? 'فشل الحذف' : 'Remove failed', variant: 'destructive' });
+        return;
+      }
+      await fetchData(true);
     }
   };
 
@@ -1996,7 +2031,7 @@ const ProjectsTasks = () => {
                                     <Download className="h-3.5 w-3.5" />
                                   </Button>
                                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title={language === 'ar' ? 'حذف' : 'Remove'}
-                                    onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))}>
+                                    onClick={() => removeAttachment('file', i)}>
                                     <X className="h-3.5 w-3.5" />
                                   </Button>
                                 </div>
