@@ -2821,6 +2821,14 @@ const ProjectsTasks = () => {
       {/* Full-size file preview dialog */}
       <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
         <DialogContent className="max-w-5xl max-h-[90vh] p-2">
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setPreviewFile(null)}
+            className="absolute right-2 top-2 z-50 inline-flex h-8 w-8 items-center justify-center rounded-md bg-background/90 text-foreground shadow-sm ring-1 ring-border hover:bg-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
           <div className="relative w-full h-full flex items-center justify-center overflow-auto">
             {previewFile && (() => {
               const ft = (previewFile.type || '').toLowerCase();
