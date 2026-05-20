@@ -189,18 +189,35 @@ const ApiConsumptionLogs = () => {
       fromIso.setHours(0, 0, 0, 0);
       const toIso = new Date(clearLogsTo);
       toIso.setHours(23, 59, 59, 999);
-      const { error, count } = await (supabase as any)
-        .from("api_consumption_logs")
-        .delete({ count: "exact" })
-        .gte("created_at", fromIso.toISOString())
-        .lte("created_at", toIso.toISOString());
-      if (error) throw error;
+
+      const BATCH = 1000;
+      let totalDeleted = 0;
+      // Loop: fetch a batch of IDs in the range, then delete by IDs to avoid statement timeout.
+      while (true) {
+        const { data: idRows, error: selErr } = await supabase
+          .from("api_consumption_logs")
+          .select("id")
+          .gte("created_at", fromIso.toISOString())
+          .lte("created_at", toIso.toISOString())
+          .limit(BATCH);
+        if (selErr) throw selErr;
+        if (!idRows || idRows.length === 0) break;
+        const ids = idRows.map((r: any) => r.id);
+        const { error: delErr } = await supabase
+          .from("api_consumption_logs")
+          .delete()
+          .in("id", ids);
+        if (delErr) throw delErr;
+        totalDeleted += ids.length;
+        if (ids.length < BATCH) break;
+      }
+
       toast({
         title: language === "ar" ? "تم المسح" : "Cleared",
         description:
           language === "ar"
-            ? `تم حذف ${count || 0} سجل`
-            : `Deleted ${count || 0} log(s)`,
+            ? `تم حذف ${totalDeleted} سجل`
+            : `Deleted ${totalDeleted} log(s)`,
       });
       setClearLogsOpen(false);
       setClearLogsFrom(undefined);
@@ -217,6 +234,7 @@ const ApiConsumptionLogs = () => {
       setClearingLogsRange(false);
     }
   };
+
 
   // DB-fetched order date map: order_number -> { orderDate, orderDateInt }
   const [orderDateMap, setOrderDateMap] = useState<Map<string, { orderDate: string; orderDateInt: string }>>(new Map());
