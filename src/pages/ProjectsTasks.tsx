@@ -28,6 +28,7 @@ import {
 import { downloadFile } from "@/lib/fileDownload";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { ProjectSummaryDialog } from "@/components/ProjectSummaryDialog";
+import { PdfPreview } from "@/components/PdfPreview";
 import { ProjectSummaryDialogLoader } from "@/components/ProjectSummaryDialogLoader";
 import { cn } from "@/lib/utils";
 import { DndContext, DragOverlay, useDraggable, useDroppable, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
@@ -1969,7 +1970,7 @@ const ProjectsTasks = () => {
                         <input id="file-upload" type="file" multiple className="hidden" onChange={(e) => e.target.files && handleFileUpload(e.target.files, 'file')} />
                       </div>
                       {taskForm.file_attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                           {taskForm.file_attachments.map((file, i) => {
                             const ft = (file.type || '').toLowerCase();
                             const nm = (file.name || '').toLowerCase();
@@ -1978,21 +1979,28 @@ const ProjectsTasks = () => {
                             const isPdf = ft.includes('pdf') || /\.pdf($|\?)/i.test(url) || nm.endsWith('.pdf');
                             const canPreview = isImg || isPdf;
                             return (
-                              <Badge key={i} variant="outline" className="gap-1">
-                                <FileText className="h-3 w-3" />
-                                <span className="max-w-[150px] truncate">{file.name}</span>
-                                {canPreview && (
-                                  <Eye
-                                    className="h-3 w-3 cursor-pointer text-primary"
-                                    onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}
-                                  />
-                                )}
-                                <Download
-                                  className="h-3 w-3 cursor-pointer text-primary"
-                                  onClick={() => downloadFile(file.url, file.name || 'attachment')}
-                                />
-                                <X className="h-3 w-3 cursor-pointer" onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))} />
-                              </Badge>
+                              <div key={i} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors group">
+                                <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                  {isImg ? <ImageIcon className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />}
+                                </div>
+                                <span className="flex-1 text-sm truncate" title={file.name}>{file.name}</span>
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  {canPreview && (
+                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={language === 'ar' ? 'معاينة' : 'Preview'}
+                                      onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}>
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={language === 'ar' ? 'تنزيل' : 'Download'}
+                                    onClick={() => downloadFile(file.url, file.name || 'attachment')}>
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title={language === 'ar' ? 'حذف' : 'Remove'}
+                                    onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))}>
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
                             );
                           })}
                         </div>
@@ -2793,23 +2801,7 @@ const ProjectsTasks = () => {
                 );
               }
               if (isPdf) {
-                return (
-                  <div className="w-full">
-                    <object data={previewFile.url} type="application/pdf" className="w-full h-[80vh] rounded">
-                      <iframe
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`}
-                        title={previewFile.name}
-                        className="w-full h-[80vh] rounded"
-                      />
-                    </object>
-                    <div className="mt-2 flex justify-end">
-                      <Button variant="outline" size="sm" onClick={() => downloadFile(previewFile.url, previewFile.name)}>
-                        <Download className="h-4 w-4 mr-1" />
-                        {language === 'ar' ? 'تنزيل' : 'Download'}
-                      </Button>
-                    </div>
-                  </div>
-                );
+                return <PdfPreview url={previewFile.url} name={previewFile.name} language={language} />;
               }
               // Office and other non-previewable types fall through to the download fallback below
               // Fallback: unknown type
