@@ -137,6 +137,44 @@ const ApiConsumptionLogs = () => {
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
   const [datePickerFromOpen, setDatePickerFromOpen] = useState(false);
   const [datePickerToOpen, setDatePickerToOpen] = useState(false);
+  const [clearMappingOpen, setClearMappingOpen] = useState(false);
+  const [clearMappingFrom, setClearMappingFrom] = useState<Date | undefined>(undefined);
+  const [clearMappingTo, setClearMappingTo] = useState<Date | undefined>(undefined);
+  const [clearingMapping, setClearingMapping] = useState(false);
+
+  const handleClearAggregatedMapping = async () => {
+    if (!clearMappingFrom || !clearMappingTo) return;
+    setClearingMapping(true);
+    try {
+      const fromStr = format(clearMappingFrom, "yyyy-MM-dd");
+      const toStr = format(clearMappingTo, "yyyy-MM-dd");
+      const { error, count } = await (supabase as any)
+        .from("aggregated_order_mapping")
+        .delete({ count: "exact" })
+        .gte("aggregation_date", fromStr)
+        .lte("aggregation_date", toStr);
+      if (error) throw error;
+      toast({
+        title: language === "ar" ? "تم المسح" : "Cleared",
+        description:
+          language === "ar"
+            ? `تم حذف ${count || 0} سجل من ربط الطلبات المجمعة`
+            : `Deleted ${count || 0} aggregated order mapping(s)`,
+      });
+      setClearMappingOpen(false);
+      setClearMappingFrom(undefined);
+      setClearMappingTo(undefined);
+    } catch (e: any) {
+      console.error("Error clearing aggregated_order_mapping:", e);
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: e?.message || (language === "ar" ? "فشل المسح" : "Failed to clear"),
+      });
+    } finally {
+      setClearingMapping(false);
+    }
+  };
 
   // DB-fetched order date map: order_number -> { orderDate, orderDateInt }
   const [orderDateMap, setOrderDateMap] = useState<Map<string, { orderDate: string; orderDateInt: string }>>(new Map());
