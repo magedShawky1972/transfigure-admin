@@ -2764,6 +2764,14 @@ const ProjectsTasks = () => {
               const nm = (previewFile.name || '').toLowerCase();
               const url = previewFile.url.toLowerCase();
               const isPdf = ft.includes('pdf') || /\.pdf($|\?)/i.test(url) || nm.endsWith('.pdf');
+              const isImg = ft.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(url) || /\.(png|jpe?g|gif|webp|svg)$/i.test(nm);
+              const isOffice = /\.(docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp)($|\?)/i.test(url) || /\.(docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp)$/i.test(nm);
+
+              if (isImg) {
+                return (
+                  <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[85vh] object-contain" />
+                );
+              }
               if (isPdf) {
                 return (
                   <div className="w-full">
@@ -2783,8 +2791,39 @@ const ProjectsTasks = () => {
                   </div>
                 );
               }
+              if (isOffice) {
+                const officeSrc = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewFile.url)}`;
+                const gviewSrc = `https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`;
+                return (
+                  <div className="w-full">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-medium truncate">{previewFile.name}</span>
+                      <Button variant="outline" size="sm" onClick={() => downloadFile(previewFile.url, previewFile.name)}>
+                        <Download className="h-4 w-4 mr-1" />
+                        {language === 'ar' ? 'تنزيل' : 'Download'}
+                      </Button>
+                    </div>
+                    <iframe
+                      src={/\.(docx?|xlsx?|pptx?)($|\?)/i.test(nm) ? officeSrc : gviewSrc}
+                      title={previewFile.name}
+                      className="w-full h-[78vh] rounded border"
+                    />
+                  </div>
+                );
+              }
+              // Fallback: unknown type
               return (
-                <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[85vh] object-contain" />
+                <div className="w-full flex flex-col items-center justify-center gap-3 py-10">
+                  <FileText className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-sm font-medium">{previewFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'ar' ? 'لا يمكن معاينة هذا الملف' : 'Preview not available for this file type'}
+                  </p>
+                  <Button variant="default" size="sm" onClick={() => downloadFile(previewFile.url, previewFile.name)}>
+                    <Download className="h-4 w-4 mr-1" />
+                    {language === 'ar' ? 'تنزيل' : 'Download'}
+                  </Button>
+                </div>
               );
             })()}
           </div>
