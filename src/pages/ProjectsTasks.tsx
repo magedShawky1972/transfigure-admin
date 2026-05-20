@@ -2031,7 +2031,7 @@ const ProjectsTasks = () => {
                                     <Download className="h-3.5 w-3.5" />
                                   </Button>
                                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title={language === 'ar' ? 'حذف' : 'Remove'}
-                                    onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))}>
+                                    onClick={() => removeAttachment('file', i)}>
                                     <X className="h-3.5 w-3.5" />
                                   </Button>
                                 </div>
