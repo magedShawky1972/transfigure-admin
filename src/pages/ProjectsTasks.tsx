@@ -2801,26 +2801,7 @@ const ProjectsTasks = () => {
                   </div>
                 );
               }
-              if (isOffice) {
-                const officeSrc = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewFile.url)}`;
-                const gviewSrc = `https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`;
-                return (
-                  <div className="w-full">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-sm font-medium truncate">{previewFile.name}</span>
-                      <Button variant="outline" size="sm" onClick={() => downloadFile(previewFile.url, previewFile.name)}>
-                        <Download className="h-4 w-4 mr-1" />
-                        {language === 'ar' ? 'تنزيل' : 'Download'}
-                      </Button>
-                    </div>
-                    <iframe
-                      src={/\.(docx?|xlsx?|pptx?)($|\?)/i.test(nm) ? officeSrc : gviewSrc}
-                      title={previewFile.name}
-                      className="w-full h-[78vh] rounded border"
-                    />
-                  </div>
-                );
-              }
+              // Office and other non-previewable types fall through to the download fallback below
               // Fallback: unknown type
               return (
                 <div className="w-full flex flex-col items-center justify-center gap-3 py-10">
