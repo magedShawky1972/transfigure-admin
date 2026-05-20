@@ -148,11 +148,43 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
   const send = async () => {
     if (!text.trim() || !currentUserId) return;
     setLoading(true);
+    const body = text.trim();
     const { error } = await supabase.from('task_messages').insert({
-      task_id: taskId, user_id: currentUserId, message: text.trim()
+      task_id: taskId, user_id: currentUserId, message: body
     });
     setLoading(false);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+
+    // Extract @mentions and notify each mentioned user (background, non-blocking)
+    try {
+      const tags = Array.from(new Set((body.match(/@[\p{L}0-9_.-]+/gu) || []).map(t => t.slice(1).toLowerCase())));
+      if (tags.length > 0) {
+        const mentionedUsers = users.filter(u => tags.includes(normalizeMention(getDisplayName(u))) && u.user_id !== currentUserId);
+        if (mentionedUsers.length > 0) {
+          const sender = users.find(u => u.user_id === currentUserId);
+          const senderName = sender ? getDisplayName(sender) : 'Someone';
+          // Best-effort fetch the task name for context
+          const { data: taskRow } = await supabase.from('tasks').select('title, name').eq('id', taskId).maybeSingle();
+          const taskTitle = (taskRow as any)?.title || (taskRow as any)?.name || '';
+          const preview = body.length > 140 ? body.slice(0, 140) + '…' : body;
+          const rows = mentionedUsers.map(u => ({
+            user_id: u.user_id,
+            type: 'task_update',
+            title: language === 'ar'
+              ? `${senderName} أشار إليك${taskTitle ? ` في "${taskTitle}"` : ''}`
+              : `${senderName} mentioned you${taskTitle ? ` in "${taskTitle}"` : ''}`,
+            message: preview,
+            sender_id: currentUserId,
+            sender_name: senderName,
+          }));
+          await supabase.from('notifications').insert(rows);
+        }
+      }
+    } catch (e) {
+      // Silent — mention notifications are best-effort
+      console.warn('Mention notification failed', e);
+    }
+
     setText("");
     setMentionOpen(false);
   };
