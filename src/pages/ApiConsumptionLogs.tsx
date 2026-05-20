@@ -186,15 +186,24 @@ const ApiConsumptionLogs = () => {
   const handleClearLogsByRange = async () => {
     if (!clearLogsFrom || !clearLogsTo) return;
     setClearingLogsRange(true);
+    setClearProgress(0);
+    setClearTotal(0);
     try {
       const fromIso = new Date(clearLogsFrom);
       fromIso.setHours(0, 0, 0, 0);
       const toIso = new Date(clearLogsTo);
       toIso.setHours(23, 59, 59, 999);
 
+      // Get total count first so we can show progress
+      const { count: initialCount } = await supabase
+        .from("api_consumption_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", fromIso.toISOString())
+        .lte("created_at", toIso.toISOString());
+      setClearTotal(initialCount || 0);
+
       const BATCH = 200;
       let totalDeleted = 0;
-      // Loop: fetch a batch of IDs in the range, then delete by IDs to avoid statement timeout.
       while (true) {
         const { data: idRows, error: selErr } = await supabase
           .from("api_consumption_logs")
@@ -211,6 +220,7 @@ const ApiConsumptionLogs = () => {
           .in("id", ids);
         if (delErr) throw delErr;
         totalDeleted += ids.length;
+        setClearProgress(totalDeleted);
         if (ids.length < BATCH) break;
       }
 
@@ -236,6 +246,8 @@ const ApiConsumptionLogs = () => {
       setClearingLogsRange(false);
     }
   };
+
+
 
 
   // DB-fetched order date map: order_number -> { orderDate, orderDateInt }
