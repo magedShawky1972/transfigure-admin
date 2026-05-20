@@ -1494,7 +1494,7 @@ const ProjectsTasks = () => {
           })
           .eq('id', editingTask.id);
         if (updErr) throw updErr;
-        await loadData();
+        await fetchData(true);
       }
 
       toast({ title: language === 'ar' ? 'تم الرفع بنجاح' : 'Upload successful' });
