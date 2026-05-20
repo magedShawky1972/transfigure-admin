@@ -213,6 +213,7 @@ const ProjectsTasks = () => {
   const [selectedTaskForTimeEntries, setSelectedTaskForTimeEntries] = useState<Task | null>(null);
   const [summaryProject, setSummaryProject] = useState<Project | null>(null);
   const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type?: string } | null>(null);
   const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
   const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null);
   const [inlineCreatePhase, setInlineCreatePhase] = useState<string | null>(null);
