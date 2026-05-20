@@ -1267,13 +1267,38 @@ const ApiConsumptionLogs = () => {
                 </Popover>
               </div>
             </div>
+            {clearingLogsRange && (
+              <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2 font-medium">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {language === "ar" ? "جارٍ المسح..." : "Clearing..."}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {clearProgress.toLocaleString()} / {clearTotal.toLocaleString()}
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-destructive transition-all"
+                    style={{ width: `${clearTotal > 0 ? Math.min(100, (clearProgress / clearTotal) * 100) : 0}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setClearLogsOpen(false)} disabled={clearingLogsRange}>
                 {language === "ar" ? "إلغاء" : "Cancel"}
               </Button>
               <Button variant="destructive" onClick={handleClearLogsByRange} disabled={clearingLogsRange || !clearLogsFrom || !clearLogsTo}>
                 {clearingLogsRange ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                {language === "ar" ? "مسح" : "Clear"}
+                {clearingLogsRange
+                  ? language === "ar"
+                    ? `جارٍ المسح ${clearProgress}/${clearTotal}`
+                    : `Clearing ${clearProgress}/${clearTotal}`
+                  : language === "ar"
+                  ? "مسح"
+                  : "Clear"}
               </Button>
             </div>
           </div>
