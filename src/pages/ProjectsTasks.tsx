@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -194,6 +194,13 @@ const ProjectsTasks = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [runningTimers, setRunningTimers] = useState<Record<string, number>>({});
   const [selectedDepartment, setSelectedDepartment] = useState<string>(searchParams.get('departmentId') || "");
+  // Refs to keep fetchData stable (prevents double-refetch when searchParams / selectedDepartment change)
+  const searchParamsRef = useRef(searchParams);
+  const selectedDepartmentRef = useRef(selectedDepartment);
+  const setSearchParamsRef = useRef(setSearchParams);
+  useEffect(() => { searchParamsRef.current = searchParams; }, [searchParams]);
+  useEffect(() => { selectedDepartmentRef.current = selectedDepartment; }, [selectedDepartment]);
+  useEffect(() => { setSearchParamsRef.current = setSearchParams; }, [setSearchParams]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>(searchParams.get('projectId') || "all");
   const [selectedUser, setSelectedUser] = useState<string>("all");
@@ -411,6 +418,9 @@ const ProjectsTasks = () => {
       if (!user) return;
       setCurrentUserId(user.id);
 
+      const searchParams = searchParamsRef.current;
+      const setSearchParams = setSearchParamsRef.current;
+      const selectedDepartment = selectedDepartmentRef.current;
       const forcedProjectId = searchParams.get('projectId');
 
       const [{ data: profileRow }, { data: guestRows }] = await Promise.all([
@@ -779,7 +789,7 @@ const ProjectsTasks = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [searchParams, selectedDepartment, setSearchParams]);
+  }, []);
 
   // Timer update effect
   useEffect(() => {
