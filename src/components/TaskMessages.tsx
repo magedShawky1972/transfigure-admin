@@ -195,14 +195,17 @@ export default function TaskMessages({ taskId, currentUserId, users, language = 
   };
 
   // Render message text with @mentions highlighted
-  const renderMessage = (msg: string) => {
+  const renderMessage = (msg: string, mine: boolean) => {
     const parts = msg.split(/(@[\p{L}0-9_.-]+)/gu);
     return parts.map((p, i) => {
       if (p.startsWith('@')) {
         const tag = p.slice(1).toLowerCase();
         const matched = users.some(u => normalizeMention(getDisplayName(u)) === tag);
         if (matched) {
-          return <span key={i} className="font-semibold text-primary bg-primary/10 rounded px-1">{p.replace(/_/g, ' ')}</span>;
+          const cls = mine
+            ? 'font-semibold bg-primary-foreground/25 text-primary-foreground rounded px-1'
+            : 'font-semibold bg-primary/10 text-primary rounded px-1';
+          return <span key={i} className={cls}>{p.replace(/_/g, ' ')}</span>;
         }
       }
       return <span key={i}>{p}</span>;
