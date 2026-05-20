@@ -2775,7 +2775,7 @@ const ProjectsTasks = () => {
               const url = previewFile.url.toLowerCase();
               const isPdf = ft.includes('pdf') || /\.pdf($|\?)/i.test(url) || nm.endsWith('.pdf');
               const isImg = ft.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(url) || /\.(png|jpe?g|gif|webp|svg)$/i.test(nm);
-              const isOffice = /\.(docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp)($|\?)/i.test(url) || /\.(docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp)$/i.test(nm);
+              
 
               if (isImg) {
                 return (
