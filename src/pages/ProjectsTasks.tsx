@@ -1960,21 +1960,31 @@ const ProjectsTasks = () => {
                       </div>
                       {taskForm.file_attachments.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {taskForm.file_attachments.map((file, i) => (
-                            <Badge key={i} variant="outline" className="gap-1">
-                              <FileText className="h-3 w-3" />
-                              <span className="max-w-[150px] truncate">{file.name}</span>
-                              <Eye
-                                className="h-3 w-3 cursor-pointer text-primary"
-                                onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}
-                              />
-                              <Download
-                                className="h-3 w-3 cursor-pointer text-primary"
-                                onClick={() => downloadFile(file.url, file.name || 'attachment')}
-                              />
-                              <X className="h-3 w-3 cursor-pointer" onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))} />
-                            </Badge>
-                          ))}
+                          {taskForm.file_attachments.map((file, i) => {
+                            const ft = (file.type || '').toLowerCase();
+                            const nm = (file.name || '').toLowerCase();
+                            const url = (file.url || '').toLowerCase();
+                            const isImg = ft.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(url) || /\.(png|jpe?g|gif|webp|svg)$/i.test(nm);
+                            const isPdf = ft.includes('pdf') || /\.pdf($|\?)/i.test(url) || nm.endsWith('.pdf');
+                            const canPreview = isImg || isPdf;
+                            return (
+                              <Badge key={i} variant="outline" className="gap-1">
+                                <FileText className="h-3 w-3" />
+                                <span className="max-w-[150px] truncate">{file.name}</span>
+                                {canPreview && (
+                                  <Eye
+                                    className="h-3 w-3 cursor-pointer text-primary"
+                                    onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}
+                                  />
+                                )}
+                                <Download
+                                  className="h-3 w-3 cursor-pointer text-primary"
+                                  onClick={() => downloadFile(file.url, file.name || 'attachment')}
+                                />
+                                <X className="h-3 w-3 cursor-pointer" onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))} />
+                              </Badge>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -2765,7 +2775,7 @@ const ProjectsTasks = () => {
               const url = previewFile.url.toLowerCase();
               const isPdf = ft.includes('pdf') || /\.pdf($|\?)/i.test(url) || nm.endsWith('.pdf');
               const isImg = ft.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(url) || /\.(png|jpe?g|gif|webp|svg)$/i.test(nm);
-              const isOffice = /\.(docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp)($|\?)/i.test(url) || /\.(docx?|xlsx?|pptx?|csv|txt|rtf|odt|ods|odp)$/i.test(nm);
+              
 
               if (isImg) {
                 return (
@@ -2791,26 +2801,7 @@ const ProjectsTasks = () => {
                   </div>
                 );
               }
-              if (isOffice) {
-                const officeSrc = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewFile.url)}`;
-                const gviewSrc = `https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`;
-                return (
-                  <div className="w-full">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-sm font-medium truncate">{previewFile.name}</span>
-                      <Button variant="outline" size="sm" onClick={() => downloadFile(previewFile.url, previewFile.name)}>
-                        <Download className="h-4 w-4 mr-1" />
-                        {language === 'ar' ? 'تنزيل' : 'Download'}
-                      </Button>
-                    </div>
-                    <iframe
-                      src={/\.(docx?|xlsx?|pptx?)($|\?)/i.test(nm) ? officeSrc : gviewSrc}
-                      title={previewFile.name}
-                      className="w-full h-[78vh] rounded border"
-                    />
-                  </div>
-                );
-              }
+              // Office and other non-previewable types fall through to the download fallback below
               // Fallback: unknown type
               return (
                 <div className="w-full flex flex-col items-center justify-center gap-3 py-10">
