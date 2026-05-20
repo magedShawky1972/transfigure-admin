@@ -1964,6 +1964,14 @@ const ProjectsTasks = () => {
                             <Badge key={i} variant="outline" className="gap-1">
                               <FileText className="h-3 w-3" />
                               <span className="max-w-[150px] truncate">{file.name}</span>
+                              <Eye
+                                className="h-3 w-3 cursor-pointer text-primary"
+                                onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}
+                              />
+                              <Download
+                                className="h-3 w-3 cursor-pointer text-primary"
+                                onClick={() => downloadFile(file.url, file.name || 'attachment')}
+                              />
                               <X className="h-3 w-3 cursor-pointer" onClick={() => setTaskForm(prev => ({ ...prev, file_attachments: prev.file_attachments.filter((_, idx) => idx !== i) }))} />
                             </Badge>
                           ))}
