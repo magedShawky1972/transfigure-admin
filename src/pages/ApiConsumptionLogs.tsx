@@ -180,6 +180,8 @@ const ApiConsumptionLogs = () => {
   const [clearLogsFrom, setClearLogsFrom] = useState<Date | undefined>(undefined);
   const [clearLogsTo, setClearLogsTo] = useState<Date | undefined>(undefined);
   const [clearingLogsRange, setClearingLogsRange] = useState(false);
+  const [clearProgress, setClearProgress] = useState(0);
+  const [clearTotal, setClearTotal] = useState(0);
 
   const handleClearLogsByRange = async () => {
     if (!clearLogsFrom || !clearLogsTo) return;
