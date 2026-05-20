@@ -84,7 +84,7 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
 /**
  * Detect file type from the first few bytes (magic bytes) of a blob.
  */
-async function detectFileTypeFromBlob(blob: Blob): Promise<string> {
+async function detectFileTypeFromBlob(blob: Blob, fallbackName = ""): Promise<string> {
   try {
     const slice = blob.slice(0, 8);
     const buffer = await slice.arrayBuffer();
