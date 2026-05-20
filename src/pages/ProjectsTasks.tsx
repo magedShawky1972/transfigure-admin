@@ -789,7 +789,7 @@ const ProjectsTasks = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [searchParams, selectedDepartment, setSearchParams]);
+  }, []);
 
   // Timer update effect
   useEffect(() => {
