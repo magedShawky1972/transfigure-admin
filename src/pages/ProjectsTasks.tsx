@@ -2614,7 +2614,7 @@ const ProjectsTasks = () => {
 
       {/* Attachments Dialog */}
       <Dialog open={attachmentsDialogOpen} onOpenChange={setAttachmentsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.files}</DialogTitle>
           </DialogHeader>
@@ -2626,22 +2626,58 @@ const ProjectsTasks = () => {
                   <FileText className="h-4 w-4" />
                   {language === 'ar' ? 'الملفات المرفقة' : 'Attached Files'}
                 </h4>
-                <div className="space-y-1">
-                  {selectedTaskForAttachments.file_attachments.map((file, index) => (
-                    <div 
-                      key={index}
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                      onClick={() => window.open(file.url, '_blank')}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="h-4 w-4 text-primary shrink-0" />
-                        <span className="text-sm truncate">{file.name}</span>
+                <div className="space-y-2">
+                  {selectedTaskForAttachments.file_attachments.map((file, index) => {
+                    const ft = (file.type || '').toLowerCase();
+                    const nm = (file.name || '').toLowerCase();
+                    const url = (file.url || '').toLowerCase();
+                    const isImg = ft.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(url) || /\.(png|jpe?g|gif|webp|svg)$/i.test(nm);
+                    const isPdf = ft.includes('pdf') || /\.pdf($|\?)/i.test(url) || nm.endsWith('.pdf');
+                    const canPreview = isImg || isPdf;
+                    return (
+                      <div key={index} className="rounded-lg border bg-muted/30 overflow-hidden">
+                        {isImg && (
+                          <div
+                            className="relative w-full bg-black/5 flex items-center justify-center cursor-pointer group"
+                            style={{ maxHeight: 200 }}
+                            onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}
+                          >
+                            <img src={file.url} alt={file.name} className="max-h-[200px] object-contain" />
+                          </div>
+                        )}
+                        {isPdf && (
+                          <div
+                            className="w-full cursor-pointer"
+                            onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}
+                          >
+                            <object data={file.url} type="application/pdf" className="w-full h-[200px] pointer-events-none">
+                              <iframe
+                                src={`https://docs.google.com/gview?url=${encodeURIComponent(file.url)}&embedded=true`}
+                                title={file.name}
+                                className="w-full h-[200px] pointer-events-none"
+                              />
+                            </object>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between p-2 gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {isImg ? <ImageIcon className="h-4 w-4 text-primary shrink-0" /> : <FileText className="h-4 w-4 text-primary shrink-0" />}
+                            <span className="text-sm truncate">{file.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {canPreview && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewFile({ url: file.url, name: file.name, type: file.type })}>
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadFile(file.url, file.name || 'attachment')}>
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        {language === 'ar' ? 'فتح' : 'Open'}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -2680,20 +2716,19 @@ const ProjectsTasks = () => {
                   <Video className="h-4 w-4" />
                   {t.videos}
                 </h4>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {selectedTaskForAttachments.video_attachments.map((video, index) => (
-                    <div 
-                      key={index}
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                      onClick={() => window.open(video.url, '_blank')}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Video className="h-4 w-4 text-primary shrink-0" />
-                        <span className="text-sm truncate">{video.name}</span>
+                    <div key={index} className="rounded-lg border bg-muted/30 overflow-hidden">
+                      <video src={video.url} controls className="w-full max-h-[260px] bg-black" />
+                      <div className="flex items-center justify-between p-2 gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Video className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-sm truncate">{video.name}</span>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadFile(video.url, video.name || 'video')}>
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        {language === 'ar' ? 'فتح' : 'Open'}
-                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -2711,6 +2746,43 @@ const ProjectsTasks = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Full-size file preview dialog */}
+      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-2">
+          <div className="relative w-full h-full flex items-center justify-center overflow-auto">
+            {previewFile && (() => {
+              const ft = (previewFile.type || '').toLowerCase();
+              const nm = (previewFile.name || '').toLowerCase();
+              const url = previewFile.url.toLowerCase();
+              const isPdf = ft.includes('pdf') || /\.pdf($|\?)/i.test(url) || nm.endsWith('.pdf');
+              if (isPdf) {
+                return (
+                  <div className="w-full">
+                    <object data={previewFile.url} type="application/pdf" className="w-full h-[80vh] rounded">
+                      <iframe
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`}
+                        title={previewFile.name}
+                        className="w-full h-[80vh] rounded"
+                      />
+                    </object>
+                    <div className="mt-2 flex justify-end">
+                      <Button variant="outline" size="sm" onClick={() => downloadFile(previewFile.url, previewFile.name)}>
+                        <Download className="h-4 w-4 mr-1" />
+                        {language === 'ar' ? 'تنزيل' : 'Download'}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[85vh] object-contain" />
+              );
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Excel Import Dialog */}
       <ProjectTaskExcelImport
         open={excelImportDialogOpen}
