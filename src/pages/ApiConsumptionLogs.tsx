@@ -1191,6 +1191,64 @@ const ApiConsumptionLogs = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={clearLogsOpen} onOpenChange={setClearLogsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === "ar"
+                ? "مسح سجلات استهلاك API حسب نطاق التاريخ"
+                : "Clear API Consumption Logs by Date Range"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === "ar" ? "من تاريخ" : "From Date"}
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !clearLogsFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {clearLogsFrom ? format(clearLogsFrom, "PPP") : <span>{language === "ar" ? "اختر التاريخ" : "Pick a date"}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={clearLogsFrom} onSelect={setClearLogsFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === "ar" ? "إلى تاريخ" : "To Date"}
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !clearLogsTo && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {clearLogsTo ? format(clearLogsTo, "PPP") : <span>{language === "ar" ? "اختر التاريخ" : "Pick a date"}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={clearLogsTo} onSelect={setClearLogsTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setClearLogsOpen(false)} disabled={clearingLogsRange}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button variant="destructive" onClick={handleClearLogsByRange} disabled={clearingLogsRange || !clearLogsFrom || !clearLogsTo}>
+                {clearingLogsRange ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                {language === "ar" ? "مسح" : "Clear"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
