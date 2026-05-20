@@ -1474,12 +1474,29 @@ const ProjectsTasks = () => {
         uploadedFiles.push({ url: data.url, name: file.name, type: file.type });
       }
       
+      let newFileList = taskForm.file_attachments;
+      let newVideoList = taskForm.video_attachments;
       if (type === 'file') {
-        setTaskForm(prev => ({ ...prev, file_attachments: [...prev.file_attachments, ...uploadedFiles] }));
+        newFileList = [...taskForm.file_attachments, ...uploadedFiles];
+        setTaskForm(prev => ({ ...prev, file_attachments: newFileList }));
       } else {
-        setTaskForm(prev => ({ ...prev, video_attachments: [...prev.video_attachments, ...uploadedFiles] }));
+        newVideoList = [...taskForm.video_attachments, ...uploadedFiles];
+        setTaskForm(prev => ({ ...prev, video_attachments: newVideoList }));
       }
-      
+
+      // Auto-save to DB if editing an existing task
+      if (editingTask?.id) {
+        const { error: updErr } = await supabase
+          .from('tasks')
+          .update({
+            file_attachments: newFileList as unknown as Json,
+            video_attachments: newVideoList as unknown as Json,
+          })
+          .eq('id', editingTask.id);
+        if (updErr) throw updErr;
+        await loadData();
+      }
+
       toast({ title: language === 'ar' ? 'تم الرفع بنجاح' : 'Upload successful' });
     } catch (error) {
       console.error('Upload error:', error);
