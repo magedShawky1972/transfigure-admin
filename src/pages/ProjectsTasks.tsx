@@ -194,6 +194,13 @@ const ProjectsTasks = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [runningTimers, setRunningTimers] = useState<Record<string, number>>({});
   const [selectedDepartment, setSelectedDepartment] = useState<string>(searchParams.get('departmentId') || "");
+  // Refs to keep fetchData stable (prevents double-refetch when searchParams / selectedDepartment change)
+  const searchParamsRef = useRef(searchParams);
+  const selectedDepartmentRef = useRef(selectedDepartment);
+  const setSearchParamsRef = useRef(setSearchParams);
+  useEffect(() => { searchParamsRef.current = searchParams; }, [searchParams]);
+  useEffect(() => { selectedDepartmentRef.current = selectedDepartment; }, [selectedDepartment]);
+  useEffect(() => { setSearchParamsRef.current = setSearchParams; }, [setSearchParams]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>(searchParams.get('projectId') || "all");
   const [selectedUser, setSelectedUser] = useState<string>("all");
