@@ -137,6 +137,44 @@ const ApiConsumptionLogs = () => {
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
   const [datePickerFromOpen, setDatePickerFromOpen] = useState(false);
   const [datePickerToOpen, setDatePickerToOpen] = useState(false);
+  const [clearMappingOpen, setClearMappingOpen] = useState(false);
+  const [clearMappingFrom, setClearMappingFrom] = useState<Date | undefined>(undefined);
+  const [clearMappingTo, setClearMappingTo] = useState<Date | undefined>(undefined);
+  const [clearingMapping, setClearingMapping] = useState(false);
+
+  const handleClearAggregatedMapping = async () => {
+    if (!clearMappingFrom || !clearMappingTo) return;
+    setClearingMapping(true);
+    try {
+      const fromStr = format(clearMappingFrom, "yyyy-MM-dd");
+      const toStr = format(clearMappingTo, "yyyy-MM-dd");
+      const { error, count } = await (supabase as any)
+        .from("aggregated_order_mapping")
+        .delete({ count: "exact" })
+        .gte("aggregation_date", fromStr)
+        .lte("aggregation_date", toStr);
+      if (error) throw error;
+      toast({
+        title: language === "ar" ? "تم المسح" : "Cleared",
+        description:
+          language === "ar"
+            ? `تم حذف ${count || 0} سجل من ربط الطلبات المجمعة`
+            : `Deleted ${count || 0} aggregated order mapping(s)`,
+      });
+      setClearMappingOpen(false);
+      setClearMappingFrom(undefined);
+      setClearMappingTo(undefined);
+    } catch (e: any) {
+      console.error("Error clearing aggregated_order_mapping:", e);
+      toast({
+        variant: "destructive",
+        title: language === "ar" ? "خطأ" : "Error",
+        description: e?.message || (language === "ar" ? "فشل المسح" : "Failed to clear"),
+      });
+    } finally {
+      setClearingMapping(false);
+    }
+  };
 
   // DB-fetched order date map: order_number -> { orderDate, orderDateInt }
   const [orderDateMap, setOrderDateMap] = useState<Map<string, { orderDate: string; orderDateInt: string }>>(new Map());
@@ -1035,8 +1073,73 @@ const ApiConsumptionLogs = () => {
             <Trash2 className="h-4 w-4 mr-2" />
             {language === "ar" ? "مسح السجلات" : "Clear Logs"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setClearMappingOpen(true)}
+            className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {language === "ar" ? "مسح ربط الطلبات المجمعة" : "Clear Aggregated Mapping"}
+          </Button>
         </div>
       </div>
+
+      <Dialog open={clearMappingOpen} onOpenChange={setClearMappingOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === "ar"
+                ? "مسح ربط الطلبات المجمعة حسب نطاق التاريخ"
+                : "Clear Aggregated Order Mapping by Date Range"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === "ar" ? "من تاريخ" : "From Date"}
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !clearMappingFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {clearMappingFrom ? format(clearMappingFrom, "PPP") : <span>{language === "ar" ? "اختر التاريخ" : "Pick a date"}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={clearMappingFrom} onSelect={setClearMappingFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {language === "ar" ? "إلى تاريخ" : "To Date"}
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !clearMappingTo && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {clearMappingTo ? format(clearMappingTo, "PPP") : <span>{language === "ar" ? "اختر التاريخ" : "Pick a date"}</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={clearMappingTo} onSelect={setClearMappingTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setClearMappingOpen(false)} disabled={clearingMapping}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button variant="destructive" onClick={handleClearAggregatedMapping} disabled={clearingMapping || !clearMappingFrom || !clearMappingTo}>
+                {clearingMapping ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                {language === "ar" ? "مسح" : "Clear"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
