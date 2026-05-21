@@ -119,7 +119,10 @@ interface Task {
   active_timer?: TimeEntry | null;
   dependency_task?: { title: string } | null;
   assignees?: string[];
+  is_archived?: boolean;
+  archived_at?: string | null;
 }
+
 
 interface Department {
   id: string;
