@@ -1304,6 +1304,33 @@ const ProjectsTasks = () => {
     }
   };
 
+  const handleArchiveTask = async (taskId: string, archive: boolean) => {
+    if (!canCreateOrEditTasks) return;
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          is_archived: archive,
+          archived_at: archive ? new Date().toISOString() : null,
+          archived_by: archive ? currentUserId : null,
+        } as any)
+        .eq('id', taskId)
+        .select();
+      if (error) throw error;
+      setTasks(prev => prev.map(t => t.id === taskId
+        ? { ...t, is_archived: archive, archived_at: archive ? new Date().toISOString() : null }
+        : t
+      ));
+      toast({ title: archive
+        ? (language === 'ar' ? 'تمت الأرشفة' : 'Archived')
+        : (language === 'ar' ? 'تم استعادة المهمة' : 'Task restored') });
+    } catch (error) {
+      console.error('Error archiving task:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+    }
+  };
+
+
   const handleAssignTask = async (taskId: string, userIds: string[]) => {
     if (!canReassignTasks) return;
     const finalIds = userIds.length > 0 ? userIds : [];
