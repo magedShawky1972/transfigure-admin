@@ -951,7 +951,6 @@ const SystemRestore = () => {
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
       const createSql = buildCreateTableSql(tableName);
       if (!createSql) {
-      if (!createSql) {
         errors.push(`Table ${tableName}: No column info found locally`);
         continue;
       }
