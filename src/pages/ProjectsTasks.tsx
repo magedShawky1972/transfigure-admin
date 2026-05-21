@@ -2430,10 +2430,21 @@ const ProjectsTasks = () => {
                                         {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleEditTask(task)}>
                                           <Edit className="h-3 w-3" />
                                         </Button>}
+                                        {canCreateOrEditTasks && task.status === 'done' && !task.is_archived && (
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" title={language === 'ar' ? 'أرشفة' : 'Archive'} onClick={() => handleArchiveTask(task.id, true)}>
+                                            <Archive className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                        {canCreateOrEditTasks && task.is_archived && (
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" title={language === 'ar' ? 'استعادة' : 'Restore'} onClick={() => handleArchiveTask(task.id, false)}>
+                                            <ArchiveRestore className="h-3 w-3" />
+                                          </Button>
+                                        )}
                                         {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDeleteTask(task.id)}>
                                           <Trash2 className="h-3 w-3" />
                                         </Button>}
                                       </div>
+
                                     </div>
 
                                     {task.projects?.name && (
