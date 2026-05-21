@@ -23,8 +23,9 @@ import {
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
-  GanttChart, FileSpreadsheet, BarChart3, Eye, Download, Image as ImageIcon
+  GanttChart, FileSpreadsheet, BarChart3, Eye, Download, Image as ImageIcon, Archive, ArchiveRestore
 } from "lucide-react";
+
 import { downloadFile } from "@/lib/fileDownload";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
 import { ProjectSummaryDialog } from "@/components/ProjectSummaryDialog";
@@ -118,7 +119,10 @@ interface Task {
   active_timer?: TimeEntry | null;
   dependency_task?: { title: string } | null;
   assignees?: string[];
+  is_archived?: boolean;
+  archived_at?: string | null;
 }
+
 
 interface Department {
   id: string;
@@ -228,6 +232,8 @@ const ProjectsTasks = () => {
   const [inlineTitle, setInlineTitle] = useState("");
   const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
   const [inlineSaving, setInlineSaving] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
   
   // Form states
   const [projectForm, setProjectForm] = useState({
@@ -969,7 +975,10 @@ const ProjectsTasks = () => {
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (task.department_id !== selectedDepartment) return false;
+    if (!showArchived && task.is_archived) return false;
+    if (showArchived && !task.is_archived) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+
     if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
     if (selectedUser !== 'all' && task.assigned_to !== selectedUser && !(task.assignees || []).includes(selectedUser)) return false;
     
@@ -1294,6 +1303,33 @@ const ProjectsTasks = () => {
       toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
     }
   };
+
+  const handleArchiveTask = async (taskId: string, archive: boolean) => {
+    if (!canCreateOrEditTasks) return;
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          is_archived: archive,
+          archived_at: archive ? new Date().toISOString() : null,
+          archived_by: archive ? currentUserId : null,
+        } as any)
+        .eq('id', taskId)
+        .select();
+      if (error) throw error;
+      setTasks(prev => prev.map(t => t.id === taskId
+        ? { ...t, is_archived: archive, archived_at: archive ? new Date().toISOString() : null }
+        : t
+      ));
+      toast({ title: archive
+        ? (language === 'ar' ? 'تمت الأرشفة' : 'Archived')
+        : (language === 'ar' ? 'تم استعادة المهمة' : 'Task restored') });
+    } catch (error) {
+      console.error('Error archiving task:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+    }
+  };
+
 
   const handleAssignTask = async (taskId: string, userIds: string[]) => {
     if (!canReassignTasks) return;
@@ -2180,6 +2216,21 @@ const ProjectsTasks = () => {
                 <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
               </>
             )}
+
+            {/* Archive toggle */}
+            <Button
+              variant={showArchived ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowArchived(v => !v)}
+              title={language === 'ar' ? 'الأرشيف' : 'Archive'}
+            >
+              <Archive className="h-4 w-4 mr-1" />
+              {showArchived
+                ? (language === 'ar' ? 'إخفاء الأرشيف' : 'Hide Archived')
+                : (language === 'ar' ? 'عرض الأرشيف' : 'Show Archived')}
+            </Button>
+            
+
             
             {/* User avatars - shows project members when a project is selected, otherwise department users */}
             {(() => {
@@ -2394,10 +2445,21 @@ const ProjectsTasks = () => {
                                         {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => handleEditTask(task)}>
                                           <Edit className="h-3 w-3" />
                                         </Button>}
+                                        {canCreateOrEditTasks && task.status === 'done' && !task.is_archived && (
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" title={language === 'ar' ? 'أرشفة' : 'Archive'} onClick={() => handleArchiveTask(task.id, true)}>
+                                            <Archive className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                        {canCreateOrEditTasks && task.is_archived && (
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" title={language === 'ar' ? 'استعادة' : 'Restore'} onClick={() => handleArchiveTask(task.id, false)}>
+                                            <ArchiveRestore className="h-3 w-3" />
+                                          </Button>
+                                        )}
                                         {canCreateOrEditTasks && <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDeleteTask(task.id)}>
                                           <Trash2 className="h-3 w-3" />
                                         </Button>}
                                       </div>
+
                                     </div>
 
                                     {task.projects?.name && (

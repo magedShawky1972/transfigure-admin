@@ -9459,6 +9459,8 @@ export type Database = {
       }
       tasks: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           assigned_to: string
           created_at: string
           created_by: string
@@ -9471,6 +9473,7 @@ export type Database = {
           figma_link: string | null
           file_attachments: Json | null
           id: string
+          is_archived: boolean
           is_milestone: boolean
           priority: string
           project_id: string | null
@@ -9485,6 +9488,8 @@ export type Database = {
           wireframe_data: Json | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           assigned_to: string
           created_at?: string
           created_by: string
@@ -9497,6 +9502,7 @@ export type Database = {
           figma_link?: string | null
           file_attachments?: Json | null
           id?: string
+          is_archived?: boolean
           is_milestone?: boolean
           priority?: string
           project_id?: string | null
@@ -9511,6 +9517,8 @@ export type Database = {
           wireframe_data?: Json | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           assigned_to?: string
           created_at?: string
           created_by?: string
@@ -9523,6 +9531,7 @@ export type Database = {
           figma_link?: string | null
           file_attachments?: Json | null
           id?: string
+          is_archived?: boolean
           is_milestone?: boolean
           priority?: string
           project_id?: string | null
