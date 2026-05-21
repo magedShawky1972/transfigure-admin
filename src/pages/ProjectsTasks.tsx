@@ -975,7 +975,10 @@ const ProjectsTasks = () => {
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (task.department_id !== selectedDepartment) return false;
+    if (!showArchived && task.is_archived) return false;
+    if (showArchived && !task.is_archived) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+
     if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
     if (selectedUser !== 'all' && task.assigned_to !== selectedUser && !(task.assignees || []).includes(selectedUser)) return false;
     
