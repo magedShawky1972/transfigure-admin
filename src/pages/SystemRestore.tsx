@@ -911,6 +911,11 @@ const SystemRestore = () => {
       return `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n)`;
     };
 
+    // 0a. Ensure required extensions exist (citext, pgcrypto, uuid-ossp) before any types/tables/functions
+    await callExternalProxy('exec_sql', { sql: `CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;` }).catch(() => {});
+    await callExternalProxy('exec_sql', { sql: `CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;` }).catch(() => {});
+    await callExternalProxy('exec_sql', { sql: `CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;` }).catch(() => {});
+
     // 0. Create missing types
     if (comparisonResults.missingTypes && comparisonResults.missingTypes.length > 0) {
       for (const typeInfo of comparisonResults.missingTypes) {
@@ -953,6 +958,25 @@ const SystemRestore = () => {
       await execWithCapture('Table', tableName, createSql);
       await callExternalProxy('exec_sql', { sql: `ALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY` }).catch(() => {});
       await new Promise(r => setTimeout(r, 50));
+    }
+
+    // 1b. Apply missing columns BEFORE functions/triggers so dependent SQL can reference them
+    if (comparisonResults.missingColumns && comparisonResults.missingColumns.length > 0) {
+      for (const col of comparisonResults.missingColumns) {
+        if (!(await checkControl())) break;
+        const colForMapper = {
+          udt_name: col.udtName, data_type: col.dataType,
+          character_maximum_length: col.characterMaxLength,
+          numeric_precision: col.numericPrecision, numeric_scale: col.numericScale
+        };
+        const colType = mapColumnToSqlType(colForMapper);
+        const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
+        const sql = `ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};`;
+        currentStep++;
+        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Column: ${col.tableName}.${col.columnName}` });
+        await execWithCapture('Column', `${col.tableName}.${col.columnName}`, sql);
+        await new Promise(r => setTimeout(r, 20));
+      }
     }
 
     // 2. Create missing functions (dependency-aware ordering)
@@ -1148,23 +1172,9 @@ const SystemRestore = () => {
       }
     }
 
-    // 6. Apply missing columns (ALTER TABLE ADD COLUMN)
-    if (comparisonResults.missingColumns && comparisonResults.missingColumns.length > 0) {
-      for (const col of comparisonResults.missingColumns) {
-        if (!(await checkControl())) break;
-        const colForMapper = { 
-          udt_name: col.udtName, data_type: col.dataType,
-          character_maximum_length: col.characterMaxLength,
-          numeric_precision: col.numericPrecision, numeric_scale: col.numericScale
-        };
-        const colType = mapColumnToSqlType(colForMapper);
-        const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
-        const sql = `ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};`;
-        currentStep++;
-        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Column: ${col.tableName}.${col.columnName}` });
-        await execWithCapture('Column', `${col.tableName}.${col.columnName}`, sql);
-      }
-    }
+    // 6. (Missing columns now applied earlier, before functions)
+
+
 
     // 7. Reload PostgREST schema cache
     try {
