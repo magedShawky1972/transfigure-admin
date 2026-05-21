@@ -338,7 +338,8 @@ const ProjectsTasks = () => {
       noDependency: 'بدون تبعية',
       milestone: 'علامة فارقة',
       selectDependency: 'اختر المهمة المعتمد عليها',
-      seqNumber: 'الرقم التسلسلي'
+      seqNumber: 'الرقم التسلسلي',
+      includeArchive: 'تضمين الأرشيف'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -405,7 +406,8 @@ const ProjectsTasks = () => {
       noDependency: 'No Dependency',
       milestone: 'Milestone',
       selectDependency: 'Select dependency task',
-      seqNumber: 'Seq. Number'
+      seqNumber: 'Seq. Number',
+      includeArchive: 'Include Archive'
     }
   };
 
