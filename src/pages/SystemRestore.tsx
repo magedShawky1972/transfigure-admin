@@ -951,8 +951,14 @@ const SystemRestore = () => {
       setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Table: ${tableName}` });
       const createSql = buildCreateTableSql(tableName);
       if (!createSql) {
+      if (!createSql) {
         errors.push(`Table ${tableName}: No column info found locally`);
         continue;
+      }
+      await ensureSequencesForTable(tableName);
+      await execWithCapture('Table', tableName, createSql);
+      await callExternalProxy('exec_sql', { sql: `ALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY` }).catch(() => {});
+      await new Promise(r => setTimeout(r, 50));
     }
 
     // 1b. Apply missing columns BEFORE functions/triggers so dependent SQL can reference them
@@ -972,10 +978,6 @@ const SystemRestore = () => {
         await execWithCapture('Column', `${col.tableName}.${col.columnName}`, sql);
         await new Promise(r => setTimeout(r, 20));
       }
-      await ensureSequencesForTable(tableName);
-      await execWithCapture('Table', tableName, createSql);
-      await callExternalProxy('exec_sql', { sql: `ALTER TABLE public."${tableName}" ENABLE ROW LEVEL SECURITY` }).catch(() => {});
-      await new Promise(r => setTimeout(r, 50));
     }
 
     // 2. Create missing functions (dependency-aware ordering)
