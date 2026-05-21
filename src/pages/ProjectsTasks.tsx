@@ -338,7 +338,8 @@ const ProjectsTasks = () => {
       noDependency: 'بدون تبعية',
       milestone: 'علامة فارقة',
       selectDependency: 'اختر المهمة المعتمد عليها',
-      seqNumber: 'الرقم التسلسلي'
+      seqNumber: 'الرقم التسلسلي',
+      includeArchive: 'تضمين الأرشيف'
     },
     en: {
       pageTitle: 'Projects & Tasks',
@@ -405,7 +406,8 @@ const ProjectsTasks = () => {
       noDependency: 'No Dependency',
       milestone: 'Milestone',
       selectDependency: 'Select dependency task',
-      seqNumber: 'Seq. Number'
+      seqNumber: 'Seq. Number',
+      includeArchive: 'Include Archive'
     }
   };
 
@@ -976,7 +978,6 @@ const ProjectsTasks = () => {
   const filteredTasks = tasks.filter(task => {
     if (task.department_id !== selectedDepartment) return false;
     if (!showArchived && task.is_archived) return false;
-    if (showArchived && !task.is_archived) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
     if (selectedProject !== 'all' && task.project_id !== selectedProject) return false;
@@ -2217,18 +2218,17 @@ const ProjectsTasks = () => {
               </>
             )}
 
-            {/* Archive toggle */}
-            <Button
-              variant={showArchived ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowArchived(v => !v)}
-              title={language === 'ar' ? 'الأرشيف' : 'Archive'}
-            >
-              <Archive className="h-4 w-4 mr-1" />
-              {showArchived
-                ? (language === 'ar' ? 'إخفاء الأرشيف' : 'Hide Archived')
-                : (language === 'ar' ? 'عرض الأرشيف' : 'Show Archived')}
-            </Button>
+            {/* Include archive checkbox */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="include-archive"
+                checked={showArchived}
+                onCheckedChange={(c) => setShowArchived(!!c)}
+              />
+              <label htmlFor="include-archive" className="text-sm cursor-pointer">
+                {t.includeArchive}
+              </label>
+            </div>
             
 
             
