@@ -911,6 +911,11 @@ const SystemRestore = () => {
       return `CREATE TABLE IF NOT EXISTS public."${tableName}" (\n  ${colDefs}${pkClause}\n)`;
     };
 
+    // 0a. Ensure required extensions exist (citext, pgcrypto, uuid-ossp) before any types/tables/functions
+    await callExternalProxy('exec_sql', { sql: `CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;` }).catch(() => {});
+    await callExternalProxy('exec_sql', { sql: `CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;` }).catch(() => {});
+    await callExternalProxy('exec_sql', { sql: `CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;` }).catch(() => {});
+
     // 0. Create missing types
     if (comparisonResults.missingTypes && comparisonResults.missingTypes.length > 0) {
       for (const typeInfo of comparisonResults.missingTypes) {
