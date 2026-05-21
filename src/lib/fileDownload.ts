@@ -23,23 +23,23 @@ export const downloadFile = async (url: string, fallbackName = "download") => {
     const contentType = blob.type || response.headers.get("content-type") || "";
     const baseMime = contentType.split(";")[0].trim().toLowerCase();
 
-    // Try to get filename from Content-Disposition header
-    const disposition = response.headers.get("content-disposition");
-    let filename = "";
-    if (disposition) {
-      const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
-      if (match?.[2]) filename = decodeURIComponent(match[2]);
-    }
-
-    const sanitizedFallbackName = getSafeFilename(fallbackName) || "download";
+    const sanitizedFallbackName = getSafeFilename(fallbackName) || "";
     const fallbackExt = getExtensionFromName(sanitizedFallbackName);
 
-    // If no filename from header, use fallbackName
+    // Prefer the caller-provided fallbackName (original filename) over whatever
+    // the storage provider returns in Content-Disposition (often a random hash).
+    let filename = sanitizedFallbackName;
+
     if (!filename) {
-      filename = sanitizedFallbackName;
+      const disposition = response.headers.get("content-disposition");
+      if (disposition) {
+        const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
+        if (match?.[2]) filename = decodeURIComponent(match[2]);
+      }
     }
 
-    filename = getSafeFilename(filename) || sanitizedFallbackName;
+    filename = getSafeFilename(filename) || "download";
+
 
     // Always prefer the original fallback name's extension when available
     // so any file (docx, xlsx, txt, csv, etc.) keeps its real extension.
