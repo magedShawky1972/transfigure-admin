@@ -953,6 +953,24 @@ const SystemRestore = () => {
       if (!createSql) {
         errors.push(`Table ${tableName}: No column info found locally`);
         continue;
+    }
+
+    // 1b. Apply missing columns BEFORE functions/triggers so dependent SQL can reference them
+    if (comparisonResults.missingColumns && comparisonResults.missingColumns.length > 0) {
+      for (const col of comparisonResults.missingColumns) {
+        if (!(await checkControl())) break;
+        const colForMapper = {
+          udt_name: col.udtName, data_type: col.dataType,
+          character_maximum_length: col.characterMaxLength,
+          numeric_precision: col.numericPrecision, numeric_scale: col.numericScale
+        };
+        const colType = mapColumnToSqlType(colForMapper);
+        const defaultVal = col.columnDefault ? ` DEFAULT ${col.columnDefault}` : '';
+        const sql = `ALTER TABLE public."${col.tableName}" ADD COLUMN IF NOT EXISTS "${col.columnName}" ${colType}${defaultVal};`;
+        currentStep++;
+        setMigrationSyncProgress({ current: currentStep, total: totalSteps, currentFile: `Column: ${col.tableName}.${col.columnName}` });
+        await execWithCapture('Column', `${col.tableName}.${col.columnName}`, sql);
+        await new Promise(r => setTimeout(r, 20));
       }
       await ensureSequencesForTable(tableName);
       await execWithCapture('Table', tableName, createSql);
