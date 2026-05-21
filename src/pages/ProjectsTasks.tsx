@@ -232,6 +232,8 @@ const ProjectsTasks = () => {
   const [inlineTitle, setInlineTitle] = useState("");
   const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
   const [inlineSaving, setInlineSaving] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
   
   // Form states
   const [projectForm, setProjectForm] = useState({
