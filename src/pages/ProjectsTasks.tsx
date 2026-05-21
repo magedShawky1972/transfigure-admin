@@ -2216,6 +2216,21 @@ const ProjectsTasks = () => {
                 <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
               </>
             )}
+
+            {/* Archive toggle */}
+            <Button
+              variant={showArchived ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowArchived(v => !v)}
+              title={language === 'ar' ? 'الأرشيف' : 'Archive'}
+            >
+              <Archive className="h-4 w-4 mr-1" />
+              {showArchived
+                ? (language === 'ar' ? 'إخفاء الأرشيف' : 'Hide Archived')
+                : (language === 'ar' ? 'عرض الأرشيف' : 'Show Archived')}
+            </Button>
+            
+
             
             {/* User avatars - shows project members when a project is selected, otherwise department users */}
             {(() => {
