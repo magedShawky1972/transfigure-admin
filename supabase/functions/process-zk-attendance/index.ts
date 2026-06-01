@@ -462,6 +462,38 @@ Deno.serve(async (req) => {
       // For evening processing, we update with out_time
       if (processType === 'morning' && !inTime) continue;
 
+      // If today is a Company WFH day and the employee has no ZK check-in,
+      // record as WFH instead of Absent (employees check in via the WFH system, not ZK)
+      if (isCompanyWfhDay && !inTime) {
+        const scheduledStartWfh = attendanceType?.fixed_start_time || null;
+        const scheduledEndWfh = attendanceType?.fixed_end_time || null;
+        const wfhTimesheetRecord = {
+          employee_id: employee.id,
+          work_date: targetDate,
+          scheduled_start: scheduledStartWfh,
+          scheduled_end: scheduledEndWfh,
+          actual_start: null,
+          actual_end: null,
+          break_duration_minutes: 0,
+          status: 'wfh',
+          is_absent: false,
+          absence_reason: null,
+          late_minutes: 0,
+          early_leave_minutes: 0,
+          overtime_minutes: 0,
+          total_work_minutes: 0,
+          deduction_amount: 0,
+          overtime_amount: 0,
+          notes: `Company WFH Day - ${wfhDayLabel}`,
+        };
+        const { error: wfhErr } = await supabase
+          .from('timesheets')
+          .upsert(wfhTimesheetRecord, { onConflict: 'employee_id,work_date' });
+        if (wfhErr) console.error(`Error upserting WFH timesheet for ${employee.id}:`, wfhErr);
+        continue;
+      }
+
+
       // Calculate late minutes
       let lateMinutes = 0;
       let earlyExitMinutes = 0;
