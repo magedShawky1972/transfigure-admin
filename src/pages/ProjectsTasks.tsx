@@ -2170,7 +2170,7 @@ const ProjectsTasks = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.allProjects}</SelectItem>
-                {projects.filter(p => p.department_id === selectedDepartment).map(p => (
+                {projects.filter(p => projectInDept(p, selectedDepartment)).map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
