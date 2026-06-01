@@ -233,6 +233,7 @@ const ProjectsTasks = () => {
   const [inlineTitle, setInlineTitle] = useState("");
   const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
   const [inlineSaving, setInlineSaving] = useState(false);
+  const [kanbanGroupBy, setKanbanGroupBy] = useState<'phase' | 'department' | 'employee'>('phase');
   const [showArchived, setShowArchived] = useState(false);
 
 
