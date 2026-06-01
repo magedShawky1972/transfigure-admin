@@ -1116,6 +1116,67 @@ const ProjectsTasks = () => {
     }
   }, [selectedProject, projects, tasks, selectedDepartment, accessibleDepartments, selectedUser]);
 
+  // Kanban columns based on groupBy mode
+  type KanbanColumn = {
+    id: string;
+    key: string;
+    name: string;
+    color: string;
+    matches: (task: Task) => boolean;
+  };
+  const kanbanColumns: KanbanColumn[] = (() => {
+    if (kanbanGroupBy === 'department' && selectedProject !== 'all') {
+      const project = projects.find(p => p.id === selectedProject);
+      const deptIds = project ? getProjectRelevantDepartmentIds(project) : [];
+      return deptIds
+        .map((did) => {
+          const dep = departments.find(d => d.id === did);
+          if (!dep && !did) return null;
+          return {
+            id: `dept:${did}`,
+            key: did,
+            name: dep ? (language === 'ar' ? (dep.name_ar || dep.name) : dep.name) : did,
+            color: '#6366F1',
+            matches: (task: Task) => task.department_id === did,
+          } as KanbanColumn;
+        })
+        .filter(Boolean) as KanbanColumn[];
+    }
+    if (kanbanGroupBy === 'employee') {
+      let userList: any[] = [];
+      if (selectedProject !== 'all') {
+        const project = projects.find(p => p.id === selectedProject);
+        const memberIds = new Set((project?.members || []).map((m: any) => m.user_id));
+        userList = assigneeSourceUsers.filter(u => memberIds.has(u.user_id));
+      } else {
+        userList = departmentUsers;
+      }
+      const cols: KanbanColumn[] = userList.map(u => ({
+        id: `user:${u.user_id}`,
+        key: u.user_id,
+        name: u.user_name,
+        color: '#10B981',
+        matches: (task: Task) => task.assigned_to === u.user_id || (task.assignees || []).includes(u.user_id),
+      }));
+      cols.push({
+        id: 'user:unassigned',
+        key: 'unassigned',
+        name: t.unassigned,
+        color: '#9CA3AF',
+        matches: (task: Task) => !task.assigned_to && !(task.assignees && task.assignees.length > 0),
+      });
+      return cols;
+    }
+    // default: by phase
+    return activePhases.map((phase: any) => ({
+      id: phase.phase_key,
+      key: phase.phase_key,
+      name: language === 'ar' ? (phase.phase_name_ar || phase.phase_name) : phase.phase_name,
+      color: phase.phase_color,
+      matches: (task: Task) => task.status === phase.phase_key,
+    }));
+  })();
+
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (selectedDepartment !== 'all' && task.department_id !== selectedDepartment) return false;
