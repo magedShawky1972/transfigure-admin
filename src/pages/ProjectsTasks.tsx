@@ -3213,6 +3213,18 @@ const ProjectsTasks = () => {
                           {language === 'ar' ? 'إضافة مهمة' : 'Add task'}
                         </Button>
                       ) : null}
+                      {hasMore && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs h-8 mt-2"
+                          onClick={() => setColumnLimits(prev => ({ ...prev, [column.key]: (prev[column.key] ?? DEFAULT_COLUMN_LIMIT) + 25 }))}
+                        >
+                          {language === 'ar'
+                            ? `تحميل المزيد (${allPhaseTasks.length - phaseTasks.length} متبقية)`
+                            : `Load more (${allPhaseTasks.length - phaseTasks.length} remaining)`}
+                        </Button>
+                      )}
                     </div>
                   </DroppableColumn>
                 );
