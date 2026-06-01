@@ -2824,29 +2824,32 @@ const ProjectsTasks = () => {
           <ScrollArea className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="flex gap-4 pb-4" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minWidth: kanbanColumns.length * 320 }}>
 
-              {activePhases.map((phase) => {
-                const phaseSearch = phaseSearchTerms[phase.phase_key] || '';
+              {kanbanColumns.map((column) => {
+                const phaseSearch = phaseSearchTerms[column.key] || '';
                 const phaseTasks = filteredTasks.filter(t => {
-                  if (t.status !== phase.phase_key) return false;
+                  if (!column.matches(t)) return false;
                   if (phaseSearch && !t.title.toLowerCase().includes(phaseSearch.toLowerCase()) && 
                       !(t.profiles?.user_name || '').toLowerCase().includes(phaseSearch.toLowerCase()) &&
                       !(t.projects?.name || '').toLowerCase().includes(phaseSearch.toLowerCase())) return false;
                   return true;
                 });
+                const defaultStatusForColumn = kanbanGroupBy === 'phase' ? column.key : (activePhases[0]?.phase_key || 'todo');
+                const defaultDeptForColumn = kanbanGroupBy === 'department' ? column.key : effectiveDeptId;
+                const defaultAssigneesForColumn = kanbanGroupBy === 'employee' && column.key !== 'unassigned' ? [column.key] : [];
                 return (
                   <DroppableColumn 
-                    key={phase.phase_key} 
-                    id={phase.phase_key}
+                    key={column.id} 
+                    id={column.id}
                     className="w-[300px] shrink-0 rounded-xl bg-muted/30 p-3 transition-colors"
                   >
                     {/* Column Header */}
                     <div className="flex items-center gap-2 mb-2 px-1">
                       <div 
                         className="w-3 h-3 rounded-full shrink-0" 
-                        style={{ backgroundColor: phase.phase_color }}
+                        style={{ backgroundColor: column.color }}
                       />
                       <span className="font-medium text-sm">
-                        {language === 'ar' ? phase.phase_name_ar || phase.phase_name : phase.phase_name}
+                        {column.name}
                       </span>
                       <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                         {phaseTasks.length}
@@ -2858,7 +2861,13 @@ const ProjectsTasks = () => {
                         title={t.addTask}
                         onClick={() => {
                           resetTaskForm();
-                          setTaskForm(prev => ({ ...prev, status: phase.phase_key, department_id: effectiveDeptId, project_id: selectedProject !== 'all' ? selectedProject : prev.project_id }));
+                          setTaskForm(prev => ({
+                            ...prev,
+                            status: defaultStatusForColumn,
+                            department_id: defaultDeptForColumn,
+                            project_id: selectedProject !== 'all' ? selectedProject : prev.project_id,
+                            assigned_to: defaultAssigneesForColumn.length ? defaultAssigneesForColumn : prev.assigned_to,
+                          }));
                           setTaskDialogOpen(true);
                         }}
                       >
