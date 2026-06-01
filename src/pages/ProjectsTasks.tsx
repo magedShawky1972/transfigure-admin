@@ -2847,7 +2847,7 @@ const ProjectsTasks = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="p-4">
+      <div className="p-4 relative" ref={kanbanWrapperRef}>
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <ScrollArea className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="flex gap-4 pb-4" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minWidth: kanbanColumns.length * 320 }}>
