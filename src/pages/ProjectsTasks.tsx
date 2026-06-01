@@ -2601,15 +2601,6 @@ const ProjectsTasks = () => {
                 const project = projects.find((p) => p.id === value);
                 if (!project) return;
 
-                const projectDepartmentIds = getProjectRelevantDepartmentIds(project);
-                const nextDepartment = projectDepartmentIds.find((deptId) =>
-                  accessibleDepartments.some((department) => department.id === deptId)
-                ) || projectDepartmentIds[0];
-
-                if (nextDepartment && nextDepartment !== selectedDepartment && selectedDepartment !== 'all') {
-                  setSelectedDepartment(nextDepartment);
-                }
-
                 if (selectedUser !== 'all') {
                   const projectMemberIds = new Set((project.members || []).map((member) => member.user_id));
                   if (!projectMemberIds.has(selectedUser)) {
