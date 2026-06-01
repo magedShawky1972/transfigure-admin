@@ -1179,7 +1179,17 @@ const ProjectsTasks = () => {
 
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
-    if (selectedDepartment !== 'all' && task.department_id !== selectedDepartment) return false;
+    if (selectedDepartment !== 'all') {
+      // Match if task's department matches OR any assignee belongs to the selected department
+      const taskAssigneeIds = [task.assigned_to, ...(task.assignees || [])].filter(Boolean) as string[];
+      const assigneeInDept = taskAssigneeIds.some(uid => {
+        const u = users.find(x => x.user_id === uid);
+        if (!u) return false;
+        return u.default_department_id === selectedDepartment
+          || (u.departmentMemberships || []).includes(selectedDepartment);
+      });
+      if (task.department_id !== selectedDepartment && !assigneeInDept) return false;
+    }
     if (!showArchived && task.is_archived) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
