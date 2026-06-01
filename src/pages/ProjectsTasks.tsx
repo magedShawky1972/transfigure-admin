@@ -2860,10 +2860,37 @@ const ProjectsTasks = () => {
       {/* Kanban Board */}
       <div className="p-4 relative" ref={kanbanWrapperRef}>
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          {selectedDepartment === 'all' && selectedProject === 'all' && !forceLoadAll ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-xl bg-muted/20">
+              <FolderKanban className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {language === 'ar' ? 'اختر قسماً أو مشروعاً' : 'Select a Department or Project'}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                {language === 'ar'
+                  ? 'لتحسين الأداء، يتم تحميل المهام فقط عند اختيار قسم أو مشروع محدد.'
+                  : 'For better performance, tasks are loaded only when you pick a specific department or project.'}
+              </p>
+              <Button variant="outline" size="sm" onClick={() => setForceLoadAll(true)}>
+                {language === 'ar' ? 'عرض كل المهام على أي حال' : 'Load all tasks anyway'}
+              </Button>
+            </div>
+          ) : (
           <ScrollArea className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="flex gap-4 pb-4" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minWidth: kanbanColumns.length * 320 }}>
 
               {kanbanColumns.map((column) => {
+                const phaseSearch = phaseSearchTerms[column.key] || '';
+                const allPhaseTasks = filteredTasks.filter(t => {
+                  if (!column.matches(t)) return false;
+                  if (phaseSearch && !t.title.toLowerCase().includes(phaseSearch.toLowerCase()) && 
+                      !(t.profiles?.user_name || '').toLowerCase().includes(phaseSearch.toLowerCase()) &&
+                      !(t.projects?.name || '').toLowerCase().includes(phaseSearch.toLowerCase())) return false;
+                  return true;
+                });
+                const limit = columnLimits[column.key] ?? DEFAULT_COLUMN_LIMIT;
+                const phaseTasks = allPhaseTasks.slice(0, limit);
+                const hasMore = allPhaseTasks.length > phaseTasks.length;
                 const phaseSearch = phaseSearchTerms[column.key] || '';
                 const phaseTasks = filteredTasks.filter(t => {
                   if (!column.matches(t)) return false;
