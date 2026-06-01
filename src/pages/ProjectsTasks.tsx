@@ -952,10 +952,14 @@ const ProjectsTasks = () => {
 
   // Check if user is admin of selected department or project manager
   const isAdminOfSelectedDepartment = userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
+
+  // Helper: does a project belong to the given department (primary or linked)
+  const projectInDept = (p: Project, deptId: string) =>
+    (p.department_ids && p.department_ids.length > 0 ? p.department_ids : [p.department_id]).includes(deptId);
   
   // Check if user is a project manager for any project in this department
   const isProjectManagerInDepartment = projects.some(p => 
-    p.department_id === selectedDepartment && 
+    projectInDept(p, selectedDepartment) && 
     p.members?.some(m => m.user_id === currentUserId && m.role === 'manager')
   );
   
