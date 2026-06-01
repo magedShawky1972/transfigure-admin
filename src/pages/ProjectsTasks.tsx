@@ -24,7 +24,7 @@ import {
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
   GanttChart, FileSpreadsheet, BarChart3, Eye, Download, Image as ImageIcon, Archive, ArchiveRestore,
-  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Bell, AlertTriangle
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Bell, AlertTriangle, Share2, Copy, Send
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
