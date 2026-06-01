@@ -1854,7 +1854,12 @@ const ProjectsTasks = () => {
                           <SelectTrigger><SelectValue placeholder={t.selectProject} /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">{t.noProject}</SelectItem>
-                            {projects.filter(p => (selectedProject === 'all' || p.id === selectedProject) && (!taskForm.department_id || p.department_id === taskForm.department_id)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            {projects.filter(p => {
+                              if (selectedProject !== 'all' && p.id !== selectedProject) return false;
+                              if (!taskForm.department_id) return true;
+                              const deptIds = (p as any).department_ids || [p.department_id];
+                              return deptIds.includes(taskForm.department_id);
+                            }).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
