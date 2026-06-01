@@ -2891,14 +2891,6 @@ const ProjectsTasks = () => {
                 const limit = columnLimits[column.key] ?? DEFAULT_COLUMN_LIMIT;
                 const phaseTasks = allPhaseTasks.slice(0, limit);
                 const hasMore = allPhaseTasks.length > phaseTasks.length;
-                const phaseSearch = phaseSearchTerms[column.key] || '';
-                const phaseTasks = filteredTasks.filter(t => {
-                  if (!column.matches(t)) return false;
-                  if (phaseSearch && !t.title.toLowerCase().includes(phaseSearch.toLowerCase()) && 
-                      !(t.profiles?.user_name || '').toLowerCase().includes(phaseSearch.toLowerCase()) &&
-                      !(t.projects?.name || '').toLowerCase().includes(phaseSearch.toLowerCase())) return false;
-                  return true;
-                });
                 const defaultStatusForColumn = kanbanGroupBy === 'phase' ? column.key : (activePhases[0]?.phase_key || 'todo');
                 const defaultDeptForColumn = kanbanGroupBy === 'department' ? column.key : effectiveDeptId;
                 const defaultAssigneesForColumn = kanbanGroupBy === 'employee' && column.key !== 'unassigned' ? [column.key] : [];
