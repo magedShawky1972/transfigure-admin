@@ -59,6 +59,7 @@ interface Project {
   created_at: string;
   departments?: { department_name: string };
   members?: ProjectMember[];
+  department_ids?: string[];
 }
 
 interface FileAttachment {
@@ -578,7 +579,7 @@ const ProjectsTasks = () => {
         return { data: all, error: null };
       };
 
-      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes, employeesRes] = await Promise.all([
+      const [projectsRes, tasksRes, usersRes, timeEntriesRes, phasesRes, jobPositionsRes, projectMembersRes, allDeptMembersRes, taskAssigneesRes, employeesRes, projectDepartmentsRes] = await Promise.all([
         supabase.from('projects').select('*, departments(department_name)').order('created_at', { ascending: false }),
         fetchAllTasks(),
         supabase.from('profiles').select('user_id, user_name, default_department_id, avatar_url, job_position_id').eq('is_active', true),
@@ -588,8 +589,16 @@ const ProjectsTasks = () => {
         supabase.from('project_members').select('*'),
         supabase.from('department_members').select('user_id, department_id'),
         fetchAllTaskAssignees(),
-        supabase.from('employees').select('user_id, first_name, last_name, photo_url, employment_status').eq('employment_status', 'active' as any)
+        supabase.from('employees').select('user_id, first_name, last_name, photo_url, employment_status').eq('employment_status', 'active' as any),
+        supabase.from('project_departments').select('project_id, department_id')
       ]);
+
+      // Build map of project_id -> department_ids[]
+      const projectDeptMap = new Map<string, string[]>();
+      ((projectDepartmentsRes.data || []) as { project_id: string; department_id: string }[]).forEach(pd => {
+        if (!projectDeptMap.has(pd.project_id)) projectDeptMap.set(pd.project_id, []);
+        projectDeptMap.get(pd.project_id)!.push(pd.department_id);
+      });
 
       // Build map of taskId -> assignee user_ids
       const assigneesMap = new Map<string, string[]>();
@@ -648,18 +657,20 @@ const ProjectsTasks = () => {
         const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
         const baseProjects = isAdmin 
           ? projectsRes.data 
-          : projectsRes.data.filter(p => 
-              accessibleDeptIds.includes(p.department_id) || 
-              projectMemberProjectIds.includes(p.id)
-            );
+          : projectsRes.data.filter(p => {
+              const deptIds = projectDeptMap.get(p.id) || [p.department_id];
+              return deptIds.some(d => accessibleDeptIds.includes(d)) || 
+                projectMemberProjectIds.includes(p.id);
+            });
         const filteredProjects = externalGuest && activeGuest?.project_id
           ? baseProjects.filter(p => p.id === activeGuest.project_id)
           : baseProjects;
         
-        // Attach members to projects
+        // Attach members + department_ids to projects
         const projectsWithMembers = filteredProjects.map(p => ({
           ...p,
-          members: projectMembers.filter(pm => pm.project_id === p.id)
+          members: projectMembers.filter(pm => pm.project_id === p.id),
+          department_ids: projectDeptMap.get(p.id) || [p.department_id],
         }));
         
         setProjects(projectsWithMembers);
@@ -941,10 +952,14 @@ const ProjectsTasks = () => {
 
   // Check if user is admin of selected department or project manager
   const isAdminOfSelectedDepartment = userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
+
+  // Helper: does a project belong to the given department (primary or linked)
+  const projectInDept = (p: Project, deptId: string) =>
+    (p.department_ids && p.department_ids.length > 0 ? p.department_ids : [p.department_id]).includes(deptId);
   
   // Check if user is a project manager for any project in this department
   const isProjectManagerInDepartment = projects.some(p => 
-    p.department_id === selectedDepartment && 
+    projectInDept(p, selectedDepartment) && 
     p.members?.some(m => m.user_id === currentUserId && m.role === 'manager')
   );
   
@@ -2155,7 +2170,7 @@ const ProjectsTasks = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.allProjects}</SelectItem>
-                {projects.filter(p => p.department_id === selectedDepartment).map(p => (
+                {projects.filter(p => projectInDept(p, selectedDepartment)).map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -2314,11 +2329,11 @@ const ProjectsTasks = () => {
             })()}
 
             {/* Projects List */}
-            {projects.filter(p => p.department_id === selectedDepartment && (selectedProject === 'all' || p.id === selectedProject)).length > 0 && (
+            {projects.filter(p => projectInDept(p, selectedDepartment) && (selectedProject === 'all' || p.id === selectedProject)).length > 0 && (
               <div className="flex items-center gap-2 mt-3">
                 <span className="text-sm text-muted-foreground">{t.projects}:</span>
                 <div className="flex flex-wrap gap-2">
-                  {projects.filter(p => p.department_id === selectedDepartment && (selectedProject === 'all' || p.id === selectedProject)).map(project => (
+                  {projects.filter(p => projectInDept(p, selectedDepartment) && (selectedProject === 'all' || p.id === selectedProject)).map(project => (
                     <div key={project.id} className="inline-flex items-center gap-1">
                       <Badge
                         variant="outline"
@@ -2936,7 +2951,7 @@ const ProjectsTasks = () => {
         language={language}
         departments={accessibleDepartments}
         users={users}
-        projects={projects.filter(p => p.department_id === selectedDepartment)}
+        projects={projects.filter(p => projectInDept(p, selectedDepartment))}
         selectedDepartment={selectedDepartment}
         currentUserId={currentUserId || ""}
         onImportComplete={fetchData}
