@@ -1096,18 +1096,6 @@ const ProjectsTasks = () => {
     const project = projects.find((p) => p.id === selectedProject);
     if (!project) return;
 
-    const projectDepartmentIds = getProjectRelevantDepartmentIds(project);
-
-    if (!projectDepartmentIds.includes(selectedDepartment)) {
-      const nextDepartment = projectDepartmentIds.find((deptId) =>
-        accessibleDepartments.some((department) => department.id === deptId)
-      ) || projectDepartmentIds[0];
-
-      if (nextDepartment && nextDepartment !== selectedDepartment) {
-        setSelectedDepartment(nextDepartment);
-      }
-    }
-
     if (selectedUser !== 'all') {
       const projectMemberIds = new Set((project.members || []).map((member) => member.user_id));
       if (!projectMemberIds.has(selectedUser)) {
@@ -1179,8 +1167,7 @@ const ProjectsTasks = () => {
 
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
-    // When a specific project is selected, show ALL tasks for that project (skip department filter)
-    if (selectedDepartment !== 'all' && selectedProject === 'all') {
+    if (selectedDepartment !== 'all') {
       const taskAssigneeIds = [task.assigned_to, ...(task.assignees || [])].filter(Boolean) as string[];
       const assigneeInDept = taskAssigneeIds.some(uid => {
         const u = users.find(x => x.user_id === uid);
@@ -1188,7 +1175,10 @@ const ProjectsTasks = () => {
         return u.default_department_id === selectedDepartment
           || (u.departmentMemberships || []).includes(selectedDepartment);
       });
-      if (task.department_id !== selectedDepartment && !assigneeInDept) return false;
+
+      const taskMatchesDepartment = task.department_id === selectedDepartment || assigneeInDept;
+
+      if (!taskMatchesDepartment) return false;
     }
     if (!showArchived && task.is_archived) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -2610,15 +2600,6 @@ const ProjectsTasks = () => {
 
                 const project = projects.find((p) => p.id === value);
                 if (!project) return;
-
-                const projectDepartmentIds = getProjectRelevantDepartmentIds(project);
-                const nextDepartment = projectDepartmentIds.find((deptId) =>
-                  accessibleDepartments.some((department) => department.id === deptId)
-                ) || projectDepartmentIds[0];
-
-                if (nextDepartment && nextDepartment !== selectedDepartment && selectedDepartment !== 'all') {
-                  setSelectedDepartment(nextDepartment);
-                }
 
                 if (selectedUser !== 'all') {
                   const projectMemberIds = new Set((project.members || []).map((member) => member.user_id));
