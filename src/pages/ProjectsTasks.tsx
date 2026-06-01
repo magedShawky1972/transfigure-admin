@@ -1245,37 +1245,68 @@ const ProjectsTasks = () => {
     if (!over) return;
 
     const taskId = active.id as string;
-    const newStatus = over.id as string;
+    const overId = over.id as string;
     const task = tasks.find(t => t.id === taskId);
-    
-    if (task && task.status !== newStatus) {
-      try {
-        await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
-        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-        toast({ title: language === 'ar' ? 'تم تحديث الحالة' : 'Status updated' });
+    if (!task) return;
 
-        // If task is marked as done, notify department admins
-        if (newStatus === 'done') {
-          const currentUser = users.find(u => u.user_id === currentUserId);
-          try {
-            await supabase.functions.invoke('send-task-notification', {
-              body: {
-                type: 'task_completed',
-                taskId: task.id,
-                taskTitle: task.title,
-                departmentId: task.department_id,
-                completedByUserId: currentUserId,
-                completedByUserName: currentUser?.user_name || 'Unknown'
-              }
-            });
-          } catch (notifyError) {
-            console.error('Error sending task completion notification:', notifyError);
-          }
-        }
-      } catch (error) {
-        console.error('Error updating task status:', error);
-        toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+    try {
+      // Group by Department: dropping moves task to that department
+      if (overId.startsWith('dept:')) {
+        const newDeptId = overId.slice('dept:'.length);
+        if (task.department_id === newDeptId) return;
+        await supabase.from('tasks').update({ department_id: newDeptId }).eq('id', taskId);
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, department_id: newDeptId } : t));
+        toast({ title: language === 'ar' ? 'تم تحديث القسم' : 'Department updated' });
+        return;
       }
+
+      // Group by Employee: dropping reassigns task to that user (or unassigns)
+      if (overId.startsWith('user:')) {
+        const newUserId = overId.slice('user:'.length);
+        if (newUserId === 'unassigned') {
+          await supabase.from('task_assignees').delete().eq('task_id', taskId);
+          await supabase.from('tasks').update({ assigned_to: null }).eq('id', taskId);
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigned_to: '', assignees: [] } : t));
+          toast({ title: language === 'ar' ? 'تم إلغاء التعيين' : 'Unassigned' });
+          return;
+        }
+        if (task.assigned_to === newUserId && (task.assignees || []).length <= 1) return;
+        await supabase.from('task_assignees').delete().eq('task_id', taskId);
+        await supabase.from('task_assignees').insert([{ task_id: taskId, user_id: newUserId }]);
+        await supabase.from('tasks').update({ assigned_to: newUserId }).eq('id', taskId);
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigned_to: newUserId, assignees: [newUserId] } : t));
+        toast({ title: language === 'ar' ? 'تم تحديث المعين' : 'Assignee updated' });
+        return;
+      }
+
+      // Default: phase grouping → update status
+      const newStatus = overId;
+      if (task.status === newStatus) return;
+      await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      toast({ title: language === 'ar' ? 'تم تحديث الحالة' : 'Status updated' });
+
+      // If task is marked as done, notify department admins
+      if (newStatus === 'done') {
+        const currentUser = users.find(u => u.user_id === currentUserId);
+        try {
+          await supabase.functions.invoke('send-task-notification', {
+            body: {
+              type: 'task_completed',
+              taskId: task.id,
+              taskTitle: task.title,
+              departmentId: task.department_id,
+              completedByUserId: currentUserId,
+              completedByUserName: currentUser?.user_name || 'Unknown'
+            }
+          });
+        } catch (notifyError) {
+          console.error('Error sending task completion notification:', notifyError);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating task on drag:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
     }
   };
 
