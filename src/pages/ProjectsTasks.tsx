@@ -233,6 +233,7 @@ const ProjectsTasks = () => {
   const [inlineTitle, setInlineTitle] = useState("");
   const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
   const [inlineSaving, setInlineSaving] = useState(false);
+  const [kanbanGroupBy, setKanbanGroupBy] = useState<'phase' | 'department' | 'employee'>('phase');
   const [showArchived, setShowArchived] = useState(false);
 
 
@@ -357,6 +358,11 @@ const ProjectsTasks = () => {
       allProjects: 'كل المشاريع',
       allUsers: 'كل المستخدمين',
       allDepartments: 'كل الأقسام',
+      groupBy: 'تجميع حسب',
+      groupByPhase: 'المرحلة',
+      groupByDepartment: 'القسم',
+      groupByEmployee: 'الموظف',
+      unassigned: 'غير معين',
       filterByProject: 'تصفية حسب المشروع',
       filterByUser: 'تصفية حسب المستخدم',
       projectManager: 'مدير المشروع',
@@ -426,6 +432,11 @@ const ProjectsTasks = () => {
       allProjects: 'All Projects',
       allUsers: 'All Users',
       allDepartments: 'All Departments',
+      groupBy: 'Group by',
+      groupByPhase: 'Phase',
+      groupByDepartment: 'Department',
+      groupByEmployee: 'Employee',
+      unassigned: 'Unassigned',
       filterByProject: 'Filter by Project',
       filterByUser: 'Filter by User',
       projectManager: 'Project Manager',
@@ -979,6 +990,13 @@ const ProjectsTasks = () => {
     ? projectPhases.map((p: any) => ({ ...p, department_id: selectedDepartment }))
     : (departmentPhases.length > 0 ? departmentPhases : defaultPhases);
 
+  // Auto-revert kanbanGroupBy when 'department' selected but no project chosen
+  useEffect(() => {
+    if (kanbanGroupBy === 'department' && selectedProject === 'all') {
+      setKanbanGroupBy('phase');
+    }
+  }, [kanbanGroupBy, selectedProject]);
+
   // Check if user is admin of selected department or project manager
   const isAdminOfSelectedDepartment = selectedDepartment === 'all' 
     ? userAccess.isSystemAdmin 
@@ -1098,6 +1116,67 @@ const ProjectsTasks = () => {
     }
   }, [selectedProject, projects, tasks, selectedDepartment, accessibleDepartments, selectedUser]);
 
+  // Kanban columns based on groupBy mode
+  type KanbanColumn = {
+    id: string;
+    key: string;
+    name: string;
+    color: string;
+    matches: (task: Task) => boolean;
+  };
+  const kanbanColumns: KanbanColumn[] = (() => {
+    if (kanbanGroupBy === 'department' && selectedProject !== 'all') {
+      const project = projects.find(p => p.id === selectedProject);
+      const deptIds = project ? getProjectRelevantDepartmentIds(project) : [];
+      return deptIds
+        .map((did) => {
+          const dep = departments.find(d => d.id === did);
+          if (!dep && !did) return null;
+          return {
+            id: `dept:${did}`,
+            key: did,
+            name: dep ? (dep as any).department_name : did,
+            color: '#6366F1',
+            matches: (task: Task) => task.department_id === did,
+          } as KanbanColumn;
+        })
+        .filter(Boolean) as KanbanColumn[];
+    }
+    if (kanbanGroupBy === 'employee') {
+      let userList: any[] = [];
+      if (selectedProject !== 'all') {
+        const project = projects.find(p => p.id === selectedProject);
+        const memberIds = new Set((project?.members || []).map((m: any) => m.user_id));
+        userList = assigneeSourceUsers.filter(u => memberIds.has(u.user_id));
+      } else {
+        userList = departmentUsers;
+      }
+      const cols: KanbanColumn[] = userList.map(u => ({
+        id: `user:${u.user_id}`,
+        key: u.user_id,
+        name: u.user_name,
+        color: '#10B981',
+        matches: (task: Task) => task.assigned_to === u.user_id || (task.assignees || []).includes(u.user_id),
+      }));
+      cols.push({
+        id: 'user:unassigned',
+        key: 'unassigned',
+        name: t.unassigned,
+        color: '#9CA3AF',
+        matches: (task: Task) => !task.assigned_to && !(task.assignees && task.assignees.length > 0),
+      });
+      return cols;
+    }
+    // default: by phase
+    return activePhases.map((phase: any) => ({
+      id: phase.phase_key,
+      key: phase.phase_key,
+      name: language === 'ar' ? (phase.phase_name_ar || phase.phase_name) : phase.phase_name,
+      color: phase.phase_color,
+      matches: (task: Task) => task.status === phase.phase_key,
+    }));
+  })();
+
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (selectedDepartment !== 'all' && task.department_id !== selectedDepartment) return false;
@@ -1166,37 +1245,68 @@ const ProjectsTasks = () => {
     if (!over) return;
 
     const taskId = active.id as string;
-    const newStatus = over.id as string;
+    const overId = over.id as string;
     const task = tasks.find(t => t.id === taskId);
-    
-    if (task && task.status !== newStatus) {
-      try {
-        await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
-        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-        toast({ title: language === 'ar' ? 'تم تحديث الحالة' : 'Status updated' });
+    if (!task) return;
 
-        // If task is marked as done, notify department admins
-        if (newStatus === 'done') {
-          const currentUser = users.find(u => u.user_id === currentUserId);
-          try {
-            await supabase.functions.invoke('send-task-notification', {
-              body: {
-                type: 'task_completed',
-                taskId: task.id,
-                taskTitle: task.title,
-                departmentId: task.department_id,
-                completedByUserId: currentUserId,
-                completedByUserName: currentUser?.user_name || 'Unknown'
-              }
-            });
-          } catch (notifyError) {
-            console.error('Error sending task completion notification:', notifyError);
-          }
-        }
-      } catch (error) {
-        console.error('Error updating task status:', error);
-        toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
+    try {
+      // Group by Department: dropping moves task to that department
+      if (overId.startsWith('dept:')) {
+        const newDeptId = overId.slice('dept:'.length);
+        if (task.department_id === newDeptId) return;
+        await supabase.from('tasks').update({ department_id: newDeptId }).eq('id', taskId);
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, department_id: newDeptId } : t));
+        toast({ title: language === 'ar' ? 'تم تحديث القسم' : 'Department updated' });
+        return;
       }
+
+      // Group by Employee: dropping reassigns task to that user (or unassigns)
+      if (overId.startsWith('user:')) {
+        const newUserId = overId.slice('user:'.length);
+        if (newUserId === 'unassigned') {
+          await supabase.from('task_assignees').delete().eq('task_id', taskId);
+          await supabase.from('tasks').update({ assigned_to: null }).eq('id', taskId);
+          setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigned_to: '', assignees: [] } : t));
+          toast({ title: language === 'ar' ? 'تم إلغاء التعيين' : 'Unassigned' });
+          return;
+        }
+        if (task.assigned_to === newUserId && (task.assignees || []).length <= 1) return;
+        await supabase.from('task_assignees').delete().eq('task_id', taskId);
+        await supabase.from('task_assignees').insert([{ task_id: taskId, user_id: newUserId }]);
+        await supabase.from('tasks').update({ assigned_to: newUserId }).eq('id', taskId);
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigned_to: newUserId, assignees: [newUserId] } : t));
+        toast({ title: language === 'ar' ? 'تم تحديث المعين' : 'Assignee updated' });
+        return;
+      }
+
+      // Default: phase grouping → update status
+      const newStatus = overId;
+      if (task.status === newStatus) return;
+      await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      toast({ title: language === 'ar' ? 'تم تحديث الحالة' : 'Status updated' });
+
+      // If task is marked as done, notify department admins
+      if (newStatus === 'done') {
+        const currentUser = users.find(u => u.user_id === currentUserId);
+        try {
+          await supabase.functions.invoke('send-task-notification', {
+            body: {
+              type: 'task_completed',
+              taskId: task.id,
+              taskTitle: task.title,
+              departmentId: task.department_id,
+              completedByUserId: currentUserId,
+              completedByUserName: currentUser?.user_name || 'Unknown'
+            }
+          });
+        } catch (notifyError) {
+          console.error('Error sending task completion notification:', notifyError);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating task on drag:', error);
+      toast({ title: language === 'ar' ? 'حدث خطأ' : 'Error occurred', variant: 'destructive' });
     }
   };
 
@@ -2535,6 +2645,20 @@ const ProjectsTasks = () => {
               </SelectContent>
             </Select>
 
+            {/* Kanban Group By */}
+            <Select value={kanbanGroupBy} onValueChange={(v) => setKanbanGroupBy(v as any)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t.groupBy} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="phase">{t.groupBy}: {t.groupByPhase}</SelectItem>
+                {selectedProject !== 'all' && (
+                  <SelectItem value="department">{t.groupBy}: {t.groupByDepartment}</SelectItem>
+                )}
+                <SelectItem value="employee">{t.groupBy}: {t.groupByEmployee}</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Date Filter */}
             <Select value={dateMode} onValueChange={setDateMode}>
               <SelectTrigger className="w-[160px]">
@@ -2729,31 +2853,34 @@ const ProjectsTasks = () => {
       <div className="p-4">
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <ScrollArea className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-            <div className="flex gap-4 pb-4" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minWidth: activePhases.length * 320 }}>
+            <div className="flex gap-4 pb-4" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minWidth: kanbanColumns.length * 320 }}>
 
-              {activePhases.map((phase) => {
-                const phaseSearch = phaseSearchTerms[phase.phase_key] || '';
+              {kanbanColumns.map((column) => {
+                const phaseSearch = phaseSearchTerms[column.key] || '';
                 const phaseTasks = filteredTasks.filter(t => {
-                  if (t.status !== phase.phase_key) return false;
+                  if (!column.matches(t)) return false;
                   if (phaseSearch && !t.title.toLowerCase().includes(phaseSearch.toLowerCase()) && 
                       !(t.profiles?.user_name || '').toLowerCase().includes(phaseSearch.toLowerCase()) &&
                       !(t.projects?.name || '').toLowerCase().includes(phaseSearch.toLowerCase())) return false;
                   return true;
                 });
+                const defaultStatusForColumn = kanbanGroupBy === 'phase' ? column.key : (activePhases[0]?.phase_key || 'todo');
+                const defaultDeptForColumn = kanbanGroupBy === 'department' ? column.key : effectiveDeptId;
+                const defaultAssigneesForColumn = kanbanGroupBy === 'employee' && column.key !== 'unassigned' ? [column.key] : [];
                 return (
                   <DroppableColumn 
-                    key={phase.phase_key} 
-                    id={phase.phase_key}
+                    key={column.id} 
+                    id={column.id}
                     className="w-[300px] shrink-0 rounded-xl bg-muted/30 p-3 transition-colors"
                   >
                     {/* Column Header */}
                     <div className="flex items-center gap-2 mb-2 px-1">
                       <div 
                         className="w-3 h-3 rounded-full shrink-0" 
-                        style={{ backgroundColor: phase.phase_color }}
+                        style={{ backgroundColor: column.color }}
                       />
                       <span className="font-medium text-sm">
-                        {language === 'ar' ? phase.phase_name_ar || phase.phase_name : phase.phase_name}
+                        {column.name}
                       </span>
                       <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                         {phaseTasks.length}
@@ -2765,7 +2892,13 @@ const ProjectsTasks = () => {
                         title={t.addTask}
                         onClick={() => {
                           resetTaskForm();
-                          setTaskForm(prev => ({ ...prev, status: phase.phase_key, department_id: effectiveDeptId, project_id: selectedProject !== 'all' ? selectedProject : prev.project_id }));
+                          setTaskForm(prev => ({
+                            ...prev,
+                            status: defaultStatusForColumn,
+                            department_id: defaultDeptForColumn,
+                            project_id: selectedProject !== 'all' ? selectedProject : prev.project_id,
+                            assigned_to: defaultAssigneesForColumn.length ? defaultAssigneesForColumn : prev.assigned_to,
+                          }));
                           setTaskDialogOpen(true);
                         }}
                       >
@@ -2778,7 +2911,7 @@ const ProjectsTasks = () => {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                       <Input 
                         value={phaseSearch}
-                        onChange={(e) => setPhaseSearchTerms(prev => ({ ...prev, [phase.phase_key]: e.target.value }))}
+                        onChange={(e) => setPhaseSearchTerms(prev => ({ ...prev, [column.key]: e.target.value }))}
                         placeholder={t.search}
                         className="h-7 text-xs pl-7 bg-background/50"
                       />
@@ -2980,7 +3113,7 @@ const ProjectsTasks = () => {
                       )}
 
                       {/* Inline Add Task at end of phase */}
-                      {canCreateOrEditTasks && inlineCreatePhase === phase.phase_key ? (
+                      {canCreateOrEditTasks && inlineCreatePhase === column.key ? (
                         <Card className="border-dashed border-primary/50">
                           <CardContent className="p-2 space-y-2">
                             <Input
@@ -2988,7 +3121,7 @@ const ProjectsTasks = () => {
                               value={inlineTitle}
                               onChange={(e) => setInlineTitle(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') { e.preventDefault(); handleInlineCreateTask(phase.phase_key); }
+                                if (e.key === 'Enter') { e.preventDefault(); handleInlineCreateTask(defaultStatusForColumn); }
                                 if (e.key === 'Escape') { setInlineCreatePhase(null); setInlineTitle(''); setInlineAssignees([]); }
                               }}
                               placeholder={language === 'ar' ? 'اسم المهمة...' : 'Task name...'}
@@ -3031,7 +3164,7 @@ const ProjectsTasks = () => {
                                 </Button>
                                 <Button size="sm" className="h-7 px-2 text-xs"
                                   disabled={!inlineTitle.trim() || inlineSaving}
-                                  onClick={() => handleInlineCreateTask(phase.phase_key)}>
+                                  onClick={() => handleInlineCreateTask(defaultStatusForColumn)}>
                                   {inlineSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : t.save}
                                 </Button>
                               </div>
@@ -3043,7 +3176,11 @@ const ProjectsTasks = () => {
                           variant="ghost"
                           size="sm"
                           className="w-full justify-start text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 h-8"
-                          onClick={() => { setInlineCreatePhase(phase.phase_key); setInlineTitle(''); setInlineAssignees([]); }}
+                          onClick={() => {
+                            setInlineCreatePhase(column.key);
+                            setInlineTitle('');
+                            setInlineAssignees(defaultAssigneesForColumn);
+                          }}
                         >
                           <Plus className="h-3.5 w-3.5 mr-1" />
                           {language === 'ar' ? 'إضافة مهمة' : 'Add task'}
