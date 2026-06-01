@@ -126,8 +126,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (mode === "daily_due") {
       query = query.gte("deadline", startOfDayUtc).lte("deadline", endOfDayUtc);
-    } else {
+    } else if (mode === "end_of_day_overdue") {
       query = query.lt("deadline", now.toISOString());
+    } else {
+      // all_scheduled: every open (not done, not archived) task assigned to the user
+      query = query.order("deadline", { ascending: true, nullsFirst: false });
     }
 
     const { data: tasks, error: taskErr } = await query;
