@@ -60,9 +60,18 @@ async function sendSmtp(host: string, port: number, user: string, pass: string, 
 
 function buildHtml(userName: string, mode: Mode, tasks: any[]): { subject: string; html: string } {
   const isOverdue = mode === "end_of_day_overdue";
-  const title = isOverdue ? "مهام متأخرة تحتاج إلى متابعة" : "تذكير بالمهام المستحقة اليوم";
-  const headerColor = isOverdue ? "#dc2626" : "#2563eb";
-  const subject = isOverdue ? `لديك ${tasks.length} مهمة متأخرة` : `لديك ${tasks.length} مهمة مستحقة اليوم`;
+  const isAll = mode === "all_scheduled";
+  const title = isOverdue
+    ? "مهام متأخرة تحتاج إلى متابعة"
+    : isAll
+      ? "كل المهام المجدولة الخاصة بك"
+      : "تذكير بالمهام المستحقة اليوم";
+  const headerColor = isOverdue ? "#dc2626" : isAll ? "#16a34a" : "#2563eb";
+  const subject = isOverdue
+    ? `لديك ${tasks.length} مهمة متأخرة`
+    : isAll
+      ? `لديك ${tasks.length} مهمة مجدولة`
+      : `لديك ${tasks.length} مهمة مستحقة اليوم`;
 
   const rows = tasks.map(t => {
     const due = t.deadline ? new Date(t.deadline).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "short" }) : "-";
