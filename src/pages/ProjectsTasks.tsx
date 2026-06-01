@@ -3082,7 +3082,7 @@ const ProjectsTasks = () => {
                       )}
 
                       {/* Inline Add Task at end of phase */}
-                      {canCreateOrEditTasks && inlineCreatePhase === phase.phase_key ? (
+                      {canCreateOrEditTasks && inlineCreatePhase === column.key ? (
                         <Card className="border-dashed border-primary/50">
                           <CardContent className="p-2 space-y-2">
                             <Input
@@ -3090,7 +3090,7 @@ const ProjectsTasks = () => {
                               value={inlineTitle}
                               onChange={(e) => setInlineTitle(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') { e.preventDefault(); handleInlineCreateTask(phase.phase_key); }
+                                if (e.key === 'Enter') { e.preventDefault(); handleInlineCreateTask(defaultStatusForColumn); }
                                 if (e.key === 'Escape') { setInlineCreatePhase(null); setInlineTitle(''); setInlineAssignees([]); }
                               }}
                               placeholder={language === 'ar' ? 'اسم المهمة...' : 'Task name...'}
@@ -3133,7 +3133,7 @@ const ProjectsTasks = () => {
                                 </Button>
                                 <Button size="sm" className="h-7 px-2 text-xs"
                                   disabled={!inlineTitle.trim() || inlineSaving}
-                                  onClick={() => handleInlineCreateTask(phase.phase_key)}>
+                                  onClick={() => handleInlineCreateTask(defaultStatusForColumn)}>
                                   {inlineSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : t.save}
                                 </Button>
                               </div>
@@ -3145,7 +3145,11 @@ const ProjectsTasks = () => {
                           variant="ghost"
                           size="sm"
                           className="w-full justify-start text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 h-8"
-                          onClick={() => { setInlineCreatePhase(phase.phase_key); setInlineTitle(''); setInlineAssignees([]); }}
+                          onClick={() => {
+                            setInlineCreatePhase(column.key);
+                            setInlineTitle('');
+                            setInlineAssignees(defaultAssigneesForColumn);
+                          }}
                         >
                           <Plus className="h-3.5 w-3.5 mr-1" />
                           {language === 'ar' ? 'إضافة مهمة' : 'Add task'}
