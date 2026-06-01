@@ -2014,9 +2014,102 @@ const ProjectsTasks = () => {
                         </Popover>
                       </div>
                     </div>
-                    
+
+                    {/* Recurring task - only on create */}
+                    {!editingTask && (
+                      <div className="border rounded-md p-3 space-y-3 bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="is_recurring"
+                            checked={taskForm.is_recurring}
+                            onCheckedChange={(c) => setTaskForm({ ...taskForm, is_recurring: c === true })}
+                          />
+                          <label htmlFor="is_recurring" className="text-sm font-medium cursor-pointer">
+                            {language === 'ar' ? 'مهمة متكررة' : 'Recurring task'}
+                          </label>
+                        </div>
+                        {taskForm.is_recurring && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-xs font-medium">{language === 'ar' ? 'الأشهر' : 'Months'}</label>
+                              <div className="grid grid-cols-6 gap-1 mt-1">
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                                  const monthName = new Date(2000, m - 1, 1).toLocaleString(language === 'ar' ? 'ar' : 'en', { month: 'short' });
+                                  const checked = taskForm.recurrence_months.includes(m);
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={m}
+                                      onClick={() => {
+                                        setTaskForm({
+                                          ...taskForm,
+                                          recurrence_months: checked
+                                            ? taskForm.recurrence_months.filter((x) => x !== m)
+                                            : [...taskForm.recurrence_months, m].sort((a, b) => a - b),
+                                        });
+                                      }}
+                                      className={`text-xs px-2 py-1 rounded border ${checked ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'}`}
+                                    >
+                                      {monthName}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <label className="text-xs font-medium">{language === 'ar' ? 'السنة' : 'Year'}</label>
+                                <Input
+                                  type="number"
+                                  value={taskForm.recurrence_year}
+                                  onChange={(e) => setTaskForm({ ...taskForm, recurrence_year: parseInt(e.target.value) || new Date().getFullYear() })}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium">{language === 'ar' ? 'الأسبوع' : 'Week'}</label>
+                                <Select value={String(taskForm.recurrence_week)} onValueChange={(v) => setTaskForm({ ...taskForm, recurrence_week: parseInt(v) })}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1">{language === 'ar' ? 'الأول' : '1st'}</SelectItem>
+                                    <SelectItem value="2">{language === 'ar' ? 'الثاني' : '2nd'}</SelectItem>
+                                    <SelectItem value="3">{language === 'ar' ? 'الثالث' : '3rd'}</SelectItem>
+                                    <SelectItem value="4">{language === 'ar' ? 'الرابع' : '4th'}</SelectItem>
+                                    <SelectItem value="5">{language === 'ar' ? 'الأخير' : 'Last'}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium">{language === 'ar' ? 'اليوم' : 'Day'}</label>
+                                <Select value={String(taskForm.recurrence_day)} onValueChange={(v) => setTaskForm({ ...taskForm, recurrence_day: parseInt(v) })}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
+                                      <SelectItem key={i} value={String(i)}>
+                                        {language === 'ar' ? ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][i] : d}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            {taskForm.recurrence_months.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {language === 'ar' ? 'سيتم إنشاء' : 'Will create'} {computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day).length} {language === 'ar' ? 'مهام في:' : 'task(s) on:'}
+                                <div className="mt-1">
+                                  {computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day).map((d) => (
+                                    <Badge key={d.toISOString()} variant="outline" className="mr-1 mb-1">{d.toLocaleDateString()}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Dependency and Milestone - only show when project is selected */}
                     {taskForm.project_id && (
+
                       <>
                         <div>
                           <label className="text-sm font-medium">{t.dependency}</label>
