@@ -657,18 +657,20 @@ const ProjectsTasks = () => {
         const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
         const baseProjects = isAdmin 
           ? projectsRes.data 
-          : projectsRes.data.filter(p => 
-              accessibleDeptIds.includes(p.department_id) || 
-              projectMemberProjectIds.includes(p.id)
-            );
+          : projectsRes.data.filter(p => {
+              const deptIds = projectDeptMap.get(p.id) || [p.department_id];
+              return deptIds.some(d => accessibleDeptIds.includes(d)) || 
+                projectMemberProjectIds.includes(p.id);
+            });
         const filteredProjects = externalGuest && activeGuest?.project_id
           ? baseProjects.filter(p => p.id === activeGuest.project_id)
           : baseProjects;
         
-        // Attach members to projects
+        // Attach members + department_ids to projects
         const projectsWithMembers = filteredProjects.map(p => ({
           ...p,
-          members: projectMembers.filter(pm => pm.project_id === p.id)
+          members: projectMembers.filter(pm => pm.project_id === p.id),
+          department_ids: projectDeptMap.get(p.id) || [p.department_id],
         }));
         
         setProjects(projectsWithMembers);
