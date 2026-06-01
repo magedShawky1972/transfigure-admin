@@ -356,6 +356,7 @@ const ProjectsTasks = () => {
       search: 'بحث...',
       allProjects: 'كل المشاريع',
       allUsers: 'كل المستخدمين',
+      allDepartments: 'كل الأقسام',
       filterByProject: 'تصفية حسب المشروع',
       filterByUser: 'تصفية حسب المستخدم',
       projectManager: 'مدير المشروع',
@@ -424,6 +425,7 @@ const ProjectsTasks = () => {
       search: 'Search...',
       allProjects: 'All Projects',
       allUsers: 'All Users',
+      allDepartments: 'All Departments',
       filterByProject: 'Filter by Project',
       filterByUser: 'Filter by User',
       projectManager: 'Project Manager',
@@ -978,11 +980,13 @@ const ProjectsTasks = () => {
     : (departmentPhases.length > 0 ? departmentPhases : defaultPhases);
 
   // Check if user is admin of selected department or project manager
-  const isAdminOfSelectedDepartment = userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
+  const isAdminOfSelectedDepartment = selectedDepartment === 'all' 
+    ? userAccess.isSystemAdmin 
+    : userAccess.isSystemAdmin || userAccess.adminDepartments.includes(selectedDepartment);
 
   // Helper: does a project belong to the given department (primary or linked)
   const projectInDept = (p: Project, deptId: string) =>
-    (p.department_ids && p.department_ids.length > 0 ? p.department_ids : [p.department_id]).includes(deptId);
+    deptId === 'all' || (p.department_ids && p.department_ids.length > 0 ? p.department_ids : [p.department_id]).includes(deptId);
 
   const getProjectRelevantDepartmentIds = (project: Project | null) => {
     if (!project) return [] as string[];
@@ -1025,6 +1029,7 @@ const ProjectsTasks = () => {
   // Filter users based on selected department (users in that department)
   const departmentUsers = users.filter(u => {
     if (isExternalGuest) return u.user_id === currentUserId;
+    if (selectedDepartment === 'all') return true;
     // If system admin, department admin, or project manager, show all users in the department
     if (canAssignTasks) {
       return u.default_department_id === selectedDepartment || 
@@ -1037,6 +1042,8 @@ const ProjectsTasks = () => {
   // For task assignment, admins and project managers can assign to any user in their departments
   const assignableUsers = isExternalGuest
     ? users.filter(u => u.user_id === currentUserId)
+    : selectedDepartment === 'all'
+    ? users
     : canAssignTasks 
     ? users.filter(u => u.default_department_id === selectedDepartment || (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment)))
     : users.filter(u => u.user_id === currentUserId);
@@ -1056,7 +1063,7 @@ const ProjectsTasks = () => {
       if (seen.has(u.user_id)) return false;
       const match = project
         ? projectMemberIds.has(u.user_id)
-        : !!(
+        : deptId === 'all' ? true : !!(
             (u.default_department_id && u.default_department_id === deptId)
             || ((u as any).departmentMemberships && (u as any).departmentMemberships.includes(deptId))
           );
@@ -1065,8 +1072,11 @@ const ProjectsTasks = () => {
     });
   };
 
+  // When "ALL" department is selected, use the first accessible department for forms
+  const effectiveDeptId = selectedDepartment === 'all' ? (accessibleDepartments[0]?.id || '') : selectedDepartment;
+
   useEffect(() => {
-    if (selectedProject === 'all') return;
+    if (selectedProject === 'all' || selectedDepartment === 'all') return;
 
     const project = projects.find((p) => p.id === selectedProject);
     if (!project) return;
@@ -1093,7 +1103,7 @@ const ProjectsTasks = () => {
 
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
-    if (task.department_id !== selectedDepartment) return false;
+    if (selectedDepartment !== 'all' && task.department_id !== selectedDepartment) return false;
     if (!showArchived && task.is_archived) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
@@ -1552,7 +1562,7 @@ const ProjectsTasks = () => {
   const handleInlineCreateTask = async (phaseKey: string) => {
     if (!canCreateOrEditTasks) return;
     const title = inlineTitle.trim();
-    if (!title || !currentUserId || !selectedDepartment) return;
+    if (!title || !currentUserId || !selectedDepartment || !effectiveDeptId) return;
     const assignees = inlineAssignees.length > 0 ? inlineAssignees : [currentUserId];
     setInlineSaving(true);
     try {
@@ -1560,7 +1570,7 @@ const ProjectsTasks = () => {
         title,
         description: null,
         project_id: selectedProject !== 'all' ? selectedProject : null,
-        department_id: selectedDepartment,
+        department_id: effectiveDeptId,
         assigned_to: assignees[0],
         status: phaseKey,
         priority: 'medium',
@@ -1646,13 +1656,13 @@ const ProjectsTasks = () => {
 
   const resetProjectForm = () => {
     setEditingProject(null);
-    setProjectForm({ name: '', description: '', department_id: selectedDepartment, department_ids: selectedDepartment ? [selectedDepartment] : [], status: 'active', start_date: null, end_date: null, manager_id: '', member_ids: [] });
+    setProjectForm({ name: '', description: '', department_id: effectiveDeptId, department_ids: effectiveDeptId ? [effectiveDeptId] : [], status: 'active', start_date: null, end_date: null, manager_id: '', member_ids: [] });
   };
 
   const resetTaskForm = () => {
     setEditingTask(null);
     setTaskForm({
-      title: '', description: '', project_id: selectedProject !== 'all' ? selectedProject : '', department_id: selectedDepartment, assigned_to: [],
+      title: '', description: '', project_id: selectedProject !== 'all' ? selectedProject : '', department_id: effectiveDeptId, assigned_to: [],
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
       start_date: null, deadline: null, start_time: '', end_time: '',
       external_links: [], file_attachments: [], video_attachments: [], seq_number: null, wireframes: [], figma_link: '',
@@ -1759,6 +1769,7 @@ const ProjectsTasks = () => {
                   <SelectValue placeholder={t.selectDepartment} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">{t.allDepartments}</SelectItem>
                   {filteredDepartmentOptions.map(d => (
                     <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>
                   ))}
@@ -2488,7 +2499,7 @@ const ProjectsTasks = () => {
                   accessibleDepartments.some((department) => department.id === deptId)
                 ) || projectDepartmentIds[0];
 
-                if (nextDepartment && nextDepartment !== selectedDepartment) {
+                if (nextDepartment && nextDepartment !== selectedDepartment && selectedDepartment !== 'all') {
                   setSelectedDepartment(nextDepartment);
                 }
 
@@ -2757,7 +2768,7 @@ const ProjectsTasks = () => {
                         title={t.addTask}
                         onClick={() => {
                           resetTaskForm();
-                          setTaskForm(prev => ({ ...prev, status: phase.phase_key, department_id: selectedDepartment, project_id: selectedProject !== 'all' ? selectedProject : prev.project_id }));
+                          setTaskForm(prev => ({ ...prev, status: phase.phase_key, department_id: effectiveDeptId, project_id: selectedProject !== 'all' ? selectedProject : prev.project_id }));
                           setTaskDialogOpen(true);
                         }}
                       >
