@@ -1339,7 +1339,7 @@ const ProjectsTasks = () => {
         // Build list of (title, deadline) — single occurrence by default, or many for recurring
         const occurrences: { title: string; deadline: string | null }[] = [];
         if (taskForm.is_recurring && taskForm.recurrence_months.length > 0) {
-          const dates = computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day);
+          const dates = computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_weeks, taskForm.recurrence_day);
           if (dates.length === 0) {
             toast({ title: language === 'ar' ? 'لا توجد تواريخ متكررة صالحة' : 'No valid recurring dates', variant: 'destructive' });
             return;
@@ -1557,7 +1557,7 @@ const ProjectsTasks = () => {
       figma_link: ((task as unknown as { figma_link?: string }).figma_link) || '',
       is_recurring: false,
       recurrence_months: [],
-      recurrence_week: 1,
+      recurrence_weeks: [1],
       recurrence_day: 1,
       recurrence_year: new Date().getFullYear(),
     });
@@ -1605,7 +1605,7 @@ const ProjectsTasks = () => {
       status: activePhases[0]?.phase_key || 'todo', priority: 'medium', dependency_task_id: '', is_milestone: false,
       start_date: null, deadline: null, start_time: '', end_time: '',
       external_links: [], file_attachments: [], video_attachments: [], seq_number: null, wireframes: [], figma_link: '',
-      is_recurring: false, recurrence_months: [], recurrence_week: 1, recurrence_day: 1, recurrence_year: new Date().getFullYear(),
+      is_recurring: false, recurrence_months: [], recurrence_weeks: [1], recurrence_day: 1, recurrence_year: new Date().getFullYear(),
     });
   };
 
@@ -2139,38 +2139,56 @@ const ProjectsTasks = () => {
                                   onChange={(e) => setTaskForm({ ...taskForm, recurrence_year: parseInt(e.target.value) || new Date().getFullYear() })}
                                 />
                               </div>
-                              <div>
-                                <label className="text-xs font-medium">{language === 'ar' ? 'الأسبوع' : 'Week'}</label>
-                                <Select value={String(taskForm.recurrence_week)} onValueChange={(v) => setTaskForm({ ...taskForm, recurrence_week: parseInt(v) })}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="1">{language === 'ar' ? 'الأول' : '1st'}</SelectItem>
-                                    <SelectItem value="2">{language === 'ar' ? 'الثاني' : '2nd'}</SelectItem>
-                                    <SelectItem value="3">{language === 'ar' ? 'الثالث' : '3rd'}</SelectItem>
-                                    <SelectItem value="4">{language === 'ar' ? 'الرابع' : '4th'}</SelectItem>
-                                    <SelectItem value="5">{language === 'ar' ? 'الأخير' : 'Last'}</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                              <div className="col-span-2">
+                                <label className="text-xs font-medium">{language === 'ar' ? 'الأسابيع' : 'Weeks'}</label>
+                                <div className="grid grid-cols-5 gap-1 mt-1">
+                                  {[
+                                    { val: 1, label: language === 'ar' ? '1' : '1st' },
+                                    { val: 2, label: language === 'ar' ? '2' : '2nd' },
+                                    { val: 3, label: language === 'ar' ? '3' : '3rd' },
+                                    { val: 4, label: language === 'ar' ? '4' : '4th' },
+                                    { val: 5, label: language === 'ar' ? 'آخر' : 'Last' },
+                                  ].map((w) => {
+                                    const checked = taskForm.recurrence_weeks.includes(w.val);
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={w.val}
+                                        onClick={() => {
+                                          setTaskForm({
+                                            ...taskForm,
+                                            recurrence_weeks: checked
+                                              ? taskForm.recurrence_weeks.filter((x) => x !== w.val)
+                                              : [...taskForm.recurrence_weeks, w.val].sort((a, b) => a - b),
+                                          });
+                                        }}
+                                        className={`text-xs px-2 py-1 rounded border ${checked ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'}`}
+                                      >
+                                        {w.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                              <div>
-                                <label className="text-xs font-medium">{language === 'ar' ? 'اليوم' : 'Day'}</label>
-                                <Select value={String(taskForm.recurrence_day)} onValueChange={(v) => setTaskForm({ ...taskForm, recurrence_day: parseInt(v) })}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
-                                      <SelectItem key={i} value={String(i)}>
-                                        {language === 'ar' ? ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][i] : d}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium">{language === 'ar' ? 'اليوم' : 'Day'}</label>
+                              <Select value={String(taskForm.recurrence_day)} onValueChange={(v) => setTaskForm({ ...taskForm, recurrence_day: parseInt(v) })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
+                                    <SelectItem key={i} value={String(i)}>
+                                      {language === 'ar' ? ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][i] : d}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                             {taskForm.recurrence_months.length > 0 && (
                               <div className="text-xs text-muted-foreground">
-                                {language === 'ar' ? 'سيتم إنشاء' : 'Will create'} {computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day).length} {language === 'ar' ? 'مهام في:' : 'task(s) on:'}
+                                {language === 'ar' ? 'سيتم إنشاء' : 'Will create'} {computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_weeks, taskForm.recurrence_day).length} {language === 'ar' ? 'مهام في:' : 'task(s) on:'}
                                 <div className="mt-1">
-                                  {computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day).map((d) => (
+                                  {computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_weeks, taskForm.recurrence_day).map((d) => (
                                     <Badge key={d.toISOString()} variant="outline" className="mr-1 mb-1">{d.toLocaleDateString()}</Badge>
                                   ))}
                                 </div>
