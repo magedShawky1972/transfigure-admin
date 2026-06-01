@@ -937,7 +937,17 @@ export default function TimesheetManagement() {
         }
       });
 
-      setTimesheets([...timesheetsWithMailStatus, ...virtualWfhRows]);
+      // Suppress the base timesheet row when a WFH check-in exists for the same employee+date on a Company WFH day
+      // (avoids showing both an empty "WFH" row and the actual WFH session row)
+      const wfhSessionKeys = new Set(wfhSessions.map((s) => `${s.empId}_${s.date}`));
+      const filteredBase = timesheetsWithMailStatus.filter((ts: any) => {
+        const key = `${ts.employee_id}_${ts.work_date}`;
+        const isCompanyWfh = companyWfhDateSet.has(ts.work_date);
+        if (isCompanyWfh && wfhSessionKeys.has(key)) return false;
+        return true;
+      });
+
+      setTimesheets([...filteredBase, ...virtualWfhRows]);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
