@@ -2681,8 +2681,7 @@ const ProjectsTasks = () => {
                                 </PopoverTrigger>
                                 <PopoverContent className="w-64 p-0" align="start">
                                   <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                                    {users
-                                      .filter(u => u.default_department_id === selectedDepartment || (u as any).departmentMemberships?.includes(selectedDepartment))
+                                    {getEligibleAssignees(selectedDepartment, selectedProject !== 'all' ? selectedProject : '')
                                       .map(u => {
                                         const checked = inlineAssignees.includes(u.user_id);
                                         return (
