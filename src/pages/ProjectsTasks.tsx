@@ -2031,6 +2031,47 @@ const ProjectsTasks = () => {
                             </SelectContent>
                           </Select>
                         </div>
+                        {taskForm.dependency_task_id && (() => {
+                          const depTask = tasks.find(tk => tk.id === taskForm.dependency_task_id);
+                          const depEnd = depTask?.deadline ? new Date(depTask.deadline) : null;
+                          let currentDuration = '';
+                          if (depEnd && taskForm.deadline) {
+                            const start = taskForm.start_date || new Date(depEnd.getTime() + 86400000);
+                            const diff = Math.round((taskForm.deadline.getTime() - start.getTime()) / 86400000) + 1;
+                            if (diff > 0) currentDuration = String(diff);
+                          }
+                          return (
+                            <div>
+                              <label className="text-sm font-medium">
+                                {language === 'ar' ? 'المدة (أيام) بعد المهمة المعتمد عليها' : 'Duration (days) after dependency'}
+                              </label>
+                              {depEnd ? (
+                                <>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={currentDuration}
+                                    onChange={(e) => {
+                                      const days = parseInt(e.target.value);
+                                      if (!days || days < 1 || !depEnd) return;
+                                      const start = new Date(depEnd.getTime() + 86400000);
+                                      const end = new Date(start.getTime() + (days - 1) * 86400000);
+                                      setTaskForm({ ...taskForm, start_date: start, deadline: end });
+                                    }}
+                                    placeholder={language === 'ar' ? 'عدد الأيام' : 'Number of days'}
+                                  />
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {language === 'ar' ? 'تنتهي المهمة المعتمد عليها في' : 'Dependency ends on'}: {depEnd.toLocaleDateString()}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-xs text-destructive">
+                                  {language === 'ar' ? 'المهمة المعتمد عليها بدون تاريخ انتهاء' : 'Dependency task has no deadline'}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="flex items-center space-x-2 rtl:space-x-reverse">
                           <Checkbox 
                             id="is_milestone" 
