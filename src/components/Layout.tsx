@@ -439,8 +439,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const collapseMenuFromUrl = new URLSearchParams(location.search).get("collapseMenu") === "1";
+
   return (
-    <SidebarProvider defaultOpen={menuMode === "sidebar"}>
+    <SidebarProvider defaultOpen={menuMode === "sidebar" && !collapseMenuFromUrl}>
       <div className="flex min-h-screen w-full bg-gradient-to-br from-background to-muted/20">
         {menuMode === "sidebar" && <AppSidebar />}
         
