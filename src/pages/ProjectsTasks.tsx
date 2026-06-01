@@ -2329,11 +2329,11 @@ const ProjectsTasks = () => {
             })()}
 
             {/* Projects List */}
-            {projects.filter(p => p.department_id === selectedDepartment && (selectedProject === 'all' || p.id === selectedProject)).length > 0 && (
+            {projects.filter(p => projectInDept(p, selectedDepartment) && (selectedProject === 'all' || p.id === selectedProject)).length > 0 && (
               <div className="flex items-center gap-2 mt-3">
                 <span className="text-sm text-muted-foreground">{t.projects}:</span>
                 <div className="flex flex-wrap gap-2">
-                  {projects.filter(p => p.department_id === selectedDepartment && (selectedProject === 'all' || p.id === selectedProject)).map(project => (
+                  {projects.filter(p => projectInDept(p, selectedDepartment) && (selectedProject === 'all' || p.id === selectedProject)).map(project => (
                     <div key={project.id} className="inline-flex items-center gap-1">
                       <Badge
                         variant="outline"
