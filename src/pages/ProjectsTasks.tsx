@@ -2600,11 +2600,8 @@ const ProjectsTasks = () => {
                                           <div className="p-2 border-b text-xs font-medium">
                                             {language === 'ar' ? 'تعيين إلى' : 'Assign to (multiple)'}
                                           </div>
-                                          <ScrollArea className="max-h-64">
-                                            <div className="p-1">
+                                          <div className="max-h-64 overflow-y-auto p-1">
                                                {(() => {
-                                                 const taskProject = task.project_id ? projects.find(p => p.id === task.project_id) : null;
-                                                 const projectMemberIds = taskProject?.members?.map(m => m.user_id) || [];
                                                  const filtered = taskProject
                                                    ? getEligibleAssignees(task.department_id, task.project_id || '')
                                                    : getEligibleAssignees(task.department_id, '');
@@ -2638,8 +2635,7 @@ const ProjectsTasks = () => {
                                                   );
                                                  });
                                                })()}
-                                            </div>
-                                          </ScrollArea>
+                                          </div>
                                         </PopoverContent>
                                       </Popover>}
                                     </div>
