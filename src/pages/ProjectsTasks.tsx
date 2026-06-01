@@ -989,6 +989,10 @@ const ProjectsTasks = () => {
     ? users.filter(u => u.default_department_id === selectedDepartment || (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment)))
     : users.filter(u => u.user_id === currentUserId);
 
+  const assigneeSourceUsers = Array.from(
+    new Map([...allProjectUsers, ...users].map((user) => [user.user_id, user])).values()
+  );
+
   // Eligible users for task assignment: department members + (when a project is selected) project members and users in any of the project's linked departments
   const getEligibleAssignees = (deptId: string, projectId: string) => {
     const project = projectId ? projects.find(p => p.id === projectId) : null;
@@ -998,7 +1002,7 @@ const ProjectsTasks = () => {
     const projectMemberIds = new Set((project?.members || []).map(m => m.user_id));
     const targetDeptIds = new Set<string>([deptId, ...projectDeptIds].filter(Boolean) as string[]);
     const seen = new Set<string>();
-    return users.filter(u => {
+    return assigneeSourceUsers.filter(u => {
       if (seen.has(u.user_id)) return false;
       const match = projectMemberIds.has(u.user_id)
         || (u.default_department_id && targetDeptIds.has(u.default_department_id))
@@ -1927,7 +1931,7 @@ const ProjectsTasks = () => {
                           {taskForm.assigned_to.length > 0 && (
                             <div className="mt-2 pt-2 border-t flex flex-wrap gap-1">
                               {taskForm.assigned_to.map(userId => {
-                                const user = users.find(u => u.user_id === userId);
+                              const user = allProjectUsers.find(u => u.user_id === userId) || users.find(u => u.user_id === userId);
                                 return user ? (
                                   <Badge key={userId} variant="secondary" className="text-xs">
                                     {user.user_name}
@@ -2602,8 +2606,8 @@ const ProjectsTasks = () => {
                                                  const taskProject = task.project_id ? projects.find(p => p.id === task.project_id) : null;
                                                  const projectMemberIds = taskProject?.members?.map(m => m.user_id) || [];
                                                  const filtered = taskProject
-                                                   ? users.filter(u => projectMemberIds.includes(u.user_id))
-                                                   : users.filter(u => !task.department_id || u.default_department_id === task.department_id || (u.departmentMemberships && u.departmentMemberships.includes(task.department_id)));
+                                                   ? getEligibleAssignees(task.department_id, task.project_id || '')
+                                                   : getEligibleAssignees(task.department_id, '');
                                                  return filtered.map(u => {
                                                   const current = task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to];
                                                   const checked = current.includes(u.user_id);
