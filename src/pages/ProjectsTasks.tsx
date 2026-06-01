@@ -1481,7 +1481,12 @@ const ProjectsTasks = () => {
       video_attachments: task.video_attachments || [],
       seq_number: task.seq_number || null,
       wireframes: ((task as unknown as { wireframe_data?: Wireframe[] }).wireframe_data as Wireframe[]) || [],
-      figma_link: ((task as unknown as { figma_link?: string }).figma_link) || ''
+      figma_link: ((task as unknown as { figma_link?: string }).figma_link) || '',
+      is_recurring: false,
+      recurrence_months: [],
+      recurrence_week: 1,
+      recurrence_day: 1,
+      recurrence_year: new Date().getFullYear(),
     });
     setTaskDialogOpen(true);
   };
