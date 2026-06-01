@@ -9,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Mode = "daily_due" | "end_of_day_overdue";
+type Mode = "daily_due" | "end_of_day_overdue" | "all_scheduled";
 
 function encodeSubject(s: string): string {
   const b = btoa(String.fromCharCode(...new TextEncoder().encode(s)));
