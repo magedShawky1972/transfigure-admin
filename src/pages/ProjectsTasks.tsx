@@ -714,9 +714,10 @@ const ProjectsTasks = () => {
         }
       }
 
+      const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
+
       if (projectsRes.data) {
         // Admins see all projects, others see filtered (including projects where user is a member)
-        const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
         const baseProjects = isAdmin 
           ? projectsRes.data 
           : projectsRes.data.filter(p => {
@@ -724,6 +725,7 @@ const ProjectsTasks = () => {
               return deptIds.some(d => accessibleDeptIds.includes(d)) || 
                 projectMemberProjectIds.includes(p.id);
             });
+
         const filteredProjects = externalGuest && activeGuest?.project_id
           ? baseProjects.filter(p => p.id === activeGuest.project_id)
           : baseProjects;
