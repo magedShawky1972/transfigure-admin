@@ -2951,7 +2951,7 @@ const ProjectsTasks = () => {
         language={language}
         departments={accessibleDepartments}
         users={users}
-        projects={projects.filter(p => p.department_id === selectedDepartment)}
+        projects={projects.filter(p => projectInDept(p, selectedDepartment))}
         selectedDepartment={selectedDepartment}
         currentUserId={currentUserId || ""}
         onImportComplete={fetchData}
