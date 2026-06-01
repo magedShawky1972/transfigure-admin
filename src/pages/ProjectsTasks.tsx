@@ -1954,6 +1954,20 @@ const ProjectsTasks = () => {
                 </DropdownMenu>
               )}
 
+              {/* Share current view */}
+              {!isExternalGuest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShareRecipients([]); setShareNote(''); setShareSearch(''); setShareDialogOpen(true); }}
+                  title={language === 'ar' ? 'مشاركة هذا العرض' : 'Share this view'}
+                >
+                  <Share2 className="h-4 w-4 mr-1" />{language === 'ar' ? 'مشاركة العرض' : 'Share View'}
+                </Button>
+              )}
+
+
+
               {/* Add buttons */}
               {canManageProjects && <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
                 <DialogTrigger asChild>
