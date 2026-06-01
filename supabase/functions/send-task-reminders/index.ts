@@ -193,11 +193,22 @@ const handler = async (req: Request): Promise<Response> => {
       const enriched = uTasks.map(t => ({ ...t, project_name: projectName.get(t.project_id) || "-" }));
       const { subject, html } = buildHtml(profile.user_name || "", mode, enriched);
 
+      const notifTitle = mode === "end_of_day_overdue"
+        ? "مهام متأخرة"
+        : mode === "all_scheduled"
+          ? "كل المهام المجدولة"
+          : "مهام مستحقة اليوم";
+      const notifBody = `لديك ${enriched.length} ${
+        mode === "end_of_day_overdue" ? "مهمة متأخرة" :
+        mode === "all_scheduled" ? "مهمة مجدولة" :
+        "مهمة مستحقة اليوم"
+      }`;
+
       // In-app notification
       await supabase.from("notifications").insert({
         user_id: uid,
-        title: mode === "end_of_day_overdue" ? "مهام متأخرة" : "مهام مستحقة اليوم",
-        message: `لديك ${enriched.length} ${mode === "end_of_day_overdue" ? "مهمة متأخرة" : "مهمة مستحقة اليوم"}`,
+        title: notifTitle,
+        message: notifBody,
         type: "task_update",
         is_read: false,
       });
@@ -217,8 +228,8 @@ const handler = async (req: Request): Promise<Response> => {
         await supabase.functions.invoke("send-push-notification", {
           body: {
             userId: uid,
-            title: mode === "end_of_day_overdue" ? "مهام متأخرة" : "مهام مستحقة اليوم",
-            body: `لديك ${enriched.length} ${mode === "end_of_day_overdue" ? "مهمة متأخرة" : "مهمة مستحقة اليوم"}`,
+            title: notifTitle,
+            body: notifBody,
             data: { type: "task_reminder", mode },
           },
         });
