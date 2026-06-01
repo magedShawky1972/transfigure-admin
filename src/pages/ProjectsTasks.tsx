@@ -246,8 +246,17 @@ const ProjectsTasks = () => {
   const [inlineTitle, setInlineTitle] = useState("");
   const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
   const [inlineSaving, setInlineSaving] = useState(false);
-  const [kanbanGroupBy, setKanbanGroupBy] = useState<'phase' | 'department' | 'employee'>('phase');
+  const [kanbanGroupBy, setKanbanGroupBy] = useState<'phase' | 'department' | 'employee'>(
+    (['phase','department','employee'].includes(searchParams.get('groupBy') || '')
+      ? (searchParams.get('groupBy') as any)
+      : 'phase')
+  );
   const [showArchived, setShowArchived] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareRecipients, setShareRecipients] = useState<string[]>([]);
+  const [shareNote, setShareNote] = useState('');
+  const [shareSending, setShareSending] = useState(false);
+  const [shareSearch, setShareSearch] = useState('');
 
 
   // Compute Nth weekday(s) of month for recurring tasks
