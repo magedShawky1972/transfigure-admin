@@ -1040,6 +1040,34 @@ const ProjectsTasks = () => {
     });
   };
 
+  useEffect(() => {
+    if (selectedProject === 'all') return;
+
+    const project = projects.find((p) => p.id === selectedProject);
+    if (!project) return;
+
+    const projectDepartmentIds = project.department_ids && project.department_ids.length > 0
+      ? project.department_ids
+      : [project.department_id];
+
+    if (!projectDepartmentIds.includes(selectedDepartment)) {
+      const nextDepartment = projectDepartmentIds.find((deptId) =>
+        accessibleDepartments.some((department) => department.id === deptId)
+      ) || projectDepartmentIds[0];
+
+      if (nextDepartment && nextDepartment !== selectedDepartment) {
+        setSelectedDepartment(nextDepartment);
+      }
+    }
+
+    if (selectedUser !== 'all') {
+      const projectMemberIds = new Set((project.members || []).map((member) => member.user_id));
+      if (!projectMemberIds.has(selectedUser)) {
+        setSelectedUser('all');
+      }
+    }
+  }, [selectedProject, projects, selectedDepartment, accessibleDepartments, selectedUser]);
+
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (task.department_id !== selectedDepartment) return false;
@@ -2422,7 +2450,34 @@ const ProjectsTasks = () => {
                 className="pl-9"
               />
             </div>
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <Select value={selectedProject} onValueChange={(value) => {
+                setSelectedProject(value);
+
+                if (value === 'all') {
+                  return;
+                }
+
+                const project = projects.find((p) => p.id === value);
+                if (!project) return;
+
+                const projectDepartmentIds = project.department_ids && project.department_ids.length > 0
+                  ? project.department_ids
+                  : [project.department_id];
+                const nextDepartment = projectDepartmentIds.find((deptId) =>
+                  accessibleDepartments.some((department) => department.id === deptId)
+                ) || projectDepartmentIds[0];
+
+                if (nextDepartment && nextDepartment !== selectedDepartment) {
+                  setSelectedDepartment(nextDepartment);
+                }
+
+                if (selectedUser !== 'all') {
+                  const projectMemberIds = new Set((project.members || []).map((member) => member.user_id));
+                  if (!projectMemberIds.has(selectedUser)) {
+                    setSelectedUser('all');
+                  }
+                }
+              }}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder={t.filterByProject} />
               </SelectTrigger>
