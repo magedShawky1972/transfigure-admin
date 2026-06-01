@@ -1282,7 +1282,7 @@ const ProjectsTasks = () => {
 
         // If recurring was checked while editing, generate additional occurrence tasks
         if (taskForm.is_recurring && taskForm.recurrence_months.length > 0) {
-          const dates = computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day);
+          const dates = computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_weeks, taskForm.recurrence_day);
           for (const d of dates) {
             const monthLabel = d.toLocaleString(language === 'ar' ? 'ar' : 'en', { month: 'long', year: 'numeric' });
             const { data: newTask, error: recErr } = await supabase.from('tasks').insert({
