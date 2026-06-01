@@ -1861,12 +1861,9 @@ const ProjectsTasks = () => {
                         <Select value={taskForm.assigned_to[0] || ''} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: [v] })}>
                           <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
                           <SelectContent>
-                            {(() => {
-                              // Filter users in the selected department
-                              const deptUsers = users.filter(u => 
-                                u.default_department_id === taskForm.department_id || 
-                                (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
-                              );
+                             {(() => {
+                               // Include department members + project members (across all project departments) when a project is selected
+                               const deptUsers = getEligibleAssignees(taskForm.department_id, taskForm.project_id);
                               
                               // System admin or department admin: show all users in department
                               if (userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)) {
