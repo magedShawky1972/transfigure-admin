@@ -293,7 +293,7 @@ const ProjectsTasks = () => {
     figma_link: '' as string,
     is_recurring: false,
     recurrence_months: [] as number[],
-    recurrence_week: 1, // 1..4, 5 = last
+    recurrence_weeks: [1] as number[], // 1..4, 5 = last — can select multiple
     recurrence_day: 1, // 0=Sun..6=Sat
     recurrence_year: new Date().getFullYear(),
   });
