@@ -125,7 +125,7 @@ serve(async (req) => {
       if (!p) continue;
       const ctx = projectName || departmentName ? ` (${[projectName, departmentName].filter(Boolean).join(" · ")})` : "";
       const title = `${senderName} shared a view with you${ctx}`;
-      const message = note ? note : `Open the shared Projects & Tasks view`;
+      const message = `${note ? note + "\n\n" : ""}Open: ${url}`;
 
       await supabase.from("notifications").insert({
         user_id: uid,
@@ -133,7 +133,8 @@ serve(async (req) => {
         message,
         type: "task_update",
         is_read: false,
-        action_url: url,
+        sender_id: senderUserId ?? null,
+        sender_name: senderName,
       });
 
       if (p.email && smtpPass) {
