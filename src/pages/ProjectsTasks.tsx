@@ -2546,6 +2546,20 @@ const ProjectsTasks = () => {
               </SelectContent>
             </Select>
 
+            {/* Kanban Group By */}
+            <Select value={kanbanGroupBy} onValueChange={(v) => setKanbanGroupBy(v as any)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder={t.groupBy} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="phase">{t.groupBy}: {t.groupByPhase}</SelectItem>
+                {selectedProject !== 'all' && (
+                  <SelectItem value="department">{t.groupBy}: {t.groupByDepartment}</SelectItem>
+                )}
+                <SelectItem value="employee">{t.groupBy}: {t.groupByEmployee}</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Date Filter */}
             <Select value={dateMode} onValueChange={setDateMode}>
               <SelectTrigger className="w-[160px]">
