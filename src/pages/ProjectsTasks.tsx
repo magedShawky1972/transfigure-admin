@@ -268,7 +268,12 @@ const ProjectsTasks = () => {
     video_attachments: [] as FileAttachment[],
     seq_number: null as number | null,
     wireframes: [] as Wireframe[],
-    figma_link: '' as string
+    figma_link: '' as string,
+    is_recurring: false,
+    recurrence_months: [] as number[],
+    recurrence_week: 1, // 1..4, 5 = last
+    recurrence_day: 1, // 0=Sun..6=Sat
+    recurrence_year: new Date().getFullYear(),
   });
   const [newLink, setNewLink] = useState('');
   const [uploading, setUploading] = useState(false);
