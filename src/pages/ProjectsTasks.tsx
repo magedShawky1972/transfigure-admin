@@ -1179,8 +1179,8 @@ const ProjectsTasks = () => {
 
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
-    if (selectedDepartment !== 'all') {
-      // Match if task's department matches OR any assignee belongs to the selected department
+    // When a specific project is selected, show ALL tasks for that project (skip department filter)
+    if (selectedDepartment !== 'all' && selectedProject === 'all') {
       const taskAssigneeIds = [task.assigned_to, ...(task.assignees || [])].filter(Boolean) as string[];
       const assigneeInDept = taskAssigneeIds.some(uid => {
         const u = users.find(x => x.user_id === uid);
