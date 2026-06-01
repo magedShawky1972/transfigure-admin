@@ -2053,8 +2053,9 @@ const ProjectsTasks = () => {
                       </div>
                     </div>
 
-                    {/* Recurring task - only on create */}
-                    {!editingTask && (
+                    {/* Recurring task */}
+                    {(
+
                       <div className="border rounded-md p-3 space-y-3 bg-muted/30">
                         <div className="flex items-center gap-2">
                           <Checkbox
