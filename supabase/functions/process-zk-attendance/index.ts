@@ -253,6 +253,16 @@ Deno.serve(async (req) => {
       : null;
     console.log(`Official holidays on ${targetDate}: ${matchingHolidays.length} found${holidayName ? ` (${holidayName})` : ''}`);
 
+    // Check if target date is a Company WFH day (specific date or recurring weekday)
+    const targetDowForWfh = new Date(targetDate + 'T12:00:00').getDay();
+    const [{ data: wfhSpecificRow }, { data: wfhRecurringRow }] = await Promise.all([
+      supabase.from('company_wfh_days').select('wfh_date,description').eq('wfh_date', targetDate).maybeSingle(),
+      supabase.from('company_wfh_recurring').select('day_of_week').eq('day_of_week', targetDowForWfh).eq('is_active', true).maybeSingle(),
+    ]);
+    const isCompanyWfhDay = !!wfhSpecificRow || !!wfhRecurringRow;
+    const wfhDayLabel = wfhSpecificRow?.description || (wfhRecurringRow ? 'Recurring WFH day' : 'Company WFH Day');
+    console.log(`Company WFH day for ${targetDate}: ${isCompanyWfhDay}`);
+
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
       .from('employees')
