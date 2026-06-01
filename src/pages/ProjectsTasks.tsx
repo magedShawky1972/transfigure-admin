@@ -1301,17 +1301,35 @@ const ProjectsTasks = () => {
           created_by: currentUserId!
         };
 
-        const { data: insertedTask, error: insertError } = await supabase
-          .from('tasks')
-          .insert(newTaskPayload)
-          .select()
-          .single();
-        if (insertError) throw insertError;
+        // Build list of (title, deadline) — single occurrence by default, or many for recurring
+        const occurrences: { title: string; deadline: string | null }[] = [];
+        if (taskForm.is_recurring && taskForm.recurrence_months.length > 0) {
+          const dates = computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day);
+          if (dates.length === 0) {
+            toast({ title: language === 'ar' ? 'لا توجد تواريخ متكررة صالحة' : 'No valid recurring dates', variant: 'destructive' });
+            return;
+          }
+          for (const d of dates) {
+            const monthLabel = d.toLocaleString(language === 'ar' ? 'ar' : 'en', { month: 'long', year: 'numeric' });
+            occurrences.push({ title: `${taskForm.title} - ${monthLabel}`, deadline: d.toISOString() });
+          }
+        } else {
+          occurrences.push({ title: taskForm.title, deadline: newTaskPayload.deadline });
+        }
 
-        if (insertedTask) {
-          await supabase.from('task_assignees').insert(
-            taskForm.assigned_to.map(uid => ({ task_id: insertedTask.id, user_id: uid }))
-          );
+        for (const occ of occurrences) {
+          const { data: insertedTask, error: insertError } = await supabase
+            .from('tasks')
+            .insert({ ...newTaskPayload, title: occ.title, deadline: occ.deadline })
+            .select()
+            .single();
+          if (insertError) throw insertError;
+
+          if (insertedTask) {
+            await supabase.from('task_assignees').insert(
+              taskForm.assigned_to.map(uid => ({ task_id: insertedTask.id, user_id: uid }))
+            );
+          }
         }
 
         // Send notification to each assigned user
