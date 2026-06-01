@@ -2880,7 +2880,7 @@ const ProjectsTasks = () => {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                       <Input 
                         value={phaseSearch}
-                        onChange={(e) => setPhaseSearchTerms(prev => ({ ...prev, [phase.phase_key]: e.target.value }))}
+                        onChange={(e) => setPhaseSearchTerms(prev => ({ ...prev, [column.key]: e.target.value }))}
                         placeholder={t.search}
                         className="h-7 text-xs pl-7 bg-background/50"
                       />
