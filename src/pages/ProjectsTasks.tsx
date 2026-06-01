@@ -1135,7 +1135,7 @@ const ProjectsTasks = () => {
           return {
             id: `dept:${did}`,
             key: did,
-            name: dep ? (language === 'ar' ? (dep.name_ar || dep.name) : dep.name) : did,
+            name: dep ? (dep as any).department_name : did,
             color: '#6366F1',
             matches: (task: Task) => task.department_id === did,
           } as KanbanColumn;
