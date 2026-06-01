@@ -24,7 +24,7 @@ import {
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
   GanttChart, FileSpreadsheet, BarChart3, Eye, Download, Image as ImageIcon, Archive, ArchiveRestore,
-  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Bell, AlertTriangle
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Bell, AlertTriangle, Share2, Copy, Send
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
@@ -246,8 +246,17 @@ const ProjectsTasks = () => {
   const [inlineTitle, setInlineTitle] = useState("");
   const [inlineAssignees, setInlineAssignees] = useState<string[]>([]);
   const [inlineSaving, setInlineSaving] = useState(false);
-  const [kanbanGroupBy, setKanbanGroupBy] = useState<'phase' | 'department' | 'employee'>('phase');
+  const [kanbanGroupBy, setKanbanGroupBy] = useState<'phase' | 'department' | 'employee'>(
+    (['phase','department','employee'].includes(searchParams.get('groupBy') || '')
+      ? (searchParams.get('groupBy') as any)
+      : 'phase')
+  );
   const [showArchived, setShowArchived] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareRecipients, setShareRecipients] = useState<string[]>([]);
+  const [shareNote, setShareNote] = useState('');
+  const [shareSending, setShareSending] = useState(false);
+  const [shareSearch, setShareSearch] = useState('');
 
 
   // Compute Nth weekday(s) of month for recurring tasks
@@ -1945,6 +1954,20 @@ const ProjectsTasks = () => {
                 </DropdownMenu>
               )}
 
+              {/* Share current view */}
+              {!isExternalGuest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setShareRecipients([]); setShareNote(''); setShareSearch(''); setShareDialogOpen(true); }}
+                  title={language === 'ar' ? 'مشاركة هذا العرض' : 'Share this view'}
+                >
+                  <Share2 className="h-4 w-4 mr-1" />{language === 'ar' ? 'مشاركة العرض' : 'Share View'}
+                </Button>
+              )}
+
+
+
               {/* Add buttons */}
               {canManageProjects && <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
                 <DialogTrigger asChild>
@@ -3528,6 +3551,133 @@ const ProjectsTasks = () => {
           language={language as 'ar' | 'en'}
         />
       )}
+
+      {/* Share View Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{language === 'ar' ? 'مشاركة العرض الحالي' : 'Share Current View'}</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const params = new URLSearchParams();
+            if (selectedDepartment && selectedDepartment !== 'all') params.set('departmentId', selectedDepartment);
+            if (selectedProject && selectedProject !== 'all') params.set('projectId', selectedProject);
+            if (kanbanGroupBy && kanbanGroupBy !== 'phase') params.set('groupBy', kanbanGroupBy);
+            params.set('collapseMenu', '1');
+            const shareUrl = `${window.location.origin}/projects-tasks?${params.toString()}`;
+            const projectName = selectedProject !== 'all' ? (projects.find(p => p.id === selectedProject)?.name || '') : (language === 'ar' ? 'كل المشاريع' : 'All Projects');
+            const departmentName = selectedDepartment !== 'all'
+              ? (accessibleDepartments.find((d: any) => d.id === selectedDepartment)?.department_name || '')
+              : (language === 'ar' ? 'كل الأقسام' : 'All Departments');
+            const groupByLabel = ({ phase: t.groupByPhase, department: t.groupByDepartment, employee: t.groupByEmployee } as any)[kanbanGroupBy];
+
+            const filteredUsers = users.filter((u: any) => {
+              if (!shareSearch.trim()) return true;
+              const q = shareSearch.toLowerCase();
+              return (u.user_name || '').toLowerCase().includes(q);
+            });
+
+            const toggle = (uid: string) => setShareRecipients(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]);
+
+            return (
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
+                  <div><span className="text-muted-foreground">{language === 'ar' ? 'المشروع:' : 'Project:'}</span> <b>{projectName}</b></div>
+                  <div><span className="text-muted-foreground">{language === 'ar' ? 'القسم:' : 'Department:'}</span> <b>{departmentName}</b></div>
+                  <div><span className="text-muted-foreground">{language === 'ar' ? 'تجميع حسب:' : 'Group by:'}</span> <b>{groupByLabel}</b></div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Input readOnly value={shareUrl} className="text-xs" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { navigator.clipboard.writeText(shareUrl); toast({ title: language === 'ar' ? 'تم النسخ' : 'Link copied' }); }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <Textarea
+                  placeholder={language === 'ar' ? 'ملاحظة اختيارية للمستلم...' : 'Optional note for recipients...'}
+                  value={shareNote}
+                  onChange={(e) => setShareNote(e.target.value)}
+                  rows={2}
+                />
+
+                <div>
+                  <label className="text-sm font-medium">{language === 'ar' ? 'إرسال إلى الموظفين' : 'Send to employees'}</label>
+                  <Input
+                    placeholder={language === 'ar' ? 'بحث عن موظف...' : 'Search employee...'}
+                    value={shareSearch}
+                    onChange={(e) => setShareSearch(e.target.value)}
+                    className="mt-1 mb-2"
+                  />
+                  <ScrollArea className="h-56 rounded-md border p-2">
+                    {filteredUsers.length === 0 && (
+                      <div className="text-center text-xs text-muted-foreground py-4">
+                        {language === 'ar' ? 'لا يوجد موظفون' : 'No employees'}
+                      </div>
+                    )}
+                    {filteredUsers.map((u: any) => (
+                      <label key={u.user_id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted cursor-pointer">
+                        <Checkbox
+                          checked={shareRecipients.includes(u.user_id)}
+                          onCheckedChange={() => toggle(u.user_id)}
+                        />
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={u.avatar_url || ''} />
+                          <AvatarFallback className="text-[10px]">{(u.user_name || '?').slice(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{u.user_name}</span>
+                      </label>
+                    ))}
+                  </ScrollArea>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {shareRecipients.length} {language === 'ar' ? 'محدد' : 'selected'}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button
+                    disabled={shareRecipients.length === 0 || shareSending}
+                    onClick={async () => {
+                      setShareSending(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke('share-projects-view', {
+                          body: {
+                            recipientUserIds: shareRecipients,
+                            url: shareUrl,
+                            note: shareNote,
+                            senderUserId: currentUserId,
+                            projectName,
+                            departmentName,
+                            groupBy: groupByLabel,
+                          },
+                        });
+                        if (error) throw error;
+                        toast({ title: language === 'ar' ? `تم الإرسال إلى ${data?.sent ?? 0} موظف` : `Sent to ${data?.sent ?? 0} users` });
+                        setShareDialogOpen(false);
+                      } catch (e: any) {
+                        toast({ title: language === 'ar' ? 'فشل الإرسال' : 'Failed', description: e.message, variant: 'destructive' });
+                      } finally {
+                        setShareSending(false);
+                      }
+                    }}
+                  >
+                    {shareSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                    {language === 'ar' ? 'إرسال' : 'Send'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
