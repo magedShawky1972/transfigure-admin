@@ -24,8 +24,9 @@ import {
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
   GanttChart, FileSpreadsheet, BarChart3, Eye, Download, Image as ImageIcon, Archive, ArchiveRestore,
-  ChevronLeft, ChevronRight, ChevronUp, ChevronDown
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Bell, AlertTriangle
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 import { downloadFile } from "@/lib/fileDownload";
 import { ProjectTaskExcelImport } from "@/components/ProjectTaskExcelImport";
@@ -1904,6 +1905,45 @@ const ProjectsTasks = () => {
               {!isExternalGuest && <Button variant="outline" size="sm" onClick={() => setExcelImportDialogOpen(true)}>
                 <FileSpreadsheet className="h-4 w-4 mr-1" />{language === 'ar' ? 'استيراد Excel' : 'Import Excel'}
               </Button>}
+
+              {/* Send reminders */}
+              {!isExternalGuest && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Bell className="h-4 w-4 mr-1" />{language === 'ar' ? 'تذكيرات المهام' : 'Task Reminders'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72">
+                    <DropdownMenuLabel>{language === 'ar' ? 'إرسال تذكير الآن' : 'Send Reminder Now'}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={async () => {
+                      toast({ title: language === 'ar' ? 'جاري الإرسال...' : 'Sending...' });
+                      const { data, error } = await supabase.functions.invoke('send-task-reminders', { body: { mode: 'daily_due' } });
+                      if (error) toast({ title: language === 'ar' ? 'فشل الإرسال' : 'Failed', description: error.message, variant: 'destructive' });
+                      else toast({ title: language === 'ar' ? `تم إرسال التذكير إلى ${data?.sent ?? 0} موظف` : `Reminder sent to ${data?.sent ?? 0} users` });
+                    }}>
+                      <Bell className="h-4 w-4 mr-2 text-blue-600" />
+                      {language === 'ar' ? 'مهام مستحقة اليوم' : 'Tasks due today'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={async () => {
+                      toast({ title: language === 'ar' ? 'جاري الإرسال...' : 'Sending...' });
+                      const { data, error } = await supabase.functions.invoke('send-task-reminders', { body: { mode: 'end_of_day_overdue' } });
+                      if (error) toast({ title: language === 'ar' ? 'فشل الإرسال' : 'Failed', description: error.message, variant: 'destructive' });
+                      else toast({ title: language === 'ar' ? `تم إرسال التذكير إلى ${data?.sent ?? 0} موظف` : `Reminder sent to ${data?.sent ?? 0} users` });
+                    }}>
+                      <AlertTriangle className="h-4 w-4 mr-2 text-red-600" />
+                      {language === 'ar' ? 'المهام المتأخرة' : 'Overdue tasks'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                      {language === 'ar'
+                        ? 'الجدولة التلقائية: 8 صباحاً (مستحقة) و 6 مساءً (متأخرة) بتوقيت الرياض'
+                        : 'Auto schedule: 8 AM (due) & 6 PM (overdue) KSA time'}
+                    </DropdownMenuLabel>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {/* Add buttons */}
               {canManageProjects && <Dialog open={projectDialogOpen} onOpenChange={(o) => { setProjectDialogOpen(o); if (!o) resetProjectForm(); }}>
