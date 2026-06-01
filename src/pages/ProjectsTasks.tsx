@@ -3220,6 +3220,7 @@ const ProjectsTasks = () => {
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
+          )}
 
           <DragOverlay>
             {activeTask && (
