@@ -989,6 +989,25 @@ const ProjectsTasks = () => {
     ? users.filter(u => u.default_department_id === selectedDepartment || (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment)))
     : users.filter(u => u.user_id === currentUserId);
 
+  // Eligible users for task assignment: department members + (when a project is selected) project members and users in any of the project's linked departments
+  const getEligibleAssignees = (deptId: string, projectId: string) => {
+    const project = projectId ? projects.find(p => p.id === projectId) : null;
+    const projectDeptIds = project
+      ? (project.department_ids && project.department_ids.length > 0 ? project.department_ids : [project.department_id])
+      : [];
+    const projectMemberIds = new Set((project?.members || []).map(m => m.user_id));
+    const targetDeptIds = new Set<string>([deptId, ...projectDeptIds].filter(Boolean) as string[]);
+    const seen = new Set<string>();
+    return users.filter(u => {
+      if (seen.has(u.user_id)) return false;
+      const match = projectMemberIds.has(u.user_id)
+        || (u.default_department_id && targetDeptIds.has(u.default_department_id))
+        || ((u as any).departmentMemberships && (u as any).departmentMemberships.some((d: string) => targetDeptIds.has(d)));
+      if (match) { seen.add(u.user_id); return true; }
+      return false;
+    });
+  };
+
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (task.department_id !== selectedDepartment) return false;
@@ -1842,12 +1861,9 @@ const ProjectsTasks = () => {
                         <Select value={taskForm.assigned_to[0] || ''} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: [v] })}>
                           <SelectTrigger><SelectValue placeholder={t.selectUser} /></SelectTrigger>
                           <SelectContent>
-                            {(() => {
-                              // Filter users in the selected department
-                              const deptUsers = users.filter(u => 
-                                u.default_department_id === taskForm.department_id || 
-                                (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
-                              );
+                             {(() => {
+                               // Include department members + project members (across all project departments) when a project is selected
+                               const deptUsers = getEligibleAssignees(taskForm.department_id, taskForm.project_id);
                               
                               // System admin or department admin: show all users in department
                               if (userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)) {
@@ -1871,11 +1887,8 @@ const ProjectsTasks = () => {
                         // Multi-select for new task
                         <div className="border rounded-md p-2 max-h-[150px] overflow-y-auto">
                           {(() => {
-                            // Filter users in the selected department
-                            const deptUsers = users.filter(u => 
-                              u.default_department_id === taskForm.department_id || 
-                              (u.departmentMemberships && u.departmentMemberships.includes(taskForm.department_id))
-                            );
+                            // Include department members + project members (across all project departments) when a project is selected
+                            const deptUsers = getEligibleAssignees(taskForm.department_id, taskForm.project_id);
                             
                             // System admin or department admin: show all users in department
                             if (userAccess.isSystemAdmin || userAccess.adminDepartments.includes(taskForm.department_id)) {
@@ -2668,8 +2681,7 @@ const ProjectsTasks = () => {
                                 </PopoverTrigger>
                                 <PopoverContent className="w-64 p-0" align="start">
                                   <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                                    {users
-                                      .filter(u => u.default_department_id === selectedDepartment || (u as any).departmentMemberships?.includes(selectedDepartment))
+                                    {getEligibleAssignees(selectedDepartment, selectedProject !== 'all' ? selectedProject : '')
                                       .map(u => {
                                         const checked = inlineAssignees.includes(u.user_id);
                                         return (
