@@ -225,6 +225,9 @@ const ProjectsTasks = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [specificDate, setSpecificDate] = useState<Date | undefined>(undefined);
   const [phaseSearchTerms, setPhaseSearchTerms] = useState<Record<string, string>>({});
+  const [forceLoadAll, setForceLoadAll] = useState(false);
+  const [columnLimits, setColumnLimits] = useState<Record<string, number>>({});
+  const DEFAULT_COLUMN_LIMIT = 25;
   
   // Dialog states
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
