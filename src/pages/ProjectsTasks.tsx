@@ -2602,9 +2602,7 @@ const ProjectsTasks = () => {
                                           </div>
                                           <div className="max-h-64 overflow-y-auto p-1">
                                                {(() => {
-                                                 const filtered = taskProject
-                                                   ? getEligibleAssignees(task.department_id, task.project_id || '')
-                                                   : getEligibleAssignees(task.department_id, '');
+                                                  const filtered = getEligibleAssignees(task.department_id, task.project_id || '');
                                                  return filtered.map(u => {
                                                   const current = task.assignees && task.assignees.length > 0 ? task.assignees : [task.assigned_to];
                                                   const checked = current.includes(u.user_id);
