@@ -714,9 +714,10 @@ const ProjectsTasks = () => {
         }
       }
 
+      const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
+
       if (projectsRes.data) {
         // Admins see all projects, others see filtered (including projects where user is a member)
-        const projectMemberProjectIds = projectMembers.filter(pm => pm.user_id === user.id).map(pm => pm.project_id);
         const baseProjects = isAdmin 
           ? projectsRes.data 
           : projectsRes.data.filter(p => {
@@ -724,6 +725,7 @@ const ProjectsTasks = () => {
               return deptIds.some(d => accessibleDeptIds.includes(d)) || 
                 projectMemberProjectIds.includes(p.id);
             });
+
         const filteredProjects = externalGuest && activeGuest?.project_id
           ? baseProjects.filter(p => p.id === activeGuest.project_id)
           : baseProjects;
@@ -831,6 +833,8 @@ const ProjectsTasks = () => {
           ? tasksRes.data.filter(task => task.project_id === activeGuest.project_id)
           : isAdmin ? tasksRes.data : tasksRes.data.filter(task => {
           const taskAssignees = assigneesMap.get(task.id) || [];
+          // Any member of the task's project can see all tasks in that project
+          if (task.project_id && projectMemberProjectIds.includes(task.project_id)) return true;
           // Department admin sees all tasks in their departments
           if (adminDeptIds.includes(task.department_id)) return true;
           // Regular user sees tasks they're assigned to (single or multi) or created
@@ -838,6 +842,7 @@ const ProjectsTasks = () => {
               (task.assigned_to === user.id || taskAssignees.includes(user.id) || task.created_by === user.id)) return true;
           return false;
         });
+
         
         const tasksWithProfiles = filteredTasks.map(task => {
           const taskTimeEntries = timeEntries.filter(te => te.task_id === task.id);
