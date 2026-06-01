@@ -253,6 +253,16 @@ Deno.serve(async (req) => {
       : null;
     console.log(`Official holidays on ${targetDate}: ${matchingHolidays.length} found${holidayName ? ` (${holidayName})` : ''}`);
 
+    // Check if target date is a Company WFH day (specific date or recurring weekday)
+    const targetDowForWfh = new Date(targetDate + 'T12:00:00').getDay();
+    const [{ data: wfhSpecificRow }, { data: wfhRecurringRow }] = await Promise.all([
+      supabase.from('company_wfh_days').select('wfh_date,description').eq('wfh_date', targetDate).maybeSingle(),
+      supabase.from('company_wfh_recurring').select('day_of_week').eq('day_of_week', targetDowForWfh).eq('is_active', true).maybeSingle(),
+    ]);
+    const isCompanyWfhDay = !!wfhSpecificRow || !!wfhRecurringRow;
+    const wfhDayLabel = wfhSpecificRow?.description || (wfhRecurringRow ? 'Recurring WFH day' : 'Company WFH Day');
+    console.log(`Company WFH day for ${targetDate}: ${isCompanyWfhDay}`);
+
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
       .from('employees')
@@ -451,6 +461,38 @@ Deno.serve(async (req) => {
       // For morning processing, we only care about in_time
       // For evening processing, we update with out_time
       if (processType === 'morning' && !inTime) continue;
+
+      // If today is a Company WFH day and the employee has no ZK check-in,
+      // record as WFH instead of Absent (employees check in via the WFH system, not ZK)
+      if (isCompanyWfhDay && !inTime) {
+        const scheduledStartWfh = attendanceType?.fixed_start_time || null;
+        const scheduledEndWfh = attendanceType?.fixed_end_time || null;
+        const wfhTimesheetRecord = {
+          employee_id: employee.id,
+          work_date: targetDate,
+          scheduled_start: scheduledStartWfh,
+          scheduled_end: scheduledEndWfh,
+          actual_start: null,
+          actual_end: null,
+          break_duration_minutes: 0,
+          status: 'wfh',
+          is_absent: false,
+          absence_reason: null,
+          late_minutes: 0,
+          early_leave_minutes: 0,
+          overtime_minutes: 0,
+          total_work_minutes: 0,
+          deduction_amount: 0,
+          overtime_amount: 0,
+          notes: `Company WFH Day - ${wfhDayLabel}`,
+        };
+        const { error: wfhErr } = await supabase
+          .from('timesheets')
+          .upsert(wfhTimesheetRecord, { onConflict: 'employee_id,work_date' });
+        if (wfhErr) console.error(`Error upserting WFH timesheet for ${employee.id}:`, wfhErr);
+        continue;
+      }
+
 
       // Calculate late minutes
       let lateMinutes = 0;
