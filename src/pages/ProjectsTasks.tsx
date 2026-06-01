@@ -59,6 +59,7 @@ interface Project {
   created_at: string;
   departments?: { department_name: string };
   members?: ProjectMember[];
+  department_ids?: string[];
 }
 
 interface FileAttachment {
