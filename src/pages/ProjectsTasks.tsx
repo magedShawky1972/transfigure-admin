@@ -989,6 +989,25 @@ const ProjectsTasks = () => {
     ? users.filter(u => u.default_department_id === selectedDepartment || (u.departmentMemberships && u.departmentMemberships.includes(selectedDepartment)))
     : users.filter(u => u.user_id === currentUserId);
 
+  // Eligible users for task assignment: department members + (when a project is selected) project members and users in any of the project's linked departments
+  const getEligibleAssignees = (deptId: string, projectId: string) => {
+    const project = projectId ? projects.find(p => p.id === projectId) : null;
+    const projectDeptIds = project
+      ? (project.department_ids && project.department_ids.length > 0 ? project.department_ids : [project.department_id])
+      : [];
+    const projectMemberIds = new Set((project?.members || []).map(m => m.user_id));
+    const targetDeptIds = new Set<string>([deptId, ...projectDeptIds].filter(Boolean) as string[]);
+    const seen = new Set<string>();
+    return users.filter(u => {
+      if (seen.has(u.user_id)) return false;
+      const match = projectMemberIds.has(u.user_id)
+        || (u.default_department_id && targetDeptIds.has(u.default_department_id))
+        || ((u as any).departmentMemberships && (u as any).departmentMemberships.some((d: string) => targetDeptIds.has(d)));
+      if (match) { seen.add(u.user_id); return true; }
+      return false;
+    });
+  };
+
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (task.department_id !== selectedDepartment) return false;
