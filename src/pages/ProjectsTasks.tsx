@@ -1277,6 +1277,39 @@ const ProjectsTasks = () => {
             console.error('Error sending task completion notification:', notifyError);
           }
         }
+
+        // If recurring was checked while editing, generate additional occurrence tasks
+        if (taskForm.is_recurring && taskForm.recurrence_months.length > 0) {
+          const dates = computeRecurringDates(taskForm.recurrence_year, taskForm.recurrence_months, taskForm.recurrence_week, taskForm.recurrence_day);
+          for (const d of dates) {
+            const monthLabel = d.toLocaleString(language === 'ar' ? 'ar' : 'en', { month: 'long', year: 'numeric' });
+            const { data: newTask, error: recErr } = await supabase.from('tasks').insert({
+              title: `${taskForm.title} - ${monthLabel}`,
+              description: taskForm.description || null,
+              project_id: taskForm.project_id || null,
+              department_id: taskForm.department_id,
+              assigned_to: taskForm.assigned_to[0],
+              status: taskForm.status,
+              priority: taskForm.priority,
+              start_date: taskForm.start_date ? format(taskForm.start_date, 'yyyy-MM-dd') : null,
+              deadline: d.toISOString(),
+              start_time: taskForm.start_time || null,
+              end_time: taskForm.end_time || null,
+              external_links: taskForm.external_links,
+              file_attachments: taskForm.file_attachments as unknown as Json,
+              video_attachments: taskForm.video_attachments as unknown as Json,
+              wireframe_data: taskForm.wireframes as unknown as Json,
+              figma_link: taskForm.figma_link || null,
+              created_by: currentUserId!,
+            }).select().single();
+            if (recErr) throw recErr;
+            if (newTask && taskForm.assigned_to.length) {
+              await supabase.from('task_assignees').insert(
+                taskForm.assigned_to.map(uid => ({ task_id: newTask.id, user_id: uid }))
+              );
+            }
+          }
+        }
       } else {
         // Create ONE task with the first user as primary assignee, then add all assignees in join table
         const newTaskPayload = {
