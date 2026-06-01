@@ -983,6 +983,31 @@ const ProjectsTasks = () => {
   // Helper: does a project belong to the given department (primary or linked)
   const projectInDept = (p: Project, deptId: string) =>
     (p.department_ids && p.department_ids.length > 0 ? p.department_ids : [p.department_id]).includes(deptId);
+
+  const getProjectRelevantDepartmentIds = (project: Project | null) => {
+    if (!project) return [] as string[];
+
+    const taskDepartmentIds = Array.from(
+      new Set(
+        tasks
+          .filter((task) => task.project_id === project.id)
+          .map((task) => task.department_id)
+      )
+    );
+
+    if (taskDepartmentIds.length > 0) return taskDepartmentIds;
+
+    return project.department_ids && project.department_ids.length > 0
+      ? project.department_ids
+      : [project.department_id];
+  };
+
+  const filteredDepartmentOptions = selectedProject !== 'all'
+    ? accessibleDepartments.filter((department) => {
+        const project = projects.find((p) => p.id === selectedProject);
+        return project ? getProjectRelevantDepartmentIds(project).includes(department.id) : true;
+      })
+    : accessibleDepartments;
   
   // Check if user is a project manager for any project in this department
   const isProjectManagerInDepartment = projects.some(p => 
@@ -1046,9 +1071,7 @@ const ProjectsTasks = () => {
     const project = projects.find((p) => p.id === selectedProject);
     if (!project) return;
 
-    const projectDepartmentIds = project.department_ids && project.department_ids.length > 0
-      ? project.department_ids
-      : [project.department_id];
+    const projectDepartmentIds = getProjectRelevantDepartmentIds(project);
 
     if (!projectDepartmentIds.includes(selectedDepartment)) {
       const nextDepartment = projectDepartmentIds.find((deptId) =>
@@ -1066,7 +1089,7 @@ const ProjectsTasks = () => {
         setSelectedUser('all');
       }
     }
-  }, [selectedProject, projects, selectedDepartment, accessibleDepartments, selectedUser]);
+  }, [selectedProject, projects, tasks, selectedDepartment, accessibleDepartments, selectedUser]);
 
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
@@ -1736,7 +1759,7 @@ const ProjectsTasks = () => {
                   <SelectValue placeholder={t.selectDepartment} />
                 </SelectTrigger>
                 <SelectContent>
-                  {accessibleDepartments.map(d => (
+                  {filteredDepartmentOptions.map(d => (
                     <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -2460,9 +2483,7 @@ const ProjectsTasks = () => {
                 const project = projects.find((p) => p.id === value);
                 if (!project) return;
 
-                const projectDepartmentIds = project.department_ids && project.department_ids.length > 0
-                  ? project.department_ids
-                  : [project.department_id];
+                const projectDepartmentIds = getProjectRelevantDepartmentIds(project);
                 const nextDepartment = projectDepartmentIds.find((deptId) =>
                   accessibleDepartments.some((department) => department.id === deptId)
                 ) || projectDepartmentIds[0];
