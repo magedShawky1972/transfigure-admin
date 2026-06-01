@@ -990,6 +990,13 @@ const ProjectsTasks = () => {
     ? projectPhases.map((p: any) => ({ ...p, department_id: selectedDepartment }))
     : (departmentPhases.length > 0 ? departmentPhases : defaultPhases);
 
+  // Auto-revert kanbanGroupBy when 'department' selected but no project chosen
+  useEffect(() => {
+    if (kanbanGroupBy === 'department' && selectedProject === 'all') {
+      setKanbanGroupBy('phase');
+    }
+  }, [kanbanGroupBy, selectedProject]);
+
   // Check if user is admin of selected department or project manager
   const isAdminOfSelectedDepartment = selectedDepartment === 'all' 
     ? userAccess.isSystemAdmin 
