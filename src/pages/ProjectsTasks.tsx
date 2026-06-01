@@ -235,7 +235,27 @@ const ProjectsTasks = () => {
   const [inlineSaving, setInlineSaving] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
-  
+
+  // Compute Nth weekday of month for recurring tasks
+  // week: 1..4 = nth occurrence; 5 = last occurrence
+  const computeRecurringDates = (year: number, months: number[], week: number, day: number): Date[] => {
+    const out: Date[] = [];
+    for (const m of months) {
+      if (week === 5) {
+        const last = new Date(year, m, 0); // last day of month m (1-12)
+        const offset = (last.getDay() - day + 7) % 7;
+        out.push(new Date(year, m - 1, last.getDate() - offset));
+      } else {
+        const first = new Date(year, m - 1, 1);
+        const offset = (day - first.getDay() + 7) % 7;
+        const date = 1 + offset + (week - 1) * 7;
+        const daysInMonth = new Date(year, m, 0).getDate();
+        if (date <= daysInMonth) out.push(new Date(year, m - 1, date));
+      }
+    }
+    return out.sort((a, b) => a.getTime() - b.getTime());
+  };
+
   // Form states
   const [projectForm, setProjectForm] = useState({
     name: '',
