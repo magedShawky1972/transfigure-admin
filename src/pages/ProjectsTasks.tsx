@@ -991,19 +991,16 @@ const ProjectsTasks = () => {
   const getProjectRelevantDepartmentIds = (project: Project | null) => {
     if (!project) return [] as string[];
 
-    const taskDepartmentIds = Array.from(
-      new Set(
-        tasks
-          .filter((task) => task.project_id === project.id)
-          .map((task) => task.department_id)
-      )
-    );
+    const taskDepartmentIds = tasks
+      .filter((task) => task.project_id === project.id)
+      .map((task) => task.department_id);
 
-    if (taskDepartmentIds.length > 0) return taskDepartmentIds;
-
-    return project.department_ids && project.department_ids.length > 0
+    const involvedDepartmentIds = project.department_ids && project.department_ids.length > 0
       ? project.department_ids
       : [project.department_id];
+
+    // Union of involved departments + departments that already have tasks
+    return Array.from(new Set([...involvedDepartmentIds, ...taskDepartmentIds].filter(Boolean)));
   };
 
   const filteredDepartmentOptions = selectedProject !== 'all'
