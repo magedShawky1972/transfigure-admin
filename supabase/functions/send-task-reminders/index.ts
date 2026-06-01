@@ -120,6 +120,7 @@ const handler = async (req: Request): Promise<Response> => {
     const body = await req.json().catch(() => ({}));
     const mode: Mode = body.mode || "daily_due";
     const targetUserId: string | undefined = body.userId;
+    const projectId: string | undefined = body.projectId;
 
     const now = new Date();
     const ksaNow = new Date(now.getTime() + 3 * 3600 * 1000);
@@ -132,6 +133,10 @@ const handler = async (req: Request): Promise<Response> => {
       .select("id, title, deadline, priority, status, assigned_to, project_id, is_archived")
       .eq("is_archived", false)
       .neq("status", "done");
+
+    if (projectId) {
+      query = query.eq("project_id", projectId);
+    }
 
     if (mode === "daily_due") {
       query = query.gte("deadline", startOfDayUtc).lte("deadline", endOfDayUtc);
