@@ -3564,7 +3564,7 @@ const ProjectsTasks = () => {
             if (selectedProject && selectedProject !== 'all') params.set('projectId', selectedProject);
             if (kanbanGroupBy && kanbanGroupBy !== 'phase') params.set('groupBy', kanbanGroupBy);
             params.set('collapseMenu', '1');
-            const shareUrl = `${window.location.origin}/projects-tasks?${params.toString()}`;
+            const shareUrl = `https://edaraasus.com/projects-tasks?${params.toString()}`;
             const projectName = selectedProject !== 'all' ? (projects.find(p => p.id === selectedProject)?.name || '') : (language === 'ar' ? 'كل المشاريع' : 'All Projects');
             const departmentName = selectedDepartment !== 'all'
               ? (accessibleDepartments.find((d: any) => d.id === selectedDepartment)?.department_name || '')
