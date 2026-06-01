@@ -1782,9 +1782,7 @@ const ProjectsTasks = () => {
               </Dialog>}
 
               {canCreateOrEditTasks && <Dialog open={taskDialogOpen} onOpenChange={(o) => { setTaskDialogOpen(o); if (!o) resetTaskForm(); }}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
-                </DialogTrigger>
+                 <Button size="sm" onClick={() => { resetTaskForm(); setTaskDialogOpen(true); }}><Plus className="h-4 w-4 mr-1" />{t.addTask}</Button>
                 <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto">  
                   <DialogHeader>
                     <DialogTitle>{editingTask ? t.edit : t.addTask}</DialogTitle>
