@@ -1944,6 +1944,15 @@ const ProjectsTasks = () => {
                       <AlertTriangle className="h-4 w-4 mr-2 text-red-600" />
                       {language === 'ar' ? 'المهام المتأخرة' : 'Overdue tasks'}
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={async () => {
+                      toast({ title: language === 'ar' ? 'جاري الإرسال...' : 'Sending...' });
+                      const { data, error } = await supabase.functions.invoke('send-task-reminders', { body: { mode: 'all_scheduled' } });
+                      if (error) toast({ title: language === 'ar' ? 'فشل الإرسال' : 'Failed', description: error.message, variant: 'destructive' });
+                      else toast({ title: language === 'ar' ? `تم إرسال التذكير إلى ${data?.sent ?? 0} موظف` : `Reminder sent to ${data?.sent ?? 0} users` });
+                    }}>
+                      <CalendarIcon className="h-4 w-4 mr-2 text-green-600" />
+                      {language === 'ar' ? 'كل المهام المجدولة لكل موظف' : 'All scheduled tasks per employee'}
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
                       {language === 'ar'

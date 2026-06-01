@@ -9,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Mode = "daily_due" | "end_of_day_overdue";
+type Mode = "daily_due" | "end_of_day_overdue" | "all_scheduled";
 
 function encodeSubject(s: string): string {
   const b = btoa(String.fromCharCode(...new TextEncoder().encode(s)));
@@ -60,9 +60,18 @@ async function sendSmtp(host: string, port: number, user: string, pass: string, 
 
 function buildHtml(userName: string, mode: Mode, tasks: any[]): { subject: string; html: string } {
   const isOverdue = mode === "end_of_day_overdue";
-  const title = isOverdue ? "مهام متأخرة تحتاج إلى متابعة" : "تذكير بالمهام المستحقة اليوم";
-  const headerColor = isOverdue ? "#dc2626" : "#2563eb";
-  const subject = isOverdue ? `لديك ${tasks.length} مهمة متأخرة` : `لديك ${tasks.length} مهمة مستحقة اليوم`;
+  const isAll = mode === "all_scheduled";
+  const title = isOverdue
+    ? "مهام متأخرة تحتاج إلى متابعة"
+    : isAll
+      ? "كل المهام المجدولة الخاصة بك"
+      : "تذكير بالمهام المستحقة اليوم";
+  const headerColor = isOverdue ? "#dc2626" : isAll ? "#16a34a" : "#2563eb";
+  const subject = isOverdue
+    ? `لديك ${tasks.length} مهمة متأخرة`
+    : isAll
+      ? `لديك ${tasks.length} مهمة مجدولة`
+      : `لديك ${tasks.length} مهمة مستحقة اليوم`;
 
   const rows = tasks.map(t => {
     const due = t.deadline ? new Date(t.deadline).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "short" }) : "-";
@@ -126,8 +135,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (mode === "daily_due") {
       query = query.gte("deadline", startOfDayUtc).lte("deadline", endOfDayUtc);
-    } else {
+    } else if (mode === "end_of_day_overdue") {
       query = query.lt("deadline", now.toISOString());
+    } else {
+      // all_scheduled: every open (not done, not archived) task assigned to the user
+      query = query.order("deadline", { ascending: true, nullsFirst: false });
     }
 
     const { data: tasks, error: taskErr } = await query;
@@ -181,11 +193,22 @@ const handler = async (req: Request): Promise<Response> => {
       const enriched = uTasks.map(t => ({ ...t, project_name: projectName.get(t.project_id) || "-" }));
       const { subject, html } = buildHtml(profile.user_name || "", mode, enriched);
 
+      const notifTitle = mode === "end_of_day_overdue"
+        ? "مهام متأخرة"
+        : mode === "all_scheduled"
+          ? "كل المهام المجدولة"
+          : "مهام مستحقة اليوم";
+      const notifBody = `لديك ${enriched.length} ${
+        mode === "end_of_day_overdue" ? "مهمة متأخرة" :
+        mode === "all_scheduled" ? "مهمة مجدولة" :
+        "مهمة مستحقة اليوم"
+      }`;
+
       // In-app notification
       await supabase.from("notifications").insert({
         user_id: uid,
-        title: mode === "end_of_day_overdue" ? "مهام متأخرة" : "مهام مستحقة اليوم",
-        message: `لديك ${enriched.length} ${mode === "end_of_day_overdue" ? "مهمة متأخرة" : "مهمة مستحقة اليوم"}`,
+        title: notifTitle,
+        message: notifBody,
         type: "task_update",
         is_read: false,
       });
@@ -205,8 +228,8 @@ const handler = async (req: Request): Promise<Response> => {
         await supabase.functions.invoke("send-push-notification", {
           body: {
             userId: uid,
-            title: mode === "end_of_day_overdue" ? "مهام متأخرة" : "مهام مستحقة اليوم",
-            body: `لديك ${enriched.length} ${mode === "end_of_day_overdue" ? "مهمة متأخرة" : "مهمة مستحقة اليوم"}`,
+            title: notifTitle,
+            body: notifBody,
             data: { type: "task_reminder", mode },
           },
         });
