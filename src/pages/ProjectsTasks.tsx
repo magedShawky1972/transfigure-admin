@@ -1021,6 +1021,21 @@ const ProjectsTasks = () => {
     return Array.from(new Set([...involvedDepartmentIds, ...taskDepartmentIds].filter(Boolean)));
   };
 
+  const taskBelongsToDepartment = (task: Task, departmentId: string) => {
+    if (departmentId === 'all') return true;
+
+    const taskAssigneeIds = [task.assigned_to, ...(task.assignees || [])].filter(Boolean) as string[];
+    const assigneeInDept = taskAssigneeIds.some((uid) => {
+      const user = users.find((u) => u.user_id === uid);
+      if (!user) return false;
+
+      return user.default_department_id === departmentId
+        || (user.departmentMemberships || []).includes(departmentId);
+    });
+
+    return task.department_id === departmentId || assigneeInDept;
+  };
+
   const filteredDepartmentOptions = selectedProject !== 'all'
     ? accessibleDepartments.filter((department) => {
         const project = projects.find((p) => p.id === selectedProject);
@@ -1125,7 +1140,7 @@ const ProjectsTasks = () => {
             key: did,
             name: dep ? (dep as any).department_name : did,
             color: '#6366F1',
-            matches: (task: Task) => task.department_id === did,
+            matches: (task: Task) => taskBelongsToDepartment(task, did),
           } as KanbanColumn;
         })
         .filter(Boolean) as KanbanColumn[];
@@ -1168,17 +1183,7 @@ const ProjectsTasks = () => {
   // Filter tasks
   const filteredTasks = tasks.filter(task => {
     if (selectedDepartment !== 'all') {
-      const taskAssigneeIds = [task.assigned_to, ...(task.assignees || [])].filter(Boolean) as string[];
-      const assigneeInDept = taskAssigneeIds.some(uid => {
-        const u = users.find(x => x.user_id === uid);
-        if (!u) return false;
-        return u.default_department_id === selectedDepartment
-          || (u.departmentMemberships || []).includes(selectedDepartment);
-      });
-
-      const taskMatchesDepartment = task.department_id === selectedDepartment || assigneeInDept;
-
-      if (!taskMatchesDepartment) return false;
+      if (!taskBelongsToDepartment(task, selectedDepartment)) return false;
     }
     if (!showArchived && task.is_archived) return false;
     if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
