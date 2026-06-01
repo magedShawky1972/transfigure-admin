@@ -23,7 +23,8 @@ import {
   Plus, FolderKanban, Calendar as CalendarIcon, Trash2, Edit, 
   GripVertical, Link, FileText, Video, X, Upload, Loader2, Play, Square, 
   Timer, History, Search, User, UserPlus, Flag, MoreHorizontal, CheckCircle2, Users, Milestone,
-  GanttChart, FileSpreadsheet, BarChart3, Eye, Download, Image as ImageIcon, Archive, ArchiveRestore
+  GanttChart, FileSpreadsheet, BarChart3, Eye, Download, Image as ImageIcon, Archive, ArchiveRestore,
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown
 } from "lucide-react";
 
 import { downloadFile } from "@/lib/fileDownload";
@@ -204,6 +205,14 @@ const ProjectsTasks = () => {
   const searchParamsRef = useRef(searchParams);
   const selectedDepartmentRef = useRef(selectedDepartment);
   const setSearchParamsRef = useRef(setSearchParams);
+  const kanbanWrapperRef = useRef<HTMLDivElement>(null);
+
+  const scrollKanban = useCallback((dir: 'left' | 'right' | 'up' | 'down') => {
+    if (dir === 'up') { window.scrollBy({ top: -300, behavior: 'smooth' }); return; }
+    if (dir === 'down') { window.scrollBy({ top: 300, behavior: 'smooth' }); return; }
+    const viewport = kanbanWrapperRef.current?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
+    if (viewport) viewport.scrollBy({ left: dir === 'left' ? -320 : 320, behavior: 'smooth' });
+  }, []);
   useEffect(() => { searchParamsRef.current = searchParams; }, [searchParams]);
   useEffect(() => { selectedDepartmentRef.current = selectedDepartment; }, [selectedDepartment]);
   useEffect(() => { setSearchParamsRef.current = setSearchParams; }, [setSearchParams]);
@@ -2846,7 +2855,7 @@ const ProjectsTasks = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="p-4">
+      <div className="p-4 relative" ref={kanbanWrapperRef}>
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <ScrollArea className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="flex gap-4 pb-4" dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minWidth: kanbanColumns.length * 320 }}>
@@ -3203,6 +3212,16 @@ const ProjectsTasks = () => {
             )}
           </DragOverlay>
         </DndContext>
+
+        {/* Floating scroll controls */}
+        <div className="fixed bottom-6 right-6 z-40 grid grid-cols-3 gap-1 p-1 rounded-lg bg-background/90 backdrop-blur border shadow-lg">
+          <div />
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('up')} aria-label="Scroll up"><ChevronUp className="h-4 w-4" /></Button>
+          <div />
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('left')} aria-label="Scroll left"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('down')} aria-label="Scroll down"><ChevronDown className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('right')} aria-label="Scroll right"><ChevronRight className="h-4 w-4" /></Button>
+        </div>
       </div>
 
       {/* Time Entries Dialog */}
