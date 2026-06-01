@@ -205,6 +205,14 @@ const ProjectsTasks = () => {
   const searchParamsRef = useRef(searchParams);
   const selectedDepartmentRef = useRef(selectedDepartment);
   const setSearchParamsRef = useRef(setSearchParams);
+  const kanbanWrapperRef = useRef<HTMLDivElement>(null);
+
+  const scrollKanban = useCallback((dir: 'left' | 'right' | 'up' | 'down') => {
+    if (dir === 'up') { window.scrollBy({ top: -300, behavior: 'smooth' }); return; }
+    if (dir === 'down') { window.scrollBy({ top: 300, behavior: 'smooth' }); return; }
+    const viewport = kanbanWrapperRef.current?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]');
+    if (viewport) viewport.scrollBy({ left: dir === 'left' ? -320 : 320, behavior: 'smooth' });
+  }, []);
   useEffect(() => { searchParamsRef.current = searchParams; }, [searchParams]);
   useEffect(() => { selectedDepartmentRef.current = selectedDepartment; }, [selectedDepartment]);
   useEffect(() => { setSearchParamsRef.current = setSearchParams; }, [setSearchParams]);
