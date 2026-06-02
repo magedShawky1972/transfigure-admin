@@ -257,6 +257,10 @@ const ProjectsTasks = () => {
   const [shareNote, setShareNote] = useState('');
   const [shareSending, setShareSending] = useState(false);
   const [shareSearch, setShareSearch] = useState('');
+  const [assignEmailDialogOpen, setAssignEmailDialogOpen] = useState(false);
+  const [assignEmailRecipients, setAssignEmailRecipients] = useState<string[]>([]);
+  const [assignEmailSearch, setAssignEmailSearch] = useState('');
+  const [assignEmailSending, setAssignEmailSending] = useState(false);
 
 
   // Compute Nth weekday(s) of month for recurring tasks
