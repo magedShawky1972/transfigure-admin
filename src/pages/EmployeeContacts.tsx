@@ -109,7 +109,14 @@ export default function EmployeeContacts() {
     return employees.filter((e) => {
       const fullEn = `${e.first_name} ${e.last_name}`.toLowerCase();
       const fullAr = `${e.first_name_ar ?? ""} ${e.last_name_ar ?? ""}`.toLowerCase();
-      if (letter && !e.first_name.toUpperCase().startsWith(letter)) return false;
+      if (letter) {
+        if (isAr) {
+          const src = normalizeAr(e.first_name_ar ?? "");
+          if (!src.startsWith(letter)) return false;
+        } else {
+          if (!e.first_name.toUpperCase().startsWith(letter)) return false;
+        }
+      }
       if (!q) return true;
       return (
         fullEn.includes(q) ||
