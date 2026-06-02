@@ -1968,6 +1968,20 @@ const ProjectsTasks = () => {
                       <CalendarIcon className="h-4 w-4 mr-2 text-green-600" />
                       {language === 'ar' ? 'كل المهام المجدولة للمشروع المحدد' : 'All scheduled tasks (selected project)'}
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={selectedProject === 'all'}
+                      onClick={() => {
+                        if (selectedProject === 'all') {
+                          toast({ title: language === 'ar' ? 'يرجى اختيار مشروع أولاً' : 'Please select a project first', variant: 'destructive' });
+                          return;
+                        }
+                        setAssignEmailRecipients([]);
+                        setAssignEmailSearch('');
+                        setAssignEmailDialogOpen(true);
+                      }}
+                    >
+                      <Send className="h-4 w-4 mr-2 text-purple-600" />
+                      {language === 'ar' ? 'إرسال مهام المشروع لموظفين محددين' : 'Send project tasks to selected employees'}
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
                       {language === 'ar'
