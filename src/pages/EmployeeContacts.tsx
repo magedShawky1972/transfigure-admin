@@ -179,7 +179,7 @@ export default function EmployeeContacts() {
         >
           {isAr ? "الكل" : "All"}
         </Button>
-        {ALPHABET.map((l) => (
+        {(isAr ? ALPHABET_AR : ALPHABET_EN).map((l) => (
           <Button
             key={l}
             variant={letter === l ? "default" : "outline"}
