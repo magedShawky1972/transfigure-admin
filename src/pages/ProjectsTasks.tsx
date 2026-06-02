@@ -1982,6 +1982,7 @@ const ProjectsTasks = () => {
                     >
                       <Send className="h-4 w-4 mr-2 text-purple-600" />
                       {language === 'ar' ? 'إرسال مهام المشروع لموظفين محددين' : 'Send project tasks to selected employees'}
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
                       {language === 'ar'
