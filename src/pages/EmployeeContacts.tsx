@@ -68,7 +68,18 @@ interface EmployeeRow {
   job_position: { position_name: string; position_name_ar: string | null } | null;
 }
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ALPHABET_EN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ALPHABET_AR = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي".split("");
+
+// Normalize Arabic letters (strip tashkeel, unify alef/yaa/taa marbouta)
+function normalizeAr(s: string) {
+  return (s || "")
+    .replace(/[\u064B-\u0652]/g, "")
+    .replace(/[إأآا]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .trim();
+}
 
 export default function EmployeeContacts() {
   const { language } = useLanguage();
