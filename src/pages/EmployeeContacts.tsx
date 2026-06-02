@@ -68,7 +68,18 @@ interface EmployeeRow {
   job_position: { position_name: string; position_name_ar: string | null } | null;
 }
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ALPHABET_EN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ALPHABET_AR = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي".split("");
+
+// Normalize Arabic letters (strip tashkeel, unify alef/yaa/taa marbouta)
+function normalizeAr(s: string) {
+  return (s || "")
+    .replace(/[\u064B-\u0652]/g, "")
+    .replace(/[إأآا]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .trim();
+}
 
 export default function EmployeeContacts() {
   const { language } = useLanguage();
@@ -98,7 +109,14 @@ export default function EmployeeContacts() {
     return employees.filter((e) => {
       const fullEn = `${e.first_name} ${e.last_name}`.toLowerCase();
       const fullAr = `${e.first_name_ar ?? ""} ${e.last_name_ar ?? ""}`.toLowerCase();
-      if (letter && !e.first_name.toUpperCase().startsWith(letter)) return false;
+      if (letter) {
+        if (isAr) {
+          const src = normalizeAr(e.first_name_ar ?? "");
+          if (!src.startsWith(letter)) return false;
+        } else {
+          if (!e.first_name.toUpperCase().startsWith(letter)) return false;
+        }
+      }
       if (!q) return true;
       return (
         fullEn.includes(q) ||
@@ -161,7 +179,7 @@ export default function EmployeeContacts() {
         >
           {isAr ? "الكل" : "All"}
         </Button>
-        {ALPHABET.map((l) => (
+        {(isAr ? ALPHABET_AR : ALPHABET_EN).map((l) => (
           <Button
             key={l}
             variant={letter === l ? "default" : "outline"}
