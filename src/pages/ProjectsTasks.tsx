@@ -257,6 +257,10 @@ const ProjectsTasks = () => {
   const [shareNote, setShareNote] = useState('');
   const [shareSending, setShareSending] = useState(false);
   const [shareSearch, setShareSearch] = useState('');
+  const [assignEmailDialogOpen, setAssignEmailDialogOpen] = useState(false);
+  const [assignEmailRecipients, setAssignEmailRecipients] = useState<string[]>([]);
+  const [assignEmailSearch, setAssignEmailSearch] = useState('');
+  const [assignEmailSending, setAssignEmailSending] = useState(false);
 
 
   // Compute Nth weekday(s) of month for recurring tasks
@@ -1963,6 +1967,21 @@ const ProjectsTasks = () => {
                     }}>
                       <CalendarIcon className="h-4 w-4 mr-2 text-green-600" />
                       {language === 'ar' ? 'كل المهام المجدولة للمشروع المحدد' : 'All scheduled tasks (selected project)'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={selectedProject === 'all'}
+                      onClick={() => {
+                        if (selectedProject === 'all') {
+                          toast({ title: language === 'ar' ? 'يرجى اختيار مشروع أولاً' : 'Please select a project first', variant: 'destructive' });
+                          return;
+                        }
+                        setAssignEmailRecipients([]);
+                        setAssignEmailSearch('');
+                        setAssignEmailDialogOpen(true);
+                      }}
+                    >
+                      <Send className="h-4 w-4 mr-2 text-purple-600" />
+                      {language === 'ar' ? 'إرسال مهام المشروع لموظفين محددين' : 'Send project tasks to selected employees'}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
@@ -3690,6 +3709,133 @@ const ProjectsTasks = () => {
                     }}
                   >
                     {shareSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                    {language === 'ar' ? 'إرسال' : 'Send'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Send project tasks per employee */}
+      <Dialog open={assignEmailDialogOpen} onOpenChange={setAssignEmailDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'إرسال مهام المشروع لموظفين محددين' : 'Send Project Tasks to Selected Employees'}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const projectName = projects.find(p => p.id === selectedProject)?.name || '';
+            // Build set of user ids that have tasks in selected project
+            const projectTaskUserIds = new Set<string>();
+            tasks.forEach((t: any) => {
+              if (t.project_id === selectedProject && !t.is_archived && t.status !== 'done') {
+                if (t.assigned_to) projectTaskUserIds.add(t.assigned_to);
+                (t.assignees || []).forEach((uid: string) => projectTaskUserIds.add(uid));
+              }
+            });
+            const eligibleUsers = users.filter((u: any) => projectTaskUserIds.has(u.user_id));
+            const filtered = eligibleUsers.filter((u: any) => {
+              if (!assignEmailSearch.trim()) return true;
+              return (u.user_name || '').toLowerCase().includes(assignEmailSearch.toLowerCase());
+            });
+            const toggle = (uid: string) =>
+              setAssignEmailRecipients(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]);
+            const allSelected = filtered.length > 0 && filtered.every((u: any) => assignEmailRecipients.includes(u.user_id));
+            const toggleAll = () => {
+              if (allSelected) setAssignEmailRecipients(prev => prev.filter(x => !filtered.some((u: any) => u.user_id === x)));
+              else setAssignEmailRecipients(prev => Array.from(new Set([...prev, ...filtered.map((u: any) => u.user_id)])));
+            };
+
+            return (
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                  <div><span className="text-muted-foreground">{language === 'ar' ? 'المشروع:' : 'Project:'}</span> <b>{projectName}</b></div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {language === 'ar'
+                      ? 'سيتم إرسال بريد إلكتروني لكل موظف محدد يحتوي على مهامه الخاصة في هذا المشروع.'
+                      : 'Each selected employee will receive an email with their own tasks in this project.'}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium">
+                      {language === 'ar' ? 'موظفو المشروع' : 'Project employees'}
+                    </label>
+                    <Button type="button" variant="ghost" size="sm" onClick={toggleAll} disabled={filtered.length === 0}>
+                      {allSelected
+                        ? (language === 'ar' ? 'إلغاء الكل' : 'Unselect all')
+                        : (language === 'ar' ? 'تحديد الكل' : 'Select all')}
+                    </Button>
+                  </div>
+                  <Input
+                    placeholder={language === 'ar' ? 'بحث عن موظف...' : 'Search employee...'}
+                    value={assignEmailSearch}
+                    onChange={(e) => setAssignEmailSearch(e.target.value)}
+                    className="mb-2"
+                  />
+                  <ScrollArea className="h-56 rounded-md border p-2">
+                    {filtered.length === 0 && (
+                      <div className="text-center text-xs text-muted-foreground py-4">
+                        {language === 'ar' ? 'لا يوجد موظفون لديهم مهام في هذا المشروع' : 'No employees with tasks in this project'}
+                      </div>
+                    )}
+                    {filtered.map((u: any) => (
+                      <label key={u.user_id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted cursor-pointer">
+                        <Checkbox
+                          checked={assignEmailRecipients.includes(u.user_id)}
+                          onCheckedChange={() => toggle(u.user_id)}
+                        />
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={u.avatar_url || ''} />
+                          <AvatarFallback className="text-[10px]">{(u.user_name || '?').slice(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{u.user_name}</span>
+                      </label>
+                    ))}
+                  </ScrollArea>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {assignEmailRecipients.length} {language === 'ar' ? 'محدد' : 'selected'}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setAssignEmailDialogOpen(false)}>
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button
+                    disabled={assignEmailRecipients.length === 0 || assignEmailSending}
+                    onClick={async () => {
+                      setAssignEmailSending(true);
+                      let sent = 0;
+                      let failed = 0;
+                      try {
+                        for (const uid of assignEmailRecipients) {
+                          try {
+                            const { data, error } = await supabase.functions.invoke('send-task-reminders', {
+                              body: { mode: 'all_scheduled', projectId: selectedProject, userId: uid },
+                            });
+                            if (error) failed++;
+                            else sent += data?.sent ?? 0;
+                          } catch {
+                            failed++;
+                          }
+                        }
+                        toast({
+                          title: language === 'ar'
+                            ? `تم الإرسال إلى ${sent} موظف${failed ? ` (${failed} فشل)` : ''}`
+                            : `Sent to ${sent} users${failed ? ` (${failed} failed)` : ''}`,
+                        });
+                        setAssignEmailDialogOpen(false);
+                      } finally {
+                        setAssignEmailSending(false);
+                      }
+                    }}
+                  >
+                    {assignEmailSending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
                     {language === 'ar' ? 'إرسال' : 'Send'}
                   </Button>
                 </div>
