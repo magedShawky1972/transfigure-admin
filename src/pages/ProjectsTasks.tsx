@@ -3730,15 +3730,11 @@ const ProjectsTasks = () => {
             const projectName = projects.find(p => p.id === selectedProject)?.name || '';
             // Build set of user ids that have tasks in selected project
             const projectTaskUserIds = new Set<string>();
-            const projectTaskIds = new Set<string>();
             tasks.forEach((t: any) => {
               if (t.project_id === selectedProject && !t.is_archived && t.status !== 'done') {
-                projectTaskIds.add(t.id);
                 if (t.assigned_to) projectTaskUserIds.add(t.assigned_to);
+                (t.assignees || []).forEach((uid: string) => projectTaskUserIds.add(uid));
               }
-            });
-            (taskAssignees || []).forEach((a: any) => {
-              if (projectTaskIds.has(a.task_id)) projectTaskUserIds.add(a.user_id);
             });
             const eligibleUsers = users.filter((u: any) => projectTaskUserIds.has(u.user_id));
             const filtered = eligibleUsers.filter((u: any) => {
