@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Mail, Phone, Smartphone, Building2, Briefcase, UserPlus, Download } from "lucide-react";
+import { Search, Mail, Phone, Smartphone, Building2, Briefcase, UserPlus, Download, Copy, Check } from "lucide-react";
 
 function escapeVCard(v: string | null | undefined) {
   if (!v) return "";
@@ -88,6 +89,27 @@ export default function EmployeeContacts() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [letter, setLetter] = useState<string | null>(null);
+
+  const { toast } = useToast();
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = async (text: string | null | undefined, fieldId: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      toast({
+        title: isAr ? "تم النسخ" : "Copied",
+        description: text,
+      });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({
+        title: isAr ? "فشل النسخ" : "Copy failed",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -218,10 +240,36 @@ export default function EmployeeContacts() {
                       <AvatarFallback>{initials}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate">{name}</div>
-                      <Badge variant="secondary" className="text-xs mt-1">
-                        {e.employee_number}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold truncate">{name}</div>
+                        <button
+                          onClick={() => handleCopy(name, `name-${e.id}`)}
+                          className="opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                          title={isAr ? "نسخ الاسم" : "Copy name"}
+                        >
+                          {copiedField === `name-${e.id}` ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {e.employee_number}
+                        </Badge>
+                        <button
+                          onClick={() => handleCopy(e.employee_number, `emp-${e.id}`)}
+                          className="opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                          title={isAr ? "نسخ الرقم الوظيفي" : "Copy employee number"}
+                        >
+                          {copiedField === `emp-${e.id}` ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <Button
                       variant="ghost"
@@ -242,15 +290,37 @@ export default function EmployeeContacts() {
                   {(dept || job) && (
                     <div className="space-y-1 text-xs text-muted-foreground">
                       {job && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 group">
                           <Briefcase className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{job}</span>
+                          <button
+                            onClick={() => handleCopy(job, `job-${e.id}`)}
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                            title={isAr ? "نسخ المسمى الوظيفي" : "Copy job title"}
+                          >
+                            {copiedField === `job-${e.id}` ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
                         </div>
                       )}
                       {dept && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 group">
                           <Building2 className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{dept}</span>
+                          <button
+                            onClick={() => handleCopy(dept, `dept-${e.id}`)}
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                            title={isAr ? "نسخ القسم" : "Copy department"}
+                          >
+                            {copiedField === `dept-${e.id}` ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
                         </div>
                       )}
                     </div>
@@ -258,14 +328,26 @@ export default function EmployeeContacts() {
 
                   <div className="border-t pt-3 space-y-2 text-sm">
                     {e.email ? (
-                      <a
-                        href={`mailto:${e.email}`}
-                        className="flex items-center gap-2 hover:text-primary truncate"
-                        dir="ltr"
-                      >
+                      <div className="flex items-center gap-2 group" dir="ltr">
                         <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{e.email}</span>
-                      </a>
+                        <a
+                          href={`mailto:${e.email}`}
+                          className="hover:text-primary truncate flex-1"
+                        >
+                          {e.email}
+                        </a>
+                        <button
+                          onClick={() => handleCopy(e.email, `email-${e.id}`)}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                          title={isAr ? "نسخ البريد" : "Copy email"}
+                        >
+                          {copiedField === `email-${e.id}` ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Mail className="h-4 w-4 shrink-0" />
@@ -273,17 +355,29 @@ export default function EmployeeContacts() {
                       </div>
                     )}
                     {e.work_mobile ? (
-                      <a
-                        href={`tel:${e.work_mobile}`}
-                        className="flex items-center gap-2 hover:text-primary"
-                        dir="ltr"
-                      >
+                      <div className="flex items-center gap-2 group" dir="ltr">
                         <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span>{e.work_mobile}</span>
-                        <Badge variant="outline" className="text-[10px] ml-auto">
+                        <a
+                          href={`tel:${e.work_mobile}`}
+                          className="hover:text-primary truncate flex-1"
+                        >
+                          {e.work_mobile}
+                        </a>
+                        <button
+                          onClick={() => handleCopy(e.work_mobile, `work-${e.id}`)}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                          title={isAr ? "نسخ جوال العمل" : "Copy work mobile"}
+                        >
+                          {copiedField === `work-${e.id}` ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                        <Badge variant="outline" className="text-[10px]">
                           {isAr ? "عمل" : "Work"}
                         </Badge>
-                      </a>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Smartphone className="h-4 w-4 shrink-0" />
@@ -291,17 +385,29 @@ export default function EmployeeContacts() {
                       </div>
                     )}
                     {e.mobile ? (
-                      <a
-                        href={`tel:${e.mobile}`}
-                        className="flex items-center gap-2 hover:text-primary"
-                        dir="ltr"
-                      >
+                      <div className="flex items-center gap-2 group" dir="ltr">
                         <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span>{e.mobile}</span>
-                        <Badge variant="outline" className="text-[10px] ml-auto">
+                        <a
+                          href={`tel:${e.mobile}`}
+                          className="hover:text-primary truncate flex-1"
+                        >
+                          {e.mobile}
+                        </a>
+                        <button
+                          onClick={() => handleCopy(e.mobile, `mobile-${e.id}`)}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                          title={isAr ? "نسخ الجوال الخاص" : "Copy private mobile"}
+                        >
+                          {copiedField === `mobile-${e.id}` ? (
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                        <Badge variant="outline" className="text-[10px]">
                           {isAr ? "خاص" : "Private"}
                         </Badge>
-                      </a>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="h-4 w-4 shrink-0" />
