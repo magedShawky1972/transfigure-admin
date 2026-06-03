@@ -90,6 +90,27 @@ export default function EmployeeContacts() {
   const [search, setSearch] = useState("");
   const [letter, setLetter] = useState<string | null>(null);
 
+  const { toast } = useToast();
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = async (text: string | null | undefined, fieldId: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      toast({
+        title: isAr ? "تم النسخ" : "Copied",
+        description: text,
+      });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({
+        title: isAr ? "فشل النسخ" : "Copy failed",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     (async () => {
       setLoading(true);
