@@ -188,3 +188,7 @@ verify_jwt = false
 
 [functions.accept-project-guest]
 verify_jwt = false
+
+[functions.external-bank-treasury-api]
+verify_jwt = false
+

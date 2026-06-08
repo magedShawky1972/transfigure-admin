@@ -41,6 +41,7 @@ interface ApiKey {
   allow_zk_attendance: boolean;
   allow_salla_transaction: boolean;
   allow_crm: boolean;
+  allow_bank_treasury: boolean;
   created_at: string;
 }
 
@@ -76,6 +77,7 @@ const SystemConfig = () => {
     allow_zk_attendance: false,
     allow_salla_transaction: false,
     allow_crm: false,
+    allow_bank_treasury: false,
   });
   const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
@@ -346,6 +348,7 @@ const SystemConfig = () => {
       allow_zk_attendance: false,
       allow_salla_transaction: false,
       allow_crm: false,
+      allow_bank_treasury: false,
     });
     loadApiKeys();
   };
@@ -379,7 +382,7 @@ const SystemConfig = () => {
     const { id, description: desc, is_active,
       allow_sales_header, allow_sales_line, allow_payment, allow_customer,
       allow_supplier, allow_supplier_product, allow_brand, allow_product,
-      allow_zk_attendance, allow_salla_transaction, allow_crm } = editingApiKey;
+      allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury } = editingApiKey;
 
     if (!desc?.trim()) {
       toast({ title: "Error", description: "Description is required", variant: "destructive" });
@@ -393,7 +396,7 @@ const SystemConfig = () => {
         is_active,
         allow_sales_header, allow_sales_line, allow_payment, allow_customer,
         allow_supplier, allow_supplier_product, allow_brand, allow_product,
-        allow_zk_attendance, allow_salla_transaction, allow_crm,
+        allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury,
       })
       .eq("id", id);
 
@@ -828,6 +831,18 @@ const SystemConfig = () => {
                     CRM
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="bank_treasury"
+                    checked={permissions.allow_bank_treasury}
+                    onCheckedChange={(checked) =>
+                      setPermissions({ ...permissions, allow_bank_treasury: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="bank_treasury" className="cursor-pointer text-sm">
+                    Banks &amp; Treasury
+                  </Label>
+                </div>
               </div>
             </div>
 
@@ -932,6 +947,9 @@ const SystemConfig = () => {
                       {key.allow_crm && (
                         <span className="bg-primary/10 px-2 py-1 rounded">CRM</span>
                       )}
+                      {key.allow_bank_treasury && (
+                        <span className="bg-primary/10 px-2 py-1 rounded">Banks &amp; Treasury</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Created: {new Date(key.created_at).toLocaleString()}
@@ -992,6 +1010,7 @@ const SystemConfig = () => {
                       ["allow_zk_attendance", "ZK Attendance"],
                       ["allow_salla_transaction", "Salla Transaction"],
                       ["allow_crm", "CRM"],
+                      ["allow_bank_treasury", "Banks & Treasury"],
                     ] as const).map(([field, label]) => (
                       <div key={field} className="flex items-center gap-2">
                         <Checkbox
