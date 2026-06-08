@@ -364,6 +364,7 @@ export type Database = {
       }
       api_keys: {
         Row: {
+          allow_bank_treasury: boolean
           allow_brand: boolean
           allow_crm: boolean
           allow_customer: boolean
@@ -384,6 +385,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_bank_treasury?: boolean
           allow_brand?: boolean
           allow_crm?: boolean
           allow_customer?: boolean
@@ -404,6 +406,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_bank_treasury?: boolean
           allow_brand?: boolean
           allow_crm?: boolean
           allow_customer?: boolean
