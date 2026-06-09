@@ -42,6 +42,7 @@ interface ApiKey {
   allow_salla_transaction: boolean;
   allow_crm: boolean;
   allow_bank_treasury: boolean;
+  allow_purple_transaction: boolean;
   created_at: string;
 }
 
