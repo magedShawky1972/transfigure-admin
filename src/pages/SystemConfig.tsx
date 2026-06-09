@@ -79,6 +79,7 @@ const SystemConfig = () => {
     allow_salla_transaction: false,
     allow_crm: false,
     allow_bank_treasury: false,
+    allow_purple_transaction: false,
   });
   const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
