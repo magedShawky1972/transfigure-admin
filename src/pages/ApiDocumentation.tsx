@@ -812,10 +812,10 @@ const ApiDocumentation = () => {
 
     const getFieldValue = (type: string) => {
       if (type === 'Text') return '"value"';
-      if (type === 'Int' || type === 'BigInt') return '123';
+      if (type === 'Int' || type === 'BigInt' || type === 'Integer') return '123';
       if (type === 'Decimal') return '99.99';
-      if (type === 'Bit') return 'true';
-      if (type === 'Datetime') return '"2024-01-01 12:00:00"';
+      if (type === 'Bit' || type === 'Boolean') return 'true';
+      if (type === 'Datetime' || type === 'DateTime') return '"2024-01-01 12:00:00"';
       return '"2024-01-01"';
     };
 
