@@ -192,3 +192,8 @@ verify_jwt = false
 [functions.external-bank-treasury-api]
 verify_jwt = false
 
+[functions.api-purple-transaction]
+verify_jwt = false
+
+
+
