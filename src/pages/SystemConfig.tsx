@@ -846,8 +846,21 @@ const SystemConfig = () => {
                     Banks &amp; Treasury
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="purple_transaction"
+                    checked={permissions.allow_purple_transaction}
+                    onCheckedChange={(checked) =>
+                      setPermissions({ ...permissions, allow_purple_transaction: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="purple_transaction" className="cursor-pointer text-sm">
+                    Purple Transaction
+                  </Label>
+                </div>
               </div>
             </div>
+
 
             <Button onClick={handleCreateApiKey} className="gap-2">
               <Plus className="h-4 w-4" />
