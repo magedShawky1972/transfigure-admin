@@ -385,7 +385,7 @@ const SystemConfig = () => {
     const { id, description: desc, is_active,
       allow_sales_header, allow_sales_line, allow_payment, allow_customer,
       allow_supplier, allow_supplier_product, allow_brand, allow_product,
-      allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury } = editingApiKey;
+      allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury, allow_purple_transaction } = editingApiKey;
 
     if (!desc?.trim()) {
       toast({ title: "Error", description: "Description is required", variant: "destructive" });
