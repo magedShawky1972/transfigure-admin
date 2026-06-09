@@ -1030,6 +1030,7 @@ const SystemConfig = () => {
                       ["allow_salla_transaction", "Salla Transaction"],
                       ["allow_crm", "CRM"],
                       ["allow_bank_treasury", "Banks & Treasury"],
+                      ["allow_purple_transaction", "Purple Transaction"],
                     ] as const).map(([field, label]) => (
                       <div key={field} className="flex items-center gap-2">
                         <Checkbox
