@@ -370,6 +370,7 @@ export type Database = {
           allow_customer: boolean
           allow_payment: boolean
           allow_product: boolean
+          allow_purple_transaction: boolean
           allow_sales_header: boolean
           allow_sales_line: boolean
           allow_salla_transaction: boolean | null
@@ -391,6 +392,7 @@ export type Database = {
           allow_customer?: boolean
           allow_payment?: boolean
           allow_product?: boolean
+          allow_purple_transaction?: boolean
           allow_sales_header?: boolean
           allow_sales_line?: boolean
           allow_salla_transaction?: boolean | null
@@ -412,6 +414,7 @@ export type Database = {
           allow_customer?: boolean
           allow_payment?: boolean
           allow_product?: boolean
+          allow_purple_transaction?: boolean
           allow_sales_header?: boolean
           allow_sales_line?: boolean
           allow_salla_transaction?: boolean | null
