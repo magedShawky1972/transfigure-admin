@@ -966,6 +966,9 @@ const SystemConfig = () => {
                       {key.allow_bank_treasury && (
                         <span className="bg-primary/10 px-2 py-1 rounded">Banks &amp; Treasury</span>
                       )}
+                      {key.allow_purple_transaction && (
+                        <span className="bg-primary/10 px-2 py-1 rounded">Purple Transaction</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Created: {new Date(key.created_at).toLocaleString()}
