@@ -1,0 +1,1 @@
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS allow_purple_transaction boolean NOT NULL DEFAULT false;

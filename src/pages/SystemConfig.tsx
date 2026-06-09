@@ -42,6 +42,7 @@ interface ApiKey {
   allow_salla_transaction: boolean;
   allow_crm: boolean;
   allow_bank_treasury: boolean;
+  allow_purple_transaction: boolean;
   created_at: string;
 }
 
@@ -78,6 +79,7 @@ const SystemConfig = () => {
     allow_salla_transaction: false,
     allow_crm: false,
     allow_bank_treasury: false,
+    allow_purple_transaction: false,
   });
   const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
@@ -349,6 +351,7 @@ const SystemConfig = () => {
       allow_salla_transaction: false,
       allow_crm: false,
       allow_bank_treasury: false,
+      allow_purple_transaction: false,
     });
     loadApiKeys();
   };
@@ -382,7 +385,7 @@ const SystemConfig = () => {
     const { id, description: desc, is_active,
       allow_sales_header, allow_sales_line, allow_payment, allow_customer,
       allow_supplier, allow_supplier_product, allow_brand, allow_product,
-      allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury } = editingApiKey;
+      allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury, allow_purple_transaction } = editingApiKey;
 
     if (!desc?.trim()) {
       toast({ title: "Error", description: "Description is required", variant: "destructive" });
@@ -396,7 +399,7 @@ const SystemConfig = () => {
         is_active,
         allow_sales_header, allow_sales_line, allow_payment, allow_customer,
         allow_supplier, allow_supplier_product, allow_brand, allow_product,
-        allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury,
+        allow_zk_attendance, allow_salla_transaction, allow_crm, allow_bank_treasury, allow_purple_transaction,
       })
       .eq("id", id);
 
@@ -843,8 +846,21 @@ const SystemConfig = () => {
                     Banks &amp; Treasury
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="purple_transaction"
+                    checked={permissions.allow_purple_transaction}
+                    onCheckedChange={(checked) =>
+                      setPermissions({ ...permissions, allow_purple_transaction: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="purple_transaction" className="cursor-pointer text-sm">
+                    Purple Transaction
+                  </Label>
+                </div>
               </div>
             </div>
+
 
             <Button onClick={handleCreateApiKey} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -950,6 +966,9 @@ const SystemConfig = () => {
                       {key.allow_bank_treasury && (
                         <span className="bg-primary/10 px-2 py-1 rounded">Banks &amp; Treasury</span>
                       )}
+                      {key.allow_purple_transaction && (
+                        <span className="bg-primary/10 px-2 py-1 rounded">Purple Transaction</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Created: {new Date(key.created_at).toLocaleString()}
@@ -1011,6 +1030,7 @@ const SystemConfig = () => {
                       ["allow_salla_transaction", "Salla Transaction"],
                       ["allow_crm", "CRM"],
                       ["allow_bank_treasury", "Banks & Treasury"],
+                      ["allow_purple_transaction", "Purple Transaction"],
                     ] as const).map(([field, label]) => (
                       <div key={field} className="flex items-center gap-2">
                         <Checkbox
