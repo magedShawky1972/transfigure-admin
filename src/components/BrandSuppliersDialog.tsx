@@ -30,7 +30,8 @@ interface BrandSuppliersDialogProps {
 }
 
 const BrandSuppliersDialog = ({ open, onOpenChange, brandId, brandName }: BrandSuppliersDialogProps) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
   const { toast } = useToast();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -97,7 +98,7 @@ const BrandSuppliersDialog = ({ open, onOpenChange, brandId, brandName }: BrandS
         if (error) throw error;
       }
 
-      toast({ title: t("common.success"), description: "Suppliers updated successfully" });
+      toast({ title: t("common.success"), description: isAr ? "تم تحديث الموردين بنجاح" : "Suppliers updated successfully" });
       onOpenChange(false);
     } catch (error: any) {
       toast({ title: t("common.error"), description: error.message, variant: "destructive" });
@@ -116,14 +117,14 @@ const BrandSuppliersDialog = ({ open, onOpenChange, brandId, brandName }: BrandS
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Suppliers for: {brandName}</DialogTitle>
-          <DialogDescription>Select which suppliers can deliver this brand</DialogDescription>
+          <DialogTitle>{isAr ? `الموردون لـ: ${brandName}` : `Suppliers for: ${brandName}`}</DialogTitle>
+          <DialogDescription>{isAr ? "حدد الموردين الذين يمكنهم توريد هذه الماركة" : "Select which suppliers can deliver this brand"}</DialogDescription>
         </DialogHeader>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search suppliers..."
+            placeholder={isAr ? "ابحث عن الموردين..." : "Search suppliers..."}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -137,7 +138,7 @@ const BrandSuppliersDialog = ({ open, onOpenChange, brandId, brandName }: BrandS
         ) : (
           <ScrollArea className="h-[300px] border rounded-md p-2">
             {filtered.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">No suppliers found</p>
+              <p className="text-center text-muted-foreground py-4">{isAr ? "لا توجد موردون" : "No suppliers found"}</p>
             ) : (
               filtered.map((supplier) => (
                 <label

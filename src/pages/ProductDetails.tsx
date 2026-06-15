@@ -596,7 +596,7 @@ const ProductDetails = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="odooProductId" className={isRTL ? 'text-right block' : ''}>Odoo Product ID</Label>
+                    <Label htmlFor="odooProductId" className={isRTL ? 'text-right block' : ''}>{isRTL ? "معرف منتج أودو" : "Odoo Product ID"}</Label>
                     <Input
                       id="odooProductId"
                       className={`${isRTL ? 'text-right' : ''} bg-muted`}
@@ -649,7 +649,7 @@ const ProductDetails = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="brandType" className={isRTL ? 'text-right block' : ''}>Brand Type</Label>
+                    <Label htmlFor="brandType" className={isRTL ? 'text-right block' : ''}>{isRTL ? "نوع العلامة التجارية" : "Brand Type"}</Label>
                     <Input
                       id="brandType"
                       className={isRTL ? 'text-right' : ''}
@@ -659,7 +659,7 @@ const ProductDetails = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="brandCode" className={isRTL ? 'text-right block' : ''}>Brand Code</Label>
+                    <Label htmlFor="brandCode" className={isRTL ? 'text-right block' : ''}>{isRTL ? "رمز العلامة التجارية" : "Brand Code"}</Label>
                     <Input
                       id="brandCode"
                       className={isRTL ? 'text-right' : ''}
@@ -688,7 +688,7 @@ const ProductDetails = () => {
                         onClick={async () => {
                           const selectedBrand = brands.find(b => b.brand_name === brandName);
                           if (!selectedBrand) {
-                            toast({ title: "Error", description: isRTL ? "اختر البراند أولاً" : "Select a brand first", variant: "destructive" });
+                            toast({ title: language === "ar" ? "خطأ" : "Error", description: isRTL ? "اختر البراند أولاً" : "Select a brand first", variant: "destructive" });
                             return;
                           }
                           try {
@@ -703,7 +703,7 @@ const ProductDetails = () => {
                               // Fallback: use brand name's first 2 uppercase characters
                               prefix = brandName.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase();
                               if (!prefix) {
-                                toast({ title: "Error", description: isRTL ? "لا يمكن توليد بادئة SKU" : "Cannot generate SKU prefix from brand", variant: "destructive" });
+                                toast({ title: language === "ar" ? "خطأ" : "Error", description: isRTL ? "لا يمكن توليد بادئة SKU" : "Cannot generate SKU prefix from brand", variant: "destructive" });
                                 return;
                               }
                             }
@@ -730,7 +730,7 @@ const ProductDetails = () => {
                             setSku(newSku);
                             toast({ title: isRTL ? "تم التوليد" : "Generated", description: `SKU: ${newSku}` });
                           } catch (err: any) {
-                            toast({ title: "Error", description: err.message, variant: "destructive" });
+                            toast({ title: language === "ar" ? "خطأ" : "Error", description: err.message, variant: "destructive" });
                           }
                         }}
                       >

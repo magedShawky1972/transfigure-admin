@@ -260,7 +260,7 @@ const PaymentGatewayConsolidation = () => {
                 className="flex h-10 w-36 rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="all">{language === 'ar' ? 'الكل' : 'All'}</option>
-                <option value="Purple">Purple</option>
+                <option value="Purple">{language === "ar" ? "بيربل" : "Purple"}</option>
                 <option value="Asus">Asus</option>
               </select>
             </div>

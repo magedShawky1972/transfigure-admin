@@ -3353,11 +3353,11 @@ const ProjectsTasks = () => {
         {/* Floating scroll controls */}
         <div className="fixed bottom-6 right-6 z-40 grid grid-cols-3 gap-1 p-1 rounded-lg bg-background/90 backdrop-blur border shadow-lg">
           <div />
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('up')} aria-label="Scroll up"><ChevronUp className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('up')} aria-label={language === "ar" ? "تمرير لأعلى" : "Scroll up"}><ChevronUp className="h-4 w-4" /></Button>
           <div />
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('left')} aria-label="Scroll left"><ChevronLeft className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('down')} aria-label="Scroll down"><ChevronDown className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('right')} aria-label="Scroll right"><ChevronRight className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('left')} aria-label={language === "ar" ? "تمرير لليسار" : "Scroll left"}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('down')} aria-label={language === "ar" ? "تمرير لأسفل" : "Scroll down"}><ChevronDown className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => scrollKanban('right')} aria-label={language === "ar" ? "تمرير لليمين" : "Scroll right"}><ChevronRight className="h-4 w-4" /></Button>
         </div>
       </div>
 
@@ -3525,7 +3525,7 @@ const ProjectsTasks = () => {
         <DialogContent className="max-w-5xl max-h-[90vh] p-2">
           <button
             type="button"
-            aria-label="Close"
+            aria-label={language === "ar" ? "إغلاق" : "Close"}
             onClick={() => setPreviewFile(null)}
             className="absolute right-2 top-2 z-50 inline-flex h-8 w-8 items-center justify-center rounded-md bg-background/90 text-foreground shadow-sm ring-1 ring-border hover:bg-accent"
           >

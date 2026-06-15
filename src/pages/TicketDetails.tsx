@@ -346,7 +346,7 @@ const TicketDetails = () => {
       
       if (!data) {
         toast({
-          title: "Error",
+          title: language === "ar" ? "خطأ" : "Error",
           description: "Ticket not found or you don't have access to it",
           variant: "destructive",
         });
@@ -379,7 +379,7 @@ const TicketDetails = () => {
       });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });

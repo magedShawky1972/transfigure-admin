@@ -160,11 +160,11 @@ const UploadLog = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading upload logs...</div>
+            <div className="text-center py-8 text-muted-foreground">{t("uploadLog.loading") || "Loading upload logs..."}</div>
           ) : logs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No uploads found</p>
+              <p>{t("uploadLog.noUploads") || "No uploads found"}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -228,7 +228,7 @@ const UploadLog = () => {
                             {t("uploadLog.view")} ({log.excel_dates.length})
                           </Button>
                         ) : (
-                          <span className="text-muted-foreground text-sm">No dates</span>
+                          <span className="text-muted-foreground text-sm">{t("uploadLog.noDates") || "No dates"}</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -312,7 +312,7 @@ const UploadLog = () => {
                 </div>
                 
                 <div className="bg-muted/50 p-3 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">New Brands</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t("uploadLog.newBrands") || "New Brands"}</p>
                   <p className="text-xl font-semibold">{selectedSummary.newBrands}</p>
                 </div>
                 

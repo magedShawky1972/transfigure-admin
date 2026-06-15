@@ -77,7 +77,7 @@ const PivotTable = () => {
       console.error('Error fetching transactions:', error);
       toast({
         title: t("common.error"),
-        description: "Failed to fetch transactions",
+        description: language === "ar" ? "فشل في جلب المعاملات" : "Failed to fetch transactions",
         variant: "destructive",
       });
     } finally {

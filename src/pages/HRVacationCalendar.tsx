@@ -419,10 +419,10 @@ const HRVacationCalendar = () => {
         
         <div className="flex flex-wrap items-center gap-3">
           <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as "list" | "calendar")}>
-            <ToggleGroupItem value="list" aria-label="List view">
+            <ToggleGroupItem value="list" aria-label={language === "ar" ? "عرض القائمة" : "List view"}>
               <List className="h-4 w-4" />
             </ToggleGroupItem>
-            <ToggleGroupItem value="calendar" aria-label="Calendar view">
+            <ToggleGroupItem value="calendar" aria-label={language === "ar" ? "عرض التقويم" : "Calendar view"}>
               <Grid3X3 className="h-4 w-4" />
             </ToggleGroupItem>
           </ToggleGroup>

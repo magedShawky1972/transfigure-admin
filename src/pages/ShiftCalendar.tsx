@@ -745,7 +745,7 @@ const ShiftCalendar = () => {
                       borderLeft: `3px solid ${assignment.shift.color}`
                     }}
                     onClick={(e) => handleEditAssignment(assignment, e)}
-                    title="Click to edit or reassign"
+                    title={language === "ar" ? "انقر للتعديل أو إعادة التعيين" : "Click to edit or reassign"}
                   >
                     <div className="font-medium truncate flex items-center gap-1" style={{ color: assignment.shift.color }}>
                       {assignment.shift.shift_type?.toLowerCase() === 'support' ? <Headset className="h-3 w-3 shrink-0" /> : <ShoppingCart className="h-3 w-3 shrink-0" />}

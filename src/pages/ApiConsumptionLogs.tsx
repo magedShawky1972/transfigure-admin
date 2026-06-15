@@ -1771,9 +1771,9 @@ const ApiConsumptionLogs = () => {
                   </label>
                   <p>
                     {selectedLog.success ? (
-                      <Badge className="bg-green-100 text-green-800">Success</Badge>
+                      <Badge className="bg-green-100 text-green-800">{language === "ar" ? "نجاح" : "Success"}</Badge>
                     ) : (
-                      <Badge variant="destructive">Failed</Badge>
+                      <Badge variant="destructive">{language === "ar" ? "فشل" : "Failed"}</Badge>
                     )}
                   </p>
                 </div>

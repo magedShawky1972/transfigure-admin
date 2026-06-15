@@ -57,7 +57,7 @@ interface CustomerTotal {
 }
 
 const CustomerSetup = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<CustomerTotal[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerTotal[]>([]);
@@ -160,7 +160,7 @@ const CustomerSetup = () => {
     } catch (error: any) {
       console.error("Error fetching customers:", error);
       toast({
-        title: "Error loading customers",
+        title: language === "ar" ? "خطأ في تحميل العملاء" : "Error loading customers",
         description: error.message,
         variant: "destructive",
       });

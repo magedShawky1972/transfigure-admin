@@ -418,7 +418,7 @@ const RiyadBankReport = () => {
                   <SelectContent>
                     <SelectItem value="all">{isRTL ? "الكل" : "All"}</SelectItem>
                     <SelectItem value="VISA">VISA</SelectItem>
-                    <SelectItem value="MASTER">MASTER</SelectItem>
+                    <SelectItem value="MASTER">{isRTL ? "ماستر" : "MASTER"}</SelectItem>
                     <SelectItem value="MADA">MADA</SelectItem>
                     <SelectItem value="AMEX">AMEX</SelectItem>
                   </SelectContent>
@@ -430,8 +430,8 @@ const RiyadBankReport = () => {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{isRTL ? "الكل" : "All"}</SelectItem>
-                    <SelectItem value="PURCHASE">PURCHASE</SelectItem>
-                    <SelectItem value="REFUND">REFUND</SelectItem>
+                    <SelectItem value="PURCHASE">{isRTL ? "شراء" : "PURCHASE"}</SelectItem>
+                    <SelectItem value="REFUND">{isRTL ? "استرداد" : "REFUND"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

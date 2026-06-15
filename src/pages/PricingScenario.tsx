@@ -503,17 +503,17 @@ const PricingScenario = () => {
           <table style="width:100%;border-collapse:collapse;font-size:10px;">
             <thead>
               <tr style="background:#1a1a2e;color:#fff;">
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Coins</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Price USD</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">SAR Price</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Commission</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Fixed Value</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">VAT</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Cash Back</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Cost SAR</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Cost USD</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Net</th>
-                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">Profit %</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "العملات" : "Coins"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "السعر بالدولار" : "Price USD"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "السعر بالريال" : "SAR Price"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "عمولة" : "Commission"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "قيمة ثابتة" : "Fixed Value"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "ضريبة القيمة المضافة" : "VAT"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "استرداد نقدي" : "Cash Back"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "التكلفة بالريال" : "Cost SAR"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "التكلفة بالدولار" : "Cost USD"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "صافي" : "Net"}</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #333;">${language === "ar" ? "نسبة الربح" : "Profit %"}</th>
               </tr>
             </thead>
             <tbody>

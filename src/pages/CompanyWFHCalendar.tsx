@@ -54,7 +54,7 @@ const CompanyWFHCalendar = () => {
       setSpecificDays(specific || []);
       setRecurringDays(recurring || []);
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: isRTL ? "خطأ" : "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ const CompanyWFHCalendar = () => {
       description: newDescription || null,
     });
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: isRTL ? "تم الإضافة" : "Added", description: isRTL ? "تم إضافة يوم عمل من المنزل" : "WFH day added successfully" });
       setAddDialogOpen(false);
@@ -84,7 +84,7 @@ const CompanyWFHCalendar = () => {
   const handleDeleteSpecificDay = async (id: string) => {
     const { error } = await supabase.from("company_wfh_days").delete().eq("id", id);
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } else {
       fetchData();
     }
@@ -96,13 +96,13 @@ const CompanyWFHCalendar = () => {
         .from("company_wfh_recurring")
         .update({ is_active: !currentlyActive })
         .eq("id", existingId);
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+      if (error) toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } else {
       const { error } = await supabase.from("company_wfh_recurring").insert({
         day_of_week: dayOfWeek,
         is_active: true,
       });
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+      if (error) toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     }
     fetchData();
   };

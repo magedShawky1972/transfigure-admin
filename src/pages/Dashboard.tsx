@@ -2920,7 +2920,7 @@ const Dashboard = () => {
             {(() => {
               const dateRange = getDateRange();
               if (!dateRange) {
-                return <p className="text-muted-foreground">Please select a date range</p>;
+                return <p className="text-muted-foreground">{language === 'ar' ? 'يرجى اختيار نطاق التاريخ' : 'Please select a date range'}</p>;
               }
               
               return (
@@ -3518,7 +3518,7 @@ const Dashboard = () => {
                   </Select>
                   <Select value={trendDays} onValueChange={setTrendDays}>
                     <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Select days" />
+                      <SelectValue placeholder={language === 'ar' ? 'اختر الأيام' : 'Select days'} />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-50">
                       <SelectItem value="10">10 Days</SelectItem>

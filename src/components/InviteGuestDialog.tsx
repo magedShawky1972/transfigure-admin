@@ -84,7 +84,7 @@ export default function InviteGuestDialog({ open, onOpenChange, projectId, proje
     });
     setSending(false);
     if (error || (data as any)?.error) {
-      toast({ title: "Error", description: (data as any)?.error || error?.message, variant: "destructive" });
+      toast({ title: isRTL ? "خطأ" : "Error", description: (data as any)?.error || error?.message, variant: "destructive" });
       return;
     }
     const d = (data as any) || {};
@@ -103,7 +103,7 @@ export default function InviteGuestDialog({ open, onOpenChange, projectId, proje
 
   const revoke = async (id: string) => {
     const { error } = await supabase.from("project_guests").delete().eq("id", id);
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    if (error) { toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" }); return; }
     toast({ title: t.revoked });
     loadGuests();
   };

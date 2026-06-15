@@ -13,7 +13,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ClearData = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [tables, setTables] = useState<string[]>([]);
   const [selectedTable, setSelectedTable] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("all");
@@ -186,11 +186,11 @@ const ClearData = () => {
             <label className="text-sm font-medium">{t("clearData.company") || "Company"}</label>
             <Select value={selectedCompany} onValueChange={setSelectedCompany}>
               <SelectTrigger>
-                <SelectValue placeholder="All Companies" />
+                <SelectValue placeholder={language === "ar" ? "كل الشركات" : "All Companies"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="Purple">Purple</SelectItem>
+                <SelectItem value="all">{language === "ar" ? "الكل" : "All"}</SelectItem>
+                <SelectItem value="Purple">{language === "ar" ? "بيربل" : "Purple"}</SelectItem>
                 <SelectItem value="Asus">Asus</SelectItem>
               </SelectContent>
             </Select>

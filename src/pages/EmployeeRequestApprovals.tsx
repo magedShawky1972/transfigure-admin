@@ -409,7 +409,7 @@ const EmployeeRequestApprovals = () => {
       closeActionDialog();
       fetchRequests();
     } catch (error: any) { 
-      toast({ title: 'Error', description: error.message, variant: 'destructive' }); 
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' }); 
     } finally { 
       setProcessing(false); 
     }
@@ -490,7 +490,7 @@ const EmployeeRequestApprovals = () => {
       setSelectedReassignUserId(currentOption?.user_id || options[0].user_id);
       setReassignDialogOpen(true);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -524,7 +524,7 @@ const EmployeeRequestApprovals = () => {
       closeReassignDialog();
       fetchRequests();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setReassigning(false);
     }

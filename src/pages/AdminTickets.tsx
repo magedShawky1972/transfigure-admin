@@ -448,7 +448,7 @@ const AdminTickets = () => {
       }
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -780,7 +780,7 @@ const AdminTickets = () => {
       fetchTickets();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -873,7 +873,7 @@ const AdminTickets = () => {
       fetchTickets();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });

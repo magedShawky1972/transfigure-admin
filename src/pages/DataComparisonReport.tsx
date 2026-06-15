@@ -75,7 +75,7 @@ const DataComparisonReport = () => {
       setDrilldownPayments(paymentRes.data || []);
       setDrilldownApiLines(apiLineRes.data || []);
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: err.message, variant: "destructive" });
       setDrilldownData([]);
       setDrilldownPayments([]);
       setDrilldownApiLines([]);

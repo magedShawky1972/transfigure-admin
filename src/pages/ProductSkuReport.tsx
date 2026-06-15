@@ -73,7 +73,7 @@ const ProductSkuReport = () => {
       const uniqueBrands = [...new Set((data || []).map(p => p.brand_name).filter(Boolean))] as string[];
       setBrands(uniqueBrands.sort());
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -180,7 +180,7 @@ const ProductSkuReport = () => {
         description: language === "ar" ? `تم توليد SKU: ${newSku}` : `SKU generated: ${newSku}`,
       });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -225,7 +225,7 @@ const ProductSkuReport = () => {
         description: language === "ar" ? "تم تحديث SKU بنجاح" : "SKU updated successfully",
       });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
