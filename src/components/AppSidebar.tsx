@@ -295,7 +295,7 @@ export function AppSidebar() {
               type="button"
               onClick={() => setSearch("")}
               className={`absolute top-1/2 -translate-y-1/2 ${isRTL ? "left-2" : "right-2"} text-sidebar-foreground/50 hover:text-sidebar-foreground`}
-              aria-label="Clear"
+              aria-label={isRTL ? "مسح" : "Clear"}
             >
               <X className="h-3.5 w-3.5" />
             </button>

@@ -640,7 +640,7 @@ const AcknowledgmentDocuments = () => {
                 <Input
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="Document title"
+                  placeholder={language === "ar" ? "عنوان المستند" : "Document title"}
                 />
               </div>
               <div>

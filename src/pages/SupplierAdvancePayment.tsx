@@ -733,7 +733,7 @@ const SupplierAdvancePayment = () => {
                   {bankTransferImage && (
                     <div className="relative">
                       {isPdf(bankTransferImage) ? (
-                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`} title="Transfer" className="w-full h-[400px] rounded-lg border" />
+                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(bankTransferImage)}&embedded=true`} title={isRTL ? "تحويل" : "Transfer"} className="w-full h-[400px] rounded-lg border" />
                       ) : (
                         <img src={bankTransferImage} alt="Transfer" className="max-w-md max-h-64 rounded-lg border object-contain" />
                       )}
@@ -792,7 +792,7 @@ const SupplierAdvancePayment = () => {
                 {receivingImage && (
                   <div className="relative">
                     {isPdf(receivingImage) ? (
-                      <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(receivingImage)}&embedded=true`} title="Balance" className="w-full h-[400px] rounded-lg border" />
+                      <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(receivingImage)}&embedded=true`} title={isRTL ? "الرصيد" : "Balance"} className="w-full h-[400px] rounded-lg border" />
                     ) : (
                       <img src={receivingImage} alt="Balance" className="max-w-md max-h-64 rounded-lg border object-contain" />
                     )}
@@ -825,7 +825,7 @@ const SupplierAdvancePayment = () => {
                   {vendorInvoiceUrl && (
                     <div className="relative mt-3">
                       {isPdf(vendorInvoiceUrl) ? (
-                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(vendorInvoiceUrl)}&embedded=true`} title="Vendor Invoice" className="w-full h-[400px] rounded-lg border" />
+                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(vendorInvoiceUrl)}&embedded=true`} title={isRTL ? "فاتورة المورد" : "Vendor Invoice"} className="w-full h-[400px] rounded-lg border" />
                       ) : (
                         <img src={vendorInvoiceUrl} alt="Vendor Invoice" className="max-w-md max-h-64 rounded-lg border object-contain" />
                       )}
@@ -924,7 +924,7 @@ const SupplierAdvancePayment = () => {
             isPdf(previewImageUrl) ? (
               <iframe
                 src={`https://docs.google.com/gview?url=${encodeURIComponent(previewImageUrl)}&embedded=true`}
-                title="Preview"
+                title={isRTL ? "معاينة" : "Preview"}
                 className="w-full h-[85vh] rounded"
               />
             ) : (

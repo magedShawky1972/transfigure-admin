@@ -364,7 +364,7 @@ const FreeCoinsReport = () => {
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`
-      <html><head><title>Free Coins Report</title>
+      <html><head><title>${isRTL ? "تقرير العملات المجانية" : "Free Coins Report"}</title>
       <style>
         *{ -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         body{font-family:Arial;padding:20px;}

@@ -326,8 +326,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         sessionStorage.removeItem("sysadmin_session");
         setIsSysadminSession(false);
         toast({
-          title: "Success",
-          description: "Logged out successfully",
+          title: language === "ar" ? "نجاح" : "Success",
+          description: language === "ar" ? "تم تسجيل الخروج بنجاح" : "Logged out successfully",
         });
         navigate("/auth");
         return;
@@ -337,13 +337,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       
       toast({
-        title: "Success",
-        description: "Logged out successfully",
+        title: language === "ar" ? "نجاح" : "Success",
+        description: language === "ar" ? "تم تسجيل الخروج بنجاح" : "Logged out successfully",
       });
       navigate("/auth");
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -553,7 +553,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       size="icon"
                       onClick={handleLogout}
                       className="rounded-full"
-                      title="Logout"
+                      title={language === "ar" ? "تسجيل الخروج" : "Logout"}
                     >
                       <LogOut className="h-5 w-5" />
                     </Button>

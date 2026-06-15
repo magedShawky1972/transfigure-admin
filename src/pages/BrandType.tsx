@@ -315,7 +315,7 @@ const BrandType = () => {
                 <TableHead>{t("brandType.brandCode")}</TableHead>
                 <TableHead>{t("brandType.brandName")}</TableHead>
                 <TableHead>{t("brandType.status")}</TableHead>
-                <TableHead>Odoo Sync Mode</TableHead>
+                <TableHead>{language === "ar" ? "وضع مزامنة Odoo" : "Odoo Sync Mode"}</TableHead>
                 <TableHead>{t("brandType.createdDate")}</TableHead>
                 <TableHead>{t("brandType.updatedDate")}</TableHead>
                 <TableHead>{t("brandType.actions")}</TableHead>
@@ -382,7 +382,7 @@ const BrandType = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleSendToOdoo(brand)}
-                          title="Send to Odoo"
+                          title={language === "ar" ? "إرسال إلى Odoo" : "Send to Odoo"}
                         >
                           <Send className="h-4 w-4" />
                         </Button>

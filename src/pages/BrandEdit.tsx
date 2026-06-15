@@ -171,7 +171,7 @@ const BrandEdit = () => {
       console.error("Error generating brand code:", error);
       toast({
         title: t("common.error"),
-        description: "Failed to generate brand code",
+        description: isAr ? "فشل في إنشاء كود الماركة" : "Failed to generate brand code",
         variant: "destructive",
       });
     }
@@ -296,8 +296,8 @@ const BrandEdit = () => {
 
       if (!data || data.length === 0) {
         toast({
-          title: "No Data",
-          description: "No transactions found for this brand in the last 90 days",
+          title: isAr ? "لا توجد بيانات" : "No Data",
+          description: isAr ? "لم يتم العثور على معاملات لهذه الماركة في آخر 90 يومًا" : "No transactions found for this brand in the last 90 days",
           variant: "destructive",
         });
         setLoading(false);
@@ -318,8 +318,8 @@ const BrandEdit = () => {
       
       if (daysCount === 0) {
         toast({
-          title: "No Data",
-          description: "No valid transaction dates found",
+          title: isAr ? "لا توجد بيانات" : "No Data",
+          description: isAr ? "لم يتم العثور على تواريخ معاملات صالحة" : "No valid transaction dates found",
           variant: "destructive",
         });
         setLoading(false);
@@ -360,8 +360,8 @@ const BrandEdit = () => {
 
     if (formData.sku_start_with && (formData.sku_start_with.length < 1 || formData.sku_start_with.length > 2)) {
       toast({
-        title: "Validation Error",
-        description: "SKU Start With must be 1 or 2 characters",
+        title: isAr ? "خطأ في التحقق" : "Validation Error",
+        description: isAr ? "يجب أن تكون بداية SKU حرف واحد أو حرفين" : "SKU Start With must be 1 or 2 characters",
         variant: "destructive",
       });
       return;

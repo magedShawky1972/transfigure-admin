@@ -186,11 +186,11 @@ const ClearData = () => {
             <label className="text-sm font-medium">{t("clearData.company") || "Company"}</label>
             <Select value={selectedCompany} onValueChange={setSelectedCompany}>
               <SelectTrigger>
-                <SelectValue placeholder="All Companies" />
+                <SelectValue placeholder={isRTL ? "كل الشركات" : "All Companies"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="Purple">Purple</SelectItem>
+                <SelectItem value="all">{isRTL ? "الكل" : "All"}</SelectItem>
+                <SelectItem value="Purple">{isRTL ? "بيربل" : "Purple"}</SelectItem>
                 <SelectItem value="Asus">Asus</SelectItem>
               </SelectContent>
             </Select>
