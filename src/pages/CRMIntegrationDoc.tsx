@@ -113,7 +113,7 @@ const CRMIntegrationDoc = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-medium text-sm text-muted-foreground mb-1">Endpoint</h4>
+            <h4 className="font-medium text-sm text-muted-foreground mb-1">{isRTL ? "نقطة النهاية" : "Endpoint"}</h4>
             <code className="text-sm bg-muted px-3 py-1.5 rounded block">{SUPABASE_FUNCTIONS_URL}/api-crm-login</code>
           </div>
           
@@ -180,7 +180,7 @@ Body:
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-medium text-sm text-muted-foreground mb-1">Endpoint</h4>
+            <h4 className="font-medium text-sm text-muted-foreground mb-1">{isRTL ? "نقطة النهاية" : "Endpoint"}</h4>
             <code className="text-sm bg-muted px-3 py-1.5 rounded block">{SUPABASE_FUNCTIONS_URL}/api-crm-shift-check</code>
           </div>
 
@@ -234,7 +234,7 @@ Content-Type: application/json`}</pre>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h4 className="font-medium text-sm text-muted-foreground mb-1">Endpoint</h4>
+            <h4 className="font-medium text-sm text-muted-foreground mb-1">{isRTL ? "نقطة النهاية" : "Endpoint"}</h4>
             <code className="text-sm bg-muted px-3 py-1.5 rounded block">{SUPABASE_FUNCTIONS_URL}/api-crm-shift-checkin</code>
           </div>
 
@@ -553,7 +553,7 @@ if (Date.now() / 1000 > expires_at - 300) {
         <div className="hidden print:block border-2 border-black p-4 rounded-lg mb-4" style={{ breakBefore: 'avoid' }}>
           <div className="flex items-center gap-2 mb-2">
             <Key className="h-5 w-5" />
-            <h3 className="font-bold text-lg">API Key</h3>
+            <h3 className="font-bold text-lg">{isRTL ? "مفتاح API" : "API Key"}</h3>
           </div>
           <code className="text-sm font-mono bg-gray-100 px-3 py-2 rounded block break-all">
             {printApiKey}
@@ -577,7 +577,7 @@ if (Date.now() / 1000 > expires_at - 300) {
                 : "Enter the API Key to include in the printed document. It will replace {api_key} in all examples."}
             </p>
             <div className="space-y-2">
-              <Label htmlFor="print-api-key">API Key</Label>
+              <Label htmlFor="print-api-key">{isRTL ? "مفتاح API" : "API Key"}</Label>
               <Input
                 id="print-api-key"
                 value={printApiKey}

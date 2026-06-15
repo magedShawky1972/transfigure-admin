@@ -77,9 +77,9 @@ const SalesOrderList = () => {
     const cost = srcCost > 0 ? srcCost : (costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0));
     const qty = Number(row.qty) || 0;
     const issues: string[] = [];
-    if (!brand) issues.push("Brand not found");
-    if (!product) issues.push("Product not found");
-    if (qty <= 0) issues.push("Qty must be > 0");
+    if (!brand) issues.push(language === "ar" ? "الماركة غير موجودة" : "Brand not found");
+    if (!product) issues.push(language === "ar" ? "المنتج غير موجود" : "Product not found");
+    if (qty <= 0) issues.push(language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0");
     return {
       ...row,
       brand_id: brand?.id || null,
@@ -253,10 +253,10 @@ const SalesOrderList = () => {
 
   const handleExportData = async () => {
     const { data: ords, error: e1 } = await supabase.from("manual_sales_orders").select("*").order("order_date", { ascending: false }).limit(5000);
-    if (e1) { toast({ title: "Export failed", description: e1.message, variant: "destructive" }); return; }
+    if (e1) { toast({ title: language === "ar" ? "فشل التصدير" : "Export failed", description: e1.message, variant: "destructive" }); return; }
     const orderIds = (ords || []).map((o: any) => o.id);
     const { data: lines, error: e2 } = await supabase.from("manual_sales_order_lines").select("*").in("order_id", orderIds);
-    if (e2) { toast({ title: "Export failed", description: e2.message, variant: "destructive" }); return; }
+    if (e2) { toast({ title: language === "ar" ? "فشل التصدير" : "Export failed", description: e2.message, variant: "destructive" }); return; }
     const linesByOrder = new Map<string, any[]>();
     (lines || []).forEach((l: any) => {
       const arr = linesByOrder.get(l.order_id) || [];
@@ -348,9 +348,9 @@ const SalesOrderList = () => {
           ? XLSX.SSF.format("yyyy-mm-dd", r.order_date)
           : String(r.order_date).substring(0, 10)) : format(new Date(), "yyyy-MM-dd");
         const issues: string[] = [];
-        if (!brand) issues.push("Brand not found");
-        if (!product) issues.push("Product not found");
-        if (qty <= 0) issues.push("Qty must be > 0");
+        if (!brand) issues.push(language === "ar" ? "الماركة غير موجودة" : "Brand not found");
+        if (!product) issues.push(language === "ar" ? "المنتج غير موجود" : "Product not found");
+        if (qty <= 0) issues.push(language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0");
         return {
           row: idx + 2,
           group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
@@ -392,7 +392,7 @@ const SalesOrderList = () => {
       setShowProductErrorsOnly(false);
       setPreviewRows(resolved);
     } catch (err: any) {
-      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "فشل الاستيراد" : "Import failed", description: err.message, variant: "destructive" });
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -458,9 +458,9 @@ const SalesOrderList = () => {
         const cost = srcCost > 0 ? srcCost : (costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0));
         const qty = Number(r.qty) || 0;
         const issues: string[] = [];
-        if (!brand) issues.push("Brand not found");
-        if (!product) issues.push("Product not found");
-        if (qty <= 0) issues.push("Qty must be > 0");
+        if (!brand) issues.push(language === "ar" ? "الماركة غير موجودة" : "Brand not found");
+        if (!product) issues.push(language === "ar" ? "المنتج غير موجود" : "Product not found");
+        if (qty <= 0) issues.push(language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0");
         return {
           ...r,
           brand_id: brand?.id || null,
@@ -490,7 +490,7 @@ const SalesOrderList = () => {
     if (!previewRows) return;
     const valid = previewRows.filter(r => r.issues.length === 0);
     if (valid.length === 0) {
-      toast({ title: "Nothing to import", description: "All rows have issues. Fix them and re-upload.", variant: "destructive" });
+      toast({ title: language === "ar" ? "لا شيء للاستيراد" : "Nothing to import", description: language === "ar" ? "كل الصفوف بها مشاكل. أصلحها وأعد الرفع." : "All rows have issues. Fix them and re-upload.", variant: "destructive" });
       return;
     }
     setCommitting(true);
@@ -582,7 +582,7 @@ const SalesOrderList = () => {
       setPreviewRows(null);
       fetchOrders();
     } catch (err: any) {
-      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "فشل الاستيراد" : "Import failed", description: err.message, variant: "destructive" });
     } finally {
       setCommitting(false);
       setCommitProgress(null);
@@ -954,7 +954,7 @@ const SalesOrderList = () => {
                             checked={allChecked}
                             onCheckedChange={toggleSelectAll}
                             disabled={eligibleIds.length === 0}
-                            aria-label="Select all"
+                            aria-label={language === "ar" ? "تحديد الكل" : "Select all"}
                           />
                         );
                       })()}
@@ -1048,34 +1048,34 @@ const SalesOrderList = () => {
             return (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-2">
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Rows Ready</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "صفوف جاهزة" : "Rows Ready"}</div>
                   <div className="text-base font-semibold">{ready.length.toLocaleString()}</div>
                 </div>
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Total Sales</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</div>
                   <div className="text-base font-semibold text-primary">{fmt(totalSales)}</div>
                 </div>
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Total Cost</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "إجمالي التكلفة" : "Total Cost"}</div>
                   <div className="text-base font-semibold text-destructive">{fmt(totalCost)}</div>
                 </div>
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Margin</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "الهامش" : "Margin"}</div>
                   <div className={cn("text-base font-semibold", margin >= 0 ? "text-emerald-600" : "text-destructive")}>{fmt(margin)}</div>
                 </div>
               </div>
             );
           })()}
           {previewRows && (() => {
-            const brandErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Brand not found'))).length;
-            const productErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Product not found'))).length;
+            const brandErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Brand not found') || i.includes('الماركة غير موجودة'))).length;
+            const productErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Product not found') || i.includes('المنتج غير موجود'))).length;
             const qtyErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Qty'))).length;
             const vendorErr = previewRows.filter(r => r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase())).length;
             const unitZero = previewRows.filter(r => !Number(r.unit_price)).length;
             const costZero = previewRows.filter(r => !Number(r.cost_price)).length;
             const items = [
-              { label: language === 'ar' ? 'الماركة غير موجودة' : 'Brand not found', count: brandErr },
-              { label: language === 'ar' ? 'المنتج غير موجود' : 'Product not found', count: productErr },
+              { label: language === 'ar' ? 'الماركة غير موجودة' : 'language === "ar" ? "الماركة غير موجودة" : "Brand not found"', count: brandErr },
+              { label: language === 'ar' ? 'المنتج غير موجود' : 'language === "ar" ? "المنتج غير موجود" : "Product not found"', count: productErr },
               { label: language === 'ar' ? 'المورد غير مسجل' : 'Vendor not registered', count: vendorErr },
               { label: language === 'ar' ? 'الكمية ≤ 0' : 'Qty ≤ 0', count: qtyErr },
               { label: language === 'ar' ? 'سعر الوحدة = 0' : 'Unit price = 0', count: unitZero },
@@ -1123,7 +1123,7 @@ const SalesOrderList = () => {
               </label>
               {showBrandErrorsOnly && previewRows && (
                 <span className="text-xs text-muted-foreground ml-1">
-                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Brand not found'))).length} rows
+                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Brand not found') || i.includes('الماركة غير موجودة'))).length} rows
                 </span>
               )}
             </div>
@@ -1138,7 +1138,7 @@ const SalesOrderList = () => {
               </label>
               {showProductErrorsOnly && previewRows && (
                 <span className="text-xs text-muted-foreground ml-1">
-                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Product not found'))).length} rows
+                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Product not found') || i.includes('المنتج غير موجود'))).length} rows
                 </span>
               )}
             </div>
@@ -1247,8 +1247,8 @@ const SalesOrderList = () => {
                   const refQuery = salesRefFilter.trim().toLowerCase();
                   if (refQuery && !String(r.sales_reference || "").toLowerCase().includes(refQuery)) return false;
                   const hasAnyIssue = r.issues.length > 0;
-                  const hasBrandError = r.issues.some((i: string) => i.includes('Brand not found'));
-                  const hasProductError = r.issues.some((i: string) => i.includes('Product not found'));
+                  const hasBrandError = r.issues.some((i: string) => i.includes('Brand not found') || i.includes('الماركة غير موجودة'));
+                  const hasProductError = r.issues.some((i: string) => i.includes('Product not found') || i.includes('المنتج غير موجود'));
                   const unitPriceZero = !Number(r.unit_price);
                   const unitCostZero = !Number(r.cost_price);
                   const anyFilter = showErrorsOnly || showBrandErrorsOnly || showProductErrorsOnly || showUnitPriceZero || showUnitCostZero;

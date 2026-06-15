@@ -452,7 +452,7 @@ const UserSetup = () => {
 
       toast({
         title: t("common.success"),
-        description: "Mail type added successfully",
+        description: language === "ar" ? "تمت إضافة نوع البريد بنجاح" : "Mail type added successfully",
       });
     } catch (error: any) {
       toast({
@@ -497,7 +497,7 @@ const UserSetup = () => {
 
       toast({
         title: t("common.success"),
-        description: "Job position added successfully",
+        description: language === "ar" ? "تمت إضافة المسمى الوظيفي بنجاح" : "Job position added successfully",
       });
     } catch (error: any) {
       toast({
@@ -629,7 +629,7 @@ const UserSetup = () => {
 
         toast({
           title: t("common.success"),
-          description: "User updated successfully",
+          description: language === "ar" ? "تم تحديث المستخدم بنجاح" : "User updated successfully",
         });
       } else {
         // For new users, use edge function to bypass rate limiting
@@ -638,7 +638,7 @@ const UserSetup = () => {
         
         // Check if there's a valid session OR sysadmin session
         if (!session && !isSysadminSession) {
-          throw new Error("Not authenticated");
+          throw new Error(language === "ar" ? "غير مصادق" : "Not authenticated");
         }
 
         const headers: Record<string, string> = {
@@ -674,7 +674,7 @@ const UserSetup = () => {
         const result = await response.json();
         
         if (!response.ok) {
-          throw new Error(result.error || "Failed to create user");
+          throw new Error(result.error || (language === "ar" ? "فشل إنشاء المستخدم" : "Failed to create user"));
         }
 
         // If this was the first user created, show a special message
@@ -688,7 +688,7 @@ const UserSetup = () => {
         } else {
           toast({
             title: t("common.success"),
-            description: "User created successfully",
+            description: language === "ar" ? "تم إنشاء المستخدم بنجاح" : "User created successfully",
           });
         }
       }
@@ -932,7 +932,7 @@ const UserSetup = () => {
 
       toast({
         title: t("common.success"),
-        description: "Permission updated successfully",
+        description: language === "ar" ? "تم تحديث الصلاحية بنجاح" : "Permission updated successfully",
       });
     } catch (error: any) {
       toast({

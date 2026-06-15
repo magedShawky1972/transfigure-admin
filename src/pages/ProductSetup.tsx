@@ -826,7 +826,7 @@ const ProductSetup = () => {
           : `${allProducts.length} products backed up (${backupId})`,
       });
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setBackingUp(false);
     }
@@ -1166,7 +1166,7 @@ const ProductSetup = () => {
             </Popover>
             <Select value={filterBrandType} onValueChange={setFilterBrandType}>
               <SelectTrigger>
-                <SelectValue placeholder="Filter by Brand Type" />
+                <SelectValue placeholder={language === "ar" ? "تصفية حسب نوع الماركة" : "Filter by Brand Type"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("common.all")}</SelectItem>
@@ -1367,7 +1367,7 @@ const ProductSetup = () => {
                     onClick={() => handleSort("odoo_product_id")}
                   >
                     <div className="flex items-center">
-                      Odoo ID
+                      {language === "ar" ? "معرف Odoo" : "Odoo ID"}
                       <SortIcon column="odoo_product_id" />
                     </div>
                   </TableHead>
@@ -1376,7 +1376,7 @@ const ProductSetup = () => {
                     onClick={() => handleSort("odoo_sync_status")}
                   >
                     <div className="flex items-center">
-                      Odoo Sync Status
+                      {language === "ar" ? "حالة مزامنة Odoo" : "Odoo Sync Status"}
                       <SortIcon column="odoo_sync_status" />
                     </div>
                   </TableHead>
@@ -1466,7 +1466,7 @@ const ProductSetup = () => {
                         size="icon"
                         onClick={() => handleSyncToOdoo(product)}
                         disabled={syncingProducts.has(product.id)}
-                        title="Sync to Odoo"
+                        title={language === "ar" ? "مزامنة مع Odoo" : "Sync to Odoo"}
                       >
                         <RefreshCw className={`h-4 w-4 ${syncingProducts.has(product.id) ? 'animate-spin' : ''}`} />
                       </Button>
@@ -1474,7 +1474,7 @@ const ProductSetup = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleTestSync(product)}
-                        title="Test Sync (Debug)"
+                        title={language === "ar" ? "اختبار المزامنة (تشخيص)" : "Test Sync (Debug)"}
                         className="text-muted-foreground hover:text-foreground"
                       >
                         <Bug className="h-4 w-4" />
@@ -1483,7 +1483,7 @@ const ProductSetup = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => navigate(`/product-details/${product.id}`)}
-                        title="More Details"
+                        title={language === "ar" ? "مزيد من التفاصيل" : "More Details"}
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -1546,8 +1546,8 @@ const ProductSetup = () => {
                              <TableHead>{t("productSetup.productPrice")}</TableHead>
                              <TableHead>{t("productSetup.productCost")}</TableHead>
                              <TableHead>{t("productSetup.status")}</TableHead>
-                             <TableHead>Odoo ID</TableHead>
-                             <TableHead>Odoo Sync Status</TableHead>
+                             <TableHead>{language === "ar" ? "معرف Odoo" : "Odoo ID"}</TableHead>
+                             <TableHead>{language === "ar" ? "حالة مزامنة Odoo" : "Odoo Sync Status"}</TableHead>
                              <TableHead>{t("productSetup.createdDate")}</TableHead>
                              <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
                            </TableRow>
@@ -1603,7 +1603,7 @@ const ProductSetup = () => {
                                   size="icon"
                                   onClick={() => handleSyncToOdoo(product)}
                                   disabled={syncingProducts.has(product.id)}
-                                  title="Sync to Odoo"
+                                  title={language === "ar" ? "مزامنة مع Odoo" : "Sync to Odoo"}
                                 >
                                   <RefreshCw className={`h-4 w-4 ${syncingProducts.has(product.id) ? 'animate-spin' : ''}`} />
                                 </Button>
@@ -1611,7 +1611,7 @@ const ProductSetup = () => {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleTestSync(product)}
-                                  title="Test Sync (Debug)"
+                                  title={language === "ar" ? "اختبار المزامنة (تشخيص)" : "Test Sync (Debug)"}
                                   className="text-muted-foreground hover:text-foreground"
                                 >
                                   <Bug className="h-4 w-4" />
@@ -1620,7 +1620,7 @@ const ProductSetup = () => {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => navigate(`/product-details/${product.id}`)}
-                                  title="More Details"
+                                  title={language === "ar" ? "مزيد من التفاصيل" : "More Details"}
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
@@ -1723,7 +1723,7 @@ const ProductSetup = () => {
                       setFormData(prev => ({ ...prev, sku: newSku }));
                       toast({ title: language === "ar" ? "تم التوليد" : "Generated", description: `SKU: ${newSku}` });
                     } catch (err: any) {
-                      toast({ title: "Error", description: err.message, variant: "destructive" });
+                      toast({ title: language === "ar" ? "خطأ" : "Error", description: err.message, variant: "destructive" });
                     }
                   }}
                 >
@@ -1732,7 +1732,7 @@ const ProductSetup = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="odoo_product_id">Odoo Product ID</Label>
+              <Label htmlFor="odoo_product_id">{language === "ar" ? "معرف منتج Odoo" : "Odoo Product ID"}</Label>
               <Input
                 id="odoo_product_id"
                 type="number"

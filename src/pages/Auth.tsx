@@ -400,7 +400,7 @@ const Auth = () => {
       const validation = authSchema.safeParse({ email, password });
       if (!validation.success) {
         toast({
-          title: "Validation Error",
+          title: language === "ar" ? "خطأ في التحقق" : "Validation Error",
           description: validation.error.errors[0].message,
           variant: "destructive",
         });
@@ -414,8 +414,8 @@ const Auth = () => {
 
       if (checkError) {
         toast({
-          title: "Error",
-          description: "Failed to verify email. Please try again.",
+          title: language === "ar" ? "خطأ" : "Error",
+          description: language === "ar" ? "فشل التحقق من البريد. يرجى المحاولة مرة أخرى." : "Failed to verify email. Please try again.",
           variant: "destructive",
         });
         setLoading(false);
@@ -424,8 +424,8 @@ const Auth = () => {
 
       if (!checkData?.exists) {
         toast({
-          title: "Access Denied",
-          description: "Email not found in the system. Please contact your administrator.",
+          title: language === "ar" ? "تم رفض الوصول" : "Access Denied",
+          description: language === "ar" ? "البريد غير موجود في النظام. يرجى التواصل مع المسؤول." : "Email not found in the system. Please contact your administrator.",
           variant: "destructive",
         });
         setLoading(false);
@@ -474,7 +474,7 @@ const Auth = () => {
       navigate("/");
     } catch (error: any) {
       toast({
-        title: "Login Failed",
+        title: language === "ar" ? "فشل تسجيل الدخول" : "Login Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -697,7 +697,7 @@ const Auth = () => {
       setSecret(enrollData.totp.secret);
       setStep("setup");
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -727,9 +727,9 @@ const Auth = () => {
       setTotpCode("");
       setStep("setup");
 
-      toast({ title: "MFA reset", description: "New QR generated. Please re‑scan and enter the code." });
+      toast({ title: language === "ar" ? "إعادة تعيين MFA" : "MFA reset", description: language === "ar" ? "تم إنشاء QR جديد. يرجى المسح وإدخال الكود." : "New QR generated. Please re‑scan and enter the code."});
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -766,7 +766,7 @@ const Auth = () => {
           await tryVerify(factorIdToUse);
         }
 
-        toast({ title: "Success", description: "Authenticator linked successfully" });
+        toast({ title: language === "ar" ? "نجاح" : "Success", description: language === "ar" ? "تم ربط المصادق بنجاح" : "Authenticator linked successfully" });
         navigate("/");
         return;
       }
@@ -794,7 +794,7 @@ const Auth = () => {
       toast({ title: "Success", description: "Logged in successfully" });
       navigate("/");
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }

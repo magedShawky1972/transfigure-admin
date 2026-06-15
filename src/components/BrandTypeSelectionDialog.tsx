@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { AlertCircle } from "lucide-react";
 
 interface NewBrand {
@@ -38,6 +39,8 @@ export const BrandTypeSelectionDialog = ({
   onCancel,
 }: BrandTypeSelectionDialogProps) => {
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [brandTypes, setBrandTypes] = useState<BrandType[]>([]);
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +60,7 @@ export const BrandTypeSelectionDialog = ({
 
     if (error) {
       toast({
-        title: "Error loading brand types",
+        title: isAr ? "خطأ في تحميل أنواع الماركات" : "Error loading brand types",
         description: error.message,
         variant: "destructive",
       });
@@ -82,8 +85,8 @@ export const BrandTypeSelectionDialog = ({
 
     if (missingSelections.length > 0) {
       toast({
-        title: "Missing selections",
-        description: "Please select a brand type for all brands",
+        title: isAr ? "اختيارات ناقصة" : "Missing selections",
+        description: isAr ? "يرجى اختيار نوع ماركة لكل الماركات" : "Please select a brand type for all brands",
         variant: "destructive",
       });
       return;
@@ -105,11 +108,12 @@ export const BrandTypeSelectionDialog = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-primary" />
-            New Brands Detected
+            {isAr ? "تم اكتشاف ماركات جديدة" : "New Brands Detected"}
           </DialogTitle>
           <DialogDescription>
-            The following brands are not in the database. Please select a brand type for each brand to continue.
-            Brand codes will be generated automatically based on your selections.
+            {isAr
+              ? "الماركات التالية غير موجودة في قاعدة البيانات. يرجى اختيار نوع ماركة لكل منها للمتابعة. سيتم إنشاء أكواد الماركات تلقائيًا بناءً على اختياراتك."
+              : "The following brands are not in the database. Please select a brand type for each brand to continue. Brand codes will be generated automatically based on your selections."}
           </DialogDescription>
         </DialogHeader>
 
@@ -125,7 +129,7 @@ export const BrandTypeSelectionDialog = ({
                   onValueChange={(value) => handleSelection(brand.brand_name, value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select brand type..." />
+                    <SelectValue placeholder={isAr ? "اختر نوع الماركة..." : "Select brand type..."} />
                   </SelectTrigger>
                   <SelectContent>
                     {brandTypes.map((type) => (
@@ -142,10 +146,10 @@ export const BrandTypeSelectionDialog = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={isLoading}>
-            Cancel Upload
+            {isAr ? "إلغاء الرفع" : "Cancel Upload"}
           </Button>
           <Button onClick={handleConfirm} disabled={!allSelected || isLoading}>
-            Continue Upload
+            {isAr ? "متابعة الرفع" : "Continue Upload"}
           </Button>
         </DialogFooter>
       </DialogContent>

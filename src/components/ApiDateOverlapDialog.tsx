@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Loader2, AlertTriangle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 interface DateSummary {
@@ -47,6 +48,8 @@ export const ApiDateOverlapDialog = ({
   onConfirm,
   onCancel,
 }: ApiDateOverlapDialogProps) => {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [loading, setLoading] = useState(false);
   const [dateSummaries, setDateSummaries] = useState<DateSummary[]>([]);
   const [totalDbRecords, setTotalDbRecords] = useState(0);
@@ -260,40 +263,43 @@ export const ApiDateOverlapDialog = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <AlertTriangle className="h-5 w-5 text-yellow-500" />
-            API Date Overlap Detected
+            {isAr ? "تم اكتشاف تداخل بتواريخ API" : "API Date Overlap Detected"}
           </DialogTitle>
           <DialogDescription>
-            The Excel data includes dates that overlap with the API sync period.
-            The system will compare records already uploaded by API with this Excel file before upload starts.
+            {isAr
+              ? "تشمل بيانات Excel تواريخ تتداخل مع فترة مزامنة API. سيقارن النظام السجلات التي تم تحميلها بواسطة API مع ملف Excel قبل بدء التحميل."
+              : "The Excel data includes dates that overlap with the API sync period. The system will compare records already uploaded by API with this Excel file before upload starts."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-2">
           <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-            Overlapping dates: {overlappingDates.join(', ')}
+            {isAr ? "التواريخ المتداخلة:" : "Overlapping dates:"} {overlappingDates.join(', ')}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Records from these dates already exist in the database. Review the summary below before continuing. Existing records will be updated and missing records will be added.
+            {isAr
+              ? "توجد سجلات لهذه التواريخ بالفعل في قاعدة البيانات. راجع الملخص قبل المتابعة. سيتم تحديث السجلات الموجودة وإضافة السجلات الناقصة."
+              : "Records from these dates already exist in the database. Review the summary below before continuing. Existing records will be updated and missing records will be added."}
           </p>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-muted-foreground">Checking existing records...</span>
+            <span className="ml-3 text-muted-foreground">{isAr ? "جاري التحقق من السجلات الموجودة..." : "Checking existing records..."}</span>
           </div>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-2">
               <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-center">
                 <AlertCircle className="h-4 w-4 mx-auto text-blue-500 mb-1" />
-                <p className="text-xs text-muted-foreground">Existing DB Records</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "السجلات الموجودة في قاعدة البيانات" : "Existing DB Records"}</p>
                 <p className="text-lg font-bold text-blue-500">{totalDbRecords.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">{totalDbAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
               <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-center">
                 <CheckCircle2 className="h-4 w-4 mx-auto text-primary mb-1" />
-                <p className="text-xs text-muted-foreground">Excel Records to Upload</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "سجلات Excel للرفع" : "Excel Records to Upload"}</p>
                 <p className="text-lg font-bold text-primary">{totalExcelRecords.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground">{totalExcelAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
@@ -304,14 +310,14 @@ export const ApiDateOverlapDialog = ({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-center">DB Records</TableHead>
-                      <TableHead className="text-right">DB Total</TableHead>
-                      <TableHead>Sources</TableHead>
-                      <TableHead className="text-center">Excel Records</TableHead>
-                      <TableHead className="text-right">Excel Total</TableHead>
-                      <TableHead className="text-right">Difference</TableHead>
-                      <TableHead className="text-center">Details</TableHead>
+                      <TableHead>{isAr ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead className="text-center">{isAr ? "سجلات قاعدة البيانات" : "DB Records"}</TableHead>
+                      <TableHead className="text-right">{isAr ? "إجمالي DB" : "DB Total"}</TableHead>
+                      <TableHead>{isAr ? "المصادر" : "Sources"}</TableHead>
+                      <TableHead className="text-center">{isAr ? "سجلات Excel" : "Excel Records"}</TableHead>
+                      <TableHead className="text-right">{isAr ? "إجمالي Excel" : "Excel Total"}</TableHead>
+                      <TableHead className="text-right">{isAr ? "الفرق" : "Difference"}</TableHead>
+                      <TableHead className="text-center">{isAr ? "التفاصيل" : "Details"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -334,7 +340,7 @@ export const ApiDateOverlapDialog = ({
                                 {(d.excelTotal - d.dbTotal) > 0 ? '+' : ''}{(d.excelTotal - d.dbTotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             ) : (
-                              <span className="text-green-500">Match</span>
+                              <span className="text-green-500">{isAr ? "متطابق" : "Match"}</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center">
@@ -345,9 +351,9 @@ export const ApiDateOverlapDialog = ({
                               className="h-7 px-2 text-xs"
                             >
                               {expandedDate === d.date ? (
-                                <><ChevronUp className="h-3 w-3 mr-1" /> Hide</>
+                                <><ChevronUp className="h-3 w-3 mr-1" /> {isAr ? "إخفاء" : "Hide"}</>
                               ) : (
-                                <><ChevronDown className="h-3 w-3 mr-1" /> Details</>
+                                <><ChevronDown className="h-3 w-3 mr-1" /> {isAr ? "تفاصيل" : "Details"}</>
                               )}
                             </Button>
                           </TableCell>
@@ -450,8 +456,9 @@ export const ApiDateOverlapDialog = ({
             {totalDbRecords > 0 && (
               <div className="p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
                 <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-                  ⚠ {totalDbRecords.toLocaleString()} existing records found for these dates.
-                  Uploading will update matching orders and add new ones.
+                  {isAr
+                    ? `⚠ تم العثور على ${totalDbRecords.toLocaleString()} سجل موجود لهذه التواريخ. سيؤدي الرفع إلى تحديث الطلبات المطابقة وإضافة الجديدة.`
+                    : `⚠ ${totalDbRecords.toLocaleString()} existing records found for these dates. Uploading will update matching orders and add new ones.`}
                 </p>
               </div>
             )}
@@ -459,17 +466,19 @@ export const ApiDateOverlapDialog = ({
             {totalDbRecords === 0 && (
               <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/30">
                 <p className="text-sm font-medium text-green-600">
-                  No existing records found for these dates. All records will be added as new.
+                  {isAr
+                    ? "لا توجد سجلات موجودة لهذه التواريخ. ستتم إضافة جميع السجلات كجديدة."
+                    : "No existing records found for these dates. All records will be added as new."}
                 </p>
               </div>
             )}
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={onCancel} className="flex-1">
-                Cancel Upload
+                {isAr ? "إلغاء الرفع" : "Cancel Upload"}
               </Button>
               <Button onClick={onConfirm} className="flex-1">
-                Confirm & Continue to Upload
+                {isAr ? "تأكيد ومتابعة الرفع" : "Confirm & Continue to Upload"}
               </Button>
             </div>
           </div>
