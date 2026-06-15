@@ -490,7 +490,7 @@ const SalesOrderList = () => {
     if (!previewRows) return;
     const valid = previewRows.filter(r => r.issues.length === 0);
     if (valid.length === 0) {
-      toast({ title: "Nothing to import", description: "All rows have issues. Fix them and re-upload.", variant: "destructive" });
+      toast({ title: language === "ar" ? "لا شيء للاستيراد" : "Nothing to import", description: language === "ar" ? "كل الصفوف بها مشاكل. أصلحها وأعد الرفع." : "All rows have issues. Fix them and re-upload.", variant: "destructive" });
       return;
     }
     setCommitting(true);
@@ -1048,19 +1048,19 @@ const SalesOrderList = () => {
             return (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-2">
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Rows Ready</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "صفوف جاهزة" : "Rows Ready"}</div>
                   <div className="text-base font-semibold">{ready.length.toLocaleString()}</div>
                 </div>
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Total Sales</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "إجمالي المبيعات" : "Total Sales"}</div>
                   <div className="text-base font-semibold text-primary">{fmt(totalSales)}</div>
                 </div>
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Total Cost</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "إجمالي التكلفة" : "Total Cost"}</div>
                   <div className="text-base font-semibold text-destructive">{fmt(totalCost)}</div>
                 </div>
                 <div className="rounded border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase text-muted-foreground">Margin</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">{language === "ar" ? "الهامش" : "Margin"}</div>
                   <div className={cn("text-base font-semibold", margin >= 0 ? "text-emerald-600" : "text-destructive")}>{fmt(margin)}</div>
                 </div>
               </div>
