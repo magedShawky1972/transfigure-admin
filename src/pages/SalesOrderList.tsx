@@ -77,9 +77,9 @@ const SalesOrderList = () => {
     const cost = srcCost > 0 ? srcCost : (costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0));
     const qty = Number(row.qty) || 0;
     const issues: string[] = [];
-    if (!brand) issues.push("language === "ar" ? "الماركة غير موجودة" : "Brand not found"");
-    if (!product) issues.push("language === "ar" ? "المنتج غير موجود" : "Product not found"");
-    if (qty <= 0) issues.push("language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0"");
+    if (!brand) issues.push(language === "ar" ? "الماركة غير موجودة" : "Brand not found");
+    if (!product) issues.push(language === "ar" ? "المنتج غير موجود" : "Product not found");
+    if (qty <= 0) issues.push(language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0");
     return {
       ...row,
       brand_id: brand?.id || null,
@@ -348,9 +348,9 @@ const SalesOrderList = () => {
           ? XLSX.SSF.format("yyyy-mm-dd", r.order_date)
           : String(r.order_date).substring(0, 10)) : format(new Date(), "yyyy-MM-dd");
         const issues: string[] = [];
-        if (!brand) issues.push("language === "ar" ? "الماركة غير موجودة" : "Brand not found"");
-        if (!product) issues.push("language === "ar" ? "المنتج غير موجود" : "Product not found"");
-        if (qty <= 0) issues.push("language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0"");
+        if (!brand) issues.push(language === "ar" ? "الماركة غير موجودة" : "Brand not found");
+        if (!product) issues.push(language === "ar" ? "المنتج غير موجود" : "Product not found");
+        if (qty <= 0) issues.push(language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0");
         return {
           row: idx + 2,
           group_key: String(r.group_key || "").trim() || `__row_${idx + 2}`,
@@ -458,9 +458,9 @@ const SalesOrderList = () => {
         const cost = srcCost > 0 ? srcCost : (costRate > 0 ? costRate : (coins > 0 ? (Number(product?.product_cost ?? 0) || 0) / coins : 0));
         const qty = Number(r.qty) || 0;
         const issues: string[] = [];
-        if (!brand) issues.push("language === "ar" ? "الماركة غير موجودة" : "Brand not found"");
-        if (!product) issues.push("language === "ar" ? "المنتج غير موجود" : "Product not found"");
-        if (qty <= 0) issues.push("language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0"");
+        if (!brand) issues.push(language === "ar" ? "الماركة غير موجودة" : "Brand not found");
+        if (!product) issues.push(language === "ar" ? "المنتج غير موجود" : "Product not found");
+        if (qty <= 0) issues.push(language === "ar" ? "الكمية يجب أن تكون > 0" : "Qty must be > 0");
         return {
           ...r,
           brand_id: brand?.id || null,
@@ -1067,8 +1067,8 @@ const SalesOrderList = () => {
             );
           })()}
           {previewRows && (() => {
-            const brandErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('language === "ar" ? "الماركة غير موجودة" : "Brand not found"'))).length;
-            const productErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('language === "ar" ? "المنتج غير موجود" : "Product not found"'))).length;
+            const brandErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Brand not found') || i.includes('الماركة غير موجودة'))).length;
+            const productErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Product not found') || i.includes('المنتج غير موجود'))).length;
             const qtyErr = previewRows.filter(r => r.issues.some((i: string) => i.includes('Qty'))).length;
             const vendorErr = previewRows.filter(r => r.vendor && !suppliersSet.has(String(r.vendor).trim().toLowerCase())).length;
             const unitZero = previewRows.filter(r => !Number(r.unit_price)).length;
@@ -1123,7 +1123,7 @@ const SalesOrderList = () => {
               </label>
               {showBrandErrorsOnly && previewRows && (
                 <span className="text-xs text-muted-foreground ml-1">
-                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('language === "ar" ? "الماركة غير موجودة" : "Brand not found"'))).length} rows
+                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Brand not found') || i.includes('الماركة غير موجودة'))).length} rows
                 </span>
               )}
             </div>
@@ -1138,7 +1138,7 @@ const SalesOrderList = () => {
               </label>
               {showProductErrorsOnly && previewRows && (
                 <span className="text-xs text-muted-foreground ml-1">
-                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('language === "ar" ? "المنتج غير موجود" : "Product not found"'))).length} rows
+                  {(sortedPreview || []).filter((r: any) => r.issues.some((i: string) => i.includes('Product not found') || i.includes('المنتج غير موجود'))).length} rows
                 </span>
               )}
             </div>
@@ -1247,8 +1247,8 @@ const SalesOrderList = () => {
                   const refQuery = salesRefFilter.trim().toLowerCase();
                   if (refQuery && !String(r.sales_reference || "").toLowerCase().includes(refQuery)) return false;
                   const hasAnyIssue = r.issues.length > 0;
-                  const hasBrandError = r.issues.some((i: string) => i.includes('language === "ar" ? "الماركة غير موجودة" : "Brand not found"'));
-                  const hasProductError = r.issues.some((i: string) => i.includes('language === "ar" ? "المنتج غير موجود" : "Product not found"'));
+                  const hasBrandError = r.issues.some((i: string) => i.includes('Brand not found') || i.includes('الماركة غير موجودة'));
+                  const hasProductError = r.issues.some((i: string) => i.includes('Product not found') || i.includes('المنتج غير موجود'));
                   const unitPriceZero = !Number(r.unit_price);
                   const unitCostZero = !Number(r.cost_price);
                   const anyFilter = showErrorsOnly || showBrandErrorsOnly || showProductErrorsOnly || showUnitPriceZero || showUnitCostZero;
