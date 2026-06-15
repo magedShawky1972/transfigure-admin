@@ -577,7 +577,7 @@ if (Date.now() / 1000 > expires_at - 300) {
                 : "Enter the API Key to include in the printed document. It will replace {api_key} in all examples."}
             </p>
             <div className="space-y-2">
-              <Label htmlFor="print-api-key">API Key</Label>
+              <Label htmlFor="print-api-key">{isRTL ? "مفتاح API" : "API Key"}</Label>
               <Input
                 id="print-api-key"
                 value={printApiKey}
