@@ -688,7 +688,7 @@ const ProductDetails = () => {
                         onClick={async () => {
                           const selectedBrand = brands.find(b => b.brand_name === brandName);
                           if (!selectedBrand) {
-                            toast({ title: "Error", description: isRTL ? "اختر البراند أولاً" : "Select a brand first", variant: "destructive" });
+                            toast({ title: language === "ar" ? "خطأ" : "Error", description: isRTL ? "اختر البراند أولاً" : "Select a brand first", variant: "destructive" });
                             return;
                           }
                           try {
@@ -703,7 +703,7 @@ const ProductDetails = () => {
                               // Fallback: use brand name's first 2 uppercase characters
                               prefix = brandName.replace(/[^A-Za-z]/g, '').substring(0, 2).toUpperCase();
                               if (!prefix) {
-                                toast({ title: "Error", description: isRTL ? "لا يمكن توليد بادئة SKU" : "Cannot generate SKU prefix from brand", variant: "destructive" });
+                                toast({ title: language === "ar" ? "خطأ" : "Error", description: isRTL ? "لا يمكن توليد بادئة SKU" : "Cannot generate SKU prefix from brand", variant: "destructive" });
                                 return;
                               }
                             }
@@ -730,7 +730,7 @@ const ProductDetails = () => {
                             setSku(newSku);
                             toast({ title: isRTL ? "تم التوليد" : "Generated", description: `SKU: ${newSku}` });
                           } catch (err: any) {
-                            toast({ title: "Error", description: err.message, variant: "destructive" });
+                            toast({ title: language === "ar" ? "خطأ" : "Error", description: err.message, variant: "destructive" });
                           }
                         }}
                       >
