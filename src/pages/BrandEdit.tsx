@@ -683,7 +683,7 @@ const BrandEdit = () => {
                 className="w-full md:w-auto"
               >
                 <Calculator className="mr-2 h-4 w-4" />
-                Calculate Consumption from Transactions (90 days)
+                {isAr ? "احسب الاستهلاك من المعاملات (90 يوم)" : "Calculate Consumption from Transactions (90 days)"}
               </Button>
             </div>
 
