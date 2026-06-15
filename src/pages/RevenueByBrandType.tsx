@@ -35,7 +35,8 @@ interface ProductDetail {
 
 const RevenueByBrandType = () => {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [selectedBrandType, setSelectedBrandType] = useState<string>("all");
@@ -245,11 +246,11 @@ const RevenueByBrandType = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b-2 border-border print:border-black">
-                  <th className="text-left py-3 px-4 font-semibold print:text-black">Brand Type</th>
-                  <th className="text-right py-3 px-4 font-semibold print:text-black">Amount</th>
-                  <th className="text-right py-3 px-4 font-semibold print:text-black">Quantity</th>
-                  <th className="text-right py-3 px-4 font-semibold print:text-black">Transaction Count</th>
-                  <th className="text-right py-3 px-4 font-semibold print:text-black">Average</th>
+                  <th className="text-left py-3 px-4 font-semibold print:text-black">{isAr ? "نوع الماركة" : "Brand Type"}</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">{isAr ? "المبلغ" : "Amount"}</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">{isAr ? "الكمية" : "Quantity"}</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">{isAr ? "عدد المعاملات" : "Transaction Count"}</th>
+                  <th className="text-right py-3 px-4 font-semibold print:text-black">{isAr ? "المتوسط" : "Average"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -330,7 +331,7 @@ const RevenueByBrandType = () => {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border print:border-black font-bold bg-muted/30 print:bg-gray-200">
-                  <td className="py-3 px-4 print:text-black">Total</td>
+                  <td className="py-3 px-4 print:text-black">{isAr ? "الإجمالي" : "Total"}</td>
                   <td className="text-right py-3 px-4 print:text-black">{fmtNum(totalRevenue)}</td>
                   <td className="text-right py-3 px-4 print:text-black">{totalQty.toLocaleString()}</td>
                   <td className="text-right py-3 px-4 print:text-black">{totalTransactions}</td>
