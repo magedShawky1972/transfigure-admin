@@ -714,7 +714,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="abc_analysis">ABC Analysis</Label>
+              <Label htmlFor="abc_analysis">{isAr ? "تحليل ABC" : "ABC Analysis"}</Label>
               <Select
                 value={formData.abc_analysis}
                 onValueChange={(value) =>
@@ -725,9 +725,9 @@ const BrandEdit = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="A">A - High Value</SelectItem>
-                  <SelectItem value="B">B - Medium Value</SelectItem>
-                  <SelectItem value="C">C - Low Value</SelectItem>
+                  <SelectItem value="A">{isAr ? "أ - قيمة عالية" : "A - High Value"}</SelectItem>
+                  <SelectItem value="B">{isAr ? "ب - قيمة متوسطة" : "B - Medium Value"}</SelectItem>
+                  <SelectItem value="C">{isAr ? "ج - قيمة منخفضة" : "C - Low Value"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -751,7 +751,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="skip_closing_image">Disable Closing Image Upload</Label>
+              <Label htmlFor="skip_closing_image">{isAr ? "تعطيل رفع صورة الإغلاق" : "Disable Closing Image Upload"}</Label>
               <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-input bg-background">
                 <Switch
                   id="skip_closing_image"
@@ -762,14 +762,14 @@ const BrandEdit = () => {
                 />
                 <span className="text-sm text-muted-foreground">
                   {formData.skip_closing_image
-                    ? "Excluded from shift closing image upload"
-                    : "Required in shift closing image upload"}
+                    ? (isAr ? "مستثناة من رفع صورة إغلاق الشفت" : "Excluded from shift closing image upload")
+                    : (isAr ? "مطلوبة عند رفع صورة إغلاق الشفت" : "Required in shift closing image upload")}
                 </span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="default_supplier_id">Default Vendor</Label>
+              <Label htmlFor="default_supplier_id">{isAr ? "المورد الافتراضي" : "Default Vendor"}</Label>
               <Select
                 value={formData.default_supplier_id}
                 onValueChange={(value) =>
@@ -777,10 +777,10 @@ const BrandEdit = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select default vendor" />
+                  <SelectValue placeholder={isAr ? "اختر المورد الافتراضي" : "Select default vendor"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="none">{isAr ? "بدون" : "None"}</SelectItem>
                   {suppliers.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.supplier_name}
@@ -791,7 +791,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sku_start_with">SKU Start With</Label>
+              <Label htmlFor="sku_start_with">{isAr ? "بداية رمز SKU" : "SKU Start With"}</Label>
               <Input
                 id="sku_start_with"
                 value={formData.sku_start_with}
@@ -809,35 +809,37 @@ const BrandEdit = () => {
                     if (data && data.length > 0) {
                       setSkuTaken(true);
                       toast({
-                        title: "SKU Prefix Taken",
-                        description: `"${val}" is already used by: ${data[0].brand_name}`,
+                        title: isAr ? "بادئة SKU مستخدمة" : "SKU Prefix Taken",
+                        description: isAr ? `"${val}" مستخدمة بالفعل من قبل: ${data[0].brand_name}` : `"${val}" is already used by: ${data[0].brand_name}`,
                         variant: "destructive",
                       });
                     }
                   }
                 }}
-                placeholder="e.g. I, IT, GO"
+                placeholder={isAr ? "مثل: I، IT، GO" : "e.g. I, IT, GO"}
                 maxLength={2}
                 minLength={1}
                 className={skuTaken ? "border-destructive ring-destructive" : ""}
               />
               <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {skuTaken ? "This SKU prefix is already taken by another brand" : "1 or 2 characters, must be unique across all brands"}
+                {skuTaken
+                  ? (isAr ? "بادئة SKU هذه مستخدمة بالفعل من قبل ماركة أخرى" : "This SKU prefix is already taken by another brand")
+                  : (isAr ? "حرف واحد أو حرفان، يجب أن تكون فريدة بين جميع الماركات" : "1 or 2 characters, must be unique across all brands")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="supplier_hub_code">Supplier Hub Code</Label>
+              <Label htmlFor="supplier_hub_code">{isAr ? "كود مركز المورد" : "Supplier Hub Code"}</Label>
               <Input
                 id="supplier_hub_code"
                 value={formData.supplier_hub_code}
                 onChange={(e) => setFormData({ ...formData, supplier_hub_code: e.target.value })}
-                placeholder="Enter supplier hub code"
+                placeholder={isAr ? "أدخل كود مركز المورد" : "Enter supplier hub code"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brand_start_date">First Entry Date</Label>
+              <Label htmlFor="brand_start_date">{isAr ? "تاريخ أول إدخال" : "First Entry Date"}</Label>
               <Input
                 id="brand_start_date"
                 type="date"
@@ -848,7 +850,7 @@ const BrandEdit = () => {
 
             {brandId && (
               <div className="space-y-2">
-                <Label>Current SKU Prefix in Products</Label>
+                <Label>{isAr ? "بادئة SKU الحالية في المنتجات" : "Current SKU Prefix in Products"}</Label>
                 <Input
                   value={currentSkuPrefixes || "-"}
                   readOnly
@@ -859,46 +861,46 @@ const BrandEdit = () => {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="asus_brand_name">Asus Brand Name</Label>
+              <Label htmlFor="asus_brand_name">{isAr ? "اسم الماركة في Asus" : "Asus Brand Name"}</Label>
               <Input
                 id="asus_brand_name"
                 value={formData.asus_brand_name}
                 onChange={(e) =>
                   setFormData({ ...formData, asus_brand_name: e.target.value })
                 }
-                placeholder="Brand name as it appears in Asus system"
+                placeholder={isAr ? "اسم الماركة كما يظهر في نظام Asus" : "Brand name as it appears in Asus system"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="odoo_category_id">Odoo Category ID</Label>
+              <Label htmlFor="odoo_category_id">{isAr ? "معرّف فئة Odoo" : "Odoo Category ID"}</Label>
               <Input
                 id="odoo_category_id"
                 type="text"
                 value={formData.odoo_category_id}
                 disabled
                 className="bg-muted"
-                placeholder="Set after syncing to Odoo"
+                placeholder={isAr ? "يتم تعيينه بعد المزامنة مع Odoo" : "Set after syncing to Odoo"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="created_at">Date of Creation</Label>
+              <Label htmlFor="created_at">{isAr ? "تاريخ الإنشاء" : "Date of Creation"}</Label>
               <Input
                 id="created_at"
                 type="text"
-                value={brandId ? format(new Date((formData as any)._created_at || new Date()), 'yyyy-MM-dd HH:mm') : 'Auto-generated'}
+                value={brandId ? format(new Date((formData as any)._created_at || new Date()), 'yyyy-MM-dd HH:mm') : (isAr ? "يتم إنشاؤه تلقائياً" : "Auto-generated")}
                 disabled
                 className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="creation_source">Source of Creation</Label>
+              <Label htmlFor="creation_source">{isAr ? "مصدر الإنشاء" : "Source of Creation"}</Label>
               <Input
                 id="creation_source"
                 type="text"
-                value={formData.creation_source || 'Manual'}
+                value={formData.creation_source || (isAr ? "يدوي" : "Manual")}
                 disabled
                 className="bg-muted"
               />
