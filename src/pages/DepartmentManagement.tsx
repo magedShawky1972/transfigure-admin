@@ -300,7 +300,7 @@ const DepartmentManagement = () => {
       setDepartments(data || []);
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -410,8 +410,8 @@ const DepartmentManagement = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Department created successfully",
+        title: language === "ar" ? "نجاح" : "Success",
+        description: language === "ar" ? "تم إنشاء القسم بنجاح" : "Department created successfully",
       });
 
       setOpenDept(false);
@@ -419,7 +419,7 @@ const DepartmentManagement = () => {
       fetchDepartments();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -465,7 +465,7 @@ const DepartmentManagement = () => {
       fetchDepartments();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -772,7 +772,7 @@ const DepartmentManagement = () => {
       fetchMembers();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: language === "ar" ? "خطأ" : "Error",
         description: error.message,
         variant: "destructive",
       });
@@ -869,7 +869,7 @@ const DepartmentManagement = () => {
         });
       } catch (error: any) {
         toast({
-          title: "Error",
+          title: language === "ar" ? "خطأ" : "Error",
           description: error.message,
           variant: "destructive",
         });

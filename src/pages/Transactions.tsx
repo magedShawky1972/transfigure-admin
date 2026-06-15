@@ -1695,7 +1695,7 @@ const Transactions = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{language === 'ar' ? 'جميع الشركات' : 'All Companies'}</SelectItem>
-                <SelectItem value="Purple">Purple</SelectItem>
+                <SelectItem value="Purple">{language === "ar" ? "بيربل" : "Purple"}</SelectItem>
                 <SelectItem value="Asus">Asus</SelectItem>
               </SelectContent>
             </Select>
