@@ -596,7 +596,7 @@ const ProductDetails = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="odooProductId" className={isRTL ? 'text-right block' : ''}>Odoo Product ID</Label>
+                    <Label htmlFor="odooProductId" className={isRTL ? 'text-right block' : ''}>{isRTL ? "معرف منتج أودو" : "Odoo Product ID"}</Label>
                     <Input
                       id="odooProductId"
                       className={`${isRTL ? 'text-right' : ''} bg-muted`}
@@ -649,7 +649,7 @@ const ProductDetails = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="brandType" className={isRTL ? 'text-right block' : ''}>Brand Type</Label>
+                    <Label htmlFor="brandType" className={isRTL ? 'text-right block' : ''}>{isRTL ? "نوع العلامة التجارية" : "Brand Type"}</Label>
                     <Input
                       id="brandType"
                       className={isRTL ? 'text-right' : ''}
@@ -659,7 +659,7 @@ const ProductDetails = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="brandCode" className={isRTL ? 'text-right block' : ''}>Brand Code</Label>
+                    <Label htmlFor="brandCode" className={isRTL ? 'text-right block' : ''}>{isRTL ? "رمز العلامة التجارية" : "Brand Code"}</Label>
                     <Input
                       id="brandCode"
                       className={isRTL ? 'text-right' : ''}

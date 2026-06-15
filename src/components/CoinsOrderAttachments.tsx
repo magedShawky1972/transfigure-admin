@@ -280,7 +280,7 @@ const CoinsOrderAttachments = ({ purchaseOrderId, currentPhase, readOnly = false
               <div className="w-full">
                 <PdfEmbed
                   url={previewUrl}
-                  title="PDF Preview"
+                  title={isArabic ? "معاينة PDF" : "PDF Preview"}
                   className="w-full h-[80vh] rounded"
                 />
                 <div className="mt-2 flex justify-end">
