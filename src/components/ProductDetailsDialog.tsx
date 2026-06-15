@@ -226,7 +226,7 @@ export const ProductDetailsDialog = ({
             
             {/* Product Information Section */}
             <div className="space-y-4">
-              <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>Product Information</h3>
+              <h3 className={`text-lg font-semibold border-b pb-2 ${isRTL ? 'text-right' : ''}`}>{isRTL ? "معلومات المنتج" : "Product Information"}</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className={isRTL ? 'text-right block' : ''}>SKU</Label>
@@ -234,81 +234,81 @@ export const ProductDetailsDialog = ({
                     className={isRTL ? 'text-right' : ''} 
                     value={sku} 
                     onChange={(e) => setSku(e.target.value)} 
-                    placeholder="Enter SKU" 
+                    placeholder={isRTL ? "أدخل SKU" : "Enter SKU"} 
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className={isRTL ? 'text-right block' : ''}>Barcode</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "الباركود" : "Barcode"}</Label>
                   <Input 
                     className={isRTL ? 'text-right' : ''} 
                     value={barcode} 
                     onChange={(e) => setBarcode(e.target.value)} 
-                    placeholder="Enter barcode" 
+                    placeholder={isRTL ? "أدخل الباركود" : "Enter barcode"} 
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label className={isRTL ? 'text-right block' : ''}>Category</Label>
+                <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "الفئة" : "Category"}</Label>
                 <Input 
                   className={isRTL ? 'text-right' : ''} 
                   value={category} 
                   onChange={(e) => setCategory(e.target.value)} 
-                  placeholder="Enter category" 
+                  placeholder={isRTL ? "أدخل الفئة" : "Enter category"} 
                 />
               </div>
               
               <div className="space-y-2">
-                <Label className={isRTL ? 'text-right block' : ''}>Brand Code</Label>
+                <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "كود الماركة" : "Brand Code"}</Label>
                 <Input 
                   className={isRTL ? 'text-right' : ''} 
                   value={initialBrandCode || ""} 
                   disabled
-                  placeholder="Brand code" 
+                  placeholder={isRTL ? "كود الماركة" : "Brand code"} 
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className={isRTL ? 'text-right block' : ''}>Weight</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "الوزن" : "Weight"}</Label>
                   <Input 
                     type="number"
                     step="0.01"
                     className={isRTL ? 'text-right' : ''} 
                     value={weight} 
                     onChange={(e) => setWeight(e.target.value)} 
-                    placeholder="Enter weight" 
+                    placeholder={isRTL ? "أدخل الوزن" : "Enter weight"} 
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className={isRTL ? 'text-right block' : ''}>Supplier</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "المورد" : "Supplier"}</Label>
                   <Input 
                     className={isRTL ? 'text-right' : ''} 
                     value={supplier} 
                     onChange={(e) => setSupplier(e.target.value)} 
-                    placeholder="Enter supplier name" 
+                    placeholder={isRTL ? "أدخل اسم المورد" : "Enter supplier name"} 
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label className={isRTL ? 'text-right block' : ''}>Description</Label>
+                <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "الوصف" : "Description"}</Label>
                 <Textarea 
                   className={isRTL ? 'text-right' : ''} 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
-                  placeholder="Enter product description" 
+                  placeholder={isRTL ? "أدخل وصف المنتج" : "Enter product description"} 
                   rows={3}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label className={isRTL ? 'text-right block' : ''}>Notes</Label>
+                <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "ملاحظات" : "Notes"}</Label>
                 <Textarea 
                   className={isRTL ? 'text-right' : ''} 
                   value={notes} 
                   onChange={(e) => setNotes(e.target.value)} 
-                  placeholder="Enter internal notes" 
+                  placeholder={isRTL ? "أدخل ملاحظات داخلية" : "Enter internal notes"} 
                   rows={2}
                 />
               </div>
@@ -370,13 +370,13 @@ export const ProductDetailsDialog = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className={isRTL ? 'text-right block' : ''}>Reorder Point *</Label>
+                  <Label className={isRTL ? 'text-right block' : ''}>{isRTL ? "نقطة إعادة الطلب" : "Reorder Point"} *</Label>
                   <Input 
                     type="number"
                     className={isRTL ? 'text-right' : ''} 
                     value={notifyQty} 
                     onChange={(e) => setNotifyQty(e.target.value)} 
-                    placeholder="Stock level to reorder" 
+                    placeholder={isRTL ? "مستوى المخزون لإعادة الطلب" : "Stock level to reorder"} 
                   />
                 </div>
               </div>
