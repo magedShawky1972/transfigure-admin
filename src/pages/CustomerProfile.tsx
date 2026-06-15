@@ -160,7 +160,7 @@ const CustomerSetup = () => {
     } catch (error: any) {
       console.error("Error fetching customers:", error);
       toast({
-        title: "Error loading customers",
+        title: language === "ar" ? "خطأ في تحميل العملاء" : "Error loading customers",
         description: error.message,
         variant: "destructive",
       });

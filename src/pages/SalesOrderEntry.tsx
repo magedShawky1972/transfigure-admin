@@ -171,7 +171,7 @@ const SalesOrderEntry = () => {
         };
       }));
     } catch (e: any) {
-      toast({ title: 'Error loading order', description: e.message, variant: "destructive" });
+      toast({ title: language === 'ar' ? 'خطأ في تحميل الطلب' : 'Error loading order', description: e.message, variant: "destructive" });
     } finally {
       setLoadingOrder(false);
     }

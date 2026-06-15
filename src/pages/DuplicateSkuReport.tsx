@@ -79,7 +79,7 @@ const DuplicateSkuReport = () => {
       const uniqueBrands = [...new Set(allProducts.map(p => p.brand_name).filter(Boolean))] as string[];
       setBrands(uniqueBrands.sort());
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }

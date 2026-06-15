@@ -519,7 +519,7 @@ const EmployeeSelfRequests = () => {
       resetForm();
       fetchData();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }

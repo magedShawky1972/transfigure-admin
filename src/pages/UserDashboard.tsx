@@ -2379,7 +2379,7 @@ const UserDashboard = () => {
                       </html>
                     `}
                     className="w-full h-full min-h-[300px] border-0"
-                    title="Email content"
+                    title={language === "ar" ? "محتوى البريد الإلكتروني" : "Email content"}
                   />
                 ) : (
                   <div className="p-4 whitespace-pre-wrap text-sm">
