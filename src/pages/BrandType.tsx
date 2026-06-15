@@ -45,7 +45,7 @@ interface BrandType {
 }
 
 const BrandType = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const [brands, setBrands] = useState<BrandType[]>([]);
   const [loading, setLoading] = useState(false);

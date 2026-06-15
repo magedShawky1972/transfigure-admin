@@ -21,6 +21,7 @@ import { downloadFile } from "@/lib/fileDownload";
 
 const SupplierAdvancePayment = () => {
   const { language } = useLanguage();
+  const isRTL = language === "ar";
   const isArabic = language === "ar";
   const { hasAccess, isLoading: accessLoading } = usePageAccess("/supplier-advance-payment");
 
