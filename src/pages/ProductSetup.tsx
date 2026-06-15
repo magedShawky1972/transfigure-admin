@@ -826,7 +826,7 @@ const ProductSetup = () => {
           : `${allProducts.length} products backed up (${backupId})`,
       });
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setBackingUp(false);
     }
@@ -1166,7 +1166,7 @@ const ProductSetup = () => {
             </Popover>
             <Select value={filterBrandType} onValueChange={setFilterBrandType}>
               <SelectTrigger>
-                <SelectValue placeholder="Filter by Brand Type" />
+                <SelectValue placeholder={language === "ar" ? "تصفية حسب نوع الماركة" : "Filter by Brand Type"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("common.all")}</SelectItem>
@@ -1466,7 +1466,7 @@ const ProductSetup = () => {
                         size="icon"
                         onClick={() => handleSyncToOdoo(product)}
                         disabled={syncingProducts.has(product.id)}
-                        title="Sync to Odoo"
+                        title={language === "ar" ? "مزامنة مع Odoo" : "Sync to Odoo"}
                       >
                         <RefreshCw className={`h-4 w-4 ${syncingProducts.has(product.id) ? 'animate-spin' : ''}`} />
                       </Button>
@@ -1474,7 +1474,7 @@ const ProductSetup = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleTestSync(product)}
-                        title="Test Sync (Debug)"
+                        title={language === "ar" ? "اختبار المزامنة (تشخيص)" : "Test Sync (Debug)"}
                         className="text-muted-foreground hover:text-foreground"
                       >
                         <Bug className="h-4 w-4" />
@@ -1546,8 +1546,8 @@ const ProductSetup = () => {
                              <TableHead>{t("productSetup.productPrice")}</TableHead>
                              <TableHead>{t("productSetup.productCost")}</TableHead>
                              <TableHead>{t("productSetup.status")}</TableHead>
-                             <TableHead>Odoo ID</TableHead>
-                             <TableHead>Odoo Sync Status</TableHead>
+                             <TableHead>{language === "ar" ? "معرف Odoo" : "Odoo ID"}</TableHead>
+                             <TableHead>{language === "ar" ? "حالة مزامنة Odoo" : "Odoo Sync Status"}</TableHead>
                              <TableHead>{t("productSetup.createdDate")}</TableHead>
                              <TableHead className="text-right">{t("productSetup.actions")}</TableHead>
                            </TableRow>
@@ -1603,7 +1603,7 @@ const ProductSetup = () => {
                                   size="icon"
                                   onClick={() => handleSyncToOdoo(product)}
                                   disabled={syncingProducts.has(product.id)}
-                                  title="Sync to Odoo"
+                                  title={language === "ar" ? "مزامنة مع Odoo" : "Sync to Odoo"}
                                 >
                                   <RefreshCw className={`h-4 w-4 ${syncingProducts.has(product.id) ? 'animate-spin' : ''}`} />
                                 </Button>
@@ -1611,7 +1611,7 @@ const ProductSetup = () => {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleTestSync(product)}
-                                  title="Test Sync (Debug)"
+                                  title={language === "ar" ? "اختبار المزامنة (تشخيص)" : "Test Sync (Debug)"}
                                   className="text-muted-foreground hover:text-foreground"
                                 >
                                   <Bug className="h-4 w-4" />
