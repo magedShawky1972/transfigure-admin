@@ -31,7 +31,8 @@ interface Supplier {
 }
 
 const BrandEdit = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -486,32 +487,32 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brand_code">Brand Code</Label>
+              <Label htmlFor="brand_code">{isAr ? "كود الماركة" : "Brand Code"}</Label>
               <Input
                 id="brand_code"
                 value={formData.brand_code}
                 onChange={(e) =>
                   setFormData({ ...formData, brand_code: e.target.value })
                 }
-                placeholder="Auto-generated from brand type"
+                placeholder={isAr ? "يتم إنشاؤه تلقائياً من نوع الماركة" : "Auto-generated from brand type"}
                 disabled={!!brandId}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="short_name">Short Name</Label>
+              <Label htmlFor="short_name">{isAr ? "الاسم المختصر" : "Short Name"}</Label>
               <Input
                 id="short_name"
                 value={formData.short_name}
                 onChange={(e) =>
                   setFormData({ ...formData, short_name: e.target.value })
                 }
-                placeholder="Enter short name"
+                placeholder={isAr ? "أدخل الاسم المختصر" : "Enter short name"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="usd_value_for_coins">Cost One Coins = USD</Label>
+              <Label htmlFor="usd_value_for_coins">{isAr ? "تكلفة عملة واحدة = دولار" : "Cost One Coins = USD"}</Label>
               <Input
                 id="usd_value_for_coins"
                 type="number"
@@ -520,12 +521,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, usd_value_for_coins: e.target.value })
                 }
-                placeholder="Enter cost USD value per coin"
+                placeholder={isAr ? "أدخل قيمة التكلفة بالدولار لكل عملة" : "Enter cost USD value per coin"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cost_one_coins_sar">Cost One Coins = SAR (USD × 3.75)</Label>
+              <Label htmlFor="cost_one_coins_sar">{isAr ? "تكلفة عملة واحدة = ريال (دولار × 3.75)" : "Cost One Coins = SAR (USD × 3.75)"}</Label>
               <Input
                 id="cost_one_coins_sar"
                 type="text"
@@ -536,7 +537,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sales_usd_value_for_coins">Sales One Coins = USD</Label>
+              <Label htmlFor="sales_usd_value_for_coins">{isAr ? "بيع عملة واحدة = دولار" : "Sales One Coins = USD"}</Label>
               <Input
                 id="sales_usd_value_for_coins"
                 type="number"
@@ -545,12 +546,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, sales_usd_value_for_coins: e.target.value })
                 }
-                placeholder="Enter sales USD value per coin"
+                placeholder={isAr ? "أدخل قيمة البيع بالدولار لكل عملة" : "Enter sales USD value per coin"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sales_one_coins_sar">Sales One Coins = SAR (USD × 3.75)</Label>
+              <Label htmlFor="sales_one_coins_sar">{isAr ? "بيع عملة واحدة = ريال (دولار × 3.75)" : "Sales One Coins = SAR (USD × 3.75)"}</Label>
               <Input
                 id="sales_one_coins_sar"
                 type="number"
@@ -561,7 +562,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="one_usd_to_coins">1 USD = Coins</Label>
+              <Label htmlFor="one_usd_to_coins">{isAr ? "1 دولار = عملات" : "1 USD = Coins"}</Label>
               <Input
                 id="one_usd_to_coins"
                 type="number"
@@ -570,12 +571,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, one_usd_to_coins: e.target.value })
                 }
-                placeholder="Enter how many coins per 1 USD (8 decimals)"
+                placeholder={isAr ? "عدد العملات لكل 1 دولار (8 خانات عشرية)" : "Enter how many coins per 1 USD (8 decimals)"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="recharge_usd_value">Recharge USD Value</Label>
+              <Label htmlFor="recharge_usd_value">{isAr ? "قيمة الشحن بالدولار" : "Recharge USD Value"}</Label>
               <Input
                 id="recharge_usd_value"
                 type="number"
@@ -584,12 +585,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, recharge_usd_value: e.target.value })
                 }
-                placeholder="Enter recharge USD value"
+                placeholder={isAr ? "أدخل قيمة الشحن بالدولار" : "Enter recharge USD value"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="leadtime">Lead Time (Days)</Label>
+              <Label htmlFor="leadtime">{isAr ? "مدة التوريد (أيام)" : "Lead Time (Days)"}</Label>
               <Input
                 id="leadtime"
                 type="number"
@@ -601,12 +602,12 @@ const BrandEdit = () => {
                   const { safetyStock, reorderPoint } = calculateSafetyStock(newLeadtime, formData.average_consumption_per_day);
                   setFormData({ ...formData, leadtime: newLeadtime, safety_stock: safetyStock, reorder_point: reorderPoint });
                 }}
-                placeholder="Enter lead time in days"
+                placeholder={isAr ? "أدخل مدة التوريد بالأيام" : "Enter lead time in days"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="safety_stock">Safety Stock (Daily Avg × 1.5)</Label>
+              <Label htmlFor="safety_stock">{isAr ? "مخزون الأمان (المتوسط اليومي × 1.5)" : "Safety Stock (Daily Avg × 1.5)"}</Label>
               <Input
                 id="safety_stock"
                 type="text"
@@ -614,13 +615,13 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, safety_stock: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Auto-calculated: Daily Avg × 1.5"
+                placeholder={isAr ? "محسوب تلقائياً: المتوسط اليومي × 1.5" : "Auto-calculated: Daily Avg × 1.5"}
                 className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reorder_point">Reorder Point ((Safety + Daily × Lead) / 4)</Label>
+              <Label htmlFor="reorder_point">{isAr ? "نقطة إعادة الطلب ((الأمان + اليومي × المدة) / 4)" : "Reorder Point ((Safety + Daily × Lead) / 4)"}</Label>
               <Input
                 id="reorder_point"
                 type="text"
@@ -628,13 +629,13 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, reorder_point: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Auto-calculated: (Safety Stock + (Daily Avg × Lead Time)) / 4"
+                placeholder={isAr ? "محسوب تلقائياً: (مخزون الأمان + (المتوسط اليومي × مدة التوريد)) / 4" : "Auto-calculated: (Safety Stock + (Daily Avg × Lead Time)) / 4"}
                 className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="average_consumption_per_month">Average Consumption Per Month</Label>
+              <Label htmlFor="average_consumption_per_month">{isAr ? "متوسط الاستهلاك الشهري" : "Average Consumption Per Month"}</Label>
               <Input
                 id="average_consumption_per_month"
                 type="text"
@@ -642,12 +643,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, average_consumption_per_month: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Enter average consumption per month"
+                placeholder={isAr ? "أدخل متوسط الاستهلاك الشهري" : "Enter average consumption per month"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="average_consumption_per_day">Average Consumption Per Day</Label>
+              <Label htmlFor="average_consumption_per_day">{isAr ? "متوسط الاستهلاك اليومي" : "Average Consumption Per Day"}</Label>
               <Input
                 id="average_consumption_per_day"
                 type="text"
@@ -657,12 +658,12 @@ const BrandEdit = () => {
                   const { safetyStock, reorderPoint } = calculateSafetyStock(formData.leadtime, newAvgDaily);
                   setFormData({ ...formData, average_consumption_per_day: newAvgDaily, safety_stock: safetyStock, reorder_point: reorderPoint });
                 }}
-                placeholder="Enter average consumption per day"
+                placeholder={isAr ? "أدخل متوسط الاستهلاك اليومي" : "Enter average consumption per day"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="current_balance">Current Balance (Last Shift Close)</Label>
+              <Label htmlFor="current_balance">{isAr ? "الرصيد الحالي (آخر إغلاق شفت)" : "Current Balance (Last Shift Close)"}</Label>
               <Input
                 id="current_balance"
                 type="text"
@@ -682,7 +683,7 @@ const BrandEdit = () => {
                 className="w-full md:w-auto"
               >
                 <Calculator className="mr-2 h-4 w-4" />
-                Calculate Consumption from Transactions (90 days)
+                {isAr ? "احسب الاستهلاك من المعاملات (90 يوم)" : "Calculate Consumption from Transactions (90 days)"}
               </Button>
             </div>
 
@@ -713,7 +714,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="abc_analysis">ABC Analysis</Label>
+              <Label htmlFor="abc_analysis">{isAr ? "تحليل ABC" : "ABC Analysis"}</Label>
               <Select
                 value={formData.abc_analysis}
                 onValueChange={(value) =>
@@ -724,9 +725,9 @@ const BrandEdit = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="A">A - High Value</SelectItem>
-                  <SelectItem value="B">B - Medium Value</SelectItem>
-                  <SelectItem value="C">C - Low Value</SelectItem>
+                  <SelectItem value="A">{isAr ? "أ - قيمة عالية" : "A - High Value"}</SelectItem>
+                  <SelectItem value="B">{isAr ? "ب - قيمة متوسطة" : "B - Medium Value"}</SelectItem>
+                  <SelectItem value="C">{isAr ? "ج - قيمة منخفضة" : "C - Low Value"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -750,7 +751,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="skip_closing_image">Disable Closing Image Upload</Label>
+              <Label htmlFor="skip_closing_image">{isAr ? "تعطيل رفع صورة الإغلاق" : "Disable Closing Image Upload"}</Label>
               <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-input bg-background">
                 <Switch
                   id="skip_closing_image"
@@ -761,14 +762,14 @@ const BrandEdit = () => {
                 />
                 <span className="text-sm text-muted-foreground">
                   {formData.skip_closing_image
-                    ? "Excluded from shift closing image upload"
-                    : "Required in shift closing image upload"}
+                    ? (isAr ? "مستثناة من رفع صورة إغلاق الشفت" : "Excluded from shift closing image upload")
+                    : (isAr ? "مطلوبة عند رفع صورة إغلاق الشفت" : "Required in shift closing image upload")}
                 </span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="default_supplier_id">Default Vendor</Label>
+              <Label htmlFor="default_supplier_id">{isAr ? "المورد الافتراضي" : "Default Vendor"}</Label>
               <Select
                 value={formData.default_supplier_id}
                 onValueChange={(value) =>
@@ -776,10 +777,10 @@ const BrandEdit = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select default vendor" />
+                  <SelectValue placeholder={isAr ? "اختر المورد الافتراضي" : "Select default vendor"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="none">{isAr ? "بدون" : "None"}</SelectItem>
                   {suppliers.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.supplier_name}
@@ -790,7 +791,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sku_start_with">SKU Start With</Label>
+              <Label htmlFor="sku_start_with">{isAr ? "بداية رمز SKU" : "SKU Start With"}</Label>
               <Input
                 id="sku_start_with"
                 value={formData.sku_start_with}
@@ -808,35 +809,37 @@ const BrandEdit = () => {
                     if (data && data.length > 0) {
                       setSkuTaken(true);
                       toast({
-                        title: "SKU Prefix Taken",
-                        description: `"${val}" is already used by: ${data[0].brand_name}`,
+                        title: isAr ? "بادئة SKU مستخدمة" : "SKU Prefix Taken",
+                        description: isAr ? `"${val}" مستخدمة بالفعل من قبل: ${data[0].brand_name}` : `"${val}" is already used by: ${data[0].brand_name}`,
                         variant: "destructive",
                       });
                     }
                   }
                 }}
-                placeholder="e.g. I, IT, GO"
+                placeholder={isAr ? "مثل: I، IT، GO" : "e.g. I, IT, GO"}
                 maxLength={2}
                 minLength={1}
                 className={skuTaken ? "border-destructive ring-destructive" : ""}
               />
               <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {skuTaken ? "This SKU prefix is already taken by another brand" : "1 or 2 characters, must be unique across all brands"}
+                {skuTaken
+                  ? (isAr ? "بادئة SKU هذه مستخدمة بالفعل من قبل ماركة أخرى" : "This SKU prefix is already taken by another brand")
+                  : (isAr ? "حرف واحد أو حرفان، يجب أن تكون فريدة بين جميع الماركات" : "1 or 2 characters, must be unique across all brands")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="supplier_hub_code">Supplier Hub Code</Label>
+              <Label htmlFor="supplier_hub_code">{isAr ? "كود مركز المورد" : "Supplier Hub Code"}</Label>
               <Input
                 id="supplier_hub_code"
                 value={formData.supplier_hub_code}
                 onChange={(e) => setFormData({ ...formData, supplier_hub_code: e.target.value })}
-                placeholder="Enter supplier hub code"
+                placeholder={isAr ? "أدخل كود مركز المورد" : "Enter supplier hub code"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brand_start_date">First Entry Date</Label>
+              <Label htmlFor="brand_start_date">{isAr ? "تاريخ أول إدخال" : "First Entry Date"}</Label>
               <Input
                 id="brand_start_date"
                 type="date"
@@ -847,7 +850,7 @@ const BrandEdit = () => {
 
             {brandId && (
               <div className="space-y-2">
-                <Label>Current SKU Prefix in Products</Label>
+                <Label>{isAr ? "بادئة SKU الحالية في المنتجات" : "Current SKU Prefix in Products"}</Label>
                 <Input
                   value={currentSkuPrefixes || "-"}
                   readOnly
@@ -858,46 +861,46 @@ const BrandEdit = () => {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="asus_brand_name">Asus Brand Name</Label>
+              <Label htmlFor="asus_brand_name">{isAr ? "اسم الماركة في Asus" : "Asus Brand Name"}</Label>
               <Input
                 id="asus_brand_name"
                 value={formData.asus_brand_name}
                 onChange={(e) =>
                   setFormData({ ...formData, asus_brand_name: e.target.value })
                 }
-                placeholder="Brand name as it appears in Asus system"
+                placeholder={isAr ? "اسم الماركة كما يظهر في نظام Asus" : "Brand name as it appears in Asus system"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="odoo_category_id">Odoo Category ID</Label>
+              <Label htmlFor="odoo_category_id">{isAr ? "معرّف فئة Odoo" : "Odoo Category ID"}</Label>
               <Input
                 id="odoo_category_id"
                 type="text"
                 value={formData.odoo_category_id}
                 disabled
                 className="bg-muted"
-                placeholder="Set after syncing to Odoo"
+                placeholder={isAr ? "يتم تعيينه بعد المزامنة مع Odoo" : "Set after syncing to Odoo"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="created_at">Date of Creation</Label>
+              <Label htmlFor="created_at">{isAr ? "تاريخ الإنشاء" : "Date of Creation"}</Label>
               <Input
                 id="created_at"
                 type="text"
-                value={brandId ? format(new Date((formData as any)._created_at || new Date()), 'yyyy-MM-dd HH:mm') : 'Auto-generated'}
+                value={brandId ? format(new Date((formData as any)._created_at || new Date()), 'yyyy-MM-dd HH:mm') : (isAr ? "يتم إنشاؤه تلقائياً" : "Auto-generated")}
                 disabled
                 className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="creation_source">Source of Creation</Label>
+              <Label htmlFor="creation_source">{isAr ? "مصدر الإنشاء" : "Source of Creation"}</Label>
               <Input
                 id="creation_source"
                 type="text"
-                value={formData.creation_source || 'Manual'}
+                value={formData.creation_source || (isAr ? "يدوي" : "Manual")}
                 disabled
                 className="bg-muted"
               />
