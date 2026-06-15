@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Loader2, CheckCircle2, AlertCircle, HelpCircle, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -35,6 +36,8 @@ interface ReconcileDialogProps {
 }
 
 export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDialogProps) => {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ReconcileResult[]>([]);
   const [filter, setFilter] = useState<'all' | 'match' | 'mismatch' | 'missing' | 'differences'>('differences');
@@ -221,41 +224,41 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-xl">Reconcile: Excel vs Database</DialogTitle>
-          <DialogDescription>Comparing order totals (with line-level detail) between uploaded Excel and purpletransaction table</DialogDescription>
+          <DialogTitle className="text-xl">{isAr ? "تسوية: Excel مقابل قاعدة البيانات" : "Reconcile: Excel vs Database"}</DialogTitle>
+          <DialogDescription>{isAr ? "مقارنة إجماليات الطلبات (مع تفاصيل على مستوى السطر) بين Excel المرفوع وجدول purpletransaction" : "Comparing order totals (with line-level detail) between uploaded Excel and purpletransaction table"}</DialogDescription>
         </DialogHeader>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-muted-foreground">Reconciling...</span>
+            <span className="ml-3 text-muted-foreground">{isAr ? "جاري التسوية..." : "Reconciling..."}</span>
           </div>
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-4">
             {/* Summary Cards */}
             <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
               <button onClick={() => setFilter('all')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'all' ? 'border-primary bg-primary/10' : 'border-border'}`}>
-                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "الإجمالي" : "Total"}</p>
                 <p className="text-lg font-bold">{results.length}</p>
               </button>
               <button onClick={() => setFilter('differences')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'differences' ? 'border-orange-500 bg-orange-500/10' : 'border-border'}`}>
-                <p className="text-xs text-muted-foreground">Differences</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "الاختلافات" : "Differences"}</p>
                 <p className="text-lg font-bold text-orange-600">{mismatched + missing}</p>
               </button>
               <button onClick={() => setFilter('match')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'match' ? 'border-green-500 bg-green-500/10' : 'border-border'}`}>
-                <p className="text-xs text-muted-foreground">Matched</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "متطابق" : "Matched"}</p>
                 <p className="text-lg font-bold text-green-600">{matched}</p>
               </button>
               <button onClick={() => setFilter('mismatch')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'mismatch' ? 'border-destructive bg-destructive/10' : 'border-border'}`}>
-                <p className="text-xs text-muted-foreground">Mismatch</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "غير متطابق" : "Mismatch"}</p>
                 <p className="text-lg font-bold text-destructive">{mismatched}</p>
               </button>
               <button onClick={() => setFilter('missing')} className={`p-2 rounded-lg border text-center transition-colors ${filter === 'missing' ? 'border-yellow-500 bg-yellow-500/10' : 'border-border'}`}>
-                <p className="text-xs text-muted-foreground">Missing</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "مفقود" : "Missing"}</p>
                 <p className="text-lg font-bold text-yellow-600">{missing}</p>
               </button>
               <div className="p-2 rounded-lg border border-border text-center">
-                <p className="text-xs text-muted-foreground">Difference</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "الفرق" : "Difference"}</p>
                 <p className={`text-lg font-bold ${Math.abs(totalDiff) < 0.01 ? 'text-green-600' : 'text-destructive'}`}>
                   {fmt(totalDiff)}
                 </p>
@@ -264,11 +267,11 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
 
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 rounded-lg bg-muted/50 text-center">
-                <p className="text-xs text-muted-foreground">Excel Total</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "إجمالي Excel" : "Excel Total"}</p>
                 <p className="text-lg font-semibold">{fmt(totalExcel)}</p>
               </div>
               <div className="p-2 rounded-lg bg-muted/50 text-center">
-                <p className="text-xs text-muted-foreground">DB Total</p>
+                <p className="text-xs text-muted-foreground">{isAr ? "إجمالي قاعدة البيانات" : "DB Total"}</p>
                 <p className="text-lg font-semibold">{fmt(totalDb)}</p>
               </div>
             </div>
@@ -278,12 +281,12 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order Number</TableHead>
-                    <TableHead className="text-center">Line</TableHead>
-                    <TableHead className="text-right">Excel Total</TableHead>
-                    <TableHead className="text-right">DB Total</TableHead>
-                    <TableHead className="text-right">Difference</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead>{isAr ? "رقم الطلب" : "Order Number"}</TableHead>
+                    <TableHead className="text-center">{isAr ? "السطر" : "Line"}</TableHead>
+                    <TableHead className="text-right">{isAr ? "إجمالي Excel" : "Excel Total"}</TableHead>
+                    <TableHead className="text-right">{isAr ? "إجمالي DB" : "DB Total"}</TableHead>
+                    <TableHead className="text-right">{isAr ? "الفرق" : "Difference"}</TableHead>
+                    <TableHead className="text-center">{isAr ? "الحالة" : "Status"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -305,18 +308,18 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
                           <TableCell className="font-mono text-sm">
                             {hasMultiLines && <span className="mr-1 text-muted-foreground">{isExpanded ? '▼' : '▶'}</span>}
                             {r.orderNumber}
-                            {hasMultiLines && <span className="ml-1 text-xs text-muted-foreground">({r.lines.length} lines)</span>}
+                            {hasMultiLines && <span className="ml-1 text-xs text-muted-foreground">({r.lines.length} {isAr ? "أسطر" : "lines"})</span>}
                           </TableCell>
-                          <TableCell className="text-center text-muted-foreground">{hasMultiLines ? 'Sum' : r.lines[0]?.lineNo || 1}</TableCell>
+                          <TableCell className="text-center text-muted-foreground">{hasMultiLines ? (isAr ? "المجموع" : "Sum") : r.lines[0]?.lineNo || 1}</TableCell>
                           <TableCell className="text-right font-semibold">{fmt(r.excelTotal)}</TableCell>
                           <TableCell className="text-right font-semibold">{fmt(r.dbTotal)}</TableCell>
                           <TableCell className={`text-right font-semibold ${Math.abs(r.difference) < 0.01 ? '' : 'text-destructive'}`}>
                             {fmt(r.difference)}
                           </TableCell>
                           <TableCell className="text-center">
-                            {r.status === 'match' && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30"><CheckCircle2 className="h-3 w-3 mr-1" />Match</Badge>}
-                            {r.status === 'mismatch' && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30"><AlertCircle className="h-3 w-3 mr-1" />Mismatch</Badge>}
-                            {r.status === 'missing' && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30"><HelpCircle className="h-3 w-3 mr-1" />Missing</Badge>}
+                            {r.status === 'match' && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30"><CheckCircle2 className="h-3 w-3 mr-1" />{isAr ? "متطابق" : "Match"}</Badge>}
+                            {r.status === 'mismatch' && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30"><AlertCircle className="h-3 w-3 mr-1" />{isAr ? "غير متطابق" : "Mismatch"}</Badge>}
+                            {r.status === 'missing' && <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30"><HelpCircle className="h-3 w-3 mr-1" />{isAr ? "مفقود" : "Missing"}</Badge>}
                           </TableCell>
                         </TableRow>
                         {/* Expanded line details */}
@@ -324,7 +327,7 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
                           const lineDiff = Math.round((line.excelTotal - line.dbTotal) * 100) / 100;
                           return (
                             <TableRow key={`${r.orderNumber}-${line.lineNo}`} className="bg-muted/30">
-                              <TableCell className="pl-10 text-xs text-muted-foreground">↳ Line</TableCell>
+                              <TableCell className="pl-10 text-xs text-muted-foreground">↳ {isAr ? "سطر" : "Line"}</TableCell>
                               <TableCell className="text-center text-sm">{line.lineNo}</TableCell>
                               <TableCell className="text-right text-sm">{fmt(line.excelTotal)}</TableCell>
                               <TableCell className="text-right text-sm">{fmt(line.dbTotal)}</TableCell>
@@ -344,9 +347,9 @@ export const ReconcileDialog = ({ open, onOpenChange, excelData }: ReconcileDial
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={exportToExcel} className="flex-1">
-                <Download className="h-4 w-4 mr-2" />Export to Excel
+                <Download className="h-4 w-4 mr-2" />{isAr ? "تصدير إلى Excel" : "Export to Excel"}
               </Button>
-              <Button onClick={() => onOpenChange(false)} className="flex-1">Close</Button>
+              <Button onClick={() => onOpenChange(false)} className="flex-1">{isAr ? "إغلاق" : "Close"}</Button>
             </div>
           </div>
         )}
