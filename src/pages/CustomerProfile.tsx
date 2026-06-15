@@ -57,7 +57,7 @@ interface CustomerTotal {
 }
 
 const CustomerSetup = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<CustomerTotal[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerTotal[]>([]);
