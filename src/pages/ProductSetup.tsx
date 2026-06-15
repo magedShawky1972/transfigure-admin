@@ -1367,7 +1367,7 @@ const ProductSetup = () => {
                     onClick={() => handleSort("odoo_product_id")}
                   >
                     <div className="flex items-center">
-                      Odoo ID
+                      {language === "ar" ? "معرف Odoo" : "Odoo ID"}
                       <SortIcon column="odoo_product_id" />
                     </div>
                   </TableHead>
@@ -1376,7 +1376,7 @@ const ProductSetup = () => {
                     onClick={() => handleSort("odoo_sync_status")}
                   >
                     <div className="flex items-center">
-                      Odoo Sync Status
+                      {language === "ar" ? "حالة مزامنة Odoo" : "Odoo Sync Status"}
                       <SortIcon column="odoo_sync_status" />
                     </div>
                   </TableHead>
@@ -1483,7 +1483,7 @@ const ProductSetup = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => navigate(`/product-details/${product.id}`)}
-                        title="More Details"
+                        title={language === "ar" ? "مزيد من التفاصيل" : "More Details"}
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -1620,7 +1620,7 @@ const ProductSetup = () => {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => navigate(`/product-details/${product.id}`)}
-                                  title="More Details"
+                                  title={language === "ar" ? "مزيد من التفاصيل" : "More Details"}
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
@@ -1723,7 +1723,7 @@ const ProductSetup = () => {
                       setFormData(prev => ({ ...prev, sku: newSku }));
                       toast({ title: language === "ar" ? "تم التوليد" : "Generated", description: `SKU: ${newSku}` });
                     } catch (err: any) {
-                      toast({ title: "Error", description: err.message, variant: "destructive" });
+                      toast({ title: language === "ar" ? "خطأ" : "Error", description: err.message, variant: "destructive" });
                     }
                   }}
                 >
@@ -1732,7 +1732,7 @@ const ProductSetup = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="odoo_product_id">Odoo Product ID</Label>
+              <Label htmlFor="odoo_product_id">{language === "ar" ? "معرف منتج Odoo" : "Odoo Product ID"}</Label>
               <Input
                 id="odoo_product_id"
                 type="number"
