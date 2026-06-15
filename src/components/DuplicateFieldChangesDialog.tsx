@@ -24,6 +24,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { AlertTriangle, RefreshCw, SkipForward, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FieldChange {
   field: string;
@@ -60,6 +61,8 @@ export function DuplicateFieldChangesDialog({
   duplicateKeyColumn,
   duplicateMessage,
 }: DuplicateFieldChangesDialogProps) {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [isProcessing, setIsProcessing] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
@@ -86,8 +89,8 @@ export function DuplicateFieldChangesDialog({
   };
 
   const formatValue = (val: any): string => {
-    if (val === null || val === undefined) return '(empty)';
-    if (val === '') return '(empty)';
+    if (val === null || val === undefined) return isAr ? '(فارغ)' : '(empty)';
+    if (val === '') return isAr ? '(فارغ)' : '(empty)';
     return String(val);
   };
 
@@ -99,7 +102,7 @@ export function DuplicateFieldChangesDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
-            Records Update Preview
+            {isAr ? "معاينة تحديث السجلات" : "Records Update Preview"}
           </DialogTitle>
           <DialogDescription>
             {duplicateMessage}
@@ -109,18 +112,18 @@ export function DuplicateFieldChangesDialog({
         <div className="space-y-4">
           <div className="flex gap-3 text-sm flex-wrap">
             <Badge variant="outline" className="bg-green-500/10 text-green-600">
-              {newRecordCount} New
+              {newRecordCount} {isAr ? "جديد" : "New"}
             </Badge>
             <Badge variant="outline" className="bg-amber-500/10 text-amber-600">
-              {fieldChanges.length} Will Update
+              {fieldChanges.length} {isAr ? "سيتم تحديثه" : "Will Update"}
             </Badge>
             {noChangesCount > 0 && (
               <Badge variant="outline" className="bg-muted text-muted-foreground">
-                {noChangesCount} No Changes
+                {noChangesCount} {isAr ? "بدون تغييرات" : "No Changes"}
               </Badge>
             )}
             <Badge variant="outline" className="bg-blue-500/10 text-blue-600">
-              {totalRecords} Total
+              {totalRecords} {isAr ? "الإجمالي" : "Total"}
             </Badge>
           </div>
 
@@ -128,14 +131,14 @@ export function DuplicateFieldChangesDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">
-                  Field Changes Detail ({fieldChanges.length} records):
+                  {isAr ? `تفاصيل تغييرات الحقول (${fieldChanges.length} سجل):` : `Field Changes Detail (${fieldChanges.length} records):`}
                 </p>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={expandAll} className="text-xs h-7">
-                    Expand All
+                    {isAr ? "توسيع الكل" : "Expand All"}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={collapseAll} className="text-xs h-7">
-                    Collapse All
+                    {isAr ? "طي الكل" : "Collapse All"}
                   </Button>
                 </div>
               </div>
@@ -161,7 +164,7 @@ export function DuplicateFieldChangesDialog({
                               <span className="font-mono text-xs">{keyDisplay}</span>
                             </div>
                             <Badge variant="secondary" className="text-xs">
-                              {record.changes.length} field{record.changes.length > 1 ? 's' : ''}
+                              {record.changes.length} {isAr ? "حقل" : "field"}{!isAr && record.changes.length > 1 ? 's' : ''}
                             </Badge>
                           </div>
                         </CollapsibleTrigger>
@@ -170,10 +173,10 @@ export function DuplicateFieldChangesDialog({
                             <Table>
                               <TableHeader>
                                 <TableRow className="hover:bg-transparent">
-                                  <TableHead className="h-8 text-xs w-[25%]">Field</TableHead>
-                                  <TableHead className="h-8 text-xs w-[30%]">DB Value</TableHead>
+                                  <TableHead className="h-8 text-xs w-[25%]">{isAr ? "الحقل" : "Field"}</TableHead>
+                                  <TableHead className="h-8 text-xs w-[30%]">{isAr ? "قيمة قاعدة البيانات" : "DB Value"}</TableHead>
                                   <TableHead className="h-8 text-xs w-[15px]"></TableHead>
-                                  <TableHead className="h-8 text-xs w-[30%]">Excel Value</TableHead>
+                                  <TableHead className="h-8 text-xs w-[30%]">{isAr ? "قيمة Excel" : "Excel Value"}</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -213,7 +216,7 @@ export function DuplicateFieldChangesDialog({
 
           {fieldChanges.length === 0 && duplicateCount > 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              <p className="text-sm">All {duplicateCount} duplicate records are identical — no fields will change.</p>
+              <p className="text-sm">{isAr ? `جميع ${duplicateCount} السجلات المكررة متطابقة — لا توجد حقول ستتغير.` : `All ${duplicateCount} duplicate records are identical — no fields will change.`}</p>
             </div>
           )}
         </div>
@@ -224,7 +227,7 @@ export function DuplicateFieldChangesDialog({
             onClick={() => handleAction('cancel')}
             disabled={isProcessing}
           >
-            Cancel
+            {isAr ? "إلغاء" : "Cancel"}
           </Button>
           <Button
             variant="secondary"
@@ -233,7 +236,7 @@ export function DuplicateFieldChangesDialog({
             className="gap-2"
           >
             <SkipForward className="h-4 w-4" />
-            Skip Duplicates (Insert New Only)
+            {isAr ? "تخطي المكررات (إدراج الجديد فقط)" : "Skip Duplicates (Insert New Only)"}
           </Button>
           <Button
             onClick={() => handleAction('update')}
@@ -241,7 +244,7 @@ export function DuplicateFieldChangesDialog({
             className="gap-2"
           >
             <RefreshCw className="h-4 w-4" />
-            Update Existing Records
+            {isAr ? "تحديث السجلات الموجودة" : "Update Existing Records"}
           </Button>
         </DialogFooter>
       </DialogContent>
