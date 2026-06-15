@@ -487,32 +487,32 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="brand_code">Brand Code</Label>
+              <Label htmlFor="brand_code">{isAr ? "كود الماركة" : "Brand Code"}</Label>
               <Input
                 id="brand_code"
                 value={formData.brand_code}
                 onChange={(e) =>
                   setFormData({ ...formData, brand_code: e.target.value })
                 }
-                placeholder="Auto-generated from brand type"
+                placeholder={isAr ? "يتم إنشاؤه تلقائياً من نوع الماركة" : "Auto-generated from brand type"}
                 disabled={!!brandId}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="short_name">Short Name</Label>
+              <Label htmlFor="short_name">{isAr ? "الاسم المختصر" : "Short Name"}</Label>
               <Input
                 id="short_name"
                 value={formData.short_name}
                 onChange={(e) =>
                   setFormData({ ...formData, short_name: e.target.value })
                 }
-                placeholder="Enter short name"
+                placeholder={isAr ? "أدخل الاسم المختصر" : "Enter short name"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="usd_value_for_coins">Cost One Coins = USD</Label>
+              <Label htmlFor="usd_value_for_coins">{isAr ? "تكلفة عملة واحدة = دولار" : "Cost One Coins = USD"}</Label>
               <Input
                 id="usd_value_for_coins"
                 type="number"
@@ -521,12 +521,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, usd_value_for_coins: e.target.value })
                 }
-                placeholder="Enter cost USD value per coin"
+                placeholder={isAr ? "أدخل قيمة التكلفة بالدولار لكل عملة" : "Enter cost USD value per coin"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cost_one_coins_sar">Cost One Coins = SAR (USD × 3.75)</Label>
+              <Label htmlFor="cost_one_coins_sar">{isAr ? "تكلفة عملة واحدة = ريال (دولار × 3.75)" : "Cost One Coins = SAR (USD × 3.75)"}</Label>
               <Input
                 id="cost_one_coins_sar"
                 type="text"
@@ -537,7 +537,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sales_usd_value_for_coins">Sales One Coins = USD</Label>
+              <Label htmlFor="sales_usd_value_for_coins">{isAr ? "بيع عملة واحدة = دولار" : "Sales One Coins = USD"}</Label>
               <Input
                 id="sales_usd_value_for_coins"
                 type="number"
@@ -546,12 +546,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, sales_usd_value_for_coins: e.target.value })
                 }
-                placeholder="Enter sales USD value per coin"
+                placeholder={isAr ? "أدخل قيمة البيع بالدولار لكل عملة" : "Enter sales USD value per coin"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sales_one_coins_sar">Sales One Coins = SAR (USD × 3.75)</Label>
+              <Label htmlFor="sales_one_coins_sar">{isAr ? "بيع عملة واحدة = ريال (دولار × 3.75)" : "Sales One Coins = SAR (USD × 3.75)"}</Label>
               <Input
                 id="sales_one_coins_sar"
                 type="number"
@@ -562,7 +562,7 @@ const BrandEdit = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="one_usd_to_coins">1 USD = Coins</Label>
+              <Label htmlFor="one_usd_to_coins">{isAr ? "1 دولار = عملات" : "1 USD = Coins"}</Label>
               <Input
                 id="one_usd_to_coins"
                 type="number"
@@ -571,12 +571,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, one_usd_to_coins: e.target.value })
                 }
-                placeholder="Enter how many coins per 1 USD (8 decimals)"
+                placeholder={isAr ? "عدد العملات لكل 1 دولار (8 خانات عشرية)" : "Enter how many coins per 1 USD (8 decimals)"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="recharge_usd_value">Recharge USD Value</Label>
+              <Label htmlFor="recharge_usd_value">{isAr ? "قيمة الشحن بالدولار" : "Recharge USD Value"}</Label>
               <Input
                 id="recharge_usd_value"
                 type="number"
@@ -585,12 +585,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, recharge_usd_value: e.target.value })
                 }
-                placeholder="Enter recharge USD value"
+                placeholder={isAr ? "أدخل قيمة الشحن بالدولار" : "Enter recharge USD value"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="leadtime">Lead Time (Days)</Label>
+              <Label htmlFor="leadtime">{isAr ? "مدة التوريد (أيام)" : "Lead Time (Days)"}</Label>
               <Input
                 id="leadtime"
                 type="number"
@@ -602,12 +602,12 @@ const BrandEdit = () => {
                   const { safetyStock, reorderPoint } = calculateSafetyStock(newLeadtime, formData.average_consumption_per_day);
                   setFormData({ ...formData, leadtime: newLeadtime, safety_stock: safetyStock, reorder_point: reorderPoint });
                 }}
-                placeholder="Enter lead time in days"
+                placeholder={isAr ? "أدخل مدة التوريد بالأيام" : "Enter lead time in days"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="safety_stock">Safety Stock (Daily Avg × 1.5)</Label>
+              <Label htmlFor="safety_stock">{isAr ? "مخزون الأمان (المتوسط اليومي × 1.5)" : "Safety Stock (Daily Avg × 1.5)"}</Label>
               <Input
                 id="safety_stock"
                 type="text"
@@ -615,13 +615,13 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, safety_stock: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Auto-calculated: Daily Avg × 1.5"
+                placeholder={isAr ? "محسوب تلقائياً: المتوسط اليومي × 1.5" : "Auto-calculated: Daily Avg × 1.5"}
                 className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reorder_point">Reorder Point ((Safety + Daily × Lead) / 4)</Label>
+              <Label htmlFor="reorder_point">{isAr ? "نقطة إعادة الطلب ((الأمان + اليومي × المدة) / 4)" : "Reorder Point ((Safety + Daily × Lead) / 4)"}</Label>
               <Input
                 id="reorder_point"
                 type="text"
@@ -629,13 +629,13 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, reorder_point: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Auto-calculated: (Safety Stock + (Daily Avg × Lead Time)) / 4"
+                placeholder={isAr ? "محسوب تلقائياً: (مخزون الأمان + (المتوسط اليومي × مدة التوريد)) / 4" : "Auto-calculated: (Safety Stock + (Daily Avg × Lead Time)) / 4"}
                 className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="average_consumption_per_month">Average Consumption Per Month</Label>
+              <Label htmlFor="average_consumption_per_month">{isAr ? "متوسط الاستهلاك الشهري" : "Average Consumption Per Month"}</Label>
               <Input
                 id="average_consumption_per_month"
                 type="text"
@@ -643,12 +643,12 @@ const BrandEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, average_consumption_per_month: parseFormattedNumber(e.target.value) })
                 }
-                placeholder="Enter average consumption per month"
+                placeholder={isAr ? "أدخل متوسط الاستهلاك الشهري" : "Enter average consumption per month"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="average_consumption_per_day">Average Consumption Per Day</Label>
+              <Label htmlFor="average_consumption_per_day">{isAr ? "متوسط الاستهلاك اليومي" : "Average Consumption Per Day"}</Label>
               <Input
                 id="average_consumption_per_day"
                 type="text"
@@ -658,12 +658,12 @@ const BrandEdit = () => {
                   const { safetyStock, reorderPoint } = calculateSafetyStock(formData.leadtime, newAvgDaily);
                   setFormData({ ...formData, average_consumption_per_day: newAvgDaily, safety_stock: safetyStock, reorder_point: reorderPoint });
                 }}
-                placeholder="Enter average consumption per day"
+                placeholder={isAr ? "أدخل متوسط الاستهلاك اليومي" : "Enter average consumption per day"}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="current_balance">Current Balance (Last Shift Close)</Label>
+              <Label htmlFor="current_balance">{isAr ? "الرصيد الحالي (آخر إغلاق شفت)" : "Current Balance (Last Shift Close)"}</Label>
               <Input
                 id="current_balance"
                 type="text"
