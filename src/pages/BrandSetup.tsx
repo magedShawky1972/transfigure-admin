@@ -50,7 +50,8 @@ interface BrandType {
 }
 
 const BrandSetup = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
   const { toast } = useToast();
   const navigate = useNavigate();
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -66,7 +67,7 @@ const BrandSetup = () => {
 
   const handleDebugSync = async (brand: Brand) => {
     if (!brand.brand_code) {
-      toast({ title: "Error", description: "Brand code is required", variant: "destructive" });
+      toast({ title: isAr ? "خطأ" : "Error", description: isAr ? "كود الماركة مطلوب" : "Brand code is required", variant: "destructive" });
       return;
     }
     setDebugLoadingId(brand.id);
@@ -79,7 +80,7 @@ const BrandSetup = () => {
       if (error) throw error;
       setDebugInfo(data);
     } catch (err: any) {
-      toast({ title: "Debug failed", description: err.message, variant: "destructive" });
+      toast({ title: isAr ? "فشل التشخيص" : "Debug failed", description: err.message, variant: "destructive" });
     } finally {
       setDebugLoadingId(null);
     }
@@ -96,13 +97,13 @@ const BrandSetup = () => {
       if (error) throw error;
       setDebugSteps(data.steps || []);
       if (data.success) {
-        toast({ title: "Success", description: data.message || "Synced to Odoo" });
+        toast({ title: isAr ? "نجاح" : "Success", description: data.message || (isAr ? "تمت المزامنة مع Odoo" : "Synced to Odoo") });
         fetchBrands();
       } else {
-        toast({ title: "Sync failed", description: data.error || "Failed", variant: "destructive" });
+        toast({ title: isAr ? "فشلت المزامنة" : "Sync failed", description: data.error || (isAr ? "فشل" : "Failed"), variant: "destructive" });
       }
     } catch (err: any) {
-      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+      toast({ title: isAr ? "فشل الإرسال" : "Send failed", description: err.message, variant: "destructive" });
     } finally {
       setSendingFromDebug(false);
     }
@@ -410,55 +411,55 @@ const BrandSetup = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="filterBrandName">Filter by Brand Name</Label>
+            <Label htmlFor="filterBrandName">{isAr ? "تصفية حسب اسم الماركة" : "Filter by Brand Name"}</Label>
             <Input
               id="filterBrandName"
-              placeholder="Search brand name..."
+              placeholder={isAr ? "ابحث عن اسم الماركة..." : "Search brand name..."}
               value={filterBrandName}
               onChange={(e) => setFilterBrandName(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="filterBrandCode">Filter by Brand Code</Label>
+            <Label htmlFor="filterBrandCode">{isAr ? "تصفية حسب كود الماركة" : "Filter by Brand Code"}</Label>
             <Input
               id="filterBrandCode"
-              placeholder="Search brand code..."
+              placeholder={isAr ? "ابحث عن كود الماركة..." : "Search brand code..."}
               value={filterBrandCode}
               onChange={(e) => setFilterBrandCode(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="filterShortName">Filter by Short Name</Label>
+            <Label htmlFor="filterShortName">{isAr ? "تصفية حسب الاسم المختصر" : "Filter by Short Name"}</Label>
             <Input
               id="filterShortName"
-              placeholder="Search short name..."
+              placeholder={isAr ? "ابحث عن الاسم المختصر..." : "Search short name..."}
               value={filterShortName}
               onChange={(e) => setFilterShortName(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="filterABCAnalysis">Filter by ABC Analysis</Label>
+            <Label htmlFor="filterABCAnalysis">{isAr ? "تصفية حسب تحليل ABC" : "Filter by ABC Analysis"}</Label>
             <select
               id="filterABCAnalysis"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={filterABCAnalysis}
               onChange={(e) => setFilterABCAnalysis(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">{isAr ? "الكل" : "All"}</option>
               <option value="A">A</option>
               <option value="B">B</option>
               <option value="C">C</option>
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="filterBrandType">Filter by Brand Type</Label>
+            <Label htmlFor="filterBrandType">{isAr ? "تصفية حسب نوع الماركة" : "Filter by Brand Type"}</Label>
             <select
               id="filterBrandType"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={filterBrandType}
               onChange={(e) => setFilterBrandType(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">{isAr ? "الكل" : "All"}</option>
               {brandTypes.map((type) => (
                 <option key={type.id} value={type.id}>
                   {type.type_name}
@@ -467,34 +468,34 @@ const BrandSetup = () => {
             </select>
            </div>
           <div className="space-y-2">
-            <Label htmlFor="filterStatus">Filter by Status</Label>
+            <Label htmlFor="filterStatus">{isAr ? "تصفية حسب الحالة" : "Filter by Status"}</Label>
             <select
               id="filterStatus"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
-              <option value="">All</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="inactive">Inactive</option>
+              <option value="">{isAr ? "الكل" : "All"}</option>
+              <option value="active">{isAr ? "نشطة" : "Active"}</option>
+              <option value="suspended">{isAr ? "موقوفة" : "Suspended"}</option>
+              <option value="inactive">{isAr ? "غير نشطة" : "Inactive"}</option>
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="filterHasTransactions">Filter by Transactions</Label>
+            <Label htmlFor="filterHasTransactions">{isAr ? "تصفية حسب المعاملات" : "Filter by Transactions"}</Label>
             <select
               id="filterHasTransactions"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               value={filterHasTransactions}
               onChange={(e) => setFilterHasTransactions(e.target.value)}
             >
-              <option value="">All</option>
-              <option value="yes">With Transactions</option>
-              <option value="no">Without Transactions</option>
+              <option value="">{isAr ? "الكل" : "All"}</option>
+              <option value="yes">{isAr ? "مع معاملات" : "With Transactions"}</option>
+              <option value="no">{isAr ? "بدون معاملات" : "Without Transactions"}</option>
             </select>
           </div>
           <div className="space-y-2">
-            <Label>Txn Date From</Label>
+            <Label>{isAr ? "تاريخ المعاملة من" : "Txn Date From"}</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -502,7 +503,7 @@ const BrandSetup = () => {
                   className={cn("w-full justify-start text-left font-normal", !filterTxnDateFrom && "text-muted-foreground")}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filterTxnDateFrom ? format(filterTxnDateFrom, "MMM dd, yyyy") : "From"}
+                  {filterTxnDateFrom ? format(filterTxnDateFrom, "MMM dd, yyyy") : (isAr ? "من" : "From")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
