@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileSpreadsheet, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import {
@@ -20,6 +21,8 @@ interface ProductExcelUploadProps {
 
 export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps) => {
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,8 +73,8 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
         setOriginalFileName(file.name);
       } else {
         toast({
-          title: "Invalid file type",
-          description: "Please upload an Excel file (.xlsx or .xls)",
+          title: isAr ? "نوع ملف غير صالح" : "Invalid file type",
+          description: isAr ? "يرجى رفع ملف Excel (.xlsx أو .xls)" : "Please upload an Excel file (.xlsx or .xls)",
           variant: "destructive",
         });
       }
@@ -107,8 +110,8 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
   const handleUpload = async () => {
     if (!selectedFile) {
       toast({
-        title: "No file selected",
-        description: "Please select an Excel file to upload",
+        title: isAr ? "لم يتم اختيار ملف" : "No file selected",
+        description: isAr ? "يرجى اختيار ملف Excel للرفع" : "Please select an Excel file to upload",
         variant: "destructive",
       });
       return;
@@ -124,8 +127,8 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
 
       if (jsonData.length < 2) {
         toast({
-          title: "Invalid file",
-          description: "Excel file must have at least a header row and one data row",
+          title: isAr ? "ملف غير صالح" : "Invalid file",
+          description: isAr ? "يجب أن يحتوي ملف Excel على صف رؤوس وصف بيانات واحد على الأقل" : "Excel file must have at least a header row and one data row",
           variant: "destructive",
         });
         setIsLoading(false);
@@ -136,8 +139,8 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
       
       if (!headers[0] || !headers[0].includes('product') || !headers[0].includes('name')) {
         toast({
-          title: "Invalid format",
-          description: "First column must be 'Product Name'",
+          title: isAr ? "تنسيق غير صالح" : "Invalid format",
+          description: isAr ? "يجب أن يكون العمود الأول 'اسم المنتج'" : "First column must be 'Product Name'",
           variant: "destructive",
         });
         setIsLoading(false);
@@ -148,16 +151,15 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
       let notFound = 0;
       let errors = 0;
 
-      // Add "Status" header
       const updatedData = [...jsonData];
-      updatedData[0] = [...updatedData[0], 'Status'];
+      updatedData[0] = [...updatedData[0], isAr ? 'الحالة' : 'Status'];
 
       for (let i = 1; i < jsonData.length; i++) {
         const row = jsonData[i];
         const productName = row[0];
         
         if (!productName) {
-          updatedData[i] = [...row, 'Skipped (empty name)'];
+          updatedData[i] = [...row, isAr ? 'تم التخطي (اسم فارغ)' : 'Skipped (empty name)'];
           continue;
         }
 
@@ -173,7 +175,7 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
         }
 
         if (Object.keys(updateData).length === 0) {
-          updatedData[i] = [...row, 'Skipped (no data)'];
+          updatedData[i] = [...row, isAr ? 'تم التخطي (لا توجد بيانات)' : 'Skipped (no data)'];
           continue;
         }
 
@@ -187,7 +189,7 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
 
         if (fetchError || !existingProduct) {
           notFound++;
-          updatedData[i] = [...row, 'Not Found'];
+          updatedData[i] = [...row, isAr ? 'غير موجود' : 'Not Found'];
           continue;
         }
 
@@ -199,10 +201,10 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
         if (updateError) {
           console.error('Update error:', updateError);
           errors++;
-          updatedData[i] = [...row, 'Error'];
+          updatedData[i] = [...row, isAr ? 'خطأ' : 'Error'];
         } else {
           updated++;
-          updatedData[i] = [...row, 'Updated'];
+          updatedData[i] = [...row, isAr ? 'تم التحديث' : 'Updated'];
         }
       }
 
@@ -212,16 +214,16 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
       setSelectedFile(null);
       
       toast({
-        title: "Upload complete",
-        description: `Updated ${updated} product(s)`,
+        title: isAr ? "اكتمل الرفع" : "Upload complete",
+        description: isAr ? `تم تحديث ${updated} منتج(ات)` : `Updated ${updated} product(s)`,
       });
 
       onUploadComplete();
     } catch (error) {
       console.error('Upload error:', error);
       toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An error occurred during upload",
+        title: isAr ? "فشل الرفع" : "Upload failed",
+        description: error instanceof Error ? error.message : (isAr ? "حدث خطأ أثناء الرفع" : "An error occurred during upload"),
         variant: "destructive",
       });
     } finally {
@@ -254,7 +256,7 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
         >
           <FileSpreadsheet className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <div className="text-sm text-muted-foreground mb-2">
-            Drag & drop your Excel file here, or click to browse
+            {isAr ? "اسحب وأفلت ملف Excel هنا، أو انقر للتصفح" : "Drag & drop your Excel file here, or click to browse"}
           </div>
           <input
             ref={fileInputRef}
@@ -270,21 +272,21 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="mr-2 h-4 w-4" />
-            Select File
+            {isAr ? "اختيار ملف" : "Select File"}
           </Button>
           {selectedFile && (
             <div className="mt-4 text-sm">
-              Selected: <span className="font-medium">{selectedFile.name}</span>
+              {isAr ? "المختار:" : "Selected:"} <span className="font-medium">{selectedFile.name}</span>
             </div>
           )}
         </div>
 
         <div className="text-xs text-muted-foreground space-y-1">
-          <p className="font-medium">Instructions:</p>
+          <p className="font-medium">{isAr ? "التعليمات:" : "Instructions:"}</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>First column must be "Product Name" (matching criteria)</li>
-            <li>Subsequent columns will update corresponding product fields</li>
-            <li>Supported columns: SKU, Product ID, Price, Cost, Brand Name, Description, Category, Stock, Barcode, Supplier, Notes, Status</li>
+            <li>{isAr ? 'يجب أن يكون العمود الأول "اسم المنتج" (معيار المطابقة)' : 'First column must be "Product Name" (matching criteria)'}</li>
+            <li>{isAr ? "ستحدث الأعمدة التالية حقول المنتج المقابلة" : "Subsequent columns will update corresponding product fields"}</li>
+            <li>{isAr ? "الأعمدة المدعومة: SKU، معرف المنتج، السعر، التكلفة، اسم الماركة، الوصف، الفئة، المخزون، الباركود، المورد، الملاحظات، الحالة" : "Supported columns: SKU, Product ID, Price, Cost, Brand Name, Description, Category, Stock, Barcode, Supplier, Notes, Status"}</li>
           </ul>
         </div>
 
@@ -293,38 +295,38 @@ export const ProductExcelUpload = ({ onUploadComplete }: ProductExcelUploadProps
           disabled={!selectedFile || isLoading}
           className="w-full"
         >
-          {isLoading ? "Uploading..." : "Upload and Update Products"}
+          {isLoading ? (isAr ? "جاري الرفع..." : "Uploading...") : (isAr ? "رفع وتحديث المنتجات" : "Upload and Update Products")}
         </Button>
       </div>
 
       <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload Summary</DialogTitle>
+            <DialogTitle>{isAr ? "ملخص الرفع" : "Upload Summary"}</DialogTitle>
             <DialogDescription>
-              Results of the product update operation
+              {isAr ? "نتائج عملية تحديث المنتج" : "Results of the product update operation"}
             </DialogDescription>
           </DialogHeader>
           {uploadSummary && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span>Products Updated:</span>
+                  <span>{isAr ? "المنتجات المحدثة:" : "Products Updated:"}</span>
                   <span className="font-bold text-green-600">{uploadSummary.updated}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Products Not Found:</span>
+                  <span>{isAr ? "المنتجات غير موجودة:" : "Products Not Found:"}</span>
                   <span className="font-bold text-yellow-600">{uploadSummary.notFound}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Errors:</span>
+                  <span>{isAr ? "الأخطاء:" : "Errors:"}</span>
                   <span className="font-bold text-red-600">{uploadSummary.errors}</span>
                 </div>
               </div>
               {updatedExcelData && (
                 <Button onClick={downloadUpdatedExcel} className="w-full">
                   <Download className="mr-2 h-4 w-4" />
-                  Download Excel with Status
+                  {isAr ? "تنزيل Excel مع الحالة" : "Download Excel with Status"}
                 </Button>
               )}
             </div>
