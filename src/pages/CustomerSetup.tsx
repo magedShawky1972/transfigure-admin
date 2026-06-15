@@ -58,7 +58,8 @@ interface Customer {
 }
 
 const CustomerSetup = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
@@ -579,15 +580,15 @@ const CustomerSetup = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label>Odoo Status</Label>
+            <Label>{isAr ? "حالة Odoo" : "Odoo Status"}</Label>
             <Select value={partnerIdFilter} onValueChange={setPartnerIdFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="All" />
+                <SelectValue placeholder={isAr ? "الكل" : "All"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("common.all")}</SelectItem>
-                <SelectItem value="synced">Synced</SelectItem>
-                <SelectItem value="not_synced">Not Synced</SelectItem>
+                <SelectItem value="synced">{isAr ? "تمت المزامنة" : "Synced"}</SelectItem>
+                <SelectItem value="not_synced">{isAr ? "غير متزامن" : "Not Synced"}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -617,7 +618,7 @@ const CustomerSetup = () => {
                   {t("customerSetup.name")}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>{isAr ? "البريد الإلكتروني" : "Email"}</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort("creation_date")}
@@ -629,14 +630,14 @@ const CustomerSetup = () => {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort("status")}
                 >
-                  Status
+                  {isAr ? "الحالة" : "Status"}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort("is_blocked")}
                 >
-                  Blocked
+                  {isAr ? "محظور" : "Blocked"}
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
                 <TableHead 
@@ -647,14 +648,14 @@ const CustomerSetup = () => {
                   <ArrowUpDown className="h-4 w-4 ml-1 inline opacity-50" />
                 </TableHead>
                 <TableHead className="text-right">{t("customerSetup.actions")}</TableHead>
-                <TableHead className="text-center">Odoo</TableHead>
+                <TableHead className="text-center">{isAr ? "أودو" : "Odoo"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {getPaginatedData().length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                    {customers.length === 0 ? t("customerSetup.noData") : "No matching results"}
+                    {customers.length === 0 ? t("customerSetup.noData") : (isAr ? "لا توجد نتائج مطابقة" : "No matching results")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -681,9 +682,9 @@ const CustomerSetup = () => {
                     </TableCell>
                     <TableCell>
                       {customer.is_blocked ? (
-                        <Badge variant="destructive">Blocked</Badge>
+                        <Badge variant="destructive">{isAr ? "محظور" : "Blocked"}</Badge>
                       ) : (
-                        <Badge variant="outline">Active</Badge>
+                        <Badge variant="outline">{isAr ? "نشط" : "Active"}</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -718,7 +719,7 @@ const CustomerSetup = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleSendToOdoo(customer)}
-                        title="Send customer to Odoo"
+                        title={isAr ? "إرسال العميل إلى Odoo" : "Send customer to Odoo"}
                       >
                         <Send className="h-4 w-4" />
                       </Button>
