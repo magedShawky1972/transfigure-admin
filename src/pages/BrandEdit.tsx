@@ -31,7 +31,8 @@ interface Supplier {
 }
 
 const BrandEdit = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
