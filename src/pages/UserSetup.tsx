@@ -674,7 +674,7 @@ const UserSetup = () => {
         const result = await response.json();
         
         if (!response.ok) {
-          throw new Error(result.error || "Failed to create user");
+          throw new Error(result.error || (language === "ar" ? "فشل إنشاء المستخدم" : "Failed to create user"));
         }
 
         // If this was the first user created, show a special message
