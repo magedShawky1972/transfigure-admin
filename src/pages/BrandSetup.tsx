@@ -512,7 +512,7 @@ const BrandSetup = () => {
             </Popover>
           </div>
           <div className="space-y-2">
-            <Label>Txn Date To</Label>
+            <Label>{isAr ? "تاريخ المعاملة إلى" : "Txn Date To"}</Label>
             <div className="flex gap-1">
               <Popover>
                 <PopoverTrigger asChild>
@@ -521,7 +521,7 @@ const BrandSetup = () => {
                     className={cn("flex-1 justify-start text-left font-normal", !filterTxnDateTo && "text-muted-foreground")}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filterTxnDateTo ? format(filterTxnDateTo, "MMM dd, yyyy") : "To"}
+                    {filterTxnDateTo ? format(filterTxnDateTo, "MMM dd, yyyy") : (isAr ? "إلى" : "To")}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
