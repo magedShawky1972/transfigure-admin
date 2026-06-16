@@ -66,6 +66,7 @@ interface GroupLevel {
 interface Transaction {
   id: string;
   created_at_date: string;
+  created_at: string;
   customer_name: string;
   customer_phone: string;
   brand_name: string;
@@ -164,6 +165,7 @@ const Transactions = () => {
 
   const allColumns = [
     { id: "created_at_date", label: t("dashboard.date"), enabled: true },
+    { id: "created_at", label: language === 'ar' ? 'تاريخ ووقت الإنشاء' : 'Created At', enabled: false },
     { id: "customer_name", label: t("dashboard.customer"), enabled: true },
     { id: "customer_phone", label: t("transactions.customerPhone"), enabled: true },
     { id: "brand_name", label: t("dashboard.brand"), enabled: true },
@@ -954,6 +956,9 @@ const Transactions = () => {
             if (id === 'created_at_date') {
               return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
             }
+            if (id === 'created_at') {
+              return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
+            }
             return value || '';
           })
           .join(',')
@@ -1176,6 +1181,8 @@ const Transactions = () => {
     switch (columnId) {
       case 'created_at_date':
         return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
+      case 'created_at':
+        return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
       case 'total':
       case 'profit':
       case 'cost_price':
