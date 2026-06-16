@@ -1327,6 +1327,26 @@ const Transactions = () => {
 
   return (
     <div className="space-y-6">
+      {/* Export Format Dialog */}
+      <AlertDialog open={exportFormatDialogOpen} onOpenChange={setExportFormatDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'اختر صيغة التصدير' : 'Choose Export Format'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' ? 'حدد الصيغة لتنزيل البيانات.' : 'Select the format to download the data.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => doExport('csv')}>CSV</AlertDialogAction>
+            <AlertDialogAction onClick={() => doExport('xlsx')}>Excel (.xlsx)</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
