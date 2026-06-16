@@ -587,7 +587,7 @@ const Transactions = () => {
               query = query.order(sortColumn === 'created_at' ? 'created_at_date' : sortColumn, { ascending: sortDirection === 'asc' });
             }
           } else {
-            query = query.order('created_at_date', { ascending: false });
+            query = query.order('created_at_date', { ascending: true });
           }
 
           query = query.range(from, from + batchSize - 1);
