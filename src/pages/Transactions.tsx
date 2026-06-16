@@ -276,6 +276,8 @@ const Transactions = () => {
               mergedVisibility[col.id] = col.enabled;
             }
           });
+          // Force-enable newly introduced created_at column for existing users
+          mergedVisibility['created_at'] = true;
           setVisibleColumns(mergedVisibility);
         }
         if (profile.transaction_group_by) {
