@@ -361,13 +361,14 @@ const BrandEdit = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.sku_start_with && (formData.sku_start_with.length < 1 || formData.sku_start_with.length > 2)) {
+    if (formData.sku_start_with && !/^[A-Z]{1,3}$/.test(formData.sku_start_with)) {
       toast({
         title: isAr ? "خطأ في التحقق" : "Validation Error",
-        description: isAr ? "يجب أن تكون بداية SKU حرف واحد أو حرفين" : "SKU Start With must be 1 or 2 characters",
+        description: isAr ? "يجب أن تكون بداية SKU من 1 إلى 3 أحرف إنجليزية" : "SKU Start With must be 1 to 3 letters",
         variant: "destructive",
       });
       return;
+
     }
 
     setLoading(true);
