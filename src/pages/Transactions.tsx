@@ -950,35 +950,32 @@ const Transactions = () => {
     });
   };
 
-  const exportToCSV = () => {
-    const headers = columnOrder
-      .filter(id => visibleColumns[id])
-      .map(id => getColumnLabel(id));
+  const exportToCSV = async () => {
+    const XLSX = await import('xlsx');
+    const visibleIds = columnOrder.filter(id => visibleColumns[id]);
+    const headers = visibleIds.map(id => getColumnLabel(id));
 
-    const csvContent = [
-      headers.join(','),
-      ...sortedTransactions.map(t => 
-        columnOrder
-          .filter(id => visibleColumns[id])
-          .map(id => {
-            const value = t[id as keyof Transaction];
-            if (id === 'created_at_date') {
-              return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
-            }
-            if (id === 'created_at') {
-              return t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd HH:mm:ss') : '';
-            }
-            return value || '';
-          })
-          .join(',')
-      )
-    ].join('\n');
+    const rows = sortedTransactions.map(t =>
+      visibleIds.map(id => {
+        const value = t[id as keyof Transaction];
+        if (id === 'created_at_date') {
+          return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
+        }
+        if (id === 'created_at') {
+          return t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd HH:mm:ss') : '';
+        }
+        if (value === null || value === undefined) return '';
+        return value as any;
+      })
+    );
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `transactions_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    if (language === 'ar') {
+      (ws as any)['!views'] = [{ RTL: true }];
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+    XLSX.writeFile(wb, `transactions_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
   const handleDeleteClick = (transaction: Transaction) => {
