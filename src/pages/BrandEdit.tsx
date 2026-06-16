@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Calculator } from "lucide-react";
+import { ArrowLeft, Calculator, Wand2 } from "lucide-react";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 
@@ -796,35 +796,82 @@ const BrandEdit = () => {
 
             <div className="space-y-2">
               <Label htmlFor="sku_start_with">{isAr ? "بداية رمز SKU" : "SKU Start With"}</Label>
-              <Input
-                id="sku_start_with"
-                value={formData.sku_start_with}
-                onChange={async (e) => {
-                  const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 3);
-                  setFormData({ ...formData, sku_start_with: val });
-                  setSkuTaken(false);
-                  if (val) {
-                    const query = supabase
-                      .from("brands")
-                      .select("id, brand_name")
-                      .ilike("sku_start_with", val);
-                    if (brandId) query.neq("id", brandId);
-                    const { data } = await query;
-                    if (data && data.length > 0) {
-                      setSkuTaken(true);
+              <div className="flex gap-2">
+                <Input
+                  id="sku_start_with"
+                  value={formData.sku_start_with}
+                  onChange={async (e) => {
+                    const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 3);
+                    setFormData({ ...formData, sku_start_with: val });
+                    setSkuTaken(false);
+                    if (val) {
+                      const query = supabase
+                        .from("brands")
+                        .select("id, brand_name")
+                        .ilike("sku_start_with", val);
+                      if (brandId) query.neq("id", brandId);
+                      const { data } = await query;
+                      if (data && data.length > 0) {
+                        setSkuTaken(true);
+                        toast({
+                          title: isAr ? "بادئة SKU مستخدمة" : "SKU Prefix Taken",
+                          description: isAr ? `"${val}" مستخدمة بالفعل من قبل: ${data[0].brand_name}` : `"${val}" is already used by: ${data[0].brand_name}`,
+                          variant: "destructive",
+                        });
+                      }
+                    }
+                  }}
+                  placeholder={isAr ? "مثل: I، IT، GOO" : "e.g. I, IT, GOO"}
+                  maxLength={3}
+                  minLength={1}
+                  className={skuTaken ? "border-destructive ring-destructive" : ""}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  title={isAr ? "اقتراح من اسم الماركة" : "Suggest from brand name"}
+                  onClick={async () => {
+                    const base = (formData.brand_name || "").toUpperCase().replace(/[^A-Z]/g, '');
+                    if (!base) {
                       toast({
-                        title: isAr ? "بادئة SKU مستخدمة" : "SKU Prefix Taken",
-                        description: isAr ? `"${val}" مستخدمة بالفعل من قبل: ${data[0].brand_name}` : `"${val}" is already used by: ${data[0].brand_name}`,
+                        title: isAr ? "اسم الماركة فارغ" : "Brand name is empty",
+                        description: isAr ? "أدخل اسم الماركة أولاً" : "Enter the brand name first",
                         variant: "destructive",
                       });
+                      return;
                     }
-                  }
-                }}
-                placeholder={isAr ? "مثل: I، IT، GOO" : "e.g. I, IT, GOO"}
-                maxLength={3}
-                minLength={1}
-                className={skuTaken ? "border-destructive ring-destructive" : ""}
-              />
+                    // Try 2-letter, then 3-letter, then 1-letter; pick first that isn't taken
+                    const candidates = [base.substring(0, 2), base.substring(0, 3), base.substring(0, 1)]
+                      .filter(c => c.length >= 1);
+                    for (const cand of candidates) {
+                      const query = supabase
+                        .from("brands")
+                        .select("id")
+                        .ilike("sku_start_with", cand);
+                      if (brandId) query.neq("id", brandId);
+                      const { data } = await query;
+                      if (!data || data.length === 0) {
+                        setFormData(prev => ({ ...prev, sku_start_with: cand }));
+                        setSkuTaken(false);
+                        toast({
+                          title: isAr ? "اقتراح" : "Suggested",
+                          description: isAr ? `تم اقتراح "${cand}"` : `Suggested "${cand}"`,
+                        });
+                        return;
+                      }
+                    }
+                    toast({
+                      title: isAr ? "لا يوجد اقتراح متاح" : "No suggestion available",
+                      description: isAr ? "جميع البادئات من اسم الماركة مستخدمة" : "All prefixes from the brand name are already taken",
+                      variant: "destructive",
+                    });
+                  }}
+                >
+                  <Wand2 className="h-4 w-4" />
+                </Button>
+              </div>
+
               <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                 {skuTaken
                   ? (isAr ? "بادئة SKU هذه مستخدمة بالفعل من قبل ماركة أخرى" : "This SKU prefix is already taken by another brand")
