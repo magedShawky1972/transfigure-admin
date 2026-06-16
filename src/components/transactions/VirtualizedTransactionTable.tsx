@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -38,6 +38,10 @@ interface VirtualizedTransactionTableProps {
   columnLabels?: Record<string, string>;
 }
 
+const DEFAULT_WIDTH = 160;
+const MIN_WIDTH = 60;
+const STORAGE_KEY = "transactions_virtualized_col_widths";
+
 export const VirtualizedTransactionTable = ({
   transactions,
   visibleColumnIds,
@@ -46,6 +50,57 @@ export const VirtualizedTransactionTable = ({
 }: VirtualizedTransactionTableProps) => {
   const { t, language } = useLanguage();
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+    } catch {
+      /* ignore */
+    }
+  }, [widths]);
+
+  const getWidth = (id: string) => widths[id] ?? DEFAULT_WIDTH;
+
+  const resizingRef = useRef<{ id: string; startX: number; startWidth: number } | null>(null);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent, columnId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = {
+      id: columnId,
+      startX: e.clientX,
+      startWidth: getWidth(columnId),
+    };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = ev.clientX - resizingRef.current.startX;
+      const newWidth = Math.max(MIN_WIDTH, resizingRef.current.startWidth + delta);
+      setWidths((prev) => ({ ...prev, [resizingRef.current!.id]: newWidth }));
+    };
+    const onUp = () => {
+      resizingRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [widths]);
+
+  const totalWidth = visibleColumnIds.reduce((sum, id) => sum + getWidth(id), 0);
 
   const rowVirtualizer = useVirtualizer({
     count: transactions.length,
@@ -61,6 +116,7 @@ export const VirtualizedTransactionTable = ({
     
     const labels: Record<string, string> = {
       created_at_date: language === 'ar' ? 'التاريخ' : 'Date',
+      created_at: language === 'ar' ? 'تاريخ ووقت الإنشاء' : 'Created At',
       customer_name: language === 'ar' ? 'العميل' : 'Customer',
       customer_phone: language === 'ar' ? 'الهاتف' : 'Phone',
       brand_name: language === 'ar' ? 'الماركة' : 'Brand',
@@ -88,56 +144,67 @@ export const VirtualizedTransactionTable = ({
 
   return (
     <div className="border rounded-md overflow-hidden">
-      {/* Fixed Header */}
-      <div className="flex bg-muted/50 border-b font-medium text-sm sticky top-0 z-10">
-        {visibleColumnIds.map((columnId) => (
-          <div
-            key={columnId}
-            className="flex-1 px-3 py-3 min-w-[100px] truncate"
-          >
-            {getColumnLabel(columnId)}
-          </div>
-        ))}
-      </div>
-      
-      {/* Virtualized Body */}
-      <div
-        ref={parentRef}
-        className="max-h-[550px] overflow-auto"
-      >
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: "100%",
-            position: "relative",
-          }}
-        >
-          {virtualRows.map((virtualRow) => {
-            const transaction = transactions[virtualRow.index];
-            return (
+      <div className="overflow-x-auto">
+        <div style={{ width: `${totalWidth}px`, minWidth: "100%" }}>
+          {/* Fixed Header */}
+          <div className="flex bg-muted/50 border-b font-medium text-sm">
+            {visibleColumnIds.map((columnId) => (
               <div
-                key={transaction.id}
-                className={cn(
-                  "absolute top-0 left-0 w-full flex border-b hover:bg-muted/50 transition-colors",
-                  transaction.is_deleted && "bg-destructive/10 line-through opacity-60",
-                  virtualRow.index % 2 === 0 ? "bg-background" : "bg-muted/20"
-                )}
-                style={{
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
+                key={columnId}
+                className="relative px-3 py-3 truncate"
+                style={{ width: `${getWidth(columnId)}px`, flexShrink: 0 }}
               >
-                {visibleColumnIds.map((columnId) => (
-                  <div
-                    key={columnId}
-                    className="flex-1 px-3 py-2 text-sm flex items-center min-w-[100px] truncate"
-                  >
-                    {renderCell(transaction, columnId)}
-                  </div>
-                ))}
+                {getColumnLabel(columnId)}
+                <div
+                  onMouseDown={(e) => handleMouseDown(e, columnId)}
+                  className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/60"
+                  title={language === 'ar' ? 'سحب لتغيير العرض' : 'Drag to resize'}
+                />
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* Virtualized Body */}
+          <div
+            ref={parentRef}
+            className="max-h-[550px] overflow-auto"
+          >
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: "100%",
+                position: "relative",
+              }}
+            >
+              {virtualRows.map((virtualRow) => {
+                const transaction = transactions[virtualRow.index];
+                return (
+                  <div
+                    key={transaction.id}
+                    className={cn(
+                      "absolute top-0 left-0 w-full flex border-b hover:bg-muted/50 transition-colors",
+                      transaction.is_deleted && "bg-destructive/10 line-through opacity-60",
+                      virtualRow.index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                    )}
+                    style={{
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {visibleColumnIds.map((columnId) => (
+                      <div
+                        key={columnId}
+                        className="px-3 py-2 text-sm flex items-center truncate"
+                        style={{ width: `${getWidth(columnId)}px`, flexShrink: 0 }}
+                      >
+                        {renderCell(transaction, columnId)}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
