@@ -165,7 +165,7 @@ const Transactions = () => {
 
   const allColumns = [
     { id: "created_at_date", label: t("dashboard.date"), enabled: true },
-    { id: "created_at", label: language === 'ar' ? 'تاريخ ووقت الإنشاء' : 'Created At', enabled: false },
+    { id: "created_at", label: language === 'ar' ? 'تاريخ ووقت الإنشاء' : 'Created At', enabled: true },
     { id: "customer_name", label: t("dashboard.customer"), enabled: true },
     { id: "customer_phone", label: t("transactions.customerPhone"), enabled: true },
     { id: "brand_name", label: t("dashboard.brand"), enabled: true },
