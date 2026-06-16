@@ -1598,8 +1598,8 @@ const Transactions = () => {
                   </div>
                 </PopoverContent>
               </Popover>
-              {/* Only show Load All button when count >= 4000 and not all loaded */}
-              {!isAllDataLoaded && totalCountAll >= 4000 && (
+              {/* Only show Load All button when not all data is loaded and count exceeds currently loaded list */}
+              {!isAllDataLoaded && totalCountAll > transactions.length && (
                 <Button 
                   variant="outline" 
                   className="gap-2" 
