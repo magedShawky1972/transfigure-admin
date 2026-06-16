@@ -355,7 +355,7 @@ const ProductDetails = () => {
       
       const updatePayload = {
         product_name: productName,
-        product_id: productId,
+        product_id: productId?.trim() ? productId.trim() : null,
         sku: sku || null,
         status,
         description,
