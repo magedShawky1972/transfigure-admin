@@ -452,7 +452,7 @@ const Transactions = () => {
           };
           q = q.order(map[sortColumn], { ascending: sortDirection === 'asc' });
         } else {
-          q = q.order(sortColumn, { ascending: sortDirection === 'asc' });
+          q = q.order(sortColumn === 'created_at' ? 'created_at_date' : sortColumn, { ascending: sortDirection === 'asc' });
         }
       } else {
         q = q.order('created_at_date', { ascending: false });
@@ -856,9 +856,9 @@ const Transactions = () => {
       let aValue: any = a[sortColumn as keyof Transaction];
       let bValue: any = b[sortColumn as keyof Transaction];
 
-      if (sortColumn === "created_at_date") {
-        aValue = new Date(aValue || 0).getTime();
-        bValue = new Date(bValue || 0).getTime();
+      if (sortColumn === "created_at_date" || sortColumn === "created_at") {
+        aValue = new Date((sortColumn === "created_at" ? a.created_at_date : aValue) || 0).getTime();
+        bValue = new Date((sortColumn === "created_at" ? b.created_at_date : bValue) || 0).getTime();
       } else if (["total", "profit", "cost_price", "unit_price", "cost_sold", "qty", "coins_number"].includes(sortColumn)) {
         aValue = aValue || 0;
         bValue = bValue || 0;
