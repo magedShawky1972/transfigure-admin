@@ -66,6 +66,7 @@ interface GroupLevel {
 interface Transaction {
   id: string;
   created_at_date: string;
+  created_at: string;
   customer_name: string;
   customer_phone: string;
   brand_name: string;
