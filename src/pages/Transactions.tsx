@@ -452,7 +452,7 @@ const Transactions = () => {
           };
           q = q.order(map[sortColumn], { ascending: sortDirection === 'asc' });
         } else {
-          q = q.order(sortColumn, { ascending: sortDirection === 'asc' });
+          q = q.order(sortColumn === 'created_at' ? 'created_at_date' : sortColumn, { ascending: sortDirection === 'asc' });
         }
       } else {
         q = q.order('created_at_date', { ascending: false });
@@ -584,7 +584,7 @@ const Transactions = () => {
               };
               query = query.order(map[sortColumn], { ascending: sortDirection === 'asc' });
             } else {
-              query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+              query = query.order(sortColumn === 'created_at' ? 'created_at_date' : sortColumn, { ascending: sortDirection === 'asc' });
             }
           } else {
             query = query.order('created_at_date', { ascending: false });
@@ -856,9 +856,9 @@ const Transactions = () => {
       let aValue: any = a[sortColumn as keyof Transaction];
       let bValue: any = b[sortColumn as keyof Transaction];
 
-      if (sortColumn === "created_at_date") {
-        aValue = new Date(aValue || 0).getTime();
-        bValue = new Date(bValue || 0).getTime();
+      if (sortColumn === "created_at_date" || sortColumn === "created_at") {
+        aValue = new Date((sortColumn === "created_at" ? a.created_at_date : aValue) || 0).getTime();
+        bValue = new Date((sortColumn === "created_at" ? b.created_at_date : bValue) || 0).getTime();
       } else if (["total", "profit", "cost_price", "unit_price", "cost_sold", "qty", "coins_number"].includes(sortColumn)) {
         aValue = aValue || 0;
         bValue = bValue || 0;
@@ -966,7 +966,7 @@ const Transactions = () => {
               return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
             }
             if (id === 'created_at') {
-              return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
+              return t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd HH:mm:ss') : '';
             }
             return value || '';
           })
@@ -1191,7 +1191,7 @@ const Transactions = () => {
       case 'created_at_date':
         return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
       case 'created_at':
-        return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
+        return transaction.created_at_date ? format(new Date(transaction.created_at_date), 'yyyy-MM-dd HH:mm:ss') : '';
       case 'total':
       case 'profit':
       case 'cost_price':
