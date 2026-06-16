@@ -831,7 +831,7 @@ const BrandEdit = () => {
                   : (isAr ? "من 1 إلى 3 أحرف، يجب أن تكون فريدة بين جميع الماركات" : "1 to 3 letters, must be unique across all brands")}
               </p>
 
-              </p>
+
             </div>
 
             <div className="space-y-2">
