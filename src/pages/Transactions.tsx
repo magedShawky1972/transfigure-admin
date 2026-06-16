@@ -258,7 +258,14 @@ const Transactions = () => {
           // Add any new columns that aren't in saved order
           const allColumnIds = allColumns.map(col => col.id);
           const newColumns = allColumnIds.filter(id => !savedOrder.includes(id));
-          setColumnOrder([...savedOrder, ...newColumns]);
+          let mergedOrder = [...savedOrder, ...newColumns];
+          // Ensure created_at sits right after created_at_date
+          if (mergedOrder.includes('created_at') && mergedOrder.includes('created_at_date')) {
+            mergedOrder = mergedOrder.filter(id => id !== 'created_at');
+            const dateIdx = mergedOrder.indexOf('created_at_date');
+            mergedOrder.splice(dateIdx + 1, 0, 'created_at');
+          }
+          setColumnOrder(mergedOrder);
         }
         if (profile.transaction_column_visibility) {
           const savedVisibility = profile.transaction_column_visibility as Record<string, boolean>;
