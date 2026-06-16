@@ -950,8 +950,9 @@ const Transactions = () => {
     });
   };
 
-  const exportToCSV = async () => {
-    const XLSX = await import('xlsx');
+  const [exportFormatDialogOpen, setExportFormatDialogOpen] = useState(false);
+
+  const doExport = async (fmt: 'xlsx' | 'csv') => {
     const visibleIds = columnOrder.filter(id => visibleColumns[id]);
     const headers = visibleIds.map(id => getColumnLabel(id));
 
@@ -969,14 +970,32 @@ const Transactions = () => {
       })
     );
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    if (language === 'ar') {
-      (ws as any)['!views'] = [{ RTL: true }];
+    const filename = `transactions_${format(new Date(), 'yyyy-MM-dd')}`;
+
+    if (fmt === 'xlsx') {
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      if (language === 'ar') (ws as any)['!views'] = [{ RTL: true }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+    } else {
+      const escape = (v: any) => {
+        const s = String(v ?? '');
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const csv = [headers, ...rows].map(r => r.map(escape).join(',')).join('\r\n');
+      // UTF-8 BOM ensures Arabic renders correctly in Excel
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${filename}.csv`;
+      link.click();
     }
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
-    XLSX.writeFile(wb, `transactions_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
+
+  const exportToCSV = () => setExportFormatDialogOpen(true);
+
 
   const handleDeleteClick = (transaction: Transaction) => {
     if (transaction.is_deleted) {
@@ -1308,6 +1327,26 @@ const Transactions = () => {
 
   return (
     <div className="space-y-6">
+      {/* Export Format Dialog */}
+      <AlertDialog open={exportFormatDialogOpen} onOpenChange={setExportFormatDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'اختر صيغة التصدير' : 'Choose Export Format'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'ar' ? 'حدد الصيغة لتنزيل البيانات.' : 'Select the format to download the data.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === 'ar' ? 'إلغاء' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => doExport('csv')}>CSV</AlertDialogAction>
+            <AlertDialogAction onClick={() => doExport('xlsx')}>Excel (.xlsx)</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
