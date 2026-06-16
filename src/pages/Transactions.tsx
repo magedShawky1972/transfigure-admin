@@ -165,7 +165,7 @@ const Transactions = () => {
 
   const allColumns = [
     { id: "created_at_date", label: t("dashboard.date"), enabled: true },
-    { id: "created_at", label: language === 'ar' ? 'تاريخ ووقت الإنشاء' : 'Created At', enabled: false },
+    { id: "created_at", label: language === 'ar' ? 'تاريخ ووقت الإنشاء' : 'Created At', enabled: true },
     { id: "customer_name", label: t("dashboard.customer"), enabled: true },
     { id: "customer_phone", label: t("transactions.customerPhone"), enabled: true },
     { id: "brand_name", label: t("dashboard.brand"), enabled: true },
@@ -258,7 +258,14 @@ const Transactions = () => {
           // Add any new columns that aren't in saved order
           const allColumnIds = allColumns.map(col => col.id);
           const newColumns = allColumnIds.filter(id => !savedOrder.includes(id));
-          setColumnOrder([...savedOrder, ...newColumns]);
+          let mergedOrder = [...savedOrder, ...newColumns];
+          // Ensure created_at sits right after created_at_date
+          if (mergedOrder.includes('created_at') && mergedOrder.includes('created_at_date')) {
+            mergedOrder = mergedOrder.filter(id => id !== 'created_at');
+            const dateIdx = mergedOrder.indexOf('created_at_date');
+            mergedOrder.splice(dateIdx + 1, 0, 'created_at');
+          }
+          setColumnOrder(mergedOrder);
         }
         if (profile.transaction_column_visibility) {
           const savedVisibility = profile.transaction_column_visibility as Record<string, boolean>;
