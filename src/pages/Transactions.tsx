@@ -956,6 +956,9 @@ const Transactions = () => {
             if (id === 'created_at_date') {
               return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
             }
+            if (id === 'created_at') {
+              return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
+            }
             return value || '';
           })
           .join(',')
