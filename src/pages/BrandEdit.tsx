@@ -800,7 +800,7 @@ const BrandEdit = () => {
                 id="sku_start_with"
                 value={formData.sku_start_with}
                 onChange={async (e) => {
-                  const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 2);
+                  const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 3);
                   setFormData({ ...formData, sku_start_with: val });
                   setSkuTaken(false);
                   if (val) {
@@ -820,15 +820,17 @@ const BrandEdit = () => {
                     }
                   }
                 }}
-                placeholder={isAr ? "مثل: I، IT، GO" : "e.g. I, IT, GO"}
-                maxLength={2}
+                placeholder={isAr ? "مثل: I، IT، GOO" : "e.g. I, IT, GOO"}
+                maxLength={3}
                 minLength={1}
                 className={skuTaken ? "border-destructive ring-destructive" : ""}
               />
               <p className={`text-xs ${skuTaken ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                 {skuTaken
                   ? (isAr ? "بادئة SKU هذه مستخدمة بالفعل من قبل ماركة أخرى" : "This SKU prefix is already taken by another brand")
-                  : (isAr ? "حرف واحد أو حرفان، يجب أن تكون فريدة بين جميع الماركات" : "1 or 2 characters, must be unique across all brands")}
+                  : (isAr ? "من 1 إلى 3 أحرف، يجب أن تكون فريدة بين جميع الماركات" : "1 to 3 letters, must be unique across all brands")}
+              </p>
+
               </p>
             </div>
 
