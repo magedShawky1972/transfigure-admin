@@ -584,7 +584,7 @@ const Transactions = () => {
               };
               query = query.order(map[sortColumn], { ascending: sortDirection === 'asc' });
             } else {
-              query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+              query = query.order(sortColumn === 'created_at' ? 'created_at_date' : sortColumn, { ascending: sortDirection === 'asc' });
             }
           } else {
             query = query.order('created_at_date', { ascending: false });
@@ -966,7 +966,7 @@ const Transactions = () => {
               return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
             }
             if (id === 'created_at') {
-              return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
+              return t.created_at_date ? format(new Date(t.created_at_date), 'yyyy-MM-dd HH:mm:ss') : '';
             }
             return value || '';
           })
@@ -1191,7 +1191,7 @@ const Transactions = () => {
       case 'created_at_date':
         return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
       case 'created_at':
-        return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
+        return transaction.created_at_date ? format(new Date(transaction.created_at_date), 'yyyy-MM-dd HH:mm:ss') : '';
       case 'total':
       case 'profit':
       case 'cost_price':
