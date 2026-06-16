@@ -1178,6 +1178,8 @@ const Transactions = () => {
     switch (columnId) {
       case 'created_at_date':
         return value ? format(new Date(value as string), 'yyyy-MM-dd') : '';
+      case 'created_at':
+        return value ? format(new Date(value as string), 'yyyy-MM-dd HH:mm:ss') : '';
       case 'total':
       case 'profit':
       case 'cost_price':
