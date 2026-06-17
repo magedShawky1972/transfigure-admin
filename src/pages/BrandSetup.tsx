@@ -65,6 +65,9 @@ const BrandSetup = () => {
   const [debugLoadingId, setDebugLoadingId] = useState<string | null>(null);
   const [sendingFromDebug, setSendingFromDebug] = useState(false);
   const [debugSteps, setDebugSteps] = useState<any[] | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importResult, setImportResult] = useState<{ inserted: number; updated: number; errors: string[] } | null>(null);
 
   const handleDebugSync = async (brand: Brand) => {
     if (!brand.brand_code) {
