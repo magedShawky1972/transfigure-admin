@@ -492,15 +492,27 @@ const BrandEdit = () => {
 
             <div className="space-y-2">
               <Label htmlFor="brand_code">{isAr ? "كود الماركة" : "Brand Code"}</Label>
-              <Input
-                id="brand_code"
-                value={formData.brand_code}
-                onChange={(e) =>
-                  setFormData({ ...formData, brand_code: e.target.value })
-                }
-                placeholder={isAr ? "يتم إنشاؤه تلقائياً من نوع الماركة" : "Auto-generated from brand type"}
-                disabled={!!brandId}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="brand_code"
+                  value={formData.brand_code}
+                  onChange={(e) =>
+                    setFormData({ ...formData, brand_code: e.target.value })
+                  }
+                  placeholder={isAr ? "يتم إنشاؤه تلقائياً من نوع الماركة" : "Auto-generated from brand type"}
+                  disabled={!!brandId}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={!!brandId || !formData.brand_type_id || formData.brand_type_id === "none"}
+                  onClick={() => generateBrandCode(formData.brand_type_id)}
+                  title={isAr ? "إنشاء كود الماركة تلقائياً" : "Auto-generate Brand Code"}
+                >
+                  <Wand2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
