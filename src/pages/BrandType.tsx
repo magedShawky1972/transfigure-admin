@@ -562,6 +562,46 @@ const BrandType = () => {
             </form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{language === "ar" ? "استيراد أنواع الماركات" : "Import Brand Types"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {language === "ar"
+                  ? "الأعمدة: type_code, type_name, status. يتم التحديث حسب type_code."
+                  : "Columns: type_code, type_name, status. Matched by type_code (update if exists, insert if new)."}
+              </p>
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+              {importResult && (
+                <div className="text-sm space-y-1 max-h-40 overflow-y-auto border rounded p-2">
+                  <div>Inserted: <strong>{importResult.inserted}</strong></div>
+                  <div>Updated: <strong>{importResult.updated}</strong></div>
+                  <div>Errors: <strong>{importResult.errors.length}</strong></div>
+                  {importResult.errors.map((e, i) => (
+                    <div key={i} className="text-destructive text-xs">{e}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                {t("brandType.cancel")}
+              </Button>
+              <Button onClick={handleImport} disabled={!importFile || loading}>
+                <Upload className="h-4 w-4 mr-2" />
+                {language === "ar" ? "استيراد" : "Import"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </>
   );
