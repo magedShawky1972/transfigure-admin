@@ -112,6 +112,142 @@ const BrandSetup = () => {
       setSendingFromDebug(false);
     }
   };
+
+  const EXPORT_FIELDS = [
+    "brand_name","brand_code","short_name","brand_type_code","abc_analysis","status",
+    "usd_value_for_coins","sales_usd_value_for_coins","recharge_usd_value",
+    "leadtime","safety_stock","reorder_point",
+    "average_consumption_per_month","average_consumption_per_day",
+    "sku_start_with","supplier_hub_code","asus_brand_name",
+  ] as const;
+
+  const handleExportExcel = () => {
+    const typeMap = new Map(brandTypes.map((t) => [t.id, t.type_code]));
+    const rows = filteredBrands.map((b: any) => ({
+      brand_name: b.brand_name ?? "",
+      brand_code: b.brand_code ?? "",
+      short_name: b.short_name ?? "",
+      brand_type_code: typeMap.get(b.brand_type_id) ?? "",
+      abc_analysis: b.abc_analysis ?? "",
+      status: b.status ?? "",
+      usd_value_for_coins: b.usd_value_for_coins ?? "",
+      sales_usd_value_for_coins: b.sales_usd_value_for_coins ?? "",
+      recharge_usd_value: b.recharge_usd_value ?? "",
+      leadtime: b.leadtime ?? "",
+      safety_stock: b.safety_stock ?? "",
+      reorder_point: b.reorder_point ?? "",
+      average_consumption_per_month: b.average_consumption_per_month ?? "",
+      average_consumption_per_day: b.average_consumption_per_day ?? "",
+      sku_start_with: b.sku_start_with ?? "",
+      supplier_hub_code: b.supplier_hub_code ?? "",
+      asus_brand_name: b.asus_brand_name ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Brands");
+    XLSX.writeFile(wb, `brands_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`);
+  };
+
+  const handleDownloadTemplate = () => {
+    const sample: any = {};
+    EXPORT_FIELDS.forEach((f) => (sample[f] = ""));
+    sample.brand_name = "Example Brand";
+    sample.brand_code = "B001";
+    sample.status = "active";
+    sample.abc_analysis = "C";
+    const ws = XLSX.utils.json_to_sheet([sample]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "brands_template.xlsx");
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    setLoading(true);
+    const result = { inserted: 0, updated: 0, errors: [] as string[] };
+    try {
+      const buf = await importFile.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(ws);
+      const typeByCode = new Map(brandTypes.map((t) => [String(t.type_code).toLowerCase(), t.id]));
+
+      const num = (v: any) => {
+        if (v === "" || v == null) return null;
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const brand_name = String(r.brand_name ?? "").trim();
+        const brand_code = String(r.brand_code ?? "").trim();
+        if (!brand_name) {
+          result.errors.push(`Row ${i + 2}: missing brand_name`);
+          continue;
+        }
+        const typeCodeRaw = r.brand_type_code != null ? String(r.brand_type_code).trim() : "";
+        let brand_type_id: string | null = null;
+        if (typeCodeRaw) {
+          brand_type_id = typeByCode.get(typeCodeRaw.toLowerCase()) ?? null;
+          if (!brand_type_id) {
+            result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): unknown brand_type_code "${typeCodeRaw}"`);
+            continue;
+          }
+        }
+        const payload: any = {
+          brand_name,
+          brand_code: brand_code || null,
+          short_name: r.short_name ? String(r.short_name).trim() : null,
+          abc_analysis: r.abc_analysis ? String(r.abc_analysis).trim().toUpperCase() : null,
+          status: (r.status ? String(r.status).trim().toLowerCase() : "active") || "active",
+          usd_value_for_coins: num(r.usd_value_for_coins),
+          sales_usd_value_for_coins: num(r.sales_usd_value_for_coins),
+          recharge_usd_value: num(r.recharge_usd_value),
+          leadtime: num(r.leadtime),
+          safety_stock: num(r.safety_stock),
+          reorder_point: num(r.reorder_point),
+          average_consumption_per_month: num(r.average_consumption_per_month),
+          average_consumption_per_day: num(r.average_consumption_per_day),
+          sku_start_with: r.sku_start_with ? String(r.sku_start_with).trim().toUpperCase() : null,
+          supplier_hub_code: r.supplier_hub_code ? String(r.supplier_hub_code).trim() : null,
+          asus_brand_name: r.asus_brand_name ? String(r.asus_brand_name).trim() : null,
+        };
+        if (brand_type_id) payload.brand_type_id = brand_type_id;
+
+        // Match by brand_code if provided, else by brand_name
+        let existingId: string | null = null;
+        if (brand_code) {
+          const { data: ex } = await supabase.from("brands").select("id").eq("brand_code", brand_code).maybeSingle();
+          if (ex) existingId = ex.id;
+        } else {
+          const { data: ex } = await supabase.from("brands").select("id").eq("brand_name", brand_name).maybeSingle();
+          if (ex) existingId = ex.id;
+        }
+
+        if (existingId) {
+          const { data: upd, error } = await supabase.from("brands").update(payload).eq("id", existingId).select("id");
+          if (error) result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): ${error.message}`);
+          else if (!upd || upd.length === 0) result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): not allowed to update`);
+          else result.updated++;
+        } else {
+          const { error } = await supabase.from("brands").insert(payload);
+          if (error) result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): ${error.message}`);
+          else result.inserted++;
+        }
+      }
+      setImportResult(result);
+      toast({
+        title: t("common.success"),
+        description: `Inserted: ${result.inserted}, Updated: ${result.updated}, Errors: ${result.errors.length}`,
+      });
+      fetchBrands();
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Load filters from localStorage or use defaults
   const [filterBrandName, setFilterBrandName] = useState(() => 
