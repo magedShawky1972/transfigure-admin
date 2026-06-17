@@ -500,13 +500,12 @@ const BrandEdit = () => {
                     setFormData({ ...formData, brand_code: e.target.value })
                   }
                   placeholder={isAr ? "يتم إنشاؤه تلقائياً من نوع الماركة" : "Auto-generated from brand type"}
-                  disabled={!!brandId}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  disabled={!!brandId || !formData.brand_type_id || formData.brand_type_id === "none"}
+                  disabled={!formData.brand_type_id || formData.brand_type_id === "none"}
                   onClick={() => generateBrandCode(formData.brand_type_id)}
                   title={isAr ? "إنشاء كود الماركة تلقائياً" : "Auto-generate Brand Code"}
                 >
