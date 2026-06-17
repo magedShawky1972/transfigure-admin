@@ -505,8 +505,17 @@ const BrandEdit = () => {
                   type="button"
                   variant="outline"
                   size="icon"
-                  disabled={!formData.brand_type_id || formData.brand_type_id === "none"}
-                  onClick={() => generateBrandCode(formData.brand_type_id)}
+                  onClick={() => {
+                    if (!formData.brand_type_id || formData.brand_type_id === "none") {
+                      toast({
+                        title: t("common.error"),
+                        description: isAr ? "يرجى اختيار نوع الماركة أولاً" : "Please select a Brand Type first",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    generateBrandCode(formData.brand_type_id);
+                  }}
                   title={isAr ? "إنشاء كود الماركة تلقائياً" : "Auto-generate Brand Code"}
                 >
                   <Wand2 className="h-4 w-4" />
