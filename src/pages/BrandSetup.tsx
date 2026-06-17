@@ -955,6 +955,45 @@ const BrandSetup = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isAr ? "استيراد الماركات" : "Import Brands"}</DialogTitle>
+            <DialogDescription>
+              {isAr
+                ? "الأعمدة: brand_name, brand_code, short_name, brand_type_code, abc_analysis, status, ... المطابقة حسب brand_code (تحديث إن وُجد، إدراج إن لم يوجد)."
+                : "Columns include: brand_name, brand_code, short_name, brand_type_code, abc_analysis, status, etc. Matched by brand_code (update if exists, insert if new). Use Template to see all supported columns."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+            />
+            {importResult && (
+              <div className="text-sm space-y-1 max-h-60 overflow-y-auto border rounded p-2">
+                <div>Inserted: <strong>{importResult.inserted}</strong></div>
+                <div>Updated: <strong>{importResult.updated}</strong></div>
+                <div>Errors: <strong>{importResult.errors.length}</strong></div>
+                {importResult.errors.map((e, i) => (
+                  <div key={i} className="text-destructive text-xs">{e}</div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              {isAr ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleImport} disabled={!importFile || loading}>
+              <Upload className="h-4 w-4 mr-2" />
+              {isAr ? "استيراد" : "Import"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
