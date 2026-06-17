@@ -15,13 +15,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon, Bug } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon, Bug, Download, Upload, FileSpreadsheet } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import BrandSuppliersDialog from "@/components/BrandSuppliersDialog";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 interface Brand {
   id: string;
@@ -64,6 +65,9 @@ const BrandSetup = () => {
   const [debugLoadingId, setDebugLoadingId] = useState<string | null>(null);
   const [sendingFromDebug, setSendingFromDebug] = useState(false);
   const [debugSteps, setDebugSteps] = useState<any[] | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importResult, setImportResult] = useState<{ inserted: number; updated: number; errors: string[] } | null>(null);
 
   const handleDebugSync = async (brand: Brand) => {
     if (!brand.brand_code) {
@@ -106,6 +110,142 @@ const BrandSetup = () => {
       toast({ title: isAr ? "فشل الإرسال" : "Send failed", description: err.message, variant: "destructive" });
     } finally {
       setSendingFromDebug(false);
+    }
+  };
+
+  const EXPORT_FIELDS = [
+    "brand_name","brand_code","short_name","brand_type_code","abc_analysis","status",
+    "usd_value_for_coins","sales_usd_value_for_coins","recharge_usd_value",
+    "leadtime","safety_stock","reorder_point",
+    "average_consumption_per_month","average_consumption_per_day",
+    "sku_start_with","supplier_hub_code","asus_brand_name",
+  ] as const;
+
+  const handleExportExcel = () => {
+    const typeMap = new Map(brandTypes.map((t) => [t.id, t.type_code]));
+    const rows = filteredBrands.map((b: any) => ({
+      brand_name: b.brand_name ?? "",
+      brand_code: b.brand_code ?? "",
+      short_name: b.short_name ?? "",
+      brand_type_code: typeMap.get(b.brand_type_id) ?? "",
+      abc_analysis: b.abc_analysis ?? "",
+      status: b.status ?? "",
+      usd_value_for_coins: b.usd_value_for_coins ?? "",
+      sales_usd_value_for_coins: b.sales_usd_value_for_coins ?? "",
+      recharge_usd_value: b.recharge_usd_value ?? "",
+      leadtime: b.leadtime ?? "",
+      safety_stock: b.safety_stock ?? "",
+      reorder_point: b.reorder_point ?? "",
+      average_consumption_per_month: b.average_consumption_per_month ?? "",
+      average_consumption_per_day: b.average_consumption_per_day ?? "",
+      sku_start_with: b.sku_start_with ?? "",
+      supplier_hub_code: b.supplier_hub_code ?? "",
+      asus_brand_name: b.asus_brand_name ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Brands");
+    XLSX.writeFile(wb, `brands_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`);
+  };
+
+  const handleDownloadTemplate = () => {
+    const sample: any = {};
+    EXPORT_FIELDS.forEach((f) => (sample[f] = ""));
+    sample.brand_name = "Example Brand";
+    sample.brand_code = "B001";
+    sample.status = "active";
+    sample.abc_analysis = "C";
+    const ws = XLSX.utils.json_to_sheet([sample]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "brands_template.xlsx");
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    setLoading(true);
+    const result = { inserted: 0, updated: 0, errors: [] as string[] };
+    try {
+      const buf = await importFile.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(ws);
+      const typeByCode = new Map(brandTypes.map((t) => [String(t.type_code).toLowerCase(), t.id]));
+
+      const num = (v: any) => {
+        if (v === "" || v == null) return null;
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+      };
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const brand_name = String(r.brand_name ?? "").trim();
+        const brand_code = String(r.brand_code ?? "").trim();
+        if (!brand_name) {
+          result.errors.push(`Row ${i + 2}: missing brand_name`);
+          continue;
+        }
+        const typeCodeRaw = r.brand_type_code != null ? String(r.brand_type_code).trim() : "";
+        let brand_type_id: string | null = null;
+        if (typeCodeRaw) {
+          brand_type_id = typeByCode.get(typeCodeRaw.toLowerCase()) ?? null;
+          if (!brand_type_id) {
+            result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): unknown brand_type_code "${typeCodeRaw}"`);
+            continue;
+          }
+        }
+        const payload: any = {
+          brand_name,
+          brand_code: brand_code || null,
+          short_name: r.short_name ? String(r.short_name).trim() : null,
+          abc_analysis: r.abc_analysis ? String(r.abc_analysis).trim().toUpperCase() : null,
+          status: (r.status ? String(r.status).trim().toLowerCase() : "active") || "active",
+          usd_value_for_coins: num(r.usd_value_for_coins),
+          sales_usd_value_for_coins: num(r.sales_usd_value_for_coins),
+          recharge_usd_value: num(r.recharge_usd_value),
+          leadtime: num(r.leadtime),
+          safety_stock: num(r.safety_stock),
+          reorder_point: num(r.reorder_point),
+          average_consumption_per_month: num(r.average_consumption_per_month),
+          average_consumption_per_day: num(r.average_consumption_per_day),
+          sku_start_with: r.sku_start_with ? String(r.sku_start_with).trim().toUpperCase() : null,
+          supplier_hub_code: r.supplier_hub_code ? String(r.supplier_hub_code).trim() : null,
+          asus_brand_name: r.asus_brand_name ? String(r.asus_brand_name).trim() : null,
+        };
+        if (brand_type_id) payload.brand_type_id = brand_type_id;
+
+        // Match by brand_code if provided, else by brand_name
+        let existingId: string | null = null;
+        if (brand_code) {
+          const { data: ex } = await supabase.from("brands").select("id").eq("brand_code", brand_code).maybeSingle();
+          if (ex) existingId = ex.id;
+        } else {
+          const { data: ex } = await supabase.from("brands").select("id").eq("brand_name", brand_name).maybeSingle();
+          if (ex) existingId = ex.id;
+        }
+
+        if (existingId) {
+          const { data: upd, error } = await supabase.from("brands").update(payload).eq("id", existingId).select("id");
+          if (error) result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): ${error.message}`);
+          else if (!upd || upd.length === 0) result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): not allowed to update`);
+          else result.updated++;
+        } else {
+          const { error } = await supabase.from("brands").insert(payload);
+          if (error) result.errors.push(`Row ${i + 2} (${brand_code || brand_name}): ${error.message}`);
+          else result.inserted++;
+        }
+      }
+      setImportResult(result);
+      toast({
+        title: t("common.success"),
+        description: `Inserted: ${result.inserted}, Updated: ${result.updated}, Errors: ${result.errors.length}`,
+      });
+      fetchBrands();
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -403,10 +543,24 @@ const BrandSetup = () => {
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">{t("brandSetup.title")}</h1>
-          <Button onClick={handleAddNew}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t("brandSetup.addNew")}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {isAr ? "تنزيل القالب" : "Template"}
+            </Button>
+            <Button variant="outline" onClick={() => { setImportResult(null); setImportFile(null); setImportDialogOpen(true); }}>
+              <Upload className="h-4 w-4 mr-2" />
+              {isAr ? "استيراد Excel" : "Import Excel"}
+            </Button>
+            <Button variant="outline" onClick={handleExportExcel}>
+              <Download className="h-4 w-4 mr-2" />
+              {isAr ? "تصدير Excel" : "Export Excel"}
+            </Button>
+            <Button onClick={handleAddNew}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t("brandSetup.addNew")}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
@@ -799,6 +953,45 @@ const BrandSetup = () => {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isAr ? "استيراد الماركات" : "Import Brands"}</DialogTitle>
+            <DialogDescription>
+              {isAr
+                ? "الأعمدة: brand_name, brand_code, short_name, brand_type_code, abc_analysis, status, ... المطابقة حسب brand_code (تحديث إن وُجد، إدراج إن لم يوجد)."
+                : "Columns include: brand_name, brand_code, short_name, brand_type_code, abc_analysis, status, etc. Matched by brand_code (update if exists, insert if new). Use Template to see all supported columns."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+            />
+            {importResult && (
+              <div className="text-sm space-y-1 max-h-60 overflow-y-auto border rounded p-2">
+                <div>Inserted: <strong>{importResult.inserted}</strong></div>
+                <div>Updated: <strong>{importResult.updated}</strong></div>
+                <div>Errors: <strong>{importResult.errors.length}</strong></div>
+                {importResult.errors.map((e, i) => (
+                  <div key={i} className="text-destructive text-xs">{e}</div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              {isAr ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleImport} disabled={!importFile || loading}>
+              <Upload className="h-4 w-4 mr-2" />
+              {isAr ? "استيراد" : "Import"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
