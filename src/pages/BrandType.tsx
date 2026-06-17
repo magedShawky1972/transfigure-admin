@@ -28,8 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Plus, Send } from "lucide-react";
+import { Pencil, Trash2, Plus, Send, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
+
 
 interface BrandType {
   id: string;
@@ -59,6 +61,82 @@ const BrandType = () => {
   const [filterTypeCode, setFilterTypeCode] = useState("");
   const [filterTypeName, setFilterTypeName] = useState("");
   const [odooMode, setOdooMode] = useState<"production" | "test" | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importResult, setImportResult] = useState<{ inserted: number; updated: number; errors: string[] } | null>(null);
+
+  const handleExport = () => {
+    const rows = filteredBrands.map((b) => ({
+      type_code: b.type_code,
+      type_name: b.type_name,
+      status: b.status,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "BrandTypes");
+    XLSX.writeFile(wb, `brand_types_${format(new Date(), "yyyyMMdd_HHmm")}.xlsx`);
+  };
+
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { type_code: "BT001", type_name: "Example Type", status: "active" },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "brand_type_template.xlsx");
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    setLoading(true);
+    const result = { inserted: 0, updated: 0, errors: [] as string[] };
+    try {
+      const data = await importFile.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(ws);
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const type_code = String(r.type_code ?? r["Brand Code"] ?? "").trim();
+        const type_name = String(r.type_name ?? r["Brand Name"] ?? "").trim();
+        const status = String(r.status ?? "active").trim().toLowerCase() || "active";
+        if (!type_code || !type_name) {
+          result.errors.push(`Row ${i + 2}: missing type_code or type_name`);
+          continue;
+        }
+        const { data: existing } = await supabase
+          .from("brand_type")
+          .select("id")
+          .eq("type_code", type_code)
+          .maybeSingle();
+        if (existing) {
+          const { error } = await supabase
+            .from("brand_type")
+            .update({ type_name, status })
+            .eq("id", existing.id);
+          if (error) result.errors.push(`Row ${i + 2} (${type_code}): ${error.message}`);
+          else result.updated++;
+        } else {
+          const { error } = await supabase
+            .from("brand_type")
+            .insert({ type_code, type_name, status });
+          if (error) result.errors.push(`Row ${i + 2} (${type_code}): ${error.message}`);
+          else result.inserted++;
+        }
+      }
+      setImportResult(result);
+      toast({
+        title: t("common.success"),
+        description: `Inserted: ${result.inserted}, Updated: ${result.updated}, Errors: ${result.errors.length}`,
+      });
+      fetchBrands();
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     fetchBrands();
@@ -281,10 +359,25 @@ const BrandType = () => {
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">{t("brandType.title")}</h1>
-          <Button onClick={handleAddNew}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t("brandType.addNew")}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {language === "ar" ? "تنزيل القالب" : "Template"}
+            </Button>
+            <Button variant="outline" onClick={() => { setImportResult(null); setImportFile(null); setImportDialogOpen(true); }}>
+              <Upload className="h-4 w-4 mr-2" />
+              {language === "ar" ? "استيراد Excel" : "Import Excel"}
+            </Button>
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              {language === "ar" ? "تصدير Excel" : "Export Excel"}
+            </Button>
+            <Button onClick={handleAddNew}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t("brandType.addNew")}
+            </Button>
+          </div>
+
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -469,6 +562,46 @@ const BrandType = () => {
             </form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{language === "ar" ? "استيراد أنواع الماركات" : "Import Brand Types"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {language === "ar"
+                  ? "الأعمدة: type_code, type_name, status. يتم التحديث حسب type_code."
+                  : "Columns: type_code, type_name, status. Matched by type_code (update if exists, insert if new)."}
+              </p>
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+              {importResult && (
+                <div className="text-sm space-y-1 max-h-40 overflow-y-auto border rounded p-2">
+                  <div>Inserted: <strong>{importResult.inserted}</strong></div>
+                  <div>Updated: <strong>{importResult.updated}</strong></div>
+                  <div>Errors: <strong>{importResult.errors.length}</strong></div>
+                  {importResult.errors.map((e, i) => (
+                    <div key={i} className="text-destructive text-xs">{e}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                {t("brandType.cancel")}
+              </Button>
+              <Button onClick={handleImport} disabled={!importFile || loading}>
+                <Upload className="h-4 w-4 mr-2" />
+                {language === "ar" ? "استيراد" : "Import"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </>
   );
