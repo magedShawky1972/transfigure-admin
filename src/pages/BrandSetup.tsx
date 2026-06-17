@@ -543,10 +543,24 @@ const BrandSetup = () => {
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">{t("brandSetup.title")}</h1>
-          <Button onClick={handleAddNew}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t("brandSetup.addNew")}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {isAr ? "تنزيل القالب" : "Template"}
+            </Button>
+            <Button variant="outline" onClick={() => { setImportResult(null); setImportFile(null); setImportDialogOpen(true); }}>
+              <Upload className="h-4 w-4 mr-2" />
+              {isAr ? "استيراد Excel" : "Import Excel"}
+            </Button>
+            <Button variant="outline" onClick={handleExportExcel}>
+              <Download className="h-4 w-4 mr-2" />
+              {isAr ? "تصدير Excel" : "Export Excel"}
+            </Button>
+            <Button onClick={handleAddNew}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t("brandSetup.addNew")}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
