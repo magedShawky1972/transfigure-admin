@@ -15,13 +15,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon, Bug } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Pencil, Trash2, Plus, RefreshCw, Truck, CalendarIcon, Bug, Download, Upload, FileSpreadsheet } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import BrandSuppliersDialog from "@/components/BrandSuppliersDialog";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 interface Brand {
   id: string;
