@@ -80,6 +80,13 @@ const getOrderDateFromBody = (log: ApiLog): string => {
   return String(dateStr).substring(0, 10);
 };
 
+// Helper function to extract Payment Method from request_body (api-payment)
+const getPaymentMethod = (log: ApiLog): string => {
+  if (!log.request_body) return "";
+  const body = log.request_body as any;
+  return String(body.Payment_method || body.payment_method || body.Payment_Method || "");
+};
+
 // Helper function to extract order_date_int from request_body
 const getOrderDateIntFromBody = (log: ApiLog): string => {
   if (!log.request_body) return "";
