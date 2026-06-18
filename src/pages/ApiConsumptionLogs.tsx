@@ -1638,6 +1638,11 @@ const ApiConsumptionLogs = () => {
                       <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
                         {log.api_key_description || "-"}
                       </TableCell>
+                      {endpointFilter === "api-payment" && (
+                        <TableCell className="font-mono text-sm">
+                          {getPaymentMethod(log) || "-"}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
