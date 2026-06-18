@@ -1664,6 +1664,11 @@ const ApiConsumptionLogs = () => {
                           {getPaymentMethod(log) || "-"}
                         </TableCell>
                       )}
+                      {endpointFilter === "api-payment" && (
+                        <TableCell className="font-mono text-sm">
+                          {getBankTransactionId(log) || "-"}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
