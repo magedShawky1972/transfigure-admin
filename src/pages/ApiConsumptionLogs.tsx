@@ -87,6 +87,13 @@ const getPaymentMethod = (log: ApiLog): string => {
   return String(body.Payment_method || body.payment_method || body.Payment_Method || "");
 };
 
+// Helper function to extract Bank Transaction Id from request_body (api-payment)
+const getBankTransactionId = (log: ApiLog): string => {
+  if (!log.request_body) return "";
+  const body = log.request_body as any;
+  return String(body.Bank_Transaction_Id || body.bank_transaction_id || body.Bank_transaction_id || "");
+};
+
 // Helper function to extract order_date_int from request_body
 const getOrderDateIntFromBody = (log: ApiLog): string => {
   if (!log.request_body) return "";
