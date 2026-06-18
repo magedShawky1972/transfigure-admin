@@ -282,6 +282,7 @@ const ApiConsumptionLogs = () => {
     executionTime: "",
     apiKey: "",
     paymentMethod: "",
+    bankTransactionId: "",
   });
 
   // Pagination state
