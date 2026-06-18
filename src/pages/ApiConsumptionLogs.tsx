@@ -1599,6 +1599,12 @@ const ApiConsumptionLogs = () => {
                       <ColumnFilterInput column="paymentMethod" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
                     </TableHead>
                   )}
+                  {endpointFilter === "api-payment" && (
+                    <TableHead className="min-w-[160px]">
+                      {language === "ar" ? "رقم العملية البنكية" : "Bank Transaction Id"}
+                      <ColumnFilterInput column="bankTransactionId" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                    </TableHead>
+                  )}
                   <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
