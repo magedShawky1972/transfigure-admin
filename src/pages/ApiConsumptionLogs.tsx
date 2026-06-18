@@ -1590,13 +1590,13 @@ const ApiConsumptionLogs = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
+                  <TableCell colSpan={endpointFilter === "api-payment" ? 11 : 10} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : sortedLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={endpointFilter === "api-payment" ? 11 : 10} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد سجلات" : "No logs found"}
                     </TableCell>
                   </TableRow>
