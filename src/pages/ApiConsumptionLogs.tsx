@@ -728,6 +728,13 @@ const ApiConsumptionLogs = () => {
       }
     }
 
+    if (columnFilters.bankTransactionId) {
+      const bt = getBankTransactionId(log);
+      if (!bt || !bt.toLowerCase().includes(columnFilters.bankTransactionId.toLowerCase())) {
+        return false;
+      }
+    }
+
     return true;
   });
 
