@@ -713,6 +713,13 @@ const ApiConsumptionLogs = () => {
       return false;
     }
 
+    if (columnFilters.paymentMethod) {
+      const pm = getPaymentMethod(log);
+      if (!pm || !pm.toLowerCase().includes(columnFilters.paymentMethod.toLowerCase())) {
+        return false;
+      }
+    }
+
     return true;
   });
 
