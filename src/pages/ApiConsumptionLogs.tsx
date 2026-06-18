@@ -274,6 +274,7 @@ const ApiConsumptionLogs = () => {
     status: "",
     executionTime: "",
     apiKey: "",
+    paymentMethod: "",
   });
 
   // Pagination state
