@@ -1578,6 +1578,12 @@ const ApiConsumptionLogs = () => {
                     </SortableHeader>
                     <ColumnFilterInput column="apiKey" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
                   </TableHead>
+                  {endpointFilter === "api-payment" && (
+                    <TableHead className="min-w-[140px]">
+                      {language === "ar" ? "طريقة الدفع" : "Payment Method"}
+                      <ColumnFilterInput column="paymentMethod" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                    </TableHead>
+                  )}
                   <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
