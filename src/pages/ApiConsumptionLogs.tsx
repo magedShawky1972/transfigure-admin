@@ -87,6 +87,13 @@ const getPaymentMethod = (log: ApiLog): string => {
   return String(body.Payment_method || body.payment_method || body.Payment_Method || "");
 };
 
+// Helper function to extract Bank Transaction Id from request_body (api-payment)
+const getBankTransactionId = (log: ApiLog): string => {
+  if (!log.request_body) return "";
+  const body = log.request_body as any;
+  return String(body.Bank_Transaction_Id || body.bank_transaction_id || body.Bank_transaction_id || "");
+};
+
 // Helper function to extract order_date_int from request_body
 const getOrderDateIntFromBody = (log: ApiLog): string => {
   if (!log.request_body) return "";
@@ -275,6 +282,7 @@ const ApiConsumptionLogs = () => {
     executionTime: "",
     apiKey: "",
     paymentMethod: "",
+    bankTransactionId: "",
   });
 
   // Pagination state
@@ -716,6 +724,13 @@ const ApiConsumptionLogs = () => {
     if (columnFilters.paymentMethod) {
       const pm = getPaymentMethod(log);
       if (!pm || !pm.toLowerCase().includes(columnFilters.paymentMethod.toLowerCase())) {
+        return false;
+      }
+    }
+
+    if (columnFilters.bankTransactionId) {
+      const bt = getBankTransactionId(log);
+      if (!bt || !bt.toLowerCase().includes(columnFilters.bankTransactionId.toLowerCase())) {
         return false;
       }
     }
@@ -1584,19 +1599,25 @@ const ApiConsumptionLogs = () => {
                       <ColumnFilterInput column="paymentMethod" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
                     </TableHead>
                   )}
+                  {endpointFilter === "api-payment" && (
+                    <TableHead className="min-w-[160px]">
+                      {language === "ar" ? "رقم العملية البنكية" : "Bank Transaction Id"}
+                      <ColumnFilterInput column="bankTransactionId" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
+                    </TableHead>
+                  )}
                   <TableHead>{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                  <TableCell colSpan={endpointFilter === "api-payment" ? 11 : 10} className="text-center py-8">
+                  <TableCell colSpan={endpointFilter === "api-payment" ? 12 : 10} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : sortedLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={endpointFilter === "api-payment" ? 11 : 10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={endpointFilter === "api-payment" ? 12 : 10} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد سجلات" : "No logs found"}
                     </TableCell>
                   </TableRow>
@@ -1641,6 +1662,11 @@ const ApiConsumptionLogs = () => {
                       {endpointFilter === "api-payment" && (
                         <TableCell className="font-mono text-sm">
                           {getPaymentMethod(log) || "-"}
+                        </TableCell>
+                      )}
+                      {endpointFilter === "api-payment" && (
+                        <TableCell className="font-mono text-sm">
+                          {getBankTransactionId(log) || "-"}
                         </TableCell>
                       )}
                       <TableCell>
