@@ -470,6 +470,26 @@ const Dashboard = () => {
         const totalPointsSales = Number(pointsData.total_sales || 0);
         const totalPointsCost = Number(pointsData.total_cost || 0);
 
+        // MADA vs Others metrics from payment breakdown (payment_brand based)
+        let madaSales = 0, madaCount = 0, othersSales = 0, othersCount = 0;
+        (chargesBreakdownResult.data || []).forEach((row: any) => {
+          const brand = String(row.payment_brand || '').toLowerCase();
+          const sales = Number(row.total_sales || 0);
+          const count = Number(row.transaction_count || 0);
+          if (brand === 'mada') { madaSales += sales; madaCount += count; }
+          else { othersSales += sales; othersCount += count; }
+        });
+        setMadaMetrics({
+          totalSales: madaSales,
+          transactionCount: madaCount,
+          avgOrderValue: madaCount > 0 ? madaSales / madaCount : 0,
+        });
+        setOthersMetrics({
+          totalSales: othersSales,
+          transactionCount: othersCount,
+          avgOrderValue: othersCount > 0 ? othersSales / othersCount : 0,
+        });
+
         setMetrics({
           totalSales,
           totalProfit,
@@ -482,6 +502,7 @@ const Dashboard = () => {
           pointsCostSold: totalPointsCost,
         });
       }
+
 
       // Fetch only recent 5 transactions for display using integer date column
       let recentQuery = supabase
