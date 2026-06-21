@@ -83,6 +83,8 @@ const Dashboard = () => {
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [paymentBrands, setPaymentBrands] = useState<any[]>([]);
   const [unusedPaymentBrands, setUnusedPaymentBrands] = useState<any[]>([]);
+  const [madaMetrics, setMadaMetrics] = useState({ totalSales: 0, transactionCount: 0, avgOrderValue: 0 });
+  const [othersMetrics, setOthersMetrics] = useState({ totalSales: 0, transactionCount: 0, avgOrderValue: 0 });
    const [monthComparison, setMonthComparison] = useState<any[]>([]);
    const [monthComparisonDirection, setMonthComparisonDirection] = useState<"backward" | "forward">("backward");
   const [productSummary, setProductSummary] = useState<any[]>([]);
@@ -919,6 +921,26 @@ const Dashboard = () => {
             return acc;
           }, {});
         setPaymentBrands(Object.values(paymentBrandData));
+
+        // MADA vs Others metrics (payment_brand based, excluding point payments)
+        const nonPointTxns = transactions.filter(t => (t.payment_method || '').toLowerCase() !== 'point');
+        let madaSales = 0, madaCount = 0, othersSales = 0, othersCount = 0;
+        nonPointTxns.forEach(t => {
+          const isMada = (t.payment_brand || '').toLowerCase() === 'mada';
+          const amt = parseNumber(t.total);
+          if (isMada) { madaSales += amt; madaCount += 1; }
+          else { othersSales += amt; othersCount += 1; }
+        });
+        setMadaMetrics({
+          totalSales: madaSales,
+          transactionCount: madaCount,
+          avgOrderValue: madaCount > 0 ? madaSales / madaCount : 0,
+        });
+        setOthersMetrics({
+          totalSales: othersSales,
+          transactionCount: othersCount,
+          avgOrderValue: othersCount > 0 ? othersSales / othersCount : 0,
+        });
 
         // Fetch all payment brands from payment_methods table
         const { data: allPaymentBrands, error: paymentBrandsError } = await supabase
@@ -2207,6 +2229,48 @@ const Dashboard = () => {
       value: formatCurrency(metrics.avgOrderValue),
       icon: CreditCard,
       gradient: "from-orange-500 to-red-500",
+    },
+    {
+      key: "total_sales_mada",
+      title: language === 'ar' ? 'إجمالي المبيعات (مدى)' : 'Total Sales (MADA)',
+      value: formatCurrency(madaMetrics.totalSales),
+      icon: DollarSign,
+      gradient: "from-green-500 to-emerald-500",
+    },
+    {
+      key: "total_sales_others",
+      title: language === 'ar' ? 'إجمالي المبيعات (أخرى)' : 'Total Sales (Others)',
+      value: formatCurrency(othersMetrics.totalSales),
+      icon: DollarSign,
+      gradient: "from-sky-500 to-blue-500",
+    },
+    {
+      key: "transactions_mada",
+      title: language === 'ar' ? 'المعاملات (مدى)' : 'Transactions (MADA)',
+      value: madaMetrics.transactionCount.toLocaleString(),
+      icon: ShoppingCart,
+      gradient: "from-fuchsia-500 to-pink-500",
+    },
+    {
+      key: "transactions_others",
+      title: language === 'ar' ? 'المعاملات (أخرى)' : 'Transactions (Others)',
+      value: othersMetrics.transactionCount.toLocaleString(),
+      icon: ShoppingCart,
+      gradient: "from-violet-500 to-purple-500",
+    },
+    {
+      key: "avg_order_mada",
+      title: language === 'ar' ? 'متوسط قيمة الطلب (مدى)' : 'Avg Order Value (MADA)',
+      value: formatCurrency(madaMetrics.avgOrderValue),
+      icon: CreditCard,
+      gradient: "from-amber-500 to-orange-500",
+    },
+    {
+      key: "avg_order_others",
+      title: language === 'ar' ? 'متوسط قيمة الطلب (أخرى)' : 'Avg Order Value (Others)',
+      value: formatCurrency(othersMetrics.avgOrderValue),
+      icon: CreditCard,
+      gradient: "from-rose-500 to-red-500",
     },
     {
       key: "new_customers",
