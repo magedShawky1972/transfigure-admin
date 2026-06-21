@@ -922,6 +922,26 @@ const Dashboard = () => {
           }, {});
         setPaymentBrands(Object.values(paymentBrandData));
 
+        // MADA vs Others metrics (payment_brand based, excluding point payments)
+        const nonPointTxns = transactions.filter(t => (t.payment_method || '').toLowerCase() !== 'point');
+        let madaSales = 0, madaCount = 0, othersSales = 0, othersCount = 0;
+        nonPointTxns.forEach(t => {
+          const isMada = (t.payment_brand || '').toLowerCase() === 'mada';
+          const amt = parseNumber(t.total);
+          if (isMada) { madaSales += amt; madaCount += 1; }
+          else { othersSales += amt; othersCount += 1; }
+        });
+        setMadaMetrics({
+          totalSales: madaSales,
+          transactionCount: madaCount,
+          avgOrderValue: madaCount > 0 ? madaSales / madaCount : 0,
+        });
+        setOthersMetrics({
+          totalSales: othersSales,
+          transactionCount: othersCount,
+          avgOrderValue: othersCount > 0 ? othersSales / othersCount : 0,
+        });
+
         // Fetch all payment brands from payment_methods table
         const { data: allPaymentBrands, error: paymentBrandsError } = await supabase
           .from('payment_methods')
