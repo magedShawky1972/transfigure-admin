@@ -83,6 +83,8 @@ const Dashboard = () => {
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [paymentBrands, setPaymentBrands] = useState<any[]>([]);
   const [unusedPaymentBrands, setUnusedPaymentBrands] = useState<any[]>([]);
+  const [madaMetrics, setMadaMetrics] = useState({ totalSales: 0, transactionCount: 0, avgOrderValue: 0 });
+  const [othersMetrics, setOthersMetrics] = useState({ totalSales: 0, transactionCount: 0, avgOrderValue: 0 });
    const [monthComparison, setMonthComparison] = useState<any[]>([]);
    const [monthComparisonDirection, setMonthComparisonDirection] = useState<"backward" | "forward">("backward");
   const [productSummary, setProductSummary] = useState<any[]>([]);
