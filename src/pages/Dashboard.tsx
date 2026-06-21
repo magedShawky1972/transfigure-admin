@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from "recharts";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -3069,6 +3069,61 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
+
+      {/* MADA vs Others Sales Gauge */}
+      {(() => {
+        const madaVal = madaMetrics.totalSales || 0;
+        const othersVal = othersMetrics.totalSales || 0;
+        const total = madaVal + othersVal;
+        const madaPct = total > 0 ? (madaVal / total) * 100 : 0;
+        const othersPct = total > 0 ? (othersVal / total) * 100 : 0;
+        const gaugeData = [
+          { name: language === "ar" ? "أخرى" : "Others", value: othersPct, fill: "hsl(262 83% 58%)" },
+          { name: "MADA", value: madaPct, fill: "hsl(142 71% 45%)" },
+        ];
+        return (
+          <Card className="border-2 relative">
+            {loadingStats && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <CardHeader>
+              <CardTitle>{language === "ar" ? "مقارنة مبيعات مدى مقابل الأخرى" : "MADA vs Others Sales"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <ResponsiveContainer width="100%" height={260}>
+                  <RadialBarChart
+                    innerRadius="50%"
+                    outerRadius="100%"
+                    data={gaugeData}
+                    startAngle={180}
+                    endAngle={0}
+                  >
+                    <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+                    <RadialBar background dataKey="value" cornerRadius={8} />
+                    <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
+                    <Legend iconSize={10} verticalAlign="bottom" />
+                  </RadialBarChart>
+                </ResponsiveContainer>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg border-2 border-green-500/30 bg-green-500/5">
+                    <div className="text-sm text-muted-foreground">MADA</div>
+                    <div className="text-2xl font-bold text-green-600">{formatCurrency(madaVal)}</div>
+                    <div className="text-sm font-medium">{madaPct.toFixed(1)}%</div>
+                  </div>
+                  <div className="p-4 rounded-lg border-2 border-purple-500/30 bg-purple-500/5">
+                    <div className="text-sm text-muted-foreground">{language === "ar" ? "أخرى" : "Others"}</div>
+                    <div className="text-2xl font-bold text-purple-600">{formatCurrency(othersVal)}</div>
+                    <div className="text-sm font-medium">{othersPct.toFixed(1)}%</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Income Statement */}
       {hasAccess("income_statement") && (
