@@ -551,13 +551,32 @@ const BrandEdit = () => {
 
             <div className="space-y-2">
               <Label htmlFor="cost_one_coins_sar">{isAr ? "تكلفة عملة واحدة = ريال (دولار × 3.75)" : "Cost One Coins = SAR (USD × 3.75)"}</Label>
-              <Input
-                id="cost_one_coins_sar"
-                type="text"
-                value={((parseFloat(formData.usd_value_for_coins) || 0) * 3.75).toLocaleString('en-US', { minimumFractionDigits: 8, maximumFractionDigits: 8 })}
-                disabled
-                className="bg-muted"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="cost_one_coins_sar"
+                  type="text"
+                  value={((parseFloat(formData.usd_value_for_coins) || 0) * 3.75).toLocaleString('en-US', { minimumFractionDigits: 8, maximumFractionDigits: 8 })}
+                  disabled
+                  className="bg-muted flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const val = ((parseFloat(formData.usd_value_for_coins) || 0) * 3.75);
+                    const formatted = val.toFixed(8);
+                    navigator.clipboard.writeText(formatted);
+                    toast({
+                      title: isAr ? "تم النسخ" : "Copied",
+                      description: `${formatted} ${isAr ? "تم نسخها إلى الحافظة" : "copied to clipboard"}`,
+                    });
+                  }}
+                  title={isAr ? "نسخ الرقم" : "Copy Number"}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
