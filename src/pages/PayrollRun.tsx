@@ -663,10 +663,27 @@ export default function PayrollRun() {
 
       {selectedRun && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
               Run Detail — {selectedRun.period_year}-{String(selectedRun.period_month).padStart(2, "0")}
+              {selectedRun.status !== "confirmed" && <Badge variant="secondary" className="ml-2">DRAFT</Badge>}
             </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={lines.length === 0}
+              onClick={() =>
+                printPayslips({
+                  run: selectedRun,
+                  empIds: Object.keys(empGroups),
+                  lines,
+                  empMap,
+                  elMap,
+                })
+              }
+            >
+              <Printer className="h-4 w-4 mr-1" /> Print All Payslips
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             {Object.entries(empGroups).map(([empId, empLines]) => {
@@ -676,9 +693,25 @@ export default function PayrollRun() {
                 <div key={empId} className="border rounded-md p-3">
                   <div className="flex justify-between items-center mb-2">
                     <strong>{empMap[empId] || empId}</strong>
-                    <div className="text-sm">
-                      Gross: {fmt(earn)} | Ded: {fmt(ded)} |
-                      <span className="font-bold ml-2">Net: {fmt(earn - ded)}</span>
+                    <div className="text-sm flex items-center gap-3">
+                      <span>Gross: {fmt(earn)} | Ded: {fmt(ded)} |
+                        <span className="font-bold ml-2">Net: {fmt(earn - ded)}</span>
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          printPayslips({
+                            run: selectedRun,
+                            empIds: [empId],
+                            lines,
+                            empMap,
+                            elMap,
+                          })
+                        }
+                      >
+                        <Printer className="h-4 w-4 mr-1" /> Print
+                      </Button>
                     </div>
                   </div>
                   <Table>
