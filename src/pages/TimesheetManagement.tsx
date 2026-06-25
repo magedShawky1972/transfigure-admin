@@ -825,6 +825,15 @@ export default function TimesheetManagement() {
           return;
         }
         query = query.in("employee_id", departmentEmployeeIds);
+      } else if (hrAllowedBusinessUnitIds && hrAllowedBusinessUnitIds.length > 0) {
+        // Restrict to HR Manager's scoped employees
+        const allowedIds = scopedEmployees.map((e: any) => e.id);
+        if (allowedIds.length === 0) {
+          setTimesheets([]);
+          setLoading(false);
+          return;
+        }
+        query = query.in("employee_id", allowedIds);
       }
 
       const { data: rawData, error } = await query;
