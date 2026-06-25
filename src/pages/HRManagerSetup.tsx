@@ -53,8 +53,8 @@ import {
 
 interface BusinessUnit {
   id: string;
-  name: string;
-  name_ar?: string | null;
+  unit_name: string;
+  unit_name_ar?: string | null;
 }
 
 interface HRManager {
