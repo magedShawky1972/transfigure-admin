@@ -656,20 +656,27 @@ export default function DeductionSummary() {
   return (
     <div className="container mx-auto p-6 space-y-6 print-area" dir={isAr ? "rtl" : "ltr"}>
       <style>{`
+        .print-signatures { display: none; }
         @media print {
           @page { size: A4 landscape; margin: 10mm; }
           body * { visibility: hidden !important; }
           .print-area, .print-area * { visibility: visible !important; }
-          .print-area { position: absolute; inset: 0; margin: 0 !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; }
+          .print-area { position: absolute; inset: 0; margin: 0 !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; display: flex !important; flex-direction: column !important; min-height: 195mm !important; }
           aside, nav, header[role="banner"], [data-sidebar], .print\\:hidden { display: none !important; }
           .print-area .grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 8px !important; }
           .print-area table { width: 100% !important; font-size: 11px !important; border-collapse: collapse !important; }
-          .print-area th, .print-area td { padding: 4px 6px !important; border: 1px solid #ddd !important; }
+          .print-area th, .print-area td { padding: 4px 6px !important; border: 1px solid #ddd !important; page-break-inside: avoid !important; break-inside: avoid !important; }
+          .print-area thead { display: table-header-group !important; }
           .print-area .text-2xl { font-size: 16px !important; }
           .print-area .overflow-x-auto { overflow: visible !important; }
           .print-area [class*="shadow"] { box-shadow: none !important; }
+          .print-signatures { display: flex !important; justify-content: space-around; gap: 20px; margin-top: auto !important; padding-top: 20px; page-break-inside: avoid; break-inside: avoid; }
+          .print-signatures .sig-box { flex: 1; text-align: center; font-size: 11px; }
+          .print-signatures .sig-line { border-top: 1px solid #000; margin-top: 50px; padding-top: 6px; font-weight: bold; }
+          .print-signatures .sig-sub { font-size: 9px; color: #555; margin-top: 2px; }
         }
       `}</style>
+
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
