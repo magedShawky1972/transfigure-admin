@@ -297,6 +297,64 @@ export default function DeductionSummary() {
     }
   };
 
+  const [rollbackOpen, setRollbackOpen] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [existingCount, setExistingCount] = useState(0);
+
+  // Check existing variable entries for selected element+period
+  useEffect(() => {
+    const check = async () => {
+      if (!selectedElementId) { setExistingCount(0); return; }
+      const { count } = await supabase
+        .from("payroll_variable_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("element_id", selectedElementId)
+        .eq("period_year", periodYear)
+        .eq("period_month", periodMonth);
+      setExistingCount(count || 0);
+    };
+    check();
+  }, [selectedElementId, periodYear, periodMonth, sending, rollingBack]);
+
+  const handleRollback = async () => {
+    if (!selectedElementId) return;
+    setRollingBack(true);
+    try {
+      // Block if payroll already confirmed for this period
+      const { data: run } = await supabase
+        .from("payroll_runs")
+        .select("id, status")
+        .eq("period_year", periodYear)
+        .eq("period_month", periodMonth)
+        .maybeSingle();
+      if (run && run.status === "confirmed") {
+        toast.error(isAr
+          ? "تم تأكيد كشف الرواتب لهذا الشهر — لا يمكن التراجع"
+          : "Payroll already confirmed for this period — rollback not allowed");
+        setRollingBack(false);
+        return;
+      }
+
+      const { error, count } = await supabase
+        .from("payroll_variable_entries")
+        .delete({ count: "exact" })
+        .eq("element_id", selectedElementId)
+        .eq("period_year", periodYear)
+        .eq("period_month", periodMonth);
+      if (error) throw error;
+
+      toast.success(isAr
+        ? `تم التراجع عن ${count || 0} إدخال خصم تأخير`
+        : `Rolled back ${count || 0} delay deduction entries`);
+      setRollbackOpen(false);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Failed to rollback");
+    } finally {
+      setRollingBack(false);
+    }
+  };
+
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
 
