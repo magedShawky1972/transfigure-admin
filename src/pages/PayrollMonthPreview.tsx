@@ -332,8 +332,15 @@ export default function PayrollMonthPreview() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-md"
             />
-            <MultiCheckPop label="Department" options={departments} selected={deptFilter} onChange={setDeptFilter} />
-            <MultiCheckPop label="Job" options={jobs} selected={jobFilter} onChange={setJobFilter} />
+            <MultiCheckPop
+              label="Employee"
+              searchable
+              options={emps.map((e) => ({ id: e.id, name: `${e.first_name} ${e.last_name} (${e.employee_number})` }))}
+              selected={employeeFilter}
+              onChange={setEmployeeFilter}
+            />
+            <MultiCheckPop label="Department" options={departments} selected={deptFilter} onChange={setDeptFilter} searchable />
+            <MultiCheckPop label="Job" options={jobs} selected={jobFilter} onChange={setJobFilter} searchable />
             <MultiCheckPop label="Status" options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
             <MultiCheckPop label="Element Type" options={[
               { id: "earning", name: "Earning" },
@@ -341,7 +348,7 @@ export default function PayrollMonthPreview() {
               { id: "employer_contribution", name: "Employer Contribution" },
               { id: "information", name: "Information" },
             ]} selected={typeFilter} onChange={setTypeFilter} />
-            <MultiCheckPop label="Elements" options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
+            <MultiCheckPop label="Elements" options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} searchable />
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={hideZeroEmployees} onCheckedChange={(c) => setHideZeroEmployees(!!c)} />
               Hide employees with no values
