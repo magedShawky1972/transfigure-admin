@@ -207,7 +207,7 @@ export default function PayrollMatrixEntry() {
 
   const buildSheet = (includeData: boolean) => {
     const header = ["employee_number", "employee_name", ...elements.map((e) => e.code)];
-    const subHeader = ["", "", ...elements.map((e) => `${e.name_en} [${e.element_type}]`)];
+    const subHeader = ["", "", ...elements.map((e) => `${(language === "ar" && e.name_ar) ? e.name_ar : e.name_en} [${e.element_type}]`)];
     const rows: any[][] = [header, subHeader];
     const list = includeData ? sorted : emps;
     for (const emp of list) {
