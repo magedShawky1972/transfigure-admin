@@ -198,6 +198,7 @@ export default function TimesheetManagement() {
   const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
   const [recalcRunning, setRecalcRunning] = useState(false);
   const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [shiftSessionMap, setShiftSessionMap] = useState<Map<string, { shift_name: string; start: string | null; end: string | null }>>(new Map());
   const [managerNoteDialogOpen, setManagerNoteDialogOpen] = useState(false);
   const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
   const [managerNoteText, setManagerNoteText] = useState("");
@@ -696,7 +697,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -1053,6 +1054,36 @@ export default function TimesheetManagement() {
         if (isCompanyWfh && wfhSessionKeys.has(key)) return false;
         return true;
       });
+
+      // Fetch shift_sessions for shift-based employees in the date range, to display shift name + scheduled times
+      const shiftBasedUserIds = (employeesRes.data || [])
+        .filter((e: any) => e.user_id && e.attendance_types?.is_shift_based)
+        .map((e: any) => e.user_id);
+      const newShiftMap = new Map<string, { shift_name: string; start: string | null; end: string | null }>();
+      if (shiftBasedUserIds.length > 0) {
+        const rangeStartIso = `${vacDateFrom}T00:00:00+03:00`;
+        const rangeEndIso = `${vacDateTo}T23:59:59+03:00`;
+        const { data: sessions } = await supabase
+          .from("shift_sessions")
+          .select("user_id, opened_at, shift_assignments!inner(shifts!inner(shift_name, shift_start_time, shift_end_time))")
+          .in("user_id", shiftBasedUserIds)
+          .gte("opened_at", rangeStartIso)
+          .lte("opened_at", rangeEndIso);
+        (sessions || []).forEach((s: any) => {
+          // Local date in Asia/Riyadh
+          const d = new Date(s.opened_at);
+          const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+          const shift = s.shift_assignments?.shifts;
+          if (shift) {
+            newShiftMap.set(`${s.user_id}|${localDate}`, {
+              shift_name: shift.shift_name,
+              start: shift.shift_start_time,
+              end: shift.shift_end_time,
+            });
+          }
+        });
+      }
+      setShiftSessionMap(newShiftMap);
 
       setTimesheets([...filteredBase, ...virtualWfhRows]);
     } catch (error: any) {
@@ -2033,11 +2064,26 @@ export default function TimesheetManagement() {
                       <TableCell>
                         {(() => {
                           const emp: any = employees.find((e) => e.id === ts.employee_id);
+                          const fmt = (v: string | null) => v ? v.slice(0, 5) : null;
+                          // Shift-based: show shift name + its start/end if a shift session exists for that date
+                          if (emp?.attendance_types?.is_shift_based && emp?.user_id) {
+                            const sess = shiftSessionMap.get(`${emp.user_id}|${ts.work_date}`);
+                            if (sess) {
+                              return (
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-medium">{sess.shift_name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {fmt(sess.start) || "-"} - {fmt(sess.end) || "-"}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return <span className="text-xs text-muted-foreground">{language === "ar" ? "بدون وردية" : "No shift"}</span>;
+                          }
                           const liveStart = emp?.attendance_types?.fixed_start_time || emp?.fixed_shift_start || null;
                           const liveEnd = emp?.attendance_types?.fixed_end_time || emp?.fixed_shift_end || null;
                           const start = liveStart || ts.scheduled_start;
                           const end = liveEnd || ts.scheduled_end;
-                          const fmt = (v: string | null) => v ? v.slice(0, 5) : null;
                           return start && end ? `${fmt(start)} - ${fmt(end)}` : "-";
                         })()}
                       </TableCell>
