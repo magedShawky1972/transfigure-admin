@@ -1081,6 +1081,8 @@ const EmployeeSelfRequests = () => {
                     </a>
                   </div>
                 )}
+
+                <RequestApprovalHistory request={detailRequest} language={language as 'en' | 'ar'} />
               </div>
             );
           })()}
