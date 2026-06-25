@@ -23,6 +23,7 @@ type Element = {
   default_amount: number | null;
   formula: string | null;
   is_delay_minutes_element: boolean;
+  is_basic_salary_element: boolean;
   is_active: boolean;
   sort_order: number | null;
 };
@@ -37,6 +38,7 @@ const EMPTY: Partial<Element> = {
   default_amount: 0,
   formula: "",
   is_delay_minutes_element: false,
+  is_basic_salary_element: false,
   is_active: true,
   sort_order: 0,
 };
@@ -92,6 +94,7 @@ export default function PayrollElementSetup() {
       default_amount: Number(form.default_amount) || 0,
       formula: form.formula || null,
       is_delay_minutes_element: !!form.is_delay_minutes_element,
+      is_basic_salary_element: !!form.is_basic_salary_element,
       is_active: form.is_active !== false,
       sort_order: Number(form.sort_order) || 0,
     };
@@ -295,6 +298,19 @@ export default function PayrollElementSetup() {
                 <p className="text-xs text-muted-foreground">
                   When enabled, Time Management will send total delay minutes to this element.
                   Calculation: (Total monthly salary / 30 / 8 / 60) × delay minutes. Element type is forced to Deduction.
+                </p>
+              </div>
+            </div>
+            <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+              <Switch
+                checked={!!form.is_basic_salary_element}
+                onCheckedChange={(v) => setForm({ ...form, is_basic_salary_element: v })}
+              />
+              <div>
+                <div className="font-medium">This element is the Basic Salary</div>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, Deduction Summary uses the employee's assigned amount on this element
+                  as the basic salary in the formula (salary / 30 / 8 / 60) × delay minutes. Only one element can be marked.
                 </p>
               </div>
             </div>
