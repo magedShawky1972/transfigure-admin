@@ -2064,11 +2064,26 @@ export default function TimesheetManagement() {
                       <TableCell>
                         {(() => {
                           const emp: any = employees.find((e) => e.id === ts.employee_id);
+                          const fmt = (v: string | null) => v ? v.slice(0, 5) : null;
+                          // Shift-based: show shift name + its start/end if a shift session exists for that date
+                          if (emp?.attendance_types?.is_shift_based && emp?.user_id) {
+                            const sess = shiftSessionMap.get(`${emp.user_id}|${ts.work_date}`);
+                            if (sess) {
+                              return (
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-medium">{sess.shift_name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {fmt(sess.start) || "-"} - {fmt(sess.end) || "-"}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return <span className="text-xs text-muted-foreground">{language === "ar" ? "بدون وردية" : "No shift"}</span>;
+                          }
                           const liveStart = emp?.attendance_types?.fixed_start_time || emp?.fixed_shift_start || null;
                           const liveEnd = emp?.attendance_types?.fixed_end_time || emp?.fixed_shift_end || null;
                           const start = liveStart || ts.scheduled_start;
                           const end = liveEnd || ts.scheduled_end;
-                          const fmt = (v: string | null) => v ? v.slice(0, 5) : null;
                           return start && end ? `${fmt(start)} - ${fmt(end)}` : "-";
                         })()}
                       </TableCell>
