@@ -969,8 +969,17 @@ export default function TimesheetManagement() {
     let deduction_rule_id: string | null = null;
 
     if (data.is_absent) {
-      // Find absence rule
-      const absenceRule = deductionRules.find((r) => r.rule_type === "absence");
+      // Pick absence rule matching the notice flag:
+      // true => is_absence_with_notice, false => is_absence_without_notice, null => any absence rule
+      const allAbsenceRules = deductionRules.filter((r) => r.rule_type === "absence");
+      let absenceRule: any = null;
+      if (data.absence_has_notice === true) {
+        absenceRule = allAbsenceRules.find((r: any) => r.is_absence_with_notice) || allAbsenceRules[0];
+      } else if (data.absence_has_notice === false) {
+        absenceRule = allAbsenceRules.find((r: any) => r.is_absence_without_notice) || allAbsenceRules[0];
+      } else {
+        absenceRule = allAbsenceRules[0];
+      }
       if (absenceRule && employee?.basic_salary) {
         const dailySalary = employee.basic_salary / 30;
         deduction_amount = dailySalary * absenceRule.deduction_value;
