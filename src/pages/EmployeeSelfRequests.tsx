@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { RequestApprovalHistory } from "@/components/RequestApprovalHistory";
 import { Label } from "@/components/ui/label";
 import {
   Plus,
