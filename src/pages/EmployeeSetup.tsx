@@ -783,6 +783,7 @@ export default function EmployeeSetup() {
       religion: (employee as any).religion || "",
       department_id: employee.department_id || "",
       job_position_id: employee.job_position_id || "",
+      working_business_unit_id: (employee as any).working_business_unit_id || "",
       job_start_date: employee.job_start_date,
       termination_date: employee.termination_date || "",
       employment_status: employee.employment_status,
