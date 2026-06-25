@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
-import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2 } from "lucide-react";
+import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer } from "lucide-react";
 
 type Run = {
   id: string;
@@ -37,6 +37,108 @@ type Line = {
 };
 
 const fmt = (n: any) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function buildPayslipHtml(opts: {
+  period: string;
+  status: string;
+  employees: Array<{
+    id: string;
+    name: string;
+    lines: Array<{ name: string; type: string; minutes: number | null; amount: number }>;
+  }>;
+}) {
+  const isDraft = opts.status !== "confirmed";
+  const slips = opts.employees.map((e) => {
+    const earnings = e.lines.filter((l) => l.type === "earning");
+    const deductions = e.lines.filter((l) => l.type === "deduction");
+    const other = e.lines.filter((l) => l.type !== "earning" && l.type !== "deduction");
+    const gross = earnings.reduce((s, l) => s + Number(l.amount || 0), 0);
+    const ded = deductions.reduce((s, l) => s + Number(l.amount || 0), 0);
+    const net = gross - ded;
+    const row = (l: { name: string; minutes: number | null; amount: number }) =>
+      `<tr><td>${l.name}</td><td class="r">${l.minutes ? Number(l.minutes).toFixed(0) : "—"}</td><td class="r">${fmt(l.amount)}</td></tr>`;
+    return `
+      <div class="slip">
+        ${isDraft ? '<div class="watermark">DRAFT</div>' : ""}
+        <div class="head">
+          <div><h2>Pay Slip</h2><div class="muted">Period: ${opts.period}</div></div>
+          <div class="r"><div><strong>${e.name}</strong></div><div class="muted">${e.id}</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Earnings</th><th class="r">Minutes</th><th class="r">Amount</th></tr></thead>
+          <tbody>${earnings.map(row).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+          <tfoot><tr><td colspan="2"><strong>Total Earnings</strong></td><td class="r"><strong>${fmt(gross)}</strong></td></tr></tfoot>
+        </table>
+        <table>
+          <thead><tr><th>Deductions</th><th class="r">Minutes</th><th class="r">Amount</th></tr></thead>
+          <tbody>${deductions.map(row).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
+          <tfoot><tr><td colspan="2"><strong>Total Deductions</strong></td><td class="r"><strong>${fmt(ded)}</strong></td></tr></tfoot>
+        </table>
+        ${other.length ? `<table>
+          <thead><tr><th>Other</th><th class="r">Minutes</th><th class="r">Amount</th></tr></thead>
+          <tbody>${other.map(row).join("")}</tbody>
+        </table>` : ""}
+        <div class="net">Net Pay: <strong>${fmt(net)}</strong></div>
+      </div>`;
+  }).join("");
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Pay Slip — ${opts.period}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:Arial,Helvetica,sans-serif;margin:24px;color:#111}
+    .slip{position:relative;border:1px solid #ddd;border-radius:6px;padding:18px;margin-bottom:18px;page-break-after:always;overflow:hidden}
+    .slip:last-child{page-break-after:auto}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;border-bottom:2px solid #111;padding-bottom:8px}
+    h2{margin:0;font-size:20px}
+    .muted{color:#666;font-size:12px}
+    table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+    th,td{border-bottom:1px solid #eee;padding:6px 8px;text-align:left}
+    th{background:#f5f5f5}
+    .r{text-align:right}
+    tfoot td{background:#fafafa}
+    .net{margin-top:12px;text-align:right;font-size:16px;border-top:2px solid #111;padding-top:8px}
+    .watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:120px;color:rgba(220,0,0,.12);font-weight:bold;pointer-events:none;letter-spacing:8px;z-index:0}
+    .slip > *{position:relative;z-index:1}
+    @media print{ body{margin:10mm} .noprint{display:none} }
+  </style></head><body>
+  <div class="noprint" style="margin-bottom:12px;text-align:right">
+    <button onclick="window.print()" style="padding:6px 14px">Print</button>
+  </div>
+  ${slips}
+  <script>window.onload=()=>setTimeout(()=>window.print(),300)</script>
+  </body></html>`;
+}
+
+function printPayslips(args: {
+  run: Run;
+  empIds: string[];
+  lines: Line[];
+  empMap: Record<string, string>;
+  elMap: Record<string, { name: string; type: string }>;
+}) {
+  const period = `${args.run.period_year}-${String(args.run.period_month).padStart(2, "0")}`;
+  const employees = args.empIds.map((id) => ({
+    id,
+    name: args.empMap[id] || id,
+    lines: args.lines
+      .filter((l) => l.employee_id === id)
+      .map((l) => ({
+        name: args.elMap[l.element_id]?.name || l.element_id,
+        type: l.element_type,
+        minutes: l.minutes,
+        amount: Number(l.amount),
+      })),
+  }));
+  const html = buildPayslipHtml({ period, status: args.run.status, employees });
+  const w = window.open("", "_blank");
+  if (!w) {
+    toast({ title: "Popup blocked", description: "Allow popups to print payslips.", variant: "destructive" });
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
 
 export default function PayrollRun() {
   const today = new Date();
@@ -561,10 +663,27 @@ export default function PayrollRun() {
 
       {selectedRun && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
               Run Detail — {selectedRun.period_year}-{String(selectedRun.period_month).padStart(2, "0")}
+              {selectedRun.status !== "confirmed" && <Badge variant="secondary" className="ml-2">DRAFT</Badge>}
             </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={lines.length === 0}
+              onClick={() =>
+                printPayslips({
+                  run: selectedRun,
+                  empIds: Object.keys(empGroups),
+                  lines,
+                  empMap,
+                  elMap,
+                })
+              }
+            >
+              <Printer className="h-4 w-4 mr-1" /> Print All Payslips
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             {Object.entries(empGroups).map(([empId, empLines]) => {
@@ -574,9 +693,25 @@ export default function PayrollRun() {
                 <div key={empId} className="border rounded-md p-3">
                   <div className="flex justify-between items-center mb-2">
                     <strong>{empMap[empId] || empId}</strong>
-                    <div className="text-sm">
-                      Gross: {fmt(earn)} | Ded: {fmt(ded)} |
-                      <span className="font-bold ml-2">Net: {fmt(earn - ded)}</span>
+                    <div className="text-sm flex items-center gap-3">
+                      <span>Gross: {fmt(earn)} | Ded: {fmt(ded)} |
+                        <span className="font-bold ml-2">Net: {fmt(earn - ded)}</span>
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          printPayslips({
+                            run: selectedRun,
+                            empIds: [empId],
+                            lines,
+                            empMap,
+                            elMap,
+                          })
+                        }
+                      >
+                        <Printer className="h-4 w-4 mr-1" /> Print
+                      </Button>
                     </div>
                   </div>
                   <Table>
