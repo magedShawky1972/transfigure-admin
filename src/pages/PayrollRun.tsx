@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer } from "lucide-react";
+import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
 
 type Run = {
   id: string;
@@ -241,9 +242,16 @@ export default function PayrollRun() {
   }>({ open: false, title: "", description: "" });
   const askConfirm = (opts: Omit<typeof confirmDlg, "open">) => setConfirmDlg({ ...opts, open: true });
 
+  const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
+
   const loadRefs = async () => {
+    let empQuery = supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status");
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setEmpMap({}); setAllEmps([]); return; }
+      empQuery = empQuery.in("id", allowedEmployeeIds);
+    }
     const [e, el, d, j] = await Promise.all([
-      supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status"),
+      empQuery,
       supabase.from("payroll_elements").select("id, name_en, name_ar, element_type"),
       supabase.from("departments").select("id, department_name, department_name_ar").order("department_name"),
       supabase.from("job_positions").select("id, position_name, position_name_ar").order("position_name"),
@@ -277,22 +285,36 @@ export default function PayrollRun() {
   };
 
   const loadLines = async (runId: string) => {
-    const { data } = await supabase
+    let q = supabase
       .from("payroll_run_lines")
       .select("*")
       .eq("run_id", runId);
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setLines([]); return; }
+      q = q.in("employee_id", allowedEmployeeIds);
+    }
+    const { data } = await q;
     setLines((data || []) as Line[]);
   };
 
-  useEffect(() => { loadRefs(); loadRuns(); }, []);
+  useEffect(() => { if (!scopeLoading) { loadRefs(); loadRuns(); } }, [scopeLoading, allowedEmployeeIds]);
 
   const computePeriod = async () => {
     setBusy(true);
     try {
       // 1. Load employees and apply scope filters
-      const { data: emps, error: empErr } = await supabase
+      let empBaseQuery = supabase
         .from("employees")
         .select("id, basic_salary, department_id, job_position_id, employment_status");
+      if (allowedEmployeeIds !== null) {
+        if (allowedEmployeeIds.length === 0) {
+          toast({ title: isAr ? "لا يوجد موظفون ضمن وحدات العمل المخصصة لك" : "No employees in your assigned Business Units", variant: "destructive" });
+          setBusy(false);
+          return;
+        }
+        empBaseQuery = empBaseQuery.in("id", allowedEmployeeIds);
+      }
+      const { data: emps, error: empErr } = await empBaseQuery;
       if (empErr) throw empErr;
       let activeEmps = (emps || []).filter((e: any) => e.employment_status !== "terminated");
       if (empFilter.length) activeEmps = activeEmps.filter((e: any) => empFilter.includes(e.id));

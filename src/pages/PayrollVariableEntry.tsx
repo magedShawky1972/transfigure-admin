@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
+import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
 
 const typeColors: Record<string, { head: string; cell: string; label: string }> = {
   earning: { head: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200", cell: "bg-emerald-50/40 dark:bg-emerald-950/10", label: "text-emerald-700 dark:text-emerald-300" },
@@ -90,12 +91,19 @@ export default function PayrollVariableEntry() {
   const [elementFilter, setElementFilter] = useState<string[]>([]);
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "name", dir: "asc" }]);
 
+  const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
+
   const loadStatic = async () => {
+    let empQuery = supabase
+      .from("employees")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .order("first_name");
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setEmps([]); return; }
+      empQuery = empQuery.in("id", allowedEmployeeIds);
+    }
     const [e, el] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
-        .order("first_name"),
+      empQuery,
       supabase
         .from("payroll_elements")
         .select("id, code, name_en, name_ar, element_type, default_amount, sort_order")
@@ -111,11 +119,16 @@ export default function PayrollVariableEntry() {
 
   const loadEntries = async () => {
     setLoading(true);
-    const { data } = await supabase
+    let q = supabase
       .from("payroll_variable_entries")
       .select("id, employee_id, element_id, amount")
       .eq("period_year", year)
       .eq("period_month", month);
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setMatrix({}); setLoading(false); return; }
+      q = q.in("employee_id", allowedEmployeeIds);
+    }
+    const { data } = await q;
     const m: Matrix = {};
     for (const row of (data || []) as any[]) {
       m[`${row.employee_id}|${row.element_id}`] = { id: row.id, amount: Number(row.amount) || 0 };
@@ -124,8 +137,8 @@ export default function PayrollVariableEntry() {
     setLoading(false);
   };
 
-  useEffect(() => { loadStatic(); }, []);
-  useEffect(() => { loadEntries(); }, [year, month]);
+  useEffect(() => { if (!scopeLoading) loadStatic(); }, [scopeLoading, allowedEmployeeIds]);
+  useEffect(() => { if (!scopeLoading) loadEntries(); }, [year, month, scopeLoading, allowedEmployeeIds]);
 
   const deptName = (d?: { department_name: string; department_name_ar?: string | null } | null) =>
     (language === "ar" && d?.department_name_ar) ? d.department_name_ar : (d?.department_name || "");

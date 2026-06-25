@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
+import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
 
 
 const typeColors: Record<string, { head: string; cell: string; label: string }> = {
@@ -91,15 +92,24 @@ export default function PayrollMatrixEntry() {
   const [elementFilter, setElementFilter] = useState<string[]>([]); // only show these element columns
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "name", dir: "asc" }]);
 
+  const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
+
   const load = async () => {
     setLoading(true);
+    let empQuery = supabase
+      .from("employees")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .order("first_name");
+    let peQuery = supabase.from("payroll_employee_elements").select("id, employee_id, element_id, amount, is_active").eq("is_active", true);
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setEmps([]); setMatrix({}); setLoading(false); return; }
+      empQuery = empQuery.in("id", allowedEmployeeIds);
+      peQuery = peQuery.in("employee_id", allowedEmployeeIds);
+    }
     const [e, el, pe] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
-        .order("first_name"),
+      empQuery,
       supabase.from("payroll_elements").select("id, code, name_en, name_ar, element_type, default_amount, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
-      supabase.from("payroll_employee_elements").select("id, employee_id, element_id, amount, is_active").eq("is_active", true),
+      peQuery,
     ]);
     setEmps((e.data || []) as any);
     setElements((el.data || []) as Element[]);
@@ -111,7 +121,7 @@ export default function PayrollMatrixEntry() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (!scopeLoading) load(); }, [scopeLoading, allowedEmployeeIds]);
 
   const departments = useMemo(() => {
     const map = new Map<string, string>();
