@@ -316,53 +316,72 @@ export default function PayrollRun() {
     }
   };
 
-  const confirmRun = async (run: Run) => {
-    if (!confirm(`Confirm and LOCK payroll for ${run.period_year}-${run.period_month}?`)) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("payroll_runs").update({
-      status: "confirmed",
-      confirmed_at: new Date().toISOString(),
-      confirmed_by: user?.id,
-    }).eq("id", run.id);
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Confirmed and locked" }); loadRuns(); }
+  const confirmRun = (run: Run) => {
+    askConfirm({
+      title: "Confirm & Lock Payroll",
+      description: `Confirm and LOCK payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? Once locked it cannot be recomputed without rolling back.`,
+      confirmLabel: "Confirm & Lock",
+      onConfirm: async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase.from("payroll_runs").update({
+          status: "confirmed",
+          confirmed_at: new Date().toISOString(),
+          confirmed_by: user?.id,
+        }).eq("id", run.id);
+        if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+        else { toast({ title: "Confirmed and locked" }); loadRuns(); }
+      },
+    });
   };
 
-  const deleteRun = async (run: Run) => {
+  const deleteRun = (run: Run) => {
     if (run.status === "confirmed") return;
-    if (!confirm("Delete this draft run?")) return;
-    await supabase.from("payroll_runs").delete().eq("id", run.id);
-    setSelectedRun(null);
-    setLines([]);
-    loadRuns();
+    askConfirm({
+      title: "Delete Draft Run",
+      description: `Delete the draft payroll run for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This permanently removes the run and all its lines.`,
+      confirmLabel: "Delete",
+      destructive: true,
+      onConfirm: async () => {
+        await supabase.from("payroll_runs").delete().eq("id", run.id);
+        setSelectedRun(null);
+        setLines([]);
+        loadRuns();
+      },
+    });
   };
 
-  const rollbackRun = async (run: Run) => {
-    const msg = run.status === "confirmed"
-      ? `Rollback CONFIRMED payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}?\n\nThis will unlock the run back to draft so it can be recomputed or edited.`
-      : `Rollback draft payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}?\n\nThis will clear all computed lines and reset totals to zero.`;
-    if (!confirm(msg)) return;
-    try {
-      // Always clear lines and reset totals; if confirmed, also unlock to draft.
-      const { error: delErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
-      if (delErr) throw delErr;
-      const { error: updErr } = await supabase.from("payroll_runs").update({
-        status: "draft",
-        confirmed_at: null,
-        confirmed_by: null,
-        total_gross: 0,
-        total_deductions: 0,
-        total_employer_contributions: 0,
-        total_net: 0,
-        employee_count: 0,
-      }).eq("id", run.id);
-      if (updErr) throw updErr;
-      toast({ title: "Rolled back", description: "Run reset to draft with no lines." });
-      if (selectedRun?.id === run.id) setLines([]);
-      loadRuns();
-    } catch (e: any) {
-      toast({ title: "Rollback failed", description: e.message, variant: "destructive" });
-    }
+  const rollbackRun = (run: Run) => {
+    const isConf = run.status === "confirmed";
+    askConfirm({
+      title: isConf ? "Rollback Confirmed Payroll" : "Rollback Draft Payroll",
+      description: isConf
+        ? `Rollback confirmed payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This unlocks the run back to draft and clears all computed lines.`
+        : `Rollback draft payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This clears all computed lines and resets totals to zero.`,
+      confirmLabel: "Rollback",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const { error: delErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
+          if (delErr) throw delErr;
+          const { error: updErr } = await supabase.from("payroll_runs").update({
+            status: "draft",
+            confirmed_at: null,
+            confirmed_by: null,
+            total_gross: 0,
+            total_deductions: 0,
+            total_employer_contributions: 0,
+            total_net: 0,
+            employee_count: 0,
+          }).eq("id", run.id);
+          if (updErr) throw updErr;
+          toast({ title: "Rolled back", description: "Run reset to draft with no lines." });
+          if (selectedRun?.id === run.id) setLines([]);
+          loadRuns();
+        } catch (e: any) {
+          toast({ title: "Rollback failed", description: e.message, variant: "destructive" });
+        }
+      },
+    });
   };
 
   const viewRun = async (run: Run) => {
