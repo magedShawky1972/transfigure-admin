@@ -188,6 +188,7 @@ import PayrollVariableEntry from "./pages/PayrollVariableEntry";
 import PayrollRun from "./pages/PayrollRun";
 import PayrollMatrixEntry from "./pages/PayrollMatrixEntry";
 import PayrollMonthPreview from "./pages/PayrollMonthPreview";
+import { PayrollAccessGate } from "./components/PayrollAccessGate";
 const queryClient = new QueryClient();
 
 const App = () => (
