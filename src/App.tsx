@@ -288,6 +288,7 @@ const App = () => (
               <Route path="/employee-contacts" element={<EmployeeContacts />} />
               <Route path="/vacation-setup" element={<VacationSetup />} />
               <Route path="/timesheet-management" element={<TimesheetManagement />} />
+              <Route path="/timesheet-management/deduction-summary" element={<DeductionSummary />} />
               <Route path="/deduction-rules-setup" element={<DeductionRulesSetup />} />
               <Route path="/medical-insurance-setup" element={<MedicalInsuranceSetup />} />
               <Route path="/shift-plans-setup" element={<ShiftPlansSetup />} />
