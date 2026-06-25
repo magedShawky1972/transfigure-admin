@@ -474,6 +474,9 @@ export default function PayrollRun() {
             const v = (variables || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
             if (!v) continue;
             amount = Number(v.amount) || 0;
+          } else if (basicElement && el.id === basicElement.id) {
+            amount = basicSalaryByEmp[emp.id] || 0;
+            if (amount <= 0) continue;
           } else {
             const assign = (empElements || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
             if (assign) amount = Number(assign.amount) || 0;
