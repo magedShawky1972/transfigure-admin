@@ -56,6 +56,8 @@ interface Employee {
   national_id: string | null;
   department_id: string | null;
   job_position_id: string | null;
+  working_business_unit_id?: string | null;
+  business_units?: { unit_name: string; unit_name_ar: string | null } | null;
   job_start_date: string;
   termination_date: string | null;
   employment_status: string;
