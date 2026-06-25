@@ -176,7 +176,12 @@ export default function PayrollRun() {
         if (cErr) throw cErr;
         runId = created.id;
       } else {
-        await supabase.from("payroll_run_lines").delete().eq("run_id", runId);
+        // If scoped, only remove existing lines for employees in scope; otherwise wipe all.
+        if (isScoped) {
+          await supabase.from("payroll_run_lines").delete().eq("run_id", runId).in("employee_id", Array.from(scopeEmpIds));
+        } else {
+          await supabase.from("payroll_run_lines").delete().eq("run_id", runId);
+        }
       }
 
       // 5. Compute lines
