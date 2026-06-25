@@ -99,12 +99,22 @@ export default function PayrollRun() {
   const computePeriod = async () => {
     setBusy(true);
     try {
-      // 1. Load employees
+      // 1. Load employees and apply scope filters
       const { data: emps, error: empErr } = await supabase
         .from("employees")
         .select("id, basic_salary, department_id, job_position_id, employment_status");
       if (empErr) throw empErr;
-      const activeEmps = (emps || []).filter((e: any) => e.employment_status !== "terminated");
+      let activeEmps = (emps || []).filter((e: any) => e.employment_status !== "terminated");
+      if (empFilter.length) activeEmps = activeEmps.filter((e: any) => empFilter.includes(e.id));
+      if (deptFilter.length) activeEmps = activeEmps.filter((e: any) => e.department_id && deptFilter.includes(e.department_id));
+      if (jobFilter.length) activeEmps = activeEmps.filter((e: any) => e.job_position_id && jobFilter.includes(e.job_position_id));
+      if (activeEmps.length === 0) {
+        toast({ title: "No employees match the selected filters", variant: "destructive" });
+        setBusy(false);
+        return;
+      }
+      const scopeEmpIds = new Set(activeEmps.map((e: any) => e.id));
+      const isScoped = empFilter.length + deptFilter.length + jobFilter.length > 0;
 
       // 2. Load elements + eligibility
       const [{ data: elements }, { data: eligibility }, { data: empElements }, { data: variables }] = await Promise.all([
