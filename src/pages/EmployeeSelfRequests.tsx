@@ -444,17 +444,26 @@ const EmployeeSelfRequests = () => {
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Get the target employee's department (important when HR submits for another dept)
+      // Get the target employee's department and direct manager (important when HR submits for another dept)
       let targetDepartmentId = employee.department_id;
-      if (isOnBehalf) {
-        const { data: targetEmp } = await supabase
+      let directManagerUserId: string | null = null;
+      const { data: targetEmp } = await supabase
+        .from('employees')
+        .select('department_id, manager_id')
+        .eq('id', targetEmployeeId)
+        .maybeSingle();
+
+      if (targetEmp?.department_id) {
+        targetDepartmentId = targetEmp.department_id;
+      }
+
+      if (targetEmp?.manager_id) {
+        const { data: managerEmp } = await supabase
           .from('employees')
-          .select('department_id')
-          .eq('id', targetEmployeeId)
-          .single();
-        if (targetEmp?.department_id) {
-          targetDepartmentId = targetEmp.department_id;
-        }
+          .select('user_id')
+          .eq('id', targetEmp.manager_id)
+          .maybeSingle();
+        directManagerUserId = managerEmp?.user_id || null;
       }
       
       const requestData: any = {
@@ -475,6 +484,18 @@ const EmployeeSelfRequests = () => {
       if (selectedType !== 'other' && user) {
         const submitterUserId = user.id;
 
+        let directManagerAdminRecord: any = null;
+        if (directManagerUserId && directManagerUserId !== submitterUserId) {
+          const { data: managerAdmin } = await supabase
+            .from('department_admins')
+            .select('user_id, admin_order')
+            .eq('department_id', targetDepartmentId)
+            .eq('user_id', directManagerUserId)
+            .eq('approve_employee_request', true)
+            .maybeSingle();
+          directManagerAdminRecord = managerAdmin;
+        }
+
         // Check if the submitter is a department admin (manager) in the TARGET department
         const { data: submitterAdminRecord } = await supabase
           .from('department_admins')
@@ -484,7 +505,12 @@ const EmployeeSelfRequests = () => {
           .eq('approve_employee_request', true)
           .maybeSingle();
 
-        if (submitterAdminRecord) {
+        if (directManagerAdminRecord) {
+          // Always route employee requests to the employee's direct manager first when available.
+          requestData.current_approval_level = directManagerAdminRecord.admin_order;
+          requestData.current_phase = 'manager';
+          requestData.status = 'pending';
+        } else if (submitterAdminRecord) {
           // Submitter IS a department approver - check if there is a higher-level
           // approver above them in the chain (greater admin_order = higher rank).
           // If yes, route there first.
