@@ -110,6 +110,7 @@ export default function PayrollMonthPreview() {
   const filtered = useMemo(() => {
     const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return emps.filter((e) => {
+      if (employeeFilter.length && !employeeFilter.includes(e.id)) return false;
       if (deptFilter.length && (!e.department_id || !deptFilter.includes(e.department_id))) return false;
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
@@ -123,7 +124,7 @@ export default function PayrollMonthPreview() {
       }
       return true;
     });
-  }, [emps, deptFilter, jobFilter, statusFilter, search, hideZeroEmployees, visibleElements, amounts]);
+  }, [emps, employeeFilter, deptFilter, jobFilter, statusFilter, search, hideZeroEmployees, visibleElements, amounts]);
 
   const sorted = useMemo(() => {
     if (!sortRules.length) return filtered;
