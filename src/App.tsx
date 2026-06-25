@@ -93,6 +93,7 @@ import EmployeeProfile from "./pages/EmployeeProfile";
 import EmployeeContacts from "./pages/EmployeeContacts";
 import VacationSetup from "./pages/VacationSetup";
 import TimesheetManagement from "./pages/TimesheetManagement";
+import DeductionSummary from "./pages/DeductionSummary";
 import DeductionRulesSetup from "./pages/DeductionRulesSetup";
 import MedicalInsuranceSetup from "./pages/MedicalInsuranceSetup";
 import ShiftPlansSetup from "./pages/ShiftPlansSetup";
@@ -287,6 +288,7 @@ const App = () => (
               <Route path="/employee-contacts" element={<EmployeeContacts />} />
               <Route path="/vacation-setup" element={<VacationSetup />} />
               <Route path="/timesheet-management" element={<TimesheetManagement />} />
+              <Route path="/timesheet-management/deduction-summary" element={<DeductionSummary />} />
               <Route path="/deduction-rules-setup" element={<DeductionRulesSetup />} />
               <Route path="/medical-insurance-setup" element={<MedicalInsuranceSetup />} />
               <Route path="/shift-plans-setup" element={<ShiftPlansSetup />} />
