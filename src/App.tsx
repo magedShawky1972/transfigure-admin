@@ -185,6 +185,7 @@ import PayrollElementEligibility from "./pages/PayrollElementEligibility";
 import PayrollEmployeeElements from "./pages/PayrollEmployeeElements";
 import PayrollVariableEntry from "./pages/PayrollVariableEntry";
 import PayrollRun from "./pages/PayrollRun";
+import PayrollMatrixEntry from "./pages/PayrollMatrixEntry";
 const queryClient = new QueryClient();
 
 const App = () => (
