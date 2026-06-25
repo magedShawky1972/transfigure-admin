@@ -11,7 +11,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 type Element = { id: string; code: string; name_en: string; element_type: string };
 type Job = { id: string; position_name: string };
-type Dept = { id: string; name_en: string | null; department_name?: string | null };
+type Dept = { id: string; department_name: string | null; department_name_ar?: string | null };
 type Row = {
   id: string;
   element_id: string;
@@ -32,7 +32,7 @@ export default function PayrollElementEligibility() {
     const [e, j, d] = await Promise.all([
       supabase.from("payroll_elements").select("id, code, name_en, element_type").eq("is_active", true).order("name_en"),
       supabase.from("job_positions").select("id, position_name").order("position_name"),
-      supabase.from("departments").select("id, name_en, department_name").order("name_en"),
+      supabase.from("departments").select("id, department_name, department_name_ar").order("department_name"),
     ]);
     setElements((e.data || []) as Element[]);
     setJobs((j.data || []) as Job[]);
@@ -83,7 +83,7 @@ export default function PayrollElementEligibility() {
   const deptName = (id: string | null) => {
     if (!id) return "All Departments";
     const d = depts.find((x) => x.id === id);
-    return d?.name_en || d?.department_name || id;
+    return d?.department_name || id;
   };
   const jobName = (id: string | null) => {
     if (!id) return "All Jobs";
@@ -135,7 +135,7 @@ export default function PayrollElementEligibility() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">All Departments</SelectItem>
-                    {depts.map((d) => <SelectItem key={d.id} value={d.id}>{d.name_en || d.department_name}</SelectItem>)}
+                    {depts.map((d) => <SelectItem key={d.id} value={d.id}>{d.department_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
