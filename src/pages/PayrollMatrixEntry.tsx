@@ -53,7 +53,7 @@ export default function PayrollMatrixEntry() {
         .from("employees")
         .select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
         .order("first_name"),
-      supabase.from("payroll_elements").select("id, code, name_en, element_type, default_amount").eq("is_active", true).order("name_en"),
+      supabase.from("payroll_elements").select("id, code, name_en, element_type, default_amount, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
       supabase.from("payroll_employee_elements").select("id, employee_id, element_id, amount, is_active").eq("is_active", true),
     ]);
     setEmps((e.data || []) as any);
