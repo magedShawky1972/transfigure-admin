@@ -108,6 +108,93 @@ export default function PayrollMonthPreview() {
 
   useEffect(() => { if (!scopeLoading) load(); /* eslint-disable-next-line */ }, [year, month, scopeLoading, allowedEmployeeIds]);
 
+  const [calculating, setCalculating] = useState(false);
+  const calculateProratedBasic = async () => {
+    const basicElement = elements.find((el) => (el as any).is_basic_salary_element);
+    if (!basicElement) {
+      toast({ title: language === "ar" ? "لم يتم العثور على عنصر الراتب الأساسي" : "Basic salary element not found", variant: "destructive" });
+      return;
+    }
+    const targetEmps = filtered;
+    if (targetEmps.length === 0) { toast({ title: language === "ar" ? "لا يوجد موظفين" : "No employees" }); return; }
+    setCalculating(true);
+    try {
+      // Fetch assigned basic salary amounts for these employees
+      const { data: assigns } = await supabase
+        .from("payroll_employee_elements")
+        .select("employee_id, amount")
+        .eq("element_id", basicElement.id)
+        .eq("is_active", true)
+        .in("employee_id", targetEmps.map((e) => e.id));
+      const assignedMap = new Map<string, number>();
+      (assigns || []).forEach((a: any) => assignedMap.set(a.employee_id, Number(a.amount) || 0));
+
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const periodStart = new Date(year, month - 1, 1);
+      const periodEnd = new Date(year, month - 1, daysInMonth);
+
+      const rowsToUpsert: any[] = [];
+      const empsToClear: string[] = [];
+      let proratedCount = 0;
+      for (const emp of targetEmps) {
+        let bs = assignedMap.get(emp.id) ?? 0;
+        if (!bs) bs = Number(emp.basic_salary) || 0;
+        if (bs <= 0) continue;
+
+        const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
+        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const effStart = jsd && jsd > periodStart ? jsd : periodStart;
+        const effEnd = td && td < periodEnd ? td : periodEnd;
+        let workedDays = daysInMonth;
+        if (effStart > periodEnd || effEnd < periodStart) workedDays = 0;
+        else {
+          workedDays = Math.floor((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          if (workedDays < 0) workedDays = 0;
+          if (workedDays > daysInMonth) workedDays = daysInMonth;
+        }
+        empsToClear.push(emp.id);
+        if (workedDays >= daysInMonth) continue; // full month → no override needed
+        const prorated = (bs * workedDays) / daysInMonth;
+        rowsToUpsert.push({
+          employee_id: emp.id,
+          element_id: basicElement.id,
+          period_year: year,
+          period_month: month,
+          amount: Number(prorated.toFixed(2)),
+          notes: `Prorated: ${workedDays}/${daysInMonth} days`,
+        });
+        proratedCount++;
+      }
+
+      // Clear previous variable entries for these employees (this element) for the period
+      if (empsToClear.length > 0) {
+        await supabase
+          .from("payroll_variable_entries")
+          .delete()
+          .eq("element_id", basicElement.id)
+          .eq("period_year", year)
+          .eq("period_month", month)
+          .in("employee_id", empsToClear);
+      }
+      if (rowsToUpsert.length > 0) {
+        const { error } = await supabase.from("payroll_variable_entries").insert(rowsToUpsert);
+        if (error) throw error;
+      }
+
+      toast({
+        title: language === "ar" ? "اكتمل الحساب" : "Calculation complete",
+        description: language === "ar"
+          ? `تمت معالجة ${targetEmps.length} موظفين، تم احتساب نسبة ${proratedCount} منهم`
+          : `Processed ${targetEmps.length} employees, ${proratedCount} prorated`,
+      });
+      await load();
+    } catch (err: any) {
+      toast({ title: language === "ar" ? "فشل الحساب" : "Calculation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setCalculating(false);
+    }
+  };
+
   const departments = useMemo(() => {
     const map = new Map<string, string>();
     emps.forEach((e) => { if (e.department_id && e.departments) { const n = deptName(e.departments); if (n) map.set(e.department_id, n); } });
