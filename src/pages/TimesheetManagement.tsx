@@ -239,7 +239,14 @@ export default function TimesheetManagement() {
   const getEmployeeName = (ts: Timesheet) =>
     ts.employees ? `${ts.employees.first_name} ${ts.employees.last_name}` : "";
 
-  const sortedTimesheets = [...timesheets].sort((a, b) => {
+  const filteredByCard = timesheets.filter((t) => {
+    if (cardFilter === "all") return true;
+    if (cardFilter === "approved") return t.status === "approved";
+    if (cardFilter === "waiting") return t.status === "waiting_for_exit" || t.status === "pending";
+    if (cardFilter === "absent") return t.is_absent;
+    return true;
+  });
+  const sortedTimesheets = [...filteredByCard].sort((a, b) => {
     for (const { key, direction } of sortCriteria) {
       const dir = direction === "asc" ? 1 : -1;
       let cmp = 0;
