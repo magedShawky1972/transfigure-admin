@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
+import * as XLSX from "xlsx";
+
 
 const typeColors: Record<string, { head: string; cell: string; label: string }> = {
   earning: { head: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200", cell: "bg-emerald-50/40 dark:bg-emerald-950/10", label: "text-emerald-700 dark:text-emerald-300" },
@@ -171,6 +173,92 @@ export default function PayrollMatrixEntry() {
 
   const dirtyCount = useMemo(() => Object.values(matrix).filter((c) => c.dirty).length, [matrix]);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const buildSheet = (includeData: boolean) => {
+    const header = ["employee_number", "employee_name", ...elements.map((e) => e.code)];
+    const subHeader = ["", "", ...elements.map((e) => `${e.name_en} [${e.element_type}]`)];
+    const rows: any[][] = [header, subHeader];
+    const list = includeData ? sorted : emps;
+    for (const emp of list) {
+      const row: any[] = [emp.employee_number, `${emp.first_name} ${emp.last_name}`];
+      for (const el of elements) {
+        if (includeData) {
+          const c = matrix[`${emp.id}|${el.id}`];
+          row.push(c ? c.amount : "");
+        } else {
+          row.push("");
+        }
+      }
+      rows.push(row);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    (ws as any)["!cols"] = header.map((_, i) => ({ wch: i < 2 ? 22 : 16 }));
+    return ws;
+  };
+
+  const downloadTemplate = () => {
+    if (elements.length === 0) { toast({ title: "No active elements" }); return; }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, buildSheet(false), "Template");
+    XLSX.writeFile(wb, `payroll_matrix_template_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, buildSheet(true), "Matrix");
+    XLSX.writeFile(wb, `payroll_matrix_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const importFromExcel = async (file: File) => {
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (rows.length < 2) { toast({ title: "Empty file", variant: "destructive" }); return; }
+      const header = (rows[0] as any[]).map((h) => String(h || "").trim());
+      const codeToElement = new Map(elements.map((e) => [e.code, e]));
+      const numberToEmp = new Map(emps.map((e) => [e.employee_number, e]));
+      const colElements: ({ id: string } | null)[] = header.map((h, i) => i < 2 ? null : (codeToElement.get(h) ? { id: codeToElement.get(h)!.id } : null));
+      const unknownCols = header.slice(2).filter((h) => !codeToElement.get(h));
+      let touched = 0; let skippedEmps = 0;
+      const next: Matrix = { ...matrix };
+      // skip header rows (row 0 = codes, row 1 may be names sub-header if first col empty)
+      const startRow = (rows[1] && String(rows[1][0] || "").trim() === "") ? 2 : 1;
+      for (let r = startRow; r < rows.length; r++) {
+        const row = rows[r] as any[];
+        const empNum = String(row[0] || "").trim();
+        if (!empNum) continue;
+        const emp = numberToEmp.get(empNum);
+        if (!emp) { skippedEmps++; continue; }
+        for (let c = 2; c < row.length; c++) {
+          const el = colElements[c];
+          if (!el) continue;
+          const raw = row[c];
+          if (raw === "" || raw === null || raw === undefined) continue;
+          const amount = Number(raw);
+          if (isNaN(amount)) continue;
+          const key = `${emp.id}|${el.id}`;
+          const existing = next[key];
+          if (existing && Number(existing.amount) === amount && !existing.dirty) continue;
+          next[key] = { ...(existing || { amount: 0 }), amount, dirty: true };
+          touched++;
+        }
+      }
+      setMatrix(next);
+      toast({
+        title: "Imported",
+        description: `${touched} cell(s) marked. ${skippedEmps} unknown employees skipped.${unknownCols.length ? ` Unknown columns: ${unknownCols.join(", ")}` : ""} Click Save All to persist.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+
   const saveAll = async () => {
     const dirty = Object.entries(matrix).filter(([, v]) => v.dirty);
     if (dirty.length === 0) { toast({ title: "No changes" }); return; }
@@ -260,13 +348,31 @@ export default function PayrollMatrixEntry() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Payroll Multi Element Entry</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFromExcel(f); }}
+          />
+          <Button variant="outline" size="sm" onClick={downloadTemplate}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4 mr-2" /> Import
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToExcel}>
+            <Download className="h-4 w-4 mr-2" /> Export
+          </Button>
           <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} unsaved</Badge>
           <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
             <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save All"}
           </Button>
         </div>
       </div>
+
+
 
       <Card>
         <CardHeader>
