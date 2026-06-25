@@ -477,7 +477,7 @@ export default function DeductionSummary() {
       isAr ? "القواعد المطبقة" : "Applied Rules",
       isAr ? "إجمالي الخصم" : "Total Deduction",
     ];
-    const body = rows.map((r, i) => [
+    const body = displayRows.map((r, i) => [
       i + 1,
       r.empNumber,
       r.name,
