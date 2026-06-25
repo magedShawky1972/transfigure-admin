@@ -468,7 +468,7 @@ export default function PayrollMatrixEntry() {
                             title={`${el.code} — ${el.element_type}`}
                           >
                             <div className="flex items-center justify-end gap-1">
-                              <span className="truncate">{el.name_en}</span> {sortBadge(el.id)}
+                              <span className="truncate">{(language === "ar" && el.name_ar) ? el.name_ar : el.name_en}</span> {sortBadge(el.id)}
                             </div>
                             <div className={`text-[10px] font-normal ${c.label}`}>{el.element_type}</div>
                           </TableHead>
