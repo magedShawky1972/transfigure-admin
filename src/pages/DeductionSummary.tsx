@@ -387,7 +387,7 @@ export default function DeductionSummary() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => { setTimeout(() => window.print(), 100); };
 
   const handleExportExcel = () => {
     const header = [
