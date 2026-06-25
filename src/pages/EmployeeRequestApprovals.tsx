@@ -119,6 +119,23 @@ const EmployeeRequestApprovals = () => {
       if (hrData) {
         setIsHRManager(true);
         setHrManagerLevel(hrData.admin_order);
+
+        // Apply Business Unit restriction
+        const { data: links } = await supabase
+          .from('hr_manager_business_units')
+          .select('business_unit_id')
+          .eq('hr_manager_id', hrData.id);
+
+        if (links && links.length > 0) {
+          const unitIds = links.map((l: any) => l.business_unit_id);
+          const { data: emps } = await supabase
+            .from('employees')
+            .select('id')
+            .in('working_business_unit_id', unitIds);
+          setHrAllowedEmployeeIds((emps || []).map((e: any) => e.id));
+        } else {
+          setHrAllowedEmployeeIds(null);
+        }
       }
 
       if (adminData && adminData.length > 0) {
