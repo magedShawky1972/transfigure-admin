@@ -1634,7 +1634,7 @@ export default function TimesheetManagement() {
     setTimeout(() => printWindow.print(), 500);
   };
 
-  const getStatusBadge = (status: string, isAbsent: boolean) => {
+  const getStatusBadge = (status: string, isAbsent: boolean, ts?: any) => {
     if (isAbsent) {
       return <Badge variant="destructive">{language === "ar" ? "غائب" : "Absent"}</Badge>;
     }
@@ -1643,8 +1643,12 @@ export default function TimesheetManagement() {
         return <Badge className="bg-green-100 text-green-800">{language === "ar" ? "معتمد" : "Approved"}</Badge>;
       case "rejected":
         return <Badge variant="destructive">{language === "ar" ? "مرفوض" : "Rejected"}</Badge>;
-      case "vacation":
-        return <Badge className="bg-yellow-400 text-red-600 font-bold">{language === "ar" ? "إجازة" : "Vacation"}</Badge>;
+      case "vacation": {
+        const nameAr = ts?.vacation_name_ar;
+        const nameEn = ts?.vacation_name_en;
+        const dispName = language === "ar" ? (nameAr || nameEn || "إجازة") : (nameEn || nameAr || "Vacation");
+        return <Badge className="bg-yellow-400 text-red-600 font-bold">{dispName}</Badge>;
+      }
       case "holiday":
         return <Badge className="bg-purple-500 text-white font-bold">{language === "ar" ? "إجازة رسمية" : "Holiday"}</Badge>;
       case "waiting_for_exit":
