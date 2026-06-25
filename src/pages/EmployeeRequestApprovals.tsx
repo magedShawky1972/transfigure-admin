@@ -793,7 +793,21 @@ const EmployeeRequestApprovals = () => {
                 <TableHead>{language === 'ar' ? 'إجراء' : 'Action'}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {requests.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center">{language === 'ar' ? 'لا توجد طلبات' : 'No requests'}</TableCell></TableRow> : requests.map((r: any) => {
+                {(() => {
+                  const fromTs = filterFromDate ? new Date(filterFromDate.getFullYear(), filterFromDate.getMonth(), filterFromDate.getDate()).getTime() : null;
+                  const toTs = filterToDate ? new Date(filterToDate.getFullYear(), filterToDate.getMonth(), filterToDate.getDate(), 23, 59, 59, 999).getTime() : null;
+                  const filtered = requests.filter((r: any) => {
+                    if (filterEmployeeId !== 'all' && r.employee_id !== filterEmployeeId) return false;
+                    if (fromTs || toTs) {
+                      const ts = r.created_at ? new Date(r.created_at).getTime() : null;
+                      if (ts === null) return false;
+                      if (fromTs && ts < fromTs) return false;
+                      if (toTs && ts > toTs) return false;
+                    }
+                    return true;
+                  });
+                  if (filtered.length === 0) return <TableRow><TableCell colSpan={6} className="text-center">{language === 'ar' ? 'لا توجد طلبات' : 'No requests'}</TableCell></TableRow>;
+                  return filtered.map((r: any) => {
                   const info = REQUEST_TYPE_INFO[r.request_type] || REQUEST_TYPE_INFO.vacation;
                   const Icon = info.icon;
                   const canAct = canTakeAction(r);
