@@ -2476,6 +2476,61 @@ export default function EmployeeSetup() {
         </DialogContent>
       </Dialog>
 
+      {/* Payroll Elements Dialog */}
+      <Dialog open={payrollDialogOpen} onOpenChange={setPayrollDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              {language === "ar" ? "عناصر الرواتب" : "Payroll Elements"} —{" "}
+              {payrollDialogEmp?.first_name} {payrollDialogEmp?.last_name}
+            </DialogTitle>
+          </DialogHeader>
+          {payrollDialogLoading ? (
+            <p className="text-center py-6 text-muted-foreground">{language === "ar" ? "جاري التحميل..." : "Loading..."}</p>
+          ) : payrollDialogRows.length === 0 ? (
+            <p className="text-center py-6 text-muted-foreground">
+              {language === "ar" ? "لا توجد عناصر رواتب معيّنة" : "No payroll elements assigned"}
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === "ar" ? "الكود" : "Code"}</TableHead>
+                  <TableHead>{language === "ar" ? "العنصر" : "Element"}</TableHead>
+                  <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "القيمة" : "Amount"}</TableHead>
+                  <TableHead>{language === "ar" ? "من" : "From"}</TableHead>
+                  <TableHead>{language === "ar" ? "إلى" : "To"}</TableHead>
+                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payrollDialogRows.map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.payroll_elements?.code}</TableCell>
+                    <TableCell>{language === "ar" ? (r.payroll_elements?.name_ar || r.payroll_elements?.name_en) : r.payroll_elements?.name_en}</TableCell>
+                    <TableCell>{r.payroll_elements?.element_type}</TableCell>
+                    <TableCell className="text-right font-medium">{Number(r.amount).toFixed(2)}</TableCell>
+                    <TableCell>{r.effective_from || "—"}</TableCell>
+                    <TableCell>{r.effective_to || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={r.is_active ? "default" : "secondary"}>{r.is_active ? "Active" : "Inactive"}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayrollDialogOpen(false)}>
+              {language === "ar" ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Load Users Dialog */}
       <Dialog open={loadUsersDialogOpen} onOpenChange={setLoadUsersDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
