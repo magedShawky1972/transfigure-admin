@@ -411,6 +411,14 @@ export default function DeductionSummary() {
               <Send className="h-4 w-4 mr-2" />
               {isAr ? "تأكيد وإرسال إلى الرواتب" : "Confirm & Send to Payroll"}
             </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setRollbackOpen(true)}
+              disabled={!selectedElementId || existingCount === 0 || rollingBack}
+              title={isAr ? "التراجع عن خصومات التأخير لهذا الشهر" : "Rollback delay deductions for this period"}
+            >
+              {isAr ? `تراجع (${existingCount})` : `Rollback (${existingCount})`}
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
