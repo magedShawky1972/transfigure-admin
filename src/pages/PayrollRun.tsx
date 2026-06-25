@@ -285,10 +285,15 @@ export default function PayrollRun() {
   };
 
   const loadLines = async (runId: string) => {
-    const { data } = await supabase
+    let q = supabase
       .from("payroll_run_lines")
       .select("*")
       .eq("run_id", runId);
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setLines([]); return; }
+      q = q.in("employee_id", allowedEmployeeIds);
+    }
+    const { data } = await q;
     setLines((data || []) as Line[]);
   };
 
