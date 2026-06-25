@@ -219,11 +219,11 @@ export default function DeductionSummary() {
   const fetchDelayElements = async () => {
     const { data } = await supabase
       .from("payroll_elements")
-      .select("id, element_code, element_name, is_active, is_delay_minutes_element, calculation_type")
+      .select("id, code, name_en, name_ar, is_active, is_delay_minutes_element, calculation_type")
       .eq("is_active", true);
     const els = (data || []).filter((e: any) => e.is_delay_minutes_element || e.calculation_type === "delay_minutes");
-    setDelayElements(els);
-    if (els.length > 0 && !selectedElementId) setSelectedElementId(els[0].id);
+    setDelayElements(els as any);
+    if (els.length > 0 && !selectedElementId) setSelectedElementId((els[0] as any).id);
   };
 
   useEffect(() => { fetchData(); fetchDelayElements(); /* eslint-disable-next-line */ }, []);
