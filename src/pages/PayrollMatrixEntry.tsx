@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save, Download, Upload, FileSpreadsheet } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save, Download, Upload, FileSpreadsheet, Printer } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
@@ -303,6 +303,114 @@ export default function PayrollMatrixEntry() {
     }
   };
 
+  const printDocument = () => {
+    if (sorted.length === 0) {
+      toast({ title: language === "ar" ? "لا توجد بيانات للطباعة" : "No data to print" });
+      return;
+    }
+    const isAr = language === "ar";
+    const dir = isAr ? "rtl" : "ltr";
+    const title = isAr ? "إدخال عناصر الراتب المتعددة" : "Payroll Multi Element Entry";
+    const today = new Date().toLocaleString(isAr ? "ar-EG" : "en-US");
+    const typeBg: Record<string, string> = {
+      earning: "#d1fae5",
+      deduction: "#fee2e2",
+      employer_contribution: "#e0f2fe",
+      information: "#f1f5f9",
+    };
+    // Column totals
+    const totals: Record<string, number> = {};
+    for (const emp of sorted) {
+      for (const el of visibleElements) {
+        const c = matrix[`${emp.id}|${el.id}`];
+        if (c && !isNaN(Number(c.amount))) totals[el.id] = (totals[el.id] || 0) + Number(c.amount);
+      }
+    }
+
+    const headerCells = visibleElements.map((el) => {
+      const bg = typeBg[el.element_type] || typeBg.information;
+      const nm = (isAr && el.name_ar) ? el.name_ar : el.name_en;
+      return `<th style="background:${bg};text-align:right;white-space:nowrap;">
+        <div>${nm}</div>
+        <div style="font-size:9px;font-weight:normal;opacity:.7">${el.code} · ${el.element_type}</div>
+      </th>`;
+    }).join("");
+
+    const bodyRows = sorted.map((emp) => {
+      const cells = visibleElements.map((el) => {
+        const c = matrix[`${emp.id}|${el.id}`];
+        const v = c && c.amount !== undefined && c.amount !== null && !isNaN(Number(c.amount)) ? numFmt.format(Number(c.amount)) : "";
+        return `<td style="text-align:right;">${v}</td>`;
+      }).join("");
+      return `<tr>
+        <td style="font-weight:600;">${empName(emp)}</td>
+        <td>${emp.employee_number || ""}</td>
+        <td>${deptName(emp.departments) || ""}</td>
+        <td>${jobName(emp.job_positions) || ""}</td>
+        ${cells}
+      </tr>`;
+    }).join("");
+
+    const totalsRow = `<tr style="background:#f8fafc;font-weight:700;">
+      <td colspan="4" style="text-align:${isAr ? "left" : "right"};">${isAr ? "الإجمالي" : "Total"}</td>
+      ${visibleElements.map((el) => `<td style="text-align:right;">${totals[el.id] ? numFmt.format(totals[el.id]) : ""}</td>`).join("")}
+    </tr>`;
+
+    const html = `<!doctype html>
+<html dir="${dir}" lang="${isAr ? "ar" : "en"}">
+<head>
+<meta charset="utf-8" />
+<title>${title}</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  body { font-family: ${isAr ? "'Tajawal','Cairo'," : ""} Arial, sans-serif; color:#111; font-size:11px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .meta { font-size:10px; color:#555; margin-bottom:8px; display:flex; justify-content:space-between; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { border:1px solid #cbd5e1; padding:4px 6px; font-size:10px; }
+  th { background:#f1f5f9; text-align:${isAr ? "right" : "left"}; }
+  tr:nth-child(even) td { background:#fafafa; }
+  @media print { .no-print { display:none; } }
+</style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom:8px;">
+    <button onclick="window.print()">${isAr ? "طباعة" : "Print"}</button>
+  </div>
+  <h1>${title}</h1>
+  <div class="meta">
+    <span>${isAr ? "التاريخ" : "Date"}: ${today}</span>
+    <span>${isAr ? `${sorted.length} موظفين × ${visibleElements.length} عناصر` : `${sorted.length} employees × ${visibleElements.length} elements`}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>${isAr ? "اسم الموظف" : "Employee"}</th>
+        <th>${isAr ? "الرقم" : "Number"}</th>
+        <th>${isAr ? "القسم" : "Department"}</th>
+        <th>${isAr ? "الوظيفة" : "Job"}</th>
+        ${headerCells}
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows}
+      ${totalsRow}
+    </tbody>
+  </table>
+  <script>setTimeout(function(){ window.print(); }, 300);</script>
+</body>
+</html>`;
+    const w = window.open("", "_blank");
+    if (!w) {
+      toast({ title: language === "ar" ? "تم حظر النافذة المنبثقة" : "Popup blocked", variant: "destructive" });
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+
+
 
   const saveAll = async () => {
     const dirty = Object.entries(matrix).filter(([, v]) => v.dirty);
@@ -409,6 +517,9 @@ export default function PayrollMatrixEntry() {
           </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير" : "Export"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={printDocument}>
+            <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
           </Button>
           <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} {language === "ar" ? "غير محفوظ" : "unsaved"}</Badge>
           <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
