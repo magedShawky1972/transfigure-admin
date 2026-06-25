@@ -276,9 +276,21 @@ Deno.serve(async (req) => {
     // Fetch attendance types
     const { data: attendanceTypes, error: atError } = await supabase
       .from('attendance_types')
-      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, weekend_days');
+      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, weekend_days, is_shift_based');
 
     if (atError) throw atError;
+
+    // Fetch shift sessions opened on target date (Asia/Riyadh) for shift-based employees
+    // Use a generous window to cover any TZ offset, then filter by local date below.
+    const dayStartIso = `${targetDate}T00:00:00+03:00`;
+    const dayEndIso = `${targetDate}T23:59:59+03:00`;
+    const { data: shiftSessionsRaw } = await supabase
+      .from('shift_sessions')
+      .select('user_id, opened_at')
+      .gte('opened_at', dayStartIso)
+      .lte('opened_at', dayEndIso);
+    const shiftOpenedUserIds = new Set<string>((shiftSessionsRaw || []).map((s: any) => s.user_id));
+    console.log(`Found ${shiftOpenedUserIds.size} users with shift sessions opened on ${targetDate}`);
 
     // Fetch deduction rules
     const { data: deductionRules, error: drError } = await supabase
