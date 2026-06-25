@@ -258,8 +258,81 @@ export default function DeductionSummary() {
 
   useEffect(() => { fetchData(); fetchDelayElements(); /* eslint-disable-next-line */ }, []);
 
-  const grandTotal = rows.reduce((s, r) => s + r.totalDeduction, 0);
-  const grandMinutes = rows.reduce((s, r) => s + r.totalLateMinutes + r.totalEarlyLeaveMinutes, 0);
+  type SortKey = "empNumber" | "name" | "lateCount" | "totalLateMinutes" | "earlyLeaveCount" | "absentCount" | "rules" | "totalDeduction";
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sorts, setSorts] = useState<{ key: SortKey; dir: "asc" | "desc" }[]>([{ key: "totalDeduction", dir: "desc" }]);
+
+  const toggleSort = (key: SortKey, additive: boolean) => {
+    setSorts(prev => {
+      const idx = prev.findIndex(s => s.key === key);
+      if (!additive) {
+        if (idx === -1) return [{ key, dir: "asc" }];
+        const cur = prev[idx];
+        if (cur.dir === "asc") return [{ key, dir: "desc" }];
+        return [];
+      }
+      if (idx === -1) return [...prev, { key, dir: "asc" }];
+      const cur = prev[idx];
+      const next = [...prev];
+      if (cur.dir === "asc") next[idx] = { key, dir: "desc" };
+      else next.splice(idx, 1);
+      return next;
+    });
+  };
+
+  const sortIndicator = (key: SortKey) => {
+    const idx = sorts.findIndex(s => s.key === key);
+    if (idx === -1) return <ArrowUpDown className="h-3 w-3 inline opacity-40 ml-1" />;
+    const s = sorts[idx];
+    return (
+      <span className="inline-flex items-center ml-1 text-primary">
+        {s.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {sorts.length > 1 && <span className="text-[10px] ml-0.5">{idx + 1}</span>}
+      </span>
+    );
+  };
+
+  const getValue = (r: Row, key: SortKey): string | number => {
+    switch (key) {
+      case "rules": return Array.from(r.rules.values()).map(x => x.name).join(", ");
+      default: return r[key] as any;
+    }
+  };
+
+  const displayRows = useMemo(() => {
+    const matchesFilter = (val: string, q: string) =>
+      !q || String(val ?? "").toLowerCase().includes(q.toLowerCase());
+    let out = rows.filter(r =>
+      matchesFilter(r.empNumber, filters.empNumber || "") &&
+      matchesFilter(r.name, filters.name || "") &&
+      matchesFilter(String(r.lateCount), filters.lateCount || "") &&
+      matchesFilter(String(r.totalLateMinutes), filters.totalLateMinutes || "") &&
+      matchesFilter(`${r.earlyLeaveCount} ${r.totalEarlyLeaveMinutes}`, filters.earlyLeaveCount || "") &&
+      matchesFilter(String(r.absentCount), filters.absentCount || "") &&
+      matchesFilter(Array.from(r.rules.values()).map(x => x.name).join(" "), filters.rules || "") &&
+      matchesFilter(r.totalDeduction.toFixed(2), filters.totalDeduction || "")
+    );
+    if (sorts.length > 0) {
+      out = [...out].sort((a, b) => {
+        for (const s of sorts) {
+          const av = getValue(a, s.key);
+          const bv = getValue(b, s.key);
+          let cmp = 0;
+          if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+          else cmp = String(av).localeCompare(String(bv));
+          if (cmp !== 0) return s.dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
+    return out;
+  }, [rows, filters, sorts]);
+
+  const clearFiltersSorts = () => { setFilters({}); setSorts([]); };
+
+  const grandTotal = displayRows.reduce((s, r) => s + r.totalDeduction, 0);
+  const grandMinutes = displayRows.reduce((s, r) => s + r.totalLateMinutes + r.totalEarlyLeaveMinutes, 0);
+
 
   const handleConfirm = async () => {
     if (!selectedElementId) {
