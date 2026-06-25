@@ -374,6 +374,22 @@ export default function TimesheetManagement() {
           .eq("user_id", user.id)
           .maybeSingle();
         setIsNawaf(user.id === NAWAF_USER_ID || !!hrRow);
+
+        // If this user is an HR Manager (and not master Nawaf), restrict to their assigned Business Units
+        if (hrRow && user.id !== NAWAF_USER_ID) {
+          const { data: links } = await supabase
+            .from("hr_manager_business_units")
+            .select("business_unit_id")
+            .eq("hr_manager_id", hrRow.id);
+          if (links && links.length > 0) {
+            setHrAllowedBusinessUnitIds(links.map((l: any) => l.business_unit_id));
+          } else {
+            setHrAllowedBusinessUnitIds(null);
+          }
+        } else {
+          setHrAllowedBusinessUnitIds(null);
+        }
+
         const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user.id).single();
         if (profile) setCurrentUserName(profile.user_name || user.email || "");
       }
