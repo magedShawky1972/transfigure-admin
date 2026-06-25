@@ -36,6 +36,8 @@ type Line = {
   minutes: number | null;
 };
 
+const fmt = (n: any) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function PayrollRun() {
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
