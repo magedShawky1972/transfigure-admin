@@ -388,6 +388,30 @@ export default function DeductionRulesSetup() {
               </div>
             )}
 
+            {formData.rule_type === "absence" && (
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-md border bg-muted/30">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm">{language === "ar" ? "غياب بإشعار" : "Absence with notice"}</Label>
+                  <Switch
+                    checked={formData.is_absence_with_notice}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_absence_with_notice: v, is_absence_without_notice: v ? false : formData.is_absence_without_notice })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm">{language === "ar" ? "غياب بدون إشعار" : "Absence without notice"}</Label>
+                  <Switch
+                    checked={formData.is_absence_without_notice}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_absence_without_notice: v, is_absence_with_notice: v ? false : formData.is_absence_with_notice })}
+                  />
+                </div>
+                <p className="col-span-2 text-xs text-muted-foreground">
+                  {language === "ar"
+                    ? "حدد هل تنطبق هذه القاعدة على الغياب بإشعار أو بدون إشعار (يستخدم في ملخص الخصومات)."
+                    : "Mark which scenario this rule applies to (used by Deduction Summary to route absence days)."}
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{language === "ar" ? "نوع الخصم/الحافز" : "Deduction/Bonus Type"}</Label>
