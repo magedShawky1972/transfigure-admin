@@ -41,6 +41,7 @@ export default function PayrollEmployeeElements() {
   const [newAmount, setNewAmount] = useState<string>("0");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
   const load = async () => {
     const [e, el] = await Promise.all([
