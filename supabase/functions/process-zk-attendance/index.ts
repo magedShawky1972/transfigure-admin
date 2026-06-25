@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
       .from('employees')
-      .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, email, user_id, basic_salary, requires_attendance_signin, religion')
+      .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, email, user_id, basic_salary, requires_attendance_signin, religion, job_start_date')
       .not('zk_employee_code', 'is', null)
       .eq('employment_status', 'active')
       .eq('requires_attendance_signin', true);
@@ -330,6 +330,14 @@ Deno.serve(async (req) => {
     // Process each employee
     for (const employee of (employees || [])) {
       if (!employee.zk_employee_code) continue;
+
+      // Skip if target date is before the employee's job start date
+      const jobStart = (employee as any).job_start_date as string | null;
+      if (jobStart && targetDate < jobStart) {
+        console.log(`${employee.first_name} ${employee.last_name} - skipping, target ${targetDate} is before job start ${jobStart}`);
+        continue;
+      }
+
 
       // Check if today is a weekend for this employee's attendance type
       const empAttendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
