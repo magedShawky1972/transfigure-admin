@@ -59,16 +59,19 @@ export default function PayrollVariableEntry() {
       toast({ title: "Pick employee and element", variant: "destructive" });
       return;
     }
-    const { error } = await supabase.from("payroll_variable_entries").insert({
-      employee_id: emp,
+    const targets = emp === "__all__" ? emps.map((x) => x.id) : [emp];
+    const payload = targets.map((eid) => ({
+      employee_id: eid,
       element_id: el,
       period_year: year,
       period_month: month,
       amount: Number(amount) || 0,
       notes: notes || null,
-    });
+    }));
+    const { error } = await supabase.from("payroll_variable_entries").insert(payload);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
     else {
+      toast({ title: "Added", description: `${payload.length} entr${payload.length === 1 ? "y" : "ies"} added` });
       setEmp(""); setEl(""); setAmount("0"); setNotes("");
       loadRows();
     }
