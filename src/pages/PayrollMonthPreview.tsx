@@ -371,14 +371,19 @@ export default function PayrollMonthPreview() {
 <title>${title}</title>
 <style>
   @page { size: A4 landscape; margin: 10mm; }
-  body { font-family: ${isAr ? "'Tajawal','Cairo'," : ""} Arial, sans-serif; color:#111; font-size:11px; }
+  html, body { height: 100%; }
+  body { font-family: ${isAr ? "'Tajawal','Cairo'," : ""} Arial, sans-serif; color:#111; font-size:11px; margin:0; }
+  .page-wrap { display:flex; flex-direction:column; min-height: 195mm; }
+  .content { flex: 1 0 auto; }
   h1 { font-size:16px; margin:0 0 4px; }
   .meta { font-size:10px; color:#555; margin-bottom:8px; display:flex; justify-content:space-between; }
   table { width:100%; border-collapse:collapse; }
   th, td { border:1px solid #cbd5e1; padding:4px 6px; font-size:10px; }
   th { background:#f1f5f9; text-align:${isAr ? "right" : "left"}; }
     tr:nth-child(even) td { background:#fafafa; }
-    .signatures { margin-top:30px; display:flex; justify-content:space-around; gap:20px; page-break-inside:avoid; }
+    thead { display: table-header-group; }
+    tr, td, th { page-break-inside: avoid; break-inside: avoid; }
+    .signatures { margin-top:auto; padding-top:20px; display:flex; justify-content:space-around; gap:20px; page-break-inside:avoid; break-inside:avoid; }
     .sig-box { flex:1; text-align:center; font-size:11px; }
     .sig-line { border-top:1px solid #000; margin-top:50px; padding-top:6px; font-weight:bold; }
     .sig-sub { font-size:9px; color:#555; margin-top:2px; }
