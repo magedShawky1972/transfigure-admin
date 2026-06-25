@@ -186,7 +186,7 @@ export default function TimesheetManagement() {
   const [naughtyDrilldownRecords, setNaughtyDrilldownRecords] = useState<{work_date: string; late_minutes: number; scheduled_start: string | null; actual_start: string | null; deduction_rule_name: string | null}[]>([]);
   const [naughtyDrilldownLoading, setNaughtyDrilldownLoading] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
-  const [cardFilter, setCardFilter] = useState<"all" | "approved" | "waiting" | "absent">("all");
+  const [cardFilter, setCardFilter] = useState<"all" | "approved" | "waiting" | "absent" | "delay">("all");
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([
     { key: "work_date", direction: "asc" },
     { key: "employee", direction: "asc" },
@@ -245,6 +245,8 @@ export default function TimesheetManagement() {
     if (cardFilter === "approved") return t.status === "approved";
     if (cardFilter === "waiting") return t.status === "waiting_for_exit" || t.status === "pending";
     if (cardFilter === "absent") return t.is_absent;
+    if (cardFilter === "delay") return (t.late_minutes || 0) > 0;
+
     return true;
   });
   const sortedTimesheets = [...filteredByCard].sort((a, b) => {
@@ -2061,7 +2063,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="cursor-default">
+            <Card
+              onClick={() => setCardFilter(cardFilter === "delay" ? "all" : "delay")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "delay" ? "ring-2 ring-amber-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-amber-600">
@@ -2071,6 +2076,7 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
+
             
             
             {/* Naughty Corner Card */}
