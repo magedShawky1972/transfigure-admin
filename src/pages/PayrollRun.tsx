@@ -353,29 +353,18 @@ export default function PayrollRun() {
   const rollbackRun = (run: Run) => {
     const isConf = run.status === "confirmed";
     askConfirm({
-      title: isConf ? "Rollback Confirmed Payroll" : "Rollback Draft Payroll",
-      description: isConf
-        ? `Rollback confirmed payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This unlocks the run back to draft and clears all computed lines.`
-        : `Rollback draft payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This clears all computed lines and resets totals to zero.`,
-      confirmLabel: "Rollback",
+      title: isConf ? "Rollback Confirmed Payroll" : "Rollback Payroll Run",
+      description: `Rollback ${isConf ? "confirmed" : "draft"} payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This permanently removes the run and all its computed lines.`,
+      confirmLabel: "Rollback & Delete",
       destructive: true,
       onConfirm: async () => {
         try {
-          const { error: delErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
-          if (delErr) throw delErr;
-          const { error: updErr } = await supabase.from("payroll_runs").update({
-            status: "draft",
-            confirmed_at: null,
-            confirmed_by: null,
-            total_gross: 0,
-            total_deductions: 0,
-            total_employer_contributions: 0,
-            total_net: 0,
-            employee_count: 0,
-          }).eq("id", run.id);
-          if (updErr) throw updErr;
-          toast({ title: "Rolled back", description: "Run reset to draft with no lines." });
-          if (selectedRun?.id === run.id) setLines([]);
+          const { error: delLinesErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
+          if (delLinesErr) throw delLinesErr;
+          const { error: delRunErr } = await supabase.from("payroll_runs").delete().eq("id", run.id);
+          if (delRunErr) throw delRunErr;
+          toast({ title: "Rolled back", description: "Run and all its lines were removed." });
+          if (selectedRun?.id === run.id) { setSelectedRun(null); setLines([]); }
           loadRuns();
         } catch (e: any) {
           toast({ title: "Rollback failed", description: e.message, variant: "destructive" });
