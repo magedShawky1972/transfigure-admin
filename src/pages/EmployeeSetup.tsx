@@ -194,6 +194,24 @@ export default function EmployeeSetup() {
   const [filterLetter, setFilterLetter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [payrollDialogOpen, setPayrollDialogOpen] = useState(false);
+  const [payrollDialogEmp, setPayrollDialogEmp] = useState<Employee | null>(null);
+  const [payrollDialogRows, setPayrollDialogRows] = useState<any[]>([]);
+  const [payrollDialogLoading, setPayrollDialogLoading] = useState(false);
+
+  const openPayrollDialog = async (emp: Employee) => {
+    setPayrollDialogEmp(emp);
+    setPayrollDialogOpen(true);
+    setPayrollDialogLoading(true);
+    const { data } = await supabase
+      .from("payroll_employee_elements")
+      .select("id, amount, effective_from, effective_to, is_active, payroll_elements(code, name_en, name_ar, element_type)")
+      .eq("employee_id", emp.id)
+      .order("created_at");
+    setPayrollDialogRows(data || []);
+    setPayrollDialogLoading(false);
+  };
+
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [loadUsersDialogOpen, setLoadUsersDialogOpen] = useState(false);
