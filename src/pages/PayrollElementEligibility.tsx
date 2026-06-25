@@ -144,7 +144,7 @@ export default function PayrollElementEligibility() {
               <Button onClick={add}><Plus className="h-4 w-4 mr-1" /> {language === "ar" ? "إضافة" : "Add"}</Button>
             </div>
 
-            <Table>
+            <Table dir={language === "ar" ? "rtl" : "ltr"}>
               <TableHeader>
                 <TableRow>
                   <TableHead>{language === "ar" ? "المنصب الوظيفي" : "Job Position"}</TableHead>

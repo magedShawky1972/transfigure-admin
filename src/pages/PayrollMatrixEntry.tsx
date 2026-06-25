@@ -440,7 +440,7 @@ export default function PayrollMatrixEntry() {
           <TopHorizontalScrollbar>
             <ScrollArea className="w-full">
               <div className="min-w-full overflow-x-auto">
-                <Table>
+                <Table dir={language === "ar" ? "rtl" : "ltr"}>
                   <TableHeader>
                     <TableRow>
                       <TableHead

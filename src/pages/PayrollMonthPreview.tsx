@@ -374,7 +374,7 @@ export default function PayrollMonthPreview() {
           <TopHorizontalScrollbar>
             <ScrollArea className="w-full">
               <div className="min-w-full overflow-x-auto">
-                <Table>
+                <Table dir={language === "ar" ? "rtl" : "ltr"}>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]" onClick={(e) => toggleSort("name", e)}>
