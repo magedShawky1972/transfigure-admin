@@ -76,7 +76,7 @@ export default function PayrollMonthPreview() {
     setLoading(true);
     let empQuery = supabase
       .from("employees")
-      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, job_start_date, termination_date, basic_salary, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
       .order("first_name");
     let peQuery = supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true);
     let pvQuery = supabase.from("payroll_variable_entries").select("employee_id, element_id, amount").eq("period_year", year).eq("period_month", month);
@@ -88,7 +88,7 @@ export default function PayrollMonthPreview() {
     }
     const [e, el, pe, pv] = await Promise.all([
       empQuery,
-      supabase.from("payroll_elements").select("id, code, name_en, name_ar, element_type, calculation_type, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
+      supabase.from("payroll_elements").select("id, code, name_en, name_ar, element_type, calculation_type, sort_order, is_basic_salary_element").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
       peQuery,
       pvQuery,
     ]);
