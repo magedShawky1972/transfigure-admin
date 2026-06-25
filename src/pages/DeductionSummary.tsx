@@ -439,7 +439,7 @@ export default function DeductionSummary() {
             </CardTitle>
             <Badge variant="secondary">{filterLabel}</Badge>
           </div>
-          <div className="flex gap-2 flex-wrap items-end">
+          <div className="flex gap-2 flex-wrap items-end print:hidden">
             <div>
               <Label className="text-xs">{isAr ? "عنصر الخصم" : "Delay Element"}</Label>
               <Select value={selectedElementId} onValueChange={setSelectedElementId}>
