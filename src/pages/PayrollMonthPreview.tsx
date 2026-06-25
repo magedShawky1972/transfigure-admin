@@ -249,6 +249,81 @@ export default function PayrollMonthPreview() {
     toast({ title: language === "ar" ? "تم التصدير" : "Exported" });
   };
 
+  const printDocument = () => {
+    const isAr = language === "ar";
+    const dir = isAr ? "rtl" : "ltr";
+    const title = isAr ? `معاينة عناصر الشهر — ${months[month - 1]} ${year}` : `Month Element Preview — ${months[month - 1]} ${year}`;
+    const today = new Date().toLocaleString(isAr ? "ar-EG" : "en-US");
+    const headerCells = visibleElements.map((el) => `<th style="text-align:right;">${elName(el)}<div style="font-size:9px;font-weight:normal;color:#64748b;">${el.element_type}</div></th>`).join("");
+    const bodyRows = sorted.map((emp) => {
+      const cells = visibleElements.map((el) => {
+        const v = amounts[`${emp.id}|${el.id}`] || 0;
+        return `<td style="text-align:right;">${v === 0 ? "" : numFmt.format(v)}</td>`;
+      }).join("");
+      return `<tr>
+        <td>${empName(emp)}</td>
+        <td>${emp.employee_number}</td>
+        <td>${deptName(emp.departments) || ""}</td>
+        <td>${jobName(emp.job_positions) || ""}</td>
+        ${cells}
+        <td style="text-align:right;font-weight:600;">${numFmt.format(netFor(emp.id))}</td>
+      </tr>`;
+    }).join("");
+    const totalsRow = `<tr style="background:#f1f5f9;font-weight:700;">
+      <td colspan="4" style="text-align:${isAr ? "left" : "right"};">${isAr ? "الإجمالي" : "TOTAL"}</td>
+      ${visibleElements.map((el) => `<td style="text-align:right;">${columnTotals[el.id] ? numFmt.format(columnTotals[el.id]) : ""}</td>`).join("")}
+      <td style="text-align:right;">${numFmt.format(grand.net)}</td>
+    </tr>`;
+    const html = `<!doctype html>
+<html dir="${dir}" lang="${isAr ? "ar" : "en"}">
+<head>
+<meta charset="utf-8" />
+<title>${title}</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  body { font-family: ${isAr ? "'Tajawal','Cairo'," : ""} Arial, sans-serif; color:#111; font-size:11px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .meta { font-size:10px; color:#555; margin-bottom:8px; display:flex; justify-content:space-between; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { border:1px solid #cbd5e1; padding:4px 6px; font-size:10px; }
+  th { background:#f1f5f9; text-align:${isAr ? "right" : "left"}; }
+  tr:nth-child(even) td { background:#fafafa; }
+  @media print { .no-print { display:none; } }
+</style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom:8px;">
+    <button onclick="window.print()">${isAr ? "طباعة" : "Print"}</button>
+  </div>
+  <h1>${title}</h1>
+  <div class="meta">
+    <span>${isAr ? "التاريخ" : "Date"}: ${today}</span>
+    <span>${isAr ? `${sorted.length} موظفين × ${visibleElements.length} عناصر` : `${sorted.length} employees × ${visibleElements.length} elements`}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>${isAr ? "الموظف" : "Employee"}</th>
+        <th>${isAr ? "الرقم" : "Number"}</th>
+        <th>${isAr ? "القسم" : "Department"}</th>
+        <th>${isAr ? "الوظيفة" : "Job"}</th>
+        ${headerCells}
+        <th style="text-align:right;">${isAr ? "الصافي" : "Net"}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows}
+      ${totalsRow}
+    </tbody>
+  </table>
+  <script>setTimeout(function(){ window.print(); }, 300);</script>
+</body>
+</html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast({ title: isAr ? "تم حظر النافذة المنبثقة" : "Popup blocked", variant: "destructive" }); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  };
+
   const clearFilters = () => {
     setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setEmployeeFilter([]); setElementFilter([]); setTypeFilter([]); setHideZeroEmployees(false);
   };
