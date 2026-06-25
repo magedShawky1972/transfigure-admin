@@ -741,7 +741,7 @@ export default function DeductionSummary() {
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "عدد الموظفين" : "Employees"}</div><div className="text-2xl font-bold">{rows.length}</div></CardContent></Card>
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي دقائق التأخير/الخروج" : "Total Late/Early Min"}</div><div className="text-2xl font-bold">{grandMinutes}</div></CardContent></Card>
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي أيام الغياب" : "Total Absent Days"}</div><div className="text-2xl font-bold">{rows.reduce((s, r) => s + r.absentCount, 0)}</div></CardContent></Card>
-                <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي الخصم" : "Total Deduction"}</div><div className="text-2xl font-bold text-red-600">{grandTotal.toFixed(2)}</div></CardContent></Card>
+                <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي الخصم" : "Total Deduction"}</div><div className="text-2xl font-bold text-red-600">{formatNumber(grandTotal)}</div></CardContent></Card>
               </div>
 
               <div className="flex items-center justify-between mb-2 print:hidden">
