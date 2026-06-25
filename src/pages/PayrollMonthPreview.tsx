@@ -36,10 +36,13 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
+  job_start_date?: string | null;
+  termination_date?: string | null;
+  basic_salary?: number | null;
   departments?: { department_name: string; department_name_ar?: string | null } | null;
   job_positions?: { position_name: string; position_name_ar?: string | null } | null;
 };
-type Element = { id: string; code: string; name_en: string; name_ar?: string | null; element_type: string; calculation_type?: string | null };
+type Element = { id: string; code: string; name_en: string; name_ar?: string | null; element_type: string; calculation_type?: string | null; is_basic_salary_element?: boolean | null };
 type SortRule = { key: string; dir: "asc" | "desc" };
 
 const now = new Date();
