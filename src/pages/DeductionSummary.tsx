@@ -518,11 +518,15 @@ export default function DeductionSummary() {
   // Check existing variable entries for selected element+period (scoped to current rows)
   useEffect(() => {
     const check = async () => {
-      if (!selectedElementId) { setExistingCount(0); return; }
       const empIds = rows.map((r) => r.employee_id);
       if (empIds.length === 0) { setExistingCount(0); return; }
-      const elIds = [selectedElementId];
-      if (selectedAbsenceElementId) elIds.push(selectedAbsenceElementId);
+      const elIdSet = new Set<string>();
+      if (selectedElementId) elIdSet.add(selectedElementId);
+      if (selectedAbsenceElementId) elIdSet.add(selectedAbsenceElementId);
+      delayElements.forEach((e: any) => elIdSet.add(e.id));
+      absenceElements.forEach((e: any) => elIdSet.add(e.id));
+      const elIds = Array.from(elIdSet);
+      if (elIds.length === 0) { setExistingCount(0); return; }
       const { count } = await supabase
         .from("payroll_variable_entries")
         .select("id", { count: "exact", head: true })
@@ -533,7 +537,7 @@ export default function DeductionSummary() {
       setExistingCount(count || 0);
     };
     check();
-  }, [selectedElementId, selectedAbsenceElementId, periodYear, periodMonth, sending, rollingBack, rows]);
+  }, [selectedElementId, selectedAbsenceElementId, periodYear, periodMonth, sending, rollingBack, rows, delayElements, absenceElements]);
 
   const handleRollback = async () => {
     setRollingBack(true);
