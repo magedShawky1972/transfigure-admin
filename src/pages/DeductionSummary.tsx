@@ -166,6 +166,36 @@ export default function DeductionSummary() {
       const approvedSet = new Set<string>();
       (approved || []).forEach((r: any) => approvedSet.add(`${r.employee_id}_${r.delay_date}_${r.request_type}`));
 
+      // Fetch approved vacation/sick_leave requests and manual vacation_requests to exclude absences on covered days
+      const vacationDaySet = new Set<string>();
+      const addRangeToSet = (empId: string, start: string, end: string) => {
+        const s = new Date(start);
+        const e = new Date(end);
+        for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+          const ds = d.toISOString().split("T")[0];
+          if (ds >= dFrom && ds <= dTo) vacationDaySet.add(`${empId}_${ds}`);
+        }
+      };
+      const { data: vacReqs } = await supabase
+        .from("employee_requests")
+        .select("employee_id, start_date, end_date, request_type, status")
+        .in("request_type", ["vacation", "sick_leave"])
+        .eq("status", "approved")
+        .lte("start_date", dTo)
+        .gte("end_date", dFrom);
+      (vacReqs || []).forEach((r: any) => {
+        if (r.start_date && r.end_date) addRangeToSet(r.employee_id, r.start_date, r.end_date);
+      });
+      const { data: manualVacs } = await supabase
+        .from("vacation_requests")
+        .select("employee_id, start_date, end_date")
+        .lte("start_date", dTo)
+        .gte("end_date", dFrom);
+      (manualVacs || []).forEach((r: any) => {
+        if (r.start_date && r.end_date) addRangeToSet(r.employee_id, r.start_date, r.end_date);
+      });
+
+
       // Load Basic Salary from the payroll element flagged as is_basic_salary_element
       const { data: basicEl } = await supabase
         .from("payroll_elements")
