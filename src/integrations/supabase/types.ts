@@ -6252,6 +6252,7 @@ export type Database = {
           formula: string | null
           id: string
           is_active: boolean
+          is_basic_salary_element: boolean
           is_delay_minutes_element: boolean
           name_ar: string | null
           name_en: string
@@ -6268,6 +6269,7 @@ export type Database = {
           formula?: string | null
           id?: string
           is_active?: boolean
+          is_basic_salary_element?: boolean
           is_delay_minutes_element?: boolean
           name_ar?: string | null
           name_en: string
@@ -6284,6 +6286,7 @@ export type Database = {
           formula?: string | null
           id?: string
           is_active?: boolean
+          is_basic_salary_element?: boolean
           is_delay_minutes_element?: boolean
           name_ar?: string | null
           name_en?: string

@@ -1,0 +1,2 @@
+ALTER TABLE public.payroll_elements ADD COLUMN IF NOT EXISTS is_basic_salary_element boolean NOT NULL DEFAULT false;
+CREATE UNIQUE INDEX IF NOT EXISTS payroll_elements_one_basic_salary ON public.payroll_elements ((1)) WHERE is_basic_salary_element = true;
