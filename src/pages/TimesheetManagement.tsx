@@ -1068,6 +1068,7 @@ export default function TimesheetManagement() {
       break_duration_minutes: 0,
       is_absent: false,
       absence_reason: "",
+      absence_has_notice: null,
       notes: "",
     });
     setDialogOpen(true);
