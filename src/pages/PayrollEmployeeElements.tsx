@@ -167,7 +167,7 @@ export default function PayrollEmployeeElements() {
             <SelectContent>
               {emps.map((e) => (
                 <SelectItem key={e.id} value={e.id}>
-                  {e.employee_number} — {e.first_name} {e.last_name}
+                  {e.employee_number} — {language === "ar" ? `${e.first_name_ar || e.first_name || ""} ${e.last_name_ar || e.last_name || ""}`.trim() : `${e.first_name} ${e.last_name}`}
                 </SelectItem>
               ))}
             </SelectContent>
