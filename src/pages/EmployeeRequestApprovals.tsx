@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { RequestApprovalHistory } from "@/components/RequestApprovalHistory";
 import { Separator } from "@/components/ui/separator";
 import {
   Check,
