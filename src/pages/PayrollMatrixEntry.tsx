@@ -37,7 +37,7 @@ function MatrixCellInput({
     <Input
       inputMode="decimal"
       value={display}
-      placeholder={language === "ar" ? "٠.٠٠" : "0.00"}
+      placeholder="0.00"
       onFocus={() => { setFocused(true); setDraft(value !== undefined && value !== null ? String(value) : ""); }}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
