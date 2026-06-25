@@ -317,6 +317,20 @@ export default function PayrollElementSetup() {
                 </p>
               </div>
             </div>
+            <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+              <Switch
+                checked={!!form.is_absence_element}
+                onCheckedChange={(v) => setForm({ ...form, is_absence_element: v, element_type: v ? "deduction" : form.element_type })}
+              />
+              <div>
+                <div className="font-medium">This element is for Absence</div>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, Deduction Summary sends the total absence deduction to this element.
+                  Calculation uses the matching Absence rule from Deduction Rules Setup
+                  (with-notice or without-notice) × (basic salary / 30) × absent days.
+                </p>
+              </div>
+            </div>
             <div className="flex items-center gap-3">
               <Switch
                 checked={form.is_active !== false}
