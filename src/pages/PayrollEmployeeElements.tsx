@@ -46,9 +46,16 @@ export default function PayrollEmployeeElements() {
   const [to, setTo] = useState<string>("");
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
+  const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
+
   const load = async () => {
+    let empQuery = supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, basic_salary").order("first_name");
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setEmps([]); setElements([]); return; }
+      empQuery = empQuery.in("id", allowedEmployeeIds);
+    }
     const [e, el] = await Promise.all([
-      supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, basic_salary").order("first_name"),
+      empQuery,
       supabase.from("payroll_elements").select("id, code, name_en, element_type, default_amount").eq("is_active", true).order("name_en"),
     ]);
     setEmps((e.data || []) as Emp[]);
@@ -65,7 +72,7 @@ export default function PayrollEmployeeElements() {
     setRows((data || []) as Assign[]);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (!scopeLoading) load(); }, [scopeLoading, allowedEmployeeIds]);
   useEffect(() => { loadRows(); }, [selectedEmp]);
 
   const add = async () => {
