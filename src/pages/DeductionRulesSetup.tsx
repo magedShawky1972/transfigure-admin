@@ -124,6 +124,8 @@ export default function DeductionRulesSetup() {
       is_overtime: rule.is_overtime,
       overtime_multiplier: rule.overtime_multiplier.toString(),
       is_active: rule.is_active,
+      is_absence_with_notice: !!(rule as any).is_absence_with_notice,
+      is_absence_without_notice: !!(rule as any).is_absence_without_notice,
     });
     setDialogOpen(true);
   };
