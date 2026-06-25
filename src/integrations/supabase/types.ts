@@ -10748,6 +10748,7 @@ export type Database = {
       }
       timesheets: {
         Row: {
+          absence_has_notice: boolean | null
           absence_reason: string | null
           actual_end: string | null
           actual_start: string | null
@@ -10782,6 +10783,7 @@ export type Database = {
           work_date: string
         }
         Insert: {
+          absence_has_notice?: boolean | null
           absence_reason?: string | null
           actual_end?: string | null
           actual_start?: string | null
@@ -10816,6 +10818,7 @@ export type Database = {
           work_date: string
         }
         Update: {
+          absence_has_notice?: boolean | null
           absence_reason?: string | null
           actual_end?: string | null
           actual_start?: string | null

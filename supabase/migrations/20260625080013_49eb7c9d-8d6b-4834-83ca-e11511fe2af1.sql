@@ -1,0 +1,1 @@
+ALTER TABLE public.timesheets ADD COLUMN IF NOT EXISTS absence_has_notice boolean;
