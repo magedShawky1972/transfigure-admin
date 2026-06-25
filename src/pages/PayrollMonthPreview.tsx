@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, RefreshCw } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, RefreshCw, Printer } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
