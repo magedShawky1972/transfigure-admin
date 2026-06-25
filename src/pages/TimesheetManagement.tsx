@@ -195,6 +195,9 @@ export default function TimesheetManagement() {
   const [monthLocked, setMonthLocked] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
   const [lockLoading, setLockLoading] = useState(false);
+  const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
+  const [recalcRunning, setRecalcRunning] = useState(false);
+  const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [managerNoteDialogOpen, setManagerNoteDialogOpen] = useState(false);
   const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
   const [managerNoteText, setManagerNoteText] = useState("");
