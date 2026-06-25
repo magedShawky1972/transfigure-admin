@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Download, Upload, FileSpreadsheet } from "lucide-react";
 
 type Emp = { id: string; first_name: string; last_name: string; employee_number: string };
 type Element = { id: string; code: string; name_en: string; element_type: string; calculation_type: string };
@@ -88,9 +89,107 @@ export default function PayrollVariableEntry() {
   };
   const elName = (id: string) => elements.find((x) => x.id === id)?.name_en || id;
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const downloadTemplate = () => {
+    const aoa = [
+      ["employee_number", "employee_name", "element_code", "element_name", "amount", "notes"],
+      ...(emps[0] && elements[0]
+        ? [[emps[0].employee_number, `${emps[0].first_name} ${emps[0].last_name}`, elements[0].code, elements[0].name_en, 0, ""]]
+        : []),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, `payroll_variable_template_${year}_${String(month).padStart(2, "0")}.xlsx`);
+  };
+
+  const exportToExcel = () => {
+    const aoa: (string | number)[][] = [
+      ["employee_number", "employee_name", "element_code", "element_name", "amount", "notes"],
+    ];
+    rows.forEach((r) => {
+      const e = emps.find((x) => x.id === r.employee_id);
+      const el = elements.find((x) => x.id === r.element_id);
+      aoa.push([
+        e?.employee_number || "",
+        e ? `${e.first_name} ${e.last_name}` : "",
+        el?.code || "",
+        el?.name_en || "",
+        Number(r.amount) || 0,
+        r.notes || "",
+      ]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Entries");
+    XLSX.writeFile(wb, `payroll_variable_${year}_${String(month).padStart(2, "0")}.xlsx`);
+  };
+
+  const importFromExcel = async (file: File) => {
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json<any>(ws, { defval: "" });
+      const payload: any[] = [];
+      let skipped = 0;
+      for (const row of data) {
+        const empNum = String(row.employee_number || "").trim();
+        const elCode = String(row.element_code || "").trim();
+        const e = emps.find((x) => x.employee_number === empNum);
+        const el = elements.find((x) => x.code === elCode);
+        if (!e || !el) { skipped++; continue; }
+        payload.push({
+          employee_id: e.id,
+          element_id: el.id,
+          period_year: year,
+          period_month: month,
+          amount: Number(row.amount) || 0,
+          notes: row.notes ? String(row.notes) : null,
+        });
+      }
+      if (!payload.length) {
+        toast({ title: "Nothing to import", description: `Skipped ${skipped} rows`, variant: "destructive" });
+        return;
+      }
+      const { error } = await supabase.from("payroll_variable_entries").insert(payload);
+      if (error) {
+        toast({ title: "Import error", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Imported", description: `${payload.length} rows added, ${skipped} skipped` });
+        loadRows();
+      }
+    } catch (err: any) {
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Variable Element Entry</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-2xl font-bold">Variable Element Entry</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={downloadTemplate}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4 mr-1" /> Import
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToExcel}>
+            <Download className="h-4 w-4 mr-1" /> Export
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && importFromExcel(e.target.files[0])}
+          />
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
