@@ -529,7 +529,7 @@ export default function PayrollVariableEntry() {
                           {empName(emp)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
-                        <TableCell className="text-xs">{emp.departments?.department_name || "—"}</TableCell>
+                        <TableCell className="text-xs">{deptName(emp.departments) || "—"}</TableCell>
                         <TableCell className="text-xs">{emp.job_positions?.position_name || "—"}</TableCell>
                         {visibleElements.map((el) => {
                           const key = `${emp.id}|${el.id}`;
