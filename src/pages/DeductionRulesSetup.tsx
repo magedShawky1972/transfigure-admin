@@ -137,7 +137,7 @@ export default function DeductionRulesSetup() {
     }
 
     try {
-      const payload = {
+      const payload: any = {
         rule_name: formData.rule_name,
         rule_name_ar: formData.rule_name_ar || null,
         rule_type: formData.rule_type,
@@ -148,6 +148,8 @@ export default function DeductionRulesSetup() {
         is_overtime: formData.is_overtime,
         overtime_multiplier: parseFloat(formData.overtime_multiplier),
         is_active: formData.is_active,
+        is_absence_with_notice: formData.rule_type === "absence" ? formData.is_absence_with_notice : false,
+        is_absence_without_notice: formData.rule_type === "absence" ? formData.is_absence_without_notice : false,
       };
 
       if (selectedRule) {
