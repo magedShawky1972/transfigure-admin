@@ -477,20 +477,25 @@ export default function DeductionSummary() {
   const [rollingBack, setRollingBack] = useState(false);
   const [existingCount, setExistingCount] = useState(0);
 
-  // Check existing variable entries for selected element+period
+  // Check existing variable entries for selected element+period (scoped to current rows)
   useEffect(() => {
     const check = async () => {
       if (!selectedElementId) { setExistingCount(0); return; }
+      const empIds = rows.map((r) => r.employee_id);
+      if (empIds.length === 0) { setExistingCount(0); return; }
+      const elIds = [selectedElementId];
+      if (selectedAbsenceElementId) elIds.push(selectedAbsenceElementId);
       const { count } = await supabase
         .from("payroll_variable_entries")
         .select("id", { count: "exact", head: true })
-        .eq("element_id", selectedElementId)
+        .in("element_id", elIds)
         .eq("period_year", periodYear)
-        .eq("period_month", periodMonth);
+        .eq("period_month", periodMonth)
+        .in("employee_id", empIds);
       setExistingCount(count || 0);
     };
     check();
-  }, [selectedElementId, periodYear, periodMonth, sending, rollingBack]);
+  }, [selectedElementId, selectedAbsenceElementId, periodYear, periodMonth, sending, rollingBack, rows]);
 
   const handleRollback = async () => {
     if (!selectedElementId) return;
@@ -511,17 +516,27 @@ export default function DeductionSummary() {
         return;
       }
 
+      const empIds = rows.map((r) => r.employee_id);
+      if (empIds.length === 0) {
+        toast.error(isAr ? "لا يوجد موظفين للتراجع" : "No employees in current view to rollback");
+        setRollingBack(false);
+        return;
+      }
+      const elIds = [selectedElementId];
+      if (selectedAbsenceElementId) elIds.push(selectedAbsenceElementId);
+
       const { error, count } = await supabase
         .from("payroll_variable_entries")
         .delete({ count: "exact" })
-        .eq("element_id", selectedElementId)
+        .in("element_id", elIds)
         .eq("period_year", periodYear)
-        .eq("period_month", periodMonth);
+        .eq("period_month", periodMonth)
+        .in("employee_id", empIds);
       if (error) throw error;
 
       toast.success(isAr
-        ? `تم التراجع عن ${count || 0} إدخال خصم تأخير`
-        : `Rolled back ${count || 0} delay deduction entries`);
+        ? `تم التراجع عن ${count || 0} إدخال خصم`
+        : `Rolled back ${count || 0} deduction entries for ${empIds.length} employee(s) in view`);
       setRollbackOpen(false);
     } catch (e: any) {
       console.error(e);
