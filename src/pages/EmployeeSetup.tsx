@@ -182,6 +182,10 @@ export default function EmployeeSetup() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [addBuOpen, setAddBuOpen] = useState(false);
+  const [newBuName, setNewBuName] = useState("");
+  const [newBuNameAr, setNewBuNameAr] = useState("");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [vacationCodes, setVacationCodes] = useState<VacationCode[]>([]);
   const [insurancePlans, setInsurancePlans] = useState<MedicalInsurancePlan[]>([]);
