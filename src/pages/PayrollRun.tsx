@@ -1,0 +1,412 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
+import { Play, CheckCircle2, Trash2, RefreshCw, Lock } from "lucide-react";
+
+type Run = {
+  id: string;
+  period_year: number;
+  period_month: number;
+  status: string;
+  total_gross: number;
+  total_deductions: number;
+  total_employer_contributions: number;
+  total_net: number;
+  employee_count: number;
+  confirmed_at: string | null;
+};
+
+type Line = {
+  id: string;
+  employee_id: string;
+  element_id: string;
+  element_type: string;
+  amount: number;
+  minutes: number | null;
+};
+
+export default function PayrollRun() {
+  const today = new Date();
+  const [year, setYear] = useState<number>(today.getFullYear());
+  const [month, setMonth] = useState<number>(today.getMonth() + 1);
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [selectedRun, setSelectedRun] = useState<Run | null>(null);
+  const [lines, setLines] = useState<Line[]>([]);
+  const [empMap, setEmpMap] = useState<Record<string, string>>({});
+  const [elMap, setElMap] = useState<Record<string, { name: string; type: string }>>({});
+  const [busy, setBusy] = useState(false);
+
+  const loadRefs = async () => {
+    const [e, el] = await Promise.all([
+      supabase.from("employees").select("id, first_name, last_name, employee_number"),
+      supabase.from("payroll_elements").select("id, name_en, element_type"),
+    ]);
+    const em: Record<string, string> = {};
+    (e.data || []).forEach((x: any) => { em[x.id] = `${x.employee_number} — ${x.first_name} ${x.last_name}`; });
+    setEmpMap(em);
+    const lm: Record<string, { name: string; type: string }> = {};
+    (el.data || []).forEach((x: any) => { lm[x.id] = { name: x.name_en, type: x.element_type }; });
+    setElMap(lm);
+  };
+
+  const loadRuns = async () => {
+    const { data } = await supabase
+      .from("payroll_runs")
+      .select("*")
+      .order("period_year", { ascending: false })
+      .order("period_month", { ascending: false });
+    setRuns((data || []) as Run[]);
+  };
+
+  const loadLines = async (runId: string) => {
+    const { data } = await supabase
+      .from("payroll_run_lines")
+      .select("*")
+      .eq("run_id", runId);
+    setLines((data || []) as Line[]);
+  };
+
+  useEffect(() => { loadRefs(); loadRuns(); }, []);
+
+  const computePeriod = async () => {
+    setBusy(true);
+    try {
+      // 1. Load employees
+      const { data: emps, error: empErr } = await supabase
+        .from("employees")
+        .select("id, basic_salary, department_id, job_position_id, employment_status");
+      if (empErr) throw empErr;
+      const activeEmps = (emps || []).filter((e: any) => e.employment_status !== "terminated");
+
+      // 2. Load elements + eligibility
+      const [{ data: elements }, { data: eligibility }, { data: empElements }, { data: variables }] = await Promise.all([
+        supabase.from("payroll_elements").select("*").eq("is_active", true),
+        supabase.from("payroll_element_eligibility").select("*"),
+        supabase.from("payroll_employee_elements").select("*").eq("is_active", true),
+        supabase.from("payroll_variable_entries").select("*").eq("period_year", year).eq("period_month", month),
+      ]);
+
+      // 3. Compute delay minutes per employee (from saved_attendance for the month)
+      const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
+      const lastDate = new Date(year, month, 0).getDate();
+      const lastDay = `${year}-${String(month).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
+
+      const empCodeToId: Record<string, string> = {};
+      const { data: empCodes } = await supabase
+        .from("employees")
+        .select("id, employee_number, zk_employee_code");
+      (empCodes || []).forEach((e: any) => {
+        if (e.employee_number) empCodeToId[String(e.employee_number)] = e.id;
+        if (e.zk_employee_code) empCodeToId[String(e.zk_employee_code)] = e.id;
+      });
+
+      const { data: attendance } = await supabase
+        .from("saved_attendance")
+        .select("employee_code, difference_hours")
+        .gte("attendance_date", firstDay)
+        .lte("attendance_date", lastDay);
+      const delayMinutesByEmp: Record<string, number> = {};
+      (attendance || []).forEach((a: any) => {
+        const empId = empCodeToId[String(a.employee_code)];
+        if (!empId) return;
+        const diff = Number(a.difference_hours) || 0;
+        if (diff < 0) {
+          delayMinutesByEmp[empId] = (delayMinutesByEmp[empId] || 0) + Math.abs(diff) * 60;
+        }
+      });
+
+      // 4. Build run
+      // Delete or get existing run for the period
+      const { data: existing } = await supabase
+        .from("payroll_runs")
+        .select("*")
+        .eq("period_year", year)
+        .eq("period_month", month)
+        .maybeSingle();
+      if (existing && existing.status === "confirmed") {
+        toast({ title: "Period already confirmed — cannot recompute", variant: "destructive" });
+        setBusy(false);
+        return;
+      }
+      let runId = existing?.id;
+      if (!runId) {
+        const { data: created, error: cErr } = await supabase
+          .from("payroll_runs")
+          .insert({ period_year: year, period_month: month, status: "draft" })
+          .select("id")
+          .single();
+        if (cErr) throw cErr;
+        runId = created.id;
+      } else {
+        await supabase.from("payroll_run_lines").delete().eq("run_id", runId);
+      }
+
+      // 5. Compute lines
+      const linesToInsert: any[] = [];
+      let totalGross = 0, totalDed = 0, totalEmpC = 0;
+
+      for (const emp of activeEmps) {
+        // Determine which elements are eligible
+        for (const el of (elements || []) as any[]) {
+          const rules = (eligibility || []).filter((r: any) => r.element_id === el.id);
+          let eligible = false;
+          if (rules.length === 0) {
+            eligible = false; // requires at least one eligibility rule
+          } else {
+            eligible = rules.some((r: any) => {
+              const jobOk = !r.job_position_id || r.job_position_id === emp.job_position_id;
+              const deptOk = !r.department_id || r.department_id === emp.department_id;
+              return jobOk && deptOk;
+            });
+          }
+          if (!eligible) continue;
+
+          let amount = 0;
+          let minutes: number | null = null;
+
+          if (el.is_delay_minutes_element || el.calculation_type === "delay_minutes") {
+            const mins = delayMinutesByEmp[emp.id] || 0;
+            const totalSalary = Number(emp.basic_salary) || 0;
+            const perMinute = totalSalary > 0 ? totalSalary / 30 / 8 / 60 : 0;
+            amount = mins * perMinute;
+            minutes = mins;
+            if (amount <= 0 && mins <= 0) continue;
+          } else if (el.calculation_type === "variable") {
+            const v = (variables || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
+            if (!v) continue;
+            amount = Number(v.amount) || 0;
+          } else {
+            const assign = (empElements || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
+            if (assign) amount = Number(assign.amount) || 0;
+            else if (el.calculation_type === "fixed" && Number(el.default_amount) > 0) amount = Number(el.default_amount);
+            else continue;
+          }
+
+          if (amount === 0 && !minutes) continue;
+
+          linesToInsert.push({
+            run_id: runId,
+            employee_id: emp.id,
+            element_id: el.id,
+            element_type: el.element_type,
+            amount: Number(amount.toFixed(2)),
+            minutes,
+          });
+
+          if (el.element_type === "earning") totalGross += amount;
+          else if (el.element_type === "deduction") totalDed += amount;
+          else if (el.element_type === "employer_contribution") totalEmpC += amount;
+        }
+      }
+
+      if (linesToInsert.length > 0) {
+        // batch insert in chunks of 500
+        for (let i = 0; i < linesToInsert.length; i += 500) {
+          const chunk = linesToInsert.slice(i, i + 500);
+          const { error } = await supabase.from("payroll_run_lines").insert(chunk);
+          if (error) throw error;
+        }
+      }
+
+      const empCount = new Set(linesToInsert.map((l) => l.employee_id)).size;
+
+      await supabase.from("payroll_runs").update({
+        total_gross: Number(totalGross.toFixed(2)),
+        total_deductions: Number(totalDed.toFixed(2)),
+        total_employer_contributions: Number(totalEmpC.toFixed(2)),
+        total_net: Number((totalGross - totalDed).toFixed(2)),
+        employee_count: empCount,
+      }).eq("id", runId);
+
+      toast({ title: `Computed: ${linesToInsert.length} lines, ${empCount} employees` });
+      loadRuns();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmRun = async (run: Run) => {
+    if (!confirm(`Confirm and LOCK payroll for ${run.period_year}-${run.period_month}?`)) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("payroll_runs").update({
+      status: "confirmed",
+      confirmed_at: new Date().toISOString(),
+      confirmed_by: user?.id,
+    }).eq("id", run.id);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { toast({ title: "Confirmed and locked" }); loadRuns(); }
+  };
+
+  const deleteRun = async (run: Run) => {
+    if (run.status === "confirmed") return;
+    if (!confirm("Delete this draft run?")) return;
+    await supabase.from("payroll_runs").delete().eq("id", run.id);
+    setSelectedRun(null);
+    setLines([]);
+    loadRuns();
+  };
+
+  const viewRun = async (run: Run) => {
+    setSelectedRun(run);
+    loadLines(run.id);
+  };
+
+  // Group lines per employee for view
+  const empGroups: Record<string, Line[]> = {};
+  lines.forEach((l) => {
+    if (!empGroups[l.employee_id]) empGroups[l.employee_id] = [];
+    empGroups[l.employee_id].push(l);
+  });
+
+  return (
+    <div className="p-6 space-y-4">
+      <h1 className="text-2xl font-bold">Payroll Run & Confirm</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Compute Period</CardTitle>
+        </CardHeader>
+        <CardContent className="flex gap-3 items-end">
+          <div>
+            <Label>Year</Label>
+            <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-32" />
+          </div>
+          <div>
+            <Label>Month</Label>
+            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={computePeriod} disabled={busy}>
+            {busy ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+            Run Payroll
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Payroll Runs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Period</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Employees</TableHead>
+                <TableHead>Gross</TableHead>
+                <TableHead>Deductions</TableHead>
+                <TableHead>Net</TableHead>
+                <TableHead>Employer Contrib.</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.map((r) => (
+                <TableRow key={r.id} className={selectedRun?.id === r.id ? "bg-muted" : ""}>
+                  <TableCell>{r.period_year}-{String(r.period_month).padStart(2, "0")}</TableCell>
+                  <TableCell>
+                    <Badge variant={r.status === "confirmed" ? "default" : "secondary"}>
+                      {r.status === "confirmed" && <Lock className="h-3 w-3 mr-1" />}
+                      {r.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{r.employee_count}</TableCell>
+                  <TableCell>{Number(r.total_gross || 0).toFixed(2)}</TableCell>
+                  <TableCell>{Number(r.total_deductions || 0).toFixed(2)}</TableCell>
+                  <TableCell className="font-semibold">{Number(r.total_net || 0).toFixed(2)}</TableCell>
+                  <TableCell>{Number(r.total_employer_contributions || 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-right space-x-1">
+                    <Button size="sm" variant="outline" onClick={() => viewRun(r)}>View</Button>
+                    {r.status === "draft" && (
+                      <>
+                        <Button size="sm" onClick={() => confirmRun(r)}>
+                          <CheckCircle2 className="h-4 w-4 mr-1" /> Confirm
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => deleteRun(r)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {runs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">No runs yet</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {selectedRun && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Run Detail — {selectedRun.period_year}-{String(selectedRun.period_month).padStart(2, "0")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {Object.entries(empGroups).map(([empId, empLines]) => {
+              const earn = empLines.filter((l) => l.element_type === "earning").reduce((s, l) => s + Number(l.amount), 0);
+              const ded = empLines.filter((l) => l.element_type === "deduction").reduce((s, l) => s + Number(l.amount), 0);
+              return (
+                <div key={empId} className="border rounded-md p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <strong>{empMap[empId] || empId}</strong>
+                    <div className="text-sm">
+                      Gross: {earn.toFixed(2)} | Ded: {ded.toFixed(2)} |
+                      <span className="font-bold ml-2">Net: {(earn - ded).toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Element</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Minutes</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {empLines.map((l) => (
+                        <TableRow key={l.id}>
+                          <TableCell>{elMap[l.element_id]?.name || l.element_id}</TableCell>
+                          <TableCell>
+                            <Badge variant={l.element_type === "earning" ? "default" : l.element_type === "deduction" ? "destructive" : "secondary"}>
+                              {l.element_type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{l.minutes ? Number(l.minutes).toFixed(0) : "—"}</TableCell>
+                          <TableCell className="text-right">{Number(l.amount).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              );
+            })}
+            {lines.length === 0 && <p className="text-muted-foreground text-sm">No lines</p>}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

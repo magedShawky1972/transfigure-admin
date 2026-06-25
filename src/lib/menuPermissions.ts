@@ -150,4 +150,9 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/shift-calendar": "shiftCalendar",
   "/sql-query-runner": "sqlQueryRunner",
   "/data-loading-status": "dataLoadingStatus",
+  "/payroll/element-setup": "payrollElementSetup",
+  "/payroll/eligibility": "payrollEligibility",
+  "/payroll/employee-elements": "payrollEmployeeElements",
+  "/payroll/variable-entry": "payrollVariableEntry",
+  "/payroll/run": "payrollRun",
 };
