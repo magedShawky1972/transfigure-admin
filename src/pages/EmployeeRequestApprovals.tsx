@@ -159,6 +159,16 @@ const EmployeeRequestApprovals = () => {
       else if (filterStatus !== 'all') query = query.eq('status', filterStatus);
       if (filterType !== 'all') query = query.eq('request_type', filterType);
 
+      // Restrict to employees in the HR Manager's assigned Business Units
+      if (isHRManager && hrAllowedEmployeeIds !== null) {
+        if (hrAllowedEmployeeIds.length === 0) {
+          setRequests([]);
+          return;
+        }
+        query = query.in('employee_id', hrAllowedEmployeeIds);
+      }
+
+
       const { data } = await query;
       if (data) {
         const requestsWithDurations = await attachDelayDurations(data);
