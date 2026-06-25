@@ -142,10 +142,44 @@ const EmployeeRequestApprovals = () => {
 
       const { data } = await query;
       if (data) {
-        setRequests(data);
-        await fetchPendingApprovers(data);
+        const requestsWithDurations = await attachDelayDurations(data);
+        setRequests(requestsWithDurations);
+        await fetchPendingApprovers(requestsWithDurations);
       }
     } catch (error) { console.error(error); }
+  };
+
+  const attachDelayDurations = async (requestList: any[]) => {
+    const needsFallback = requestList.filter((request: any) =>
+      (request.request_type === 'delay' || request.request_type === 'early_leave') &&
+      request.delay_date &&
+      !request.delay_minutes
+    );
+
+    if (needsFallback.length === 0) return requestList;
+
+    const employeeIds = [...new Set(needsFallback.map((request: any) => request.employee_id).filter(Boolean))];
+    const dates = [...new Set(needsFallback.map((request: any) => request.delay_date).filter(Boolean))];
+    if (employeeIds.length === 0 || dates.length === 0) return requestList;
+
+    const { data: timesheetRows } = await supabase
+      .from('timesheets')
+      .select('employee_id, work_date, late_minutes, early_leave_minutes')
+      .in('employee_id', employeeIds)
+      .in('work_date', dates);
+
+    const timesheetMap = new Map(
+      (timesheetRows || []).map((row: any) => [`${row.employee_id}|${row.work_date}`, row])
+    );
+
+    return requestList.map((request: any) => {
+      if (request.delay_minutes || !request.delay_date || !request.employee_id) return request;
+      const timesheet = timesheetMap.get(`${request.employee_id}|${request.delay_date}`) as any;
+      const fallbackMinutes = request.request_type === 'early_leave'
+        ? timesheet?.early_leave_minutes
+        : timesheet?.late_minutes;
+      return { ...request, _display_delay_minutes: fallbackMinutes ?? null };
+    });
   };
 
   const handleDeleteRequest = async (requestId: string) => {
@@ -575,6 +609,27 @@ const EmployeeRequestApprovals = () => {
     }
   };
 
+  const getDelayDurationMinutes = (request: any) => {
+    const savedMinutes = Number(request?.delay_minutes);
+    if (Number.isFinite(savedMinutes) && savedMinutes > 0) return savedMinutes;
+    const fallbackMinutes = Number(request?._display_delay_minutes);
+    if (Number.isFinite(fallbackMinutes) && fallbackMinutes > 0) return fallbackMinutes;
+    return null;
+  };
+
+  const formatDurationMinutes = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const rem = minutes % 60;
+    if (language === 'ar') {
+      if (h > 0 && rem > 0) return `${h} ساعة ${rem} دقيقة (${minutes} دقيقة)`;
+      if (h > 0) return `${h} ساعة (${minutes} دقيقة)`;
+      return `${rem} دقيقة`;
+    }
+    if (h > 0 && rem > 0) return `${h}h ${rem}m (${minutes} min)`;
+    if (h > 0) return `${h}h (${minutes} min)`;
+    return `${rem} min`;
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   if (!isHRManager && userAdminDepts.length === 0) {
@@ -785,10 +840,10 @@ const EmployeeRequestApprovals = () => {
                       <Label className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{language === 'ar' ? (selectedRequest.request_type === 'early_leave' ? 'تاريخ الانصراف' : 'تاريخ التأخير') : (selectedRequest.request_type === 'early_leave' ? 'Early Leave Date' : 'Delay Date')}</Label>
                       <p className="font-medium">{(selectedRequest as any).delay_date}</p>
                     </div>
-                    {(selectedRequest as any).delay_minutes && (
+                    {getDelayDurationMinutes(selectedRequest) !== null && (
                       <div className="space-y-1">
                         <Label className="text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{language === 'ar' ? (selectedRequest.request_type === 'early_leave' ? 'مدة الانصراف المبكر' : 'مدة التأخير') : (selectedRequest.request_type === 'early_leave' ? 'Early Leave Duration' : 'Delay Duration')}</Label>
-                        <p className="font-medium">{(selectedRequest as any).delay_minutes} {language === 'ar' ? 'دقيقة' : 'minutes'}</p>
+                        <p className="font-medium">{formatDurationMinutes(getDelayDurationMinutes(selectedRequest)!)}</p>
                       </div>
                     )}
                   </div>

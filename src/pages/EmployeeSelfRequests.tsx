@@ -115,6 +115,60 @@ const EmployeeSelfRequests = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const attachDelayDurations = async (requestList: any[]) => {
+    const needsFallback = requestList.filter((request: any) =>
+      (request.request_type === 'delay' || request.request_type === 'early_leave') &&
+      request.delay_date &&
+      !request.delay_minutes
+    );
+
+    if (needsFallback.length === 0) return requestList;
+
+    const employeeIds = [...new Set(needsFallback.map((request: any) => request.employee_id).filter(Boolean))];
+    const dates = [...new Set(needsFallback.map((request: any) => request.delay_date).filter(Boolean))];
+    if (employeeIds.length === 0 || dates.length === 0) return requestList;
+
+    const { data: timesheetRows } = await supabase
+      .from('timesheets')
+      .select('employee_id, work_date, late_minutes, early_leave_minutes')
+      .in('employee_id', employeeIds)
+      .in('work_date', dates);
+
+    const timesheetMap = new Map(
+      (timesheetRows || []).map((row: any) => [`${row.employee_id}|${row.work_date}`, row])
+    );
+
+    return requestList.map((request: any) => {
+      if (request.delay_minutes || !request.delay_date || !request.employee_id) return request;
+      const timesheet = timesheetMap.get(`${request.employee_id}|${request.delay_date}`) as any;
+      const fallbackMinutes = request.request_type === 'early_leave'
+        ? timesheet?.early_leave_minutes
+        : timesheet?.late_minutes;
+      return { ...request, _display_delay_minutes: fallbackMinutes ?? null };
+    });
+  };
+
+  const getDelayDurationMinutes = (request: any) => {
+    const savedMinutes = Number(request?.delay_minutes);
+    if (Number.isFinite(savedMinutes) && savedMinutes > 0) return savedMinutes;
+    const fallbackMinutes = Number(request?._display_delay_minutes);
+    if (Number.isFinite(fallbackMinutes) && fallbackMinutes > 0) return fallbackMinutes;
+    return null;
+  };
+
+  const formatDurationMinutes = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const rem = minutes % 60;
+    if (language === 'ar') {
+      if (h > 0 && rem > 0) return `${h} ساعة ${rem} دقيقة (${minutes} دقيقة)`;
+      if (h > 0) return `${h} ساعة (${minutes} دقيقة)`;
+      return `${rem} دقيقة`;
+    }
+    if (h > 0 && rem > 0) return `${h}h ${rem}m (${minutes} min)`;
+    if (h > 0) return `${h}h (${minutes} min)`;
+    return `${rem} min`;
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -217,7 +271,7 @@ const EmployeeSelfRequests = () => {
           .or(`employee_id.eq.${empData.id},submitted_by_id.eq.${empData.id}`)
           .order('created_at', { ascending: false });
 
-        setRequests(reqData || []);
+        setRequests(await attachDelayDurations(reqData || []));
 
         // Initial balance load will be handled by fetchVacationBalances via useEffect
       }
@@ -390,17 +444,26 @@ const EmployeeSelfRequests = () => {
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Get the target employee's department (important when HR submits for another dept)
+      // Get the target employee's department and direct manager (important when HR submits for another dept)
       let targetDepartmentId = employee.department_id;
-      if (isOnBehalf) {
-        const { data: targetEmp } = await supabase
+      let directManagerUserId: string | null = null;
+      const { data: targetEmp } = await supabase
+        .from('employees')
+        .select('department_id, manager_id')
+        .eq('id', targetEmployeeId)
+        .maybeSingle();
+
+      if (targetEmp?.department_id) {
+        targetDepartmentId = targetEmp.department_id;
+      }
+
+      if (targetEmp?.manager_id) {
+        const { data: managerEmp } = await supabase
           .from('employees')
-          .select('department_id')
-          .eq('id', targetEmployeeId)
-          .single();
-        if (targetEmp?.department_id) {
-          targetDepartmentId = targetEmp.department_id;
-        }
+          .select('user_id')
+          .eq('id', targetEmp.manager_id)
+          .maybeSingle();
+        directManagerUserId = managerEmp?.user_id || null;
       }
       
       const requestData: any = {
@@ -421,6 +484,18 @@ const EmployeeSelfRequests = () => {
       if (selectedType !== 'other' && user) {
         const submitterUserId = user.id;
 
+        let directManagerAdminRecord: any = null;
+        if (directManagerUserId && directManagerUserId !== submitterUserId) {
+          const { data: managerAdmin } = await supabase
+            .from('department_admins')
+            .select('user_id, admin_order')
+            .eq('department_id', targetDepartmentId)
+            .eq('user_id', directManagerUserId)
+            .eq('approve_employee_request', true)
+            .maybeSingle();
+          directManagerAdminRecord = managerAdmin;
+        }
+
         // Check if the submitter is a department admin (manager) in the TARGET department
         const { data: submitterAdminRecord } = await supabase
           .from('department_admins')
@@ -430,7 +505,12 @@ const EmployeeSelfRequests = () => {
           .eq('approve_employee_request', true)
           .maybeSingle();
 
-        if (submitterAdminRecord) {
+        if (directManagerAdminRecord) {
+          // Always route employee requests to the employee's direct manager first when available.
+          requestData.current_approval_level = directManagerAdminRecord.admin_order;
+          requestData.current_phase = 'manager';
+          requestData.status = 'pending';
+        } else if (submitterAdminRecord) {
           // Submitter IS a department approver - check if there is a higher-level
           // approver above them in the chain (greater admin_order = higher rank).
           // If yes, route there first.
@@ -508,7 +588,19 @@ const EmployeeSelfRequests = () => {
 
       if (selectedType === 'delay' || selectedType === 'early_leave') {
         requestData.delay_date = delayDate ? format(delayDate, 'yyyy-MM-dd') : null;
-        requestData.delay_minutes = parseInt(delayMinutes);
+        let computedDelayMinutes = parseInt(delayMinutes);
+        if (!Number.isFinite(computedDelayMinutes) && requestData.delay_date) {
+          const { data: timesheet } = await supabase
+            .from('timesheets')
+            .select('late_minutes, early_leave_minutes')
+            .eq('employee_id', targetEmployeeId)
+            .eq('work_date', requestData.delay_date)
+            .maybeSingle();
+          computedDelayMinutes = selectedType === 'early_leave'
+            ? Number(timesheet?.early_leave_minutes)
+            : Number(timesheet?.late_minutes);
+        }
+        requestData.delay_minutes = Number.isFinite(computedDelayMinutes) ? computedDelayMinutes : null;
         requestData.actual_arrival_time = actualArrival || null;
       }
 
@@ -944,13 +1036,8 @@ const EmployeeSelfRequests = () => {
                       <div>{detailRequest.delay_date}</div>
                       <div className="text-muted-foreground">{language === 'ar' ? 'المدة' : 'Duration'}</div>
                       <div>{(() => {
-                        const m = Number(detailRequest.delay_minutes) || 0;
-                        const h = Math.floor(m / 60);
-                        const rem = m % 60;
-                        if (language === 'ar') {
-                          return `${h} ساعة ${rem} دقيقة (${m} دقيقة)`;
-                        }
-                        return `${h}h ${rem}m (${m} min)`;
+                        const minutes = getDelayDurationMinutes(detailRequest);
+                        return minutes === null ? '-' : formatDurationMinutes(minutes);
                       })()}</div>
                     </>
                   )}
