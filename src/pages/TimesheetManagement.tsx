@@ -198,7 +198,7 @@ export default function TimesheetManagement() {
   const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
   const [recalcRunning, setRecalcRunning] = useState(false);
   const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
-  const [shiftSessionMap, setShiftSessionMap] = useState<Map<string, { shift_name: string; start: string | null; end: string | null }>>(new Map());
+  const [shiftSessionMap, setShiftSessionMap] = useState<Map<string, { shift_name: string; start: string | null; end: string | null; opened_at: string | null; closed_at: string | null }>>(new Map());
   const [managerNoteDialogOpen, setManagerNoteDialogOpen] = useState(false);
   const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
   const [managerNoteText, setManagerNoteText] = useState("");
@@ -1059,13 +1059,13 @@ export default function TimesheetManagement() {
       const shiftBasedUserIds = (employeesRes.data || [])
         .filter((e: any) => e.user_id && e.attendance_types?.is_shift_based)
         .map((e: any) => e.user_id);
-      const newShiftMap = new Map<string, { shift_name: string; start: string | null; end: string | null }>();
+      const newShiftMap = new Map<string, { shift_name: string; start: string | null; end: string | null; opened_at: string | null; closed_at: string | null }>();
       if (shiftBasedUserIds.length > 0) {
         const rangeStartIso = `${vacDateFrom}T00:00:00+03:00`;
         const rangeEndIso = `${vacDateTo}T23:59:59+03:00`;
         const { data: sessions } = await supabase
           .from("shift_sessions")
-          .select("user_id, opened_at, shift_assignments!inner(shifts!inner(shift_name, shift_start_time, shift_end_time))")
+          .select("user_id, opened_at, closed_at, shift_assignments!inner(shifts!inner(shift_name, shift_start_time, shift_end_time))")
           .in("user_id", shiftBasedUserIds)
           .gte("opened_at", rangeStartIso)
           .lte("opened_at", rangeEndIso);
@@ -1079,6 +1079,8 @@ export default function TimesheetManagement() {
               shift_name: shift.shift_name,
               start: shift.shift_start_time,
               end: shift.shift_end_time,
+              opened_at: s.opened_at,
+              closed_at: s.closed_at,
             });
           }
         });
@@ -2088,9 +2090,22 @@ export default function TimesheetManagement() {
                         })()}
                       </TableCell>
                       <TableCell>
-                        {ts.actual_start || ts.actual_end
-                          ? `${ts.actual_start ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_start) ? new Date(ts.actual_start).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_start) : '-'} - ${ts.actual_end ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_end) ? new Date(ts.actual_end).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_end) : '-'}`
-                          : "-"}
+                        {(() => {
+                          const emp: any = employees.find((e) => e.id === ts.employee_id);
+                          const fmtTs = (v: string) =>
+                            new Date(v).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
+                          // Shift-based: show shift session opened_at / closed_at
+                          if (emp?.attendance_types?.is_shift_based && emp?.user_id) {
+                            const sess = shiftSessionMap.get(`${emp.user_id}|${ts.work_date}`);
+                            if (sess && (sess.opened_at || sess.closed_at)) {
+                              return `${sess.opened_at ? fmtTs(sess.opened_at) : '-'} - ${sess.closed_at ? fmtTs(sess.closed_at) : '-'}`;
+                            }
+                            return "-";
+                          }
+                          return ts.actual_start || ts.actual_end
+                            ? `${ts.actual_start ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_start) ? new Date(ts.actual_start).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_start) : '-'} - ${ts.actual_end ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_end) ? new Date(ts.actual_end).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_end) : '-'}`
+                            : "-";
+                        })()}
                       </TableCell>
                       <TableCell>
                         {Math.floor(ts.total_work_minutes / 60)}h {ts.total_work_minutes % 60}m
