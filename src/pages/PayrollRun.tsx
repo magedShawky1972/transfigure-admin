@@ -36,6 +36,8 @@ type Line = {
   minutes: number | null;
 };
 
+const fmt = (n: any) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function PayrollRun() {
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
@@ -520,10 +522,10 @@ export default function PayrollRun() {
                     </Badge>
                   </TableCell>
                   <TableCell>{r.employee_count}</TableCell>
-                  <TableCell>{Number(r.total_gross || 0).toFixed(2)}</TableCell>
-                  <TableCell>{Number(r.total_deductions || 0).toFixed(2)}</TableCell>
-                  <TableCell className="font-semibold">{Number(r.total_net || 0).toFixed(2)}</TableCell>
-                  <TableCell>{Number(r.total_employer_contributions || 0).toFixed(2)}</TableCell>
+                  <TableCell>{fmt(r.total_gross)}</TableCell>
+                  <TableCell>{fmt(r.total_deductions)}</TableCell>
+                  <TableCell className="font-semibold">{fmt(r.total_net)}</TableCell>
+                  <TableCell>{fmt(r.total_employer_contributions)}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button size="sm" variant="outline" onClick={() => viewRun(r)}>View</Button>
                     {r.status === "draft" && (
@@ -573,8 +575,8 @@ export default function PayrollRun() {
                   <div className="flex justify-between items-center mb-2">
                     <strong>{empMap[empId] || empId}</strong>
                     <div className="text-sm">
-                      Gross: {earn.toFixed(2)} | Ded: {ded.toFixed(2)} |
-                      <span className="font-bold ml-2">Net: {(earn - ded).toFixed(2)}</span>
+                      Gross: {fmt(earn)} | Ded: {fmt(ded)} |
+                      <span className="font-bold ml-2">Net: {fmt(earn - ded)}</span>
                     </div>
                   </div>
                   <Table>
@@ -596,7 +598,7 @@ export default function PayrollRun() {
                             </Badge>
                           </TableCell>
                           <TableCell>{l.minutes ? Number(l.minutes).toFixed(0) : "—"}</TableCell>
-                          <TableCell className="text-right">{Number(l.amount).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{fmt(l.amount)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
