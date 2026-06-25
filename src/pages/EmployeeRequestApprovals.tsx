@@ -683,7 +683,7 @@ const EmployeeRequestApprovals = () => {
       </div>
 
       <Card>
-        <CardContent className="pt-4 flex gap-4 items-center">
+        <CardContent className="pt-4 flex gap-4 items-center flex-wrap">
           <Filter className="h-4 w-4" />
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -701,8 +701,82 @@ const EmployeeRequestApprovals = () => {
               <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Employee searchable filter */}
+          <Popover open={employeePickerOpen} onOpenChange={setEmployeePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" className="w-[220px] justify-between">
+                {(() => {
+                  if (filterEmployeeId === 'all') return language === 'ar' ? 'كل الموظفين' : 'All Employees';
+                  const r = requests.find((x: any) => x.employee_id === filterEmployeeId);
+                  return r ? getEmployeeName(r.employees) : (language === 'ar' ? 'موظف' : 'Employee');
+                })()}
+                <ChevronsUpDown className="h-4 w-4 opacity-50 ml-2" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[260px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder={language === 'ar' ? 'ابحث عن موظف...' : 'Search employee...'} />
+                <CommandList>
+                  <CommandEmpty>{language === 'ar' ? 'لا يوجد' : 'No results'}</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="all" onSelect={() => { setFilterEmployeeId('all'); setEmployeePickerOpen(false); }}>
+                      {language === 'ar' ? 'كل الموظفين' : 'All Employees'}
+                    </CommandItem>
+                    {Array.from(
+                      new Map(
+                        requests
+                          .filter((r: any) => r.employee_id)
+                          .map((r: any) => [r.employee_id, { id: r.employee_id, name: getEmployeeName(r.employees) }])
+                      ).values()
+                    )
+                      .sort((a: any, b: any) => a.name.localeCompare(b.name))
+                      .map((e: any) => (
+                        <CommandItem key={e.id} value={e.name} onSelect={() => { setFilterEmployeeId(e.id); setEmployeePickerOpen(false); }}>
+                          {e.name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* From date */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !filterFromDate && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                {filterFromDate ? format(filterFromDate, 'yyyy-MM-dd') : (language === 'ar' ? 'من تاريخ' : 'From')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent mode="single" selected={filterFromDate} onSelect={setFilterFromDate} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+
+          {/* To date */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !filterToDate && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                {filterToDate ? format(filterToDate, 'yyyy-MM-dd') : (language === 'ar' ? 'إلى تاريخ' : 'To')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent mode="single" selected={filterToDate} onSelect={setFilterToDate} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+
+          {(filterEmployeeId !== 'all' || filterFromDate || filterToDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilterEmployeeId('all'); setFilterFromDate(undefined); setFilterToDate(undefined); }}>
+              <X className="h-4 w-4 mr-1" />
+              {language === 'ar' ? 'مسح' : 'Clear'}
+            </Button>
+          )}
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader><CardTitle>{language === 'ar' ? 'الطلبات' : 'Requests'}</CardTitle></CardHeader>
