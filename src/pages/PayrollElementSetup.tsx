@@ -58,8 +58,8 @@ export default function PayrollElementSetup() {
     const { data, error } = await supabase
       .from("payroll_elements")
       .select("*")
+      .order("sort_order", { ascending: true })
       .order("element_type")
-      .order("sort_order")
       .order("name_en");
     if (error) toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     else setRows((data || []) as Element[]);
