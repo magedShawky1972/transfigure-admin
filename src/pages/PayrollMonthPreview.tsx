@@ -394,39 +394,43 @@ export default function PayrollMonthPreview() {
     <div class="no-print" style="margin-bottom:8px;">
       <button onclick="window.print()">${isAr ? "طباعة" : "Print"}</button>
     </div>
-    <h1>${title}</h1>
-    <div class="meta">
-      <span>${isAr ? "التاريخ" : "Date"}: ${today}</span>
-      <span>${isAr ? `${sorted.length} موظفين × ${visibleElements.length} عناصر` : `${sorted.length} employees × ${visibleElements.length} elements`}</span>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>${isAr ? "الموظف" : "Employee"}</th>
-          <th>${isAr ? "الرقم" : "Number"}</th>
-          <th>${isAr ? "القسم" : "Department"}</th>
-          <th>${isAr ? "الوظيفة" : "Job"}</th>
-          ${headerCells}
-          <th style="text-align:right;">${isAr ? "الصافي" : "Net"}</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${bodyRows}
-        ${totalsRow}
-      </tbody>
-    </table>
-    <div class="signatures">
-      <div class="sig-box">
-        <div class="sig-line">${isAr ? "المدير الإداري" : "Administrative Manager"}</div>
-        <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+    <div class="page-wrap">
+      <div class="content">
+        <h1>${title}</h1>
+        <div class="meta">
+          <span>${isAr ? "التاريخ" : "Date"}: ${today}</span>
+          <span>${isAr ? `${sorted.length} موظفين × ${visibleElements.length} عناصر` : `${sorted.length} employees × ${visibleElements.length} elements`}</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>${isAr ? "الموظف" : "Employee"}</th>
+              <th>${isAr ? "الرقم" : "Number"}</th>
+              <th>${isAr ? "القسم" : "Department"}</th>
+              <th>${isAr ? "الوظيفة" : "Job"}</th>
+              ${headerCells}
+              <th style="text-align:right;">${isAr ? "الصافي" : "Net"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+            ${totalsRow}
+          </tbody>
+        </table>
       </div>
-      <div class="sig-box">
-        <div class="sig-line">${isAr ? "المدير المالي" : "Financial Manager"}</div>
-        <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
-      </div>
-      <div class="sig-box">
-        <div class="sig-line">${isAr ? "المدير التنفيذي" : "Executive Manager"}</div>
-        <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+      <div class="signatures">
+        <div class="sig-box">
+          <div class="sig-line">${isAr ? "المدير الإداري" : "Administrative Manager"}</div>
+          <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-line">${isAr ? "المدير المالي" : "Financial Manager"}</div>
+          <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-line">${isAr ? "المدير التنفيذي" : "Executive Manager"}</div>
+          <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+        </div>
       </div>
     </div>
     <script>window.addEventListener('load', function(){ setTimeout(function(){ try { window.print(); } catch(e){} }, 400); });</script>
