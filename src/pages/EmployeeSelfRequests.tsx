@@ -271,7 +271,7 @@ const EmployeeSelfRequests = () => {
           .or(`employee_id.eq.${empData.id},submitted_by_id.eq.${empData.id}`)
           .order('created_at', { ascending: false });
 
-        setRequests(reqData || []);
+        setRequests(await attachDelayDurations(reqData || []));
 
         // Initial balance load will be handled by fetchVacationBalances via useEffect
       }
