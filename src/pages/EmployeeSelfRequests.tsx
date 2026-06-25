@@ -432,22 +432,38 @@ const EmployeeSelfRequests = () => {
 
         if (submitterAdminRecord) {
           // Submitter IS a department approver - check if there is a higher-level
-          // approver above them (lower admin_order). If yes, route there first.
+          // approver above them in the chain (greater admin_order = higher rank).
+          // If yes, route there first.
           const { data: higherApprovers } = await supabase
             .from('department_admins')
             .select('user_id, admin_order')
             .eq('department_id', targetDepartmentId)
             .eq('approve_employee_request', true)
-            .lt('admin_order', submitterAdminRecord.admin_order)
+            .gt('admin_order', submitterAdminRecord.admin_order)
             .order('admin_order')
             .limit(1);
 
           if (higherApprovers && higherApprovers.length > 0) {
-            // Route to the highest-ranking approver above the submitter
+            // Route to the next-higher approver above the submitter
             requestData.current_approval_level = higherApprovers[0].admin_order;
             requestData.current_phase = 'manager';
             requestData.status = 'pending';
           } else {
+            // Submitter is the top approver - skip directly to HR
+            const { data: firstHR } = await supabase
+              .from('hr_managers')
+              .select('admin_order')
+              .eq('is_active', true)
+              .order('admin_order')
+              .limit(1);
+
+            requestData.current_phase = 'hr';
+            requestData.status = 'manager_approved';
+            requestData.manager_approved_at = new Date().toISOString();
+            requestData.manager_approved_by = submitterUserId;
+            requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
+          }
+        } else {
             // Submitter is the top approver - skip directly to HR
             const { data: firstHR } = await supabase
               .from('hr_managers')
