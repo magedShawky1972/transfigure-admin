@@ -48,6 +48,9 @@ interface Row {
   lateCount: number;
   earlyLeaveCount: number;
   absentCount: number;
+  absentWithNoticeCount: number;
+  absentWithoutNoticeCount: number;
+  absenceDeduction: number;
   rules: Map<string, { name: string; count: number; amount: number }>;
 }
 
