@@ -131,7 +131,7 @@ export default function DeductionSummary() {
 
       let q = supabase.from("timesheets").select(`
         *,
-        employees(employee_number, first_name, last_name, basic_salary),
+        employees(employee_number, first_name, first_name_ar, last_name, last_name_ar, basic_salary),
         deduction_rules(rule_name, rule_name_ar, deduction_type, deduction_value)
       `);
 

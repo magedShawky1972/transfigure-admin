@@ -28,7 +28,9 @@ const fmt = (n: number) => (n === 0 ? "" : numFmt.format(n));
 type Emp = {
   id: string;
   first_name: string;
+  first_name_ar?: string | null;
   last_name: string;
+  last_name_ar?: string | null;
   employee_number: string;
   department_id: string | null;
   job_position_id: string | null;
@@ -65,7 +67,7 @@ export default function PayrollMonthPreview() {
     const [e, el, pe, pv] = await Promise.all([
       supabase
         .from("employees")
-        .select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
+        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
         .order("first_name"),
       supabase.from("payroll_elements").select("id, code, name_en, element_type, calculation_type, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
       supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true),

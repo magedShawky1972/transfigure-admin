@@ -53,7 +53,9 @@ function MatrixCellInput({
 type Emp = {
   id: string;
   first_name: string;
+  first_name_ar?: string | null;
   last_name: string;
+  last_name_ar?: string | null;
   employee_number: string;
   department_id: string | null;
   job_position_id: string | null;
@@ -90,7 +92,7 @@ export default function PayrollVariableEntry() {
     const [e, el] = await Promise.all([
       supabase
         .from("employees")
-        .select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
+        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
         .order("first_name"),
       supabase
         .from("payroll_elements")

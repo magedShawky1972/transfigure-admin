@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type Emp = { id: string; first_name: string; last_name: string; employee_number: string; basic_salary: number | null };
+type Emp = { id: string; first_name: string; first_name_ar?: string | null; last_name: string; last_name_ar?: string | null; employee_number: string; basic_salary: number | null };
 type Element = { id: string; code: string; name_en: string; element_type: string; default_amount: number | null };
 type Assign = {
   id: string;
@@ -47,7 +47,7 @@ export default function PayrollEmployeeElements() {
 
   const load = async () => {
     const [e, el] = await Promise.all([
-      supabase.from("employees").select("id, first_name, last_name, employee_number, basic_salary").order("first_name"),
+      supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, basic_salary").order("first_name"),
       supabase.from("payroll_elements").select("id, code, name_en, element_type, default_amount").eq("is_active", true).order("name_en"),
     ]);
     setEmps((e.data || []) as Emp[]);
