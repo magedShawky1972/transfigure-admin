@@ -478,6 +478,14 @@ export default function DeductionSummary() {
               <Send className="h-4 w-4 mr-2" />
               {isAr ? "تأكيد وإرسال إلى الرواتب" : "Confirm & Send to Payroll"}
             </Button>
+            <Button variant="outline" onClick={handleExportExcel} disabled={loading || rows.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {isAr ? "تصدير Excel" : "Export Excel"}
+            </Button>
+            <Button variant="outline" onClick={handlePrint} disabled={loading || rows.length === 0}>
+              <Printer className="h-4 w-4 mr-2" />
+              {isAr ? "طباعة" : "Print"}
+            </Button>
             <Button
               variant="destructive"
               onClick={() => setRollbackOpen(true)}
@@ -486,6 +494,7 @@ export default function DeductionSummary() {
             >
               {isAr ? `تراجع (${existingCount})` : `Rollback (${existingCount})`}
             </Button>
+
           </div>
         </CardHeader>
         <CardContent>
