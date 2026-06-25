@@ -88,6 +88,12 @@ interface JobPosition {
   position_name_ar: string | null;
 }
 
+interface BusinessUnit {
+  id: string;
+  unit_name: string;
+  unit_name_ar: string | null;
+}
+
 interface Profile {
   user_id: string;
   user_name: string;
