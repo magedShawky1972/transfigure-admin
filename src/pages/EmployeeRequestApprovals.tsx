@@ -81,6 +81,7 @@ const EmployeeRequestApprovals = () => {
   const [filterStatus, setFilterStatus] = useState<string>('pending');
   const [isHRManager, setIsHRManager] = useState(false);
   const [hrManagerLevel, setHrManagerLevel] = useState<number | null>(null);
+  const [hrAllowedEmployeeIds, setHrAllowedEmployeeIds] = useState<string[] | null>(null);
   const [userAdminDepts, setUserAdminDepts] = useState<string[]>([]);
   const [userAdminLevel, setUserAdminLevel] = useState<Map<string, number>>(new Map());
   const [pendingApprovers, setPendingApprovers] = useState<Map<string, string>>(new Map());
