@@ -31,6 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2, MessageSquare } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
@@ -140,6 +144,7 @@ export default function TimesheetManagement() {
   const [selectedDate, setSelectedDate] = useState(savedFilters.selectedDate || format(new Date(), "yyyy-MM-dd"));
   const [selectedMonth, setSelectedMonth] = useState(savedFilters.selectedMonth || format(new Date(), "yyyy-MM"));
   const [selectedEmployee, setSelectedEmployee] = useState<string>(savedFilters.selectedEmployee || "");
+  const [employeeOpen, setEmployeeOpen] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>(savedFilters.selectedDepartment || "");
 
@@ -1697,35 +1702,75 @@ export default function TimesheetManagement() {
             </div>
             <div className="space-y-2">
               <Label>{language === "ar" ? "الموظف" : "Employee"}</Label>
-              <Select value={selectedEmployee || "_all_"} onValueChange={(v) => setSelectedEmployee(v === "_all_" ? "" : v)}>
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder={language === "ar" ? "جميع الموظفين" : "All Employees"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_all_">{language === "ar" ? "جميع الموظفين" : "All Employees"}</SelectItem>
-                  {(() => {
-                    // Helper to get all descendant dept IDs
-                    const getDescendants = (parentId: string): string[] => {
-                      const result: string[] = [parentId];
-                      departments.filter(d => d.parent_department_id === parentId).forEach(child => {
-                        result.push(...getDescendants(child.id));
-                      });
-                      return result;
-                    };
-                    const filteredEmps = selectedDepartment
-                      ? employees.filter(emp => {
-                          const deptIds = getDescendants(selectedDepartment);
-                          return emp.department_id && deptIds.includes(emp.department_id);
-                        })
-                      : employees;
-                    return filteredEmps.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.employee_number} - {emp.first_name} {emp.last_name}
-                      </SelectItem>
-                    ));
-                  })()}
-                </SelectContent>
-              </Select>
+              <div>
+                <Popover open={employeeOpen} onOpenChange={setEmployeeOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-64 justify-between font-normal text-left">
+                      <span className="truncate">
+                        {selectedEmployee
+                          ? (() => {
+                              const emp = employees.find(e => e.id === selectedEmployee);
+                              return emp ? `${emp.employee_number} - ${emp.first_name} ${emp.last_name}` : "";
+                            })()
+                          : (language === "ar" ? "جميع الموظفين" : "All Employees")}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder={language === "ar" ? "ابحث عن موظف..." : "Search employee..."} />
+                      <CommandList>
+                        <CommandEmpty>{language === "ar" ? "لا يوجد نتائج" : "No results found"}</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="_all_"
+                            onSelect={() => {
+                              setSelectedEmployee("");
+                              setEmployeeOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", !selectedEmployee ? "opacity-100" : "opacity-0")} />
+                            {language === "ar" ? "جميع الموظفين" : "All Employees"}
+                          </CommandItem>
+                          {(() => {
+                            // Helper to get all descendant dept IDs
+                            const getDescendants = (parentId: string): string[] => {
+                              const result: string[] = [parentId];
+                              departments.filter(d => d.parent_department_id === parentId).forEach(child => {
+                                result.push(...getDescendants(child.id));
+                              });
+                              return result;
+                            };
+                            const filteredEmps = selectedDepartment
+                              ? employees.filter(emp => {
+                                  const deptIds = getDescendants(selectedDepartment);
+                                  return emp.department_id && deptIds.includes(emp.department_id);
+                                })
+                              : employees;
+                            return filteredEmps.map((emp) => {
+                              const label = `${emp.employee_number} - ${emp.first_name} ${emp.last_name}`;
+                              return (
+                                <CommandItem
+                                  key={emp.id}
+                                  value={label}
+                                  onSelect={() => {
+                                    setSelectedEmployee(emp.id);
+                                    setEmployeeOpen(false);
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", selectedEmployee === emp.id ? "opacity-100" : "opacity-0")} />
+                                  {label}
+                                </CommandItem>
+                              );
+                            });
+                          })()}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
 
