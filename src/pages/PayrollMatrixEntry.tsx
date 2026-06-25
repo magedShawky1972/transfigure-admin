@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
+import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
 
 
 const typeColors: Record<string, { head: string; cell: string; label: string }> = {
