@@ -724,10 +724,13 @@ export default function DeductionSummary() {
             </div>
             <Button
               onClick={() => setConfirmOpen(true)}
-              disabled={loading || rows.length === 0 || !selectedElementId || grandTotal <= 0}
+              disabled={loading || rows.length === 0 || !selectedElementId || grandTotal <= 0 || existingCount > 0}
+              title={existingCount > 0 ? (isAr ? "تم الإرسال مسبقاً — استخدم التراجع أولاً" : "Already sent — rollback first to resend") : undefined}
             >
               <Send className="h-4 w-4 mr-2" />
-              {isAr ? "تأكيد وإرسال إلى الرواتب" : "Confirm & Send to Payroll"}
+              {existingCount > 0
+                ? (isAr ? "تم الإرسال" : "Already Sent")
+                : (isAr ? "تأكيد وإرسال إلى الرواتب" : "Confirm & Send to Payroll")}
             </Button>
             <Button variant="outline" onClick={handleExportExcel} disabled={loading || rows.length === 0}>
               <FileSpreadsheet className="h-4 w-4 mr-2" />
