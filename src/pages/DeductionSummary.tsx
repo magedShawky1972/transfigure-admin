@@ -804,15 +804,15 @@ export default function DeductionSummary() {
                         <TableCell className="text-right">{r.absentCount || "-"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {Array.from(r.rules.values()).map(rule => (
-                            <div key={rule.name}>{rule.name}: {rule.count}x ({rule.amount.toFixed(2)})</div>
+                            <div key={rule.name}>{rule.name}: {rule.count}x ({formatNumber(rule.amount)})</div>
                           ))}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-red-600">{r.totalDeduction.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold text-red-600">{formatNumber(r.totalDeduction)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-bold border-t-2">
                       <TableCell colSpan={8} className={isAr ? "text-left" : "text-right"}>{isAr ? "الإجمالي" : "Grand Total"}</TableCell>
-                      <TableCell className="text-right text-red-600">{grandTotal.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-red-600">{formatNumber(grandTotal)}</TableCell>
                     </TableRow>
                   </TableBody>
 
