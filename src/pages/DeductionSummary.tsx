@@ -426,7 +426,23 @@ export default function DeductionSummary() {
 
 
   return (
-    <div className="container mx-auto p-6 space-y-6" dir={isAr ? "rtl" : "ltr"}>
+    <div className="container mx-auto p-6 space-y-6 print-area" dir={isAr ? "rtl" : "ltr"}>
+      <style>{`
+        @media print {
+          @page { size: A4 landscape; margin: 10mm; }
+          body * { visibility: hidden !important; }
+          .print-area, .print-area * { visibility: visible !important; }
+          .print-area { position: absolute; inset: 0; margin: 0 !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; }
+          aside, nav, header[role="banner"], [data-sidebar], .print\\:hidden { display: none !important; }
+          .print-area .grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 8px !important; }
+          .print-area table { width: 100% !important; font-size: 11px !important; border-collapse: collapse !important; }
+          .print-area th, .print-area td { padding: 4px 6px !important; border: 1px solid #ddd !important; }
+          .print-area .text-2xl { font-size: 16px !important; }
+          .print-area .overflow-x-auto { overflow: visible !important; }
+          .print-area [class*="shadow"] { box-shadow: none !important; }
+        }
+      `}</style>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
