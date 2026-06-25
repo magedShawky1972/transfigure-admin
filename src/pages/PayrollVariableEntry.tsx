@@ -280,39 +280,84 @@ export default function PayrollVariableEntry() {
             <Button onClick={add}><Plus className="h-4 w-4 mr-1" /> Add</Button>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Element</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>{empName(r.employee_id)}</TableCell>
-                  <TableCell>{elName(r.element_id)}</TableCell>
-                  <TableCell>{Number(r.amount).toFixed(2)}</TableCell>
-                  <TableCell>{r.notes}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => remove(r.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
-                    No variable entries for this period
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          {(() => {
+            const enriched = rows.map((r) => ({
+              r,
+              employee: empName(r.employee_id).toLowerCase(),
+              element: elName(r.element_id).toLowerCase(),
+              amount: Number(r.amount) || 0,
+              notes: (r.notes || "").toLowerCase(),
+            }));
+            const filtered = enriched.filter((x) =>
+              (!fEmp || x.employee.includes(fEmp.toLowerCase())) &&
+              (!fEl || x.element.includes(fEl.toLowerCase())) &&
+              (!fAmount || String(x.amount).includes(fAmount)) &&
+              (!fNotes || x.notes.includes(fNotes.toLowerCase()))
+            );
+            const sorted = [...filtered].sort((a, b) => {
+              for (const s of sorts) {
+                const av = a[s.key]; const bv = b[s.key];
+                if (av === bv) continue;
+                const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+                return s.dir === "asc" ? cmp : -cmp;
+              }
+              return 0;
+            });
+            return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee", e.shiftKey)}>
+                      Employee{sortIndicator("employee")}
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("element", e.shiftKey)}>
+                      Element{sortIndicator("element")}
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("amount", e.shiftKey)}>
+                      Amount{sortIndicator("amount")}
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("notes", e.shiftKey)}>
+                      Notes{sortIndicator("notes")}
+                    </TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead><Input placeholder="Filter…" value={fEmp} onChange={(e) => setFEmp(e.target.value)} className="h-8" /></TableHead>
+                    <TableHead><Input placeholder="Filter…" value={fEl} onChange={(e) => setFEl(e.target.value)} className="h-8" /></TableHead>
+                    <TableHead><Input placeholder="Filter…" value={fAmount} onChange={(e) => setFAmount(e.target.value)} className="h-8" /></TableHead>
+                    <TableHead><Input placeholder="Filter…" value={fNotes} onChange={(e) => setFNotes(e.target.value)} className="h-8" /></TableHead>
+                    <TableHead className="text-right">
+                      {(sorts.length > 0 || fEmp || fEl || fAmount || fNotes) && (
+                        <Button variant="ghost" size="sm" onClick={() => { setSorts([]); setFEmp(""); setFEl(""); setFAmount(""); setFNotes(""); }}>Clear</Button>
+                      )}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sorted.map(({ r }) => (
+                    <TableRow key={r.id}>
+                      <TableCell>{empName(r.employee_id)}</TableCell>
+                      <TableCell>{elName(r.element_id)}</TableCell>
+                      <TableCell>{Number(r.amount).toFixed(2)}</TableCell>
+                      <TableCell>{r.notes}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => remove(r.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {sorted.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                        No variable entries for this period
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
