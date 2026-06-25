@@ -24,6 +24,7 @@ type Element = {
   formula: string | null;
   is_delay_minutes_element: boolean;
   is_basic_salary_element: boolean;
+  is_absence_element: boolean;
   is_active: boolean;
   sort_order: number | null;
 };
@@ -39,6 +40,7 @@ const EMPTY: Partial<Element> = {
   formula: "",
   is_delay_minutes_element: false,
   is_basic_salary_element: false,
+  is_absence_element: false,
   is_active: true,
   sort_order: 0,
 };
