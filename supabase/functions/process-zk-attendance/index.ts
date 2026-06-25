@@ -276,9 +276,21 @@ Deno.serve(async (req) => {
     // Fetch attendance types
     const { data: attendanceTypes, error: atError } = await supabase
       .from('attendance_types')
-      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, weekend_days');
+      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, weekend_days, is_shift_based');
 
     if (atError) throw atError;
+
+    // Fetch shift sessions opened on target date (Asia/Riyadh) for shift-based employees
+    // Use a generous window to cover any TZ offset, then filter by local date below.
+    const dayStartIso = `${targetDate}T00:00:00+03:00`;
+    const dayEndIso = `${targetDate}T23:59:59+03:00`;
+    const { data: shiftSessionsRaw } = await supabase
+      .from('shift_sessions')
+      .select('user_id, opened_at')
+      .gte('opened_at', dayStartIso)
+      .lte('opened_at', dayEndIso);
+    const shiftOpenedUserIds = new Set<string>((shiftSessionsRaw || []).map((s: any) => s.user_id));
+    console.log(`Found ${shiftOpenedUserIds.size} users with shift sessions opened on ${targetDate}`);
 
     // Fetch deduction rules
     const { data: deductionRules, error: drError } = await supabase
@@ -430,6 +442,64 @@ Deno.serve(async (req) => {
       
       const logs = employeeLogs.get(employee.zk_employee_code) || [];
       const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
+
+      // === Shift-based employees: absence is determined ONLY by whether the user
+      // opened a shift session on this date. No late/early/overtime calculations.
+      if ((attendanceType as any)?.is_shift_based) {
+        const openedShift = !!employee.user_id && shiftOpenedUserIds.has(employee.user_id);
+
+        // Morning run: don't mark absent yet — wait for evening
+        if (processType === 'morning' && !openedShift) continue;
+
+        const isAbsent = processType === 'evening' && !openedShift;
+
+        // Compute absence deduction only
+        const { amount: absDeduction, ruleId: absRuleId } = isAbsent
+          ? calculateDeduction(0, 0, true, employee.basic_salary, deductionRules || [])
+          : { amount: 0, ruleId: null as string | null };
+
+        const shiftTimesheetRecord = {
+          employee_id: employee.id,
+          work_date: targetDate,
+          scheduled_start: null,
+          scheduled_end: null,
+          actual_start: null,
+          actual_end: null,
+          break_duration_minutes: 0,
+          status: isAbsent ? 'absent' : (openedShift ? 'approved' : 'waiting_for_exit'),
+          is_absent: isAbsent,
+          absence_reason: isAbsent ? 'No shift session opened' : null,
+          late_minutes: 0,
+          early_leave_minutes: 0,
+          overtime_minutes: 0,
+          total_work_minutes: 0,
+          deduction_amount: absDeduction,
+          deduction_rule_id: absRuleId,
+          overtime_amount: 0,
+          notes: openedShift
+            ? `Shift-based attendance - shift opened on ${targetDate}`
+            : `Shift-based attendance - no shift opened on ${targetDate}`,
+        };
+
+        const { error: shiftTsErr } = await supabase
+          .from('timesheets')
+          .upsert(shiftTimesheetRecord, { onConflict: 'employee_id,work_date' });
+        if (shiftTsErr) console.error(`Error upserting shift-based timesheet for ${employee.id}:`, shiftTsErr);
+
+        results.push({
+          employee_code: employee.zk_employee_code,
+          date: targetDate,
+          in_time: null,
+          out_time: null,
+          late_minutes: 0,
+          early_exit_minutes: 0,
+          deduction_amount: absDeduction,
+          deduction_rule_id: absRuleId,
+          has_issues: isAbsent,
+          issue_type: isAbsent ? 'absent' : null,
+        });
+        continue;
+      }
 
       // Determine in_time (first punch) and out_time (last punch after a threshold)
       let inTime: string | null = null;
