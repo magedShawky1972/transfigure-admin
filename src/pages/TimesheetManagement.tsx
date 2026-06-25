@@ -2090,9 +2090,22 @@ export default function TimesheetManagement() {
                         })()}
                       </TableCell>
                       <TableCell>
-                        {ts.actual_start || ts.actual_end
-                          ? `${ts.actual_start ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_start) ? new Date(ts.actual_start).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_start) : '-'} - ${ts.actual_end ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_end) ? new Date(ts.actual_end).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_end) : '-'}`
-                          : "-"}
+                        {(() => {
+                          const emp: any = employees.find((e) => e.id === ts.employee_id);
+                          const fmtTs = (v: string) =>
+                            new Date(v).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
+                          // Shift-based: show shift session opened_at / closed_at
+                          if (emp?.attendance_types?.is_shift_based && emp?.user_id) {
+                            const sess = shiftSessionMap.get(`${emp.user_id}|${ts.work_date}`);
+                            if (sess && (sess.opened_at || sess.closed_at)) {
+                              return `${sess.opened_at ? fmtTs(sess.opened_at) : '-'} - ${sess.closed_at ? fmtTs(sess.closed_at) : '-'}`;
+                            }
+                            return "-";
+                          }
+                          return ts.actual_start || ts.actual_end
+                            ? `${ts.actual_start ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_start) ? new Date(ts.actual_start).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_start) : '-'} - ${ts.actual_end ? (/^\d{4}-\d{2}-\d{2}T/.test(ts.actual_end) ? new Date(ts.actual_end).toLocaleTimeString('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' }) : ts.actual_end) : '-'}`
+                            : "-";
+                        })()}
                       </TableCell>
                       <TableCell>
                         {Math.floor(ts.total_work_minutes / 60)}h {ts.total_work_minutes % 60}m
