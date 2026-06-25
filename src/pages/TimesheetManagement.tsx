@@ -82,6 +82,7 @@ interface Timesheet {
   status: string;
   is_absent: boolean;
   absence_reason: string | null;
+  absence_has_notice?: boolean | null;
   late_minutes: number;
   early_leave_minutes: number;
   overtime_minutes: number;
