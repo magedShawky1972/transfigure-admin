@@ -406,6 +406,9 @@ export default function PayrollMonthPreview() {
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير إكسل" : "Export Excel"}
           </Button>
+          <Button variant="outline" size="sm" onClick={printDocument}>
+            <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
+          </Button>
         </div>
       </div>
 
