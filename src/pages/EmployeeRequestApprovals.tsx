@@ -142,10 +142,44 @@ const EmployeeRequestApprovals = () => {
 
       const { data } = await query;
       if (data) {
-        setRequests(data);
-        await fetchPendingApprovers(data);
+        const requestsWithDurations = await attachDelayDurations(data);
+        setRequests(requestsWithDurations);
+        await fetchPendingApprovers(requestsWithDurations);
       }
     } catch (error) { console.error(error); }
+  };
+
+  const attachDelayDurations = async (requestList: any[]) => {
+    const needsFallback = requestList.filter((request: any) =>
+      (request.request_type === 'delay' || request.request_type === 'early_leave') &&
+      request.delay_date &&
+      !request.delay_minutes
+    );
+
+    if (needsFallback.length === 0) return requestList;
+
+    const employeeIds = [...new Set(needsFallback.map((request: any) => request.employee_id).filter(Boolean))];
+    const dates = [...new Set(needsFallback.map((request: any) => request.delay_date).filter(Boolean))];
+    if (employeeIds.length === 0 || dates.length === 0) return requestList;
+
+    const { data: timesheetRows } = await supabase
+      .from('timesheets')
+      .select('employee_id, work_date, late_minutes, early_leave_minutes')
+      .in('employee_id', employeeIds)
+      .in('work_date', dates);
+
+    const timesheetMap = new Map(
+      (timesheetRows || []).map((row: any) => [`${row.employee_id}|${row.work_date}`, row])
+    );
+
+    return requestList.map((request: any) => {
+      if (request.delay_minutes || !request.delay_date || !request.employee_id) return request;
+      const timesheet = timesheetMap.get(`${request.employee_id}|${request.delay_date}`) as any;
+      const fallbackMinutes = request.request_type === 'early_leave'
+        ? timesheet?.early_leave_minutes
+        : timesheet?.late_minutes;
+      return { ...request, _display_delay_minutes: fallbackMinutes ?? null };
+    });
   };
 
   const handleDeleteRequest = async (requestId: string) => {
