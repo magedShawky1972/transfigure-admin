@@ -251,17 +251,29 @@ export default function PayrollRun() {
         }
       }
 
-      const empCount = new Set(linesToInsert.map((l) => l.employee_id)).size;
-
+      // Recompute totals from ALL current lines on this run (covers partial / scoped runs)
+      const { data: allLines } = await supabase
+        .from("payroll_run_lines")
+        .select("employee_id, element_type, amount")
+        .eq("run_id", runId);
+      let gGross = 0, gDed = 0, gEmpC = 0;
+      const empSet = new Set<string>();
+      (allLines || []).forEach((l: any) => {
+        empSet.add(l.employee_id);
+        const a = Number(l.amount) || 0;
+        if (l.element_type === "earning") gGross += a;
+        else if (l.element_type === "deduction") gDed += a;
+        else if (l.element_type === "employer_contribution") gEmpC += a;
+      });
       await supabase.from("payroll_runs").update({
-        total_gross: Number(totalGross.toFixed(2)),
-        total_deductions: Number(totalDed.toFixed(2)),
-        total_employer_contributions: Number(totalEmpC.toFixed(2)),
-        total_net: Number((totalGross - totalDed).toFixed(2)),
-        employee_count: empCount,
+        total_gross: Number(gGross.toFixed(2)),
+        total_deductions: Number(gDed.toFixed(2)),
+        total_employer_contributions: Number(gEmpC.toFixed(2)),
+        total_net: Number((gGross - gDed).toFixed(2)),
+        employee_count: empSet.size,
       }).eq("id", runId);
 
-      toast({ title: `Computed: ${linesToInsert.length} lines, ${empCount} employees` });
+      toast({ title: `Computed ${linesToInsert.length} lines for ${new Set(linesToInsert.map((l) => l.employee_id)).size} employees${isScoped ? " (scoped run)" : ""}` });
       loadRuns();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
