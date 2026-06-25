@@ -518,6 +518,9 @@ export default function PayrollMatrixEntry() {
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير" : "Export"}
           </Button>
+          <Button variant="outline" size="sm" onClick={printDocument}>
+            <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
+          </Button>
           <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} {language === "ar" ? "غير محفوظ" : "unsaved"}</Badge>
           <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
             <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save All"}
