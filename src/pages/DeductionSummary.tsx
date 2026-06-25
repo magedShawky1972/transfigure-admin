@@ -258,7 +258,8 @@ export default function DeductionSummary() {
         if (lateMin > 0) row.lateCount++;
         if (earlyMin > 0) row.earlyLeaveCount++;
 
-        if (ts.is_absent) {
+        if (ts.is_absent && !vacationDaySet.has(`${empId}_${ts.work_date}`)) {
+
           row.absentCount++;
           const hasNotice = ts.absence_has_notice;
           // Default: any absence not explicitly marked "with notice" is treated as "without notice"
