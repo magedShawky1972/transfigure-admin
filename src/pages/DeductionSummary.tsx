@@ -204,6 +204,18 @@ export default function DeductionSummary() {
         }
       });
 
+      // Fallback: if no rule-based deduction was saved, compute from minutes using
+      // (basic_salary / 30 / 8 / 60) * total_minutes
+      const fallbackLabel = isAr ? "تأخير محسوب (راتب/30/8/60 × دقائق)" : "Auto (salary/30/8/60 × min)";
+      Array.from(map.values()).forEach(r => {
+        const minutes = r.totalLateMinutes + r.totalEarlyLeaveMinutes;
+        if (r.totalDeduction <= 0 && minutes > 0 && r.basicSalary > 0) {
+          const amt = (r.basicSalary / 30 / 8 / 60) * minutes;
+          r.totalDeduction = amt;
+          r.rules.set(fallbackLabel, { name: fallbackLabel, count: minutes, amount: amt });
+        }
+      });
+
       const out = Array.from(map.values())
         .filter(r => r.totalDeduction > 0 || r.lateCount > 0 || r.earlyLeaveCount > 0 || r.absentCount > 0)
         .sort((a, b) => b.totalDeduction - a.totalDeduction);
