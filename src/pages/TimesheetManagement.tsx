@@ -919,13 +919,16 @@ export default function TimesheetManagement() {
       // WFH days no longer overwrite ZK rows — WFH sessions appear as separate rows
       const timesheetsWithMailStatus = (data || []).map(ts => {
         const key = `${ts.employee_id}_${ts.work_date}`;
-        const isVacationDay = vacationDays.has(key);
+        const vacationDetail = vacationDays.get(key);
+        const isVacationDay = !!vacationDetail;
         const hasApprovedDelay = approvedDelayDays.has(key);
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
           status: isVacationDay ? "vacation" : ts.status,
+          vacation_name_en: vacationDetail?.nameEn || null,
+          vacation_name_ar: vacationDetail?.nameAr || null,
           is_absent: isVacationDay ? false : ts.is_absent,
           late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
           early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
