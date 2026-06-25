@@ -32,8 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Loader2, Send } from "lucide-react";
+import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 
 interface Row {
   employee_id: string;
