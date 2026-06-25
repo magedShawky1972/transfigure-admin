@@ -2526,6 +2526,38 @@ export default function TimesheetManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={recalcDialogOpen} onOpenChange={(o) => !recalcRunning && setRecalcDialogOpen(o)}>
+        <AlertDialogContent dir={language === "ar" ? "rtl" : "ltr"}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "ar" ? "إعادة حساب سجل الحضور" : "Recalculate Timesheet"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "ar"
+                ? `سيتم إعادة حساب سجل الحضور للفترة المحددة (الإجازات، الغياب، الوقت، التأخير وطلبات الانصراف المبكر). عدد الأيام: ${buildFilterDates().length}. قد تستغرق العملية بعض الوقت.`
+                : `This will recalculate the timesheet for the selected filter (vacations, absences, shift time, delay and early-leave requests). Days: ${buildFilterDates().length}. This may take a while.`}
+              {recalcRunning && (
+                <div className="mt-3 text-sm">
+                  {language === "ar" ? "التقدم:" : "Progress:"} {recalcProgress.done}/{recalcProgress.total}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={recalcRunning}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleRecalculate(); }} disabled={recalcRunning}>
+              {recalcRunning ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{language === "ar" ? "جارٍ الحساب..." : "Recalculating..."}</>
+              ) : (
+                language === "ar" ? "تأكيد إعادة الحساب" : "Confirm Recalculate"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
