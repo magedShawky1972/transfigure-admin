@@ -806,7 +806,7 @@ export default function TimesheetManagement() {
       // Fetch approved vacation/sick leave requests that overlap with the date range
       const { data: approvedLeaves } = await supabase
         .from("employee_requests")
-        .select("employee_id, start_date, end_date, request_type, delay_date")
+        .select("employee_id, start_date, end_date, request_type, delay_date, vacation_code_id, vacation_codes(name_en, name_ar)")
         .in("request_type", ["vacation", "sick_leave"])
         .eq("status", "approved")
         .lte("start_date", vacDateTo)
@@ -815,7 +815,7 @@ export default function TimesheetManagement() {
       // Also fetch manual vacation_requests
       const { data: manualVacations } = await supabase
         .from("vacation_requests")
-        .select("employee_id, start_date, end_date")
+        .select("employee_id, start_date, end_date, vacation_code_id, vacation_codes(name_en, name_ar)")
         .eq("status", "approved")
         .lte("start_date", vacDateTo)
         .gte("end_date", vacDateFrom);
