@@ -1088,6 +1088,7 @@ export default function TimesheetManagement() {
       break_duration_minutes: timesheet.break_duration_minutes || 0,
       is_absent: timesheet.is_absent,
       absence_reason: timesheet.absence_reason || "",
+      absence_has_notice: (timesheet as any).absence_has_notice ?? null,
       notes: timesheet.notes || "",
     });
     setDialogOpen(true);
