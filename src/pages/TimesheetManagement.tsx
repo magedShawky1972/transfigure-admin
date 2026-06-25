@@ -717,7 +717,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -799,8 +799,18 @@ export default function TimesheetManagement() {
         query = query.in("employee_id", departmentEmployeeIds);
       }
 
-      const { data, error } = await query;
+      const { data: rawData, error } = await query;
       if (error) throw error;
+
+      // Drop rows that predate the employee's job start date (defensive)
+      const empStartMap = new Map<string, string>();
+      (employeesRes.data || []).forEach((e: any) => {
+        if (e.job_start_date) empStartMap.set(e.id, e.job_start_date);
+      });
+      const data = (rawData || []).filter((ts: any) => {
+        const start = empStartMap.get(ts.employee_id);
+        return !start || ts.work_date >= start;
+      });
 
       // Determine date range for vacation lookup
       let vacDateFrom = selectedDate;
