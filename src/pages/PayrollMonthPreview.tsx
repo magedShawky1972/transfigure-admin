@@ -45,6 +45,7 @@ const now = new Date();
 
 export default function PayrollMonthPreview() {
   const { language } = useLanguage();
+  const empName = (e: any) => language === "ar" ? `${e?.first_name_ar || e?.first_name || ""} ${e?.last_name_ar || e?.last_name || ""}`.trim() : `${e?.first_name || ""} ${e?.last_name || ""}`.trim();
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [emps, setEmps] = useState<Emp[]>([]);
@@ -119,7 +120,7 @@ export default function PayrollMonthPreview() {
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
       if (terms.length) {
-        const hay = `${e.first_name} ${e.last_name} ${e.employee_number} ${e.departments?.department_name || ""} ${e.job_positions?.position_name || ""}`.toLowerCase();
+        const hay = `${empName(e)} ${e.employee_number} ${e.departments?.department_name || ""} ${e.job_positions?.position_name || ""}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
       if (hideZeroEmployees) {
@@ -136,7 +137,7 @@ export default function PayrollMonthPreview() {
     rows.sort((a, b) => {
       for (const r of sortRules) {
         let av: any; let bv: any;
-        if (r.key === "name") { av = `${a.first_name} ${a.last_name}`; bv = `${b.first_name} ${b.last_name}`; }
+        if (r.key === "name") { av = `${empName(a)}`; bv = `${empName(b)}`; }
         else if (r.key === "employee_number") { av = a.employee_number; bv = b.employee_number; }
         else if (r.key === "dept") { av = a.departments?.department_name || ""; bv = b.departments?.department_name || ""; }
         else if (r.key === "job") { av = a.job_positions?.position_name || ""; bv = b.job_positions?.position_name || ""; }
@@ -216,7 +217,7 @@ export default function PayrollMonthPreview() {
     const header = ["Employee #", "Employee Name", "Department", "Job", ...visibleElements.map((e) => `${e.code} - ${e.name_en} [${e.element_type}]`), language === "ar" ? "الصافي" : "Net"];
     const rows: any[][] = [header];
     for (const emp of sorted) {
-      const row: any[] = [emp.employee_number, `${emp.first_name} ${emp.last_name}`, emp.departments?.department_name || "", emp.job_positions?.position_name || ""];
+      const row: any[] = [emp.employee_number, `${empName(emp)}`, emp.departments?.department_name || "", emp.job_positions?.position_name || ""];
       for (const el of visibleElements) row.push(amounts[`${emp.id}|${el.id}`] || 0);
       row.push(netFor(emp.id));
       rows.push(row);
@@ -338,7 +339,7 @@ export default function PayrollMonthPreview() {
             <MultiCheckPop
               label={language === "ar" ? "الموظف" : "Employee"}
               searchable
-              options={emps.map((e) => ({ id: e.id, name: `${e.first_name} ${e.last_name} (${e.employee_number})` }))}
+              options={emps.map((e) => ({ id: e.id, name: `${empName(e)} (${e.employee_number})` }))}
               selected={employeeFilter}
               onChange={setEmployeeFilter}
             />
@@ -424,7 +425,7 @@ export default function PayrollMonthPreview() {
                       return (
                         <TableRow key={emp.id}>
                           <TableCell className="sticky left-0 bg-background z-10 font-medium">
-                            {emp.first_name} {emp.last_name}
+                            {empName(emp)}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
                           <TableCell className="text-xs">{emp.departments?.department_name || "—"}</TableCell>
