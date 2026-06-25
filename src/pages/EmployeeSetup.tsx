@@ -56,6 +56,8 @@ interface Employee {
   national_id: string | null;
   department_id: string | null;
   job_position_id: string | null;
+  working_business_unit_id?: string | null;
+  business_units?: { unit_name: string; unit_name_ar: string | null } | null;
   job_start_date: string;
   termination_date: string | null;
   employment_status: string;
@@ -86,6 +88,12 @@ interface JobPosition {
   id: string;
   position_name: string;
   position_name_ar: string | null;
+}
+
+interface BusinessUnit {
+  id: string;
+  unit_name: string;
+  unit_name_ar: string | null;
 }
 
 interface Profile {
@@ -174,6 +182,10 @@ export default function EmployeeSetup() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [addBuOpen, setAddBuOpen] = useState(false);
+  const [newBuName, setNewBuName] = useState("");
+  const [newBuNameAr, setNewBuNameAr] = useState("");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [vacationCodes, setVacationCodes] = useState<VacationCode[]>([]);
   const [insurancePlans, setInsurancePlans] = useState<MedicalInsurancePlan[]>([]);
@@ -253,6 +265,7 @@ export default function EmployeeSetup() {
     religion: "",
     department_id: "",
     job_position_id: "",
+    working_business_unit_id: "",
     job_start_date: "",
     termination_date: "",
     employment_status: "active",
@@ -326,6 +339,7 @@ export default function EmployeeSetup() {
         shiftPlansRes,
         docTypesRes,
         attendanceTypesRes,
+        businessUnitsRes,
       ] = await Promise.all([
         supabase
           .from("employees")
@@ -333,7 +347,8 @@ export default function EmployeeSetup() {
             *,
             departments(department_name, department_name_ar),
             job_positions(position_name, position_name_ar),
-            attendance_types(type_name, type_name_ar, is_shift_based)
+            attendance_types(type_name, type_name_ar, is_shift_based),
+            business_units:working_business_unit_id(unit_name, unit_name_ar)
           `)
           .order("employee_number"),
         supabase.from("departments").select("id, department_name, department_name_ar").eq("is_active", true).order("department_name"),
@@ -344,6 +359,7 @@ export default function EmployeeSetup() {
         supabase.from("shift_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
         supabase.from("document_types").select("id, type_name, type_name_ar, is_mandatory").eq("is_active", true).order("type_name"),
         supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes").eq("is_active", true).order("type_name"),
+        supabase.from("business_units").select("id, unit_name, unit_name_ar").eq("is_active", true).order("unit_name"),
       ]);
 
       if (employeesRes.error) throw employeesRes.error;
@@ -361,6 +377,7 @@ export default function EmployeeSetup() {
       setShiftPlans(shiftPlansRes.data || []);
       setDocumentTypes(docTypesRes.data || []);
       setAttendanceTypes(attendanceTypesRes.data || []);
+      setBusinessUnits((businessUnitsRes.data as any) || []);
       // Find users without employee records
       const allProfiles = profilesRes.data || [];
       const existingUserIds = (employeesRes.data || []).map(emp => emp.user_id).filter(Boolean);
@@ -459,6 +476,7 @@ export default function EmployeeSetup() {
       religion: "",
       department_id: "",
       job_position_id: "",
+      working_business_unit_id: "",
       job_start_date: new Date().toISOString().split('T')[0],
       termination_date: "",
       employment_status: "active",
@@ -720,6 +738,7 @@ export default function EmployeeSetup() {
       religion: "",
       department_id: "",
       job_position_id: "",
+      working_business_unit_id: "",
       job_start_date: "",
       termination_date: "",
       employment_status: "active",
@@ -764,6 +783,7 @@ export default function EmployeeSetup() {
       religion: (employee as any).religion || "",
       department_id: employee.department_id || "",
       job_position_id: employee.job_position_id || "",
+      working_business_unit_id: (employee as any).working_business_unit_id || "",
       job_start_date: employee.job_start_date,
       termination_date: employee.termination_date || "",
       employment_status: employee.employment_status,
@@ -958,6 +978,7 @@ export default function EmployeeSetup() {
         religion: formData.religion || null,
         department_id: formData.department_id || null,
         job_position_id: formData.job_position_id || null,
+        working_business_unit_id: formData.working_business_unit_id || null,
         job_start_date: formData.job_start_date,
         termination_date: formData.termination_date || null,
         employment_status: formData.employment_status as any,
@@ -2000,6 +2021,37 @@ export default function EmployeeSetup() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>{language === "ar" ? "وحدة العمل" : "Working Business Unit"}</Label>
+                  <Select
+                    value={formData.working_business_unit_id || "_none_"}
+                    onValueChange={(value) => {
+                      if (value === "__add_new__") {
+                        setNewBuName("");
+                        setNewBuNameAr("");
+                        setAddBuOpen(true);
+                        return;
+                      }
+                      setFormData({ ...formData, working_business_unit_id: value === "_none_" ? "" : value });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر وحدة العمل" : "Select Business Unit"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {businessUnits.map((bu) => (
+                        <SelectItem key={bu.id} value={bu.id}>
+                          {language === "ar" ? (bu.unit_name_ar || bu.unit_name) : bu.unit_name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__add_new__" className="text-primary font-medium">
+                        + {language === "ar" ? "إضافة جديد" : "Add New"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label>{language === "ar" ? "تاريخ بدء العمل *" : "Job Start Date *"}</Label>
                   <Input
                     type="date"
@@ -2622,6 +2674,53 @@ export default function EmployeeSetup() {
               {language === "ar" 
                 ? `إضافة ${selectedUsersToAdd.length} موظف`
                 : `Add ${selectedUsersToAdd.length} Employee(s)`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addBuOpen} onOpenChange={setAddBuOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "إضافة وحدة عمل" : "Add Business Unit"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الاسم (إنجليزي)" : "Name (English)"}</Label>
+              <Input value={newBuName} onChange={(e) => setNewBuName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الاسم (عربي)" : "Name (Arabic)"}</Label>
+              <Input value={newBuNameAr} onChange={(e) => setNewBuNameAr(e.target.value)} dir="rtl" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddBuOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!newBuName.trim()) {
+                  toast.error(language === "ar" ? "الاسم مطلوب" : "Name is required");
+                  return;
+                }
+                try {
+                  const { data, error } = await supabase
+                    .from("business_units")
+                    .insert({ unit_name: newBuName.trim(), unit_name_ar: newBuNameAr.trim() || null })
+                    .select("id, unit_name, unit_name_ar")
+                    .single();
+                  if (error) throw error;
+                  setBusinessUnits((prev) => [...prev, data as any].sort((a, b) => a.unit_name.localeCompare(b.unit_name)));
+                  setFormData({ ...formData, working_business_unit_id: (data as any).id });
+                  setAddBuOpen(false);
+                  toast.success(language === "ar" ? "تمت الإضافة" : "Added successfully");
+                } catch (err: any) {
+                  toast.error(err.message);
+                }
+              }}
+            >
+              {language === "ar" ? "حفظ" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

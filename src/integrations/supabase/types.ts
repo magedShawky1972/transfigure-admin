@@ -1346,6 +1346,33 @@ export type Database = {
           },
         ]
       }
+      business_units: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          unit_name: string
+          unit_name_ar: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          unit_name: string
+          unit_name_ar?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          unit_name?: string
+          unit_name_ar?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cancelled_orders: {
         Row: {
           created_at: string
@@ -3564,6 +3591,7 @@ export type Database = {
           vacation_balance: number | null
           vacation_code_id: string | null
           work_mobile: string | null
+          working_business_unit_id: string | null
           zk_employee_code: string | null
         }
         Insert: {
@@ -3609,6 +3637,7 @@ export type Database = {
           vacation_balance?: number | null
           vacation_code_id?: string | null
           work_mobile?: string | null
+          working_business_unit_id?: string | null
           zk_employee_code?: string | null
         }
         Update: {
@@ -3654,6 +3683,7 @@ export type Database = {
           vacation_balance?: number | null
           vacation_code_id?: string | null
           work_mobile?: string | null
+          working_business_unit_id?: string | null
           zk_employee_code?: string | null
         }
         Relationships: [
@@ -3704,6 +3734,13 @@ export type Database = {
             columns: ["vacation_code_id"]
             isOneToOne: false
             referencedRelation: "vacation_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_working_business_unit_id_fkey"
+            columns: ["working_business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
             referencedColumns: ["id"]
           },
         ]
