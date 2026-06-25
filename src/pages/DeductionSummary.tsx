@@ -284,7 +284,7 @@ export default function DeductionSummary() {
       setRows(out);
     } catch (e: any) {
       console.error(e);
-      toast.error(e.message || "Failed to load");
+      toast.error(e.message || (isAr ? "فشل التحميل" : "Failed to load"));
     } finally {
       setLoading(false);
     }
@@ -467,7 +467,7 @@ export default function DeductionSummary() {
       setConfirmOpen(false);
     } catch (e: any) {
       console.error(e);
-      toast.error(e.message || "Failed to send");
+      toast.error(e.message || (isAr ? "فشل الإرسال" : "Failed to send"));
     } finally {
       setSending(false);
     }
