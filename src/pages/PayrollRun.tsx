@@ -55,6 +55,17 @@ export default function PayrollRun() {
   const [deptFilter, setDeptFilter] = useState<string[]>([]);
   const [jobFilter, setJobFilter] = useState<string[]>([]);
 
+  // App-level confirm dialog (replaces window.confirm)
+  const [confirmDlg, setConfirmDlg] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    onConfirm?: () => void | Promise<void>;
+  }>({ open: false, title: "", description: "" });
+  const askConfirm = (opts: Omit<typeof confirmDlg, "open">) => setConfirmDlg({ ...opts, open: true });
+
   const loadRefs = async () => {
     const [e, el, d, j] = await Promise.all([
       supabase.from("employees").select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status"),
