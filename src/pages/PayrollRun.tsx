@@ -401,8 +401,13 @@ export default function PayrollRun() {
       let totalGross = 0, totalDed = 0, totalEmpC = 0;
 
       // Pre-compute basic salary per employee from is_basic_salary_element assigned amount
+      // Pro-rate for employees who started/ended mid-month
       const basicElement = ((elements || []) as any[]).find((e: any) => e.is_basic_salary_element);
       const basicSalaryByEmp: Record<string, number> = {};
+      const proratedDaysByEmp: Record<string, { worked: number; total: number }> = {};
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const periodStart = new Date(year, month - 1, 1);
+      const periodEnd = new Date(year, month - 1, daysInMonth);
       for (const emp of activeEmps) {
         let bs = 0;
         if (basicElement) {
@@ -410,7 +415,25 @@ export default function PayrollRun() {
           if (a) bs = Number(a.amount) || 0;
         }
         if (!bs) bs = Number(emp.basic_salary) || 0; // fallback to legacy field
+
+        // Determine effective working window within the period
+        const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
+        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const effStart = jsd && jsd > periodStart ? jsd : periodStart;
+        const effEnd = td && td < periodEnd ? td : periodEnd;
+        let workedDays = daysInMonth;
+        if (effStart > periodEnd || effEnd < periodStart) {
+          workedDays = 0;
+        } else {
+          workedDays = Math.floor((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          if (workedDays < 0) workedDays = 0;
+          if (workedDays > daysInMonth) workedDays = daysInMonth;
+        }
+        if (workedDays < daysInMonth && bs > 0) {
+          bs = (bs * workedDays) / daysInMonth;
+        }
         basicSalaryByEmp[emp.id] = bs;
+        proratedDaysByEmp[emp.id] = { worked: workedDays, total: daysInMonth };
       }
 
       for (const emp of activeEmps) {
