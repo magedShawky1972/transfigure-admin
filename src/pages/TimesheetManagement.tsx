@@ -366,7 +366,13 @@ export default function TimesheetManagement() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
-        setIsNawaf(user.id === NAWAF_USER_ID);
+        // Allow Nawaf OR any HR Manager full edit access
+        const { data: hrRow } = await supabase
+          .from("hr_managers")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        setIsNawaf(user.id === NAWAF_USER_ID || !!hrRow);
         const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user.id).single();
         if (profile) setCurrentUserName(profile.user_name || user.email || "");
       }
