@@ -305,7 +305,7 @@ export default function PayrollRun() {
       // 1. Load employees and apply scope filters
       let empBaseQuery = supabase
         .from("employees")
-        .select("id, basic_salary, department_id, job_position_id, employment_status");
+        .select("id, basic_salary, department_id, job_position_id, employment_status, job_start_date, termination_date");
       if (allowedEmployeeIds !== null) {
         if (allowedEmployeeIds.length === 0) {
           toast({ title: isAr ? "لا يوجد موظفون ضمن وحدات العمل المخصصة لك" : "No employees in your assigned Business Units", variant: "destructive" });
@@ -401,8 +401,13 @@ export default function PayrollRun() {
       let totalGross = 0, totalDed = 0, totalEmpC = 0;
 
       // Pre-compute basic salary per employee from is_basic_salary_element assigned amount
+      // Pro-rate for employees who started/ended mid-month
       const basicElement = ((elements || []) as any[]).find((e: any) => e.is_basic_salary_element);
       const basicSalaryByEmp: Record<string, number> = {};
+      const proratedDaysByEmp: Record<string, { worked: number; total: number }> = {};
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const periodStart = new Date(year, month - 1, 1);
+      const periodEnd = new Date(year, month - 1, daysInMonth);
       for (const emp of activeEmps) {
         let bs = 0;
         if (basicElement) {
@@ -410,7 +415,25 @@ export default function PayrollRun() {
           if (a) bs = Number(a.amount) || 0;
         }
         if (!bs) bs = Number(emp.basic_salary) || 0; // fallback to legacy field
+
+        // Determine effective working window within the period
+        const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
+        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const effStart = jsd && jsd > periodStart ? jsd : periodStart;
+        const effEnd = td && td < periodEnd ? td : periodEnd;
+        let workedDays = daysInMonth;
+        if (effStart > periodEnd || effEnd < periodStart) {
+          workedDays = 0;
+        } else {
+          workedDays = Math.floor((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          if (workedDays < 0) workedDays = 0;
+          if (workedDays > daysInMonth) workedDays = daysInMonth;
+        }
+        if (workedDays < daysInMonth && bs > 0) {
+          bs = (bs * workedDays) / daysInMonth;
+        }
         basicSalaryByEmp[emp.id] = bs;
+        proratedDaysByEmp[emp.id] = { worked: workedDays, total: daysInMonth };
       }
 
       for (const emp of activeEmps) {
@@ -451,6 +474,9 @@ export default function PayrollRun() {
             const v = (variables || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
             if (!v) continue;
             amount = Number(v.amount) || 0;
+          } else if (basicElement && el.id === basicElement.id) {
+            amount = basicSalaryByEmp[emp.id] || 0;
+            if (amount <= 0) continue;
           } else {
             const assign = (empElements || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
             if (assign) amount = Number(assign.amount) || 0;
@@ -866,6 +892,11 @@ export default function PayrollRun() {
                           <TableCell className="text-right">{fmt(l.amount)}</TableCell>
                         </TableRow>
                       ))}
+                      <TableRow className="bg-muted/50 font-bold border-t-2">
+                        <TableCell colSpan={2}>{isAr ? "صافي الراتب" : "Net Salary"}</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell className="text-right text-primary">{fmt(earn - ded)}</TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </div>
