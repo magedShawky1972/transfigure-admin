@@ -66,6 +66,8 @@ export default function DeductionRulesSetup() {
     is_overtime: false,
     overtime_multiplier: "1.5",
     is_active: true,
+    is_absence_with_notice: false,
+    is_absence_without_notice: false,
   });
 
   useEffect(() => {
