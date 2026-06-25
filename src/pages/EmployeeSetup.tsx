@@ -1454,6 +1454,15 @@ export default function EmployeeSetup() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => openPayrollDialog(emp)}
+                            title={language === "ar" ? "عناصر الرواتب" : "Payroll Elements"}
+                          >
+                            <Wallet className="h-4 w-4 text-primary" />
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => {
                               setSelectedEmployee(emp);
                               setDeleteDialogOpen(true);
