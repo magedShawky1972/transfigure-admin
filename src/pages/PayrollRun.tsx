@@ -48,6 +48,7 @@ function buildPayslipHtml(opts: {
   }>;
 }) {
   const isDraft = opts.status !== "confirmed";
+  const printedOn = new Date().toLocaleString("en-GB");
   const slips = opts.employees.map((e) => {
     const earnings = e.lines.filter((l) => l.type === "earning");
     const deductions = e.lines.filter((l) => l.type === "deduction");
@@ -55,57 +56,94 @@ function buildPayslipHtml(opts: {
     const gross = earnings.reduce((s, l) => s + Number(l.amount || 0), 0);
     const ded = deductions.reduce((s, l) => s + Number(l.amount || 0), 0);
     const net = gross - ded;
-    const row = (l: { name: string; minutes: number | null; amount: number }) =>
-      `<tr><td>${l.name}</td><td class="r">${l.minutes ? Number(l.minutes).toFixed(0) : "—"}</td><td class="r">${fmt(l.amount)}</td></tr>`;
+
+    const sideRows = (items: typeof earnings, emptyLabel: string) => {
+      if (!items.length) return `<tr><td class="muted" colspan="2">${emptyLabel}</td></tr>`;
+      return items.map((l) => `<tr><td>${l.name}</td><td class="r mono">${fmt(l.amount)}</td></tr>`).join("");
+    };
+
     return `
-      <div class="slip">
+      <section class="slip">
         ${isDraft ? '<div class="watermark">DRAFT</div>' : ""}
-        <div class="head">
-          <div><h2>Pay Slip</h2><div class="muted">Period: ${opts.period}</div></div>
-          <div class="r"><div><strong>${e.name}</strong></div><div class="muted">${e.id}</div></div>
+        <header class="head">
+          <div>
+            <div class="title">PAY SLIP</div>
+            <div class="muted">Pay Period: <strong>${opts.period}</strong></div>
+          </div>
+          <div class="r">
+            <div class="emp-name">${e.name}</div>
+            <div class="muted">ID: ${e.id}</div>
+            <div class="muted">Status: ${isDraft ? "Draft" : "Confirmed"}</div>
+          </div>
+        </header>
+
+        <div class="two-col">
+          <table class="block earnings">
+            <thead><tr><th>Earnings</th><th class="r">Amount</th></tr></thead>
+            <tbody>${sideRows(earnings, "No earnings")}</tbody>
+            <tfoot><tr><td>Total Earnings</td><td class="r mono">${fmt(gross)}</td></tr></tfoot>
+          </table>
+          <table class="block deductions">
+            <thead><tr><th>Deductions</th><th class="r">Amount</th></tr></thead>
+            <tbody>${sideRows(deductions, "No deductions")}</tbody>
+            <tfoot><tr><td>Total Deductions</td><td class="r mono">${fmt(ded)}</td></tr></tfoot>
+          </table>
         </div>
-        <table>
-          <thead><tr><th>Earnings</th><th class="r">Minutes</th><th class="r">Amount</th></tr></thead>
-          <tbody>${earnings.map(row).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
-          <tfoot><tr><td colspan="2"><strong>Total Earnings</strong></td><td class="r"><strong>${fmt(gross)}</strong></td></tr></tfoot>
-        </table>
-        <table>
-          <thead><tr><th>Deductions</th><th class="r">Minutes</th><th class="r">Amount</th></tr></thead>
-          <tbody>${deductions.map(row).join("") || '<tr><td colspan="3" class="muted">—</td></tr>'}</tbody>
-          <tfoot><tr><td colspan="2"><strong>Total Deductions</strong></td><td class="r"><strong>${fmt(ded)}</strong></td></tr></tfoot>
-        </table>
-        ${other.length ? `<table>
-          <thead><tr><th>Other</th><th class="r">Minutes</th><th class="r">Amount</th></tr></thead>
-          <tbody>${other.map(row).join("")}</tbody>
+
+        ${other.length ? `<table class="block other">
+          <thead><tr><th>Other</th><th class="r">Amount</th></tr></thead>
+          <tbody>${other.map((l) => `<tr><td>${l.name}</td><td class="r mono">${fmt(l.amount)}</td></tr>`).join("")}</tbody>
         </table>` : ""}
-        <div class="net">Net Pay: <strong>${fmt(net)}</strong></div>
-      </div>`;
+
+        <div class="summary">
+          <div class="sum-row"><span>Gross Earnings</span><span class="mono">${fmt(gross)}</span></div>
+          <div class="sum-row"><span>Total Deductions</span><span class="mono">- ${fmt(ded)}</span></div>
+          <div class="sum-row net"><span>Net Pay</span><span class="mono">${fmt(net)}</span></div>
+        </div>
+
+        <footer class="foot">
+          <div class="muted">Printed: ${printedOn}</div>
+          <div class="muted">This is a system-generated payslip${isDraft ? " (DRAFT — not final)" : ""}.</div>
+        </footer>
+      </section>`;
   }).join("");
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Pay Slip — ${opts.period}</title>
   <style>
     *{box-sizing:border-box}
-    body{font-family:Arial,Helvetica,sans-serif;margin:24px;color:#111}
-    .slip{position:relative;border:1px solid #ddd;border-radius:6px;padding:18px;margin-bottom:18px;page-break-after:always;overflow:hidden}
-    .slip:last-child{page-break-after:auto}
-    .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;border-bottom:2px solid #111;padding-bottom:8px}
-    h2{margin:0;font-size:20px}
-    .muted{color:#666;font-size:12px}
-    table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
-    th,td{border-bottom:1px solid #eee;padding:6px 8px;text-align:left}
-    th{background:#f5f5f5}
+    html,body{margin:0;padding:0}
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#f4f4f4;padding:20px}
+    .mono{font-variant-numeric:tabular-nums;font-family:"Courier New",monospace}
+    .muted{color:#6b7280;font-size:12px}
     .r{text-align:right}
-    tfoot td{background:#fafafa}
-    .net{margin-top:12px;text-align:right;font-size:16px;border-top:2px solid #111;padding-top:8px}
-    .watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:120px;color:rgba(220,0,0,.12);font-weight:bold;pointer-events:none;letter-spacing:8px;z-index:0}
+    .slip{position:relative;background:#fff;max-width:780px;margin:0 auto 20px;padding:28px 32px;border:1px solid #d1d5db;border-radius:4px;overflow:hidden}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px double #111;padding-bottom:14px;margin-bottom:18px}
+    .title{font-size:22px;font-weight:bold;letter-spacing:3px}
+    .emp-name{font-size:16px;font-weight:bold}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    table.block{width:100%;border-collapse:collapse;font-size:13px;border:1px solid #d1d5db}
+    table.block th,table.block td{padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:left}
+    table.block th{background:#f3f4f6;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+    table.block tfoot td{background:#f9fafb;font-weight:bold;border-top:2px solid #111;border-bottom:none}
+    table.block.other{margin-top:14px}
+    .summary{margin-top:18px;border:1px solid #111;border-radius:4px;padding:12px 16px;background:#fafafa}
+    .sum-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
+    .sum-row.net{border-top:2px solid #111;margin-top:6px;padding-top:8px;font-size:16px;font-weight:bold}
+    .foot{margin-top:18px;display:flex;justify-content:space-between;border-top:1px solid #e5e7eb;padding-top:10px}
+    .watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:140px;color:rgba(220,0,0,.10);font-weight:bold;pointer-events:none;letter-spacing:10px;z-index:0;white-space:nowrap}
     .slip > *{position:relative;z-index:1}
-    @media print{ body{margin:10mm} .noprint{display:none} }
+    .toolbar{max-width:780px;margin:0 auto 12px;text-align:right}
+    .toolbar button{padding:8px 16px;border:1px solid #111;background:#111;color:#fff;border-radius:4px;cursor:pointer;font-size:13px}
+    @media print{
+      body{background:#fff;padding:0}
+      .toolbar{display:none}
+      .slip{box-shadow:none;border:none;margin:0;padding:14mm;max-width:none;page-break-after:always;border-radius:0}
+      .slip:last-child{page-break-after:auto}
+      @page{size:A4;margin:0}
+    }
   </style></head><body>
-  <div class="noprint" style="margin-bottom:12px;text-align:right">
-    <button onclick="window.print()" style="padding:6px 14px">Print</button>
-  </div>
+  <div class="toolbar"><button onclick="window.print()">Print</button></div>
   ${slips}
-  <script>window.onload=()=>setTimeout(()=>window.print(),300)</script>
   </body></html>`;
 }
 
