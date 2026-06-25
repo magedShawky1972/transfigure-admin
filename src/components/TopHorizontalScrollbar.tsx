@@ -30,6 +30,11 @@ export const TopHorizontalScrollbar = ({ children, className }: TopHorizontalScr
       const inner = vp.firstElementChild as HTMLElement | null;
       const w = inner?.scrollWidth ?? vp.scrollWidth;
       setScrollWidth(w);
+      // Mirror RTL direction onto the top scrollbar so scrollLeft semantics match.
+      if (topBarRef.current) {
+        const dir = getComputedStyle(vp).direction;
+        topBarRef.current.style.direction = dir;
+      }
     };
     measure();
 
@@ -75,3 +80,4 @@ export const TopHorizontalScrollbar = ({ children, className }: TopHorizontalScr
     </div>
   );
 };
+
