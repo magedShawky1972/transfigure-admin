@@ -127,11 +127,15 @@ export default function PayrollVariableEntry() {
   useEffect(() => { loadStatic(); }, []);
   useEffect(() => { loadEntries(); }, [year, month]);
 
+  const deptName = (d?: { department_name: string; department_name_ar?: string | null } | null) =>
+    (language === "ar" && d?.department_name_ar) ? d.department_name_ar : (d?.department_name || "");
+
   const departments = useMemo(() => {
     const map = new Map<string, string>();
-    emps.forEach((e) => { if (e.department_id && e.departments?.department_name) map.set(e.department_id, e.departments.department_name); });
+    emps.forEach((e) => { if (e.department_id && e.departments) map.set(e.department_id, deptName(e.departments)); });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [emps]);
+  }, [emps, language]);
+
 
   const jobs = useMemo(() => {
     const map = new Map<string, string>();
