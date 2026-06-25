@@ -33,6 +33,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RequestApprovalHistory } from "@/components/RequestApprovalHistory";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import {
   Check,
   X,
@@ -51,6 +55,8 @@ import {
   MessageSquare,
   ArrowRightLeft,
   Trash2,
+  ChevronsUpDown,
+  CalendarIcon,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
@@ -79,6 +85,10 @@ const EmployeeRequestApprovals = () => {
   const [processing, setProcessing] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('pending');
+  const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
+  const [filterFromDate, setFilterFromDate] = useState<Date | undefined>(undefined);
+  const [filterToDate, setFilterToDate] = useState<Date | undefined>(undefined);
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [isHRManager, setIsHRManager] = useState(false);
   const [hrManagerLevel, setHrManagerLevel] = useState<number | null>(null);
   const [hrAllowedEmployeeIds, setHrAllowedEmployeeIds] = useState<string[] | null>(null);
@@ -673,7 +683,7 @@ const EmployeeRequestApprovals = () => {
       </div>
 
       <Card>
-        <CardContent className="pt-4 flex gap-4 items-center">
+        <CardContent className="pt-4 flex gap-4 items-center flex-wrap">
           <Filter className="h-4 w-4" />
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
@@ -691,8 +701,82 @@ const EmployeeRequestApprovals = () => {
               <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Employee searchable filter */}
+          <Popover open={employeePickerOpen} onOpenChange={setEmployeePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" className="w-[220px] justify-between">
+                {(() => {
+                  if (filterEmployeeId === 'all') return language === 'ar' ? 'كل الموظفين' : 'All Employees';
+                  const r = requests.find((x: any) => x.employee_id === filterEmployeeId);
+                  return r ? getEmployeeName(r.employees) : (language === 'ar' ? 'موظف' : 'Employee');
+                })()}
+                <ChevronsUpDown className="h-4 w-4 opacity-50 ml-2" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[260px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder={language === 'ar' ? 'ابحث عن موظف...' : 'Search employee...'} />
+                <CommandList>
+                  <CommandEmpty>{language === 'ar' ? 'لا يوجد' : 'No results'}</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="all" onSelect={() => { setFilterEmployeeId('all'); setEmployeePickerOpen(false); }}>
+                      {language === 'ar' ? 'كل الموظفين' : 'All Employees'}
+                    </CommandItem>
+                    {Array.from(
+                      new Map(
+                        requests
+                          .filter((r: any) => r.employee_id)
+                          .map((r: any) => [r.employee_id, { id: r.employee_id, name: getEmployeeName(r.employees) }])
+                      ).values()
+                    )
+                      .sort((a: any, b: any) => a.name.localeCompare(b.name))
+                      .map((e: any) => (
+                        <CommandItem key={e.id} value={e.name} onSelect={() => { setFilterEmployeeId(e.id); setEmployeePickerOpen(false); }}>
+                          {e.name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* From date */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !filterFromDate && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                {filterFromDate ? format(filterFromDate, 'yyyy-MM-dd') : (language === 'ar' ? 'من تاريخ' : 'From')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent mode="single" selected={filterFromDate} onSelect={setFilterFromDate} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+
+          {/* To date */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !filterToDate && "text-muted-foreground")}>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                {filterToDate ? format(filterToDate, 'yyyy-MM-dd') : (language === 'ar' ? 'إلى تاريخ' : 'To')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent mode="single" selected={filterToDate} onSelect={setFilterToDate} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+
+          {(filterEmployeeId !== 'all' || filterFromDate || filterToDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilterEmployeeId('all'); setFilterFromDate(undefined); setFilterToDate(undefined); }}>
+              <X className="h-4 w-4 mr-1" />
+              {language === 'ar' ? 'مسح' : 'Clear'}
+            </Button>
+          )}
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader><CardTitle>{language === 'ar' ? 'الطلبات' : 'Requests'}</CardTitle></CardHeader>
@@ -709,7 +793,21 @@ const EmployeeRequestApprovals = () => {
                 <TableHead>{language === 'ar' ? 'إجراء' : 'Action'}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {requests.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center">{language === 'ar' ? 'لا توجد طلبات' : 'No requests'}</TableCell></TableRow> : requests.map((r: any) => {
+                {(() => {
+                  const fromTs = filterFromDate ? new Date(filterFromDate.getFullYear(), filterFromDate.getMonth(), filterFromDate.getDate()).getTime() : null;
+                  const toTs = filterToDate ? new Date(filterToDate.getFullYear(), filterToDate.getMonth(), filterToDate.getDate(), 23, 59, 59, 999).getTime() : null;
+                  const filtered = requests.filter((r: any) => {
+                    if (filterEmployeeId !== 'all' && r.employee_id !== filterEmployeeId) return false;
+                    if (fromTs || toTs) {
+                      const ts = r.created_at ? new Date(r.created_at).getTime() : null;
+                      if (ts === null) return false;
+                      if (fromTs && ts < fromTs) return false;
+                      if (toTs && ts > toTs) return false;
+                    }
+                    return true;
+                  });
+                  if (filtered.length === 0) return <TableRow><TableCell colSpan={6} className="text-center">{language === 'ar' ? 'لا توجد طلبات' : 'No requests'}</TableCell></TableRow>;
+                  return filtered.map((r: any) => {
                   const info = REQUEST_TYPE_INFO[r.request_type] || REQUEST_TYPE_INFO.vacation;
                   const Icon = info.icon;
                   const canAct = canTakeAction(r);
@@ -785,7 +883,8 @@ const EmployeeRequestApprovals = () => {
                       </TableCell>
                     </TableRow>
                   );
-                })}
+                  });
+                })()}
               </TableBody>
             </Table>
             </div>
