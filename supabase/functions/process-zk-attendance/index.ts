@@ -486,6 +486,15 @@ Deno.serve(async (req) => {
           .upsert(shiftTimesheetRecord, { onConflict: 'employee_id,work_date' });
         if (shiftTsErr) console.error(`Error upserting shift-based timesheet for ${employee.id}:`, shiftTsErr);
 
+        // Clear any stale saved_attendance rows from previous (non-shift-based) processing,
+        // so recalculation produces clean results for shift-based employees.
+        const { error: clearSaErr } = await supabase
+          .from('saved_attendance')
+          .delete()
+          .eq('employee_id', employee.id)
+          .eq('work_date', targetDate);
+        if (clearSaErr) console.error(`Error clearing stale saved_attendance for ${employee.id}:`, clearSaErr);
+
         results.push({
           employee_code: employee.zk_employee_code,
           date: targetDate,
