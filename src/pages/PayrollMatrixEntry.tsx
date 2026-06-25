@@ -495,15 +495,13 @@ export default function PayrollMatrixEntry() {
                           const c = typeColors[el.element_type] || typeColors.information;
                           return (
                             <TableCell key={el.id} className={`p-1 ${c.cell}`}>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={cell?.amount ?? ""}
-                                placeholder="0.00"
-                                onChange={(e) => setCell(emp.id, el.id, Number(e.target.value) || 0)}
-                                className={`h-8 text-right ${cell?.dirty ? "border-primary ring-1 ring-primary/40" : ""}`}
+                              <MatrixCellInput
+                                value={cell?.amount}
+                                dirty={cell?.dirty}
+                                onCommit={(v) => setCell(emp.id, el.id, v)}
                               />
                             </TableCell>
+
                           );
                         })}
                       </TableRow>
