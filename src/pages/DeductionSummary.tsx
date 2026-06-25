@@ -387,6 +387,44 @@ export default function DeductionSummary() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
 
+  const handlePrint = () => window.print();
+
+  const handleExportExcel = () => {
+    const header = [
+      "#",
+      isAr ? "رقم الموظف" : "Emp #",
+      isAr ? "الموظف" : "Employee",
+      isAr ? "الراتب الأساسي" : "Basic Salary",
+      isAr ? "عدد التأخيرات" : "Late Count",
+      isAr ? "دقائق التأخير" : "Late Min",
+      isAr ? "خروج مبكر (عدد)" : "Early Leave Count",
+      isAr ? "دقائق الخروج المبكر" : "Early Leave Min",
+      isAr ? "غياب" : "Absent",
+      isAr ? "القواعد المطبقة" : "Applied Rules",
+      isAr ? "إجمالي الخصم" : "Total Deduction",
+    ];
+    const body = rows.map((r, i) => [
+      i + 1,
+      r.empNumber,
+      r.name,
+      r.basicSalary,
+      r.lateCount,
+      r.totalLateMinutes,
+      r.earlyLeaveCount,
+      r.totalEarlyLeaveMinutes,
+      r.absentCount,
+      Array.from(r.rules.values()).map(x => `${x.name}: ${x.count}x (${x.amount.toFixed(2)})`).join(" | "),
+      Number(r.totalDeduction.toFixed(2)),
+    ]);
+    body.push(["", "", isAr ? "الإجمالي" : "Grand Total", "", "", "", "", "", "", "", Number(grandTotal.toFixed(2))]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+    if (isAr) (ws as any)["!views"] = [{ RTL: true }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isAr ? "ملخص الخصومات" : "Deductions");
+    XLSX.writeFile(wb, `deduction-summary-${periodYear}-${String(periodMonth).padStart(2, "0")}.xlsx`);
+  };
+
+
   return (
     <div className="container mx-auto p-6 space-y-6" dir={isAr ? "rtl" : "ltr"}>
       <Card>
