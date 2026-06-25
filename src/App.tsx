@@ -180,6 +180,11 @@ import SqlQueryRunner from "./pages/SqlQueryRunner";
 import { GlobalMigrationRecovery } from "./components/GlobalMigrationRecovery";
 import GuestSignup from "./pages/GuestSignup";
 import GuestProject from "./pages/GuestProject";
+import PayrollElementSetup from "./pages/PayrollElementSetup";
+import PayrollElementEligibility from "./pages/PayrollElementEligibility";
+import PayrollEmployeeElements from "./pages/PayrollEmployeeElements";
+import PayrollVariableEntry from "./pages/PayrollVariableEntry";
+import PayrollRun from "./pages/PayrollRun";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -368,6 +373,11 @@ const App = () => (
               <Route path="/integration-access-control" element={<IntegrationAccessControl />} />
               <Route path="/shift-generator" element={<ShiftGenerator />} />
               <Route path="/sql-query-runner" element={<SqlQueryRunner />} />
+              <Route path="/payroll/element-setup" element={<PayrollElementSetup />} />
+              <Route path="/payroll/eligibility" element={<PayrollElementEligibility />} />
+              <Route path="/payroll/employee-elements" element={<PayrollEmployeeElements />} />
+              <Route path="/payroll/variable-entry" element={<PayrollVariableEntry />} />
+              <Route path="/payroll/run" element={<PayrollRun />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}
               <Route path="*" element={<NotFound />} />
             </Routes></Layout>} />
