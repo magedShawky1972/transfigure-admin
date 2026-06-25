@@ -1413,11 +1413,20 @@ export default function TimesheetManagement() {
   const handleApprove = async (id: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from("timesheets")
-        .update({ status: "approved", approved_by: user?.id, approved_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      if (id.startsWith("wfh-virtual-")) {
+        const checkinId = id.replace("wfh-virtual-", "");
+        const { error } = await supabase
+          .from("wfh_checkins")
+          .update({ status: "approved" })
+          .eq("id", checkinId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("timesheets")
+          .update({ status: "approved", approved_by: user?.id, approved_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
       toast.success(language === "ar" ? "تمت الموافقة" : "Approved");
       fetchData();
     } catch (error: any) {
@@ -1428,11 +1437,20 @@ export default function TimesheetManagement() {
   const handleReject = async (id: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from("timesheets")
-        .update({ status: "rejected", approved_by: user?.id, approved_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      if (id.startsWith("wfh-virtual-")) {
+        const checkinId = id.replace("wfh-virtual-", "");
+        const { error } = await supabase
+          .from("wfh_checkins")
+          .update({ status: "rejected" })
+          .eq("id", checkinId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("timesheets")
+          .update({ status: "rejected", approved_by: user?.id, approved_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
       toast.success(language === "ar" ? "تم الرفض" : "Rejected");
       fetchData();
     } catch (error: any) {
