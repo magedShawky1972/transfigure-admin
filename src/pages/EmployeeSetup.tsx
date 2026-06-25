@@ -338,6 +338,7 @@ export default function EmployeeSetup() {
         shiftPlansRes,
         docTypesRes,
         attendanceTypesRes,
+        businessUnitsRes,
       ] = await Promise.all([
         supabase
           .from("employees")
@@ -345,7 +346,8 @@ export default function EmployeeSetup() {
             *,
             departments(department_name, department_name_ar),
             job_positions(position_name, position_name_ar),
-            attendance_types(type_name, type_name_ar, is_shift_based)
+            attendance_types(type_name, type_name_ar, is_shift_based),
+            business_units:working_business_unit_id(unit_name, unit_name_ar)
           `)
           .order("employee_number"),
         supabase.from("departments").select("id, department_name, department_name_ar").eq("is_active", true).order("department_name"),
@@ -356,6 +358,7 @@ export default function EmployeeSetup() {
         supabase.from("shift_plans").select("id, plan_name").eq("is_active", true).order("plan_name"),
         supabase.from("document_types").select("id, type_name, type_name_ar, is_mandatory").eq("is_active", true).order("type_name"),
         supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes").eq("is_active", true).order("type_name"),
+        supabase.from("business_units").select("id, unit_name, unit_name_ar").eq("is_active", true).order("unit_name"),
       ]);
 
       if (employeesRes.error) throw employeesRes.error;
