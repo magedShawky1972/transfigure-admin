@@ -476,6 +476,7 @@ export default function EmployeeSetup() {
       religion: "",
       department_id: "",
       job_position_id: "",
+      working_business_unit_id: "",
       job_start_date: new Date().toISOString().split('T')[0],
       termination_date: "",
       employment_status: "active",
