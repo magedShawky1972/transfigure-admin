@@ -25,6 +25,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -185,6 +195,9 @@ export default function TimesheetManagement() {
   const [monthLocked, setMonthLocked] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
   const [lockLoading, setLockLoading] = useState(false);
+  const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
+  const [recalcRunning, setRecalcRunning] = useState(false);
+  const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [managerNoteDialogOpen, setManagerNoteDialogOpen] = useState(false);
   const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
   const [managerNoteText, setManagerNoteText] = useState("");
@@ -603,6 +616,79 @@ export default function TimesheetManagement() {
       setNaughtyDrilldownLoading(false);
     }
   };
+
+  // Build list of dates from the current filter (date | range | month)
+  const buildFilterDates = (): string[] => {
+    const dates: string[] = [];
+    let from: string;
+    let to: string;
+    if (filterMode === "date") {
+      from = selectedDate;
+      to = selectedDate;
+    } else if (filterMode === "range") {
+      from = dateFrom;
+      to = dateTo;
+    } else {
+      const [year, month] = selectedMonth.split("-").map(Number);
+      from = `${selectedMonth}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      to = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+    }
+    if (!from || !to) return dates;
+    const start = new Date(from + "T00:00:00");
+    const end = new Date(to + "T00:00:00");
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(d.toISOString().split("T")[0]);
+    }
+    return dates;
+  };
+
+  const handleRecalculate = async () => {
+    const dates = buildFilterDates();
+    if (dates.length === 0) {
+      toast.error(language === "ar" ? "اختر فترة صالحة" : "Select a valid period");
+      return;
+    }
+    setRecalcRunning(true);
+    setRecalcProgress({ done: 0, total: dates.length });
+    let failed = 0;
+    try {
+      for (let i = 0; i < dates.length; i++) {
+        const target_date = dates[i];
+        try {
+          const { error } = await supabase.functions.invoke("process-zk-attendance", {
+            body: { target_date, process_type: "evening", send_notifications: false },
+          });
+          if (error) {
+            failed++;
+            console.error(`Recalc failed for ${target_date}:`, error);
+          }
+        } catch (e) {
+          failed++;
+          console.error(`Recalc failed for ${target_date}:`, e);
+        }
+        setRecalcProgress({ done: i + 1, total: dates.length });
+      }
+      if (failed === 0) {
+        toast.success(
+          language === "ar"
+            ? `تمت إعادة الحساب لـ ${dates.length} يوم`
+            : `Recalculated ${dates.length} day(s)`
+        );
+      } else {
+        toast.warning(
+          language === "ar"
+            ? `تمت إعادة الحساب مع ${failed} خطأ`
+            : `Recalculated with ${failed} error(s)`
+        );
+      }
+      await fetchData();
+    } finally {
+      setRecalcRunning(false);
+      setRecalcDialogOpen(false);
+    }
+  };
+
 
   const fetchData = async () => {
     setLoading(true);
@@ -1538,6 +1624,22 @@ export default function TimesheetManagement() {
             </Button>
             <Button
               variant="outline"
+              onClick={() => setRecalcDialogOpen(true)}
+              disabled={recalcRunning || loading}
+              title={language === "ar" ? "إعادة حساب سجل الحضور للفترة المحددة" : "Recalculate timesheet for selected filter"}
+              className="border-blue-500 text-blue-600 hover:bg-blue-50"
+            >
+              {recalcRunning ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Calculator className="h-4 w-4 mr-2" />
+              )}
+              {recalcRunning
+                ? `${recalcProgress.done}/${recalcProgress.total}`
+                : (language === "ar" ? "إعادة الحساب" : "Recalculate")}
+            </Button>
+            <Button
+              variant="outline"
               onClick={exportToExcel}
               disabled={timesheets.length === 0}
             >
@@ -2424,6 +2526,38 @@ export default function TimesheetManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={recalcDialogOpen} onOpenChange={(o) => !recalcRunning && setRecalcDialogOpen(o)}>
+        <AlertDialogContent dir={language === "ar" ? "rtl" : "ltr"}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "ar" ? "إعادة حساب سجل الحضور" : "Recalculate Timesheet"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "ar"
+                ? `سيتم إعادة حساب سجل الحضور للفترة المحددة (الإجازات، الغياب، الوقت، التأخير وطلبات الانصراف المبكر). عدد الأيام: ${buildFilterDates().length}. قد تستغرق العملية بعض الوقت.`
+                : `This will recalculate the timesheet for the selected filter (vacations, absences, shift time, delay and early-leave requests). Days: ${buildFilterDates().length}. This may take a while.`}
+              {recalcRunning && (
+                <div className="mt-3 text-sm">
+                  {language === "ar" ? "التقدم:" : "Progress:"} {recalcProgress.done}/{recalcProgress.total}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={recalcRunning}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleRecalculate(); }} disabled={recalcRunning}>
+              {recalcRunning ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{language === "ar" ? "جارٍ الحساب..." : "Recalculating..."}</>
+              ) : (
+                language === "ar" ? "تأكيد إعادة الحساب" : "Confirm Recalculate"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
