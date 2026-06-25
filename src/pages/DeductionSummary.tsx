@@ -65,7 +65,7 @@ export default function DeductionSummary() {
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
-  const [delayElements, setDelayElements] = useState<{ id: string; element_code: string; element_name: string }[]>([]);
+  const [delayElements, setDelayElements] = useState<{ id: string; code: string; name_en: string; name_ar: string | null }[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string>("");
   const now = new Date();
   const [periodYear, setPeriodYear] = useState<number>(now.getFullYear());
