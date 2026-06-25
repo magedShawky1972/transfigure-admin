@@ -879,14 +879,14 @@ export default function TimesheetManagement() {
       }
 
       // Build WFH sessions list (each check-in is a separate session)
-      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null; checkinId: string; manager_note?: string | null; manager_note_by?: string | null }[] = [];
+      const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null; checkinId: string; manager_note?: string | null; manager_note_by?: string | null; status?: string | null }[] = [];
       const wfhDaysForApproval = new Set<string>(); // still used to clear deductions for ZK rows on WFH days
       (wfhData || []).forEach((wfh: any) => {
         const empId = userToEmployee.get(wfh.user_id);
         if (empId) {
           const key = `${empId}_${wfh.checkin_date}`;
           wfhDaysForApproval.add(key);
-          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time, checkinId: wfh.id, manager_note: wfh.manager_note, manager_note_by: wfh.manager_note_by });
+          wfhSessions.push({ empId, date: wfh.checkin_date, checkin_time: wfh.checkin_time, checkout_time: wfh.checkout_time, checkinId: wfh.id, manager_note: wfh.manager_note, manager_note_by: wfh.manager_note_by, status: wfh.status });
         }
       });
 
@@ -1046,7 +1046,7 @@ export default function TimesheetManagement() {
             actual_start: session.checkin_time || null,
             actual_end: session.checkout_time || null,
             break_duration_minutes: 0,
-            status: "present",
+            status: session.status === "approved" ? "approved" : session.status === "rejected" ? "rejected" : "pending",
             is_absent: false,
             absence_reason: null,
             late_minutes: lateMinutes,
@@ -1413,11 +1413,20 @@ export default function TimesheetManagement() {
   const handleApprove = async (id: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from("timesheets")
-        .update({ status: "approved", approved_by: user?.id, approved_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      if (id.startsWith("wfh-virtual-")) {
+        const checkinId = id.replace("wfh-virtual-", "");
+        const { error } = await supabase
+          .from("wfh_checkins")
+          .update({ status: "approved" })
+          .eq("id", checkinId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("timesheets")
+          .update({ status: "approved", approved_by: user?.id, approved_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
       toast.success(language === "ar" ? "تمت الموافقة" : "Approved");
       fetchData();
     } catch (error: any) {
@@ -1428,11 +1437,20 @@ export default function TimesheetManagement() {
   const handleReject = async (id: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from("timesheets")
-        .update({ status: "rejected", approved_by: user?.id, approved_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      if (id.startsWith("wfh-virtual-")) {
+        const checkinId = id.replace("wfh-virtual-", "");
+        const { error } = await supabase
+          .from("wfh_checkins")
+          .update({ status: "rejected" })
+          .eq("id", checkinId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("timesheets")
+          .update({ status: "rejected", approved_by: user?.id, approved_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
       toast.success(language === "ar" ? "تم الرفض" : "Rejected");
       fetchData();
     } catch (error: any) {
