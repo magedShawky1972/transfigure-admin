@@ -130,12 +130,18 @@ export default function TimesheetManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(null);
   const [sendingDeductionMails, setSendingDeductionMails] = useState(false);
-  const [filterMode, setFilterMode] = useState<"date" | "month" | "range">("date");
-  const [dateFrom, setDateFrom] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const TS_FILTER_KEY = "timesheet-management-filters";
+  const savedFilters = (() => {
+    try { return JSON.parse(sessionStorage.getItem(TS_FILTER_KEY) || "{}"); } catch { return {}; }
+  })();
+  const [filterMode, setFilterMode] = useState<"date" | "month" | "range">(savedFilters.filterMode || "date");
+  const [dateFrom, setDateFrom] = useState(savedFilters.dateFrom || format(new Date(), "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState(savedFilters.dateTo || format(new Date(), "yyyy-MM-dd"));
+  const [selectedDate, setSelectedDate] = useState(savedFilters.selectedDate || format(new Date(), "yyyy-MM-dd"));
+  const [selectedMonth, setSelectedMonth] = useState(savedFilters.selectedMonth || format(new Date(), "yyyy-MM"));
+  const [selectedEmployee, setSelectedEmployee] = useState<string>(savedFilters.selectedEmployee || "");
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>(savedFilters.selectedDepartment || "");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [formData, setFormData] = useState({
