@@ -1046,7 +1046,7 @@ export default function TimesheetManagement() {
             actual_start: session.checkin_time || null,
             actual_end: session.checkout_time || null,
             break_duration_minutes: 0,
-            status: "present",
+            status: session.status === "approved" ? "approved" : session.status === "rejected" ? "rejected" : "pending",
             is_absent: false,
             absence_reason: null,
             late_minutes: lateMinutes,
