@@ -198,7 +198,7 @@ export default function TimesheetManagement() {
   const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
   const [recalcRunning, setRecalcRunning] = useState(false);
   const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
-  const [shiftSessionMap, setShiftSessionMap] = useState<Map<string, { shift_name: string; start: string | null; end: string | null }>>(new Map());
+  const [shiftSessionMap, setShiftSessionMap] = useState<Map<string, { shift_name: string; start: string | null; end: string | null; opened_at: string | null; closed_at: string | null }>>(new Map());
   const [managerNoteDialogOpen, setManagerNoteDialogOpen] = useState(false);
   const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
   const [managerNoteText, setManagerNoteText] = useState("");
