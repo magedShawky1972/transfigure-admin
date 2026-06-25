@@ -540,7 +540,7 @@ export default function PayrollMonthPreview() {
                   {sorted.length > 0 && (
                     <tfoot>
                       <TableRow className="bg-muted/60 font-semibold">
-                        <TableCell className="sticky left-0 bg-muted/60 z-10">{language === "ar" ? "الإجمالي" : "TOTAL"}</TableCell>
+                        <TableCell className="sticky start-0 ltr:left-0 rtl:right-0 bg-muted/60 z-10 border-r dark:border-zinc-800">{language === "ar" ? "الإجمالي" : "TOTAL"}</TableCell>
                         <TableCell colSpan={3} />
                         {visibleElements.map((el) => (
                           <TableCell key={el.id} className="text-right tabular-nums">{fmt(columnTotals[el.id] || 0)}</TableCell>
