@@ -161,7 +161,7 @@ export default function PayrollVariableEntry() {
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
       if (terms.length) {
-        const hay = `${empName(e)} ${e.employee_number} ${e.departments?.department_name || ""} ${e.job_positions?.position_name || ""}`.toLowerCase();
+        const hay = `${empName(e)} ${e.employee_number} ${deptName(e.departments)} ${e.job_positions?.position_name || ""}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
       return true;
