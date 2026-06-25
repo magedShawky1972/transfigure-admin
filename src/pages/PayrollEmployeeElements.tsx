@@ -106,8 +106,8 @@ export default function PayrollEmployeeElements() {
   };
 
   const assignAllToAll = async () => {
-    if (!confirm(`Assign all ${elements.length} active elements to all ${emps.length} employees? Existing assignments will be skipped.`)) return;
     const { data: existing } = await supabase
+
       .from("payroll_employee_elements")
       .select("employee_id, element_id");
     const existSet = new Set((existing || []).map((r: any) => `${r.employee_id}|${r.element_id}`));
