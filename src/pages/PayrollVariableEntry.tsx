@@ -176,7 +176,7 @@ export default function PayrollVariableEntry() {
         let av: any; let bv: any;
         if (r.key === "name") { av = `${empName(a)}`; bv = `${empName(b)}`; }
         else if (r.key === "employee_number") { av = a.employee_number; bv = b.employee_number; }
-        else if (r.key === "dept") { av = a.departments?.department_name || ""; bv = b.departments?.department_name || ""; }
+        else if (r.key === "dept") { av = deptName(a.departments); bv = deptName(b.departments); }
         else if (r.key === "job") { av = a.job_positions?.position_name || ""; bv = b.job_positions?.position_name || ""; }
         else {
           av = matrix[`${a.id}|${r.key}`]?.amount ?? -Infinity;
