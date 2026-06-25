@@ -186,7 +186,7 @@ export default function TimesheetManagement() {
   const [naughtyDrilldownRecords, setNaughtyDrilldownRecords] = useState<{work_date: string; late_minutes: number; scheduled_start: string | null; actual_start: string | null; deduction_rule_name: string | null}[]>([]);
   const [naughtyDrilldownLoading, setNaughtyDrilldownLoading] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
-  const [cardFilter, setCardFilter] = useState<"all" | "approved" | "waiting" | "absent">("all");
+  const [cardFilter, setCardFilter] = useState<"all" | "approved" | "waiting" | "absent" | "delay">("all");
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([
     { key: "work_date", direction: "asc" },
     { key: "employee", direction: "asc" },
