@@ -32,8 +32,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Loader2, Send } from "lucide-react";
+import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 
 interface Row {
   employee_id: string;
@@ -386,6 +387,44 @@ export default function DeductionSummary() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
 
+  const handlePrint = () => window.print();
+
+  const handleExportExcel = () => {
+    const header = [
+      "#",
+      isAr ? "رقم الموظف" : "Emp #",
+      isAr ? "الموظف" : "Employee",
+      isAr ? "الراتب الأساسي" : "Basic Salary",
+      isAr ? "عدد التأخيرات" : "Late Count",
+      isAr ? "دقائق التأخير" : "Late Min",
+      isAr ? "خروج مبكر (عدد)" : "Early Leave Count",
+      isAr ? "دقائق الخروج المبكر" : "Early Leave Min",
+      isAr ? "غياب" : "Absent",
+      isAr ? "القواعد المطبقة" : "Applied Rules",
+      isAr ? "إجمالي الخصم" : "Total Deduction",
+    ];
+    const body = rows.map((r, i) => [
+      i + 1,
+      r.empNumber,
+      r.name,
+      r.basicSalary,
+      r.lateCount,
+      r.totalLateMinutes,
+      r.earlyLeaveCount,
+      r.totalEarlyLeaveMinutes,
+      r.absentCount,
+      Array.from(r.rules.values()).map(x => `${x.name}: ${x.count}x (${x.amount.toFixed(2)})`).join(" | "),
+      Number(r.totalDeduction.toFixed(2)),
+    ]);
+    body.push(["", "", isAr ? "الإجمالي" : "Grand Total", "", "", "", "", "", "", "", Number(grandTotal.toFixed(2))]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
+    if (isAr) (ws as any)["!views"] = [{ RTL: true }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, isAr ? "ملخص الخصومات" : "Deductions");
+    XLSX.writeFile(wb, `deduction-summary-${periodYear}-${String(periodMonth).padStart(2, "0")}.xlsx`);
+  };
+
+
   return (
     <div className="container mx-auto p-6 space-y-6" dir={isAr ? "rtl" : "ltr"}>
       <Card>
@@ -400,7 +439,7 @@ export default function DeductionSummary() {
             </CardTitle>
             <Badge variant="secondary">{filterLabel}</Badge>
           </div>
-          <div className="flex gap-2 flex-wrap items-end">
+          <div className="flex gap-2 flex-wrap items-end print:hidden">
             <div>
               <Label className="text-xs">{isAr ? "عنصر الخصم" : "Delay Element"}</Label>
               <Select value={selectedElementId} onValueChange={setSelectedElementId}>
@@ -439,6 +478,14 @@ export default function DeductionSummary() {
               <Send className="h-4 w-4 mr-2" />
               {isAr ? "تأكيد وإرسال إلى الرواتب" : "Confirm & Send to Payroll"}
             </Button>
+            <Button variant="outline" onClick={handleExportExcel} disabled={loading || rows.length === 0}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {isAr ? "تصدير Excel" : "Export Excel"}
+            </Button>
+            <Button variant="outline" onClick={handlePrint} disabled={loading || rows.length === 0}>
+              <Printer className="h-4 w-4 mr-2" />
+              {isAr ? "طباعة" : "Print"}
+            </Button>
             <Button
               variant="destructive"
               onClick={() => setRollbackOpen(true)}
@@ -447,6 +494,7 @@ export default function DeductionSummary() {
             >
               {isAr ? `تراجع (${existingCount})` : `Rollback (${existingCount})`}
             </Button>
+
           </div>
         </CardHeader>
         <CardContent>
