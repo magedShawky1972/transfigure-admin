@@ -372,8 +372,7 @@ export default function PayrollMatrixEntry() {
         </div>
       </div>
 
-        </div>
-      </div>
+
 
       <Card>
         <CardHeader>
