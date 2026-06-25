@@ -11,6 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
 import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save } from "lucide-react";
+import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
+
+const typeColors: Record<string, { head: string; cell: string; label: string }> = {
+  earning: { head: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200", cell: "bg-emerald-50/40 dark:bg-emerald-950/10", label: "text-emerald-700 dark:text-emerald-300" },
+  deduction: { head: "bg-rose-100 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200", cell: "bg-rose-50/40 dark:bg-rose-950/10", label: "text-rose-700 dark:text-rose-300" },
+  employer_contribution: { head: "bg-sky-100 dark:bg-sky-950/40 text-sky-900 dark:text-sky-200", cell: "bg-sky-50/40 dark:bg-sky-950/10", label: "text-sky-700 dark:text-sky-300" },
+  information: { head: "bg-muted text-muted-foreground", cell: "", label: "text-muted-foreground" },
+};
 
 type Emp = {
   id: string;
@@ -53,7 +61,7 @@ export default function PayrollMatrixEntry() {
         .from("employees")
         .select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
         .order("first_name"),
-      supabase.from("payroll_elements").select("id, code, name_en, element_type, default_amount").eq("is_active", true).order("name_en"),
+      supabase.from("payroll_elements").select("id, code, name_en, element_type, default_amount, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
       supabase.from("payroll_employee_elements").select("id, employee_id, element_id, amount, is_active").eq("is_active", true),
     ]);
     setEmps((e.data || []) as any);
@@ -293,79 +301,86 @@ export default function PayrollMatrixEntry() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="w-full">
-            <div className="min-w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]"
-                      onClick={(e) => toggleSort("name", e)}
-                    >
-                      <div className="flex items-center gap-1">Employee {sortBadge("name")}</div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee_number", e)}>
-                      <div className="flex items-center gap-1">Number {sortBadge("employee_number")}</div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("dept", e)}>
-                      <div className="flex items-center gap-1">Department {sortBadge("dept")}</div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("job", e)}>
-                      <div className="flex items-center gap-1">Job {sortBadge("job")}</div>
-                    </TableHead>
-                    {visibleElements.map((el) => (
-                      <TableHead
-                        key={el.id}
-                        className="cursor-pointer select-none text-right min-w-[140px]"
-                        onClick={(e) => toggleSort(el.id, e)}
-                        title={`${el.code} — ${el.element_type}`}
-                      >
-                        <div className="flex items-center justify-end gap-1">
-                          <span className="truncate">{el.name_en}</span> {sortBadge(el.id)}
-                        </div>
-                        <div className="text-[10px] font-normal text-muted-foreground">{el.element_type}</div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sorted.length === 0 ? (
+          <TopHorizontalScrollbar>
+            <ScrollArea className="w-full">
+              <div className="min-w-full overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4 + visibleElements.length} className="text-center text-muted-foreground py-6">
-                        No employees match the filters
-                      </TableCell>
-                    </TableRow>
-                  ) : sorted.map((emp) => (
-                    <TableRow key={emp.id}>
-                      <TableCell className="sticky left-0 bg-background z-10 font-medium">
-                        {emp.first_name} {emp.last_name}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
-                      <TableCell className="text-xs">{emp.departments?.department_name || "—"}</TableCell>
-                      <TableCell className="text-xs">{emp.job_positions?.position_name || "—"}</TableCell>
+                      <TableHead
+                        className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]"
+                        onClick={(e) => toggleSort("name", e)}
+                      >
+                        <div className="flex items-center gap-1">Employee {sortBadge("name")}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee_number", e)}>
+                        <div className="flex items-center gap-1">Number {sortBadge("employee_number")}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("dept", e)}>
+                        <div className="flex items-center gap-1">Department {sortBadge("dept")}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("job", e)}>
+                        <div className="flex items-center gap-1">Job {sortBadge("job")}</div>
+                      </TableHead>
                       {visibleElements.map((el) => {
-                        const key = `${emp.id}|${el.id}`;
-                        const cell = matrix[key];
+                        const c = typeColors[el.element_type] || typeColors.information;
                         return (
-                          <TableCell key={el.id} className="p-1">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={cell?.amount ?? ""}
-                              placeholder="0.00"
-                              onChange={(e) => setCell(emp.id, el.id, Number(e.target.value) || 0)}
-                              className={`h-8 text-right ${cell?.dirty ? "border-primary ring-1 ring-primary/40" : ""}`}
-                            />
-                          </TableCell>
+                          <TableHead
+                            key={el.id}
+                            className={`cursor-pointer select-none text-right min-w-[140px] ${c.head}`}
+                            onClick={(e) => toggleSort(el.id, e)}
+                            title={`${el.code} — ${el.element_type}`}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="truncate">{el.name_en}</span> {sortBadge(el.id)}
+                            </div>
+                            <div className={`text-[10px] font-normal ${c.label}`}>{el.element_type}</div>
+                          </TableHead>
                         );
                       })}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </ScrollArea>
+                  </TableHeader>
+                  <TableBody>
+                    {sorted.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4 + visibleElements.length} className="text-center text-muted-foreground py-6">
+                          No employees match the filters
+                        </TableCell>
+                      </TableRow>
+                    ) : sorted.map((emp) => (
+                      <TableRow key={emp.id}>
+                        <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                          {emp.first_name} {emp.last_name}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
+                        <TableCell className="text-xs">{emp.departments?.department_name || "—"}</TableCell>
+                        <TableCell className="text-xs">{emp.job_positions?.position_name || "—"}</TableCell>
+                        {visibleElements.map((el) => {
+                          const key = `${emp.id}|${el.id}`;
+                          const cell = matrix[key];
+                          const c = typeColors[el.element_type] || typeColors.information;
+                          return (
+                            <TableCell key={el.id} className={`p-1 ${c.cell}`}>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={cell?.amount ?? ""}
+                                placeholder="0.00"
+                                onChange={(e) => setCell(emp.id, el.id, Number(e.target.value) || 0)}
+                                className={`h-8 text-right ${cell?.dirty ? "border-primary ring-1 ring-primary/40" : ""}`}
+                              />
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </ScrollArea>
+          </TopHorizontalScrollbar>
         </CardContent>
+
       </Card>
     </div>
   );
