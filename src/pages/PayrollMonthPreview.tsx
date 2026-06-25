@@ -35,8 +35,8 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
-  departments?: { department_name: string } | null;
-  job_positions?: { position_name: string } | null;
+  departments?: { department_name: string; department_name_ar?: string | null } | null;
+  job_positions?: { position_name: string; position_name_ar?: string | null } | null;
 };
 type Element = { id: string; code: string; name_en: string; element_type: string; calculation_type?: string | null };
 type SortRule = { key: string; dir: "asc" | "desc" };
@@ -46,6 +46,8 @@ const now = new Date();
 export default function PayrollMonthPreview() {
   const { language } = useLanguage();
   const empName = (e: any) => language === "ar" ? `${e?.first_name_ar || e?.first_name || ""} ${e?.last_name_ar || e?.last_name || ""}`.trim() : `${e?.first_name || ""} ${e?.last_name || ""}`.trim();
+  const deptName = (d: any) => (language === "ar" ? (d?.department_name_ar || d?.department_name) : d?.department_name) || "";
+  const jobName = (j: any) => (language === "ar" ? (j?.position_name_ar || j?.position_name) : j?.position_name) || "";
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [emps, setEmps] = useState<Emp[]>([]);
@@ -68,7 +70,7 @@ export default function PayrollMonthPreview() {
     const [e, el, pe, pv] = await Promise.all([
       supabase
         .from("employees")
-        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
+        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
         .order("first_name"),
       supabase.from("payroll_elements").select("id, code, name_en, element_type, calculation_type, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
       supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true),
@@ -92,14 +94,14 @@ export default function PayrollMonthPreview() {
 
   const departments = useMemo(() => {
     const map = new Map<string, string>();
-    emps.forEach((e) => { if (e.department_id && e.departments?.department_name) map.set(e.department_id, e.departments.department_name); });
+    emps.forEach((e) => { if (e.department_id && e.departments) { const n = deptName(e.departments); if (n) map.set(e.department_id, n); } });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [emps]);
+  }, [emps, language]);
   const jobs = useMemo(() => {
     const map = new Map<string, string>();
-    emps.forEach((e) => { if (e.job_position_id && e.job_positions?.position_name) map.set(e.job_position_id, e.job_positions.position_name); });
+    emps.forEach((e) => { if (e.job_position_id && e.job_positions) { const n = jobName(e.job_positions); if (n) map.set(e.job_position_id, n); } });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [emps]);
+  }, [emps, language]);
   const statuses = useMemo(() => {
     const s = new Set<string>(); emps.forEach((e) => { if (e.employment_status) s.add(e.employment_status); });
     return Array.from(s);
@@ -120,7 +122,7 @@ export default function PayrollMonthPreview() {
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
       if (terms.length) {
-        const hay = `${empName(e)} ${e.employee_number} ${e.departments?.department_name || ""} ${e.job_positions?.position_name || ""}`.toLowerCase();
+        const hay = `${empName(e)} ${e.employee_number} ${deptName(e.departments)} ${jobName(e.job_positions)}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
       if (hideZeroEmployees) {
@@ -140,7 +142,7 @@ export default function PayrollMonthPreview() {
         if (r.key === "name") { av = `${empName(a)}`; bv = `${empName(b)}`; }
         else if (r.key === "employee_number") { av = a.employee_number; bv = b.employee_number; }
         else if (r.key === "dept") { av = a.departments?.department_name || ""; bv = b.departments?.department_name || ""; }
-        else if (r.key === "job") { av = a.job_positions?.position_name || ""; bv = b.job_positions?.position_name || ""; }
+        else if (r.key === "job") { av = jobName(a.job_positions); bv = jobName(b.job_positions); }
         else if (r.key === "net") { av = netFor(a.id); bv = netFor(b.id); }
         else { av = amounts[`${a.id}|${r.key}`] ?? -Infinity; bv = amounts[`${b.id}|${r.key}`] ?? -Infinity; }
         if (av < bv) return r.dir === "asc" ? -1 : 1;
@@ -217,7 +219,7 @@ export default function PayrollMonthPreview() {
     const header = ["Employee #", "Employee Name", "Department", "Job", ...visibleElements.map((e) => `${e.code} - ${e.name_en} [${e.element_type}]`), language === "ar" ? "الصافي" : "Net"];
     const rows: any[][] = [header];
     for (const emp of sorted) {
-      const row: any[] = [emp.employee_number, `${empName(emp)}`, emp.departments?.department_name || "", emp.job_positions?.position_name || ""];
+      const row: any[] = [emp.employee_number, `${empName(emp)}`, deptName(emp.departments), jobName(emp.job_positions)];
       for (const el of visibleElements) row.push(amounts[`${emp.id}|${el.id}`] || 0);
       row.push(netFor(emp.id));
       rows.push(row);
@@ -429,7 +431,7 @@ export default function PayrollMonthPreview() {
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
                           <TableCell className="text-xs">{emp.departments?.department_name || "—"}</TableCell>
-                          <TableCell className="text-xs">{emp.job_positions?.position_name || "—"}</TableCell>
+                          <TableCell className="text-xs">{jobName(emp.job_positions) || "—"}</TableCell>
                           {visibleElements.map((el) => {
                             const v = amounts[`${emp.id}|${el.id}`] || 0;
                             const c = typeColors[el.element_type] || typeColors.information;
