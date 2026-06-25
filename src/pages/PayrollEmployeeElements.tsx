@@ -9,6 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Emp = { id: string; first_name: string; last_name: string; employee_number: string; basic_salary: number | null };
 type Element = { id: string; code: string; name_en: string; element_type: string; default_amount: number | null };
@@ -31,6 +41,7 @@ export default function PayrollEmployeeElements() {
   const [newAmount, setNewAmount] = useState<string>("0");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
   const load = async () => {
     const [e, el] = await Promise.all([
@@ -95,8 +106,8 @@ export default function PayrollEmployeeElements() {
   };
 
   const assignAllToAll = async () => {
-    if (!confirm(`Assign all ${elements.length} active elements to all ${emps.length} employees? Existing assignments will be skipped.`)) return;
     const { data: existing } = await supabase
+
       .from("payroll_employee_elements")
       .select("employee_id, element_id");
     const existSet = new Set((existing || []).map((r: any) => `${r.employee_id}|${r.element_id}`));
@@ -137,9 +148,10 @@ export default function PayrollEmployeeElements() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Employee Element Assign & Values</h1>
-        <Button variant="outline" onClick={assignAllToAll}>
+        <Button variant="outline" onClick={() => setConfirmAllOpen(true)}>
           <Plus className="h-4 w-4 mr-2" /> Assign All Elements to All Employees
         </Button>
+
       </div>
 
 
@@ -259,6 +271,24 @@ export default function PayrollEmployeeElements() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign All Elements to All Employees?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Assign all {elements.length} active elements to all {emps.length} employees. Existing assignments will be skipped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmAllOpen(false); assignAllToAll(); }}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+
 }
