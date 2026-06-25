@@ -82,6 +82,7 @@ interface Timesheet {
   status: string;
   is_absent: boolean;
   absence_reason: string | null;
+  absence_has_notice?: boolean | null;
   late_minutes: number;
   early_leave_minutes: number;
   overtime_minutes: number;
@@ -149,6 +150,7 @@ export default function TimesheetManagement() {
     break_duration_minutes: 0,
     is_absent: false,
     absence_reason: "",
+    absence_has_notice: null as boolean | null,
     notes: "",
   });
   const [frequentlyLateEmployees, setFrequentlyLateEmployees] = useState<{employeeId: string; name: string; count: number; photoUrl: string | null}[]>([]);
@@ -967,8 +969,17 @@ export default function TimesheetManagement() {
     let deduction_rule_id: string | null = null;
 
     if (data.is_absent) {
-      // Find absence rule
-      const absenceRule = deductionRules.find((r) => r.rule_type === "absence");
+      // Pick absence rule matching the notice flag:
+      // true => is_absence_with_notice, false => is_absence_without_notice, null => any absence rule
+      const allAbsenceRules = deductionRules.filter((r) => r.rule_type === "absence");
+      let absenceRule: any = null;
+      if (data.absence_has_notice === true) {
+        absenceRule = allAbsenceRules.find((r: any) => r.is_absence_with_notice) || allAbsenceRules[0];
+      } else if (data.absence_has_notice === false) {
+        absenceRule = allAbsenceRules.find((r: any) => r.is_absence_without_notice) || allAbsenceRules[0];
+      } else {
+        absenceRule = allAbsenceRules[0];
+      }
       if (absenceRule && employee?.basic_salary) {
         const dailySalary = employee.basic_salary / 30;
         deduction_amount = dailySalary * absenceRule.deduction_value;
@@ -1066,6 +1077,7 @@ export default function TimesheetManagement() {
       break_duration_minutes: 0,
       is_absent: false,
       absence_reason: "",
+      absence_has_notice: null,
       notes: "",
     });
     setDialogOpen(true);
@@ -1085,6 +1097,7 @@ export default function TimesheetManagement() {
       break_duration_minutes: timesheet.break_duration_minutes || 0,
       is_absent: timesheet.is_absent,
       absence_reason: timesheet.absence_reason || "",
+      absence_has_notice: (timesheet as any).absence_has_notice ?? null,
       notes: timesheet.notes || "",
     });
     setDialogOpen(true);
@@ -1203,6 +1216,7 @@ export default function TimesheetManagement() {
         break_duration_minutes: formData.break_duration_minutes,
         is_absent: formData.is_absent,
         absence_reason: formData.absence_reason || null,
+        absence_has_notice: formData.is_absent ? formData.absence_has_notice : null,
         notes: formData.notes || null,
         // Reset notification flag when editing so new deduction can be re-sent
         deduction_notification_sent: false,
@@ -2053,14 +2067,45 @@ export default function TimesheetManagement() {
             </div>
 
             {formData.is_absent ? (
-              <div className="space-y-2">
-                <Label>{language === "ar" ? "سبب الغياب" : "Absence Reason"}</Label>
-                <Textarea
-                  value={formData.absence_reason}
-                  onChange={(e) => setFormData({ ...formData, absence_reason: e.target.value })}
-                  rows={2}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "حالة الإشعار" : "Notice Status"}</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.absence_has_notice === true ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, absence_has_notice: true })}
+                    >
+                      {language === "ar" ? "غياب بإشعار" : "With Notice"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.absence_has_notice === false ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, absence_has_notice: false })}
+                    >
+                      {language === "ar" ? "بدون إشعار" : "Without Notice"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.absence_has_notice === null ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, absence_has_notice: null })}
+                    >
+                      {language === "ar" ? "غير محدد" : "Unset"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "سبب الغياب" : "Absence Reason"}</Label>
+                  <Textarea
+                    value={formData.absence_reason}
+                    onChange={(e) => setFormData({ ...formData, absence_reason: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+              </>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-4">

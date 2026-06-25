@@ -2683,6 +2683,8 @@ export type Database = {
           deduction_type: string
           deduction_value: number
           id: string
+          is_absence_with_notice: boolean
+          is_absence_without_notice: boolean
           is_active: boolean
           is_overtime: boolean | null
           max_minutes: number | null
@@ -2698,6 +2700,8 @@ export type Database = {
           deduction_type: string
           deduction_value: number
           id?: string
+          is_absence_with_notice?: boolean
+          is_absence_without_notice?: boolean
           is_active?: boolean
           is_overtime?: boolean | null
           max_minutes?: number | null
@@ -2713,6 +2717,8 @@ export type Database = {
           deduction_type?: string
           deduction_value?: number
           id?: string
+          is_absence_with_notice?: boolean
+          is_absence_without_notice?: boolean
           is_active?: boolean
           is_overtime?: boolean | null
           max_minutes?: number | null
@@ -6251,6 +6257,7 @@ export type Database = {
           element_type: string
           formula: string | null
           id: string
+          is_absence_element: boolean
           is_active: boolean
           is_basic_salary_element: boolean
           is_delay_minutes_element: boolean
@@ -6268,6 +6275,7 @@ export type Database = {
           element_type: string
           formula?: string | null
           id?: string
+          is_absence_element?: boolean
           is_active?: boolean
           is_basic_salary_element?: boolean
           is_delay_minutes_element?: boolean
@@ -6285,6 +6293,7 @@ export type Database = {
           element_type?: string
           formula?: string | null
           id?: string
+          is_absence_element?: boolean
           is_active?: boolean
           is_basic_salary_element?: boolean
           is_delay_minutes_element?: boolean
@@ -8418,6 +8427,7 @@ export type Database = {
       }
       saved_attendance: {
         Row: {
+          absence_has_notice: boolean | null
           attendance_date: string
           auto_processed: boolean | null
           batch_id: string | null
@@ -8453,6 +8463,7 @@ export type Database = {
           vacation_type: string | null
         }
         Insert: {
+          absence_has_notice?: boolean | null
           attendance_date: string
           auto_processed?: boolean | null
           batch_id?: string | null
@@ -8488,6 +8499,7 @@ export type Database = {
           vacation_type?: string | null
         }
         Update: {
+          absence_has_notice?: boolean | null
           attendance_date?: string
           auto_processed?: boolean | null
           batch_id?: string | null
@@ -10736,6 +10748,7 @@ export type Database = {
       }
       timesheets: {
         Row: {
+          absence_has_notice: boolean | null
           absence_reason: string | null
           actual_end: string | null
           actual_start: string | null
@@ -10770,6 +10783,7 @@ export type Database = {
           work_date: string
         }
         Insert: {
+          absence_has_notice?: boolean | null
           absence_reason?: string | null
           actual_end?: string | null
           actual_start?: string | null
@@ -10804,6 +10818,7 @@ export type Database = {
           work_date: string
         }
         Update: {
+          absence_has_notice?: boolean | null
           absence_reason?: string | null
           actual_end?: string | null
           actual_start?: string | null

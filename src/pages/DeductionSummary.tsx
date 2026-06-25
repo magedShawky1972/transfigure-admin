@@ -48,6 +48,9 @@ interface Row {
   lateCount: number;
   earlyLeaveCount: number;
   absentCount: number;
+  absentWithNoticeCount: number;
+  absentWithoutNoticeCount: number;
+  absenceDeduction: number;
   rules: Map<string, { name: string; count: number; amount: number }>;
 }
 
@@ -68,7 +71,9 @@ export default function DeductionSummary() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
   const [delayElements, setDelayElements] = useState<{ id: string; code: string; name_en: string; name_ar: string | null }[]>([]);
+  const [absenceElements, setAbsenceElements] = useState<{ id: string; code: string; name_en: string; name_ar: string | null }[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string>("");
+  const [selectedAbsenceElementId, setSelectedAbsenceElementId] = useState<string>("");
   const now = new Date();
   const [periodYear, setPeriodYear] = useState<number>(now.getFullYear());
   const [periodMonth, setPeriodMonth] = useState<number>(now.getMonth() + 1);
@@ -177,6 +182,16 @@ export default function DeductionSummary() {
         (assigns || []).forEach((a: any) => basicSalaryMap.set(a.employee_id, Number(a.amount) || 0));
       }
 
+      // Load absence rules (with/without notice multipliers)
+      const { data: absRules } = await supabase
+        .from("deduction_rules")
+        .select("id, rule_name, rule_name_ar, deduction_value, is_absence_with_notice, is_absence_without_notice")
+        .eq("rule_type", "absence")
+        .eq("is_active", true);
+      const withNoticeRule: any = (absRules || []).find((r: any) => r.is_absence_with_notice);
+      const withoutNoticeRule: any = (absRules || []).find((r: any) => r.is_absence_without_notice);
+      const defaultAbsenceRule: any = (absRules || [])[0];
+
       const map = new Map<string, Row>();
       (data || []).forEach((ts: any) => {
         const empId = ts.employee_id;
@@ -201,24 +216,50 @@ export default function DeductionSummary() {
             lateCount: 0,
             earlyLeaveCount: 0,
             absentCount: 0,
+            absentWithNoticeCount: 0,
+            absentWithoutNoticeCount: 0,
+            absenceDeduction: 0,
             rules: new Map(),
           };
           map.set(empId, row);
         }
-        row.totalDeduction += ded;
         row.totalLateMinutes += lateMin;
         row.totalEarlyLeaveMinutes += earlyMin;
         if (lateMin > 0) row.lateCount++;
         if (earlyMin > 0) row.earlyLeaveCount++;
-        if (ts.is_absent) row.absentCount++;
-        if (ts.deduction_rules && (ts.deduction_amount || 0) > 0 && !lateApproved && !earlyApproved) {
-          const ruleName = isAr
-            ? (ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name)
-            : ts.deduction_rules.rule_name;
-          const existing = row.rules.get(ruleName) || { name: ruleName, count: 0, amount: 0 };
-          existing.count++;
-          existing.amount += ts.deduction_amount || 0;
-          row.rules.set(ruleName, existing);
+
+        if (ts.is_absent) {
+          row.absentCount++;
+          const hasNotice = ts.absence_has_notice;
+          let rule: any = defaultAbsenceRule;
+          if (hasNotice === true) {
+            row.absentWithNoticeCount++;
+            rule = withNoticeRule || defaultAbsenceRule;
+          } else if (hasNotice === false) {
+            row.absentWithoutNoticeCount++;
+            rule = withoutNoticeRule || defaultAbsenceRule;
+          }
+          if (rule && row.basicSalary > 0) {
+            const amt = (row.basicSalary / 30) * Number(rule.deduction_value || 0);
+            row.absenceDeduction += amt;
+            const ruleName = isAr ? (rule.rule_name_ar || rule.rule_name) : rule.rule_name;
+            const existing = row.rules.get(ruleName) || { name: ruleName, count: 0, amount: 0 };
+            existing.count++;
+            existing.amount += amt;
+            row.rules.set(ruleName, existing);
+          }
+        } else {
+          // Only count non-absence rule deductions (late/early) here; absence is computed above
+          row.totalDeduction += ded;
+          if (ts.deduction_rules && (ts.deduction_amount || 0) > 0 && !lateApproved && !earlyApproved) {
+            const ruleName = isAr
+              ? (ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name)
+              : ts.deduction_rules.rule_name;
+            const existing = row.rules.get(ruleName) || { name: ruleName, count: 0, amount: 0 };
+            existing.count++;
+            existing.amount += ts.deduction_amount || 0;
+            row.rules.set(ruleName, existing);
+          }
         }
       });
 
@@ -232,6 +273,8 @@ export default function DeductionSummary() {
           r.totalDeduction = amt;
           r.rules.set(fallbackLabel, { name: fallbackLabel, count: minutes, amount: amt });
         }
+        // Roll absence deduction into total
+        r.totalDeduction += r.absenceDeduction;
       });
 
       const out = Array.from(map.values())
@@ -249,11 +292,14 @@ export default function DeductionSummary() {
   const fetchDelayElements = async () => {
     const { data } = await supabase
       .from("payroll_elements")
-      .select("id, code, name_en, name_ar, is_active, is_delay_minutes_element, calculation_type")
+      .select("id, code, name_en, name_ar, is_active, is_delay_minutes_element, is_absence_element, calculation_type")
       .eq("is_active", true);
-    const els = (data || []).filter((e: any) => e.is_delay_minutes_element || e.calculation_type === "delay_minutes");
-    setDelayElements(els as any);
-    if (els.length > 0 && !selectedElementId) setSelectedElementId((els[0] as any).id);
+    const delayEls = (data || []).filter((e: any) => e.is_delay_minutes_element || e.calculation_type === "delay_minutes");
+    const absenceEls = (data || []).filter((e: any) => e.is_absence_element);
+    setDelayElements(delayEls as any);
+    setAbsenceElements(absenceEls as any);
+    if (delayEls.length > 0 && !selectedElementId) setSelectedElementId((delayEls[0] as any).id);
+    if (absenceEls.length > 0 && !selectedAbsenceElementId) setSelectedAbsenceElementId((absenceEls[0] as any).id);
   };
 
   useEffect(() => { fetchData(); fetchDelayElements(); /* eslint-disable-next-line */ }, []);
@@ -341,55 +387,81 @@ export default function DeductionSummary() {
     }
     setSending(true);
     try {
-      // Fetch existing entries for this period+element
-      const { data: existing, error: exErr } = await supabase
-        .from("payroll_variable_entries")
-        .select("id, employee_id")
-        .eq("element_id", selectedElementId)
-        .eq("period_year", periodYear)
-        .eq("period_month", periodMonth);
-      if (exErr) throw exErr;
-      const existingMap = new Map<string, string>();
-      (existing || []).forEach((e: any) => existingMap.set(e.employee_id, e.id));
+      // Helper to upsert variable entries against a given element with per-employee amounts
+      const sendForElement = async (
+        elementId: string,
+        getAmount: (r: Row) => number,
+        note: string,
+      ) => {
+        const { data: existing, error: exErr } = await supabase
+          .from("payroll_variable_entries")
+          .select("id, employee_id")
+          .eq("element_id", elementId)
+          .eq("period_year", periodYear)
+          .eq("period_month", periodMonth);
+        if (exErr) throw exErr;
+        const existingMap = new Map<string, string>();
+        (existing || []).forEach((e: any) => existingMap.set(e.employee_id, e.id));
 
-      const toUpdate: { id: string; amount: number }[] = [];
-      const toInsert: any[] = [];
-      const note = isAr
+        const toUpdate: { id: string; amount: number }[] = [];
+        const toInsert: any[] = [];
+        rows.forEach(r => {
+          const amt = Number((getAmount(r) || 0).toFixed(2));
+          if (amt <= 0) return;
+          const id = existingMap.get(r.employee_id);
+          if (id) toUpdate.push({ id, amount: amt });
+          else toInsert.push({
+            employee_id: r.employee_id,
+            element_id: elementId,
+            period_year: periodYear,
+            period_month: periodMonth,
+            amount: amt,
+            notes: note,
+          });
+        });
+
+        for (const u of toUpdate) {
+          const { error } = await supabase
+            .from("payroll_variable_entries")
+            .update({ amount: u.amount, notes: note })
+            .eq("id", u.id);
+          if (error) throw error;
+        }
+        if (toInsert.length > 0) {
+          const { error } = await supabase.from("payroll_variable_entries").insert(toInsert);
+          if (error) throw error;
+        }
+        return toInsert.length + toUpdate.length;
+      };
+
+      // Late/early goes to delay element = totalDeduction MINUS absenceDeduction
+      const delayNote = isAr
         ? `خصم تأخير من سجل الحضور (${filterLabel})`
         : `Delay deduction from timesheet (${filterLabel})`;
+      const delayCount = await sendForElement(
+        selectedElementId,
+        (r) => Math.max(0, r.totalDeduction - r.absenceDeduction),
+        delayNote,
+      );
 
-      rows.forEach(r => {
-        if (r.totalDeduction <= 0) return;
-        const amt = Number(r.totalDeduction.toFixed(2));
-        const id = existingMap.get(r.employee_id);
-        if (id) toUpdate.push({ id, amount: amt });
-        else toInsert.push({
-          employee_id: r.employee_id,
-          element_id: selectedElementId,
-          period_year: periodYear,
-          period_month: periodMonth,
-          amount: amt,
-          notes: note,
-        });
-      });
-
-      for (const u of toUpdate) {
-        const { error } = await supabase
-          .from("payroll_variable_entries")
-          .update({ amount: u.amount, notes: note })
-          .eq("id", u.id)
-          .select();
-        if (error) throw error;
-      }
-      if (toInsert.length > 0) {
-        const { error } = await supabase.from("payroll_variable_entries").insert(toInsert);
-        if (error) throw error;
+      // Absence goes to absence element (if set & there's anything to send)
+      let absenceCount = 0;
+      const totalAbsenceAmt = rows.reduce((s, r) => s + r.absenceDeduction, 0);
+      if (selectedAbsenceElementId && totalAbsenceAmt > 0) {
+        const absenceNote = isAr
+          ? `خصم غياب من سجل الحضور (${filterLabel})`
+          : `Absence deduction from timesheet (${filterLabel})`;
+        absenceCount = await sendForElement(
+          selectedAbsenceElementId,
+          (r) => r.absenceDeduction,
+          absenceNote,
+        );
       }
 
       toast.success(
         isAr
-          ? `تم إرسال ${toInsert.length + toUpdate.length} خصم إلى كشف الرواتب`
-          : `Sent ${toInsert.length + toUpdate.length} deductions to payroll`
+          ? `تم إرسال ${delayCount} خصم تأخير و ${absenceCount} خصم غياب إلى كشف الرواتب`
+          : `Sent ${delayCount} delay and ${absenceCount} absence deductions to payroll`
       );
       setConfirmOpen(false);
     } catch (e: any) {
@@ -538,6 +610,19 @@ export default function DeductionSummary() {
                   {delayElements.length === 0 ? (
                     <SelectItem value="none" disabled>{isAr ? "لا يوجد عنصر معرف" : "No delay element defined"}</SelectItem>
                   ) : delayElements.map(e => (
+                    <SelectItem key={e.id} value={e.id}>{e.code} - {isAr ? (e.name_ar || e.name_en) : e.name_en}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">{isAr ? "عنصر الغياب" : "Absence Element"}</Label>
+              <Select value={selectedAbsenceElementId} onValueChange={setSelectedAbsenceElementId}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder={isAr ? "اختر" : "Select"} /></SelectTrigger>
+                <SelectContent>
+                  {absenceElements.length === 0 ? (
+                    <SelectItem value="none" disabled>{isAr ? "لا يوجد عنصر غياب معرف" : "No absence element defined"}</SelectItem>
+                  ) : absenceElements.map(e => (
                     <SelectItem key={e.id} value={e.id}>{e.code} - {isAr ? (e.name_ar || e.name_en) : e.name_en}</SelectItem>
                   ))}
                 </SelectContent>

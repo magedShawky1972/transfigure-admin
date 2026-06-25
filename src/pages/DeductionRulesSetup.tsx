@@ -44,6 +44,8 @@ interface DeductionRule {
   is_overtime: boolean;
   overtime_multiplier: number;
   is_active: boolean;
+  is_absence_with_notice?: boolean | null;
+  is_absence_without_notice?: boolean | null;
 }
 
 export default function DeductionRulesSetup() {
@@ -64,6 +66,8 @@ export default function DeductionRulesSetup() {
     is_overtime: false,
     overtime_multiplier: "1.5",
     is_active: true,
+    is_absence_with_notice: false,
+    is_absence_without_notice: false,
   });
 
   useEffect(() => {
@@ -101,6 +105,8 @@ export default function DeductionRulesSetup() {
       is_overtime: false,
       overtime_multiplier: "1.5",
       is_active: true,
+      is_absence_with_notice: false,
+      is_absence_without_notice: false,
     });
     setDialogOpen(true);
   };
@@ -118,6 +124,8 @@ export default function DeductionRulesSetup() {
       is_overtime: rule.is_overtime,
       overtime_multiplier: rule.overtime_multiplier.toString(),
       is_active: rule.is_active,
+      is_absence_with_notice: !!(rule as any).is_absence_with_notice,
+      is_absence_without_notice: !!(rule as any).is_absence_without_notice,
     });
     setDialogOpen(true);
   };
@@ -129,7 +137,7 @@ export default function DeductionRulesSetup() {
     }
 
     try {
-      const payload = {
+      const payload: any = {
         rule_name: formData.rule_name,
         rule_name_ar: formData.rule_name_ar || null,
         rule_type: formData.rule_type,
@@ -140,6 +148,8 @@ export default function DeductionRulesSetup() {
         is_overtime: formData.is_overtime,
         overtime_multiplier: parseFloat(formData.overtime_multiplier),
         is_active: formData.is_active,
+        is_absence_with_notice: formData.rule_type === "absence" ? formData.is_absence_with_notice : false,
+        is_absence_without_notice: formData.rule_type === "absence" ? formData.is_absence_without_notice : false,
       };
 
       if (selectedRule) {
@@ -245,8 +255,16 @@ export default function DeductionRulesSetup() {
                   rules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell>
-                        <div>
+                        <div className="space-y-1">
                           <p className="font-medium">{language === "ar" ? rule.rule_name_ar || rule.rule_name : rule.rule_name}</p>
+                          <div className="flex gap-1 flex-wrap">
+                            {(rule as any).is_absence_with_notice && (
+                              <Badge variant="outline" className="text-[10px]">{language === "ar" ? "بإشعار" : "With notice"}</Badge>
+                            )}
+                            {(rule as any).is_absence_without_notice && (
+                              <Badge variant="outline" className="text-[10px]">{language === "ar" ? "بدون إشعار" : "Without notice"}</Badge>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>{getRuleTypeBadge(rule.rule_type)}</TableCell>
@@ -375,6 +393,30 @@ export default function DeductionRulesSetup() {
                     placeholder={language === "ar" ? "اتركه فارغاً لـ ∞" : "Leave empty for ∞"}
                   />
                 </div>
+              </div>
+            )}
+
+            {formData.rule_type === "absence" && (
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-md border bg-muted/30">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm">{language === "ar" ? "غياب بإشعار" : "Absence with notice"}</Label>
+                  <Switch
+                    checked={formData.is_absence_with_notice}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_absence_with_notice: v, is_absence_without_notice: v ? false : formData.is_absence_without_notice })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm">{language === "ar" ? "غياب بدون إشعار" : "Absence without notice"}</Label>
+                  <Switch
+                    checked={formData.is_absence_without_notice}
+                    onCheckedChange={(v) => setFormData({ ...formData, is_absence_without_notice: v, is_absence_with_notice: v ? false : formData.is_absence_with_notice })}
+                  />
+                </div>
+                <p className="col-span-2 text-xs text-muted-foreground">
+                  {language === "ar"
+                    ? "حدد هل تنطبق هذه القاعدة على الغياب بإشعار أو بدون إشعار (يستخدم في ملخص الخصومات)."
+                    : "Mark which scenario this rule applies to (used by Deduction Summary to route absence days)."}
+                </p>
               </div>
             )}
 
