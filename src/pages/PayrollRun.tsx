@@ -305,7 +305,7 @@ export default function PayrollRun() {
       // 1. Load employees and apply scope filters
       let empBaseQuery = supabase
         .from("employees")
-        .select("id, basic_salary, department_id, job_position_id, employment_status");
+        .select("id, basic_salary, department_id, job_position_id, employment_status, job_start_date, termination_date");
       if (allowedEmployeeIds !== null) {
         if (allowedEmployeeIds.length === 0) {
           toast({ title: isAr ? "لا يوجد موظفون ضمن وحدات العمل المخصصة لك" : "No employees in your assigned Business Units", variant: "destructive" });
