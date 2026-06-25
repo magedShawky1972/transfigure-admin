@@ -2021,6 +2021,37 @@ export default function EmployeeSetup() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>{language === "ar" ? "وحدة العمل" : "Working Business Unit"}</Label>
+                  <Select
+                    value={formData.working_business_unit_id || "_none_"}
+                    onValueChange={(value) => {
+                      if (value === "__add_new__") {
+                        setNewBuName("");
+                        setNewBuNameAr("");
+                        setAddBuOpen(true);
+                        return;
+                      }
+                      setFormData({ ...formData, working_business_unit_id: value === "_none_" ? "" : value });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر وحدة العمل" : "Select Business Unit"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {businessUnits.map((bu) => (
+                        <SelectItem key={bu.id} value={bu.id}>
+                          {language === "ar" ? (bu.unit_name_ar || bu.unit_name) : bu.unit_name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__add_new__" className="text-primary font-medium">
+                        + {language === "ar" ? "إضافة جديد" : "Add New"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label>{language === "ar" ? "تاريخ بدء العمل *" : "Job Start Date *"}</Label>
                   <Input
                     type="date"
