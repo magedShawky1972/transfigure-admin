@@ -242,9 +242,16 @@ export default function PayrollRun() {
   }>({ open: false, title: "", description: "" });
   const askConfirm = (opts: Omit<typeof confirmDlg, "open">) => setConfirmDlg({ ...opts, open: true });
 
+  const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
+
   const loadRefs = async () => {
+    let empQuery = supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status");
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setEmpMap({}); setAllEmps([]); return; }
+      empQuery = empQuery.in("id", allowedEmployeeIds);
+    }
     const [e, el, d, j] = await Promise.all([
-      supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status"),
+      empQuery,
       supabase.from("payroll_elements").select("id, name_en, name_ar, element_type"),
       supabase.from("departments").select("id, department_name, department_name_ar").order("department_name"),
       supabase.from("job_positions").select("id, position_name, position_name_ar").order("position_name"),
