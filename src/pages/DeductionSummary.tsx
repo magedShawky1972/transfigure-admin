@@ -37,6 +37,13 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
 
+const formatNumber = (num: number) => {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
+};
+
 interface Row {
   employee_id: string;
   empNumber: string;
@@ -606,7 +613,7 @@ export default function DeductionSummary() {
       r.earlyLeaveCount,
       r.totalEarlyLeaveMinutes,
       r.absentCount,
-      Array.from(r.rules.values()).map(x => `${x.name}: ${x.count}x (${x.amount.toFixed(2)})`).join(" | "),
+      Array.from(r.rules.values()).map(x => `${x.name}: ${x.count}x (${formatNumber(x.amount)})`).join(" | "),
       Number(r.totalDeduction.toFixed(2)),
     ]);
     body.push(["", "", isAr ? "الإجمالي" : "Grand Total", "", "", "", "", "", "", "", Number(grandTotal.toFixed(2))]);
@@ -734,7 +741,7 @@ export default function DeductionSummary() {
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "عدد الموظفين" : "Employees"}</div><div className="text-2xl font-bold">{rows.length}</div></CardContent></Card>
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي دقائق التأخير/الخروج" : "Total Late/Early Min"}</div><div className="text-2xl font-bold">{grandMinutes}</div></CardContent></Card>
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي أيام الغياب" : "Total Absent Days"}</div><div className="text-2xl font-bold">{rows.reduce((s, r) => s + r.absentCount, 0)}</div></CardContent></Card>
-                <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي الخصم" : "Total Deduction"}</div><div className="text-2xl font-bold text-red-600">{grandTotal.toFixed(2)}</div></CardContent></Card>
+                <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي الخصم" : "Total Deduction"}</div><div className="text-2xl font-bold text-red-600">{formatNumber(grandTotal)}</div></CardContent></Card>
               </div>
 
               <div className="flex items-center justify-between mb-2 print:hidden">
@@ -797,15 +804,15 @@ export default function DeductionSummary() {
                         <TableCell className="text-right">{r.absentCount || "-"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {Array.from(r.rules.values()).map(rule => (
-                            <div key={rule.name}>{rule.name}: {rule.count}x ({rule.amount.toFixed(2)})</div>
+                            <div key={rule.name}>{rule.name}: {rule.count}x ({formatNumber(rule.amount)})</div>
                           ))}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-red-600">{r.totalDeduction.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold text-red-600">{formatNumber(r.totalDeduction)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-bold border-t-2">
                       <TableCell colSpan={8} className={isAr ? "text-left" : "text-right"}>{isAr ? "الإجمالي" : "Grand Total"}</TableCell>
-                      <TableCell className="text-right text-red-600">{grandTotal.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-red-600">{formatNumber(grandTotal)}</TableCell>
                     </TableRow>
                   </TableBody>
 
@@ -826,8 +833,8 @@ export default function DeductionSummary() {
             <AlertDialogTitle>{isAr ? "تأكيد الإرسال إلى الرواتب" : "Confirm Send to Payroll"}</AlertDialogTitle>
             <AlertDialogDescription>
               {isAr
-                ? `سيتم إرسال خصم ${rows.length} موظف بإجمالي ${grandTotal.toFixed(2)} إلى عنصر الخصم المختار لفترة ${periodYear}-${String(periodMonth).padStart(2, "0")}. سيتم تحديث أي إدخالات سابقة لنفس الفترة والعنصر.`
-                : `This will send deductions for ${rows.length} employees totaling ${grandTotal.toFixed(2)} to the selected delay element for period ${periodYear}-${String(periodMonth).padStart(2, "0")}. Any existing entries for the same period and element will be overwritten.`}
+                ? `سيتم إرسال خصم ${rows.length} موظف بإجمالي ${formatNumber(grandTotal)} إلى عنصر الخصم المختار لفترة ${periodYear}-${String(periodMonth).padStart(2, "0")}. سيتم تحديث أي إدخالات سابقة لنفس الفترة والعنصر.`
+                : `This will send deductions for ${rows.length} employees totaling ${formatNumber(grandTotal)} to the selected delay element for period ${periodYear}-${String(periodMonth).padStart(2, "0")}. Any existing entries for the same period and element will be overwritten.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
