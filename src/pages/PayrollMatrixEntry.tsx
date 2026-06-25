@@ -10,8 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Save, Download, Upload, FileSpreadsheet } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
+import * as XLSX from "xlsx";
+import { useRef } from "react";
 
 const typeColors: Record<string, { head: string; cell: string; label: string }> = {
   earning: { head: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200", cell: "bg-emerald-50/40 dark:bg-emerald-950/10", label: "text-emerald-700 dark:text-emerald-300" },
