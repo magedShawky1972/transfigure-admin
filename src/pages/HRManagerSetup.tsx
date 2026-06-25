@@ -199,7 +199,7 @@ const HRManagerSetup = () => {
     try {
       const [managersRes, unitsRes] = await Promise.all([
         supabase.from('hr_managers').select('*').order('admin_order', { ascending: true }),
-        supabase.from('business_units').select('id, unit_name, unit_name_ar').order('name'),
+        supabase.from('business_units').select('id, unit_name, unit_name_ar').order('unit_name'),
       ]);
 
       if (managersRes.error) throw managersRes.error;
