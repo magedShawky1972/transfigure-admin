@@ -204,6 +204,7 @@ export default function EmployeeSetup() {
   const [viewMode, setViewMode] = useState<"table" | "card">("card");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [filterJob, setFilterJob] = useState<string>("all");
+  const [filterBusinessUnit, setFilterBusinessUnit] = useState<string>("all");
   const [filterLetter, setFilterLetter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -528,7 +529,8 @@ export default function EmployeeSetup() {
     department: string, 
     job: string, 
     letter: string,
-    searchMode: "all" | "zk"
+    searchMode: "all" | "zk",
+    businessUnit: string = filterBusinessUnit
   ) => {
     let filtered = [...allEmployees];
 
@@ -562,6 +564,11 @@ export default function EmployeeSetup() {
       filtered = filtered.filter((emp) => emp.job_position_id === job);
     }
 
+    // Business Unit filter
+    if (businessUnit && businessUnit !== "all") {
+      filtered = filtered.filter((emp) => (emp as any).working_business_unit_id === businessUnit);
+    }
+
     // Letter filter
     if (letter) {
       filtered = filtered.filter((emp) => {
@@ -588,29 +595,35 @@ export default function EmployeeSetup() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    applyFilters(term, filterDepartment, filterJob, filterLetter, searchBy);
+    applyFilters(term, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit);
   };
 
   const handleSearchByChange = (mode: "all" | "zk") => {
     setSearchBy(mode);
-    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, mode);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, mode, filterBusinessUnit);
   };
 
   const handleDepartmentFilter = (dept: string) => {
     setFilterDepartment(dept);
-    applyFilters(searchTerm, dept, filterJob, filterLetter, searchBy);
+    applyFilters(searchTerm, dept, filterJob, filterLetter, searchBy, filterBusinessUnit);
   };
 
   const handleJobFilter = (job: string) => {
     setFilterJob(job);
-    applyFilters(searchTerm, filterDepartment, job, filterLetter, searchBy);
+    applyFilters(searchTerm, filterDepartment, job, filterLetter, searchBy, filterBusinessUnit);
+  };
+
+  const handleBusinessUnitFilter = (bu: string) => {
+    setFilterBusinessUnit(bu);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, bu);
   };
 
   const handleLetterFilter = (letter: string) => {
     const newLetter = filterLetter === letter ? "" : letter;
     setFilterLetter(newLetter);
-    applyFilters(searchTerm, filterDepartment, filterJob, newLetter, searchBy);
+    applyFilters(searchTerm, filterDepartment, filterJob, newLetter, searchBy, filterBusinessUnit);
   };
+
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1280,8 +1293,23 @@ export default function EmployeeSetup() {
                 </SelectContent>
               </Select>
 
+              {/* Business Unit Filter */}
+              <Select value={filterBusinessUnit} onValueChange={handleBusinessUnitFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder={language === "ar" ? "وحدة العمل" : "Business Unit"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "كل وحدات العمل" : "All Business Units"}</SelectItem>
+                  {businessUnits.map((bu) => (
+                    <SelectItem key={bu.id} value={bu.id}>
+                      {language === "ar" ? (bu.unit_name_ar || bu.unit_name) : bu.unit_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               {/* Clear Filters */}
-              {(filterDepartment !== "all" || filterJob !== "all" || filterLetter || searchTerm) && (
+              {(filterDepartment !== "all" || filterJob !== "all" || filterBusinessUnit !== "all" || filterLetter || searchTerm) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1289,6 +1317,7 @@ export default function EmployeeSetup() {
                     setSearchTerm("");
                     setFilterDepartment("all");
                     setFilterJob("all");
+                    setFilterBusinessUnit("all");
                     setFilterLetter("");
                     setEmployees(allEmployees);
                   }}
