@@ -204,6 +204,7 @@ export default function EmployeeSetup() {
   const [viewMode, setViewMode] = useState<"table" | "card">("card");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [filterJob, setFilterJob] = useState<string>("all");
+  const [filterBusinessUnit, setFilterBusinessUnit] = useState<string>("all");
   const [filterLetter, setFilterLetter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
