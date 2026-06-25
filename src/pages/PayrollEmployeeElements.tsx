@@ -94,11 +94,54 @@ export default function PayrollEmployeeElements() {
     return e ? `${e.name_en} (${e.element_type})` : id;
   };
 
+  const assignAllToAll = async () => {
+    if (!confirm(`Assign all ${elements.length} active elements to all ${emps.length} employees? Existing assignments will be skipped.`)) return;
+    const { data: existing } = await supabase
+      .from("payroll_employee_elements")
+      .select("employee_id, element_id");
+    const existSet = new Set((existing || []).map((r: any) => `${r.employee_id}|${r.element_id}`));
+    const rowsToInsert: any[] = [];
+    for (const emp of emps) {
+      for (const el of elements) {
+        if (existSet.has(`${emp.id}|${el.id}`)) continue;
+        rowsToInsert.push({
+          employee_id: emp.id,
+          element_id: el.id,
+          amount: Number(el.default_amount) || 0,
+          is_active: true,
+        });
+      }
+    }
+    if (rowsToInsert.length === 0) {
+      toast({ title: "Nothing to add", description: "All employees already have all elements." });
+      return;
+    }
+    // chunk inserts
+    const chunkSize = 500;
+    for (let i = 0; i < rowsToInsert.length; i += chunkSize) {
+      const chunk = rowsToInsert.slice(i, i + chunkSize);
+      const { error } = await supabase.from("payroll_employee_elements").insert(chunk);
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+        return;
+      }
+    }
+    toast({ title: "Done", description: `Inserted ${rowsToInsert.length} assignments.` });
+    loadRows();
+  };
+
+
   const selectedEmpObj = emps.find((e) => e.id === selectedEmp);
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Employee Element Assign & Values</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Employee Element Assign & Values</h1>
+        <Button variant="outline" onClick={assignAllToAll}>
+          <Plus className="h-4 w-4 mr-2" /> Assign All Elements to All Employees
+        </Button>
+      </div>
+
 
       <Card>
         <CardHeader>
