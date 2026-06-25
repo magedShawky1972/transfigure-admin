@@ -1919,7 +1919,10 @@ export default function TimesheetManagement() {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-            <Card>
+            <Card
+              onClick={() => setCardFilter("all")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "all" ? "ring-2 ring-primary" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold">{timesheets.length}</p>
@@ -1927,7 +1930,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "approved" ? "all" : "approved")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "approved" ? "ring-2 ring-green-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-green-600">
@@ -1937,7 +1943,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "waiting" ? "all" : "waiting")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "waiting" ? "ring-2 ring-orange-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-orange-600">
@@ -1947,7 +1956,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "absent" ? "all" : "absent")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "absent" ? "ring-2 ring-red-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-red-600">
