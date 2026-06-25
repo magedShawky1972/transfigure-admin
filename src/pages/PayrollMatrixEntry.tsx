@@ -62,7 +62,7 @@ type Emp = {
   departments?: { department_name: string } | null;
   job_positions?: { position_name: string } | null;
 };
-type Element = { id: string; code: string; name_en: string; element_type: string; default_amount: number | null };
+type Element = { id: string; code: string; name_en: string; name_ar?: string | null; element_type: string; default_amount: number | null };
 
 type Cell = { id?: string; amount: number; dirty?: boolean };
 // key = `${empId}|${elementId}`
