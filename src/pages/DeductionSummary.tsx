@@ -387,55 +387,81 @@ export default function DeductionSummary() {
     }
     setSending(true);
     try {
-      // Fetch existing entries for this period+element
-      const { data: existing, error: exErr } = await supabase
-        .from("payroll_variable_entries")
-        .select("id, employee_id")
-        .eq("element_id", selectedElementId)
-        .eq("period_year", periodYear)
-        .eq("period_month", periodMonth);
-      if (exErr) throw exErr;
-      const existingMap = new Map<string, string>();
-      (existing || []).forEach((e: any) => existingMap.set(e.employee_id, e.id));
+      // Helper to upsert variable entries against a given element with per-employee amounts
+      const sendForElement = async (
+        elementId: string,
+        getAmount: (r: Row) => number,
+        note: string,
+      ) => {
+        const { data: existing, error: exErr } = await supabase
+          .from("payroll_variable_entries")
+          .select("id, employee_id")
+          .eq("element_id", elementId)
+          .eq("period_year", periodYear)
+          .eq("period_month", periodMonth);
+        if (exErr) throw exErr;
+        const existingMap = new Map<string, string>();
+        (existing || []).forEach((e: any) => existingMap.set(e.employee_id, e.id));
 
-      const toUpdate: { id: string; amount: number }[] = [];
-      const toInsert: any[] = [];
-      const note = isAr
+        const toUpdate: { id: string; amount: number }[] = [];
+        const toInsert: any[] = [];
+        rows.forEach(r => {
+          const amt = Number((getAmount(r) || 0).toFixed(2));
+          if (amt <= 0) return;
+          const id = existingMap.get(r.employee_id);
+          if (id) toUpdate.push({ id, amount: amt });
+          else toInsert.push({
+            employee_id: r.employee_id,
+            element_id: elementId,
+            period_year: periodYear,
+            period_month: periodMonth,
+            amount: amt,
+            notes: note,
+          });
+        });
+
+        for (const u of toUpdate) {
+          const { error } = await supabase
+            .from("payroll_variable_entries")
+            .update({ amount: u.amount, notes: note })
+            .eq("id", u.id);
+          if (error) throw error;
+        }
+        if (toInsert.length > 0) {
+          const { error } = await supabase.from("payroll_variable_entries").insert(toInsert);
+          if (error) throw error;
+        }
+        return toInsert.length + toUpdate.length;
+      };
+
+      // Late/early goes to delay element = totalDeduction MINUS absenceDeduction
+      const delayNote = isAr
         ? `خصم تأخير من سجل الحضور (${filterLabel})`
         : `Delay deduction from timesheet (${filterLabel})`;
+      const delayCount = await sendForElement(
+        selectedElementId,
+        (r) => Math.max(0, r.totalDeduction - r.absenceDeduction),
+        delayNote,
+      );
 
-      rows.forEach(r => {
-        if (r.totalDeduction <= 0) return;
-        const amt = Number(r.totalDeduction.toFixed(2));
-        const id = existingMap.get(r.employee_id);
-        if (id) toUpdate.push({ id, amount: amt });
-        else toInsert.push({
-          employee_id: r.employee_id,
-          element_id: selectedElementId,
-          period_year: periodYear,
-          period_month: periodMonth,
-          amount: amt,
-          notes: note,
-        });
-      });
-
-      for (const u of toUpdate) {
-        const { error } = await supabase
-          .from("payroll_variable_entries")
-          .update({ amount: u.amount, notes: note })
-          .eq("id", u.id)
-          .select();
-        if (error) throw error;
-      }
-      if (toInsert.length > 0) {
-        const { error } = await supabase.from("payroll_variable_entries").insert(toInsert);
-        if (error) throw error;
+      // Absence goes to absence element (if set & there's anything to send)
+      let absenceCount = 0;
+      const totalAbsenceAmt = rows.reduce((s, r) => s + r.absenceDeduction, 0);
+      if (selectedAbsenceElementId && totalAbsenceAmt > 0) {
+        const absenceNote = isAr
+          ? `خصم غياب من سجل الحضور (${filterLabel})`
+          : `Absence deduction from timesheet (${filterLabel})`;
+        absenceCount = await sendForElement(
+          selectedAbsenceElementId,
+          (r) => r.absenceDeduction,
+          absenceNote,
+        );
       }
 
       toast.success(
         isAr
-          ? `تم إرسال ${toInsert.length + toUpdate.length} خصم إلى كشف الرواتب`
-          : `Sent ${toInsert.length + toUpdate.length} deductions to payroll`
+          ? `تم إرسال ${delayCount} خصم تأخير و ${absenceCount} خصم غياب إلى كشف الرواتب`
+          : `Sent ${delayCount} delay and ${absenceCount} absence deductions to payroll`
       );
       setConfirmOpen(false);
     } catch (e: any) {
