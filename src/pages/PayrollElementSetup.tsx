@@ -23,6 +23,7 @@ type Element = {
   default_amount: number | null;
   formula: string | null;
   is_delay_minutes_element: boolean;
+  is_basic_salary_element: boolean;
   is_active: boolean;
   sort_order: number | null;
 };
