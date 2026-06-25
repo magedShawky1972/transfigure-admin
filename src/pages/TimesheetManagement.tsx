@@ -150,6 +150,7 @@ export default function TimesheetManagement() {
     break_duration_minutes: 0,
     is_absent: false,
     absence_reason: "",
+    absence_has_notice: null as boolean | null,
     notes: "",
   });
   const [frequentlyLateEmployees, setFrequentlyLateEmployees] = useState<{employeeId: string; name: string; count: number; photoUrl: string | null}[]>([]);
