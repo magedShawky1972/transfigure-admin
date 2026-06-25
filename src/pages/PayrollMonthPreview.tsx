@@ -473,7 +473,7 @@ export default function PayrollMonthPreview() {
                 <Table dir={language === "ar" ? "rtl" : "ltr"}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]" onClick={(e) => toggleSort("name", e)}>
+                      <TableHead className="sticky start-0 ltr:left-0 rtl:right-0 bg-background z-20 cursor-pointer select-none min-w-[200px] border-r dark:border-zinc-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] rtl:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]" onClick={(e) => toggleSort("name", e)}>
                         <div className="flex items-center gap-1">{language === "ar" ? "الموظف" : "Employee"} {sortBadge("name")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee_number", e)}>
