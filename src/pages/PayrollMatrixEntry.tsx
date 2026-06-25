@@ -348,11 +348,30 @@ export default function PayrollMatrixEntry() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold">Payroll Multi Element Entry</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFromExcel(f); }}
+          />
+          <Button variant="outline" size="sm" onClick={downloadTemplate}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4 mr-2" /> Import
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToExcel}>
+            <Download className="h-4 w-4 mr-2" /> Export
+          </Button>
           <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} unsaved</Badge>
           <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
             <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save All"}
           </Button>
+        </div>
+      </div>
+
         </div>
       </div>
 
