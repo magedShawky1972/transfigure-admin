@@ -588,7 +588,19 @@ const EmployeeSelfRequests = () => {
 
       if (selectedType === 'delay' || selectedType === 'early_leave') {
         requestData.delay_date = delayDate ? format(delayDate, 'yyyy-MM-dd') : null;
-        requestData.delay_minutes = parseInt(delayMinutes);
+        let computedDelayMinutes = parseInt(delayMinutes);
+        if (!Number.isFinite(computedDelayMinutes) && requestData.delay_date) {
+          const { data: timesheet } = await supabase
+            .from('timesheets')
+            .select('late_minutes, early_leave_minutes')
+            .eq('employee_id', targetEmployeeId)
+            .eq('work_date', requestData.delay_date)
+            .maybeSingle();
+          computedDelayMinutes = selectedType === 'early_leave'
+            ? Number(timesheet?.early_leave_minutes)
+            : Number(timesheet?.late_minutes);
+        }
+        requestData.delay_minutes = Number.isFinite(computedDelayMinutes) ? computedDelayMinutes : null;
         requestData.actual_arrival_time = actualArrival || null;
       }
 
