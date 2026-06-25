@@ -520,10 +520,10 @@ export default function PayrollRun() {
                     </Badge>
                   </TableCell>
                   <TableCell>{r.employee_count}</TableCell>
-                  <TableCell>{Number(r.total_gross || 0).toFixed(2)}</TableCell>
-                  <TableCell>{Number(r.total_deductions || 0).toFixed(2)}</TableCell>
-                  <TableCell className="font-semibold">{Number(r.total_net || 0).toFixed(2)}</TableCell>
-                  <TableCell>{Number(r.total_employer_contributions || 0).toFixed(2)}</TableCell>
+                  <TableCell>{fmt(r.total_gross)}</TableCell>
+                  <TableCell>{fmt(r.total_deductions)}</TableCell>
+                  <TableCell className="font-semibold">{fmt(r.total_net)}</TableCell>
+                  <TableCell>{fmt(r.total_employer_contributions)}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button size="sm" variant="outline" onClick={() => viewRun(r)}>View</Button>
                     {r.status === "draft" && (
