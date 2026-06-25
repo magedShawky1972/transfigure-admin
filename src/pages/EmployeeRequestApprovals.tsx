@@ -883,7 +883,8 @@ const EmployeeRequestApprovals = () => {
                       </TableCell>
                     </TableRow>
                   );
-                })}
+                  });
+                })()}
               </TableBody>
             </Table>
             </div>
