@@ -271,6 +271,24 @@ export default function PayrollEmployeeElements() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign All Elements to All Employees?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Assign all {elements.length} active elements to all {emps.length} employees. Existing assignments will be skipped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmAllOpen(false); assignAllToAll(); }}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
+
 }
