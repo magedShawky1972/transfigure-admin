@@ -2185,7 +2185,7 @@ export default function TimesheetManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {getStatusBadge(ts.status, ts.is_absent)}
+                          {getStatusBadge(ts.status, ts.is_absent, ts)}
                           {ts.is_absent && (
                             <div className="flex items-center gap-1">
                               <Button
