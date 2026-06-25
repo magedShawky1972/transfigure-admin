@@ -1216,6 +1216,7 @@ export default function TimesheetManagement() {
         break_duration_minutes: formData.break_duration_minutes,
         is_absent: formData.is_absent,
         absence_reason: formData.absence_reason || null,
+        absence_has_notice: formData.is_absent ? formData.absence_has_notice : null,
         notes: formData.notes || null,
         // Reset notification flag when editing so new deduction can be re-sent
         deduction_notification_sent: false,
