@@ -93,6 +93,7 @@ import EmployeeProfile from "./pages/EmployeeProfile";
 import EmployeeContacts from "./pages/EmployeeContacts";
 import VacationSetup from "./pages/VacationSetup";
 import TimesheetManagement from "./pages/TimesheetManagement";
+import DeductionSummary from "./pages/DeductionSummary";
 import DeductionRulesSetup from "./pages/DeductionRulesSetup";
 import MedicalInsuranceSetup from "./pages/MedicalInsuranceSetup";
 import ShiftPlansSetup from "./pages/ShiftPlansSetup";
