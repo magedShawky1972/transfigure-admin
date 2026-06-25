@@ -799,8 +799,18 @@ export default function TimesheetManagement() {
         query = query.in("employee_id", departmentEmployeeIds);
       }
 
-      const { data, error } = await query;
+      const { data: rawData, error } = await query;
       if (error) throw error;
+
+      // Drop rows that predate the employee's job start date (defensive)
+      const empStartMap = new Map<string, string>();
+      (employeesRes.data || []).forEach((e: any) => {
+        if (e.job_start_date) empStartMap.set(e.id, e.job_start_date);
+      });
+      const data = (rawData || []).filter((ts: any) => {
+        const start = empStartMap.get(ts.employee_id);
+        return !start || ts.work_date >= start;
+      });
 
       // Determine date range for vacation lookup
       let vacDateFrom = selectedDate;
