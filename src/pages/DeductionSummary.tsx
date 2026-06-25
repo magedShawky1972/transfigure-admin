@@ -192,7 +192,7 @@ export default function DeductionSummary() {
             employee_id: empId,
             empNumber: e.employee_number || "-",
             name: `${e.first_name || ""} ${e.last_name || ""}`.trim(),
-            basicSalary: Number(e.basic_salary) || 0,
+            basicSalary: basicSalaryMap.get(empId) ?? (Number(e.basic_salary) || 0),
             totalDeduction: 0,
             totalLateMinutes: 0,
             totalEarlyLeaveMinutes: 0,
