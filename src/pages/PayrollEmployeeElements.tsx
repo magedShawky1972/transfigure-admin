@@ -135,7 +135,13 @@ export default function PayrollEmployeeElements() {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Employee Element Assign & Values</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Employee Element Assign & Values</h1>
+        <Button variant="outline" onClick={assignAllToAll}>
+          <Plus className="h-4 w-4 mr-2" /> Assign All Elements to All Employees
+        </Button>
+      </div>
+
 
       <Card>
         <CardHeader>
