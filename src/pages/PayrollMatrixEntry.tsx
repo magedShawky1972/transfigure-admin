@@ -570,7 +570,7 @@ export default function PayrollMatrixEntry() {
                   <TableHeader>
                     <TableRow>
                       <TableHead
-                        className="sticky start-0 bg-background z-10 cursor-pointer select-none min-w-[200px]"
+                        className="sticky start-0 ltr:left-0 rtl:right-0 bg-background z-20 cursor-pointer select-none min-w-[200px] border-r dark:border-zinc-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] rtl:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                         onClick={(e) => toggleSort("name", e)}
                       >
                         <div className="flex items-center gap-1">{language === "ar" ? "اسم الموظف" : "Employee"} {sortBadge("name")}</div>
