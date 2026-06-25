@@ -248,6 +248,7 @@ export default function EmployeeSetup() {
   const [formData, setFormData] = useState({
     employee_number: "",
     zk_employee_code: "",
+    dopay_employee_number: "",
     user_id: "",
     first_name: "",
     first_name_ar: "",
@@ -459,6 +460,7 @@ export default function EmployeeSetup() {
     setFormData({
       employee_number: `EMP${Date.now()}`,
       zk_employee_code: "",
+      dopay_employee_number: "",
       user_id: user.user_id,
       first_name: firstName,
       first_name_ar: "",
@@ -721,6 +723,7 @@ export default function EmployeeSetup() {
     setFormData({
       employee_number: "",
       zk_employee_code: "",
+      dopay_employee_number: "",
       user_id: "",
       first_name: "",
       first_name_ar: "",
@@ -766,6 +769,7 @@ export default function EmployeeSetup() {
     setFormData({
       employee_number: employee.employee_number,
       zk_employee_code: employee.zk_employee_code || "",
+      dopay_employee_number: (employee as any).dopay_employee_number || "",
       user_id: employee.user_id || "",
       first_name: employee.first_name,
       first_name_ar: employee.first_name_ar || "",
@@ -960,6 +964,7 @@ export default function EmployeeSetup() {
       const payload = {
         employee_number: employeeNumber,
         zk_employee_code: formData.zk_employee_code || null,
+        dopay_employee_number: formData.dopay_employee_number || null,
         user_id: formData.user_id || null,
         first_name: formData.first_name,
         first_name_ar: formData.first_name_ar || null,
