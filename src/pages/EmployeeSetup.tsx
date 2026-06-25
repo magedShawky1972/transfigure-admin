@@ -1293,8 +1293,23 @@ export default function EmployeeSetup() {
                 </SelectContent>
               </Select>
 
+              {/* Business Unit Filter */}
+              <Select value={filterBusinessUnit} onValueChange={handleBusinessUnitFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder={language === "ar" ? "وحدة العمل" : "Business Unit"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "كل وحدات العمل" : "All Business Units"}</SelectItem>
+                  {businessUnits.map((bu) => (
+                    <SelectItem key={bu.id} value={bu.id}>
+                      {language === "ar" ? (bu.unit_name_ar || bu.unit_name) : bu.unit_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               {/* Clear Filters */}
-              {(filterDepartment !== "all" || filterJob !== "all" || filterLetter || searchTerm) && (
+              {(filterDepartment !== "all" || filterJob !== "all" || filterBusinessUnit !== "all" || filterLetter || searchTerm) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1302,6 +1317,7 @@ export default function EmployeeSetup() {
                     setSearchTerm("");
                     setFilterDepartment("all");
                     setFilterJob("all");
+                    setFilterBusinessUnit("all");
                     setFilterLetter("");
                     setEmployees(allEmployees);
                   }}
