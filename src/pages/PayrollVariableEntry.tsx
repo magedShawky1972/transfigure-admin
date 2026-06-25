@@ -291,11 +291,11 @@ export default function PayrollVariableEntry() {
       }
       setMatrix(next);
       toast({
-        title: language === "ar" ? "تم الاستيراد" : "{language === "ar" ? "استيراد" : "Import"}ed",
-        description: language === "ar" ? `${touched} خلايا تم تعليمها. ${skippedEmps} موظفون غير معروفين تم تجاهلهم.${unknownCols.length ? ` أعمدة غير معروفة: ${unknownCols.join(", ")}` : ""} انقر على حفظ الكل للاستمرار.` : `${touched} cell(s) marked. ${skippedEmps} unknown employees skipped.${unknownCols.length ? ` Unknown columns: ${unknownCols.join(", ")}` : ""} Click {language === "ar" ? "حفظ الكل" : "Save All"} to persist.`,
+        title: language === "ar" ? "تم الاستيراد" : "Imported",
+        description: language === "ar" ? `${touched} خلايا تم تعليمها. ${skippedEmps} موظفون غير معروفين تم تجاهلهم.${unknownCols.length ? ` أعمدة غير معروفة: ${unknownCols.join(", ")}` : ""} انقر على حفظ الكل للاستمرار.` : `${touched} cell(s) marked. ${skippedEmps} unknown employees skipped.${unknownCols.length ? ` Unknown columns: ${unknownCols.join(", ")}` : ""} Click Save All to persist.`,
       });
     } catch (err: any) {
-      toast({ title: language === "ar" ? "فشل الاستيراد" : "{language === "ar" ? "استيراد" : "Import"} failed", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "فشل الاستيراد" : "Import failed", description: err.message, variant: "destructive" });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
