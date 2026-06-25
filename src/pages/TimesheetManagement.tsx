@@ -142,6 +142,14 @@ export default function TimesheetManagement() {
   const [selectedEmployee, setSelectedEmployee] = useState<string>(savedFilters.selectedEmployee || "");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>(savedFilters.selectedDepartment || "");
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(TS_FILTER_KEY, JSON.stringify({
+        filterMode, dateFrom, dateTo, selectedDate, selectedMonth, selectedEmployee, selectedDepartment,
+      }));
+    } catch {}
+  }, [filterMode, dateFrom, dateTo, selectedDate, selectedMonth, selectedEmployee, selectedDepartment]);
   const [formData, setFormData] = useState({
     employee_id: "",
     work_date: format(new Date(), "yyyy-MM-dd"),
