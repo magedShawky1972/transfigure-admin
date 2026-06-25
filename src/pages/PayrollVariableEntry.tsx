@@ -60,8 +60,9 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
-  departments?: { department_name: string } | null;
+  departments?: { department_name: string; department_name_ar?: string | null } | null;
   job_positions?: { position_name: string } | null;
+
 };
 type Element = { id: string; code: string; name_en: string; name_ar: string | null; element_type: string; default_amount: number | null };
 
