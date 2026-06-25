@@ -182,6 +182,16 @@ export default function DeductionSummary() {
         (assigns || []).forEach((a: any) => basicSalaryMap.set(a.employee_id, Number(a.amount) || 0));
       }
 
+      // Load absence rules (with/without notice multipliers)
+      const { data: absRules } = await supabase
+        .from("deduction_rules")
+        .select("id, rule_name, rule_name_ar, deduction_value, is_absence_with_notice, is_absence_without_notice")
+        .eq("rule_type", "absence")
+        .eq("is_active", true);
+      const withNoticeRule: any = (absRules || []).find((r: any) => r.is_absence_with_notice);
+      const withoutNoticeRule: any = (absRules || []).find((r: any) => r.is_absence_without_notice);
+      const defaultAbsenceRule: any = (absRules || [])[0];
+
       const map = new Map<string, Row>();
       (data || []).forEach((ts: any) => {
         const empId = ts.employee_id;
@@ -206,24 +216,50 @@ export default function DeductionSummary() {
             lateCount: 0,
             earlyLeaveCount: 0,
             absentCount: 0,
+            absentWithNoticeCount: 0,
+            absentWithoutNoticeCount: 0,
+            absenceDeduction: 0,
             rules: new Map(),
           };
           map.set(empId, row);
         }
-        row.totalDeduction += ded;
         row.totalLateMinutes += lateMin;
         row.totalEarlyLeaveMinutes += earlyMin;
         if (lateMin > 0) row.lateCount++;
         if (earlyMin > 0) row.earlyLeaveCount++;
-        if (ts.is_absent) row.absentCount++;
-        if (ts.deduction_rules && (ts.deduction_amount || 0) > 0 && !lateApproved && !earlyApproved) {
-          const ruleName = isAr
-            ? (ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name)
-            : ts.deduction_rules.rule_name;
-          const existing = row.rules.get(ruleName) || { name: ruleName, count: 0, amount: 0 };
-          existing.count++;
-          existing.amount += ts.deduction_amount || 0;
-          row.rules.set(ruleName, existing);
+
+        if (ts.is_absent) {
+          row.absentCount++;
+          const hasNotice = ts.absence_has_notice;
+          let rule: any = defaultAbsenceRule;
+          if (hasNotice === true) {
+            row.absentWithNoticeCount++;
+            rule = withNoticeRule || defaultAbsenceRule;
+          } else if (hasNotice === false) {
+            row.absentWithoutNoticeCount++;
+            rule = withoutNoticeRule || defaultAbsenceRule;
+          }
+          if (rule && row.basicSalary > 0) {
+            const amt = (row.basicSalary / 30) * Number(rule.deduction_value || 0);
+            row.absenceDeduction += amt;
+            const ruleName = isAr ? (rule.rule_name_ar || rule.rule_name) : rule.rule_name;
+            const existing = row.rules.get(ruleName) || { name: ruleName, count: 0, amount: 0 };
+            existing.count++;
+            existing.amount += amt;
+            row.rules.set(ruleName, existing);
+          }
+        } else {
+          // Only count non-absence rule deductions (late/early) here; absence is computed above
+          row.totalDeduction += ded;
+          if (ts.deduction_rules && (ts.deduction_amount || 0) > 0 && !lateApproved && !earlyApproved) {
+            const ruleName = isAr
+              ? (ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name)
+              : ts.deduction_rules.rule_name;
+            const existing = row.rules.get(ruleName) || { name: ruleName, count: 0, amount: 0 };
+            existing.count++;
+            existing.amount += ts.deduction_amount || 0;
+            row.rules.set(ruleName, existing);
+          }
         }
       });
 
@@ -237,6 +273,8 @@ export default function DeductionSummary() {
           r.totalDeduction = amt;
           r.rules.set(fallbackLabel, { name: fallbackLabel, count: minutes, amount: amt });
         }
+        // Roll absence deduction into total
+        r.totalDeduction += r.absenceDeduction;
       });
 
       const out = Array.from(map.values())
