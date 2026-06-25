@@ -540,7 +540,7 @@ export default function DeductionSummary() {
       setRollbackOpen(false);
     } catch (e: any) {
       console.error(e);
-      toast.error(e.message || "Failed to rollback");
+      toast.error(e.message || (language === "ar" ? "فشل التراجع" : "Failed to rollback"));
     } finally {
       setRollingBack(false);
     }
