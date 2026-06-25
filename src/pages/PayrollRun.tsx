@@ -619,6 +619,28 @@ export default function PayrollRun() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={confirmDlg.open} onOpenChange={(o) => setConfirmDlg((s) => ({ ...s, open: o }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDlg.title}</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line">{confirmDlg.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmDlg.destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+              onClick={async () => {
+                const fn = confirmDlg.onConfirm;
+                setConfirmDlg((s) => ({ ...s, open: false }));
+                if (fn) await fn();
+              }}
+            >
+              {confirmDlg.confirmLabel || "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
