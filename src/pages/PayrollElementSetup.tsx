@@ -149,7 +149,7 @@ export default function PayrollElementSetup() {
           {loading ? (
             <p className="text-muted-foreground text-sm">{language === "ar" ? "جاري التحميل..." : "Loading..."}</p>
           ) : (
-            <Table>
+            <Table dir={language === "ar" ? "rtl" : "ltr"}>
               <TableHeader>
                 <TableRow>
                   <TableHead>{language === "ar" ? "الرمز" : "Code"}</TableHead>

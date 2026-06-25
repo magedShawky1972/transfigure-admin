@@ -219,7 +219,7 @@ export default function PayrollEmployeeElements() {
               </div>
             </div>
 
-            <Table>
+            <Table dir={language === "ar" ? "rtl" : "ltr"}>
               <TableHeader>
                 <TableRow>
                   <TableHead>{language === "ar" ? "العنصر" : "Element"}</TableHead>

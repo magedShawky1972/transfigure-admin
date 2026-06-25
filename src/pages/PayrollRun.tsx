@@ -702,7 +702,7 @@ export default function PayrollRun() {
           <CardTitle>{isAr ? "مسيرات الرواتب" : "Payroll Runs"}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table dir={language === "ar" ? "rtl" : "ltr"}>
             <TableHeader>
               <TableRow>
                 <TableHead>{isAr ? "الفترة" : "Period"}</TableHead>
@@ -819,7 +819,7 @@ export default function PayrollRun() {
                       </Button>
                     </div>
                   </div>
-                  <Table>
+                  <Table dir={language === "ar" ? "rtl" : "ltr"}>
                     <TableHeader>
                       <TableRow>
                         <TableHead>{isAr ? "العنصر" : "Element"}</TableHead>

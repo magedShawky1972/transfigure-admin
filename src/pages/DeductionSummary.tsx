@@ -717,7 +717,7 @@ export default function DeductionSummary() {
                 )}
               </div>
               <div className="overflow-x-auto border rounded-md">
-                <Table>
+                <Table dir={language === "ar" ? "rtl" : "ltr"}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
