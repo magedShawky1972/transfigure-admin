@@ -1,3 +1,4 @@
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ type Assign = {
 };
 
 export default function PayrollEmployeeElements() {
+  const { language } = useLanguage();
   const [emps, setEmps] = useState<Emp[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
   const [selectedEmp, setSelectedEmp] = useState<string>("");
@@ -67,7 +69,7 @@ export default function PayrollEmployeeElements() {
 
   const add = async () => {
     if (!selectedEmp || !newElement) {
-      toast({ title: "Pick employee and element", variant: "destructive" });
+      toast({ title: language === "ar" ? "اختر الموظف والعنصر" : "Pick employee and element", variant: "destructive" });
       return;
     }
     const { error } = await supabase.from("payroll_employee_elements").insert({
@@ -78,7 +80,7 @@ export default function PayrollEmployeeElements() {
       effective_to: to || null,
       is_active: true,
     });
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    if (error) toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     else {
       setNewElement(""); setNewAmount("0"); setFrom(""); setTo("");
       loadRows();
@@ -124,7 +126,7 @@ export default function PayrollEmployeeElements() {
       }
     }
     if (rowsToInsert.length === 0) {
-      toast({ title: "Nothing to add", description: "All employees already have all elements." });
+      toast({ title: language === "ar" ? "لا يوجد شيء لإضافته" : "Nothing to add", description: language === "ar" ? "جميع الموظفين لديهم بالفعل جميع العناصر." : "All employees already have all elements." });
       return;
     }
     // chunk inserts
@@ -133,11 +135,11 @@ export default function PayrollEmployeeElements() {
       const chunk = rowsToInsert.slice(i, i + chunkSize);
       const { error } = await supabase.from("payroll_employee_elements").insert(chunk);
       if (error) {
-        toast({ title: "Error", description: error.message, variant: "destructive" });
+        toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
         return;
       }
     }
-    toast({ title: "Done", description: `Inserted ${rowsToInsert.length} assignments.` });
+    toast({ title: language === "ar" ? "تم" : "Done", description: language === "ar" ? `تم إدراج ${rowsToInsert.length} تخصيصاً.` : `Inserted ${rowsToInsert.length} assignments.` });
     loadRows();
   };
 
@@ -147,9 +149,9 @@ export default function PayrollEmployeeElements() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Employee Element Assign & Values</h1>
+        <h1 className="text-2xl font-bold">{language === "ar" ? "تخصيص عناصر الراتب للموظفين وقيمها" : "Employee Element Assign & Values"}</h1>
         <Button variant="outline" onClick={() => setConfirmAllOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Assign All Elements to All Employees
+          <Plus className="h-4 w-4 mr-2" /> {language === "ar" ? "تخصيص جميع العناصر لجميع الموظفين" : "Assign All Elements to All Employees"}
         </Button>
 
       </div>
@@ -157,11 +159,11 @@ export default function PayrollEmployeeElements() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Select Employee</CardTitle>
+          <CardTitle>{language === "ar" ? "اختر الموظف" : "Select Employee"}</CardTitle>
         </CardHeader>
         <CardContent>
           <Select value={selectedEmp} onValueChange={setSelectedEmp}>
-            <SelectTrigger className="max-w-lg"><SelectValue placeholder="Pick employee..." /></SelectTrigger>
+            <SelectTrigger className="max-w-lg"><SelectValue placeholder={language === "ar" ? "اختر موظفاً..." : "Pick employee..."} /></SelectTrigger>
             <SelectContent>
               {emps.map((e) => (
                 <SelectItem key={e.id} value={e.id}>
@@ -172,7 +174,7 @@ export default function PayrollEmployeeElements() {
           </Select>
           {selectedEmpObj && (
             <p className="text-sm text-muted-foreground mt-2">
-              Basic salary: <strong>{Number(selectedEmpObj.basic_salary || 0).toFixed(2)}</strong>
+               {language === "ar" ? "الراتب الأساسي:" : "Basic salary:"} <strong>{Number(selectedEmpObj.basic_salary || 0).toFixed(2)}</strong>
             </p>
           )}
         </CardContent>
@@ -181,18 +183,18 @@ export default function PayrollEmployeeElements() {
       {selectedEmp && (
         <Card>
           <CardHeader>
-            <CardTitle>Assigned Elements</CardTitle>
+            <CardTitle>{language === "ar" ? "العناصر المخصصة" : "Assigned Elements"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-5 gap-3 items-end p-3 border rounded-md bg-muted/30">
               <div className="col-span-2">
-                <Label>Element</Label>
+                <Label>{language === "ar" ? "العنصر" : "Element"}</Label>
                 <Select value={newElement} onValueChange={(v) => {
                   setNewElement(v);
                   const el = elements.find((x) => x.id === v);
                   if (el && el.default_amount) setNewAmount(String(el.default_amount));
                 }}>
-                  <SelectTrigger><SelectValue placeholder="Pick element..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={language === "ar" ? "اختر عنصراً..." : "Pick element..."} /></SelectTrigger>
                   <SelectContent>
                     {elements.map((e) => (
                       <SelectItem key={e.id} value={e.id}>[{e.element_type}] {e.name_en}</SelectItem>
@@ -201,16 +203,16 @@ export default function PayrollEmployeeElements() {
                 </Select>
               </div>
               <div>
-                <Label>Amount</Label>
+                <Label>{language === "ar" ? "المبلغ" : "Amount"}</Label>
                 <Input type="number" step="0.01" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
               </div>
               <div>
-                <Label>From</Label>
+                <Label>{language === "ar" ? "من" : "From"}</Label>
                 <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
               </div>
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
-                  <Label>To</Label>
+                  <Label>{language === "ar" ? "إلى" : "To"}</Label>
                   <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
                 </div>
                 <Button onClick={add}><Plus className="h-4 w-4" /></Button>
@@ -220,12 +222,12 @@ export default function PayrollEmployeeElements() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Element</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>To</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{language === "ar" ? "العنصر" : "Element"}</TableHead>
+                  <TableHead>{language === "ar" ? "المبلغ" : "Amount"}</TableHead>
+                  <TableHead>{language === "ar" ? "من" : "From"}</TableHead>
+                  <TableHead>{language === "ar" ? "إلى" : "To"}</TableHead>
+                  <TableHead>{language === "ar" ? "نشط" : "Active"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "إجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -249,7 +251,7 @@ export default function PayrollEmployeeElements() {
                         className="cursor-pointer"
                         onClick={() => toggleActive(r.id, !r.is_active)}
                       >
-                        {r.is_active ? "Active" : "Inactive"}
+                        {r.is_active ? (language === "ar" ? "نشط" : "Active") : (language === "ar" ? "غير نشط" : "Inactive")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -262,7 +264,7 @@ export default function PayrollEmployeeElements() {
                 {rows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
-                      No elements assigned
+                      {language === "ar" ? "لا توجد عناصر مخصصة" : "No elements assigned"}
                     </TableCell>
                   </TableRow>
                 )}
@@ -275,15 +277,15 @@ export default function PayrollEmployeeElements() {
       <AlertDialog open={confirmAllOpen} onOpenChange={setConfirmAllOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Assign All Elements to All Employees?</AlertDialogTitle>
+            <AlertDialogTitle>{language === "ar" ? "تخصيص جميع العناصر لجميع الموظفين؟" : "Assign All Elements to All Employees?"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Assign all {elements.length} active elements to all {emps.length} employees. Existing assignments will be skipped.
+              {language === "ar" ? `تخصيص جميع ${elements.length} العناصر النشطة لجميع ${emps.length} الموظفين. سيتم تخطي التخصيصات الموجودة.` : `Assign all ${elements.length} active elements to all ${emps.length} employees. Existing assignments will be skipped.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{language === "ar" ? "إلغاء" : "Cancel"}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { setConfirmAllOpen(false); assignAllToAll(); }}>
-              Confirm
+               {language === "ar" ? "تأكيد" : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

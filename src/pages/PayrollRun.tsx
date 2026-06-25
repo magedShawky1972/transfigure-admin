@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,14 +42,42 @@ const fmt = (n: any) => Number(n || 0).toLocaleString("en-US", { minimumFraction
 function buildPayslipHtml(opts: {
   period: string;
   status: string;
+  lang: "ar" | "en";
   employees: Array<{
     id: string;
     name: string;
     lines: Array<{ name: string; type: string; minutes: number | null; amount: number }>;
   }>;
 }) {
+  const isAr = opts.lang === "ar";
   const isDraft = opts.status !== "confirmed";
-  const printedOn = new Date().toLocaleString("en-GB");
+  const printedOn = new Date().toLocaleString(isAr ? "ar-SA" : "en-GB");
+  const dir = isAr ? 'dir="rtl" lang="ar"' : 'lang="en"';
+
+  const t = {
+    payslip: isAr ? "قسيمة راتب" : "PAY SLIP",
+    payPeriod: isAr ? "فترة الراتب:" : "Pay Period:",
+    idLabel: isAr ? "الرقم:" : "ID:",
+    statusLabel: isAr ? "الحالة:" : "Status:",
+    draft: isAr ? "مسودة" : "Draft",
+    confirmed: isAr ? "مؤكد" : "Confirmed",
+    earnings: isAr ? "الاستحقاقات" : "Earnings",
+    amount: isAr ? "المبلغ" : "Amount",
+    noEarnings: isAr ? "لا استحقاقات" : "No earnings",
+    totalEarnings: isAr ? "إجمالي الاستحقاقات" : "Total Earnings",
+    deductions: isAr ? "الخصومات" : "Deductions",
+    noDeductions: isAr ? "لا خصومات" : "No deductions",
+    totalDeductions: isAr ? "إجمالي الخصومات" : "Total Deductions",
+    other: isAr ? "أخرى" : "Other",
+    grossEarnings: isAr ? "إجمالي الاستحقاقات" : "Gross Earnings",
+    netPay: isAr ? "صافي الراتب" : "Net Pay",
+    printed: isAr ? "طُبع في:" : "Printed:",
+    sysGenerated: isAr ? "هذه قسيمة راتب صادرة من النظام" : "This is a system-generated payslip",
+    draftNote: isAr ? " (مسودة — غير نهائية)" : " (DRAFT — not final)",
+    watermark: isAr ? "مسودة" : "DRAFT",
+    printBtn: isAr ? "طباعة" : "Print",
+  };
+
   const slips = opts.employees.map((e) => {
     const earnings = e.lines.filter((l) => l.type === "earning");
     const deductions = e.lines.filter((l) => l.type === "deduction");
@@ -64,51 +93,51 @@ function buildPayslipHtml(opts: {
 
     return `
       <section class="slip">
-        ${isDraft ? '<div class="watermark">DRAFT</div>' : ""}
+        ${isDraft ? `<div class="watermark">${t.watermark}</div>` : ""}
         <header class="head">
           <div>
-            <div class="title">PAY SLIP</div>
-            <div class="muted">Pay Period: <strong>${opts.period}</strong></div>
+            <div class="title">${t.payslip}</div>
+            <div class="muted">${t.payPeriod} <strong>${opts.period}</strong></div>
           </div>
           <div class="r">
             <div class="emp-name">${e.name}</div>
-            <div class="muted">ID: ${e.id}</div>
-            <div class="muted">Status: ${isDraft ? "Draft" : "Confirmed"}</div>
+            <div class="muted">${t.idLabel} ${e.id}</div>
+            <div class="muted">${t.statusLabel} ${isDraft ? t.draft : t.confirmed}</div>
           </div>
         </header>
 
         <div class="two-col">
           <table class="block earnings">
-            <thead><tr><th>Earnings</th><th class="r">Amount</th></tr></thead>
-            <tbody>${sideRows(earnings, "No earnings")}</tbody>
-            <tfoot><tr><td>Total Earnings</td><td class="r mono">${fmt(gross)}</td></tr></tfoot>
+            <thead><tr><th>${t.earnings}</th><th class="r">${t.amount}</th></tr></thead>
+            <tbody>${sideRows(earnings, t.noEarnings)}</tbody>
+            <tfoot><tr><td>${t.totalEarnings}</td><td class="r mono">${fmt(gross)}</td></tr></tfoot>
           </table>
           <table class="block deductions">
-            <thead><tr><th>Deductions</th><th class="r">Amount</th></tr></thead>
-            <tbody>${sideRows(deductions, "No deductions")}</tbody>
-            <tfoot><tr><td>Total Deductions</td><td class="r mono">${fmt(ded)}</td></tr></tfoot>
+            <thead><tr><th>${t.deductions}</th><th class="r">${t.amount}</th></tr></thead>
+            <tbody>${sideRows(deductions, t.noDeductions)}</tbody>
+            <tfoot><tr><td>${t.totalDeductions}</td><td class="r mono">${fmt(ded)}</td></tr></tfoot>
           </table>
         </div>
 
         ${other.length ? `<table class="block other">
-          <thead><tr><th>Other</th><th class="r">Amount</th></tr></thead>
+          <thead><tr><th>${t.other}</th><th class="r">${t.amount}</th></tr></thead>
           <tbody>${other.map((l) => `<tr><td>${l.name}</td><td class="r mono">${fmt(l.amount)}</td></tr>`).join("")}</tbody>
         </table>` : ""}
 
         <div class="summary">
-          <div class="sum-row"><span>Gross Earnings</span><span class="mono">${fmt(gross)}</span></div>
-          <div class="sum-row"><span>Total Deductions</span><span class="mono">- ${fmt(ded)}</span></div>
-          <div class="sum-row net"><span>Net Pay</span><span class="mono">${fmt(net)}</span></div>
+          <div class="sum-row"><span>${t.grossEarnings}</span><span class="mono">${fmt(gross)}</span></div>
+          <div class="sum-row"><span>${t.totalDeductions}</span><span class="mono">- ${fmt(ded)}</span></div>
+          <div class="sum-row net"><span>${t.netPay}</span><span class="mono">${fmt(net)}</span></div>
         </div>
 
         <footer class="foot">
-          <div class="muted">Printed: ${printedOn}</div>
-          <div class="muted">This is a system-generated payslip${isDraft ? " (DRAFT — not final)" : ""}.</div>
+          <div class="muted">${t.printed} ${printedOn}</div>
+          <div class="muted">${t.sysGenerated}${isDraft ? t.draftNote : ""}.</div>
         </footer>
       </section>`;
   }).join("");
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Pay Slip — ${opts.period}</title>
+  return `<!doctype html><html ${dir}><head><meta charset="utf-8"><title>${opts.lang === "ar" ? "قسيمة راتب" : "Pay Slip"} — ${opts.period}</title>
   <style>
     *{box-sizing:border-box}
     html,body{margin:0;padding:0}
@@ -142,7 +171,7 @@ function buildPayslipHtml(opts: {
       @page{size:A4;margin:0}
     }
   </style></head><body>
-  <div class="toolbar"><button onclick="window.print()">Print</button></div>
+  <div class="toolbar"><button onclick="window.print()">${opts.lang === "ar" ? "طباعة" : "Print"}</button></div>
   ${slips}
   </body></html>`;
 }
@@ -153,6 +182,7 @@ function printPayslips(args: {
   lines: Line[];
   empMap: Record<string, string>;
   elMap: Record<string, { name: string; type: string }>;
+  lang: "ar" | "en";
 }) {
   const period = `${args.run.period_year}-${String(args.run.period_month).padStart(2, "0")}`;
   const employees = args.empIds.map((id) => ({
@@ -167,10 +197,10 @@ function printPayslips(args: {
         amount: Number(l.amount),
       })),
   }));
-  const html = buildPayslipHtml({ period, status: args.run.status, employees });
+  const html = buildPayslipHtml({ period, status: args.run.status, lang: args.lang, employees });
   const w = window.open("", "_blank");
   if (!w) {
-    toast({ title: "Popup blocked", description: "Allow popups to print payslips.", variant: "destructive" });
+    toast({ title: args.lang === "ar" ? "تم حظر النافذة المنبثقة" : "Popup blocked", description: args.lang === "ar" ? "يرجى السماح بالنوافذ المنبثقة لطباعة القسائم." : "Allow popups to print payslips.", variant: "destructive" });
     return;
   }
   w.document.open();
@@ -179,6 +209,9 @@ function printPayslips(args: {
 }
 
 export default function PayrollRun() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
@@ -263,7 +296,7 @@ export default function PayrollRun() {
       if (deptFilter.length) activeEmps = activeEmps.filter((e: any) => e.department_id && deptFilter.includes(e.department_id));
       if (jobFilter.length) activeEmps = activeEmps.filter((e: any) => e.job_position_id && jobFilter.includes(e.job_position_id));
       if (activeEmps.length === 0) {
-        toast({ title: "No employees match the selected filters", variant: "destructive" });
+        toast({ title: isAr ? "لا يوجد موظفون يطابقون الفلاتر المختارة" : "No employees match the selected filters", variant: "destructive" });
         setBusy(false);
         return;
       }
@@ -316,7 +349,7 @@ export default function PayrollRun() {
         .eq("period_month", month)
         .maybeSingle();
       if (existing && existing.status === "confirmed") {
-        toast({ title: "Period already confirmed — cannot recompute", variant: "destructive" });
+        toast({ title: isAr ? "الفترة مؤكدة — لا يمكن إعادة الاحتساب" : "Period already confirmed — cannot recompute", variant: "destructive" });
         setBusy(false);
         return;
       }
@@ -449,20 +482,28 @@ export default function PayrollRun() {
         employee_count: empSet.size,
       }).eq("id", runId);
 
-      toast({ title: `Computed ${linesToInsert.length} lines for ${new Set(linesToInsert.map((l) => l.employee_id)).size} employees${isScoped ? " (scoped run)" : ""}` });
+      const empCount = new Set(linesToInsert.map((l) => l.employee_id)).size;
+      toast({
+        title: isAr
+          ? `تم احتساب ${linesToInsert.length} سطر لـ ${empCount} موظف${isScoped ? " (نطاق محدد)" : ""}`
+          : `Computed ${linesToInsert.length} lines for ${empCount} employees${isScoped ? " (scoped run)" : ""}`,
+      });
       loadRuns();
     } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: isAr ? "خطأ" : "Error", description: e.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
   };
 
   const confirmRun = (run: Run) => {
+    const period = `${run.period_year}-${String(run.period_month).padStart(2, "0")}`;
     askConfirm({
-      title: "Confirm & Lock Payroll",
-      description: `Confirm and LOCK payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? Once locked it cannot be recomputed without rolling back.`,
-      confirmLabel: "Confirm & Lock",
+      title: isAr ? "تأكيد وقفل الرواتب" : "Confirm & Lock Payroll",
+      description: isAr
+        ? `هل تريد تأكيد وقفل مسيرة الرواتب للفترة ${period}؟ بعد القفل لا يمكن إعادة الاحتساب دون تراجع.`
+        : `Confirm and LOCK payroll for ${period}? Once locked it cannot be recomputed without rolling back.`,
+      confirmLabel: isAr ? "تأكيد وقفل" : "Confirm & Lock",
       onConfirm: async () => {
         const { data: { user } } = await supabase.auth.getUser();
         const { error } = await supabase.from("payroll_runs").update({
@@ -470,18 +511,21 @@ export default function PayrollRun() {
           confirmed_at: new Date().toISOString(),
           confirmed_by: user?.id,
         }).eq("id", run.id);
-        if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-        else { toast({ title: "Confirmed and locked" }); loadRuns(); }
+        if (error) toast({ title: isAr ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+        else { toast({ title: isAr ? "تم التأكيد والقفل" : "Confirmed and locked" }); loadRuns(); }
       },
     });
   };
 
   const deleteRun = (run: Run) => {
     if (run.status === "confirmed") return;
+    const period = `${run.period_year}-${String(run.period_month).padStart(2, "0")}`;
     askConfirm({
-      title: "Delete Draft Run",
-      description: `Delete the draft payroll run for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This permanently removes the run and all its lines.`,
-      confirmLabel: "Delete",
+      title: isAr ? "حذف مسودة المسيرة" : "Delete Draft Run",
+      description: isAr
+        ? `هل تريد حذف مسودة مسيرة الرواتب للفترة ${period}؟ سيتم حذف المسيرة وجميع سطورها نهائياً.`
+        : `Delete the draft payroll run for ${period}? This permanently removes the run and all its lines.`,
+      confirmLabel: isAr ? "حذف" : "Delete",
       destructive: true,
       onConfirm: async () => {
         await supabase.from("payroll_runs").delete().eq("id", run.id);
@@ -494,10 +538,15 @@ export default function PayrollRun() {
 
   const rollbackRun = (run: Run) => {
     const isConf = run.status === "confirmed";
+    const period = `${run.period_year}-${String(run.period_month).padStart(2, "0")}`;
     askConfirm({
-      title: isConf ? "Rollback Confirmed Payroll" : "Rollback Payroll Run",
-      description: `Rollback ${isConf ? "confirmed" : "draft"} payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This permanently removes the run and all its computed lines.`,
-      confirmLabel: "Rollback & Delete",
+      title: isAr
+        ? (isConf ? "تراجع عن مسيرة مؤكدة" : "تراجع عن مسيرة الرواتب")
+        : (isConf ? "Rollback Confirmed Payroll" : "Rollback Payroll Run"),
+      description: isAr
+        ? `هل تريد التراجع عن مسيرة الرواتب ${isConf ? "المؤكدة" : "المسودة"} للفترة ${period}؟ سيتم حذف المسيرة وجميع السطور المحتسبة نهائياً.`
+        : `Rollback ${isConf ? "confirmed" : "draft"} payroll for ${period}? This permanently removes the run and all its computed lines.`,
+      confirmLabel: isAr ? "تراجع وحذف" : "Rollback & Delete",
       destructive: true,
       onConfirm: async () => {
         try {
@@ -505,11 +554,11 @@ export default function PayrollRun() {
           if (delLinesErr) throw delLinesErr;
           const { error: delRunErr } = await supabase.from("payroll_runs").delete().eq("id", run.id);
           if (delRunErr) throw delRunErr;
-          toast({ title: "Rolled back", description: "Run and all its lines were removed." });
+          toast({ title: isAr ? "تم التراجع" : "Rolled back", description: isAr ? "تم حذف المسيرة وجميع سطورها." : "Run and all its lines were removed." });
           if (selectedRun?.id === run.id) { setSelectedRun(null); setLines([]); }
           loadRuns();
         } catch (e: any) {
-          toast({ title: "Rollback failed", description: e.message, variant: "destructive" });
+          toast({ title: isAr ? "فشل التراجع" : "Rollback failed", description: e.message, variant: "destructive" });
         }
       },
     });
@@ -550,11 +599,11 @@ export default function PayrollRun() {
         </PopoverTrigger>
         <PopoverContent className="w-72 p-2" align="start">
           {enableSearch && (
-            <Input placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} className="h-8 mb-2" />
+            <Input placeholder={isAr ? "بحث..." : "Search..."} value={q} onChange={(e) => setQ(e.target.value)} className="h-8 mb-2" />
           )}
           <ScrollArea className="h-60">
             <div className="space-y-1">
-              {shown.length === 0 && <p className="text-xs text-muted-foreground p-2">No options</p>}
+              {shown.length === 0 && <p className="text-xs text-muted-foreground p-2">{isAr ? "لا توجد خيارات" : "No options"}</p>}
               {shown.map((o) => (
                 <label key={o.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer text-sm">
                   <Checkbox
@@ -571,7 +620,7 @@ export default function PayrollRun() {
           </ScrollArea>
           {selected.length > 0 && (
             <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => onChange([])}>
-              <X className="h-3 w-3 mr-1" /> Clear
+              <X className="h-3 w-3 mr-1" /> {isAr ? "مسح" : "Clear"}
             </Button>
           )}
         </PopoverContent>
@@ -579,22 +628,35 @@ export default function PayrollRun() {
     );
   };
 
+  const elementTypeBadge = (type: string) => {
+    if (type === "earning") return isAr ? "استحقاق" : "earning";
+    if (type === "deduction") return isAr ? "خصم" : "deduction";
+    if (type === "employer_contribution") return isAr ? "مساهمة صاحب العمل" : "employer_contribution";
+    return type;
+  };
+
+  const statusLabel = (status: string) => {
+    if (status === "confirmed") return isAr ? "مؤكد" : "Confirmed";
+    if (status === "draft") return isAr ? "مسودة" : "Draft";
+    return status;
+  };
+
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Payroll Run & Confirm</h1>
+    <div className="p-6 space-y-4" dir={isAr ? "rtl" : "ltr"}>
+      <h1 className="text-2xl font-bold">{isAr ? "تشغيل وتأكيد الرواتب" : "Payroll Run & Confirm"}</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Compute Period</CardTitle>
+          <CardTitle>{isAr ? "احتساب الفترة" : "Compute Period"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <Label>Year</Label>
+              <Label>{isAr ? "السنة" : "Year"}</Label>
               <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-32" />
             </div>
             <div>
-              <Label>Month</Label>
+              <Label>{isAr ? "الشهر" : "Month"}</Label>
               <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -606,28 +668,30 @@ export default function PayrollRun() {
             </div>
             <Button onClick={computePeriod} disabled={busy}>
               {busy ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-              Run Payroll
+              {isAr ? "تشغيل الرواتب" : "Run Payroll"}
             </Button>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
-            <Label className="text-xs text-muted-foreground mr-1">Run scope (optional):</Label>
-            <MultiCheckPop label="Employees" options={allEmps.map((e) => ({ id: e.id, name: e.name }))} selected={empFilter} onChange={setEmpFilter} search />
-            <MultiCheckPop label="Departments" options={allDepts} selected={deptFilter} onChange={setDeptFilter} />
-            <MultiCheckPop label="Jobs" options={allJobs} selected={jobFilter} onChange={setJobFilter} />
+            <Label className="text-xs text-muted-foreground mr-1">{isAr ? "النطاق (اختياري):" : "Run scope (optional):"}</Label>
+            <MultiCheckPop label={isAr ? "الموظفون" : "Employees"} options={allEmps.map((e) => ({ id: e.id, name: e.name }))} selected={empFilter} onChange={setEmpFilter} search />
+            <MultiCheckPop label={isAr ? "الأقسام" : "Departments"} options={allDepts} selected={deptFilter} onChange={setDeptFilter} />
+            <MultiCheckPop label={isAr ? "الوظائف" : "Jobs"} options={allJobs} selected={jobFilter} onChange={setJobFilter} />
             {(empFilter.length || deptFilter.length || jobFilter.length) ? (
               <>
-                <Badge variant="default">{scopedEmpCount} employee(s) in scope</Badge>
+                <Badge variant="default">{isAr ? `${scopedEmpCount} موظف في النطاق` : `${scopedEmpCount} employee(s) in scope`}</Badge>
                 <Button variant="ghost" size="sm" onClick={() => { setEmpFilter([]); setDeptFilter([]); setJobFilter([]); }}>
-                  <X className="h-3.5 w-3.5 mr-1" /> Clear scope
+                  <X className="h-3.5 w-3.5 mr-1" /> {isAr ? "مسح النطاق" : "Clear scope"}
                 </Button>
               </>
             ) : (
-              <Badge variant="secondary">All active employees</Badge>
+              <Badge variant="secondary">{isAr ? "جميع الموظفين النشطين" : "All active employees"}</Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            When a scope is set, only those employees are (re)computed. Existing lines for other employees in this period are preserved.
+            {isAr
+              ? "عند تحديد نطاق، يُعاد احتساب الموظفين المحددين فقط. تُحفظ سطور الموظفين الآخرين في نفس الفترة."
+              : "When a scope is set, only those employees are (re)computed. Existing lines for other employees in this period are preserved."}
           </p>
         </CardContent>
       </Card>
@@ -635,20 +699,20 @@ export default function PayrollRun() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Payroll Runs</CardTitle>
+          <CardTitle>{isAr ? "مسيرات الرواتب" : "Payroll Runs"}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Period</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Employees</TableHead>
-                <TableHead>Gross</TableHead>
-                <TableHead>Deductions</TableHead>
-                <TableHead>Net</TableHead>
-                <TableHead>Employer Contrib.</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{isAr ? "الفترة" : "Period"}</TableHead>
+                <TableHead>{isAr ? "الحالة" : "Status"}</TableHead>
+                <TableHead>{isAr ? "الموظفون" : "Employees"}</TableHead>
+                <TableHead>{isAr ? "الإجمالي" : "Gross"}</TableHead>
+                <TableHead>{isAr ? "الخصومات" : "Deductions"}</TableHead>
+                <TableHead>{isAr ? "الصافي" : "Net"}</TableHead>
+                <TableHead>{isAr ? "مساهمة صاحب العمل" : "Employer Contrib."}</TableHead>
+                <TableHead className="text-right">{isAr ? "الإجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -658,7 +722,7 @@ export default function PayrollRun() {
                   <TableCell>
                     <Badge variant={r.status === "confirmed" ? "default" : "secondary"}>
                       {r.status === "confirmed" && <Lock className="h-3 w-3 mr-1" />}
-                      {r.status}
+                      {statusLabel(r.status)}
                     </Badge>
                   </TableCell>
                   <TableCell>{r.employee_count}</TableCell>
@@ -667,14 +731,14 @@ export default function PayrollRun() {
                   <TableCell className="font-semibold">{fmt(r.total_net)}</TableCell>
                   <TableCell>{fmt(r.total_employer_contributions)}</TableCell>
                   <TableCell className="text-right space-x-1">
-                    <Button size="sm" variant="outline" onClick={() => viewRun(r)}>View</Button>
+                    <Button size="sm" variant="outline" onClick={() => viewRun(r)}>{isAr ? "عرض" : "View"}</Button>
                     {r.status === "draft" && (
                       <>
                         <Button size="sm" onClick={() => confirmRun(r)}>
-                          <CheckCircle2 className="h-4 w-4 mr-1" /> Confirm
+                          <CheckCircle2 className="h-4 w-4 mr-1" /> {isAr ? "تأكيد" : "Confirm"}
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
-                          <Undo2 className="h-4 w-4 mr-1" /> Rollback
+                          <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => deleteRun(r)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -683,7 +747,7 @@ export default function PayrollRun() {
                     )}
                     {r.status === "confirmed" && (
                       <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
-                        <Undo2 className="h-4 w-4 mr-1" /> Rollback
+                        <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
                       </Button>
                     )}
                   </TableCell>
@@ -691,7 +755,7 @@ export default function PayrollRun() {
               ))}
               {runs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">No runs yet</TableCell>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">{isAr ? "لا توجد مسيرات بعد" : "No runs yet"}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -703,8 +767,8 @@ export default function PayrollRun() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
-              Run Detail — {selectedRun.period_year}-{String(selectedRun.period_month).padStart(2, "0")}
-              {selectedRun.status !== "confirmed" && <Badge variant="secondary" className="ml-2">DRAFT</Badge>}
+              {isAr ? "تفاصيل المسيرة" : "Run Detail"} — {selectedRun.period_year}-{String(selectedRun.period_month).padStart(2, "0")}
+              {selectedRun.status !== "confirmed" && <Badge variant="secondary" className="ml-2">{isAr ? "مسودة" : "DRAFT"}</Badge>}
             </CardTitle>
             <Button
               size="sm"
@@ -717,10 +781,11 @@ export default function PayrollRun() {
                   lines,
                   empMap,
                   elMap,
+                  lang: isAr ? "ar" : "en",
                 })
               }
             >
-              <Printer className="h-4 w-4 mr-1" /> Print All Payslips
+              <Printer className="h-4 w-4 mr-1" /> {isAr ? "طباعة جميع القسائم" : "Print All Payslips"}
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -732,8 +797,9 @@ export default function PayrollRun() {
                   <div className="flex justify-between items-center mb-2">
                     <strong>{empMap[empId] || empId}</strong>
                     <div className="text-sm flex items-center gap-3">
-                      <span>Gross: {fmt(earn)} | Ded: {fmt(ded)} |
-                        <span className="font-bold ml-2">Net: {fmt(earn - ded)}</span>
+                      <span>
+                        {isAr ? "إجمالي:" : "Gross:"} {fmt(earn)} | {isAr ? "خصم:" : "Ded:"} {fmt(ded)} |
+                        <span className="font-bold ml-2">{isAr ? "صافي:" : "Net:"} {fmt(earn - ded)}</span>
                       </span>
                       <Button
                         size="sm"
@@ -745,20 +811,21 @@ export default function PayrollRun() {
                             lines,
                             empMap,
                             elMap,
+                            lang: isAr ? "ar" : "en",
                           })
                         }
                       >
-                        <Printer className="h-4 w-4 mr-1" /> Print
+                        <Printer className="h-4 w-4 mr-1" /> {isAr ? "طباعة" : "Print"}
                       </Button>
                     </div>
                   </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Element</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Minutes</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>{isAr ? "العنصر" : "Element"}</TableHead>
+                        <TableHead>{isAr ? "النوع" : "Type"}</TableHead>
+                        <TableHead>{isAr ? "الدقائق" : "Minutes"}</TableHead>
+                        <TableHead className="text-right">{isAr ? "المبلغ" : "Amount"}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -767,7 +834,7 @@ export default function PayrollRun() {
                           <TableCell>{elMap[l.element_id]?.name || l.element_id}</TableCell>
                           <TableCell>
                             <Badge variant={l.element_type === "earning" ? "default" : l.element_type === "deduction" ? "destructive" : "secondary"}>
-                              {l.element_type}
+                              {elementTypeBadge(l.element_type)}
                             </Badge>
                           </TableCell>
                           <TableCell>{l.minutes ? Number(l.minutes).toFixed(0) : "—"}</TableCell>
@@ -779,19 +846,19 @@ export default function PayrollRun() {
                 </div>
               );
             })}
-            {lines.length === 0 && <p className="text-muted-foreground text-sm">No lines</p>}
+            {lines.length === 0 && <p className="text-muted-foreground text-sm">{isAr ? "لا توجد سطور" : "No lines"}</p>}
           </CardContent>
         </Card>
       )}
 
       <AlertDialog open={confirmDlg.open} onOpenChange={(o) => setConfirmDlg((s) => ({ ...s, open: o }))}>
-        <AlertDialogContent>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"}>
           <AlertDialogHeader>
             <AlertDialogTitle>{confirmDlg.title}</AlertDialogTitle>
             <AlertDialogDescription className="whitespace-pre-line">{confirmDlg.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
             <AlertDialogAction
               className={confirmDlg.destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
               onClick={async () => {
@@ -800,7 +867,7 @@ export default function PayrollRun() {
                 if (fn) await fn();
               }}
             >
-              {confirmDlg.confirmLabel || "Confirm"}
+              {confirmDlg.confirmLabel || (isAr ? "تأكيد" : "Confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
