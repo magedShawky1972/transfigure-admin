@@ -840,10 +840,10 @@ const EmployeeRequestApprovals = () => {
                       <Label className="text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{language === 'ar' ? (selectedRequest.request_type === 'early_leave' ? 'تاريخ الانصراف' : 'تاريخ التأخير') : (selectedRequest.request_type === 'early_leave' ? 'Early Leave Date' : 'Delay Date')}</Label>
                       <p className="font-medium">{(selectedRequest as any).delay_date}</p>
                     </div>
-                    {(selectedRequest as any).delay_minutes && (
+                    {getDelayDurationMinutes(selectedRequest) !== null && (
                       <div className="space-y-1">
                         <Label className="text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{language === 'ar' ? (selectedRequest.request_type === 'early_leave' ? 'مدة الانصراف المبكر' : 'مدة التأخير') : (selectedRequest.request_type === 'early_leave' ? 'Early Leave Duration' : 'Delay Duration')}</Label>
-                        <p className="font-medium">{(selectedRequest as any).delay_minutes} {language === 'ar' ? 'دقيقة' : 'minutes'}</p>
+                        <p className="font-medium">{formatDurationMinutes(getDelayDurationMinutes(selectedRequest)!)}</p>
                       </div>
                     )}
                   </div>
