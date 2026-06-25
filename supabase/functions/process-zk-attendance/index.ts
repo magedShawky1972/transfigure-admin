@@ -344,6 +344,9 @@ Deno.serve(async (req) => {
       const weekendDays: number[] = (empAttendanceType as any)?.weekend_days || [5, 6];
       if (weekendDays.includes(targetDayOfWeek)) {
         console.log(`${employee.first_name} ${employee.last_name} - skipping weekend day (${targetDayOfWeek})`);
+        // Clean up any stale records from before this date became a weekend
+        await supabase.from('timesheets').delete().eq('employee_id', employee.id).eq('work_date', targetDate);
+        await supabase.from('saved_attendance').delete().eq('employee_id', employee.id).eq('attendance_date', targetDate);
         continue;
       }
 
