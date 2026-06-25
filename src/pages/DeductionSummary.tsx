@@ -833,8 +833,8 @@ export default function DeductionSummary() {
             <AlertDialogTitle>{isAr ? "تأكيد الإرسال إلى الرواتب" : "Confirm Send to Payroll"}</AlertDialogTitle>
             <AlertDialogDescription>
               {isAr
-                ? `سيتم إرسال خصم ${rows.length} موظف بإجمالي ${grandTotal.toFixed(2)} إلى عنصر الخصم المختار لفترة ${periodYear}-${String(periodMonth).padStart(2, "0")}. سيتم تحديث أي إدخالات سابقة لنفس الفترة والعنصر.`
-                : `This will send deductions for ${rows.length} employees totaling ${grandTotal.toFixed(2)} to the selected delay element for period ${periodYear}-${String(periodMonth).padStart(2, "0")}. Any existing entries for the same period and element will be overwritten.`}
+                ? `سيتم إرسال خصم ${rows.length} موظف بإجمالي ${formatNumber(grandTotal)} إلى عنصر الخصم المختار لفترة ${periodYear}-${String(periodMonth).padStart(2, "0")}. سيتم تحديث أي إدخالات سابقة لنفس الفترة والعنصر.`
+                : `This will send deductions for ${rows.length} employees totaling ${formatNumber(grandTotal)} to the selected delay element for period ${periodYear}-${String(periodMonth).padStart(2, "0")}. Any existing entries for the same period and element will be overwritten.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
