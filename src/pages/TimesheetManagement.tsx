@@ -1973,7 +1973,7 @@ export default function TimesheetManagement() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
             <Card
               onClick={() => setCardFilter("all")}
               className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "all" ? "ring-2 ring-primary" : ""}`}
@@ -2024,6 +2024,17 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
+            <Card className="cursor-default">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {timesheets.reduce((sum, t) => sum + (t.late_minutes || 0), 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي دقائق التأخير" : "Total Delay Min"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            
             
             {/* Naughty Corner Card */}
             <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
