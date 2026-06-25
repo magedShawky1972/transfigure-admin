@@ -189,6 +189,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/payroll/element-setup", defaultEn: "Payroll Element Setup", defaultAr: "إعداد عناصر الرواتب", icon: Settings },
       { url: "/payroll/eligibility", defaultEn: "Element Eligibility", defaultAr: "أهلية العناصر", icon: ClipboardCheck },
       { url: "/payroll/employee-elements", defaultEn: "Employee Element Assign", defaultAr: "تعيين عناصر الموظف", icon: UserCircle },
+      { url: "/payroll/matrix-entry", defaultEn: "Multi Element Entry", defaultAr: "إدخال متعدد للعناصر", icon: ClipboardList },
       { url: "/payroll/variable-entry", defaultEn: "Variable Element Entry", defaultAr: "إدخال عناصر متغيرة", icon: ClipboardList },
       { url: "/payroll/run", defaultEn: "Payroll Run & Confirm", defaultAr: "تشغيل واعتماد الرواتب", icon: Calculator },
     ],
