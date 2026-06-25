@@ -605,23 +605,56 @@ export default function DeductionSummary() {
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي الخصم" : "Total Deduction"}</div><div className="text-2xl font-bold text-red-600">{grandTotal.toFixed(2)}</div></CardContent></Card>
               </div>
 
+              <div className="flex items-center justify-between mb-2 print:hidden">
+                <div className="text-xs text-muted-foreground">
+                  {isAr ? "اضغط على العنوان للترتيب • Shift+اضغط لترتيب متعدد" : "Click header to sort • Shift+click for multi-sort"}
+                </div>
+                {(sorts.length > 0 || Object.values(filters).some(v => v)) && (
+                  <Button variant="ghost" size="sm" onClick={clearFiltersSorts}>
+                    <X className="h-3 w-3 mr-1" /> {isAr ? "مسح الترتيب والتصفية" : "Clear sorts & filters"}
+                  </Button>
+                )}
+              </div>
               <div className="overflow-x-auto border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
-                      <TableHead>{isAr ? "رقم الموظف" : "Emp #"}</TableHead>
-                      <TableHead>{isAr ? "الموظف" : "Employee"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "عدد التأخيرات" : "Late Count"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "دقائق التأخير" : "Late Min"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "خروج مبكر" : "Early Leave"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "غياب" : "Absent"}</TableHead>
-                      <TableHead>{isAr ? "القواعد المطبقة" : "Applied Rules"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "إجمالي الخصم" : "Total Deduction"}</TableHead>
+                      {([
+                        { k: "empNumber", l: isAr ? "رقم الموظف" : "Emp #", right: false },
+                        { k: "name", l: isAr ? "الموظف" : "Employee", right: false },
+                        { k: "lateCount", l: isAr ? "عدد التأخيرات" : "Late Count", right: true },
+                        { k: "totalLateMinutes", l: isAr ? "دقائق التأخير" : "Late Min", right: true },
+                        { k: "earlyLeaveCount", l: isAr ? "خروج مبكر" : "Early Leave", right: true },
+                        { k: "absentCount", l: isAr ? "غياب" : "Absent", right: true },
+                        { k: "rules", l: isAr ? "القواعد المطبقة" : "Applied Rules", right: false },
+                        { k: "totalDeduction", l: isAr ? "إجمالي الخصم" : "Total Deduction", right: true },
+                      ] as { k: SortKey; l: string; right: boolean }[]).map(col => (
+                        <TableHead
+                          key={col.k}
+                          className={`cursor-pointer select-none ${col.right ? "text-right" : ""}`}
+                          onClick={(e) => toggleSort(col.k, e.shiftKey)}
+                        >
+                          {col.l}{sortIndicator(col.k)}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                    <TableRow className="print:hidden">
+                      <TableHead></TableHead>
+                      {(["empNumber","name","lateCount","totalLateMinutes","earlyLeaveCount","absentCount","rules","totalDeduction"] as const).map(k => (
+                        <TableHead key={k} className="py-1">
+                          <Input
+                            value={filters[k] || ""}
+                            onChange={e => setFilters(f => ({ ...f, [k]: e.target.value }))}
+                            placeholder={isAr ? "تصفية..." : "Filter..."}
+                            className="h-7 text-xs"
+                          />
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r, i) => (
+                    {displayRows.map((r, i) => (
                       <TableRow key={r.employee_id}>
                         <TableCell>{i + 1}</TableCell>
                         <TableCell>{r.empNumber}</TableCell>
@@ -643,6 +676,7 @@ export default function DeductionSummary() {
                       <TableCell className="text-right text-red-600">{grandTotal.toFixed(2)}</TableCell>
                     </TableRow>
                   </TableBody>
+
                 </Table>
               </div>
 
