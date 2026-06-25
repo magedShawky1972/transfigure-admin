@@ -38,6 +38,7 @@ const EMPTY: Partial<Element> = {
   default_amount: 0,
   formula: "",
   is_delay_minutes_element: false,
+  is_basic_salary_element: false,
   is_active: true,
   sort_order: 0,
 };
