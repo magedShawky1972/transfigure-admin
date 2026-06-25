@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, RefreshCw, Printer } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, RefreshCw, Printer, Calculator } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
@@ -36,10 +36,13 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
+  job_start_date?: string | null;
+  termination_date?: string | null;
+  basic_salary?: number | null;
   departments?: { department_name: string; department_name_ar?: string | null } | null;
   job_positions?: { position_name: string; position_name_ar?: string | null } | null;
 };
-type Element = { id: string; code: string; name_en: string; name_ar?: string | null; element_type: string; calculation_type?: string | null };
+type Element = { id: string; code: string; name_en: string; name_ar?: string | null; element_type: string; calculation_type?: string | null; is_basic_salary_element?: boolean | null };
 type SortRule = { key: string; dir: "asc" | "desc" };
 
 const now = new Date();
@@ -73,7 +76,7 @@ export default function PayrollMonthPreview() {
     setLoading(true);
     let empQuery = supabase
       .from("employees")
-      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, job_start_date, termination_date, basic_salary, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
       .order("first_name");
     let peQuery = supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true);
     let pvQuery = supabase.from("payroll_variable_entries").select("employee_id, element_id, amount").eq("period_year", year).eq("period_month", month);
@@ -85,7 +88,7 @@ export default function PayrollMonthPreview() {
     }
     const [e, el, pe, pv] = await Promise.all([
       empQuery,
-      supabase.from("payroll_elements").select("id, code, name_en, name_ar, element_type, calculation_type, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
+      supabase.from("payroll_elements").select("id, code, name_en, name_ar, element_type, calculation_type, sort_order, is_basic_salary_element").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
       peQuery,
       pvQuery,
     ]);
@@ -104,6 +107,93 @@ export default function PayrollMonthPreview() {
   };
 
   useEffect(() => { if (!scopeLoading) load(); /* eslint-disable-next-line */ }, [year, month, scopeLoading, allowedEmployeeIds]);
+
+  const [calculating, setCalculating] = useState(false);
+  const calculateProratedBasic = async () => {
+    const basicElement = elements.find((el) => (el as any).is_basic_salary_element);
+    if (!basicElement) {
+      toast({ title: language === "ar" ? "لم يتم العثور على عنصر الراتب الأساسي" : "Basic salary element not found", variant: "destructive" });
+      return;
+    }
+    const targetEmps = filtered;
+    if (targetEmps.length === 0) { toast({ title: language === "ar" ? "لا يوجد موظفين" : "No employees" }); return; }
+    setCalculating(true);
+    try {
+      // Fetch assigned basic salary amounts for these employees
+      const { data: assigns } = await supabase
+        .from("payroll_employee_elements")
+        .select("employee_id, amount")
+        .eq("element_id", basicElement.id)
+        .eq("is_active", true)
+        .in("employee_id", targetEmps.map((e) => e.id));
+      const assignedMap = new Map<string, number>();
+      (assigns || []).forEach((a: any) => assignedMap.set(a.employee_id, Number(a.amount) || 0));
+
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const periodStart = new Date(year, month - 1, 1);
+      const periodEnd = new Date(year, month - 1, daysInMonth);
+
+      const rowsToUpsert: any[] = [];
+      const empsToClear: string[] = [];
+      let proratedCount = 0;
+      for (const emp of targetEmps) {
+        let bs = assignedMap.get(emp.id) ?? 0;
+        if (!bs) bs = Number(emp.basic_salary) || 0;
+        if (bs <= 0) continue;
+
+        const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
+        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const effStart = jsd && jsd > periodStart ? jsd : periodStart;
+        const effEnd = td && td < periodEnd ? td : periodEnd;
+        let workedDays = daysInMonth;
+        if (effStart > periodEnd || effEnd < periodStart) workedDays = 0;
+        else {
+          workedDays = Math.floor((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          if (workedDays < 0) workedDays = 0;
+          if (workedDays > daysInMonth) workedDays = daysInMonth;
+        }
+        empsToClear.push(emp.id);
+        if (workedDays >= daysInMonth) continue; // full month → no override needed
+        const prorated = (bs * workedDays) / daysInMonth;
+        rowsToUpsert.push({
+          employee_id: emp.id,
+          element_id: basicElement.id,
+          period_year: year,
+          period_month: month,
+          amount: Number(prorated.toFixed(2)),
+          notes: `Prorated: ${workedDays}/${daysInMonth} days`,
+        });
+        proratedCount++;
+      }
+
+      // Clear previous variable entries for these employees (this element) for the period
+      if (empsToClear.length > 0) {
+        await supabase
+          .from("payroll_variable_entries")
+          .delete()
+          .eq("element_id", basicElement.id)
+          .eq("period_year", year)
+          .eq("period_month", month)
+          .in("employee_id", empsToClear);
+      }
+      if (rowsToUpsert.length > 0) {
+        const { error } = await supabase.from("payroll_variable_entries").insert(rowsToUpsert);
+        if (error) throw error;
+      }
+
+      toast({
+        title: language === "ar" ? "اكتمل الحساب" : "Calculation complete",
+        description: language === "ar"
+          ? `تمت معالجة ${targetEmps.length} موظفين، تم احتساب نسبة ${proratedCount} منهم`
+          : `Processed ${targetEmps.length} employees, ${proratedCount} prorated`,
+      });
+      await load();
+    } catch (err: any) {
+      toast({ title: language === "ar" ? "فشل الحساب" : "Calculation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setCalculating(false);
+    }
+  };
 
   const departments = useMemo(() => {
     const map = new Map<string, string>();
@@ -405,6 +495,9 @@ export default function PayrollMonthPreview() {
           </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير إكسل" : "Export Excel"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={calculateProratedBasic} disabled={calculating || loading}>
+            <Calculator className={`h-4 w-4 mr-2 ${calculating ? "animate-pulse" : ""}`} /> {language === "ar" ? "حساب الراتب الأساسي" : "Calculate Basic Salary"}
           </Button>
           <Button variant="outline" size="sm" onClick={printDocument}>
             <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
