@@ -255,8 +255,16 @@ export default function DeductionRulesSetup() {
                   rules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell>
-                        <div>
+                        <div className="space-y-1">
                           <p className="font-medium">{language === "ar" ? rule.rule_name_ar || rule.rule_name : rule.rule_name}</p>
+                          <div className="flex gap-1 flex-wrap">
+                            {(rule as any).is_absence_with_notice && (
+                              <Badge variant="outline" className="text-[10px]">{language === "ar" ? "بإشعار" : "With notice"}</Badge>
+                            )}
+                            {(rule as any).is_absence_without_notice && (
+                              <Badge variant="outline" className="text-[10px]">{language === "ar" ? "بدون إشعار" : "Without notice"}</Badge>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>{getRuleTypeBadge(rule.rule_type)}</TableCell>
