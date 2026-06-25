@@ -609,6 +609,27 @@ const EmployeeRequestApprovals = () => {
     }
   };
 
+  const getDelayDurationMinutes = (request: any) => {
+    const savedMinutes = Number(request?.delay_minutes);
+    if (Number.isFinite(savedMinutes) && savedMinutes > 0) return savedMinutes;
+    const fallbackMinutes = Number(request?._display_delay_minutes);
+    if (Number.isFinite(fallbackMinutes) && fallbackMinutes > 0) return fallbackMinutes;
+    return null;
+  };
+
+  const formatDurationMinutes = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const rem = minutes % 60;
+    if (language === 'ar') {
+      if (h > 0 && rem > 0) return `${h} ساعة ${rem} دقيقة (${minutes} دقيقة)`;
+      if (h > 0) return `${h} ساعة (${minutes} دقيقة)`;
+      return `${rem} دقيقة`;
+    }
+    if (h > 0 && rem > 0) return `${h}h ${rem}m (${minutes} min)`;
+    if (h > 0) return `${h}h (${minutes} min)`;
+    return `${rem} min`;
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   if (!isHRManager && userAdminDepts.length === 0) {
