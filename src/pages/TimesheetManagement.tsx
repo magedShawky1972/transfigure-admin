@@ -192,6 +192,7 @@ export default function TimesheetManagement() {
     { key: "employee", direction: "asc" },
   ]);
   const [isNawaf, setIsNawaf] = useState(false);
+  const [hrAllowedBusinessUnitIds, setHrAllowedBusinessUnitIds] = useState<string[] | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [monthLocked, setMonthLocked] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
