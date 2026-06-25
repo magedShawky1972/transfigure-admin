@@ -301,6 +301,19 @@ export default function PayrollElementSetup() {
                 </p>
               </div>
             </div>
+            <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+              <Switch
+                checked={!!form.is_basic_salary_element}
+                onCheckedChange={(v) => setForm({ ...form, is_basic_salary_element: v })}
+              />
+              <div>
+                <div className="font-medium">This element is the Basic Salary</div>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, Deduction Summary uses the employee's assigned amount on this element
+                  as the basic salary in the formula (salary / 30 / 8 / 60) × delay minutes. Only one element can be marked.
+                </p>
+              </div>
+            </div>
             <div className="flex items-center gap-3">
               <Switch
                 checked={form.is_active !== false}
