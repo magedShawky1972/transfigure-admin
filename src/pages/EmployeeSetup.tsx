@@ -1328,19 +1328,28 @@ export default function EmployeeSetup() {
               )}
             </div>
 
-            {/* Alphabet Filter Row */}
-            <div className="flex flex-wrap gap-1">
-              {(language === "ar" ? arabicLetters : englishLetters).map((letter) => (
-                <Button
-                  key={letter}
-                  variant={filterLetter === letter ? "default" : "outline"}
-                  size="sm"
-                  className="w-8 h-8 p-0 text-xs font-medium"
-                  onClick={() => handleLetterFilter(letter)}
-                >
-                  {letter}
-                </Button>
-              ))}
+            {/* Alphabet Filter Row and Employee Count */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-wrap gap-1">
+                {(language === "ar" ? arabicLetters : englishLetters).map((letter) => (
+                  <Button
+                    key={letter}
+                    variant={filterLetter === letter ? "default" : "outline"}
+                    size="sm"
+                    className="w-8 h-8 p-0 text-xs font-medium"
+                    onClick={() => handleLetterFilter(letter)}
+                  >
+                    {letter}
+                  </Button>
+                ))}
+              </div>
+              <div className="text-sm font-medium text-muted-foreground bg-secondary/30 px-3 py-1.5 rounded-md border flex items-center gap-2 w-fit">
+                <Users className="h-4 w-4 text-primary" />
+                <span>
+                  {language === "ar" ? "عدد الموظفين:" : "Employee Count:"}{" "}
+                  <span className="font-bold text-foreground">{employees.length}</span>
+                </span>
+              </div>
             </div>
           </div>
 
