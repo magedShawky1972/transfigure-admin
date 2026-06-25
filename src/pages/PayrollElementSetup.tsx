@@ -97,6 +97,7 @@ export default function PayrollElementSetup() {
       formula: form.formula || null,
       is_delay_minutes_element: !!form.is_delay_minutes_element,
       is_basic_salary_element: !!form.is_basic_salary_element,
+      is_absence_element: !!form.is_absence_element,
       is_active: form.is_active !== false,
       sort_order: Number(form.sort_order) || 0,
     };
