@@ -2678,6 +2678,53 @@ export default function EmployeeSetup() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={addBuOpen} onOpenChange={setAddBuOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{language === "ar" ? "إضافة وحدة عمل" : "Add Business Unit"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الاسم (إنجليزي)" : "Name (English)"}</Label>
+              <Input value={newBuName} onChange={(e) => setNewBuName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "الاسم (عربي)" : "Name (Arabic)"}</Label>
+              <Input value={newBuNameAr} onChange={(e) => setNewBuNameAr(e.target.value)} dir="rtl" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddBuOpen(false)}>
+              {language === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!newBuName.trim()) {
+                  toast.error(language === "ar" ? "الاسم مطلوب" : "Name is required");
+                  return;
+                }
+                try {
+                  const { data, error } = await supabase
+                    .from("business_units")
+                    .insert({ unit_name: newBuName.trim(), unit_name_ar: newBuNameAr.trim() || null })
+                    .select("id, unit_name, unit_name_ar")
+                    .single();
+                  if (error) throw error;
+                  setBusinessUnits((prev) => [...prev, data as any].sort((a, b) => a.unit_name.localeCompare(b.unit_name)));
+                  setFormData({ ...formData, working_business_unit_id: (data as any).id });
+                  setAddBuOpen(false);
+                  toast.success(language === "ar" ? "تمت الإضافة" : "Added successfully");
+                } catch (err: any) {
+                  toast.error(err.message);
+                }
+              }}
+            >
+              {language === "ar" ? "حفظ" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
