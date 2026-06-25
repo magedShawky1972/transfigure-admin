@@ -865,6 +865,23 @@ export default function DeductionSummary() {
         </CardContent>
       </Card>
 
+      <div className="print-signatures">
+        <div className="sig-box">
+          <div className="sig-line">{isAr ? "المدير الإداري" : "Administrative Manager"}</div>
+          <div className="sig-sub">{isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+        </div>
+        <div className="sig-box">
+          <div className="sig-line">{isAr ? "المدير المالي" : "Financial Manager"}</div>
+          <div className="sig-sub">{isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+        </div>
+        <div className="sig-box">
+          <div className="sig-line">{isAr ? "المدير التنفيذي" : "Executive Manager"}</div>
+          <div className="sig-sub">{isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+        </div>
+      </div>
+
+
+
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent dir={isAr ? "rtl" : "ltr"}>
           <AlertDialogHeader>
