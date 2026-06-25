@@ -331,6 +331,14 @@ Deno.serve(async (req) => {
     for (const employee of (employees || [])) {
       if (!employee.zk_employee_code) continue;
 
+      // Skip if target date is before the employee's job start date
+      const jobStart = (employee as any).job_start_date as string | null;
+      if (jobStart && targetDate < jobStart) {
+        console.log(`${employee.first_name} ${employee.last_name} - skipping, target ${targetDate} is before job start ${jobStart}`);
+        continue;
+      }
+
+
       // Check if today is a weekend for this employee's attendance type
       const empAttendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
       const weekendDays: number[] = (empAttendanceType as any)?.weekend_days || [5, 6];
