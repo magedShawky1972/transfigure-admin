@@ -2063,7 +2063,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="cursor-default">
+            <Card
+              onClick={() => setCardFilter(cardFilter === "delay" ? "all" : "delay")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "delay" ? "ring-2 ring-amber-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-amber-600">
@@ -2073,6 +2076,7 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
+
             
             
             {/* Naughty Corner Card */}
