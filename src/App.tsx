@@ -187,6 +187,7 @@ import PayrollEmployeeElements from "./pages/PayrollEmployeeElements";
 import PayrollVariableEntry from "./pages/PayrollVariableEntry";
 import PayrollRun from "./pages/PayrollRun";
 import PayrollMatrixEntry from "./pages/PayrollMatrixEntry";
+import PayrollMonthPreview from "./pages/PayrollMonthPreview";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -380,6 +381,7 @@ const App = () => (
               <Route path="/payroll/eligibility" element={<PayrollElementEligibility />} />
               <Route path="/payroll/employee-elements" element={<PayrollEmployeeElements />} />
               <Route path="/payroll/matrix-entry" element={<PayrollMatrixEntry />} />
+              <Route path="/payroll/month-preview" element={<PayrollMonthPreview />} />
               <Route path="/payroll/variable-entry" element={<PayrollVariableEntry />} />
               <Route path="/payroll/run" element={<PayrollRun />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE - DO NOT REMOVE */}

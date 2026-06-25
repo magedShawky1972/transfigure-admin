@@ -155,5 +155,6 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/payroll/employee-elements": "payrollEmployeeElements",
   "/payroll/matrix-entry": "payrollMatrixEntry",
   "/payroll/variable-entry": "payrollVariableEntry",
+  "/payroll/month-preview": "payrollMonthPreview",
   "/payroll/run": "payrollRun",
 };
