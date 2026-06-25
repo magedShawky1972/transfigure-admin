@@ -1624,6 +1624,22 @@ export default function TimesheetManagement() {
             </Button>
             <Button
               variant="outline"
+              onClick={() => setRecalcDialogOpen(true)}
+              disabled={recalcRunning || loading}
+              title={language === "ar" ? "إعادة حساب سجل الحضور للفترة المحددة" : "Recalculate timesheet for selected filter"}
+              className="border-blue-500 text-blue-600 hover:bg-blue-50"
+            >
+              {recalcRunning ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Calculator className="h-4 w-4 mr-2" />
+              )}
+              {recalcRunning
+                ? `${recalcProgress.done}/${recalcProgress.total}`
+                : (language === "ar" ? "إعادة الحساب" : "Recalculate")}
+            </Button>
+            <Button
+              variant="outline"
               onClick={exportToExcel}
               disabled={timesheets.length === 0}
             >
