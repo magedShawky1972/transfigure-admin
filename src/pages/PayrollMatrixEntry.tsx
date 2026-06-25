@@ -441,13 +441,13 @@ export default function PayrollMatrixEntry() {
         </CardHeader>
         <CardContent>
           <TopHorizontalScrollbar>
-            <ScrollArea className="w-full">
-              <div className="min-w-full overflow-x-auto">
+            <ScrollArea className="w-full" dir={language === "ar" ? "rtl" : "ltr"}>
+              <div className="min-w-full overflow-x-auto" dir={language === "ar" ? "rtl" : "ltr"}>
                 <Table dir={language === "ar" ? "rtl" : "ltr"}>
                   <TableHeader>
                     <TableRow>
                       <TableHead
-                        className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]"
+                        className="sticky start-0 bg-background z-10 cursor-pointer select-none min-w-[200px]"
                         onClick={(e) => toggleSort("name", e)}
                       >
                         <div className="flex items-center gap-1">{language === "ar" ? "اسم الموظف" : "Employee"} {sortBadge("name")}</div>
@@ -488,7 +488,7 @@ export default function PayrollMatrixEntry() {
                       </TableRow>
                     ) : sorted.map((emp) => (
                       <TableRow key={emp.id}>
-                        <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                        <TableCell className="sticky start-0 bg-background z-10 font-medium">
                           {empName(emp)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
@@ -516,6 +516,7 @@ export default function PayrollMatrixEntry() {
               </div>
             </ScrollArea>
           </TopHorizontalScrollbar>
+
         </CardContent>
 
       </Card>
