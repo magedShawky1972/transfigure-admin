@@ -323,7 +323,7 @@ export default function DeductionSummary() {
                   {delayElements.length === 0 ? (
                     <SelectItem value="none" disabled>{isAr ? "لا يوجد عنصر معرف" : "No delay element defined"}</SelectItem>
                   ) : delayElements.map(e => (
-                    <SelectItem key={e.id} value={e.id}>{e.element_code} - {e.element_name}</SelectItem>
+                    <SelectItem key={e.id} value={e.id}>{e.code} - {isAr ? (e.name_ar || e.name_en) : e.name_en}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
