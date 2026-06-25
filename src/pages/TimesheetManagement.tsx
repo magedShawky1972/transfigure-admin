@@ -1059,13 +1059,13 @@ export default function TimesheetManagement() {
       const shiftBasedUserIds = (employeesRes.data || [])
         .filter((e: any) => e.user_id && e.attendance_types?.is_shift_based)
         .map((e: any) => e.user_id);
-      const newShiftMap = new Map<string, { shift_name: string; start: string | null; end: string | null }>();
+      const newShiftMap = new Map<string, { shift_name: string; start: string | null; end: string | null; opened_at: string | null; closed_at: string | null }>();
       if (shiftBasedUserIds.length > 0) {
         const rangeStartIso = `${vacDateFrom}T00:00:00+03:00`;
         const rangeEndIso = `${vacDateTo}T23:59:59+03:00`;
         const { data: sessions } = await supabase
           .from("shift_sessions")
-          .select("user_id, opened_at, shift_assignments!inner(shifts!inner(shift_name, shift_start_time, shift_end_time))")
+          .select("user_id, opened_at, closed_at, shift_assignments!inner(shifts!inner(shift_name, shift_start_time, shift_end_time))")
           .in("user_id", shiftBasedUserIds)
           .gte("opened_at", rangeStartIso)
           .lte("opened_at", rangeEndIso);
@@ -1079,6 +1079,8 @@ export default function TimesheetManagement() {
               shift_name: shift.shift_name,
               start: shift.shift_start_time,
               end: shift.shift_end_time,
+              opened_at: s.opened_at,
+              closed_at: s.closed_at,
             });
           }
         });
