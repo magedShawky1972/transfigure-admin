@@ -44,6 +44,8 @@ interface DeductionRule {
   is_overtime: boolean;
   overtime_multiplier: number;
   is_active: boolean;
+  is_absence_with_notice?: boolean | null;
+  is_absence_without_notice?: boolean | null;
 }
 
 export default function DeductionRulesSetup() {
