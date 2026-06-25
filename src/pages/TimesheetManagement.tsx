@@ -1940,7 +1940,39 @@ export default function TimesheetManagement() {
                           "-"
                         )}
                       </TableCell>
-                      <TableCell>{getStatusBadge(ts.status, ts.is_absent)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {getStatusBadge(ts.status, ts.is_absent)}
+                          {ts.is_absent && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant={(ts as any).absence_has_notice === true ? "default" : "outline"}
+                                className="h-6 px-2 text-[10px]"
+                                onClick={async () => {
+                                  await supabase.from("timesheets").update({ absence_has_notice: true }).eq("id", ts.id);
+                                  setTimesheets(prev => prev.map(t => t.id === ts.id ? { ...t, absence_has_notice: true } as any : t));
+                                  toast.success(language === "ar" ? "تم التحديث" : "Updated");
+                                }}
+                              >
+                                {language === "ar" ? "بإشعار" : "Notice"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={(ts as any).absence_has_notice === false ? "destructive" : "outline"}
+                                className="h-6 px-2 text-[10px]"
+                                onClick={async () => {
+                                  await supabase.from("timesheets").update({ absence_has_notice: false }).eq("id", ts.id);
+                                  setTimesheets(prev => prev.map(t => t.id === ts.id ? { ...t, absence_has_notice: false } as any : t));
+                                  toast.success(language === "ar" ? "تم التحديث" : "Updated");
+                                }}
+                              >
+                                {language === "ar" ? "بدون" : "No Notice"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">
                         {(ts as any).is_wfh ? (
                           <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
