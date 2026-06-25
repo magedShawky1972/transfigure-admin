@@ -1529,6 +1529,23 @@ export default function TimesheetManagement() {
               <Printer className="h-4 w-4 mr-2" />
               {language === "ar" ? "ملخص الخصومات" : "Deduction Summary"}
             </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                const p = new URLSearchParams({ mode: filterMode });
+                if (filterMode === "date") p.set("date", selectedDate);
+                else if (filterMode === "month") p.set("month", selectedMonth);
+                else { p.set("from", dateFrom); p.set("to", dateTo); }
+                if (selectedEmployee) p.set("employee", selectedEmployee);
+                if (selectedDepartment) p.set("department", selectedDepartment);
+                navigate(`/timesheet-management/deduction-summary?${p.toString()}`);
+              }}
+              disabled={timesheets.length === 0}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Calculator className="h-4 w-4 mr-2" />
+              {language === "ar" ? "صفحة الخصومات" : "Deduction Page"}
+            </Button>
             <Button 
               variant="outline" 
               onClick={handleResendDeductionMails}
