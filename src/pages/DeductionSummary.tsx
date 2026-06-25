@@ -613,7 +613,7 @@ export default function DeductionSummary() {
       r.earlyLeaveCount,
       r.totalEarlyLeaveMinutes,
       r.absentCount,
-      Array.from(r.rules.values()).map(x => `${x.name}: ${x.count}x (${x.amount.toFixed(2)})`).join(" | "),
+      Array.from(r.rules.values()).map(x => `${x.name}: ${x.count}x (${formatNumber(x.amount)})`).join(" | "),
       Number(r.totalDeduction.toFixed(2)),
     ]);
     body.push(["", "", isAr ? "الإجمالي" : "Grand Total", "", "", "", "", "", "", "", Number(grandTotal.toFixed(2))]);
