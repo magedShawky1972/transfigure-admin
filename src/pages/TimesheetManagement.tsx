@@ -317,7 +317,13 @@ export default function TimesheetManagement() {
         ts.deduction_rules && ts.deduction_rules.deduction_value > 0
           ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
           : "-",
-        ts.is_absent ? (language === "ar" ? "غائب" : "Absent") : ts.status,
+        ts.is_absent
+          ? (language === "ar" ? "غائب" : "Absent")
+          : ts.status === "vacation"
+            ? (language === "ar" ? (ts as any).vacation_name_ar || "إجازة" : (ts as any).vacation_name_en || "Vacation")
+            : ts.status === "holiday"
+              ? (language === "ar" ? "إجازة رسمية" : "Holiday")
+              : ts.status,
       ]);
     });
 
