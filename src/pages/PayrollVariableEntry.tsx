@@ -33,6 +33,32 @@ export default function PayrollVariableEntry() {
   const [el, setEl] = useState<string>("");
   const [amount, setAmount] = useState<string>("0");
   const [notes, setNotes] = useState<string>("");
+  const [fEmp, setFEmp] = useState<string>("");
+  const [fEl, setFEl] = useState<string>("");
+  const [fAmount, setFAmount] = useState<string>("");
+  const [fNotes, setFNotes] = useState<string>("");
+  type SortKey = "employee" | "element" | "amount" | "notes";
+  const [sorts, setSorts] = useState<{ key: SortKey; dir: "asc" | "desc" }[]>([]);
+
+  const toggleSort = (key: SortKey, additive: boolean) => {
+    setSorts((prev) => {
+      const existing = prev.find((s) => s.key === key);
+      if (!additive) {
+        if (!existing) return [{ key, dir: "asc" }];
+        if (existing.dir === "asc") return [{ key, dir: "desc" }];
+        return [];
+      }
+      if (!existing) return [...prev, { key, dir: "asc" }];
+      if (existing.dir === "asc") return prev.map((s) => (s.key === key ? { ...s, dir: "desc" } : s));
+      return prev.filter((s) => s.key !== key);
+    });
+  };
+
+  const sortIndicator = (key: SortKey) => {
+    const idx = sorts.findIndex((s) => s.key === key);
+    if (idx === -1) return "";
+    return ` ${sorts[idx].dir === "asc" ? "▲" : "▼"}${sorts.length > 1 ? idx + 1 : ""}`;
+  };
 
   const load = async () => {
     const [e, els] = await Promise.all([
