@@ -1,0 +1,2 @@
+UPDATE public.deduction_rules SET is_absence_with_notice = true WHERE id = '01354d26-521a-4a54-a227-945d05894c30';
+UPDATE public.deduction_rules SET is_absence_without_notice = true WHERE id = '21955647-6c43-4dbb-ba00-458b16111bee';
