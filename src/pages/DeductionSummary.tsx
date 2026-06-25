@@ -32,7 +32,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
 
@@ -257,8 +258,81 @@ export default function DeductionSummary() {
 
   useEffect(() => { fetchData(); fetchDelayElements(); /* eslint-disable-next-line */ }, []);
 
-  const grandTotal = rows.reduce((s, r) => s + r.totalDeduction, 0);
-  const grandMinutes = rows.reduce((s, r) => s + r.totalLateMinutes + r.totalEarlyLeaveMinutes, 0);
+  type SortKey = "empNumber" | "name" | "lateCount" | "totalLateMinutes" | "earlyLeaveCount" | "absentCount" | "rules" | "totalDeduction";
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sorts, setSorts] = useState<{ key: SortKey; dir: "asc" | "desc" }[]>([{ key: "totalDeduction", dir: "desc" }]);
+
+  const toggleSort = (key: SortKey, additive: boolean) => {
+    setSorts(prev => {
+      const idx = prev.findIndex(s => s.key === key);
+      if (!additive) {
+        if (idx === -1) return [{ key, dir: "asc" }];
+        const cur = prev[idx];
+        if (cur.dir === "asc") return [{ key, dir: "desc" }];
+        return [];
+      }
+      if (idx === -1) return [...prev, { key, dir: "asc" }];
+      const cur = prev[idx];
+      const next = [...prev];
+      if (cur.dir === "asc") next[idx] = { key, dir: "desc" };
+      else next.splice(idx, 1);
+      return next;
+    });
+  };
+
+  const sortIndicator = (key: SortKey) => {
+    const idx = sorts.findIndex(s => s.key === key);
+    if (idx === -1) return <ArrowUpDown className="h-3 w-3 inline opacity-40 ml-1" />;
+    const s = sorts[idx];
+    return (
+      <span className="inline-flex items-center ml-1 text-primary">
+        {s.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {sorts.length > 1 && <span className="text-[10px] ml-0.5">{idx + 1}</span>}
+      </span>
+    );
+  };
+
+  const getValue = (r: Row, key: SortKey): string | number => {
+    switch (key) {
+      case "rules": return Array.from(r.rules.values()).map(x => x.name).join(", ");
+      default: return r[key] as any;
+    }
+  };
+
+  const displayRows = useMemo(() => {
+    const matchesFilter = (val: string, q: string) =>
+      !q || String(val ?? "").toLowerCase().includes(q.toLowerCase());
+    let out = rows.filter(r =>
+      matchesFilter(r.empNumber, filters.empNumber || "") &&
+      matchesFilter(r.name, filters.name || "") &&
+      matchesFilter(String(r.lateCount), filters.lateCount || "") &&
+      matchesFilter(String(r.totalLateMinutes), filters.totalLateMinutes || "") &&
+      matchesFilter(`${r.earlyLeaveCount} ${r.totalEarlyLeaveMinutes}`, filters.earlyLeaveCount || "") &&
+      matchesFilter(String(r.absentCount), filters.absentCount || "") &&
+      matchesFilter(Array.from(r.rules.values()).map(x => x.name).join(" "), filters.rules || "") &&
+      matchesFilter(r.totalDeduction.toFixed(2), filters.totalDeduction || "")
+    );
+    if (sorts.length > 0) {
+      out = [...out].sort((a, b) => {
+        for (const s of sorts) {
+          const av = getValue(a, s.key);
+          const bv = getValue(b, s.key);
+          let cmp = 0;
+          if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+          else cmp = String(av).localeCompare(String(bv));
+          if (cmp !== 0) return s.dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
+    return out;
+  }, [rows, filters, sorts]);
+
+  const clearFiltersSorts = () => { setFilters({}); setSorts([]); };
+
+  const grandTotal = displayRows.reduce((s, r) => s + r.totalDeduction, 0);
+  const grandMinutes = displayRows.reduce((s, r) => s + r.totalLateMinutes + r.totalEarlyLeaveMinutes, 0);
+
 
   const handleConfirm = async () => {
     if (!selectedElementId) {
@@ -403,7 +477,7 @@ export default function DeductionSummary() {
       isAr ? "القواعد المطبقة" : "Applied Rules",
       isAr ? "إجمالي الخصم" : "Total Deduction",
     ];
-    const body = rows.map((r, i) => [
+    const body = displayRows.map((r, i) => [
       i + 1,
       r.empNumber,
       r.name,
@@ -531,23 +605,56 @@ export default function DeductionSummary() {
                 <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">{isAr ? "إجمالي الخصم" : "Total Deduction"}</div><div className="text-2xl font-bold text-red-600">{grandTotal.toFixed(2)}</div></CardContent></Card>
               </div>
 
+              <div className="flex items-center justify-between mb-2 print:hidden">
+                <div className="text-xs text-muted-foreground">
+                  {isAr ? "اضغط على العنوان للترتيب • Shift+اضغط لترتيب متعدد" : "Click header to sort • Shift+click for multi-sort"}
+                </div>
+                {(sorts.length > 0 || Object.values(filters).some(v => v)) && (
+                  <Button variant="ghost" size="sm" onClick={clearFiltersSorts}>
+                    <X className="h-3 w-3 mr-1" /> {isAr ? "مسح الترتيب والتصفية" : "Clear sorts & filters"}
+                  </Button>
+                )}
+              </div>
               <div className="overflow-x-auto border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
-                      <TableHead>{isAr ? "رقم الموظف" : "Emp #"}</TableHead>
-                      <TableHead>{isAr ? "الموظف" : "Employee"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "عدد التأخيرات" : "Late Count"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "دقائق التأخير" : "Late Min"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "خروج مبكر" : "Early Leave"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "غياب" : "Absent"}</TableHead>
-                      <TableHead>{isAr ? "القواعد المطبقة" : "Applied Rules"}</TableHead>
-                      <TableHead className="text-right">{isAr ? "إجمالي الخصم" : "Total Deduction"}</TableHead>
+                      {([
+                        { k: "empNumber", l: isAr ? "رقم الموظف" : "Emp #", right: false },
+                        { k: "name", l: isAr ? "الموظف" : "Employee", right: false },
+                        { k: "lateCount", l: isAr ? "عدد التأخيرات" : "Late Count", right: true },
+                        { k: "totalLateMinutes", l: isAr ? "دقائق التأخير" : "Late Min", right: true },
+                        { k: "earlyLeaveCount", l: isAr ? "خروج مبكر" : "Early Leave", right: true },
+                        { k: "absentCount", l: isAr ? "غياب" : "Absent", right: true },
+                        { k: "rules", l: isAr ? "القواعد المطبقة" : "Applied Rules", right: false },
+                        { k: "totalDeduction", l: isAr ? "إجمالي الخصم" : "Total Deduction", right: true },
+                      ] as { k: SortKey; l: string; right: boolean }[]).map(col => (
+                        <TableHead
+                          key={col.k}
+                          className={`cursor-pointer select-none ${col.right ? "text-right" : ""}`}
+                          onClick={(e) => toggleSort(col.k, e.shiftKey)}
+                        >
+                          {col.l}{sortIndicator(col.k)}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                    <TableRow className="print:hidden">
+                      <TableHead></TableHead>
+                      {(["empNumber","name","lateCount","totalLateMinutes","earlyLeaveCount","absentCount","rules","totalDeduction"] as const).map(k => (
+                        <TableHead key={k} className="py-1">
+                          <Input
+                            value={filters[k] || ""}
+                            onChange={e => setFilters(f => ({ ...f, [k]: e.target.value }))}
+                            placeholder={isAr ? "تصفية..." : "Filter..."}
+                            className="h-7 text-xs"
+                          />
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r, i) => (
+                    {displayRows.map((r, i) => (
                       <TableRow key={r.employee_id}>
                         <TableCell>{i + 1}</TableCell>
                         <TableCell>{r.empNumber}</TableCell>
@@ -569,6 +676,7 @@ export default function DeductionSummary() {
                       <TableCell className="text-right text-red-600">{grandTotal.toFixed(2)}</TableCell>
                     </TableRow>
                   </TableBody>
+
                 </Table>
               </div>
 
