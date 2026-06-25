@@ -243,25 +243,28 @@ export default function PayrollRun() {
 
   const loadRefs = async () => {
     const [e, el, d, j] = await Promise.all([
-      supabase.from("employees").select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status"),
-      supabase.from("payroll_elements").select("id, name_en, element_type"),
-      supabase.from("departments").select("id, department_name").order("department_name"),
-      supabase.from("job_positions").select("id, position_name").order("position_name"),
+      supabase.from("employees").select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status"),
+      supabase.from("payroll_elements").select("id, name_en, name_ar, element_type"),
+      supabase.from("departments").select("id, department_name, department_name_ar").order("department_name"),
+      supabase.from("job_positions").select("id, position_name, position_name_ar").order("position_name"),
     ]);
     const em: Record<string, string> = {};
     const list: any[] = [];
+    const fullName = (x: any) => language === "ar"
+      ? `${x.first_name_ar || x.first_name || ""} ${x.last_name_ar || x.last_name || ""}`.trim()
+      : `${x.first_name || ""} ${x.last_name || ""}`.trim();
     (e.data || []).forEach((x: any) => {
-      em[x.id] = `${x.employee_number} — ${x.first_name} ${x.last_name}`;
-      if (x.employment_status !== "terminated") list.push({ id: x.id, name: `${x.employee_number} — ${x.first_name} ${x.last_name}`, department_id: x.department_id, job_position_id: x.job_position_id });
+      em[x.id] = `${x.employee_number} — ${fullName(x)}`;
+      if (x.employment_status !== "terminated") list.push({ id: x.id, name: `${x.employee_number} — ${fullName(x)}`, department_id: x.department_id, job_position_id: x.job_position_id });
     });
     setEmpMap(em);
     list.sort((a, b) => a.name.localeCompare(b.name));
     setAllEmps(list);
     const lm: Record<string, { name: string; type: string }> = {};
-    (el.data || []).forEach((x: any) => { lm[x.id] = { name: x.name_en, type: x.element_type }; });
+    (el.data || []).forEach((x: any) => { lm[x.id] = { name: (language === "ar" && x.name_ar) ? x.name_ar : x.name_en, type: x.element_type }; });
     setElMap(lm);
-    setAllDepts(((d.data || []) as any[]).map((x) => ({ id: x.id, name: x.department_name })));
-    setAllJobs(((j.data || []) as any[]).map((x) => ({ id: x.id, name: x.position_name })));
+    setAllDepts(((d.data || []) as any[]).map((x) => ({ id: x.id, name: (language === "ar" && x.department_name_ar) ? x.department_name_ar : x.department_name })));
+    setAllJobs(((j.data || []) as any[]).map((x) => ({ id: x.id, name: (language === "ar" && x.position_name_ar) ? x.position_name_ar : x.position_name })));
   };
 
   const loadRuns = async () => {
