@@ -186,6 +186,7 @@ export default function TimesheetManagement() {
   const [naughtyDrilldownRecords, setNaughtyDrilldownRecords] = useState<{work_date: string; late_minutes: number; scheduled_start: string | null; actual_start: string | null; deduction_rule_name: string | null}[]>([]);
   const [naughtyDrilldownLoading, setNaughtyDrilldownLoading] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [cardFilter, setCardFilter] = useState<"all" | "approved" | "waiting" | "absent">("all");
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([
     { key: "work_date", direction: "asc" },
     { key: "employee", direction: "asc" },
@@ -238,7 +239,14 @@ export default function TimesheetManagement() {
   const getEmployeeName = (ts: Timesheet) =>
     ts.employees ? `${ts.employees.first_name} ${ts.employees.last_name}` : "";
 
-  const sortedTimesheets = [...timesheets].sort((a, b) => {
+  const filteredByCard = timesheets.filter((t) => {
+    if (cardFilter === "all") return true;
+    if (cardFilter === "approved") return t.status === "approved";
+    if (cardFilter === "waiting") return t.status === "waiting_for_exit" || t.status === "pending";
+    if (cardFilter === "absent") return t.is_absent;
+    return true;
+  });
+  const sortedTimesheets = [...filteredByCard].sort((a, b) => {
     for (const { key, direction } of sortCriteria) {
       const dir = direction === "asc" ? 1 : -1;
       let cmp = 0;
@@ -1911,7 +1919,10 @@ export default function TimesheetManagement() {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-            <Card>
+            <Card
+              onClick={() => setCardFilter("all")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "all" ? "ring-2 ring-primary" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold">{timesheets.length}</p>
@@ -1919,7 +1930,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "approved" ? "all" : "approved")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "approved" ? "ring-2 ring-green-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-green-600">
@@ -1929,7 +1943,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "waiting" ? "all" : "waiting")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "waiting" ? "ring-2 ring-orange-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-orange-600">
@@ -1939,7 +1956,10 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "absent" ? "all" : "absent")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "absent" ? "ring-2 ring-red-600" : ""}`}
+            >
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-red-600">
