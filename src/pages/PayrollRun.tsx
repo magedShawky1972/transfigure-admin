@@ -188,13 +188,27 @@ export default function PayrollRun() {
       const linesToInsert: any[] = [];
       let totalGross = 0, totalDed = 0, totalEmpC = 0;
 
+      // Pre-compute basic salary per employee from is_basic_salary_element assigned amount
+      const basicElement = ((elements || []) as any[]).find((e: any) => e.is_basic_salary_element);
+      const basicSalaryByEmp: Record<string, number> = {};
+      for (const emp of activeEmps) {
+        let bs = 0;
+        if (basicElement) {
+          const a = (empElements || []).find((x: any) => x.employee_id === emp.id && x.element_id === basicElement.id);
+          if (a) bs = Number(a.amount) || 0;
+        }
+        if (!bs) bs = Number(emp.basic_salary) || 0; // fallback to legacy field
+        basicSalaryByEmp[emp.id] = bs;
+      }
+
       for (const emp of activeEmps) {
         // Determine which elements are eligible
         for (const el of (elements || []) as any[]) {
           const rules = (eligibility || []).filter((r: any) => r.element_id === el.id);
           let eligible = false;
           if (rules.length === 0) {
-            eligible = false; // requires at least one eligibility rule
+            // No eligibility rules defined → treat as eligible for everyone
+            eligible = true;
           } else {
             eligible = rules.some((r: any) => {
               const jobOk = !r.job_position_id || r.job_position_id === emp.job_position_id;
@@ -208,12 +222,19 @@ export default function PayrollRun() {
           let minutes: number | null = null;
 
           if (el.is_delay_minutes_element || el.calculation_type === "delay_minutes") {
-            const mins = delayMinutesByEmp[emp.id] || 0;
-            const totalSalary = Number(emp.basic_salary) || 0;
-            const perMinute = totalSalary > 0 ? totalSalary / 30 / 8 / 60 : 0;
-            amount = mins * perMinute;
-            minutes = mins;
-            if (amount <= 0 && mins <= 0) continue;
+            // Prefer value coming from Deduction Summary (payroll_variable_entries) if present
+            const v = (variables || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
+            if (v) {
+              amount = Number(v.amount) || 0;
+              minutes = null;
+            } else {
+              const mins = delayMinutesByEmp[emp.id] || 0;
+              const totalSalary = basicSalaryByEmp[emp.id] || 0;
+              const perMinute = totalSalary > 0 ? totalSalary / 30 / 8 / 60 : 0;
+              amount = mins * perMinute;
+              minutes = mins;
+            }
+            if (amount <= 0 && !minutes) continue;
           } else if (el.calculation_type === "variable") {
             const v = (variables || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
             if (!v) continue;
@@ -241,6 +262,7 @@ export default function PayrollRun() {
           else if (el.element_type === "employer_contribution") totalEmpC += amount;
         }
       }
+
 
       if (linesToInsert.length > 0) {
         // batch insert in chunks of 500
