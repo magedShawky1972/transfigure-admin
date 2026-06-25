@@ -292,15 +292,24 @@ export default function PayrollRun() {
     setLines((data || []) as Line[]);
   };
 
-  useEffect(() => { loadRefs(); loadRuns(); }, []);
+  useEffect(() => { if (!scopeLoading) { loadRefs(); loadRuns(); } }, [scopeLoading, allowedEmployeeIds]);
 
   const computePeriod = async () => {
     setBusy(true);
     try {
       // 1. Load employees and apply scope filters
-      const { data: emps, error: empErr } = await supabase
+      let empBaseQuery = supabase
         .from("employees")
         .select("id, basic_salary, department_id, job_position_id, employment_status");
+      if (allowedEmployeeIds !== null) {
+        if (allowedEmployeeIds.length === 0) {
+          toast({ title: isAr ? "لا يوجد موظفون ضمن وحدات العمل المخصصة لك" : "No employees in your assigned Business Units", variant: "destructive" });
+          setBusy(false);
+          return;
+        }
+        empBaseQuery = empBaseQuery.in("id", allowedEmployeeIds);
+      }
+      const { data: emps, error: empErr } = await empBaseQuery;
       if (empErr) throw empErr;
       let activeEmps = (emps || []).filter((e: any) => e.employment_status !== "terminated");
       if (empFilter.length) activeEmps = activeEmps.filter((e: any) => empFilter.includes(e.id));
