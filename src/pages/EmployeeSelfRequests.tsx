@@ -464,21 +464,6 @@ const EmployeeSelfRequests = () => {
             requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
           }
         } else {
-            // Submitter is the top approver - skip directly to HR
-            const { data: firstHR } = await supabase
-              .from('hr_managers')
-              .select('admin_order')
-              .eq('is_active', true)
-              .order('admin_order')
-              .limit(1);
-
-            requestData.current_phase = 'hr';
-            requestData.status = 'manager_approved';
-            requestData.manager_approved_at = new Date().toISOString();
-            requestData.manager_approved_by = submitterUserId;
-            requestData.current_approval_level = firstHR?.[0]?.admin_order ?? 0;
-          }
-        } else {
           // Submitter is NOT the target department manager - route to department manager first
           const { data: deptAdmins } = await supabase
             .from('department_admins')
