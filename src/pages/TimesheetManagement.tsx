@@ -2024,6 +2024,17 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
+            <Card className="cursor-default">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {timesheets.reduce((sum, t) => sum + (t.late_minutes || 0), 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي دقائق التأخير" : "Total Delay Min"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            
             
             {/* Naughty Corner Card */}
             <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
