@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2 } from "lucide-react";
 
@@ -53,6 +54,17 @@ export default function PayrollRun() {
   const [empFilter, setEmpFilter] = useState<string[]>([]);
   const [deptFilter, setDeptFilter] = useState<string[]>([]);
   const [jobFilter, setJobFilter] = useState<string[]>([]);
+
+  // App-level confirm dialog (replaces window.confirm)
+  const [confirmDlg, setConfirmDlg] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    onConfirm?: () => void | Promise<void>;
+  }>({ open: false, title: "", description: "" });
+  const askConfirm = (opts: Omit<typeof confirmDlg, "open">) => setConfirmDlg({ ...opts, open: true });
 
   const loadRefs = async () => {
     const [e, el, d, j] = await Promise.all([
@@ -304,53 +316,72 @@ export default function PayrollRun() {
     }
   };
 
-  const confirmRun = async (run: Run) => {
-    if (!confirm(`Confirm and LOCK payroll for ${run.period_year}-${run.period_month}?`)) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("payroll_runs").update({
-      status: "confirmed",
-      confirmed_at: new Date().toISOString(),
-      confirmed_by: user?.id,
-    }).eq("id", run.id);
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Confirmed and locked" }); loadRuns(); }
+  const confirmRun = (run: Run) => {
+    askConfirm({
+      title: "Confirm & Lock Payroll",
+      description: `Confirm and LOCK payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? Once locked it cannot be recomputed without rolling back.`,
+      confirmLabel: "Confirm & Lock",
+      onConfirm: async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { error } = await supabase.from("payroll_runs").update({
+          status: "confirmed",
+          confirmed_at: new Date().toISOString(),
+          confirmed_by: user?.id,
+        }).eq("id", run.id);
+        if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+        else { toast({ title: "Confirmed and locked" }); loadRuns(); }
+      },
+    });
   };
 
-  const deleteRun = async (run: Run) => {
+  const deleteRun = (run: Run) => {
     if (run.status === "confirmed") return;
-    if (!confirm("Delete this draft run?")) return;
-    await supabase.from("payroll_runs").delete().eq("id", run.id);
-    setSelectedRun(null);
-    setLines([]);
-    loadRuns();
+    askConfirm({
+      title: "Delete Draft Run",
+      description: `Delete the draft payroll run for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This permanently removes the run and all its lines.`,
+      confirmLabel: "Delete",
+      destructive: true,
+      onConfirm: async () => {
+        await supabase.from("payroll_runs").delete().eq("id", run.id);
+        setSelectedRun(null);
+        setLines([]);
+        loadRuns();
+      },
+    });
   };
 
-  const rollbackRun = async (run: Run) => {
-    const msg = run.status === "confirmed"
-      ? `Rollback CONFIRMED payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}?\n\nThis will unlock the run back to draft so it can be recomputed or edited.`
-      : `Rollback draft payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}?\n\nThis will clear all computed lines and reset totals to zero.`;
-    if (!confirm(msg)) return;
-    try {
-      // Always clear lines and reset totals; if confirmed, also unlock to draft.
-      const { error: delErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
-      if (delErr) throw delErr;
-      const { error: updErr } = await supabase.from("payroll_runs").update({
-        status: "draft",
-        confirmed_at: null,
-        confirmed_by: null,
-        total_gross: 0,
-        total_deductions: 0,
-        total_employer_contributions: 0,
-        total_net: 0,
-        employee_count: 0,
-      }).eq("id", run.id);
-      if (updErr) throw updErr;
-      toast({ title: "Rolled back", description: "Run reset to draft with no lines." });
-      if (selectedRun?.id === run.id) setLines([]);
-      loadRuns();
-    } catch (e: any) {
-      toast({ title: "Rollback failed", description: e.message, variant: "destructive" });
-    }
+  const rollbackRun = (run: Run) => {
+    const isConf = run.status === "confirmed";
+    askConfirm({
+      title: isConf ? "Rollback Confirmed Payroll" : "Rollback Draft Payroll",
+      description: isConf
+        ? `Rollback confirmed payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This unlocks the run back to draft and clears all computed lines.`
+        : `Rollback draft payroll for ${run.period_year}-${String(run.period_month).padStart(2, "0")}? This clears all computed lines and resets totals to zero.`,
+      confirmLabel: "Rollback",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const { error: delErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
+          if (delErr) throw delErr;
+          const { error: updErr } = await supabase.from("payroll_runs").update({
+            status: "draft",
+            confirmed_at: null,
+            confirmed_by: null,
+            total_gross: 0,
+            total_deductions: 0,
+            total_employer_contributions: 0,
+            total_net: 0,
+            employee_count: 0,
+          }).eq("id", run.id);
+          if (updErr) throw updErr;
+          toast({ title: "Rolled back", description: "Run reset to draft with no lines." });
+          if (selectedRun?.id === run.id) setLines([]);
+          loadRuns();
+        } catch (e: any) {
+          toast({ title: "Rollback failed", description: e.message, variant: "destructive" });
+        }
+      },
+    });
   };
 
   const viewRun = async (run: Run) => {
@@ -588,6 +619,28 @@ export default function PayrollRun() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={confirmDlg.open} onOpenChange={(o) => setConfirmDlg((s) => ({ ...s, open: o }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDlg.title}</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line">{confirmDlg.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmDlg.destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+              onClick={async () => {
+                const fn = confirmDlg.onConfirm;
+                setConfirmDlg((s) => ({ ...s, open: false }));
+                if (fn) await fn();
+              }}
+            >
+              {confirmDlg.confirmLabel || "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
