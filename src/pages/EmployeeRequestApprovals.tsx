@@ -910,6 +910,10 @@ const EmployeeRequestApprovals = () => {
 
               <Separator />
 
+              <RequestApprovalHistory request={selectedRequest} language={language as 'en' | 'ar'} />
+
+              <Separator />
+
               <div className="text-xs text-muted-foreground">
                 {language === 'ar' ? 'تاريخ الإنشاء:' : 'Created:'} {formatDate(selectedRequest.created_at)}
               </div>
