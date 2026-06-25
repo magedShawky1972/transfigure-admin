@@ -52,6 +52,7 @@ export default function PayrollMonthPreview() {
   const [deptFilter, setDeptFilter] = useState<string[]>([]);
   const [jobFilter, setJobFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [elementFilter, setElementFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [hideZeroEmployees, setHideZeroEmployees] = useState(false);
