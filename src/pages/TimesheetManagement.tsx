@@ -1055,6 +1055,36 @@ export default function TimesheetManagement() {
         return true;
       });
 
+      // Fetch shift_sessions for shift-based employees in the date range, to display shift name + scheduled times
+      const shiftBasedUserIds = (employeesRes.data || [])
+        .filter((e: any) => e.user_id && e.attendance_types?.is_shift_based)
+        .map((e: any) => e.user_id);
+      const newShiftMap = new Map<string, { shift_name: string; start: string | null; end: string | null }>();
+      if (shiftBasedUserIds.length > 0) {
+        const rangeStartIso = `${vacDateFrom}T00:00:00+03:00`;
+        const rangeEndIso = `${vacDateTo}T23:59:59+03:00`;
+        const { data: sessions } = await supabase
+          .from("shift_sessions")
+          .select("user_id, opened_at, shift_assignments!inner(shifts!inner(shift_name, shift_start_time, shift_end_time))")
+          .in("user_id", shiftBasedUserIds)
+          .gte("opened_at", rangeStartIso)
+          .lte("opened_at", rangeEndIso);
+        (sessions || []).forEach((s: any) => {
+          // Local date in Asia/Riyadh
+          const d = new Date(s.opened_at);
+          const localDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+          const shift = s.shift_assignments?.shifts;
+          if (shift) {
+            newShiftMap.set(`${s.user_id}|${localDate}`, {
+              shift_name: shift.shift_name,
+              start: shift.shift_start_time,
+              end: shift.shift_end_time,
+            });
+          }
+        });
+      }
+      setShiftSessionMap(newShiftMap);
+
       setTimesheets([...filteredBase, ...virtualWfhRows]);
     } catch (error: any) {
       toast.error(error.message);
