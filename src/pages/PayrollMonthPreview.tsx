@@ -377,36 +377,55 @@ export default function PayrollMonthPreview() {
   table { width:100%; border-collapse:collapse; }
   th, td { border:1px solid #cbd5e1; padding:4px 6px; font-size:10px; }
   th { background:#f1f5f9; text-align:${isAr ? "right" : "left"}; }
-  tr:nth-child(even) td { background:#fafafa; }
-  @media print { .no-print { display:none; } }
-</style>
-</head>
-<body>
-  <div class="no-print" style="margin-bottom:8px;">
-    <button onclick="window.print()">${isAr ? "طباعة" : "Print"}</button>
-  </div>
-  <h1>${title}</h1>
-  <div class="meta">
-    <span>${isAr ? "التاريخ" : "Date"}: ${today}</span>
-    <span>${isAr ? `${sorted.length} موظفين × ${visibleElements.length} عناصر` : `${sorted.length} employees × ${visibleElements.length} elements`}</span>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>${isAr ? "الموظف" : "Employee"}</th>
-        <th>${isAr ? "الرقم" : "Number"}</th>
-        <th>${isAr ? "القسم" : "Department"}</th>
-        <th>${isAr ? "الوظيفة" : "Job"}</th>
-        ${headerCells}
-        <th style="text-align:right;">${isAr ? "الصافي" : "Net"}</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${bodyRows}
-      ${totalsRow}
-    </tbody>
-  </table>
-  <script>setTimeout(function(){ window.print(); }, 300);</script>
+    tr:nth-child(even) td { background:#fafafa; }
+    .signatures { margin-top:30px; display:flex; justify-content:space-around; gap:20px; page-break-inside:avoid; }
+    .sig-box { flex:1; text-align:center; font-size:11px; }
+    .sig-line { border-top:1px solid #000; margin-top:50px; padding-top:6px; font-weight:bold; }
+    .sig-sub { font-size:9px; color:#555; margin-top:2px; }
+    @media print { .no-print { display:none; } }
+  </style>
+  </head>
+  <body>
+    <div class="no-print" style="margin-bottom:8px;">
+      <button onclick="window.print()">${isAr ? "طباعة" : "Print"}</button>
+    </div>
+    <h1>${title}</h1>
+    <div class="meta">
+      <span>${isAr ? "التاريخ" : "Date"}: ${today}</span>
+      <span>${isAr ? `${sorted.length} موظفين × ${visibleElements.length} عناصر` : `${sorted.length} employees × ${visibleElements.length} elements`}</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>${isAr ? "الموظف" : "Employee"}</th>
+          <th>${isAr ? "الرقم" : "Number"}</th>
+          <th>${isAr ? "القسم" : "Department"}</th>
+          <th>${isAr ? "الوظيفة" : "Job"}</th>
+          ${headerCells}
+          <th style="text-align:right;">${isAr ? "الصافي" : "Net"}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bodyRows}
+        ${totalsRow}
+      </tbody>
+    </table>
+    <div class="signatures">
+      <div class="sig-box">
+        <div class="sig-line">${isAr ? "المدير الإداري" : "Administrative Manager"}</div>
+        <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-line">${isAr ? "المدير المالي" : "Financial Manager"}</div>
+        <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-line">${isAr ? "المدير التنفيذي" : "Executive Manager"}</div>
+        <div class="sig-sub">${isAr ? "الاسم والتوقيع" : "Name & Signature"}</div>
+      </div>
+    </div>
+    <script>window.addEventListener('load', function(){ setTimeout(function(){ try { window.print(); } catch(e){} }, 400); });</script>
+
 </body>
 </html>`;
     const w = window.open("", "_blank");
