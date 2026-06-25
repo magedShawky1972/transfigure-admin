@@ -1024,13 +1024,8 @@ const EmployeeSelfRequests = () => {
                       <div>{detailRequest.delay_date}</div>
                       <div className="text-muted-foreground">{language === 'ar' ? 'المدة' : 'Duration'}</div>
                       <div>{(() => {
-                        const m = Number(detailRequest.delay_minutes) || 0;
-                        const h = Math.floor(m / 60);
-                        const rem = m % 60;
-                        if (language === 'ar') {
-                          return `${h} ساعة ${rem} دقيقة (${m} دقيقة)`;
-                        }
-                        return `${h}h ${rem}m (${m} min)`;
+                        const minutes = getDelayDurationMinutes(detailRequest);
+                        return minutes === null ? '-' : formatDurationMinutes(minutes);
                       })()}</div>
                     </>
                   )}
