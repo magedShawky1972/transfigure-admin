@@ -317,7 +317,13 @@ export default function TimesheetManagement() {
         ts.deduction_rules && ts.deduction_rules.deduction_value > 0
           ? (language === "ar" ? ts.deduction_rules.rule_name_ar || ts.deduction_rules.rule_name : ts.deduction_rules.rule_name)
           : "-",
-        ts.is_absent ? (language === "ar" ? "غائب" : "Absent") : ts.status,
+        ts.is_absent
+          ? (language === "ar" ? "غائب" : "Absent")
+          : ts.status === "vacation"
+            ? (language === "ar" ? (ts as any).vacation_name_ar || "إجازة" : (ts as any).vacation_name_en || "Vacation")
+            : ts.status === "holiday"
+              ? (language === "ar" ? "إجازة رسمية" : "Holiday")
+              : ts.status,
       ]);
     });
 
@@ -806,7 +812,7 @@ export default function TimesheetManagement() {
       // Fetch approved vacation/sick leave requests that overlap with the date range
       const { data: approvedLeaves } = await supabase
         .from("employee_requests")
-        .select("employee_id, start_date, end_date, request_type, delay_date")
+        .select("employee_id, start_date, end_date, request_type, delay_date, vacation_code_id, vacation_codes(name_en, name_ar)")
         .in("request_type", ["vacation", "sick_leave"])
         .eq("status", "approved")
         .lte("start_date", vacDateTo)
@@ -815,7 +821,7 @@ export default function TimesheetManagement() {
       // Also fetch manual vacation_requests
       const { data: manualVacations } = await supabase
         .from("vacation_requests")
-        .select("employee_id, start_date, end_date")
+        .select("employee_id, start_date, end_date, vacation_code_id, vacation_codes(name_en, name_ar)")
         .eq("status", "approved")
         .lte("start_date", vacDateTo)
         .gte("end_date", vacDateFrom);
@@ -878,20 +884,28 @@ export default function TimesheetManagement() {
         }
       });
 
-      // Build a set of employee_id + date combos that are vacation days
-      const vacationDays = new Set<string>();
+      // Build a map of employee_id + date combos that are vacation days, with their localized names
+      const vacationDays = new Map<string, { nameEn: string; nameAr: string }>();
       (approvedLeaves || []).forEach((leave: any) => {
         const start = new Date(leave.start_date);
         const end = new Date(leave.end_date);
+        const details = leave.vacation_codes ? {
+          nameEn: leave.vacation_codes.name_en,
+          nameAr: leave.vacation_codes.name_ar || leave.vacation_codes.name_en
+        } : (leave.request_type === "sick_leave" ? { nameEn: "Sick Leave", nameAr: "إجازة مرضية" } : { nameEn: "Vacation", nameAr: "إجازة" });
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          vacationDays.add(`${leave.employee_id}_${d.toISOString().split("T")[0]}`);
+          vacationDays.set(`${leave.employee_id}_${d.toISOString().split("T")[0]}`, details);
         }
       });
       (manualVacations || []).forEach((vac: any) => {
         const start = new Date(vac.start_date);
         const end = new Date(vac.end_date);
+        const details = vac.vacation_codes ? {
+          nameEn: vac.vacation_codes.name_en,
+          nameAr: vac.vacation_codes.name_ar || vac.vacation_codes.name_en
+        } : { nameEn: "Vacation", nameAr: "إجازة" };
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          vacationDays.add(`${vac.employee_id}_${d.toISOString().split("T")[0]}`);
+          vacationDays.set(`${vac.employee_id}_${d.toISOString().split("T")[0]}`, details);
         }
       });
 
@@ -911,13 +925,16 @@ export default function TimesheetManagement() {
       // WFH days no longer overwrite ZK rows — WFH sessions appear as separate rows
       const timesheetsWithMailStatus = (data || []).map(ts => {
         const key = `${ts.employee_id}_${ts.work_date}`;
-        const isVacationDay = vacationDays.has(key);
+        const vacationDetail = vacationDays.get(key);
+        const isVacationDay = !!vacationDetail;
         const hasApprovedDelay = approvedDelayDays.has(key);
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
           status: isVacationDay ? "vacation" : ts.status,
+          vacation_name_en: vacationDetail?.nameEn || null,
+          vacation_name_ar: vacationDetail?.nameAr || null,
           is_absent: isVacationDay ? false : ts.is_absent,
           late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
           early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
@@ -1623,7 +1640,7 @@ export default function TimesheetManagement() {
     setTimeout(() => printWindow.print(), 500);
   };
 
-  const getStatusBadge = (status: string, isAbsent: boolean) => {
+  const getStatusBadge = (status: string, isAbsent: boolean, ts?: any) => {
     if (isAbsent) {
       return <Badge variant="destructive">{language === "ar" ? "غائب" : "Absent"}</Badge>;
     }
@@ -1632,8 +1649,12 @@ export default function TimesheetManagement() {
         return <Badge className="bg-green-100 text-green-800">{language === "ar" ? "معتمد" : "Approved"}</Badge>;
       case "rejected":
         return <Badge variant="destructive">{language === "ar" ? "مرفوض" : "Rejected"}</Badge>;
-      case "vacation":
-        return <Badge className="bg-yellow-400 text-red-600 font-bold">{language === "ar" ? "إجازة" : "Vacation"}</Badge>;
+      case "vacation": {
+        const nameAr = ts?.vacation_name_ar;
+        const nameEn = ts?.vacation_name_en;
+        const dispName = language === "ar" ? (nameAr || nameEn || "إجازة") : (nameEn || nameAr || "Vacation");
+        return <Badge className="bg-yellow-400 text-red-600 font-bold">{dispName}</Badge>;
+      }
       case "holiday":
         return <Badge className="bg-purple-500 text-white font-bold">{language === "ar" ? "إجازة رسمية" : "Holiday"}</Badge>;
       case "waiting_for_exit":
@@ -2170,7 +2191,7 @@ export default function TimesheetManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {getStatusBadge(ts.status, ts.is_absent)}
+                          {getStatusBadge(ts.status, ts.is_absent, ts)}
                           {ts.is_absent && (
                             <div className="flex items-center gap-1">
                               <Button
