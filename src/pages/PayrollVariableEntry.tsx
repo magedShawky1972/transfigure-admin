@@ -53,7 +53,9 @@ function MatrixCellInput({
 type Emp = {
   id: string;
   first_name: string;
+  first_name_ar?: string | null;
   last_name: string;
+  last_name_ar?: string | null;
   employee_number: string;
   department_id: string | null;
   job_position_id: string | null;
@@ -69,6 +71,7 @@ type SortRule = { key: string; dir: "asc" | "desc" };
 
 export default function PayrollVariableEntry() {
   const { language } = useLanguage();
+  const empName = (e: any) => language === "ar" ? `${e?.first_name_ar || e?.first_name || ""} ${e?.last_name_ar || e?.last_name || ""}`.trim() : `${e?.first_name || ""} ${e?.last_name || ""}`.trim();
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
@@ -90,7 +93,7 @@ export default function PayrollVariableEntry() {
     const [e, el] = await Promise.all([
       supabase
         .from("employees")
-        .select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
+        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
         .order("first_name"),
       supabase
         .from("payroll_elements")
@@ -152,7 +155,7 @@ export default function PayrollVariableEntry() {
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
       if (terms.length) {
-        const hay = `${e.first_name} ${e.last_name} ${e.employee_number} ${e.departments?.department_name || ""} ${e.job_positions?.position_name || ""}`.toLowerCase();
+        const hay = `${empName(e)} ${e.employee_number} ${e.departments?.department_name || ""} ${e.job_positions?.position_name || ""}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
       return true;
@@ -165,7 +168,7 @@ export default function PayrollVariableEntry() {
     rows.sort((a, b) => {
       for (const r of sortRules) {
         let av: any; let bv: any;
-        if (r.key === "name") { av = `${a.first_name} ${a.last_name}`; bv = `${b.first_name} ${b.last_name}`; }
+        if (r.key === "name") { av = `${empName(a)}`; bv = `${empName(b)}`; }
         else if (r.key === "employee_number") { av = a.employee_number; bv = b.employee_number; }
         else if (r.key === "dept") { av = a.departments?.department_name || ""; bv = b.departments?.department_name || ""; }
         else if (r.key === "job") { av = a.job_positions?.position_name || ""; bv = b.job_positions?.position_name || ""; }
@@ -225,7 +228,7 @@ export default function PayrollVariableEntry() {
     const rows: any[][] = [header, subHeader];
     const list = includeData ? sorted : emps;
     for (const emp of list) {
-      const row: any[] = [emp.employee_number, `${emp.first_name} ${emp.last_name}`];
+      const row: any[] = [emp.employee_number, `${empName(emp)}`];
       for (const el of elements) {
         if (includeData) {
           const c = matrix[`${emp.id}|${el.id}`];
@@ -517,7 +520,7 @@ export default function PayrollVariableEntry() {
                     ) : sorted.map((emp) => (
                       <TableRow key={emp.id}>
                         <TableCell className="sticky left-0 bg-background z-10 font-medium">
-                          {emp.first_name} {emp.last_name}
+                          {empName(emp)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
                         <TableCell className="text-xs">{emp.departments?.department_name || "—"}</TableCell>

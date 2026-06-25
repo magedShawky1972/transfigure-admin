@@ -131,7 +131,7 @@ export default function DeductionSummary() {
 
       let q = supabase.from("timesheets").select(`
         *,
-        employees(employee_number, first_name, last_name, basic_salary),
+        employees(employee_number, first_name, first_name_ar, last_name, last_name_ar, basic_salary),
         deduction_rules(rule_name, rule_name_ar, deduction_type, deduction_value)
       `);
 
@@ -208,7 +208,7 @@ export default function DeductionSummary() {
           row = {
             employee_id: empId,
             empNumber: e.employee_number || "-",
-            name: `${e.first_name || ""} ${e.last_name || ""}`.trim(),
+            name: language === "ar" ? `${(e as any).first_name_ar || e.first_name || ""} ${(e as any).last_name_ar || e.last_name || ""}`.trim() : `${e.first_name || ""} ${e.last_name || ""}`.trim(),
             basicSalary: basicSalaryMap.get(empId) ?? (Number(e.basic_salary) || 0),
             totalDeduction: 0,
             totalLateMinutes: 0,
