@@ -62,7 +62,7 @@ type Emp = {
   departments?: { department_name: string } | null;
   job_positions?: { position_name: string } | null;
 };
-type Element = { id: string; code: string; name_en: string; element_type: string; default_amount: number | null };
+type Element = { id: string; code: string; name_en: string; name_ar?: string | null; element_type: string; default_amount: number | null };
 
 type Cell = { id?: string; amount: number; dirty?: boolean };
 // key = `${empId}|${elementId}`
@@ -93,7 +93,7 @@ export default function PayrollMatrixEntry() {
         .from("employees")
         .select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
         .order("first_name"),
-      supabase.from("payroll_elements").select("id, code, name_en, element_type, default_amount, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
+      supabase.from("payroll_elements").select("id, code, name_en, name_ar, element_type, default_amount, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
       supabase.from("payroll_employee_elements").select("id, employee_id, element_id, amount, is_active").eq("is_active", true),
     ]);
     setEmps((e.data || []) as any);
@@ -207,7 +207,7 @@ export default function PayrollMatrixEntry() {
 
   const buildSheet = (includeData: boolean) => {
     const header = ["employee_number", "employee_name", ...elements.map((e) => e.code)];
-    const subHeader = ["", "", ...elements.map((e) => `${e.name_en} [${e.element_type}]`)];
+    const subHeader = ["", "", ...elements.map((e) => `${(language === "ar" && e.name_ar) ? e.name_ar : e.name_en} [${e.element_type}]`)];
     const rows: any[][] = [header, subHeader];
     const list = includeData ? sorted : emps;
     for (const emp of list) {
@@ -419,7 +419,7 @@ export default function PayrollMatrixEntry() {
             <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} />
             <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} />
             <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
-            <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
+            <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${(language === "ar" && e.name_ar) ? e.name_ar : e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
             <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X className="h-3.5 w-3.5 mr-1" /> {language === "ar" ? "مسح الكل" : "Clear all"}
             </Button>
@@ -468,7 +468,7 @@ export default function PayrollMatrixEntry() {
                             title={`${el.code} — ${el.element_type}`}
                           >
                             <div className="flex items-center justify-end gap-1">
-                              <span className="truncate">{el.name_en}</span> {sortBadge(el.id)}
+                              <span className="truncate">{(language === "ar" && el.name_ar) ? el.name_ar : el.name_en}</span> {sortBadge(el.id)}
                             </div>
                             <div className={`text-[10px] font-normal ${c.label}`}>{el.element_type}</div>
                           </TableHead>
