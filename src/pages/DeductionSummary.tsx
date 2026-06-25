@@ -314,6 +314,12 @@ export default function DeductionSummary() {
         }
         // Roll absence deduction into total
         r.totalDeduction += r.absenceDeduction;
+        // Minimum deduction threshold: anything below 50 is ignored
+        if (r.totalDeduction < 50) {
+          r.totalDeduction = 0;
+          r.absenceDeduction = 0;
+          r.rules.clear();
+        }
       });
 
       const out = Array.from(map.values())
