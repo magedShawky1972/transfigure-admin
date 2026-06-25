@@ -1,3 +1,4 @@
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ const EMPTY: Partial<Element> = {
 };
 
 export default function PayrollElementSetup() {
+  const { language } = useLanguage();
   const [rows, setRows] = useState<Element[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -53,14 +55,13 @@ export default function PayrollElementSetup() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = async () => {
-    setLoading(true);
     const { data, error } = await supabase
       .from("payroll_elements")
       .select("*")
       .order("element_type")
       .order("sort_order")
       .order("name_en");
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    if (error) toast({ title: language === "ar" ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     else setRows((data || []) as Element[]);
     setLoading(false);
   };
@@ -83,7 +84,7 @@ export default function PayrollElementSetup() {
 
   const save = async () => {
     if (!form.code || !form.name_en) {
-      toast({ title: "Missing required fields", variant: "destructive" });
+      toast({ title: language === "ar" ? "الحقول المطلوبة مفقودة" : "Missing required fields", variant: "destructive" });
       return;
     }
     const payload: any = {
@@ -113,20 +114,20 @@ export default function PayrollElementSetup() {
       ({ error } = await supabase.from("payroll_elements").insert(payload));
     }
     if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "فشل الحفظ" : "Save failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: editingId ? "Updated" : "Created" });
+      toast({ title: editingId ? (language === "ar" ? "تم التحديث" : "Updated") : (language === "ar" ? "تم الإنشاء" : "Created") });
       setOpen(false);
       load();
     }
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this element?")) return;
+    if (!confirm(language === "ar" ? "هل تريد حذف هذا العنصر؟" : "Delete this element?")) return;
     const { error } = await supabase.from("payroll_elements").delete().eq("id", id);
-    if (error) toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    if (error) toast({ title: language === "ar" ? "فشل الحذف" : "Delete failed", description: error.message, variant: "destructive" });
     else {
-      toast({ title: "Deleted" });
+      toast({ title: language === "ar" ? "تم الحذف" : "Deleted" });
       load();
     }
   };
@@ -134,32 +135,32 @@ export default function PayrollElementSetup() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Payroll Element Setup</h1>
+        <h1 className="text-2xl font-bold">{language === "ar" ? "إعداد عناصر الرواتب" : "Payroll Element Setup"}</h1>
         <Button onClick={openNew}>
-          <Plus className="h-4 w-4 mr-2" /> New Element
+          <Plus className="h-4 w-4 mr-2" /> {language === "ar" ? "عنصر جديد" : "New Element"}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Elements ({rows.length})</CardTitle>
+          <CardTitle>{language === "ar" ? "العناصر" : "Elements"} ({rows.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-muted-foreground text-sm">Loading...</p>
+            <p className="text-muted-foreground text-sm">{language === "ar" ? "جاري التحميل..." : "Loading..."}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name (EN)</TableHead>
-                  <TableHead>Name (AR)</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Calc</TableHead>
-                  <TableHead>Default Amount</TableHead>
-                  <TableHead>Delay Minutes</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{language === "ar" ? "الرمز" : "Code"}</TableHead>
+                  <TableHead>{language === "ar" ? "الاسم (انجليزي)" : "Name (EN)"}</TableHead>
+                  <TableHead>{language === "ar" ? "الاسم (عربي)" : "Name (AR)"}</TableHead>
+                  <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                  <TableHead>{language === "ar" ? "الحساب" : "Calc"}</TableHead>
+                  <TableHead>{language === "ar" ? "المبلغ الافتراضي" : "Default Amount"}</TableHead>
+                  <TableHead>{language === "ar" ? "دقائق التأخير" : "Delay Minutes"}</TableHead>
+                  <TableHead>{language === "ar" ? "نشط" : "Active"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,19 +171,19 @@ export default function PayrollElementSetup() {
                     <TableCell>{r.name_ar}</TableCell>
                     <TableCell>
                       <Badge variant={r.element_type === "earning" ? "default" : r.element_type === "deduction" ? "destructive" : "secondary"}>
-                        {r.element_type}
+                        {r.element_type === "earning" ? (language === "ar" ? "استحقاق" : "earning") : r.element_type === "deduction" ? (language === "ar" ? "استقطاع" : "deduction") : r.element_type === "employer_contribution" ? (language === "ar" ? "مساهمة صاحب العمل" : "employer_contribution") : (language === "ar" ? "للمعلومات فقط" : r.element_type)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs">{r.calculation_type}</TableCell>
+                    <TableCell className="text-xs">{r.calculation_type === "fixed" ? (language === "ar" ? "مبلغ ثابت" : "fixed") : r.calculation_type === "formula" ? (language === "ar" ? "معادلة" : "formula") : r.calculation_type === "variable" ? (language === "ar" ? "متغير" : "variable") : (language === "ar" ? "دقائق التأخير" : r.calculation_type)}</TableCell>
                     <TableCell>{Number(r.default_amount || 0).toFixed(2)}</TableCell>
                     <TableCell>
                       {r.is_delay_minutes_element && (
                         <Badge variant="outline" className="gap-1">
-                          <Clock className="h-3 w-3" /> Time Mgmt
+                          <Clock className="h-3 w-3" /> {language === "ar" ? "إدارة الوقت" : "Time Mgmt"}
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>{r.is_active ? "Yes" : "No"}</TableCell>
+                    <TableCell>{r.is_active ? (language === "ar" ? "نعم" : "Yes") : (language === "ar" ? "لا" : "No")}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(r)}>
                         <Pencil className="h-4 w-4" />
@@ -196,7 +197,7 @@ export default function PayrollElementSetup() {
                 {rows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      No elements yet
+                      {language === "ar" ? "لا توجد عناصر بعد" : "No elements yet"}
                     </TableCell>
                   </TableRow>
                 )}
@@ -209,15 +210,15 @@ export default function PayrollElementSetup() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Element" : "New Element"}</DialogTitle>
+            <DialogTitle>{editingId ? (language === "ar" ? "تعديل العنصر" : "Edit Element") : (language === "ar" ? "عنصر جديد" : "New Element")}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Code *</Label>
+              <Label>{language === "ar" ? "الرمز *" : "Code *"}</Label>
               <Input value={form.code || ""} onChange={(e) => setForm({ ...form, code: e.target.value })} />
             </div>
             <div>
-              <Label>Element Type *</Label>
+              <Label>{language === "ar" ? "نوع العنصر *" : "Element Type *"}</Label>
               <Select
                 value={form.element_type}
                 onValueChange={(v) => setForm({ ...form, element_type: v })}
@@ -225,31 +226,31 @@ export default function PayrollElementSetup() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="earning">Earning</SelectItem>
-                  <SelectItem value="deduction">Deduction</SelectItem>
-                  <SelectItem value="employer_contribution">Employer Contribution</SelectItem>
-                  <SelectItem value="information">Information Only</SelectItem>
+                  <SelectItem value="earning">{language === "ar" ? "استحقاق" : "Earning"}</SelectItem>
+                  <SelectItem value="deduction">{language === "ar" ? "استقطاع" : "Deduction"}</SelectItem>
+                  <SelectItem value="employer_contribution">{language === "ar" ? "مساهمة صاحب العمل" : "Employer Contribution"}</SelectItem>
+                  <SelectItem value="information">{language === "ar" ? "للمعلومات فقط" : "Information Only"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Name (EN) *</Label>
+              <Label>{language === "ar" ? "الاسم (انجليزي) *" : "Name (EN) *"}</Label>
               <Input value={form.name_en || ""} onChange={(e) => setForm({ ...form, name_en: e.target.value })} />
             </div>
             <div>
-              <Label>Name (AR)</Label>
+              <Label>{language === "ar" ? "الاسم (عربي)" : "Name (AR)"}</Label>
               <Input value={form.name_ar || ""} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} dir="rtl" />
             </div>
             <div>
-              <Label>Classification</Label>
+              <Label>{language === "ar" ? "التصنيف" : "Classification"}</Label>
               <Input
                 value={form.classification || ""}
                 onChange={(e) => setForm({ ...form, classification: e.target.value })}
-                placeholder="basic, allowance, bonus, overtime, loan, advance, insurance, gosi..."
+                placeholder={language === "ar" ? "أساسي، بدل، مكافأة، وقت إضافي، قرض، سلفة، تأمين، غوسي..." : "basic, allowance, bonus, overtime, loan, advance, insurance, gosi..."}
               />
             </div>
             <div>
-              <Label>Calculation Type</Label>
+              <Label>{language === "ar" ? "نوع الحساب" : "Calculation Type"}</Label>
               <Select
                 value={form.calculation_type}
                 onValueChange={(v) => setForm({ ...form, calculation_type: v })}
@@ -257,15 +258,15 @@ export default function PayrollElementSetup() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fixed">Fixed amount</SelectItem>
-                  <SelectItem value="formula">Formula</SelectItem>
-                  <SelectItem value="variable">Variable (entered monthly)</SelectItem>
-                  <SelectItem value="delay_minutes">Delay Minutes (from Time Mgmt)</SelectItem>
+                  <SelectItem value="fixed">{language === "ar" ? "مبلغ ثابت" : "Fixed amount"}</SelectItem>
+                  <SelectItem value="formula">{language === "ar" ? "معادلة" : "Formula"}</SelectItem>
+                  <SelectItem value="variable">{language === "ar" ? "متغير (يدخل شهرياً)" : "Variable (entered monthly)"}</SelectItem>
+                  <SelectItem value="delay_minutes">{language === "ar" ? "دقائق التأخير (من إدارة الوقت)" : "Delay Minutes (from Time Mgmt)"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Default Amount</Label>
+              <Label>{language === "ar" ? "المبلغ الافتراضي" : "Default Amount"}</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -274,7 +275,7 @@ export default function PayrollElementSetup() {
               />
             </div>
             <div>
-              <Label>Sort Order</Label>
+              <Label>{language === "ar" ? "ترتيب الفرز" : "Sort Order"}</Label>
               <Input
                 type="number"
                 value={form.sort_order ?? 0}
@@ -282,11 +283,11 @@ export default function PayrollElementSetup() {
               />
             </div>
             <div className="col-span-2">
-              <Label>Formula (optional)</Label>
+              <Label>{language === "ar" ? "المعادلة (اختياري)" : "Formula (optional)"}</Label>
               <Input
                 value={form.formula || ""}
                 onChange={(e) => setForm({ ...form, formula: e.target.value })}
-                placeholder="e.g. basic_salary * 0.1"
+                placeholder={language === "ar" ? "مثال: basic_salary * 0.1" : "e.g. basic_salary * 0.1"}
               />
             </div>
             <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
@@ -296,11 +297,11 @@ export default function PayrollElementSetup() {
               />
               <div>
                 <div className="font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4" /> This element is for Delay Minutes
+                  <Clock className="h-4 w-4" /> {language === "ar" ? "هذا العنصر لدقائق التأخير" : "This element is for Delay Minutes"}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  When enabled, Time Management will send total delay minutes to this element.
-                  Calculation: (Total monthly salary / 30 / 8 / 60) × delay minutes. Element type is forced to Deduction.
+                  {language === "ar" ? "عند التفعيل، ستقوم إدارة الوقت بإرسال إجمالي دقائق التأخير إلى هذا العنصر." : "When enabled, Time Management will send total delay minutes to this element."}
+                  {language === "ar" ? "الحساب: (إجمالي الراتب الشهري / 30 / 8 / 60) × دقائق التأخير. يتم فرض نوع العنصر كاستقطاع." : "Calculation: (Total monthly salary / 30 / 8 / 60) × delay minutes. Element type is forced to Deduction."}
                 </p>
               </div>
             </div>
@@ -310,10 +311,10 @@ export default function PayrollElementSetup() {
                 onCheckedChange={(v) => setForm({ ...form, is_basic_salary_element: v })}
               />
               <div>
-                <div className="font-medium">This element is the Basic Salary</div>
+                <div className="font-medium">{language === "ar" ? "هذا العنصر هو الراتب الأساسي" : "This element is the Basic Salary"}</div>
                 <p className="text-xs text-muted-foreground">
-                  When enabled, Deduction Summary uses the employee's assigned amount on this element
-                  as the basic salary in the formula (salary / 30 / 8 / 60) × delay minutes. Only one element can be marked.
+                  {language === "ar" ? "عند التفعيل، يستخدم ملخص الاستقطاعات المبلغ المعين للموظف في هذا العنصر" : "When enabled, Deduction Summary uses the employee's assigned amount on this element"}
+                  {language === "ar" ? "كراتب أساسي في المعادلة (الراتب / 30 / 8 / 60) × دقائق التأخير. يمكن تحديد عنصر واحد فقط." : "as the basic salary in the formula (salary / 30 / 8 / 60) × delay minutes. Only one element can be marked."}
                 </p>
               </div>
             </div>
@@ -323,11 +324,11 @@ export default function PayrollElementSetup() {
                 onCheckedChange={(v) => setForm({ ...form, is_absence_element: v, element_type: v ? "deduction" : form.element_type })}
               />
               <div>
-                <div className="font-medium">This element is for Absence</div>
+                <div className="font-medium">{language === "ar" ? "هذا العنصر للغياب" : "This element is for Absence"}</div>
                 <p className="text-xs text-muted-foreground">
-                  When enabled, Deduction Summary sends the total absence deduction to this element.
-                  Calculation uses the matching Absence rule from Deduction Rules Setup
-                  (with-notice or without-notice) × (basic salary / 30) × absent days.
+                  {language === "ar" ? "عند التفعيل، يرسل ملخص الاستقطاعات إجمالي استقطاع الغياب إلى هذا العنصر." : "When enabled, Deduction Summary sends the total absence deduction to this element."}
+                  {language === "ar" ? "يستخدم الحساب قاعدة الغياب المطابقة من إعداد قواعد الاستقطاع" : "Calculation uses the matching Absence rule from Deduction Rules Setup"}
+                  {language === "ar" ? "(بعذر أو بدون عذر) × (الراتب الأساسي / 30) × أيام الغياب." : "(with-notice or without-notice) × (basic salary / 30) × absent days."}
                 </p>
               </div>
             </div>
@@ -336,12 +337,12 @@ export default function PayrollElementSetup() {
                 checked={form.is_active !== false}
                 onCheckedChange={(v) => setForm({ ...form, is_active: v })}
               />
-              <Label>Active</Label>
+              <Label>{language === "ar" ? "نشط" : "Active"}</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save}>Save</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
+            <Button onClick={save}>{language === "ar" ? "حفظ" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

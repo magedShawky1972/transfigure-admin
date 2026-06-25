@@ -1,3 +1,4 @@
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ function MatrixCellInput({
     <Input
       inputMode="decimal"
       value={display}
-      placeholder="0.00"
+      placeholder={language === "ar" ? "٠.٠٠" : "0.00"}
       onFocus={() => { setFocused(true); setDraft(value !== undefined && value !== null ? String(value) : ""); }}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
@@ -70,6 +71,7 @@ type Matrix = Record<string, Cell>;
 type SortRule = { key: string; dir: "asc" | "desc" }; // key = "name" | "employee_number" | "dept" | "job" | element id
 
 export default function PayrollMatrixEntry() {
+  const { language } = useLanguage();
   const [emps, setEmps] = useState<Emp[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
   const [matrix, setMatrix] = useState<Matrix>({});
@@ -226,7 +228,7 @@ export default function PayrollMatrixEntry() {
   };
 
   const downloadTemplate = () => {
-    if (elements.length === 0) { toast({ title: "No active elements" }); return; }
+    if (elements.length === 0) { toast({ title: language === "ar" ? "لا توجد عناصر نشطة" : "No active elements" }); return; }
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, buildSheet(false), "Template");
     XLSX.writeFile(wb, `payroll_matrix_template_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -244,7 +246,7 @@ export default function PayrollMatrixEntry() {
       const wb = XLSX.read(buf, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-      if (rows.length < 2) { toast({ title: "Empty file", variant: "destructive" }); return; }
+      if (rows.length < 2) { toast({ title: language === "ar" ? "ملف فارغ" : "Empty file", variant: "destructive" }); return; }
       const header = (rows[0] as any[]).map((h) => String(h || "").trim());
       const codeToElement = new Map(elements.map((e) => [e.code, e]));
       const numberToEmp = new Map(emps.map((e) => [e.employee_number, e]));
@@ -276,11 +278,11 @@ export default function PayrollMatrixEntry() {
       }
       setMatrix(next);
       toast({
-        title: "Imported",
-        description: `${touched} cell(s) marked. ${skippedEmps} unknown employees skipped.${unknownCols.length ? ` Unknown columns: ${unknownCols.join(", ")}` : ""} Click Save All to persist.`,
+        title: language === "ar" ? "تم الاستيراد" : "Imported",
+        description: language === "ar" ? `${touched} خلية (خلايا) تم تمييزها. ${skippedEmps} موظفين غير معروفين تم تخطيهم.${unknownCols.length ? ` أعمدة غير معروفة: ${unknownCols.join(", ")}` : ""} انقر على حفظ الكل للاعتماد.` : `${touched} cell(s) marked. ${skippedEmps} unknown employees skipped.${unknownCols.length ? ` Unknown columns: ${unknownCols.join(", ")}` : ""} Click Save All to persist.`,
       });
     } catch (err: any) {
-      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "فشل الاستيراد" : "Import failed", description: err.message, variant: "destructive" });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -289,7 +291,7 @@ export default function PayrollMatrixEntry() {
 
   const saveAll = async () => {
     const dirty = Object.entries(matrix).filter(([, v]) => v.dirty);
-    if (dirty.length === 0) { toast({ title: "No changes" }); return; }
+    if (dirty.length === 0) { toast({ title: language === "ar" ? "لا توجد تغييرات" : "No changes" }); return; }
     setSaving(true);
     const updates: any[] = [];
     const inserts: any[] = [];
@@ -323,9 +325,9 @@ export default function PayrollMatrixEntry() {
         }
         setMatrix(next);
       }
-      toast({ title: "Saved", description: `${dirty.length} cell(s) saved.` });
+      toast({ title: language === "ar" ? "تم الحفظ" : "Saved", description: language === "ar" ? `${dirty.length} خلية (خلايا) تم حفظها.` : `${dirty.length} cell(s) saved.` });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -348,7 +350,7 @@ export default function PayrollMatrixEntry() {
       <PopoverContent className="w-64 p-2" align="start">
         <ScrollArea className="h-60">
           <div className="space-y-1">
-            {options.length === 0 && <p className="text-xs text-muted-foreground p-2">No options</p>}
+            {options.length === 0 && <p className="text-xs text-muted-foreground p-2">{language === "ar" ? "لا توجد خيارات" : "No options"}</p>}
             {options.map((o) => (
               <label key={o.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer text-sm">
                 <Checkbox
@@ -365,7 +367,7 @@ export default function PayrollMatrixEntry() {
         </ScrollArea>
         {selected.length > 0 && (
           <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => onChange([])}>
-            <X className="h-3 w-3 mr-1" /> Clear
+            <X className="h-3 w-3 mr-1" /> {language === "ar" ? "مسح" : "Clear"}
           </Button>
         )}
       </PopoverContent>
@@ -375,7 +377,7 @@ export default function PayrollMatrixEntry() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Payroll Multi Element Entry</h1>
+        <h1 className="text-2xl font-bold">{language === "ar" ? "إدخال عناصر الراتب المتعددة" : "Payroll Multi Element Entry"}</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <input
             ref={fileInputRef}
@@ -385,15 +387,15 @@ export default function PayrollMatrixEntry() {
             onChange={(e) => { const f = e.target.files?.[0]; if (f) importFromExcel(f); }}
           />
           <Button variant="outline" size="sm" onClick={downloadTemplate}>
-            <FileSpreadsheet className="h-4 w-4 mr-2" /> Template
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> {language === "ar" ? "نموذج" : "Template"}
           </Button>
           <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4 mr-2" /> Import
+            <Upload className="h-4 w-4 mr-2" /> {language === "ar" ? "استيراد" : "Import"}
           </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
-            <Download className="h-4 w-4 mr-2" /> Export
+            <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير" : "Export"}
           </Button>
-          <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} unsaved</Badge>
+          <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} {language === "ar" ? "غير محفوظ" : "unsaved"}</Badge>
           <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
             <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save All"}
           </Button>
@@ -404,7 +406,7 @@ export default function PayrollMatrixEntry() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
+          <CardTitle className="text-base">{language === "ar" ? "الفلاتر" : "Filters"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
@@ -414,16 +416,16 @@ export default function PayrollMatrixEntry() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-md"
             />
-            <MultiCheckPop label="Department" options={departments} selected={deptFilter} onChange={setDeptFilter} />
-            <MultiCheckPop label="Job" options={jobs} selected={jobFilter} onChange={setJobFilter} />
-            <MultiCheckPop label="Status" options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
-            <MultiCheckPop label="Elements" options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
+            <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} />
+            <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} />
+            <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
+            <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
             <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-3.5 w-3.5 mr-1" /> Clear all
+              <X className="h-3.5 w-3.5 mr-1" /> {language === "ar" ? "مسح الكل" : "Clear all"}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Tip: click a column header to sort. Hold <kbd className="px-1 border rounded">Shift</kbd> while clicking to add a secondary sort.
+            {language === "ar" ? "تلميح: انقر على رأس العمود للفرز. اضغط مع الاستمرار على" : "Tip: click a column header to sort. Hold"} <kbd className="px-1 border rounded">{language === "ar" ? "Shift" : "Shift"}</kbd> {language === "ar" ? "أثناء النقر لإضافة فرز ثانوي." : "while clicking to add a secondary sort."}
           </p>
         </CardContent>
       </Card>
@@ -431,7 +433,7 @@ export default function PayrollMatrixEntry() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {loading ? "Loading..." : `${sorted.length} employees × ${visibleElements.length} elements`}
+            {loading ? (language === "ar" ? "جاري التحميل..." : "Loading...") : (language === "ar" ? `${sorted.length} موظفين × ${visibleElements.length} عناصر` : `${sorted.length} employees × ${visibleElements.length} elements`)}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -445,16 +447,16 @@ export default function PayrollMatrixEntry() {
                         className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]"
                         onClick={(e) => toggleSort("name", e)}
                       >
-                        <div className="flex items-center gap-1">Employee {sortBadge("name")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "اسم الموظف" : "Employee"} {sortBadge("name")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee_number", e)}>
                         <div className="flex items-center gap-1">Number {sortBadge("employee_number")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("dept", e)}>
-                        <div className="flex items-center gap-1">Department {sortBadge("dept")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "القسم" : "Department"} {sortBadge("dept")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("job", e)}>
-                        <div className="flex items-center gap-1">Job {sortBadge("job")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "الوظيفة" : "Job"} {sortBadge("job")}</div>
                       </TableHead>
                       {visibleElements.map((el) => {
                         const c = typeColors[el.element_type] || typeColors.information;

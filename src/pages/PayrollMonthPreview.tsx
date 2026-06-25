@@ -1,4 +1,6 @@
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +43,7 @@ type SortRule = { key: string; dir: "asc" | "desc" };
 const now = new Date();
 
 export default function PayrollMonthPreview() {
+  const { language } = useLanguage();
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [emps, setEmps] = useState<Emp[]>([]);
@@ -209,7 +212,7 @@ export default function PayrollMonthPreview() {
   }, [visibleElements, columnTotals]);
 
   const exportToExcel = () => {
-    const header = ["Employee #", "Employee Name", "Department", "Job", ...visibleElements.map((e) => `${e.code} - ${e.name_en} [${e.element_type}]`), "Net"];
+    const header = ["Employee #", "Employee Name", "Department", "Job", ...visibleElements.map((e) => `${e.code} - ${e.name_en} [${e.element_type}]`), language === "ar" ? "الصافي" : "Net"];
     const rows: any[][] = [header];
     for (const emp of sorted) {
       const row: any[] = [emp.employee_number, `${emp.first_name} ${emp.last_name}`, emp.departments?.department_name || "", emp.job_positions?.position_name || ""];
@@ -217,7 +220,7 @@ export default function PayrollMonthPreview() {
       row.push(netFor(emp.id));
       rows.push(row);
     }
-    const totalRow: any[] = ["", "TOTAL", "", ""];
+    const totalRow: any[] = ["", (language === "ar" ? "الإجمالي" : "TOTAL"), "", ""];
     for (const el of visibleElements) totalRow.push(columnTotals[el.id] || 0);
     totalRow.push(grand.net);
     rows.push(totalRow);
@@ -226,7 +229,7 @@ export default function PayrollMonthPreview() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `${year}-${String(month).padStart(2, "0")}`);
     XLSX.writeFile(wb, `month_element_preview_${year}-${String(month).padStart(2, "0")}.xlsx`);
-    toast({ title: "Exported" });
+    toast({ title: language === "ar" ? "تم التصدير" : "Exported" });
   };
 
   const clearFilters = () => {
@@ -251,7 +254,7 @@ export default function PayrollMonthPreview() {
         <PopoverContent className="w-72 p-2" align="start">
           {searchable && (
             <Input
-              placeholder="Search..."
+              placeholder={language === "ar" ? "بحث..." : "Search..."}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="h-8 mb-2"
@@ -259,7 +262,7 @@ export default function PayrollMonthPreview() {
           )}
           <ScrollArea className="h-60">
             <div className="space-y-1">
-              {list.length === 0 && <p className="text-xs text-muted-foreground p-2">No options</p>}
+              {list.length === 0 && <p className="text-xs text-muted-foreground p-2">{language === "ar" ? "لا توجد خيارات" : "No options"}</p>}
               {list.map((o) => (
                 <label key={o.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer text-sm">
                   <Checkbox
@@ -276,7 +279,7 @@ export default function PayrollMonthPreview() {
           </ScrollArea>
           {selected.length > 0 && (
             <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => onChange([])}>
-              <X className="h-3 w-3 mr-1" /> Clear
+              <X className="h-3 w-3 mr-1" /> {language === "ar" ? "مسح" : "Clear"}
             </Button>
           )}
         </PopoverContent>
@@ -285,17 +288,16 @@ export default function PayrollMonthPreview() {
   };
 
   const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-  ];
+  const months = language === "ar"
+    ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+    : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold">Month Element Preview</h1>
-          <p className="text-sm text-muted-foreground">Read-only view of all payroll elements per employee for the selected month, before running payroll.</p>
+          <h1 className="text-2xl font-bold">{language === "ar" ? "معاينة عناصر الشهر" : "Month Element Preview"}</h1>
+          <p className="text-sm text-muted-foreground">{language === "ar" ? "عرض للقراءة فقط لجميع عناصر الرواتب لكل موظف للشهر المحدد، قبل تشغيل الرواتب." : "Read-only view of all payroll elements per employee for the selected month, before running payroll."}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
@@ -307,58 +309,58 @@ export default function PayrollMonthPreview() {
             <SelectContent>{months.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> {language === "ar" ? "تحديث" : "Refresh"}
           </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
-            <Download className="h-4 w-4 mr-2" /> Export Excel
+            <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير إكسل" : "Export Excel"}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Total Earnings</div><div className="text-xl font-bold text-emerald-600">{numFmt.format(grand.earn)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Total Deductions</div><div className="text-xl font-bold text-rose-600">{numFmt.format(grand.ded)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Employer Contributions</div><div className="text-xl font-bold text-sky-600">{numFmt.format(grand.emp)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Net</div><div className="text-xl font-bold">{numFmt.format(grand.net)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{language === "ar" ? "إجمالي المستحقات" : "Total Earnings"}</div><div className="text-xl font-bold text-emerald-600">{numFmt.format(grand.earn)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{language === "ar" ? "إجمالي الاستقطاعات" : "Total Deductions"}</div><div className="text-xl font-bold text-rose-600">{numFmt.format(grand.ded)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{language === "ar" ? "مساهمات صاحب العمل" : "Employer Contributions"}</div><div className="text-xl font-bold text-sky-600">{numFmt.format(grand.emp)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{language === "ar" ? "الصافي" : "Net"}</div><div className="text-xl font-bold">{numFmt.format(grand.net)}</div></CardContent></Card>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Filters</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{language === "ar" ? "الفلاتر" : "Filters"}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <Input
-              placeholder="Search (space separates terms: e.g. ahmed dev)"
+              placeholder={language === "ar" ? "بحث (المسافة تفصل بين المصطلحات: مثل أحمد مطور)" : "Search (space separates terms: e.g. ahmed dev)"}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-md"
             />
             <MultiCheckPop
-              label="Employee"
+              label={language === "ar" ? "الموظف" : "Employee"}
               searchable
               options={emps.map((e) => ({ id: e.id, name: `${e.first_name} ${e.last_name} (${e.employee_number})` }))}
               selected={employeeFilter}
               onChange={setEmployeeFilter}
             />
-            <MultiCheckPop label="Department" options={departments} selected={deptFilter} onChange={setDeptFilter} searchable />
-            <MultiCheckPop label="Job" options={jobs} selected={jobFilter} onChange={setJobFilter} searchable />
-            <MultiCheckPop label="Status" options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
-            <MultiCheckPop label="Element Type" options={[
-              { id: "earning", name: "Earning" },
-              { id: "deduction", name: "Deduction" },
-              { id: "employer_contribution", name: "Employer Contribution" },
-              { id: "information", name: "Information" },
+            <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} searchable />
+            <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} searchable />
+            <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
+            <MultiCheckPop label={language === "ar" ? "نوع العنصر" : "Element Type"} options={[
+              { id: "earning", name: language === "ar" ? "مستحق" : "Earning" },
+              { id: "deduction", name: language === "ar" ? "استقطاع" : "Deduction" },
+              { id: "employer_contribution", name: language === "ar" ? "مساهمة صاحب العمل" : "Employer Contribution" },
+              { id: "information", name: language === "ar" ? "معلومات" : "Information" },
             ]} selected={typeFilter} onChange={setTypeFilter} />
-            <MultiCheckPop label="Elements" options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} searchable />
+            <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} searchable />
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={hideZeroEmployees} onCheckedChange={(c) => setHideZeroEmployees(!!c)} />
-              Hide employees with no values
+              {language === "ar" ? "إخفاء الموظفين الذين ليس لديهم قيم" : "Hide employees with no values"}
             </label>
             <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-3.5 w-3.5 mr-1" /> Clear all
+              <X className="h-3.5 w-3.5 mr-1" /> {language === "ar" ? "مسح" : "Clear"} all
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Tip: click a column header to sort. Hold <kbd className="px-1 border rounded">Shift</kbd> to add a secondary sort. Variable entries for the selected month override the assigned amount.
+            {language === "ar" ? "تلميح: انقر فوق رأس العمود للفرز. اضغط مع الاستمرار على Shift لإضافة فرز ثانوي. العناصر المتغيرة للشهر المحدد تلغي المبلغ المحدد." : "Tip: click a column header to sort. Hold <kbd className=\"px-1 border rounded\">Shift</kbd> to add a secondary sort. Variable entries for the selected month override the assigned amount."}
           </p>
         </CardContent>
       </Card>
@@ -366,7 +368,7 @@ export default function PayrollMonthPreview() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {loading ? "Loading..." : `${sorted.length} employees × ${visibleElements.length} elements — ${months[month - 1]} ${year}`}
+            {loading ? (language === "ar" ? "جاري التحميل..." : "Loading...") : `${sorted.length} ${language === "ar" ? "موظفين ×" : "employees ×"} ${visibleElements.length} ${language === "ar" ? "عناصر —" : "elements —"} ${months[month - 1]} ${year}`}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -377,16 +379,16 @@ export default function PayrollMonthPreview() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]" onClick={(e) => toggleSort("name", e)}>
-                        <div className="flex items-center gap-1">Employee {sortBadge("name")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "الموظف" : "Employee"} {sortBadge("name")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee_number", e)}>
-                        <div className="flex items-center gap-1">Number {sortBadge("employee_number")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "الرقم" : "Number"} {sortBadge("employee_number")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("dept", e)}>
-                        <div className="flex items-center gap-1">Department {sortBadge("dept")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "القسم" : "Department"} {sortBadge("dept")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("job", e)}>
-                        <div className="flex items-center gap-1">Job {sortBadge("job")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "الوظيفة" : "Job"} {sortBadge("job")}</div>
                       </TableHead>
                       {visibleElements.map((el) => {
                         const c = typeColors[el.element_type] || typeColors.information;
@@ -405,7 +407,7 @@ export default function PayrollMonthPreview() {
                         );
                       })}
                       <TableHead className="cursor-pointer select-none text-right min-w-[120px] bg-muted" onClick={(e) => toggleSort("net", e)}>
-                        <div className="flex items-center justify-end gap-1">Net {sortBadge("net")}</div>
+                        <div className="flex items-center justify-end gap-1">{language === "ar" ? "الصافي" : "Net"} {sortBadge("net")}</div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -413,7 +415,7 @@ export default function PayrollMonthPreview() {
                     {sorted.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5 + visibleElements.length} className="text-center text-muted-foreground py-6">
-                          No employees match the filters
+                          {language === "ar" ? "لا يوجد موظفين يطابقون الفلاتر" : "No employees match the filters"}
                         </TableCell>
                       </TableRow>
                     ) : sorted.map((emp) => {
@@ -443,7 +445,7 @@ export default function PayrollMonthPreview() {
                   {sorted.length > 0 && (
                     <tfoot>
                       <TableRow className="bg-muted/60 font-semibold">
-                        <TableCell className="sticky left-0 bg-muted/60 z-10">TOTAL</TableCell>
+                        <TableCell className="sticky left-0 bg-muted/60 z-10">{language === "ar" ? "الإجمالي" : "TOTAL"}</TableCell>
                         <TableCell colSpan={3} />
                         {visibleElements.map((el) => (
                           <TableCell key={el.id} className="text-right tabular-nums">{fmt(columnTotals[el.id] || 0)}</TableCell>

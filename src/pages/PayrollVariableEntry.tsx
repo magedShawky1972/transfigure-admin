@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,7 @@ type Matrix = Record<string, Cell>;
 type SortRule = { key: string; dir: "asc" | "desc" };
 
 export default function PayrollVariableEntry() {
+  const { language } = useLanguage();
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
@@ -240,9 +242,9 @@ export default function PayrollVariableEntry() {
   };
 
   const downloadTemplate = () => {
-    if (elements.length === 0) { toast({ title: "No active variable elements" }); return; }
+    if (elements.length === 0) { toast({ title: language === "ar" ? "لا توجد عناصر متغيرة نشطة" : "No active variable elements" }); return; }
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, buildSheet(false), "Template");
+    XLSX.utils.book_append_sheet(wb, buildSheet(false), (language === "ar" ? "نموذج" : "Template"));
     XLSX.writeFile(wb, `payroll_variable_template_${year}_${String(month).padStart(2, "0")}.xlsx`);
   };
 
@@ -258,7 +260,7 @@ export default function PayrollVariableEntry() {
       const wb = XLSX.read(buf, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-      if (rows.length < 2) { toast({ title: "Empty file", variant: "destructive" }); return; }
+      if (rows.length < 2) { toast({ title: language === "ar" ? "ملف فارغ" : "Empty file", variant: "destructive" }); return; }
       const header = (rows[0] as any[]).map((h) => String(h || "").trim());
       const codeToElement = new Map(elements.map((e) => [e.code, e]));
       const numberToEmp = new Map(emps.map((e) => [e.employee_number, e]));
@@ -289,11 +291,11 @@ export default function PayrollVariableEntry() {
       }
       setMatrix(next);
       toast({
-        title: "Imported",
-        description: `${touched} cell(s) marked. ${skippedEmps} unknown employees skipped.${unknownCols.length ? ` Unknown columns: ${unknownCols.join(", ")}` : ""} Click Save All to persist.`,
+        title: language === "ar" ? "تم الاستيراد" : "{language === "ar" ? "استيراد" : "Import"}ed",
+        description: language === "ar" ? `${touched} خلايا تم تعليمها. ${skippedEmps} موظفون غير معروفين تم تجاهلهم.${unknownCols.length ? ` أعمدة غير معروفة: ${unknownCols.join(", ")}` : ""} انقر على حفظ الكل للاستمرار.` : `${touched} cell(s) marked. ${skippedEmps} unknown employees skipped.${unknownCols.length ? ` Unknown columns: ${unknownCols.join(", ")}` : ""} Click {language === "ar" ? "حفظ الكل" : "Save All"} to persist.`,
       });
     } catch (err: any) {
-      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "فشل الاستيراد" : "{language === "ar" ? "استيراد" : "Import"} failed", description: err.message, variant: "destructive" });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -301,7 +303,7 @@ export default function PayrollVariableEntry() {
 
   const saveAll = async () => {
     const dirty = Object.entries(matrix).filter(([, v]) => v.dirty);
-    if (dirty.length === 0) { toast({ title: "No changes" }); return; }
+    if (dirty.length === 0) { toast({ title: language === "ar" ? "لا توجد تغييرات" : "No changes" }); return; }
     setSaving(true);
     const updates: { id: string; amount: number }[] = [];
     const inserts: { employee_id: string; element_id: string; amount: number; period_year: number; period_month: number }[] = [];
@@ -334,9 +336,9 @@ export default function PayrollVariableEntry() {
         }
         setMatrix(next);
       }
-      toast({ title: "Saved", description: `${dirty.length} cell(s) saved.` });
+      toast({ title: language === "ar" ? "تم الحفظ" : "Saved", description: language === "ar" ? `${dirty.length} خلايا تم حفظها.` : `${dirty.length} cell(s) saved.` });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: language === "ar" ? "خطأ" : "Error", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -359,7 +361,7 @@ export default function PayrollVariableEntry() {
       <PopoverContent className="w-64 p-2" align="start">
         <ScrollArea className="h-60">
           <div className="space-y-1">
-            {options.length === 0 && <p className="text-xs text-muted-foreground p-2">No options</p>}
+            {options.length === 0 && <p className="text-xs text-muted-foreground p-2">{language === "ar" ? "لا توجد خيارات" : "No options"}</p>}
             {options.map((o) => (
               <label key={o.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer text-sm">
                 <Checkbox
@@ -376,7 +378,7 @@ export default function PayrollVariableEntry() {
         </ScrollArea>
         {selected.length > 0 && (
           <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => onChange([])}>
-            <X className="h-3 w-3 mr-1" /> Clear
+            <X className="h-3 w-3 mr-1" /> {language === "ar" ? "مسح" : "Clear"}
           </Button>
         )}
       </PopoverContent>
@@ -386,7 +388,7 @@ export default function PayrollVariableEntry() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Variable Element Entry</h1>
+        <h1 className="text-2xl font-bold">{language === "ar" ? "إدخال العناصر المتغيرة" : "Variable Element Entry"}</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <input
             ref={fileInputRef}
@@ -396,60 +398,65 @@ export default function PayrollVariableEntry() {
             onChange={(e) => { const f = e.target.files?.[0]; if (f) importFromExcel(f); }}
           />
           <Button variant="outline" size="sm" onClick={downloadTemplate}>
-            <FileSpreadsheet className="h-4 w-4 mr-2" /> Template
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> {language === "ar" ? "نموذج" : "Template"}
           </Button>
           <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4 mr-2" /> Import
+            <Upload className="h-4 w-4 mr-2" /> {language === "ar" ? "استيراد" : "Import"}
           </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
-            <Download className="h-4 w-4 mr-2" /> Export
+            <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير" : "Export"}
           </Button>
-          <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} unsaved</Badge>
+          <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} {language === "ar" ? "غير محفوظ" : "unsaved"}</Badge>
           <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
-            <Save className="h-4 w-4 mr-2" /> {saving ? "Saving..." : "Save All"}
+            <Save className="h-4 w-4 mr-2" /> {saving ? (language === "ar" ? "جاري الحفظ..." : "Saving...") : (language === "ar" ? "حفظ الكل" : "Save All")}
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Period & Filters</CardTitle>
+          <CardTitle className="text-base">{language === "ar" ? "الفترة والفلاتر" : "Period & Filters"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-end gap-3 flex-wrap">
             <div>
-              <Label>Year</Label>
+              <Label>{language === "ar" ? "السنة" : "Year"}</Label>
               <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-28" />
             </div>
             <div>
-              <Label>Month</Label>
+              <Label>{language === "ar" ? "الشهر" : "Month"}</Label>
               <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
                 <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
-                  ))}
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const months = language === "ar"
+                      ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+                      : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                    return (
+                      <SelectItem key={i + 1} value={String(i + 1)}>{language === "ar" ? months[i] : i + 1}</SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Input
-              placeholder="Search (space separates terms)"
+              placeholder={language === "ar" ? "بحث (المسافة تفصل بين المصطلحات)" : "Search (space separates terms)"}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-md"
             />
-            <MultiCheckPop label="Department" options={departments} selected={deptFilter} onChange={setDeptFilter} />
-            <MultiCheckPop label="Job" options={jobs} selected={jobFilter} onChange={setJobFilter} />
-            <MultiCheckPop label="Status" options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
-            <MultiCheckPop label="Elements" options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
+            <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} />
+            <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} />
+            <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
+            <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
             <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-3.5 w-3.5 mr-1" /> Clear all
+              <X className="h-3.5 w-3.5 mr-1" /> {language === "ar" ? "مسح" : "Clear"} all
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Tip: click a column header to sort. Hold <kbd className="px-1 border rounded">Shift</kbd> while clicking to add a secondary sort.
+            {language === "ar" ? "تلميح: انقر فوق رأس العمود للفرز. اضغط مع الاستمرار على Shift أثناء النقر لإضافة فرز ثانوي." : "Tip: click a column header to sort. Hold <kbd className=\"px-1 border rounded\">Shift</kbd> while clicking to add a secondary sort."}
           </p>
         </CardContent>
       </Card>
@@ -457,7 +464,7 @@ export default function PayrollVariableEntry() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {loading ? "Loading..." : `${sorted.length} employees × ${visibleElements.length} variable elements — ${year}-${String(month).padStart(2, "0")}`}
+            {loading ? (language === "ar" ? "جاري التحميل..." : "Loading...") : `${sorted.length} ${language === "ar" ? "موظفين ×" : "employees ×"} ${visibleElements.length} ${language === "ar" ? "عناصر متغيرة —" : "variable elements —"} ${year}-${String(month).padStart(2, "0")}`}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -471,16 +478,16 @@ export default function PayrollVariableEntry() {
                         className="sticky left-0 bg-background z-10 cursor-pointer select-none min-w-[200px]"
                         onClick={(e) => toggleSort("name", e)}
                       >
-                        <div className="flex items-center gap-1">Employee {sortBadge("name")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "الموظف" : "Employee"} {sortBadge("name")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee_number", e)}>
-                        <div className="flex items-center gap-1">Number {sortBadge("employee_number")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "الرقم" : "Number"} {sortBadge("employee_number")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("dept", e)}>
-                        <div className="flex items-center gap-1">Department {sortBadge("dept")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "القسم" : "Department"} {sortBadge("dept")}</div>
                       </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("job", e)}>
-                        <div className="flex items-center gap-1">Job {sortBadge("job")}</div>
+                        <div className="flex items-center gap-1">{language === "ar" ? "الوظيفة" : "Job"} {sortBadge("job")}</div>
                       </TableHead>
                       {visibleElements.map((el) => {
                         const c = typeColors[el.element_type] || typeColors.information;
@@ -504,7 +511,7 @@ export default function PayrollVariableEntry() {
                     {sorted.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4 + visibleElements.length} className="text-center text-muted-foreground py-6">
-                          No employees match the filters
+                          {language === "ar" ? "لا يوجد موظفين يطابقون الفلاتر" : "No employees match the filters"}
                         </TableCell>
                       </TableRow>
                     ) : sorted.map((emp) => (
