@@ -892,6 +892,11 @@ export default function PayrollRun() {
                           <TableCell className="text-right">{fmt(l.amount)}</TableCell>
                         </TableRow>
                       ))}
+                      <TableRow className="bg-muted/50 font-bold border-t-2">
+                        <TableCell colSpan={2}>{isAr ? "صافي الراتب" : "Net Salary"}</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell className="text-right text-primary">{fmt(earn - ded)}</TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </div>
