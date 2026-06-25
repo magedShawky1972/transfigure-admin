@@ -67,16 +67,27 @@ export default function PayrollMonthPreview() {
   const [hideZeroEmployees, setHideZeroEmployees] = useState(false);
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "name", dir: "asc" }]);
 
+  const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
+
   const load = async () => {
     setLoading(true);
+    let empQuery = supabase
+      .from("employees")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .order("first_name");
+    let peQuery = supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true);
+    let pvQuery = supabase.from("payroll_variable_entries").select("employee_id, element_id, amount").eq("period_year", year).eq("period_month", month);
+    if (allowedEmployeeIds !== null) {
+      if (allowedEmployeeIds.length === 0) { setEmps([]); setAmounts({}); setLoading(false); return; }
+      empQuery = empQuery.in("id", allowedEmployeeIds);
+      peQuery = peQuery.in("employee_id", allowedEmployeeIds);
+      pvQuery = pvQuery.in("employee_id", allowedEmployeeIds);
+    }
     const [e, el, pe, pv] = await Promise.all([
-      supabase
-        .from("employees")
-        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
-        .order("first_name"),
+      empQuery,
       supabase.from("payroll_elements").select("id, code, name_en, name_ar, element_type, calculation_type, sort_order").eq("is_active", true).order("sort_order", { ascending: true, nullsFirst: false }).order("name_en"),
-      supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true),
-      supabase.from("payroll_variable_entries").select("employee_id, element_id, amount").eq("period_year", year).eq("period_month", month),
+      peQuery,
+      pvQuery,
     ]);
     setEmps((e.data || []) as any);
     setElements((el.data || []) as Element[]);
@@ -92,7 +103,7 @@ export default function PayrollMonthPreview() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [year, month]);
+  useEffect(() => { if (!scopeLoading) load(); /* eslint-disable-next-line */ }, [year, month, scopeLoading, allowedEmployeeIds]);
 
   const departments = useMemo(() => {
     const map = new Map<string, string>();
