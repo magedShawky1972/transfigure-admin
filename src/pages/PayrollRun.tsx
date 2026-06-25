@@ -46,17 +46,35 @@ export default function PayrollRun() {
   const [elMap, setElMap] = useState<Record<string, { name: string; type: string }>>({});
   const [busy, setBusy] = useState(false);
 
+  // Scope filters
+  const [allEmps, setAllEmps] = useState<{ id: string; name: string; department_id: string | null; job_position_id: string | null }[]>([]);
+  const [allDepts, setAllDepts] = useState<{ id: string; name: string }[]>([]);
+  const [allJobs, setAllJobs] = useState<{ id: string; name: string }[]>([]);
+  const [empFilter, setEmpFilter] = useState<string[]>([]);
+  const [deptFilter, setDeptFilter] = useState<string[]>([]);
+  const [jobFilter, setJobFilter] = useState<string[]>([]);
+
   const loadRefs = async () => {
-    const [e, el] = await Promise.all([
-      supabase.from("employees").select("id, first_name, last_name, employee_number"),
+    const [e, el, d, j] = await Promise.all([
+      supabase.from("employees").select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status"),
       supabase.from("payroll_elements").select("id, name_en, element_type"),
+      supabase.from("departments").select("id, department_name").order("department_name"),
+      supabase.from("job_positions").select("id, position_name").order("position_name"),
     ]);
     const em: Record<string, string> = {};
-    (e.data || []).forEach((x: any) => { em[x.id] = `${x.employee_number} — ${x.first_name} ${x.last_name}`; });
+    const list: any[] = [];
+    (e.data || []).forEach((x: any) => {
+      em[x.id] = `${x.employee_number} — ${x.first_name} ${x.last_name}`;
+      if (x.employment_status !== "terminated") list.push({ id: x.id, name: `${x.employee_number} — ${x.first_name} ${x.last_name}`, department_id: x.department_id, job_position_id: x.job_position_id });
+    });
     setEmpMap(em);
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    setAllEmps(list);
     const lm: Record<string, { name: string; type: string }> = {};
     (el.data || []).forEach((x: any) => { lm[x.id] = { name: x.name_en, type: x.element_type }; });
     setElMap(lm);
+    setAllDepts(((d.data || []) as any[]).map((x) => ({ id: x.id, name: x.department_name })));
+    setAllJobs(((j.data || []) as any[]).map((x) => ({ id: x.id, name: x.position_name })));
   };
 
   const loadRuns = async () => {
