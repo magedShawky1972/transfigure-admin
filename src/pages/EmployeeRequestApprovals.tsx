@@ -55,6 +55,8 @@ import {
   MessageSquare,
   ArrowRightLeft,
   Trash2,
+  ChevronsUpDown,
+  CalendarIcon,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
