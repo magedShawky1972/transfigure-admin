@@ -419,7 +419,7 @@ export default function PayrollMatrixEntry() {
             <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} />
             <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} />
             <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
-            <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
+            <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${(language === "ar" && e.name_ar) ? e.name_ar : e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
             <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X className="h-3.5 w-3.5 mr-1" /> {language === "ar" ? "مسح الكل" : "Clear all"}
             </Button>
