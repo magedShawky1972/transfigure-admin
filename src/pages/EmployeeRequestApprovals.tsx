@@ -85,6 +85,10 @@ const EmployeeRequestApprovals = () => {
   const [processing, setProcessing] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('pending');
+  const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
+  const [filterFromDate, setFilterFromDate] = useState<Date | undefined>(undefined);
+  const [filterToDate, setFilterToDate] = useState<Date | undefined>(undefined);
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [isHRManager, setIsHRManager] = useState(false);
   const [hrManagerLevel, setHrManagerLevel] = useState<number | null>(null);
   const [hrAllowedEmployeeIds, setHrAllowedEmployeeIds] = useState<string[] | null>(null);
