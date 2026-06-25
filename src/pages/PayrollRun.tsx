@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
-import { Play, CheckCircle2, Trash2, RefreshCw, Lock } from "lucide-react";
+import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X } from "lucide-react";
 
 type Run = {
   id: string;
@@ -43,17 +46,35 @@ export default function PayrollRun() {
   const [elMap, setElMap] = useState<Record<string, { name: string; type: string }>>({});
   const [busy, setBusy] = useState(false);
 
+  // Scope filters
+  const [allEmps, setAllEmps] = useState<{ id: string; name: string; department_id: string | null; job_position_id: string | null }[]>([]);
+  const [allDepts, setAllDepts] = useState<{ id: string; name: string }[]>([]);
+  const [allJobs, setAllJobs] = useState<{ id: string; name: string }[]>([]);
+  const [empFilter, setEmpFilter] = useState<string[]>([]);
+  const [deptFilter, setDeptFilter] = useState<string[]>([]);
+  const [jobFilter, setJobFilter] = useState<string[]>([]);
+
   const loadRefs = async () => {
-    const [e, el] = await Promise.all([
-      supabase.from("employees").select("id, first_name, last_name, employee_number"),
+    const [e, el, d, j] = await Promise.all([
+      supabase.from("employees").select("id, first_name, last_name, employee_number, department_id, job_position_id, employment_status"),
       supabase.from("payroll_elements").select("id, name_en, element_type"),
+      supabase.from("departments").select("id, department_name").order("department_name"),
+      supabase.from("job_positions").select("id, position_name").order("position_name"),
     ]);
     const em: Record<string, string> = {};
-    (e.data || []).forEach((x: any) => { em[x.id] = `${x.employee_number} — ${x.first_name} ${x.last_name}`; });
+    const list: any[] = [];
+    (e.data || []).forEach((x: any) => {
+      em[x.id] = `${x.employee_number} — ${x.first_name} ${x.last_name}`;
+      if (x.employment_status !== "terminated") list.push({ id: x.id, name: `${x.employee_number} — ${x.first_name} ${x.last_name}`, department_id: x.department_id, job_position_id: x.job_position_id });
+    });
     setEmpMap(em);
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    setAllEmps(list);
     const lm: Record<string, { name: string; type: string }> = {};
     (el.data || []).forEach((x: any) => { lm[x.id] = { name: x.name_en, type: x.element_type }; });
     setElMap(lm);
+    setAllDepts(((d.data || []) as any[]).map((x) => ({ id: x.id, name: x.department_name })));
+    setAllJobs(((j.data || []) as any[]).map((x) => ({ id: x.id, name: x.position_name })));
   };
 
   const loadRuns = async () => {
@@ -78,12 +99,22 @@ export default function PayrollRun() {
   const computePeriod = async () => {
     setBusy(true);
     try {
-      // 1. Load employees
+      // 1. Load employees and apply scope filters
       const { data: emps, error: empErr } = await supabase
         .from("employees")
         .select("id, basic_salary, department_id, job_position_id, employment_status");
       if (empErr) throw empErr;
-      const activeEmps = (emps || []).filter((e: any) => e.employment_status !== "terminated");
+      let activeEmps = (emps || []).filter((e: any) => e.employment_status !== "terminated");
+      if (empFilter.length) activeEmps = activeEmps.filter((e: any) => empFilter.includes(e.id));
+      if (deptFilter.length) activeEmps = activeEmps.filter((e: any) => e.department_id && deptFilter.includes(e.department_id));
+      if (jobFilter.length) activeEmps = activeEmps.filter((e: any) => e.job_position_id && jobFilter.includes(e.job_position_id));
+      if (activeEmps.length === 0) {
+        toast({ title: "No employees match the selected filters", variant: "destructive" });
+        setBusy(false);
+        return;
+      }
+      const scopeEmpIds = new Set(activeEmps.map((e: any) => e.id));
+      const isScoped = empFilter.length + deptFilter.length + jobFilter.length > 0;
 
       // 2. Load elements + eligibility
       const [{ data: elements }, { data: eligibility }, { data: empElements }, { data: variables }] = await Promise.all([
@@ -145,7 +176,12 @@ export default function PayrollRun() {
         if (cErr) throw cErr;
         runId = created.id;
       } else {
-        await supabase.from("payroll_run_lines").delete().eq("run_id", runId);
+        // If scoped, only remove existing lines for employees in scope; otherwise wipe all.
+        if (isScoped) {
+          await supabase.from("payroll_run_lines").delete().eq("run_id", runId).in("employee_id", Array.from(scopeEmpIds));
+        } else {
+          await supabase.from("payroll_run_lines").delete().eq("run_id", runId);
+        }
       }
 
       // 5. Compute lines
@@ -215,17 +251,29 @@ export default function PayrollRun() {
         }
       }
 
-      const empCount = new Set(linesToInsert.map((l) => l.employee_id)).size;
-
+      // Recompute totals from ALL current lines on this run (covers partial / scoped runs)
+      const { data: allLines } = await supabase
+        .from("payroll_run_lines")
+        .select("employee_id, element_type, amount")
+        .eq("run_id", runId);
+      let gGross = 0, gDed = 0, gEmpC = 0;
+      const empSet = new Set<string>();
+      (allLines || []).forEach((l: any) => {
+        empSet.add(l.employee_id);
+        const a = Number(l.amount) || 0;
+        if (l.element_type === "earning") gGross += a;
+        else if (l.element_type === "deduction") gDed += a;
+        else if (l.element_type === "employer_contribution") gEmpC += a;
+      });
       await supabase.from("payroll_runs").update({
-        total_gross: Number(totalGross.toFixed(2)),
-        total_deductions: Number(totalDed.toFixed(2)),
-        total_employer_contributions: Number(totalEmpC.toFixed(2)),
-        total_net: Number((totalGross - totalDed).toFixed(2)),
-        employee_count: empCount,
+        total_gross: Number(gGross.toFixed(2)),
+        total_deductions: Number(gDed.toFixed(2)),
+        total_employer_contributions: Number(gEmpC.toFixed(2)),
+        total_net: Number((gGross - gDed).toFixed(2)),
+        employee_count: empSet.size,
       }).eq("id", runId);
 
-      toast({ title: `Computed: ${linesToInsert.length} lines, ${empCount} employees` });
+      toast({ title: `Computed ${linesToInsert.length} lines for ${new Set(linesToInsert.map((l) => l.employee_id)).size} employees${isScoped ? " (scoped run)" : ""}` });
       loadRuns();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -267,6 +315,58 @@ export default function PayrollRun() {
     empGroups[l.employee_id].push(l);
   });
 
+  const scopedEmpCount = (() => {
+    let arr = allEmps;
+    if (empFilter.length) arr = arr.filter((e) => empFilter.includes(e.id));
+    if (deptFilter.length) arr = arr.filter((e) => e.department_id && deptFilter.includes(e.department_id));
+    if (jobFilter.length) arr = arr.filter((e) => e.job_position_id && jobFilter.includes(e.job_position_id));
+    return arr.length;
+  })();
+
+  const MultiCheckPop = ({
+    label, options, selected, onChange, search: enableSearch,
+  }: { label: string; options: { id: string; name: string }[]; selected: string[]; onChange: (v: string[]) => void; search?: boolean }) => {
+    const [q, setQ] = useState("");
+    const shown = enableSearch && q ? options.filter((o) => o.name.toLowerCase().includes(q.toLowerCase())) : options;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <Filter className="h-3.5 w-3.5 mr-1" /> {label}
+            {selected.length > 0 && <Badge variant="secondary" className="ml-2">{selected.length}</Badge>}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-2" align="start">
+          {enableSearch && (
+            <Input placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} className="h-8 mb-2" />
+          )}
+          <ScrollArea className="h-60">
+            <div className="space-y-1">
+              {shown.length === 0 && <p className="text-xs text-muted-foreground p-2">No options</p>}
+              {shown.map((o) => (
+                <label key={o.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer text-sm">
+                  <Checkbox
+                    checked={selected.includes(o.id)}
+                    onCheckedChange={(c) => {
+                      if (c) onChange([...selected, o.id]);
+                      else onChange(selected.filter((x) => x !== o.id));
+                    }}
+                  />
+                  <span className="flex-1">{o.name}</span>
+                </label>
+              ))}
+            </div>
+          </ScrollArea>
+          {selected.length > 0 && (
+            <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => onChange([])}>
+              <X className="h-3 w-3 mr-1" /> Clear
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold">Payroll Run & Confirm</h1>
@@ -275,28 +375,51 @@ export default function PayrollRun() {
         <CardHeader>
           <CardTitle>Compute Period</CardTitle>
         </CardHeader>
-        <CardContent className="flex gap-3 items-end">
-          <div>
-            <Label>Year</Label>
-            <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-32" />
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <Label>Year</Label>
+              <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-32" />
+            </div>
+            <div>
+              <Label>Month</Label>
+              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={computePeriod} disabled={busy}>
+              {busy ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+              Run Payroll
+            </Button>
           </div>
-          <div>
-            <Label>Month</Label>
-            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+            <Label className="text-xs text-muted-foreground mr-1">Run scope (optional):</Label>
+            <MultiCheckPop label="Employees" options={allEmps.map((e) => ({ id: e.id, name: e.name }))} selected={empFilter} onChange={setEmpFilter} search />
+            <MultiCheckPop label="Departments" options={allDepts} selected={deptFilter} onChange={setDeptFilter} />
+            <MultiCheckPop label="Jobs" options={allJobs} selected={jobFilter} onChange={setJobFilter} />
+            {(empFilter.length || deptFilter.length || jobFilter.length) ? (
+              <>
+                <Badge variant="default">{scopedEmpCount} employee(s) in scope</Badge>
+                <Button variant="ghost" size="sm" onClick={() => { setEmpFilter([]); setDeptFilter([]); setJobFilter([]); }}>
+                  <X className="h-3.5 w-3.5 mr-1" /> Clear scope
+                </Button>
+              </>
+            ) : (
+              <Badge variant="secondary">All active employees</Badge>
+            )}
           </div>
-          <Button onClick={computePeriod} disabled={busy}>
-            {busy ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-            Run Payroll
-          </Button>
+          <p className="text-xs text-muted-foreground">
+            When a scope is set, only those employees are (re)computed. Existing lines for other employees in this period are preserved.
+          </p>
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader>
