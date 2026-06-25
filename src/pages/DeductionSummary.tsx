@@ -231,11 +231,12 @@ export default function DeductionSummary() {
         if (ts.is_absent) {
           row.absentCount++;
           const hasNotice = ts.absence_has_notice;
-          let rule: any = defaultAbsenceRule;
+          // Default: any absence not explicitly marked "with notice" is treated as "without notice"
+          let rule: any;
           if (hasNotice === true) {
             row.absentWithNoticeCount++;
             rule = withNoticeRule || defaultAbsenceRule;
-          } else if (hasNotice === false) {
+          } else {
             row.absentWithoutNoticeCount++;
             rule = withoutNoticeRule || defaultAbsenceRule;
           }
