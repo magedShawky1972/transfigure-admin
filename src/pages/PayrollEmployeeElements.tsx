@@ -1,3 +1,4 @@
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ type Assign = {
 };
 
 export default function PayrollEmployeeElements() {
+  const { language } = useLanguage();
   const [emps, setEmps] = useState<Emp[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
   const [selectedEmp, setSelectedEmp] = useState<string>("");
