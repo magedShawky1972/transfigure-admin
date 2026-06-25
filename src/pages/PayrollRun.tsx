@@ -511,10 +511,18 @@ export default function PayrollRun() {
                         <Button size="sm" onClick={() => confirmRun(r)}>
                           <CheckCircle2 className="h-4 w-4 mr-1" /> Confirm
                         </Button>
+                        <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
+                          <Undo2 className="h-4 w-4 mr-1" /> Rollback
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => deleteRun(r)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </>
+                    )}
+                    {r.status === "confirmed" && (
+                      <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
+                        <Undo2 className="h-4 w-4 mr-1" /> Rollback
+                      </Button>
                     )}
                   </TableCell>
                 </TableRow>
