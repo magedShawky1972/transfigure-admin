@@ -596,7 +596,7 @@ export default function PayrollRun() {
                             </Badge>
                           </TableCell>
                           <TableCell>{l.minutes ? Number(l.minutes).toFixed(0) : "—"}</TableCell>
-                          <TableCell className="text-right">{Number(l.amount).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{fmt(l.amount)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
