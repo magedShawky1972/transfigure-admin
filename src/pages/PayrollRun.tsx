@@ -573,8 +573,8 @@ export default function PayrollRun() {
                   <div className="flex justify-between items-center mb-2">
                     <strong>{empMap[empId] || empId}</strong>
                     <div className="text-sm">
-                      Gross: {earn.toFixed(2)} | Ded: {ded.toFixed(2)} |
-                      <span className="font-bold ml-2">Net: {(earn - ded).toFixed(2)}</span>
+                      Gross: {fmt(earn)} | Ded: {fmt(ded)} |
+                      <span className="font-bold ml-2">Net: {fmt(earn - ded)}</span>
                     </div>
                   </div>
                   <Table>
