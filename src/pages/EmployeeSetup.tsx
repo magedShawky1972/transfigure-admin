@@ -40,6 +40,7 @@ interface Employee {
   id: string;
   employee_number: string;
   zk_employee_code: string | null;
+  dopay_employee_number: string | null;
   user_id: string | null;
   first_name: string;
   first_name_ar: string | null;
@@ -247,6 +248,7 @@ export default function EmployeeSetup() {
   const [formData, setFormData] = useState({
     employee_number: "",
     zk_employee_code: "",
+    dopay_employee_number: "",
     user_id: "",
     first_name: "",
     first_name_ar: "",
@@ -458,6 +460,7 @@ export default function EmployeeSetup() {
     setFormData({
       employee_number: `EMP${Date.now()}`,
       zk_employee_code: "",
+      dopay_employee_number: "",
       user_id: user.user_id,
       first_name: firstName,
       first_name_ar: "",
@@ -720,6 +723,7 @@ export default function EmployeeSetup() {
     setFormData({
       employee_number: "",
       zk_employee_code: "",
+      dopay_employee_number: "",
       user_id: "",
       first_name: "",
       first_name_ar: "",
@@ -765,6 +769,7 @@ export default function EmployeeSetup() {
     setFormData({
       employee_number: employee.employee_number,
       zk_employee_code: employee.zk_employee_code || "",
+      dopay_employee_number: (employee as any).dopay_employee_number || "",
       user_id: employee.user_id || "",
       first_name: employee.first_name,
       first_name_ar: employee.first_name_ar || "",
@@ -959,6 +964,7 @@ export default function EmployeeSetup() {
       const payload = {
         employee_number: employeeNumber,
         zk_employee_code: formData.zk_employee_code || null,
+        dopay_employee_number: formData.dopay_employee_number || null,
         user_id: formData.user_id || null,
         first_name: formData.first_name,
         first_name_ar: formData.first_name_ar || null,
@@ -1571,6 +1577,15 @@ export default function EmployeeSetup() {
                     value={formData.zk_employee_code}
                     onChange={(e) => setFormData({ ...formData, zk_employee_code: e.target.value })}
                     placeholder={language === "ar" ? "رقم الموظف في جهاز ZK" : "Employee number in ZK machine"}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "رقم موظف Dopay" : "Dopay Employee Number"}</Label>
+                  <Input
+                    value={formData.dopay_employee_number}
+                    onChange={(e) => setFormData({ ...formData, dopay_employee_number: e.target.value })}
+                    placeholder={language === "ar" ? "رقم الموظف في Dopay" : "Employee number in Dopay"}
                   />
                 </div>
 
