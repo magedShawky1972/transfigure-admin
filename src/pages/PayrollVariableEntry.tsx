@@ -126,6 +126,7 @@ export default function PayrollVariableEntry() {
               <Select value={emp} onValueChange={setEmp}>
                 <SelectTrigger><SelectValue placeholder="Pick..." /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__all__">★ All Employees ({emps.length})</SelectItem>
                   {emps.map((e) => (
                     <SelectItem key={e.id} value={e.id}>{e.employee_number} — {e.first_name} {e.last_name}</SelectItem>
                   ))}
