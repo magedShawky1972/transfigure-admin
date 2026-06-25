@@ -2067,14 +2067,45 @@ export default function TimesheetManagement() {
             </div>
 
             {formData.is_absent ? (
-              <div className="space-y-2">
-                <Label>{language === "ar" ? "سبب الغياب" : "Absence Reason"}</Label>
-                <Textarea
-                  value={formData.absence_reason}
-                  onChange={(e) => setFormData({ ...formData, absence_reason: e.target.value })}
-                  rows={2}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "حالة الإشعار" : "Notice Status"}</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.absence_has_notice === true ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, absence_has_notice: true })}
+                    >
+                      {language === "ar" ? "غياب بإشعار" : "With Notice"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.absence_has_notice === false ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, absence_has_notice: false })}
+                    >
+                      {language === "ar" ? "بدون إشعار" : "Without Notice"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.absence_has_notice === null ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, absence_has_notice: null })}
+                    >
+                      {language === "ar" ? "غير محدد" : "Unset"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "سبب الغياب" : "Absence Reason"}</Label>
+                  <Textarea
+                    value={formData.absence_reason}
+                    onChange={(e) => setFormData({ ...formData, absence_reason: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+              </>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-4">
