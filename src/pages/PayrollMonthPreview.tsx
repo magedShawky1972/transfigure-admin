@@ -230,45 +230,59 @@ export default function PayrollMonthPreview() {
   };
 
   const clearFilters = () => {
-    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setElementFilter([]); setTypeFilter([]); setHideZeroEmployees(false);
+    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setEmployeeFilter([]); setElementFilter([]); setTypeFilter([]); setHideZeroEmployees(false);
   };
 
   const MultiCheckPop = ({
-    label, options, selected, onChange,
-  }: { label: string; options: { id: string; name: string }[]; selected: string[]; onChange: (v: string[]) => void }) => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9">
-          <Filter className="h-3.5 w-3.5 mr-1" /> {label}
-          {selected.length > 0 && <Badge variant="secondary" className="ml-2">{selected.length}</Badge>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-2" align="start">
-        <ScrollArea className="h-60">
-          <div className="space-y-1">
-            {options.length === 0 && <p className="text-xs text-muted-foreground p-2">No options</p>}
-            {options.map((o) => (
-              <label key={o.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer text-sm">
-                <Checkbox
-                  checked={selected.includes(o.id)}
-                  onCheckedChange={(c) => {
-                    if (c) onChange([...selected, o.id]);
-                    else onChange(selected.filter((x) => x !== o.id));
-                  }}
-                />
-                <span className="flex-1">{o.name}</span>
-              </label>
-            ))}
-          </div>
-        </ScrollArea>
-        {selected.length > 0 && (
-          <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => onChange([])}>
-            <X className="h-3 w-3 mr-1" /> Clear
+    label, options, selected, onChange, searchable,
+  }: { label: string; options: { id: string; name: string }[]; selected: string[]; onChange: (v: string[]) => void; searchable?: boolean }) => {
+    const [q, setQ] = useState("");
+    const list = searchable && q.trim()
+      ? options.filter((o) => o.name.toLowerCase().includes(q.trim().toLowerCase()))
+      : options;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="h-9">
+            <Filter className="h-3.5 w-3.5 mr-1" /> {label}
+            {selected.length > 0 && <Badge variant="secondary" className="ml-2">{selected.length}</Badge>}
           </Button>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-2" align="start">
+          {searchable && (
+            <Input
+              placeholder="Search..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-8 mb-2"
+            />
+          )}
+          <ScrollArea className="h-60">
+            <div className="space-y-1">
+              {list.length === 0 && <p className="text-xs text-muted-foreground p-2">No options</p>}
+              {list.map((o) => (
+                <label key={o.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer text-sm">
+                  <Checkbox
+                    checked={selected.includes(o.id)}
+                    onCheckedChange={(c) => {
+                      if (c) onChange([...selected, o.id]);
+                      else onChange(selected.filter((x) => x !== o.id));
+                    }}
+                  />
+                  <span className="flex-1">{o.name}</span>
+                </label>
+              ))}
+            </div>
+          </ScrollArea>
+          {selected.length > 0 && (
+            <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => onChange([])}>
+              <X className="h-3 w-3 mr-1" /> Clear
+            </Button>
+          )}
+        </PopoverContent>
+      </Popover>
+    );
+  };
 
   const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
   const months = [
