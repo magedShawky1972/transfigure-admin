@@ -616,6 +616,19 @@ export default function DeductionSummary() {
               </Select>
             </div>
             <div>
+              <Label className="text-xs">{isAr ? "عنصر الغياب" : "Absence Element"}</Label>
+              <Select value={selectedAbsenceElementId} onValueChange={setSelectedAbsenceElementId}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder={isAr ? "اختر" : "Select"} /></SelectTrigger>
+                <SelectContent>
+                  {absenceElements.length === 0 ? (
+                    <SelectItem value="none" disabled>{isAr ? "لا يوجد عنصر غياب معرف" : "No absence element defined"}</SelectItem>
+                  ) : absenceElements.map(e => (
+                    <SelectItem key={e.id} value={e.id}>{e.code} - {isAr ? (e.name_ar || e.name_en) : e.name_en}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-xs">{isAr ? "السنة" : "Year"}</Label>
               <Select value={String(periodYear)} onValueChange={v => setPeriodYear(Number(v))}>
                 <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
