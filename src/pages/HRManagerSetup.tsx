@@ -100,7 +100,7 @@ const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageU
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const unitLabel = (u: BusinessUnit) => (language === 'ar' ? (u.name_ar || u.name) : u.name);
+  const unitLabel = (u: BusinessUnit) => (language === 'ar' ? (u.unit_name_ar || u.unit_name) : u.unit_name);
 
   return (
     <div
@@ -199,7 +199,7 @@ const HRManagerSetup = () => {
     try {
       const [managersRes, unitsRes] = await Promise.all([
         supabase.from('hr_managers').select('*').order('admin_order', { ascending: true }),
-        supabase.from('business_units').select('id, name, name_ar').order('name'),
+        supabase.from('business_units').select('id, unit_name, unit_name_ar').order('name'),
       ]);
 
       if (managersRes.error) throw managersRes.error;
@@ -516,7 +516,7 @@ const HRManagerSetup = () => {
                       onCheckedChange={(c) => toggleUnit(u.id, !!c)}
                     />
                     <span className="text-sm">
-                      {language === 'ar' ? (u.name_ar || u.name) : u.name}
+                      {language === 'ar' ? (u.unit_name_ar || u.unit_name) : u.unit_name}
                     </span>
                   </label>
                 ))
