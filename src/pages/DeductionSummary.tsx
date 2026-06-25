@@ -159,6 +159,22 @@ export default function DeductionSummary() {
       const approvedSet = new Set<string>();
       (approved || []).forEach((r: any) => approvedSet.add(`${r.employee_id}_${r.delay_date}_${r.request_type}`));
 
+      // Load Basic Salary from the payroll element flagged as is_basic_salary_element
+      const { data: basicEl } = await supabase
+        .from("payroll_elements")
+        .select("id")
+        .eq("is_basic_salary_element", true)
+        .eq("is_active", true)
+        .maybeSingle();
+      const basicSalaryMap = new Map<string, number>();
+      if (basicEl?.id) {
+        const { data: assigns } = await supabase
+          .from("payroll_employee_elements")
+          .select("employee_id, amount")
+          .eq("element_id", basicEl.id);
+        (assigns || []).forEach((a: any) => basicSalaryMap.set(a.employee_id, Number(a.amount) || 0));
+      }
+
       const map = new Map<string, Row>();
       (data || []).forEach((ts: any) => {
         const empId = ts.employee_id;
