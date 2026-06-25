@@ -40,6 +40,7 @@ interface Employee {
   id: string;
   employee_number: string;
   zk_employee_code: string | null;
+  dopay_employee_number: string | null;
   user_id: string | null;
   first_name: string;
   first_name_ar: string | null;
@@ -1571,6 +1572,15 @@ export default function EmployeeSetup() {
                     value={formData.zk_employee_code}
                     onChange={(e) => setFormData({ ...formData, zk_employee_code: e.target.value })}
                     placeholder={language === "ar" ? "رقم الموظف في جهاز ZK" : "Employee number in ZK machine"}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "رقم موظف Dopay" : "Dopay Employee Number"}</Label>
+                  <Input
+                    value={formData.dopay_employee_number}
+                    onChange={(e) => setFormData({ ...formData, dopay_employee_number: e.target.value })}
+                    placeholder={language === "ar" ? "رقم الموظف في Dopay" : "Employee number in Dopay"}
                   />
                 </div>
 
