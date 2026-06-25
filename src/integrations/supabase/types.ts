@@ -3556,6 +3556,7 @@ export type Database = {
           currency: string | null
           date_of_birth: string | null
           department_id: string | null
+          dopay_employee_number: string | null
           email: string | null
           employee_number: string
           employment_status: Database["public"]["Enums"]["employment_status"]
@@ -3602,6 +3603,7 @@ export type Database = {
           currency?: string | null
           date_of_birth?: string | null
           department_id?: string | null
+          dopay_employee_number?: string | null
           email?: string | null
           employee_number: string
           employment_status?: Database["public"]["Enums"]["employment_status"]
@@ -3648,6 +3650,7 @@ export type Database = {
           currency?: string | null
           date_of_birth?: string | null
           department_id?: string | null
+          dopay_employee_number?: string | null
           email?: string | null
           employee_number?: string
           employment_status?: Database["public"]["Enums"]["employment_status"]
