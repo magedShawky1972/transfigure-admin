@@ -37,6 +37,13 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
 
+const formatNumber = (num: number) => {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
+};
+
 interface Row {
   employee_id: string;
   empNumber: string;
