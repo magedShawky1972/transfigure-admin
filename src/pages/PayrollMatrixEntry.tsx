@@ -22,6 +22,34 @@ const typeColors: Record<string, { head: string; cell: string; label: string }> 
   information: { head: "bg-muted text-muted-foreground", cell: "", label: "text-muted-foreground" },
 };
 
+const numFmt = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function MatrixCellInput({
+  value, dirty, onCommit, className,
+}: { value: number | undefined; dirty?: boolean; onCommit: (v: number) => void; className?: string }) {
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState<string>("");
+  const display = focused
+    ? draft
+    : (value === undefined || value === null || isNaN(value as number) ? "" : numFmt.format(Number(value)));
+  return (
+    <Input
+      inputMode="decimal"
+      value={display}
+      placeholder="0.00"
+      onFocus={() => { setFocused(true); setDraft(value !== undefined && value !== null ? String(value) : ""); }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setFocused(false);
+        const n = Number(draft.replace(/,/g, ""));
+        onCommit(isNaN(n) ? 0 : n);
+      }}
+      className={`h-8 text-right ${dirty ? "border-primary ring-1 ring-primary/40" : ""} ${className || ""}`}
+    />
+  );
+}
+
+
 type Emp = {
   id: string;
   first_name: string;
