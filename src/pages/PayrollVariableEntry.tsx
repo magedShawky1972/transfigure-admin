@@ -94,7 +94,7 @@ export default function PayrollVariableEntry() {
     const [e, el] = await Promise.all([
       supabase
         .from("employees")
-        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name), job_positions(position_name)")
+        .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name)")
         .order("first_name"),
       supabase
         .from("payroll_elements")
