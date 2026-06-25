@@ -617,6 +617,79 @@ export default function TimesheetManagement() {
     }
   };
 
+  // Build list of dates from the current filter (date | range | month)
+  const buildFilterDates = (): string[] => {
+    const dates: string[] = [];
+    let from: string;
+    let to: string;
+    if (filterMode === "date") {
+      from = selectedDate;
+      to = selectedDate;
+    } else if (filterMode === "range") {
+      from = dateFrom;
+      to = dateTo;
+    } else {
+      const [year, month] = selectedMonth.split("-").map(Number);
+      from = `${selectedMonth}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      to = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+    }
+    if (!from || !to) return dates;
+    const start = new Date(from + "T00:00:00");
+    const end = new Date(to + "T00:00:00");
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(d.toISOString().split("T")[0]);
+    }
+    return dates;
+  };
+
+  const handleRecalculate = async () => {
+    const dates = buildFilterDates();
+    if (dates.length === 0) {
+      toast.error(language === "ar" ? "اختر فترة صالحة" : "Select a valid period");
+      return;
+    }
+    setRecalcRunning(true);
+    setRecalcProgress({ done: 0, total: dates.length });
+    let failed = 0;
+    try {
+      for (let i = 0; i < dates.length; i++) {
+        const target_date = dates[i];
+        try {
+          const { error } = await supabase.functions.invoke("process-zk-attendance", {
+            body: { target_date, process_type: "evening", send_notifications: false },
+          });
+          if (error) {
+            failed++;
+            console.error(`Recalc failed for ${target_date}:`, error);
+          }
+        } catch (e) {
+          failed++;
+          console.error(`Recalc failed for ${target_date}:`, e);
+        }
+        setRecalcProgress({ done: i + 1, total: dates.length });
+      }
+      if (failed === 0) {
+        toast.success(
+          language === "ar"
+            ? `تمت إعادة الحساب لـ ${dates.length} يوم`
+            : `Recalculated ${dates.length} day(s)`
+        );
+      } else {
+        toast.warning(
+          language === "ar"
+            ? `تمت إعادة الحساب مع ${failed} خطأ`
+            : `Recalculated with ${failed} error(s)`
+        );
+      }
+      await fetchData();
+    } finally {
+      setRecalcRunning(false);
+      setRecalcDialogOpen(false);
+    }
+  };
+
+
   const fetchData = async () => {
     setLoading(true);
     try {
