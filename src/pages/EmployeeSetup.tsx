@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera, UserPlus, Users, FileSpreadsheet } from "lucide-react";
+import { Plus, Edit, Trash2, Search, UserCircle, Eye, LayoutGrid, List, Upload, FileText, Download, X, Camera, UserPlus, Users, FileSpreadsheet, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as XLSX from "xlsx";
@@ -194,6 +194,24 @@ export default function EmployeeSetup() {
   const [filterLetter, setFilterLetter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [payrollDialogOpen, setPayrollDialogOpen] = useState(false);
+  const [payrollDialogEmp, setPayrollDialogEmp] = useState<Employee | null>(null);
+  const [payrollDialogRows, setPayrollDialogRows] = useState<any[]>([]);
+  const [payrollDialogLoading, setPayrollDialogLoading] = useState(false);
+
+  const openPayrollDialog = async (emp: Employee) => {
+    setPayrollDialogEmp(emp);
+    setPayrollDialogOpen(true);
+    setPayrollDialogLoading(true);
+    const { data } = await supabase
+      .from("payroll_employee_elements")
+      .select("id, amount, effective_from, effective_to, is_active, payroll_elements(code, name_en, name_ar, element_type)")
+      .eq("employee_id", emp.id)
+      .order("created_at");
+    setPayrollDialogRows(data || []);
+    setPayrollDialogLoading(false);
+  };
+
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [loadUsersDialogOpen, setLoadUsersDialogOpen] = useState(false);
@@ -1353,6 +1371,15 @@ export default function EmployeeSetup() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => openPayrollDialog(emp)}
+                              title={language === "ar" ? "عناصر الرواتب" : "Payroll Elements"}
+                            >
+                              <Wallet className="h-4 w-4 text-primary" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => {
                                 setSelectedEmployee(emp);
                                 setDeleteDialogOpen(true);
@@ -1424,6 +1451,15 @@ export default function EmployeeSetup() {
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(emp)}>
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openPayrollDialog(emp)}
+                            title={language === "ar" ? "عناصر الرواتب" : "Payroll Elements"}
+                          >
+                            <Wallet className="h-4 w-4 text-primary" />
+                          </Button>
+
                           <Button
                             variant="ghost"
                             size="icon"
@@ -2439,6 +2475,61 @@ export default function EmployeeSetup() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Payroll Elements Dialog */}
+      <Dialog open={payrollDialogOpen} onOpenChange={setPayrollDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary" />
+              {language === "ar" ? "عناصر الرواتب" : "Payroll Elements"} —{" "}
+              {payrollDialogEmp?.first_name} {payrollDialogEmp?.last_name}
+            </DialogTitle>
+          </DialogHeader>
+          {payrollDialogLoading ? (
+            <p className="text-center py-6 text-muted-foreground">{language === "ar" ? "جاري التحميل..." : "Loading..."}</p>
+          ) : payrollDialogRows.length === 0 ? (
+            <p className="text-center py-6 text-muted-foreground">
+              {language === "ar" ? "لا توجد عناصر رواتب معيّنة" : "No payroll elements assigned"}
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{language === "ar" ? "الكود" : "Code"}</TableHead>
+                  <TableHead>{language === "ar" ? "العنصر" : "Element"}</TableHead>
+                  <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
+                  <TableHead className="text-right">{language === "ar" ? "القيمة" : "Amount"}</TableHead>
+                  <TableHead>{language === "ar" ? "من" : "From"}</TableHead>
+                  <TableHead>{language === "ar" ? "إلى" : "To"}</TableHead>
+                  <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payrollDialogRows.map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.payroll_elements?.code}</TableCell>
+                    <TableCell>{language === "ar" ? (r.payroll_elements?.name_ar || r.payroll_elements?.name_en) : r.payroll_elements?.name_en}</TableCell>
+                    <TableCell>{r.payroll_elements?.element_type}</TableCell>
+                    <TableCell className="text-right font-medium">{Number(r.amount).toFixed(2)}</TableCell>
+                    <TableCell>{r.effective_from || "—"}</TableCell>
+                    <TableCell>{r.effective_to || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={r.is_active ? "default" : "secondary"}>{r.is_active ? "Active" : "Inactive"}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayrollDialogOpen(false)}>
+              {language === "ar" ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Load Users Dialog */}
       <Dialog open={loadUsersDialogOpen} onOpenChange={setLoadUsersDialogOpen}>
