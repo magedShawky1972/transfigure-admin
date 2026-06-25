@@ -1,93 +1,76 @@
 ## Goal
-Let project managers invite external people by email to a single project. Guests receive a signup link, create an account, and land directly inside that one project with one of two permission levels:
+Wire absence into payroll the same way late minutes already are: pick the right deduction rule (with-notice vs without-notice), compute its value, send it to a dedicated **Absence payroll element**, and let managers flag each absent day as "with notice" or "without notice" in Timesheet Management.
 
-- **Editor** — view project, add/update/delete tasks, post chat/comments, upload attachments.
-- **Viewer** — read-only access to project, tasks, Gantt and Kanban.
+## Mapping (answer to your question)
 
-Guests must NOT see any other projects, departments, employees, finance, or admin pages in the app.
+| Timesheet signal | Rule source | Goes to payroll element |
+|---|---|---|
+| `late_minutes + early_leave_minutes` | already calculated per shift | element with `is_delay_minutes_element = true` |
+| `is_absent` AND `has_notice = true` | `deduction_rules` row "Absence - with note" (100%) | element with `is_absence_element = true` *(new flag)* |
+| `is_absent` AND `has_notice = false` | `deduction_rules` row "Absence - without note" (200%) | same absence element |
 
----
+Formula per absent day:
+```
+daily_rate    = basic_salary / 30
+absent_amount = daily_rate × rule.deduction_value     (1.0 with notice, 2.0 without)
+```
 
-## 1. Database (one migration)
+## 1. Database migration
 
-### New table `project_guests`
-- `id` uuid pk
-- `project_id` uuid → projects (cascade)
-- `email` citext (unique per project)
-- `role` text check in (`editor`,`viewer`)
-- `invite_token` uuid (unique) — used in signup link
-- `invited_by` uuid, `invited_at` timestamptz
-- `accepted_at` timestamptz null
-- `user_id` uuid null — filled when the guest signs up
+`saved_attendance`:
+- add `absence_has_notice boolean` (null = not yet set, true = with notice, false = without notice)
 
-### New flag on `profiles`
-- `is_external_guest` boolean default false (set true at signup if invited)
+`payroll_elements`:
+- add `is_absence_element boolean default false`
 
-### Helper SECURITY DEFINER functions
-- `is_project_guest(p_project_id uuid, p_user_id uuid) returns boolean`
-- `project_guest_role(p_project_id uuid, p_user_id uuid) returns text`
-- `current_user_is_external_guest() returns boolean`
+`deduction_rules` — no schema change; rely on existing rows "Absence - with note" / "Absence - without note". Add two convenience flags so the engine can find them unambiguously even if names change later:
+- add `is_absence_with_notice boolean default false`
+- add `is_absence_without_notice boolean default false`
 
-### RLS adjustments
-Add policies on `projects`, `tasks`, `task_messages`, `task_attachments`, `project_task_phases`, `project_members` so a guest can `SELECT` only rows for their assigned project; editor guests additionally get `INSERT/UPDATE/DELETE` on `tasks`, `task_messages`, `task_attachments` scoped to their project. Viewer guests get SELECT only.
+## 2. Payroll Element Setup (`PayrollElementSetup.tsx`)
+- New checkbox **"Absence Element"** (mirrors the existing Basic Salary / Delay flags). When checked it forces `element_type = deduction`, `calculation_type = absence_days`, and unsets the same flag on every other element.
 
----
+## 3. Deduction & Overtime Rules Setup (`DeductionRulesSetup.tsx`)
+- In the edit dialog, when `rule_type = absence`, expose two mutually-exclusive checkboxes: **"Is Absence WITH notice"** and **"Is Absence WITHOUT notice"**. Saved into the new flags above.
+- Show a small badge next to each absence row in the table indicating which one it is.
 
-## 2. Edge function `invite-project-guest`
-Inputs: `project_id`, `email`, `role`.
-- Verifies caller is admin / department admin / project manager.
-- Upserts row in `project_guests` with a fresh `invite_token`.
-- Sends a branded email containing the signup link:
-  `${SITE_URL}/guest-signup?token=<invite_token>`
+## 4. Timesheet Management — per-day Notice flag
+On the timesheet grid (and the day-detail dialog), for any row where `is_absent = true`:
+- New small toggle / segmented control with three states: **Unset · With Notice · Without Notice** that writes `saved_attendance.absence_has_notice`.
+- Visible only to users who can edit timesheets (existing permission check).
+- Defaults to "Unset" so admins explicitly classify each absence.
 
-Uses the existing Lovable email infrastructure (auth-email-hook flow). If email infra isn't configured yet, the agent will run setup the first time this is used.
+## 5. Deduction Summary (`DeductionSummary.tsx`)
+- Split the **Absent** column into **Absent (with notice)** and **Absent (without notice)**, plus a new **Absence Amount** column.
+- Per employee aggregate over the period:
+  - `daysWithNotice` = count of `is_absent` rows where `absence_has_notice = true`
+  - `daysWithoutNotice` = count where `absence_has_notice = false`
+  - `daysUnclassified` = count where `absence_has_notice IS NULL` (shown in a yellow warning chip, not converted to money)
+  - `absenceAmount = (basic/30) × (daysWithNotice × ruleWith.value + daysWithoutNotice × ruleWithout.value)`
+- `Total Deduction` becomes `delayAmount + absenceAmount`. Ranna's row will now show a value instead of 0.00.
+- Filters, multi-sort, Excel export, print: add the new columns.
+- A warning toast appears on Confirm if any employee in scope still has unclassified absent days, so payroll never silently drops them.
 
----
+## 6. Confirm & Send to Payroll
+Extend the existing confirm flow to upsert TWO `payroll_variable_entries` per employee for the period:
+1. element flagged `is_delay_minutes_element` → `delayAmount` (current behavior, unchanged)
+2. element flagged `is_absence_element` → `absenceAmount` (new)
 
-## 3. New public route `/guest-signup`
-- Reads `token` from URL.
-- Calls edge function `accept-project-guest` which:
-  1. Looks up `project_guests` by token (must be unaccepted).
-  2. Shows email (read-only) + password field on the page.
-  3. Creates the auth user with `email` + chosen password (auto-confirm for guests), sets `profiles.is_external_guest = true`, fills `project_guests.user_id` and `accepted_at`.
-- On success, signs the user in and redirects to `/guest/project/<project_id>`.
+Rollback removes both. Skip employees whose amount is 0.
 
----
-
-## 4. Guest-only shell
-New `GuestLayout` that:
-- Hides the global sidebar/menu entirely.
-- Shows only: Project header, tabs for **Overview**, **Tasks (Kanban)**, **Gantt**, **Chat**.
-- Reuses existing `TaskList`, `ProjectGantt`, task message components but in read-only mode for viewer.
-- A top-level guard (`<GuestGuard>`) checks `profiles.is_external_guest`:
-  - If true → force route to `/guest/project/:id`. Any other path redirects there.
-  - If false → normal app.
-
----
-
-## 5. UI in Projects & Tasks
-In `ProjectsTasks.tsx` add a **"Invite Guest"** button on each project card (visible to managers/admins). Opens a dialog:
-- Email input (validated)
-- Role radio: **Can edit** / **View only**
-- Submit → calls `invite-project-guest` edge function, shows toast.
-
-A second tab/section **"External Guests"** lists current guests with status (Pending/Accepted), role, and a **Revoke** action (deletes the `project_guests` row and the linked auth user if present).
-
----
-
-## 6. Security notes
-- All guest mutations go through RLS scoped by `is_project_guest()` + role check, never trust client.
-- Edge functions verify caller permissions before inserting invites.
-- Revoking deletes the row → RLS immediately blocks the guest.
-- Email validation with zod on both client and edge function.
-
----
+## 7. Payroll Run (`PayrollRun.tsx`)
+Add an `absence_days` branch in `computePeriod` alongside the existing `delay_minutes` branch:
+- Prefer a `payroll_variable_entries` value when present (so the Deduction Summary confirm wins).
+- Otherwise, fallback compute from `saved_attendance` over the run period using the same formula.
 
 ## Files touched
-- migration: `project_guests`, helper fns, RLS policies, `profiles.is_external_guest`
-- new edge functions: `invite-project-guest`, `accept-project-guest`
-- new pages: `src/pages/GuestSignup.tsx`, `src/pages/GuestProject.tsx`
-- new component: `src/components/GuestGuard.tsx`, `src/components/InviteGuestDialog.tsx`, `src/components/ProjectGuestsList.tsx`
-- edits: `src/App.tsx` (routes + guard), `src/pages/ProjectsTasks.tsx` (button + tab)
+- migration: `saved_attendance.absence_has_notice`, `payroll_elements.is_absence_element`, `deduction_rules.is_absence_with_notice` / `is_absence_without_notice`
+- `src/pages/PayrollElementSetup.tsx`
+- `src/pages/DeductionRulesSetup.tsx`
+- `src/pages/DeductionSummary.tsx`
+- `src/pages/PayrollRun.tsx`
+- Timesheet Management page + day-detail dialog (existing files, exact paths to be confirmed during build)
 
-After you approve, I'll start with the migration, then build the edge functions, then the UI.
+## Backwards compatibility
+- Old delay flow keeps working unchanged.
+- Existing absence rows with `absence_has_notice = null` are surfaced as "unclassified" and excluded from money calculation until the manager flags them — no silent miscalculation.
