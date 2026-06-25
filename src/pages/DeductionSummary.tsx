@@ -507,6 +507,26 @@ export default function DeductionSummary() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={rollbackOpen} onOpenChange={setRollbackOpen}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isAr ? "تأكيد التراجع" : "Confirm Rollback"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isAr
+                ? `سيتم حذف ${existingCount} إدخال خصم تأخير للفترة ${periodYear}/${periodMonth}. لا يمكن التراجع إذا تم تأكيد كشف الرواتب لهذا الشهر.`
+                : `This will delete ${existingCount} delay deduction entries for ${periodYear}/${periodMonth}. Not allowed if payroll is already confirmed for this period.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rollingBack}>{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handleRollback(); }} disabled={rollingBack}>
+              {rollingBack && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isAr ? "تراجع" : "Rollback"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
