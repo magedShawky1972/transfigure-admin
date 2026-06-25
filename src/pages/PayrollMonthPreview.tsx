@@ -517,7 +517,7 @@ export default function PayrollMonthPreview() {
                       const net = netFor(emp.id);
                       return (
                         <TableRow key={emp.id}>
-                          <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                          <TableCell className="sticky start-0 ltr:left-0 rtl:right-0 bg-background z-10 font-medium border-r dark:border-zinc-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] rtl:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                             {empName(emp)}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{emp.employee_number}</TableCell>
