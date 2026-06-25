@@ -192,6 +192,7 @@ export default function TimesheetManagement() {
     { key: "employee", direction: "asc" },
   ]);
   const [isNawaf, setIsNawaf] = useState(false);
+  const [hrAllowedBusinessUnitIds, setHrAllowedBusinessUnitIds] = useState<string[] | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [monthLocked, setMonthLocked] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
@@ -342,7 +343,7 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo, selectedDepartment]);
+  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo, selectedDepartment, hrAllowedBusinessUnitIds]);
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
@@ -373,6 +374,22 @@ export default function TimesheetManagement() {
           .eq("user_id", user.id)
           .maybeSingle();
         setIsNawaf(user.id === NAWAF_USER_ID || !!hrRow);
+
+        // If this user is an HR Manager (and not master Nawaf), restrict to their assigned Business Units
+        if (hrRow && user.id !== NAWAF_USER_ID) {
+          const { data: links } = await supabase
+            .from("hr_manager_business_units")
+            .select("business_unit_id")
+            .eq("hr_manager_id", hrRow.id);
+          if (links && links.length > 0) {
+            setHrAllowedBusinessUnitIds(links.map((l: any) => l.business_unit_id));
+          } else {
+            setHrAllowedBusinessUnitIds(null);
+          }
+        } else {
+          setHrAllowedBusinessUnitIds(null);
+        }
+
         const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user.id).single();
         if (profile) setCurrentUserName(profile.user_name || user.email || "");
       }
@@ -717,14 +734,25 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
         supabase.from("departments").select("id, department_name, parent_department_id").eq("is_active", true),
       ]);
 
-      setEmployees(employeesRes.data || []);
+      // Apply HR Manager Business Unit restriction (if user is a scoped HR manager)
+      let scopedEmployees = employeesRes.data || [];
+      if (hrAllowedBusinessUnitIds && hrAllowedBusinessUnitIds.length > 0) {
+        const allowed = new Set(hrAllowedBusinessUnitIds);
+        scopedEmployees = scopedEmployees.filter((e: any) =>
+          e.working_business_unit_id && allowed.has(e.working_business_unit_id)
+        );
+      }
+      // Mutate the response so existing downstream code keeps working
+      (employeesRes as any).data = scopedEmployees;
+
+      setEmployees(scopedEmployees);
       setDeductionRules(rulesRes.data || []);
       setDepartments(deptsRes.data || []);
 
@@ -797,6 +825,15 @@ export default function TimesheetManagement() {
           return;
         }
         query = query.in("employee_id", departmentEmployeeIds);
+      } else if (hrAllowedBusinessUnitIds && hrAllowedBusinessUnitIds.length > 0) {
+        // Restrict to HR Manager's scoped employees
+        const allowedIds = scopedEmployees.map((e: any) => e.id);
+        if (allowedIds.length === 0) {
+          setTimesheets([]);
+          setLoading(false);
+          return;
+        }
+        query = query.in("employee_id", allowedIds);
       }
 
       const { data: rawData, error } = await query;

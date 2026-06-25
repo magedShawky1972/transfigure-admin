@@ -81,6 +81,7 @@ const EmployeeRequestApprovals = () => {
   const [filterStatus, setFilterStatus] = useState<string>('pending');
   const [isHRManager, setIsHRManager] = useState(false);
   const [hrManagerLevel, setHrManagerLevel] = useState<number | null>(null);
+  const [hrAllowedEmployeeIds, setHrAllowedEmployeeIds] = useState<string[] | null>(null);
   const [userAdminDepts, setUserAdminDepts] = useState<string[]>([]);
   const [userAdminLevel, setUserAdminLevel] = useState<Map<string, number>>(new Map());
   const [pendingApprovers, setPendingApprovers] = useState<Map<string, string>>(new Map());
@@ -106,7 +107,7 @@ const EmployeeRequestApprovals = () => {
     });
     return () => subscription.unsubscribe();
   }, []);
-  useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, filterType, filterStatus]);
+  useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, hrAllowedEmployeeIds, filterType, filterStatus]);
 
   const fetchUserPermissions = async (userId: string) => {
     try {
@@ -118,6 +119,23 @@ const EmployeeRequestApprovals = () => {
       if (hrData) {
         setIsHRManager(true);
         setHrManagerLevel(hrData.admin_order);
+
+        // Apply Business Unit restriction
+        const { data: links } = await supabase
+          .from('hr_manager_business_units')
+          .select('business_unit_id')
+          .eq('hr_manager_id', hrData.id);
+
+        if (links && links.length > 0) {
+          const unitIds = links.map((l: any) => l.business_unit_id);
+          const { data: emps } = await supabase
+            .from('employees')
+            .select('id')
+            .in('working_business_unit_id', unitIds);
+          setHrAllowedEmployeeIds((emps || []).map((e: any) => e.id));
+        } else {
+          setHrAllowedEmployeeIds(null);
+        }
       }
 
       if (adminData && adminData.length > 0) {
@@ -140,6 +158,16 @@ const EmployeeRequestApprovals = () => {
       if (filterStatus === 'pending') query = query.in('status', ['pending', 'manager_approved', 'hr_pending']);
       else if (filterStatus !== 'all') query = query.eq('status', filterStatus);
       if (filterType !== 'all') query = query.eq('request_type', filterType);
+
+      // Restrict to employees in the HR Manager's assigned Business Units
+      if (isHRManager && hrAllowedEmployeeIds !== null) {
+        if (hrAllowedEmployeeIds.length === 0) {
+          setRequests([]);
+          return;
+        }
+        query = query.in('employee_id', hrAllowedEmployeeIds);
+      }
+
 
       const { data } = await query;
       if (data) {

@@ -4592,6 +4592,42 @@ export type Database = {
           },
         ]
       }
+      hr_manager_business_units: {
+        Row: {
+          business_unit_id: string
+          created_at: string
+          hr_manager_id: string
+          id: string
+        }
+        Insert: {
+          business_unit_id: string
+          created_at?: string
+          hr_manager_id: string
+          id?: string
+        }
+        Update: {
+          business_unit_id?: string
+          created_at?: string
+          hr_manager_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_manager_business_units_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_manager_business_units_hr_manager_id_fkey"
+            columns: ["hr_manager_id"]
+            isOneToOne: false
+            referencedRelation: "hr_managers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_managers: {
         Row: {
           admin_order: number
