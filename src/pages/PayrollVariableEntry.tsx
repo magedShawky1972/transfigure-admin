@@ -97,11 +97,12 @@ export default function PayrollVariableEntry() {
         .order("first_name"),
       supabase
         .from("payroll_elements")
-        .select("id, code, name_en, element_type, default_amount, sort_order")
+        .select("id, code, name_en, name_ar, element_type, default_amount, sort_order")
         .eq("is_active", true)
         .eq("calculation_type", "variable")
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("name_en"),
+
     ]);
     setEmps((e.data || []) as any);
     setElements((el.data || []) as Element[]);
