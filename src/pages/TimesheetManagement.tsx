@@ -140,10 +140,7 @@ export default function TimesheetManagement() {
   const [selectedDate, setSelectedDate] = useState(savedFilters.selectedDate || format(new Date(), "yyyy-MM-dd"));
   const [selectedMonth, setSelectedMonth] = useState(savedFilters.selectedMonth || format(new Date(), "yyyy-MM"));
   const [selectedEmployee, setSelectedEmployee] = useState<string>(savedFilters.selectedEmployee || "");
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>(savedFilters.selectedDepartment || "");
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [formData, setFormData] = useState({
     employee_id: "",
     work_date: format(new Date(), "yyyy-MM-dd"),
