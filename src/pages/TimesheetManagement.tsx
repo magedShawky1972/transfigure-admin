@@ -878,20 +878,28 @@ export default function TimesheetManagement() {
         }
       });
 
-      // Build a set of employee_id + date combos that are vacation days
-      const vacationDays = new Set<string>();
+      // Build a map of employee_id + date combos that are vacation days, with their localized names
+      const vacationDays = new Map<string, { nameEn: string; nameAr: string }>();
       (approvedLeaves || []).forEach((leave: any) => {
         const start = new Date(leave.start_date);
         const end = new Date(leave.end_date);
+        const details = leave.vacation_codes ? {
+          nameEn: leave.vacation_codes.name_en,
+          nameAr: leave.vacation_codes.name_ar || leave.vacation_codes.name_en
+        } : (leave.request_type === "sick_leave" ? { nameEn: "Sick Leave", nameAr: "إجازة مرضية" } : { nameEn: "Vacation", nameAr: "إجازة" });
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          vacationDays.add(`${leave.employee_id}_${d.toISOString().split("T")[0]}`);
+          vacationDays.set(`${leave.employee_id}_${d.toISOString().split("T")[0]}`, details);
         }
       });
       (manualVacations || []).forEach((vac: any) => {
         const start = new Date(vac.start_date);
         const end = new Date(vac.end_date);
+        const details = vac.vacation_codes ? {
+          nameEn: vac.vacation_codes.name_en,
+          nameAr: vac.vacation_codes.name_ar || vac.vacation_codes.name_en
+        } : { nameEn: "Vacation", nameAr: "إجازة" };
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          vacationDays.add(`${vac.employee_id}_${d.toISOString().split("T")[0]}`);
+          vacationDays.set(`${vac.employee_id}_${d.toISOString().split("T")[0]}`, details);
         }
       });
 
