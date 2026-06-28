@@ -186,6 +186,20 @@ interface UserPermission {
       ]
     },
     {
+      groupKey: "payroll",
+      labelAr: "الرواتب",
+      labelEn: "Payroll",
+      items: [
+        { key: "payrollElementSetup", label: "إعداد عناصر الرواتب", labelEn: "Payroll Element Setup" },
+        { key: "payrollEligibility", label: "أهلية العناصر", labelEn: "Element Eligibility" },
+        { key: "payrollEmployeeElements", label: "تعيين عناصر الموظف", labelEn: "Employee Element Assign" },
+        { key: "payrollMatrixEntry", label: "إدخال متعدد للعناصر", labelEn: "Multi Element Entry" },
+        { key: "payrollVariableEntry", label: "إدخال عناصر متغيرة", labelEn: "Variable Element Entry" },
+        { key: "payrollMonthPreview", label: "معاينة عناصر الشهر", labelEn: "Month Element Preview" },
+        { key: "payrollRun", label: "تشغيل واعتماد الرواتب", labelEn: "Payroll Run & Confirm" },
+      ]
+    },
+    {
       groupKey: "cash",
       labelAr: "إدارة النقدية",
       labelEn: "Cash Management",
