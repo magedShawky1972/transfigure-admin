@@ -969,7 +969,33 @@ const ReceivingCoins = () => {
            </div>
          </div>
 
-         <Card>
+        const filteredReceipts = receipts.filter(r => {
+          // Status filter
+          if (statusFilter === "pending" && r.status === "closed") return false;
+          if (statusFilter === "sent" && r.status !== "closed") return false;
+          // Date range filter
+          if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
+          if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+          // Order number search
+          if (searchOrderNumber) {
+            const orderNum = ((r as any).coins_purchase_orders?.order_number || "").toLowerCase();
+            if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
+          }
+          // Receipt number search
+          if (searchReceiptNumber) {
+            const rcptNum = (r.receipt_number || "").toLowerCase();
+            if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+          }
+          return true;
+        });
+
+        <div className="text-sm text-muted-foreground">
+          {isArabic
+            ? `عدد السجلات: ${filteredReceipts.length}`
+            : `Records loaded: ${filteredReceipts.length}`}
+        </div>
+
+        <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
@@ -989,34 +1015,14 @@ const ReceivingCoins = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(() => {
-                   const filtered = receipts.filter(r => {
-                      // Status filter
-                      if (statusFilter === "pending" && r.status === "closed") return false;
-                      if (statusFilter === "sent" && r.status !== "closed") return false;
-                      // Date range filter
-                      if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
-                      if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
-                      // Order number search
-                      if (searchOrderNumber) {
-                        const orderNum = ((r as any).coins_purchase_orders?.order_number || "").toLowerCase();
-                        if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
-                      }
-                      // Receipt number search
-                      if (searchReceiptNumber) {
-                        const rcptNum = (r.receipt_number || "").toLowerCase();
-                        if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
-                      }
-                      return true;
-                    });
-                    return filtered.length === 0 ? (
-                     <TableRow>
-                       <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
-                         {isArabic ? "لا توجد إيصالات" : "No receipts found"}
-                       </TableCell>
-                     </TableRow>
-                   ) : (
-                     filtered.map(r => {
+                  {filteredReceipts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                        {isArabic ? "لا توجد إيصالات" : "No receipts found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredReceipts.map(r => {
                       const rate = parseFloat(r.exchange_rate) || 0;
                       const txnAmount = parseFloat(r.control_amount) || 0;
                       const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
@@ -1045,8 +1051,8 @@ const ReceivingCoins = () => {
                         </TableRow>
                       );
                     })
-                   )})()}
-                 </TableBody>
+                  )}
+                </TableBody>
               </Table>
             </div>
           </CardContent>
