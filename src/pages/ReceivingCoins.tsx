@@ -969,94 +969,101 @@ const ReceivingCoins = () => {
            </div>
          </div>
 
-        const filteredReceipts = receipts.filter(r => {
-          // Status filter
-          if (statusFilter === "pending" && r.status === "closed") return false;
-          if (statusFilter === "sent" && r.status !== "closed") return false;
-          // Date range filter
-          if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
-          if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
-          // Order number search
-          if (searchOrderNumber) {
-            const orderNum = ((r as any).coins_purchase_orders?.order_number || "").toLowerCase();
-            if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
-          }
-          // Receipt number search
-          if (searchReceiptNumber) {
-            const rcptNum = (r.receipt_number || "").toLowerCase();
-            if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
-          }
-          return true;
-        });
+        {(() => {
+          const filteredReceipts = receipts.filter(r => {
+            // Status filter
+            if (statusFilter === "pending" && r.status === "closed") return false;
+            if (statusFilter === "sent" && r.status !== "closed") return false;
+            // Date range filter
+            if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
+            if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+            // Order number search
+            if (searchOrderNumber) {
+              const orderNum = ((r as any).coins_purchase_orders?.order_number || "").toLowerCase();
+              if (!orderNum.includes(searchOrderNumber.toLowerCase())) return false;
+            }
+            // Receipt number search
+            if (searchReceiptNumber) {
+              const rcptNum = (r.receipt_number || "").toLowerCase();
+              if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+            }
+            return true;
+          });
+          return (
+            <>
+              <div className="text-sm text-muted-foreground">
+                {isArabic
+                  ? `عدد السجلات: ${filteredReceipts.length}`
+                  : `Records loaded: ${filteredReceipts.length}`}
+              </div>
 
-        <div className="text-sm text-muted-foreground">
-          {isArabic
-            ? `عدد السجلات: ${filteredReceipts.length}`
-            : `Records loaded: ${filteredReceipts.length}`}
-        </div>
-
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                    <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
-                    <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                    <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
-                    <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
-                    <TableHead>{isArabic ? "سعر الصرف" : "Rate"}</TableHead>
-                    <TableHead>{isArabic ? "مبلغ المعاملة" : "Transaction Amt"}</TableHead>
-                    <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
-                    <TableHead>{isArabic ? "المستلم" : "Receiver"}</TableHead>
-                    <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredReceipts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
-                        {isArabic ? "لا توجد إيصالات" : "No receipts found"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredReceipts.map(r => {
-                      const rate = parseFloat(r.exchange_rate) || 0;
-                      const txnAmount = parseFloat(r.control_amount) || 0;
-                      const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
-                      return (
-                        <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${r.status === "closed" ? "bg-green-50 dark:bg-green-900/10" : ""}`} onClick={() => loadReceipt(r.id)}>
-                          <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
-                          <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
-                          <TableCell>{r.receipt_date}</TableCell>
-                          <TableCell>{(r as any).coins_purchase_orders?.suppliers?.supplier_name || "-"}</TableCell>
-                          <TableCell>{(r as any).currencies?.currency_code || "-"}</TableCell>
-                          <TableCell>{rate > 0 ? rate.toFixed(4) : "-"}</TableCell>
-                          <TableCell>{rate > 0 ? txnAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
-                          <TableCell>{sarAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell>{r.receiver_name || "-"}</TableCell>
-                          <TableCell>
-                            {r.status === "closed" && <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">{isArabic ? "مغلق" : "Closed"}</span>}
-                            {r.status === "full_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{isArabic ? "تسليم كامل" : "Full Delivery"}</span>}
-                            {r.status === "partial_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{isArabic ? "تسليم جزئي" : "Partial Delivery"}</span>}
-                            {(r.status === "draft" || !r.status) && <span className="text-xs font-medium px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{isArabic ? "تم الإنشاء" : "Created"}</span>}
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
+                          <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
+                          <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                          <TableHead>{isArabic ? "المورد الرئيسي" : "Main Supplier"}</TableHead>
+                          <TableHead>{isArabic ? "العملة" : "Currency"}</TableHead>
+                          <TableHead>{isArabic ? "سعر الصرف" : "Rate"}</TableHead>
+                          <TableHead>{isArabic ? "مبلغ المعاملة" : "Transaction Amt"}</TableHead>
+                          <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
+                          <TableHead>{isArabic ? "المستلم" : "Receiver"}</TableHead>
+                          <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredReceipts.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                              {isArabic ? "لا توجد إيصالات" : "No receipts found"}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredReceipts.map(r => {
+                            const rate = parseFloat(r.exchange_rate) || 0;
+                            const txnAmount = parseFloat(r.control_amount) || 0;
+                            const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
+                            return (
+                              <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${r.status === "closed" ? "bg-green-50 dark:bg-green-900/10" : ""}`} onClick={() => loadReceipt(r.id)}>
+                                <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
+                                <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
+                                <TableCell>{r.receipt_date}</TableCell>
+                                <TableCell>{(r as any).coins_purchase_orders?.suppliers?.supplier_name || "-"}</TableCell>
+                                <TableCell>{(r as any).currencies?.currency_code || "-"}</TableCell>
+                                <TableCell>{rate > 0 ? rate.toFixed(4) : "-"}</TableCell>
+                                <TableCell>{rate > 0 ? txnAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
+                                <TableCell>{sarAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell>{r.receiver_name || "-"}</TableCell>
+                                <TableCell>
+                                  {r.status === "closed" && <span className="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">{isArabic ? "مغلق" : "Closed"}</span>}
+                                  {r.status === "full_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{isArabic ? "تسليم كامل" : "Full Delivery"}</span>}
+                                  {r.status === "partial_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{isArabic ? "تسليم جزئي" : "Partial Delivery"}</span>}
+                                  {(r.status === "draft" || !r.status) && <span className="text-xs font-medium px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{isArabic ? "تم الإنشاء" : "Created"}</span>}
+                                </TableCell>
+                                <TableCell>
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          );
+        })()}
+      </div>
+    );
       </div>
     );
   }
