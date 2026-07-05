@@ -246,7 +246,7 @@ const ReceivingCoins = () => {
       .from("receiving_coins_header")
       .select("*, currencies(currency_code), coins_purchase_orders(order_number, suppliers(supplier_name))")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .range(0, 9999);
     if (data) {
       // Auto-fix: check draft receipts for confirmed lines and update to partial_delivery
       const draftReceipts = data.filter((r: any) => r.status === "draft" || !r.status);
