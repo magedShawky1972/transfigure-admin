@@ -1064,8 +1064,6 @@ const ReceivingCoins = () => {
         })()}
       </div>
     );
-      </div>
-    );
   }
 
   // ── FORM VIEW ──
