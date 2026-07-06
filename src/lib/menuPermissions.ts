@@ -145,6 +145,7 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/cancelled-orders-management": "cancelledOrdersManagement",
   "/menu-customization": "menuCustomization",
   "/integrations": "integrations",
+  "/sajel-erp-setup": "sajelErpSetup",
   "/shift-generator": "shiftGenerator",
   "/shift-setup": "shiftSetup",
   "/shift-calendar": "shiftCalendar",
