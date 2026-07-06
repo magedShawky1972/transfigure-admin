@@ -274,6 +274,7 @@ interface UserPermission {
         { key: "allowCrmLogin", label: "السماح بتسجيل الدخول إلى CRM", labelEn: "Allow Login To CRM" },
         { key: "menuCustomization", label: "تخصيص القائمة", labelEn: "Menu Customization" },
         { key: "integrations", label: "التكاملات", labelEn: "Integrations" },
+        { key: "sajelErpSetup", label: "إعداد Sajel ERP", labelEn: "Sajel ERP Setup" },
       ]
     },
     {

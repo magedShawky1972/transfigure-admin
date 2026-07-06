@@ -8022,6 +8022,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sajel_erp_settings: {
+        Row: {
+          ap_invoice_api_url: string | null
+          api_key: string | null
+          created_at: string
+          id: string
+          one_step_combined_transaction_url: string | null
+          payment_api_url: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ap_invoice_api_url?: string | null
+          api_key?: string | null
+          created_at?: string
+          id?: string
+          one_step_combined_transaction_url?: string | null
+          payment_api_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ap_invoice_api_url?: string | null
+          api_key?: string | null
+          created_at?: string
+          id?: string
+          one_step_combined_transaction_url?: string | null
+          payment_api_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       sales_order_brand_mappings: {
         Row: {
           created_at: string

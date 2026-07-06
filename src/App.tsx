@@ -129,6 +129,7 @@ import PaymentBankLink from "./pages/PaymentBankLink";
 import BankBalanceByDateReport from "./pages/BankBalanceByDateReport";
 import BankStatementByBankReport from "./pages/BankStatementByBankReport";
 import ApiIntegrationStatus from "./pages/ApiIntegrationStatus";
+import SajelErpSetup from "./pages/SajelErpSetup";
 import ApiConsumptionLogs from "./pages/ApiConsumptionLogs";
 import UpdateBankLedger from "./pages/UpdateBankLedger";
 import CostCenterSetup from "./pages/CostCenterSetup";
@@ -218,6 +219,7 @@ const App = () => (
               <Route path="/reports-setup" element={<ReportsSetup />} />
               <Route path="/api-documentation" element={<ApiDocumentation />} />
               <Route path="/api-integration-status" element={<ApiIntegrationStatus />} />
+              <Route path="/sajel-erp-setup" element={<SajelErpSetup />} />
               <Route path="/excel-sheets" element={<ExcelSheets />} />
               <Route path="/table-generator" element={<TableGenerator />} />
               <Route path="/user-setup" element={<UserSetup />} />
