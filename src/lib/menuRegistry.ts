@@ -257,6 +257,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/cancelled-orders-management", defaultEn: "Cancelled Orders Management", defaultAr: "إدارة الطلبات الملغاة", icon: ListX },
       { url: "/menu-customization", defaultEn: "Menu Customization", defaultAr: "تخصيص القائمة", icon: Settings },
       { url: "/integrations", defaultEn: "Integrations", defaultAr: "التكاملات", icon: Plug },
+      { url: "/sajel-erp-setup", defaultEn: "Sajel ERP Setup", defaultAr: "إعداد Sajel ERP", icon: Plug },
     ],
   },
   {
