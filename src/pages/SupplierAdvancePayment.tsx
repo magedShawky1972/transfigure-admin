@@ -516,6 +516,51 @@ const SupplierAdvancePayment = () => {
     }
   };
 
+  const handleRollback = async (targetPhase: "entry" | "receiving") => {
+    if (!selectedPaymentId) return;
+    const label = targetPhase === "entry"
+      ? (isArabic ? "الإدخال" : "Entry")
+      : (isArabic ? "الاستلام" : "Receiving");
+    if (!confirm(isArabic
+      ? `هل أنت متأكد من إرجاع الدفعة إلى مرحلة ${label}؟`
+      : `Roll this payment back to ${label} phase?`)) return;
+    try {
+      const updates: any = { current_phase: targetPhase };
+      if (targetPhase === "entry") {
+        updates.sent_for_receiving = false;
+        updates.sent_for_receiving_at = null;
+        updates.sent_for_receiving_by = null;
+        updates.receiving_image = null;
+        updates.receiving_notes = null;
+        updates.accounting_recorded = false;
+        updates.accounting_recorded_at = null;
+        updates.accounting_recorded_by = null;
+      } else if (targetPhase === "receiving") {
+        updates.accounting_recorded = false;
+        updates.accounting_recorded_at = null;
+        updates.accounting_recorded_by = null;
+      }
+      const { error } = await supabase
+        .from("supplier_advance_payments")
+        .update(updates)
+        .eq("id", selectedPaymentId);
+      if (error) throw error;
+      toast.success(isArabic ? `تم الإرجاع إلى ${label}` : `Rolled back to ${label}`);
+      setCurrentPhase(targetPhase);
+      if (targetPhase === "entry") {
+        setSentForReceiving(false);
+        setReceivingImage("");
+        setReceivingNotes("");
+        setAccountingRecorded(false);
+      } else {
+        setAccountingRecorded(false);
+      }
+      fetchPayments();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const handleDeletePayment = async (paymentId: string) => {
     if (!confirm(isArabic ? "هل أنت متأكد من حذف هذه الدفعة؟" : "Are you sure you want to delete this payment?")) return;
     try {
