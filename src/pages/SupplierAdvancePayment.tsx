@@ -121,14 +121,16 @@ const SupplierAdvancePayment = () => {
   };
 
   const fetchDropdowns = async () => {
-    const [suppRes, currRes, rateRes] = await Promise.all([
+    const [suppRes, currRes, rateRes, banksRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
       supabase.from("currencies").select("*").eq("is_active", true).order("currency_name"),
       supabase.from("currency_rates").select("*"),
+      supabase.from("banks").select("id, bank_name, bank_code").eq("is_active", true).order("bank_name"),
     ]);
     if (suppRes.data) setSuppliers(suppRes.data);
     if (currRes.data) setCurrencies(currRes.data as any);
     if (rateRes.data) setCurrencyRates(rateRes.data as any);
+    if (banksRes.data) setBanks(banksRes.data);
   };
 
   const fetchAttachments = async (paymentId: string) => {
