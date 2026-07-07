@@ -9536,6 +9536,7 @@ export type Database = {
           accounting_recorded_at: string | null
           accounting_recorded_by: string | null
           bank_fee: number
+          bank_id: string | null
           bank_transfer_image: string | null
           base_amount: number
           created_at: string
@@ -9564,6 +9565,7 @@ export type Database = {
           accounting_recorded_at?: string | null
           accounting_recorded_by?: string | null
           bank_fee?: number
+          bank_id?: string | null
           bank_transfer_image?: string | null
           base_amount?: number
           created_at?: string
@@ -9592,6 +9594,7 @@ export type Database = {
           accounting_recorded_at?: string | null
           accounting_recorded_by?: string | null
           bank_fee?: number
+          bank_id?: string | null
           bank_transfer_image?: string | null
           base_amount?: number
           created_at?: string
@@ -9616,6 +9619,13 @@ export type Database = {
           vendor_invoice_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "supplier_advance_payments_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "supplier_advance_payments_currency_id_fkey"
             columns: ["currency_id"]
