@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
     const { data: payment, error: pErr } = await supabase
       .from('supplier_advance_payments')
-      .select('*, suppliers(supplier_code, supplier_name), currencies(currency_code)')
+      .select('*, suppliers(supplier_code, supplier_name), currencies(currency_code), banks(bank_code, bank_name)')
       .eq('id', paymentId)
       .maybeSingle();
     if (pErr) throw pErr;
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       paymentDate,
       amount: Number(payment.transaction_amount),
       paymentMethod: 'BANK_TRANSFER',
-      bankCode: '',
+      bankCode: (payment as any).banks?.bank_code ?? '',
       currencyCode: (payment as any).currencies?.currency_code ?? '',
       exchangeRate: Number(payment.exchange_rate),
       referenceNo: payment.ref_number ?? payment.id,

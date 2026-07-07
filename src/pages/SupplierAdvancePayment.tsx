@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck, Loader2, CheckCircle2, XCircle, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import { downloadFile } from "@/lib/fileDownload";
@@ -31,6 +31,7 @@ const SupplierAdvancePayment = () => {
 
   // Form state
   const [supplierId, setSupplierId] = useState("");
+  const [bankId, setBankId] = useState("");
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [currencyId, setCurrencyId] = useState("");
   const [exchangeRate, setExchangeRate] = useState("1");
@@ -72,6 +73,7 @@ const SupplierAdvancePayment = () => {
 
   // Dropdown data
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [banks, setBanks] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
 
@@ -119,14 +121,16 @@ const SupplierAdvancePayment = () => {
   };
 
   const fetchDropdowns = async () => {
-    const [suppRes, currRes, rateRes] = await Promise.all([
+    const [suppRes, currRes, rateRes, banksRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
       supabase.from("currencies").select("*").eq("is_active", true).order("currency_name"),
       supabase.from("currency_rates").select("*"),
+      supabase.from("banks").select("id, bank_name, bank_code").eq("is_active", true).order("bank_name"),
     ]);
     if (suppRes.data) setSuppliers(suppRes.data);
     if (currRes.data) setCurrencies(currRes.data as any);
     if (rateRes.data) setCurrencyRates(rateRes.data as any);
+    if (banksRes.data) setBanks(banksRes.data);
   };
 
   const fetchAttachments = async (paymentId: string) => {
@@ -277,6 +281,7 @@ const SupplierAdvancePayment = () => {
 
   const resetForm = () => {
     setSupplierId("");
+    setBankId("");
     setPaymentDate(format(new Date(), "yyyy-MM-dd"));
     setCurrencyId("");
     setExchangeRate("1");
@@ -298,6 +303,7 @@ const SupplierAdvancePayment = () => {
 
   const loadPayment = async (payment: any) => {
     setSupplierId(payment.supplier_id);
+    setBankId(payment.bank_id || "");
     setPaymentDate(payment.payment_date);
     setCurrencyId(payment.currency_id || "");
     loadedRateRef.current = String(payment.exchange_rate);
@@ -335,6 +341,7 @@ const SupplierAdvancePayment = () => {
 
       const paymentData: any = {
         supplier_id: supplierId,
+        bank_id: bankId || null,
         payment_date: paymentDate,
         currency_id: currencyId,
         exchange_rate: parseFloat(exchangeRate) || 1,
@@ -506,6 +513,51 @@ const SupplierAdvancePayment = () => {
       resetForm();
       setView("list");
       fetchPayments();
+    }
+  };
+
+  const handleRollback = async (targetPhase: "entry" | "receiving") => {
+    if (!selectedPaymentId) return;
+    const label = targetPhase === "entry"
+      ? (isArabic ? "الإدخال" : "Entry")
+      : (isArabic ? "الاستلام" : "Receiving");
+    if (!confirm(isArabic
+      ? `هل أنت متأكد من إرجاع الدفعة إلى مرحلة ${label}؟`
+      : `Roll this payment back to ${label} phase?`)) return;
+    try {
+      const updates: any = { current_phase: targetPhase };
+      if (targetPhase === "entry") {
+        updates.sent_for_receiving = false;
+        updates.sent_for_receiving_at = null;
+        updates.sent_for_receiving_by = null;
+        updates.receiving_image = null;
+        updates.receiving_notes = null;
+        updates.accounting_recorded = false;
+        updates.accounting_recorded_at = null;
+        updates.accounting_recorded_by = null;
+      } else if (targetPhase === "receiving") {
+        updates.accounting_recorded = false;
+        updates.accounting_recorded_at = null;
+        updates.accounting_recorded_by = null;
+      }
+      const { error } = await supabase
+        .from("supplier_advance_payments")
+        .update(updates)
+        .eq("id", selectedPaymentId);
+      if (error) throw error;
+      toast.success(isArabic ? `تم الإرجاع إلى ${label}` : `Rolled back to ${label}`);
+      setCurrentPhase(targetPhase);
+      if (targetPhase === "entry") {
+        setSentForReceiving(false);
+        setReceivingImage("");
+        setReceivingNotes("");
+        setAccountingRecorded(false);
+      } else {
+        setAccountingRecorded(false);
+      }
+      fetchPayments();
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
@@ -720,6 +772,15 @@ const SupplierAdvancePayment = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label>{isArabic ? "البنك" : "Bank"}</Label>
+                    <Select value={bankId} onValueChange={setBankId}>
+                      <SelectTrigger><SelectValue placeholder={isArabic ? "اختر البنك" : "Select Bank"} /></SelectTrigger>
+                      <SelectContent>
+                        {banks.map(b => <SelectItem key={b.id} value={b.id}>{b.bank_code} - {b.bank_name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
                     <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
                   </div>
@@ -889,7 +950,11 @@ const SupplierAdvancePayment = () => {
                   <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" onClick={() => handleRollback("entry")}>
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {isArabic ? "إرجاع إلى الإدخال" : "Rollback to Entry"}
+                  </Button>
                   <Button onClick={handleConfirmReceivingToAccounting} className="min-w-[200px]" variant="default">
                     <Send className="h-4 w-4 mr-1" />
                     {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm and Send to Accounting"}
@@ -909,7 +974,11 @@ const SupplierAdvancePayment = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex justify-end">
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" onClick={() => handleRollback("receiving")}>
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {isArabic ? "إرجاع إلى الاستلام" : "Rollback to Receiving"}
+                  </Button>
                   <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
                     <BookCheck className="h-4 w-4 mr-1" />
                     {isArabic ? "تأكيد التسجيل" : "Confirm Record"}
