@@ -675,6 +675,36 @@ const SupplierAdvancePayment = () => {
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {getPhaseFromPayment(p) !== "entry" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={isArabic ? "إرجاع مرحلة" : "Rollback one phase"}
+                          onClick={async () => {
+                            const phase = getPhaseFromPayment(p);
+                            const target = phase === "recorded" ? "receiving" : "entry";
+                            if (!confirm(isArabic ? `إرجاع إلى ${target === "entry" ? "الإدخال" : "الاستلام"}؟` : `Rollback to ${target}?`)) return;
+                            const updates: any = { current_phase: target };
+                            if (target === "entry") {
+                              Object.assign(updates, {
+                                sent_for_receiving: false, sent_for_receiving_at: null, sent_for_receiving_by: null,
+                                receiving_image: null, receiving_notes: null,
+                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+                              });
+                            } else {
+                              Object.assign(updates, {
+                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+                              });
+                            }
+                            const { error } = await supabase.from("supplier_advance_payments").update(updates).eq("id", p.id);
+                            if (error) { toast.error(error.message); return; }
+                            toast.success(isArabic ? "تم الإرجاع" : "Rolled back");
+                            fetchPayments();
+                          }}
+                        >
+                          <Undo2 className="h-4 w-4 text-orange-600" />
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => handleDeletePayment(p.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
