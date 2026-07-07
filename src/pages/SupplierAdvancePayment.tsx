@@ -450,19 +450,37 @@ const SupplierAdvancePayment = () => {
 
   const handleConfirmToAccounting = async () => {
     if (!selectedPaymentId) return;
+
+    // Open dialog in loading state
+    setSajelStatus("loading");
+    setSajelMessage(isArabic ? "جارٍ الإرسال إلى Sajel ERP..." : "Sending to Sajel ERP...");
+    setSajelPayload(null);
+    setSajelResponse(null);
+    setSajelDialogOpen(true);
+
     try {
-      // 1) Post to Sajel ERP Payment API first
       const { data: erpData, error: erpErr } = await supabase.functions.invoke("post-sajel-payment", {
         body: { paymentId: selectedPaymentId },
       });
+
       if (erpErr) {
         const { FunctionsHttpError } = await import("@supabase/supabase-js");
-        const details = erpErr instanceof FunctionsHttpError ? await erpErr.context.text() : erpErr.message;
+        let details: any = erpErr.message;
+        if (erpErr instanceof FunctionsHttpError) {
+          const txt = await erpErr.context.text();
+          try { details = JSON.parse(txt); } catch { details = txt; }
+        }
         console.error("Sajel ERP payment failed:", details);
-        toast.error((isArabic ? "فشل الإرسال إلى Sajel ERP: " : "Sajel ERP send failed: ") + details);
+        setSajelStatus("error");
+        setSajelMessage(isArabic ? "فشل الإرسال إلى Sajel ERP" : "Sajel ERP send failed");
+        setSajelPayload(typeof details === "object" ? details?.sent : null);
+        setSajelResponse(details);
         return;
       }
+
       console.log("Sajel ERP payment response:", erpData);
+      setSajelPayload(erpData?.sent ?? null);
+      setSajelResponse(erpData?.response ?? erpData);
 
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
@@ -473,12 +491,21 @@ const SupplierAdvancePayment = () => {
         current_phase: "accounting",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      toast.success(isArabic ? "تم التسجيل والإرسال إلى Sajel ERP بنجاح" : "Recorded and sent to Sajel ERP successfully");
+
+      setSajelStatus("success");
+      setSajelMessage(isArabic ? "تم التسجيل والإرسال إلى Sajel ERP بنجاح" : "Recorded and sent to Sajel ERP successfully");
+    } catch (err: any) {
+      setSajelStatus("error");
+      setSajelMessage(err.message ?? (isArabic ? "حدث خطأ" : "An error occurred"));
+    }
+  };
+
+  const closeSajelDialog = () => {
+    setSajelDialogOpen(false);
+    if (sajelStatus === "success") {
       resetForm();
       setView("list");
       fetchPayments();
-    } catch (err: any) {
-      toast.error(err.message);
     }
   };
 
