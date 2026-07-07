@@ -45,6 +45,13 @@ const SupplierAdvancePayment = () => {
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
 
+  // Sajel ERP result dialog
+  const [sajelDialogOpen, setSajelDialogOpen] = useState(false);
+  const [sajelStatus, setSajelStatus] = useState<"loading" | "success" | "error">("loading");
+  const [sajelMessage, setSajelMessage] = useState<string>("");
+  const [sajelPayload, setSajelPayload] = useState<any>(null);
+  const [sajelResponse, setSajelResponse] = useState<any>(null);
+
   // Phase-based workflow
   const [currentPhase, setCurrentPhase] = useState("entry");
 
