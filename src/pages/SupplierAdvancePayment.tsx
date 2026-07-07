@@ -12,9 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import { downloadFile } from "@/lib/fileDownload";
