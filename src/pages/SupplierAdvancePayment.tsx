@@ -950,7 +950,11 @@ const SupplierAdvancePayment = () => {
                   <Textarea value={receivingNotes} onChange={e => setReceivingNotes(e.target.value)} rows={2} />
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" onClick={() => handleRollback("entry")}>
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {isArabic ? "إرجاع إلى الإدخال" : "Rollback to Entry"}
+                  </Button>
                   <Button onClick={handleConfirmReceivingToAccounting} className="min-w-[200px]" variant="default">
                     <Send className="h-4 w-4 mr-1" />
                     {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm and Send to Accounting"}
