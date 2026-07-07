@@ -727,6 +727,15 @@ const SupplierAdvancePayment = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label>{isArabic ? "البنك" : "Bank"}</Label>
+                    <Select value={bankId} onValueChange={setBankId}>
+                      <SelectTrigger><SelectValue placeholder={isArabic ? "اختر البنك" : "Select Bank"} /></SelectTrigger>
+                      <SelectContent>
+                        {banks.map(b => <SelectItem key={b.id} value={b.id}>{b.bank_code} - {b.bank_name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
                     <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
                   </div>
