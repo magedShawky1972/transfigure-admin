@@ -444,6 +444,19 @@ const SupplierAdvancePayment = () => {
   const handleConfirmToAccounting = async () => {
     if (!selectedPaymentId) return;
     try {
+      // 1) Post to Sajel ERP Payment API first
+      const { data: erpData, error: erpErr } = await supabase.functions.invoke("post-sajel-payment", {
+        body: { paymentId: selectedPaymentId },
+      });
+      if (erpErr) {
+        const { FunctionsHttpError } = await import("@supabase/supabase-js");
+        const details = erpErr instanceof FunctionsHttpError ? await erpErr.context.text() : erpErr.message;
+        console.error("Sajel ERP payment failed:", details);
+        toast.error((isArabic ? "فشل الإرسال إلى Sajel ERP: " : "Sajel ERP send failed: ") + details);
+        return;
+      }
+      console.log("Sajel ERP payment response:", erpData);
+
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
       const { error } = await supabase.from("supplier_advance_payments").update({
@@ -453,7 +466,7 @@ const SupplierAdvancePayment = () => {
         current_phase: "accounting",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      toast.success(isArabic ? "تم التأكيد والإرسال للمحاسبة بنجاح" : "Confirmed and sent to Accounting successfully");
+      toast.success(isArabic ? "تم التسجيل والإرسال إلى Sajel ERP بنجاح" : "Recorded and sent to Sajel ERP successfully");
       resetForm();
       setView("list");
       fetchPayments();
