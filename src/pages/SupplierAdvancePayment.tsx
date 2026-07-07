@@ -12,9 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import { downloadFile } from "@/lib/fileDownload";
@@ -44,6 +44,13 @@ const SupplierAdvancePayment = () => {
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+
+  // Sajel ERP result dialog
+  const [sajelDialogOpen, setSajelDialogOpen] = useState(false);
+  const [sajelStatus, setSajelStatus] = useState<"loading" | "success" | "error">("loading");
+  const [sajelMessage, setSajelMessage] = useState<string>("");
+  const [sajelPayload, setSajelPayload] = useState<any>(null);
+  const [sajelResponse, setSajelResponse] = useState<any>(null);
 
   // Phase-based workflow
   const [currentPhase, setCurrentPhase] = useState("entry");
@@ -443,19 +450,37 @@ const SupplierAdvancePayment = () => {
 
   const handleConfirmToAccounting = async () => {
     if (!selectedPaymentId) return;
+
+    // Open dialog in loading state
+    setSajelStatus("loading");
+    setSajelMessage(isArabic ? "جارٍ الإرسال إلى Sajel ERP..." : "Sending to Sajel ERP...");
+    setSajelPayload(null);
+    setSajelResponse(null);
+    setSajelDialogOpen(true);
+
     try {
-      // 1) Post to Sajel ERP Payment API first
       const { data: erpData, error: erpErr } = await supabase.functions.invoke("post-sajel-payment", {
         body: { paymentId: selectedPaymentId },
       });
+
       if (erpErr) {
         const { FunctionsHttpError } = await import("@supabase/supabase-js");
-        const details = erpErr instanceof FunctionsHttpError ? await erpErr.context.text() : erpErr.message;
+        let details: any = erpErr.message;
+        if (erpErr instanceof FunctionsHttpError) {
+          const txt = await erpErr.context.text();
+          try { details = JSON.parse(txt); } catch { details = txt; }
+        }
         console.error("Sajel ERP payment failed:", details);
-        toast.error((isArabic ? "فشل الإرسال إلى Sajel ERP: " : "Sajel ERP send failed: ") + details);
+        setSajelStatus("error");
+        setSajelMessage(isArabic ? "فشل الإرسال إلى Sajel ERP" : "Sajel ERP send failed");
+        setSajelPayload(typeof details === "object" ? details?.sent : null);
+        setSajelResponse(details);
         return;
       }
+
       console.log("Sajel ERP payment response:", erpData);
+      setSajelPayload(erpData?.sent ?? null);
+      setSajelResponse(erpData?.response ?? erpData);
 
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
@@ -466,12 +491,21 @@ const SupplierAdvancePayment = () => {
         current_phase: "accounting",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
-      toast.success(isArabic ? "تم التسجيل والإرسال إلى Sajel ERP بنجاح" : "Recorded and sent to Sajel ERP successfully");
+
+      setSajelStatus("success");
+      setSajelMessage(isArabic ? "تم التسجيل والإرسال إلى Sajel ERP بنجاح" : "Recorded and sent to Sajel ERP successfully");
+    } catch (err: any) {
+      setSajelStatus("error");
+      setSajelMessage(err.message ?? (isArabic ? "حدث خطأ" : "An error occurred"));
+    }
+  };
+
+  const closeSajelDialog = () => {
+    setSajelDialogOpen(false);
+    if (sajelStatus === "success") {
       resetForm();
       setView("list");
       fetchPayments();
-    } catch (err: any) {
-      toast.error(err.message);
     }
   };
 
@@ -945,6 +979,58 @@ const SupplierAdvancePayment = () => {
               <img src={previewImageUrl} alt="Preview" className="max-w-full max-h-[85vh] object-contain mx-auto" />
             )
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Sajel ERP result dialog */}
+      <Dialog open={sajelDialogOpen} onOpenChange={(o) => { if (!o && sajelStatus !== "loading") closeSajelDialog(); }}>
+        <DialogContent className="max-w-2xl" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {sajelStatus === "loading" && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              {sajelStatus === "success" && <CheckCircle2 className="h-5 w-5 text-green-600" />}
+              {sajelStatus === "error" && <XCircle className="h-5 w-5 text-destructive" />}
+              {isArabic ? "إرسال إلى Sajel ERP" : "Sajel ERP Payment"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <p className={
+              sajelStatus === "success" ? "text-green-700 font-medium" :
+              sajelStatus === "error" ? "text-destructive font-medium" :
+              "text-muted-foreground"
+            }>
+              {sajelMessage}
+            </p>
+
+            {sajelPayload && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "البيانات المرسلة" : "Request Payload"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {JSON.stringify(sajelPayload, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {sajelResponse != null && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {typeof sajelResponse === "string" ? sajelResponse : JSON.stringify(sajelResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={closeSajelDialog}
+              disabled={sajelStatus === "loading"}
+              variant={sajelStatus === "error" ? "destructive" : "default"}
+            >
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
