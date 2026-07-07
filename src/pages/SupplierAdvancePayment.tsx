@@ -281,6 +281,7 @@ const SupplierAdvancePayment = () => {
 
   const resetForm = () => {
     setSupplierId("");
+    setBankId("");
     setPaymentDate(format(new Date(), "yyyy-MM-dd"));
     setCurrencyId("");
     setExchangeRate("1");
