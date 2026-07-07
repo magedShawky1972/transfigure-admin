@@ -981,6 +981,58 @@ const SupplierAdvancePayment = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Sajel ERP result dialog */}
+      <Dialog open={sajelDialogOpen} onOpenChange={(o) => { if (!o && sajelStatus !== "loading") closeSajelDialog(); }}>
+        <DialogContent className="max-w-2xl" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {sajelStatus === "loading" && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              {sajelStatus === "success" && <CheckCircle2 className="h-5 w-5 text-green-600" />}
+              {sajelStatus === "error" && <XCircle className="h-5 w-5 text-destructive" />}
+              {isArabic ? "إرسال إلى Sajel ERP" : "Sajel ERP Payment"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <p className={
+              sajelStatus === "success" ? "text-green-700 font-medium" :
+              sajelStatus === "error" ? "text-destructive font-medium" :
+              "text-muted-foreground"
+            }>
+              {sajelMessage}
+            </p>
+
+            {sajelPayload && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "البيانات المرسلة" : "Request Payload"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {JSON.stringify(sajelPayload, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {sajelResponse != null && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {typeof sajelResponse === "string" ? sajelResponse : JSON.stringify(sajelResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={closeSajelDialog}
+              disabled={sajelStatus === "loading"}
+              variant={sajelStatus === "error" ? "destructive" : "default"}
+            >
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
