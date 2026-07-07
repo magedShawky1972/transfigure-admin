@@ -42,6 +42,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    let bankCode = (payment as any).banks?.bank_code ?? '';
+    if (!bankCode && (payment as any).bank_id) {
+      const { data: bankRow } = await supabase
+        .from('banks')
+        .select('bank_code')
+        .eq('id', (payment as any).bank_id)
+        .maybeSingle();
+      bankCode = bankRow?.bank_code ?? '';
+    }
+
     const paymentDate: string = payment.payment_date;
     const [yyyy, mm] = paymentDate.split('-');
     const periodCode = `${mm}/${yyyy}`;
@@ -51,7 +61,7 @@ Deno.serve(async (req) => {
       paymentDate,
       amount: Number(payment.transaction_amount),
       paymentMethod: 'BANK_TRANSFER',
-      bankCode: (payment as any).banks?.bank_code ?? '',
+      bankCode,
       currencyCode: (payment as any).currencies?.currency_code ?? '',
       exchangeRate: Number(payment.exchange_rate),
       referenceNo: payment.ref_number ?? payment.id,
