@@ -341,6 +341,7 @@ const SupplierAdvancePayment = () => {
 
       const paymentData: any = {
         supplier_id: supplierId,
+        bank_id: bankId || null,
         payment_date: paymentDate,
         currency_id: currencyId,
         exchange_rate: parseFloat(exchangeRate) || 1,
