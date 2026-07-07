@@ -974,7 +974,11 @@ const SupplierAdvancePayment = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex justify-end">
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" onClick={() => handleRollback("receiving")}>
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {isArabic ? "إرجاع إلى الاستلام" : "Rollback to Receiving"}
+                  </Button>
                   <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
                     <BookCheck className="h-4 w-4 mr-1" />
                     {isArabic ? "تأكيد التسجيل" : "Confirm Record"}
