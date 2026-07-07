@@ -73,6 +73,7 @@ const SupplierAdvancePayment = () => {
 
   // Dropdown data
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [banks, setBanks] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
 
