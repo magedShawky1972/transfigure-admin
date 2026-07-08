@@ -53,6 +53,8 @@ const SupplierAdvancePayment = () => {
   const [sajelMessage, setSajelMessage] = useState<string>("");
   const [sajelPayload, setSajelPayload] = useState<any>(null);
   const [sajelResponse, setSajelResponse] = useState<any>(null);
+  const [sajelExpensePayload, setSajelExpensePayload] = useState<any>(null);
+  const [sajelExpenseResponse, setSajelExpenseResponse] = useState<any>(null);
 
   // Phase-based workflow
   const [currentPhase, setCurrentPhase] = useState("entry");
@@ -467,6 +469,8 @@ const SupplierAdvancePayment = () => {
     setSajelMessage(isArabic ? "جارٍ الإرسال إلى Sajel ERP..." : "Sending to Sajel ERP...");
     setSajelPayload(null);
     setSajelResponse(null);
+    setSajelExpensePayload(null);
+    setSajelExpenseResponse(null);
     setSajelDialogOpen(true);
 
     try {
@@ -486,12 +490,16 @@ const SupplierAdvancePayment = () => {
         setSajelMessage(isArabic ? "فشل الإرسال إلى Sajel ERP" : "Sajel ERP send failed");
         setSajelPayload(typeof details === "object" ? details?.sent : null);
         setSajelResponse(details);
+        setSajelExpensePayload(typeof details === "object" ? details?.expenseSent : null);
+        setSajelExpenseResponse(typeof details === "object" ? details?.expenseResponse : null);
         return;
       }
 
       console.log("Sajel ERP payment response:", erpData);
       setSajelPayload(erpData?.sent ?? null);
       setSajelResponse(erpData?.response ?? erpData);
+      setSajelExpensePayload(erpData?.expenseSent ?? null);
+      setSajelExpenseResponse(erpData?.expenseResponse ?? null);
 
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
@@ -1150,7 +1158,26 @@ const SupplierAdvancePayment = () => {
                 </pre>
               </div>
             )}
+
+            {sajelExpensePayload && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "بيانات مصروف رسوم التحويل" : "Bank Fee Expense Payload"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {JSON.stringify(sajelExpensePayload, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {sajelExpenseResponse != null && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "استجابة مصروف رسوم التحويل" : "Bank Fee Expense Response"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {typeof sajelExpenseResponse === "string" ? sajelExpenseResponse : JSON.stringify(sajelExpenseResponse, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
+
 
           <DialogFooter>
             <Button
