@@ -490,12 +490,16 @@ const SupplierAdvancePayment = () => {
         setSajelMessage(isArabic ? "فشل الإرسال إلى Sajel ERP" : "Sajel ERP send failed");
         setSajelPayload(typeof details === "object" ? details?.sent : null);
         setSajelResponse(details);
+        setSajelExpensePayload(typeof details === "object" ? details?.expenseSent : null);
+        setSajelExpenseResponse(typeof details === "object" ? details?.expenseResponse : null);
         return;
       }
 
       console.log("Sajel ERP payment response:", erpData);
       setSajelPayload(erpData?.sent ?? null);
       setSajelResponse(erpData?.response ?? erpData);
+      setSajelExpensePayload(erpData?.expenseSent ?? null);
+      setSajelExpenseResponse(erpData?.expenseResponse ?? null);
 
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
