@@ -50,6 +50,7 @@ export default function SajelErpSetup() {
           ap_invoice_api_url: data.ap_invoice_api_url ?? "",
           payment_api_url: data.payment_api_url ?? "",
           one_step_combined_transaction_url: data.one_step_combined_transaction_url ?? "",
+          expense_entry_api_url: data.expense_entry_api_url ?? "",
         });
       }
       setLoading(false);
