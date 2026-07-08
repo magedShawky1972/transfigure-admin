@@ -1,0 +1,1 @@
+ALTER TABLE public.sajel_erp_settings ADD COLUMN expense_entry_api_url TEXT NULL;

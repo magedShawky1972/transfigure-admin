@@ -14,6 +14,7 @@ interface SajelErpSettings {
   ap_invoice_api_url: string;
   payment_api_url: string;
   one_step_combined_transaction_url: string;
+  expense_entry_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
@@ -21,6 +22,7 @@ const EMPTY: SajelErpSettings = {
   ap_invoice_api_url: "",
   payment_api_url: "",
   one_step_combined_transaction_url: "",
+  expense_entry_api_url: "",
 };
 
 export default function SajelErpSetup() {
@@ -48,6 +50,7 @@ export default function SajelErpSetup() {
           ap_invoice_api_url: data.ap_invoice_api_url ?? "",
           payment_api_url: data.payment_api_url ?? "",
           one_step_combined_transaction_url: data.one_step_combined_transaction_url ?? "",
+          expense_entry_api_url: data.expense_entry_api_url ?? "",
         });
       }
       setLoading(false);
@@ -66,6 +69,7 @@ export default function SajelErpSetup() {
         ap_invoice_api_url: form.ap_invoice_api_url || null,
         payment_api_url: form.payment_api_url || null,
         one_step_combined_transaction_url: form.one_step_combined_transaction_url || null,
+        expense_entry_api_url: form.expense_entry_api_url || null,
         updated_by: user?.id ?? null,
       };
       const query = form.id
@@ -143,6 +147,16 @@ export default function SajelErpSetup() {
             <Input
               value={form.one_step_combined_transaction_url}
               onChange={update("one_step_combined_transaction_url")}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط Expense Entry API" : "Expense Entry API URL"}</Label>
+            <Input
+              value={form.expense_entry_api_url}
+              onChange={update("expense_entry_api_url")}
               placeholder="https://..."
               dir="ltr"
             />
