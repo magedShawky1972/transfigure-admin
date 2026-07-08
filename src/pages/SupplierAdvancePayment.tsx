@@ -53,6 +53,8 @@ const SupplierAdvancePayment = () => {
   const [sajelMessage, setSajelMessage] = useState<string>("");
   const [sajelPayload, setSajelPayload] = useState<any>(null);
   const [sajelResponse, setSajelResponse] = useState<any>(null);
+  const [sajelExpensePayload, setSajelExpensePayload] = useState<any>(null);
+  const [sajelExpenseResponse, setSajelExpenseResponse] = useState<any>(null);
 
   // Phase-based workflow
   const [currentPhase, setCurrentPhase] = useState("entry");
