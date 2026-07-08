@@ -32,6 +32,7 @@ const SupplierAdvancePayment = () => {
   // Form state
   const [supplierId, setSupplierId] = useState("");
   const [bankId, setBankId] = useState("");
+  const [refNumber, setRefNumber] = useState("");
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [currencyId, setCurrencyId] = useState("");
   const [exchangeRate, setExchangeRate] = useState("1");
@@ -282,6 +283,7 @@ const SupplierAdvancePayment = () => {
   const resetForm = () => {
     setSupplierId("");
     setBankId("");
+    setRefNumber("");
     setPaymentDate(format(new Date(), "yyyy-MM-dd"));
     setCurrencyId("");
     setExchangeRate("1");
@@ -304,6 +306,7 @@ const SupplierAdvancePayment = () => {
   const loadPayment = async (payment: any) => {
     setSupplierId(payment.supplier_id);
     setBankId(payment.bank_id || "");
+    setRefNumber(payment.ref_number || "");
     setPaymentDate(payment.payment_date);
     setCurrencyId(payment.currency_id || "");
     loadedRateRef.current = String(payment.exchange_rate);
@@ -342,6 +345,7 @@ const SupplierAdvancePayment = () => {
       const paymentData: any = {
         supplier_id: supplierId,
         bank_id: bankId || null,
+        ref_number: refNumber || null,
         payment_date: paymentDate,
         currency_id: currencyId,
         exchange_rate: parseFloat(exchangeRate) || 1,
@@ -764,10 +768,10 @@ const SupplierAdvancePayment = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div><span className="text-muted-foreground">{isArabic ? "رقم المرجع:" : "Reference:"}</span> <span className="font-medium">{refNumber || "-"}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "المورد:" : "Supplier:"}</span> <span className="font-medium">{suppliers.find(s => s.id === supplierId)?.supplier_name || "-"}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "البنك:" : "Bank:"}</span> <span className="font-medium">{banks.find(b => b.id === bankId)?.bank_code ? `${banks.find(b => b.id === bankId)?.bank_code} - ${banks.find(b => b.id === bankId)?.bank_name}` : "-"}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "التاريخ:" : "Date:"}</span> <span className="font-medium">{paymentDate}</span></div>
-                  <div><span className="text-muted-foreground">{isArabic ? "العملة:" : "Currency:"}</span> <span className="font-medium">{currencies.find(c => c.id === currencyId)?.currency_code || "-"}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "سعر الصرف:" : "Exchange Rate:"}</span> <span className="font-medium">{exchangeRate}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "المبلغ:" : "Amount:"}</span> <span className="font-medium">{Number(transactionAmount).toLocaleString()} {currencies.find(c => c.id === currencyId)?.currency_code || ""}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "رسوم التحويل:" : "Bank Fee:"}</span> <span className="font-medium">{Number(bankFee).toLocaleString()}</span></div>
@@ -832,6 +836,10 @@ const SupplierAdvancePayment = () => {
                         {banks.map(b => <SelectItem key={b.id} value={b.id}>{b.bank_code} - {b.bank_name}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isArabic ? "رقم المرجع" : "Reference Number"}</Label>
+                    <Input value={refNumber} onChange={e => setRefNumber(e.target.value)} placeholder={isArabic ? "أدخل رقم المرجع" : "Enter reference number"} />
                   </div>
                   <div className="space-y-2">
                     <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
