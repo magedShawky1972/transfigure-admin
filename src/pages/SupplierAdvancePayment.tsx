@@ -306,6 +306,7 @@ const SupplierAdvancePayment = () => {
   const loadPayment = async (payment: any) => {
     setSupplierId(payment.supplier_id);
     setBankId(payment.bank_id || "");
+    setRefNumber(payment.ref_number || "");
     setPaymentDate(payment.payment_date);
     setCurrencyId(payment.currency_id || "");
     loadedRateRef.current = String(payment.exchange_rate);
