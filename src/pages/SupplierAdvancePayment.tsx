@@ -469,6 +469,8 @@ const SupplierAdvancePayment = () => {
     setSajelMessage(isArabic ? "جارٍ الإرسال إلى Sajel ERP..." : "Sending to Sajel ERP...");
     setSajelPayload(null);
     setSajelResponse(null);
+    setSajelExpensePayload(null);
+    setSajelExpenseResponse(null);
     setSajelDialogOpen(true);
 
     try {
