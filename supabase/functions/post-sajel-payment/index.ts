@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, payment_api_url')
+      .select('api_key, payment_api_url, expense_entry_api_url')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
 
     const { data: payment, error: pErr } = await supabase
       .from('supplier_advance_payments')
@@ -92,9 +93,76 @@ Deno.serve(async (req) => {
       }), { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify({ success: true, sent: body, response: respJson ?? respText }), {
+    // If Bank Transfer Fee exists, post Expense Entry (always in SAR)
+    const bankFee = Number((payment as any).bank_fee) || 0;
+    let expenseSent: any = null;
+    let expenseResponse: any = null;
+    if (bankFee > 0 && settings.expense_entry_api_url) {
+      const grandTotal = Number(bankFee.toFixed(2));
+      const vatPercent = 15;
+      const netAmount = Number((grandTotal / (1 + vatPercent / 100)).toFixed(2));
+      const vatAmount = Number((grandTotal - netAmount).toFixed(2));
+      const expenseBody = {
+        table: 'expense_entries',
+        action: 'insert',
+        data: {
+          entry_date: paymentDate,
+          payment_method: 'BANK',
+          bank_code: bankCode,
+          currency_code: 'SAR',
+          exchange_rate: 1.0,
+          grand_total: grandTotal,
+          expense_reference: `BFEE-${payment.ref_number ?? payment.id}`,
+          notes: `Bank transfer fee for payment ${payment.ref_number ?? payment.id}`,
+          status: 'POSTED',
+          expense_entry_lines: [
+            {
+              expense_type_code: 'BANK_FEE',
+              quantity: 1,
+              unit_price: netAmount,
+              vat_percent: vatPercent,
+              vat_amount: vatAmount,
+              line_total: grandTotal,
+            },
+          ],
+        },
+      };
+      expenseSent = expenseBody;
+      console.log('Posting Bank Fee to Sajel ERP Expense Entry:', settings.expense_entry_api_url, expenseBody);
+      const eResp = await fetch(settings.expense_entry_api_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': settings.api_key,
+        },
+        body: JSON.stringify(expenseBody),
+      });
+      const eText = await eResp.text();
+      try { expenseResponse = JSON.parse(eText); } catch { expenseResponse = eText; }
+      if (!eResp.ok) {
+        console.error(`Sajel ERP expense entry failed [${eResp.status}]:`, eText);
+        return new Response(JSON.stringify({
+          success: true,
+          sent: body,
+          response: respJson ?? respText,
+          expenseError: 'Expense entry request failed',
+          expenseStatus: eResp.status,
+          expenseSent,
+          expenseResponse,
+        }), { status: 207, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      sent: body,
+      response: respJson ?? respText,
+      expenseSent,
+      expenseResponse,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (e: any) {
     console.error('post-sajel-payment error:', e);
     return new Response(JSON.stringify({ error: e.message ?? 'Unknown error' }), {
