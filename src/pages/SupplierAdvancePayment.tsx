@@ -765,10 +765,17 @@ const SupplierAdvancePayment = () => {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div><span className="text-muted-foreground">{isArabic ? "المورد:" : "Supplier:"}</span> <span className="font-medium">{suppliers.find(s => s.id === supplierId)?.supplier_name || "-"}</span></div>
+                  <div><span className="text-muted-foreground">{isArabic ? "البنك:" : "Bank:"}</span> <span className="font-medium">{banks.find(b => b.id === bankId)?.bank_code ? `${banks.find(b => b.id === bankId)?.bank_code} - ${banks.find(b => b.id === bankId)?.bank_name}` : "-"}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "التاريخ:" : "Date:"}</span> <span className="font-medium">{paymentDate}</span></div>
+                  <div><span className="text-muted-foreground">{isArabic ? "العملة:" : "Currency:"}</span> <span className="font-medium">{currencies.find(c => c.id === currencyId)?.currency_code || "-"}</span></div>
+                  <div><span className="text-muted-foreground">{isArabic ? "سعر الصرف:" : "Exchange Rate:"}</span> <span className="font-medium">{exchangeRate}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "المبلغ:" : "Amount:"}</span> <span className="font-medium">{Number(transactionAmount).toLocaleString()} {currencies.find(c => c.id === currencyId)?.currency_code || ""}</span></div>
+                  <div><span className="text-muted-foreground">{isArabic ? "رسوم التحويل:" : "Bank Fee:"}</span> <span className="font-medium">{Number(bankFee).toLocaleString()}</span></div>
                   <div><span className="text-muted-foreground">{isArabic ? "المبلغ الأساسي:" : "Base Amount:"}</span> <span className="font-bold">{Number(baseAmount).toLocaleString()} SAR</span></div>
                 </div>
+                {notes && (
+                  <div className="mt-3 text-sm"><span className="text-muted-foreground">{isArabic ? "ملاحظات:" : "Notes:"}</span> <span className="font-medium">{notes}</span></div>
+                )}
                 {bankTransferImage && (
                   <div className="mt-3">
                     <Button variant="outline" size="sm" onClick={() => { setPreviewImageUrl(bankTransferImage); setShowImagePreview(true); }}>
