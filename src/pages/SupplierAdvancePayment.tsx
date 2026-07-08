@@ -784,6 +784,22 @@ const SupplierAdvancePayment = () => {
                     </Button>
                   </div>
                 )}
+                {receivingImage && (
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm" onClick={() => { setPreviewImageUrl(receivingImage); setShowImagePreview(true); }}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      {isArabic ? "عرض صورة رصيد المورد" : "View Balance Screenshot"}
+                    </Button>
+                  </div>
+                )}
+                {vendorInvoiceUrl && (
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm" onClick={() => { setPreviewImageUrl(vendorInvoiceUrl); setShowImagePreview(true); }}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      {isArabic ? "عرض فاتورة المورد" : "View Vendor Invoice"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
