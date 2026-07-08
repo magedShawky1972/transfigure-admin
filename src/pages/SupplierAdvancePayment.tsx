@@ -838,6 +838,10 @@ const SupplierAdvancePayment = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label>{isArabic ? "رقم المرجع" : "Reference Number"}</Label>
+                    <Input value={refNumber} onChange={e => setRefNumber(e.target.value)} placeholder={isArabic ? "أدخل رقم المرجع" : "Enter reference number"} />
+                  </div>
+                  <div className="space-y-2">
                     <Label>{isArabic ? "تاريخ التحويل *" : "Transfer Date *"}</Label>
                     <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
                   </div>
