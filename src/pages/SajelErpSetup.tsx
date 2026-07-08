@@ -14,6 +14,7 @@ interface SajelErpSettings {
   ap_invoice_api_url: string;
   payment_api_url: string;
   one_step_combined_transaction_url: string;
+  expense_entry_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
@@ -21,6 +22,7 @@ const EMPTY: SajelErpSettings = {
   ap_invoice_api_url: "",
   payment_api_url: "",
   one_step_combined_transaction_url: "",
+  expense_entry_api_url: "",
 };
 
 export default function SajelErpSetup() {
