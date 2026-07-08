@@ -32,6 +32,7 @@ const SupplierAdvancePayment = () => {
   // Form state
   const [supplierId, setSupplierId] = useState("");
   const [bankId, setBankId] = useState("");
+  const [refNumber, setRefNumber] = useState("");
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [currencyId, setCurrencyId] = useState("");
   const [exchangeRate, setExchangeRate] = useState("1");
