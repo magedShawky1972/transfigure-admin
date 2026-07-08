@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
           status: 'POSTED',
           expense_entry_lines: [
             {
-              expense_type_code: 'BANK_FEE',
+              expense_type_code: 'GBC002',
               quantity: 1,
               unit_price: netAmount,
               vat_percent: vatPercent,
