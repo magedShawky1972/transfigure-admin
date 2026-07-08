@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
           exchange_rate: 1.0,
           grand_total: grandTotal,
           expense_reference: `BFEE-${payment.ref_number ?? payment.id}`,
+          business_unit_code: 'Asus-Trading',
           notes: `Bank transfer fee for payment ${payment.ref_number ?? payment.id}`,
           status: 'POSTED',
           expense_entry_lines: [
