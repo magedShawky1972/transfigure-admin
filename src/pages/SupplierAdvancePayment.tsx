@@ -1158,7 +1158,26 @@ const SupplierAdvancePayment = () => {
                 </pre>
               </div>
             )}
+
+            {sajelExpensePayload && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "بيانات مصروف رسوم التحويل" : "Bank Fee Expense Payload"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {JSON.stringify(sajelExpensePayload, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {sajelExpenseResponse != null && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "استجابة مصروف رسوم التحويل" : "Bank Fee Expense Response"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-52 overflow-auto" dir="ltr">
+                  {typeof sajelExpenseResponse === "string" ? sajelExpenseResponse : JSON.stringify(sajelExpenseResponse, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
+
 
           <DialogFooter>
             <Button
