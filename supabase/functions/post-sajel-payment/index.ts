@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, payment_api_url')
+      .select('api_key, payment_api_url, expense_entry_api_url')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
 
     const { data: payment, error: pErr } = await supabase
       .from('supplier_advance_payments')
