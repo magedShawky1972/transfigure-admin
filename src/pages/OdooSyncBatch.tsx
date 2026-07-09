@@ -1161,7 +1161,7 @@ const OdooSyncBatch = () => {
         const [yyyy, mm] = dateStr.split('-');
         const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
-        const invoicePayload: any = {
+        invoicePayload = {
           businessUnitCode: 'Asus-Trading',
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
