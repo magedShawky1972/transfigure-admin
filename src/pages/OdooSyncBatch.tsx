@@ -1132,6 +1132,76 @@ const OdooSyncBatch = () => {
     const stepStatus = { ...group.stepStatus };
     const transactions = group.lines;
 
+    // Sajel path
+    if (syncWithSajel) {
+      const updateSajelStep = (ns: typeof stepStatus) => {
+        setOrderGroups(prev => prev.map(g =>
+          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...ns } } : g
+        ));
+      };
+      stepStatus.customer = 'found';
+      stepStatus.brand = 'found';
+      stepStatus.product = 'found';
+      stepStatus.order = 'running';
+      stepStatus.purchase = 'skipped';
+      updateSajelStep(stepStatus);
+      try {
+        const first = transactions[0];
+        const brandCode = first?.brand_code || '';
+        const abc = brandAbcMap.get(brandCode);
+        const isClassA = abc === 'A';
+        const vendorName = first?.vendor_name || '';
+        const vendorCode = vendorOptions.find(v => v.name === vendorName)?.code || vendorName;
+        const dateStr = (group.date || '').slice(0, 10);
+        const [yyyy, mm] = dateStr.split('-');
+        const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
+
+        const invoicePayload: any = {
+          businessUnitCode: 'Asus-Trading',
+          customerCode: 'CASH-PURPLE',
+          invoiceDate: dateStr,
+          periodCode,
+          currencyCode: 'SAR',
+          exchangeRate: 1.0,
+          reference: group.orderNumber,
+          paymentMethod: 'card',
+          status: 'POSTED',
+          lines: transactions.map(l => ({
+            itemCode: l.sku || l.product_id || '',
+            description: l.product_name || '',
+            quantity: l.qty || 1,
+            unitPrice: l.unit_price || 0,
+            unitCost: l.cost_price || (l.cost_sold && l.qty ? l.cost_sold / l.qty : 0),
+          })),
+        };
+        if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
+
+        const resp = await supabase.functions.invoke('sync-order-to-sajel', {
+          body: { invoice: invoicePayload },
+        });
+        if (resp.error) {
+          stepStatus.order = 'failed';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error' };
+        }
+        const data: any = resp.data;
+        if (data?.success) {
+          stepStatus.order = 'sent';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'success', stepStatus };
+        }
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: data?.error || 'Sajel API failed' };
+      } catch (err: any) {
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error' };
+      }
+    }
+
+
+
     // Filter non-stock products from this order's lines
     const orderNonStockProducts = transactions.filter(line => {
       const sku = line.sku || line.product_id;
