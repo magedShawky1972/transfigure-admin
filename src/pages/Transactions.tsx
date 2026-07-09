@@ -1673,6 +1673,7 @@ const Transactions = () => {
                 {language === 'ar' ? 'مزامنة يومية مجمعة' : 'Daily Aggregated Sync'}
               </Button>
               <ResetOdooSyncDialog fromDate={fromDate} toDate={toDate} language={language} />
+              <ResetSajelSyncDialog fromDate={fromDate} toDate={toDate} language={language} />
             </div>
           </div>
         </CardHeader>
