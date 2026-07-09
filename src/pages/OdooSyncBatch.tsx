@@ -3223,6 +3223,7 @@ const OdooSyncBatch = () => {
                   <TableHead>{language === 'ar' ? 'المنتجات' : 'Products'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                   <TableHead>{language === 'ar' ? 'سبب الفشل' : 'Error Description'}</TableHead>
+                  <TableHead className="text-center">{language === 'ar' ? 'API' : 'API'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -3244,6 +3245,25 @@ const OdooSyncBatch = () => {
                       <p className="text-sm text-destructive break-words">
                         {translateOdooError(group.errorMessage || (language === 'ar' ? 'خطأ غير معروف' : 'Unknown error'), language)}
                       </p>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {(group as any).sajelPayload || (group as any).sajelResponse ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          title={language === 'ar' ? 'عرض جسم الطلب' : 'View API body'}
+                          onClick={() => setApiBodyView({
+                            orderNumber: group.orderNumber,
+                            payload: (group as any).sajelPayload,
+                            response: (group as any).sajelResponse,
+                          })}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
