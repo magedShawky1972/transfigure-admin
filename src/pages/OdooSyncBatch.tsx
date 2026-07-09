@@ -1470,7 +1470,78 @@ const OdooSyncBatch = () => {
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'success', stepStatus, sajelPayload: fullSent, sajelResponse: data };
+
+          // Follow-up: post Expense Entry for the aggregate bank fee
+          let expenseSent: any = undefined;
+          let expenseResp: any = undefined;
+          try {
+            const orderNumbers = Array.from(new Set(
+              (invoice.originalLines || [])
+                .map((l: any) => l.order_number)
+                .filter((v: any) => typeof v === 'string' && v.length > 0)
+            ));
+            let bankFeeTotal = 0;
+            if (orderNumbers.length) {
+              const { data: otRows } = await supabase
+                .from('ordertotals')
+                .select('order_number, bank_fee')
+                .in('order_number', orderNumbers);
+              bankFeeTotal = (otRows || []).reduce((s: number, r: any) => s + (Number(r.bank_fee) || 0), 0);
+            }
+
+            // Resolve bankCode from payment_methods → banks
+            let bankCode = '';
+            const keys = [paymentPayload?.paymentType, paymentPayload?.paymentMethod, invoice.paymentMethod]
+              .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
+              .map((v: string) => v.trim());
+            if (keys.length) {
+              const { data: pms } = await supabase
+                .from('payment_methods')
+                .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code)')
+                .or(keys.flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`]).join(','));
+              const match = (pms || []).find((r: any) => r?.banks?.bank_code);
+              bankCode = (match as any)?.banks?.bank_code || '';
+            }
+
+            const expenseTypeCode = bankCode ? bankCode.replace(/^BNK/i, 'BC') : '';
+            const unitPrice = Number(bankFeeTotal.toFixed(2));
+
+            if (bankFeeTotal > 0 && bankCode && expenseTypeCode) {
+              const expensePayload = {
+                entry_date: dateStr,
+                payment_method: 'BANK',
+                bank_code: bankCode,
+                currency_code: 'SAR',
+                exchange_rate: 1.0,
+                grand_total: unitPrice,
+                expense_reference: invoice.orderNumber,
+                notes: `Bank fee for aggregate order ${invoice.orderNumber}`,
+                status: 'POSTED',
+                expense_entry_lines: [{
+                  expense_type_code: expenseTypeCode,
+                  quantity: 1,
+                  unit_price: unitPrice,
+                  vat_percent: 0,
+                  vat_amount: 0,
+                  line_total: unitPrice,
+                }],
+              };
+              expenseSent = expensePayload;
+              const eResp = await supabase.functions.invoke('sync-expense-to-sajel', {
+                body: { expense: expensePayload },
+              });
+              expenseResp = eResp.error ? { error: eResp.error.message } : eResp.data;
+            } else {
+              expenseResp = { skipped: true, reason: 'No bank_fee, bank_code, or expense_type_code resolved' };
+            }
+          } catch (expErr: any) {
+            console.warn('Expense entry post failed:', expErr);
+            expenseResp = { error: expErr?.message || String(expErr) };
+          }
+
+          const combinedSent = { ...fullSent, expense: expenseSent };
+          const combinedResp = { invoice: data, expense: expenseResp };
+          return { syncStatus: 'success', stepStatus, sajelPayload: combinedSent, sajelResponse: combinedResp };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
