@@ -507,9 +507,11 @@ const SupplierAdvancePayment = () => {
         accounting_recorded: true,
         accounting_recorded_at: new Date().toISOString(),
         accounting_recorded_by: profile?.user_name || user?.email,
-        current_phase: "accounting",
+        current_phase: "sent_to_acc",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
+      setAccountingRecorded(true);
+      setCurrentPhase("sent_to_acc");
 
       setSajelStatus("success");
       setSajelMessage(isArabic ? "تم التسجيل والإرسال إلى Sajel ERP بنجاح" : "Recorded and sent to Sajel ERP successfully");
@@ -590,22 +592,27 @@ const SupplierAdvancePayment = () => {
   const isPdf = (url: string) => url?.includes(".pdf") || url?.includes("/raw/upload/");
 
   const getPhaseFromPayment = (payment: any) => {
-    return payment.current_phase || (payment.accounting_recorded ? "accounting" : payment.sent_for_receiving ? "receiving" : "entry");
+    if (payment.current_phase) return payment.current_phase;
+    if (payment.accounting_recorded) return "sent_to_acc";
+    if (payment.sent_for_receiving) return "receiving";
+    return "entry";
   };
 
   const getPhaseBadge = (phase: string) => {
     if (phase === "entry") return <Badge variant="secondary">{isArabic ? "إدخال" : "Entry"}</Badge>;
     if (phase === "receiving") return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">{isArabic ? "استلام" : "Receiving"}</Badge>;
+    if (phase === "sent_to_acc") return <Badge className="bg-blue-600 hover:bg-blue-700 text-white">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc"}</Badge>;
     return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white">{isArabic ? "محاسبة" : "Recorded"}</Badge>;
   };
 
-  const [phaseFilter, setPhaseFilter] = useState<"all" | "entry" | "receiving" | "accounting">("all");
+  const [phaseFilter, setPhaseFilter] = useState<"all" | "entry" | "receiving" | "accounting" | "sent_to_acc">("all");
 
   const phaseCounts = {
     all: payments.length,
     entry: payments.filter(p => getPhaseFromPayment(p) === "entry").length,
     receiving: payments.filter(p => getPhaseFromPayment(p) === "receiving").length,
     accounting: payments.filter(p => getPhaseFromPayment(p) === "accounting").length,
+    sent_to_acc: payments.filter(p => getPhaseFromPayment(p) === "sent_to_acc").length,
   };
 
   const filteredPayments = phaseFilter === "all" ? payments : payments.filter(p => getPhaseFromPayment(p) === phaseFilter);
@@ -613,11 +620,12 @@ const SupplierAdvancePayment = () => {
   if (accessLoading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (!hasAccess) return <AccessDenied />;
 
-  const phaseTabButtons: { key: "all" | "entry" | "receiving" | "accounting"; labelEn: string; labelAr: string }[] = [
+  const phaseTabButtons: { key: "all" | "entry" | "receiving" | "accounting" | "sent_to_acc"; labelEn: string; labelAr: string }[] = [
     { key: "all", labelEn: "All", labelAr: "الكل" },
     { key: "entry", labelEn: "Entry", labelAr: "إدخال" },
     { key: "receiving", labelEn: "Receiving", labelAr: "استلام" },
     { key: "accounting", labelEn: "Recorded", labelAr: "محاسبة" },
+    { key: "sent_to_acc", labelEn: "Sent to Acc", labelAr: "أُرسل للمحاسبة" },
   ];
 
   return (
@@ -694,8 +702,9 @@ const SupplierAdvancePayment = () => {
                           title={isArabic ? "إرجاع مرحلة" : "Rollback one phase"}
                           onClick={async () => {
                             const phase = getPhaseFromPayment(p);
-                            const target = phase === "recorded" ? "receiving" : "entry";
-                            if (!confirm(isArabic ? `إرجاع إلى ${target === "entry" ? "الإدخال" : "الاستلام"}؟` : `Rollback to ${target}?`)) return;
+                            const target = phase === "sent_to_acc" ? "accounting" : phase === "accounting" ? "receiving" : "entry";
+                            const targetLabel = target === "entry" ? (isArabic ? "الإدخال" : "Entry") : target === "receiving" ? (isArabic ? "الاستلام" : "Receiving") : (isArabic ? "التسجيل" : "Recorded");
+                            if (!confirm(isArabic ? `إرجاع إلى ${targetLabel}؟` : `Rollback to ${targetLabel}?`)) return;
                             const updates: any = { current_phase: target };
                             if (target === "entry") {
                               Object.assign(updates, {
@@ -703,7 +712,11 @@ const SupplierAdvancePayment = () => {
                                 receiving_image: null, receiving_notes: null,
                                 accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
                               });
-                            } else {
+                            } else if (target === "receiving") {
+                              Object.assign(updates, {
+                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+                              });
+                            } else if (target === "accounting") {
                               Object.assign(updates, {
                                 accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
                               });
@@ -1034,12 +1047,17 @@ const SupplierAdvancePayment = () => {
           )}
 
           {/* ============ STEP 3: ACCOUNTING ============ */}
-          {currentPhase === "accounting" && selectedPaymentId && (
+          {(currentPhase === "accounting" || currentPhase === "sent_to_acc") && selectedPaymentId && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
                   {isArabic ? "القيد المحاسبي - تسجيل في Odoo" : "Accounting Record - Enter In Odoo"}
+                  {accountingRecorded && (
+                    <Badge className="bg-blue-600 hover:bg-blue-700 text-white ml-2">
+                      {isArabic ? "أُرسل للمحاسبة" : "Sent to Acc"}
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1048,9 +1066,16 @@ const SupplierAdvancePayment = () => {
                     <Undo2 className="h-4 w-4 mr-1" />
                     {isArabic ? "إرجاع إلى الاستلام" : "Rollback to Receiving"}
                   </Button>
-                  <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
+                  <Button
+                    onClick={handleConfirmToAccounting}
+                    className="min-w-[200px]"
+                    disabled={accountingRecorded}
+                    title={accountingRecorded ? (isArabic ? "تم الإرسال للمحاسبة مسبقاً" : "Already sent to Accounting") : undefined}
+                  >
                     <BookCheck className="h-4 w-4 mr-1" />
-                    {isArabic ? "تأكيد التسجيل" : "Confirm Record"}
+                    {accountingRecorded
+                      ? (isArabic ? "تم الإرسال للمحاسبة" : "Sent to Accounting")
+                      : (isArabic ? "تأكيد التسجيل" : "Confirm Record")}
                   </Button>
                 </div>
               </CardContent>
