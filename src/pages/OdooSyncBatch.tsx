@@ -276,6 +276,7 @@ const OdooSyncBatch = () => {
   const [aggregateMode, setAggregateMode] = useState(true);
   const [separateByDay, setSeparateByDay] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
+  const [syncWithSajel, setSyncWithSajel] = useState(false);
 
   // Supplier check states
   const [checkingSuppliers, setCheckingSuppliers] = useState(false);
@@ -419,16 +420,17 @@ const OdooSyncBatch = () => {
     }).length;
   }, [aggregatedInvoices, brandAbcMap]);
 
-  // Auto-run supplier check once when orders/invoices first become available
+  // Auto-run supplier check once when orders/invoices first become available (Odoo path only)
   useEffect(() => {
     if (supplierCheckDone || checkingSuppliers) return;
+    if (syncWithSajel) return;
     const hasData = (aggregateMode && aggregatedInvoices.length > 0) ||
                     (!aggregateMode && orderGroups.length > 0);
     if (hasData) {
       checkSuppliersInOdoo();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aggregateMode, aggregatedInvoices.length, orderGroups.length]);
+  }, [aggregateMode, aggregatedInvoices.length, orderGroups.length, syncWithSajel]);
 
   // Reset product filter when brand changes
   // Load vendor list once for the inline editor
@@ -1130,6 +1132,76 @@ const OdooSyncBatch = () => {
     const stepStatus = { ...group.stepStatus };
     const transactions = group.lines;
 
+    // Sajel path
+    if (syncWithSajel) {
+      const updateSajelStep = (ns: typeof stepStatus) => {
+        setOrderGroups(prev => prev.map(g =>
+          g.orderNumber === group.orderNumber ? { ...g, stepStatus: { ...ns } } : g
+        ));
+      };
+      stepStatus.customer = 'found';
+      stepStatus.brand = 'found';
+      stepStatus.product = 'found';
+      stepStatus.order = 'running';
+      stepStatus.purchase = 'skipped';
+      updateSajelStep(stepStatus);
+      try {
+        const first = transactions[0];
+        const brandCode = first?.brand_code || '';
+        const abc = brandAbcMap.get(brandCode);
+        const isClassA = abc === 'A';
+        const vendorName = first?.vendor_name || '';
+        const vendorCode = vendorOptions.find(v => v.name === vendorName)?.code || vendorName;
+        const dateStr = (group.date || '').slice(0, 10);
+        const [yyyy, mm] = dateStr.split('-');
+        const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
+
+        const invoicePayload: any = {
+          businessUnitCode: 'Asus-Trading',
+          customerCode: 'CASH-PURPLE',
+          invoiceDate: dateStr,
+          periodCode,
+          currencyCode: 'SAR',
+          exchangeRate: 1.0,
+          reference: group.orderNumber,
+          paymentMethod: 'card',
+          status: 'POSTED',
+          lines: transactions.map(l => ({
+            itemCode: l.sku || l.product_id || '',
+            description: l.product_name || '',
+            quantity: l.qty || 1,
+            unitPrice: l.unit_price || 0,
+            unitCost: l.cost_price || (l.cost_sold && l.qty ? l.cost_sold / l.qty : 0),
+          })),
+        };
+        if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
+
+        const resp = await supabase.functions.invoke('sync-order-to-sajel', {
+          body: { invoice: invoicePayload },
+        });
+        if (resp.error) {
+          stepStatus.order = 'failed';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error' };
+        }
+        const data: any = resp.data;
+        if (data?.success) {
+          stepStatus.order = 'sent';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'success', stepStatus };
+        }
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: data?.error || 'Sajel API failed' };
+      } catch (err: any) {
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error' };
+      }
+    }
+
+
+
     // Filter non-stock products from this order's lines
     const orderNonStockProducts = transactions.filter(line => {
       const sku = line.sku || line.product_id;
@@ -1281,6 +1353,82 @@ const OdooSyncBatch = () => {
   // Sync an aggregated invoice to Odoo - sends combined data as ONE order
   const syncAggregatedInvoice = async (invoice: AggregatedInvoice): Promise<Partial<AggregatedInvoice>> => {
     const stepStatus = { ...invoice.stepStatus };
+
+    // Sajel path: consume One-Step Combined Transaction API
+    if (syncWithSajel) {
+      const updateSajelStep = (ns: typeof stepStatus) => {
+        setAggregatedInvoices(prev => prev.map(inv =>
+          inv.orderNumber === invoice.orderNumber ? { ...inv, stepStatus: { ...ns } } : inv
+        ));
+      };
+      stepStatus.customer = 'found';
+      stepStatus.brand = 'found';
+      stepStatus.product = 'found';
+      stepStatus.order = 'running';
+      stepStatus.purchase = 'skipped';
+      updateSajelStep(stepStatus);
+
+      try {
+        const brandCode = invoice.originalLines[0]?.brand_code || '';
+        const abc = brandAbcMap.get(brandCode);
+        const isClassA = abc === 'A';
+        const vendorName = invoice.vendorName || invoice.originalLines[0]?.vendor_name || '';
+        const vendorCode = vendorOptions.find(v => v.name === vendorName)?.code || vendorName;
+
+        const dateStr = (invoice.date || '').slice(0, 10);
+        const [yyyy, mm] = dateStr.split('-');
+        const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
+
+        const invoicePayload: any = {
+          businessUnitCode: 'Asus-Trading',
+          customerCode: 'CASH-PURPLE',
+          invoiceDate: dateStr,
+          periodCode,
+          currencyCode: 'SAR',
+          exchangeRate: 1.0,
+          reference: invoice.orderNumber,
+          paymentMethod: 'card',
+          status: 'POSTED',
+          lines: invoice.productLines.map(pl => ({
+            itemCode: pl.productSku,
+            description: pl.productName,
+            quantity: pl.totalQty,
+            unitPrice: pl.unitPrice,
+            unitCost: (() => {
+              const cs = (pl as any).costSold;
+              if (cs && pl.totalQty) return cs / pl.totalQty;
+              return (pl as any).costPrice ?? 0;
+            })(),
+          })),
+        };
+        if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
+
+        const resp = await supabase.functions.invoke('sync-order-to-sajel', {
+          body: { invoice: invoicePayload },
+        });
+
+        if (resp.error) {
+          stepStatus.order = 'failed';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error' };
+        }
+        const data: any = resp.data;
+        if (data?.success) {
+          stepStatus.order = 'sent';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'success', stepStatus };
+        }
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: data?.error || 'Sajel API failed' };
+      } catch (err: any) {
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error' };
+      }
+    }
+
+
     
     // Build synthetic transactions from aggregated data for the edge function
     // We take the first original line to get customer info, then build product lines from aggregated data
@@ -2208,6 +2356,16 @@ const OdooSyncBatch = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer select-none bg-muted/30">
+            <Checkbox
+              checked={syncWithSajel}
+              onCheckedChange={(v) => setSyncWithSajel(!!v)}
+              disabled={isSyncing}
+            />
+            <span className="font-medium">
+              {language === 'ar' ? 'المزامنة مع Sajel' : 'Sync With Sajel'}
+            </span>
+          </label>
           <Button
             variant="outline"
             onClick={handleShowHistory}
@@ -2240,8 +2398,8 @@ const OdooSyncBatch = () => {
           )}
           <Button 
             onClick={handleStartSync} 
-            disabled={isSyncing || selectedCount === 0 || (aggregateMode && missingVendorNonACount > 0)}
-            title={aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
+            disabled={isSyncing || selectedCount === 0 || (!syncWithSajel && aggregateMode && missingVendorNonACount > 0)}
+            title={!syncWithSajel && aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
             className="gap-2"
           >
             {isSyncing ? (
@@ -2258,8 +2416,8 @@ const OdooSyncBatch = () => {
           </Button>
           <Button 
             onClick={handleStartBackgroundSync} 
-            disabled={isSyncing || selectedCount === 0 || startingBackgroundSync || (aggregateMode && missingVendorNonACount > 0)}
-            title={aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
+            disabled={isSyncing || selectedCount === 0 || startingBackgroundSync || syncWithSajel || (!syncWithSajel && aggregateMode && missingVendorNonACount > 0)}
+            title={syncWithSajel ? (language === 'ar' ? 'التشغيل في الخلفية غير مدعوم لـ Sajel' : 'Background sync not supported for Sajel') : (!syncWithSajel && aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined)}
             variant="secondary"
             className="gap-2"
           >
