@@ -2858,6 +2858,19 @@ const OdooSyncBatch = () => {
               </SelectContent>
             </Select>
 
+            {/* ABC Analysis Filter */}
+            <Select value={filterAbcAnalysis} onValueChange={setFilterAbcAnalysis} disabled={isSyncing}>
+              <SelectTrigger className="h-9 w-[140px]">
+                <SelectValue placeholder={language === 'ar' ? 'تحليل ABC' : 'ABC Analysis'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'كل التحاليل' : 'All ABC'}</SelectItem>
+                <SelectItem value="A">A</SelectItem>
+                <SelectItem value="B">B</SelectItem>
+                <SelectItem value="C">C</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Clear Filters Button */}
             {hasActiveFilters && (
               <Button
