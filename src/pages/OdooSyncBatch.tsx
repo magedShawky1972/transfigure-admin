@@ -1806,7 +1806,7 @@ const OdooSyncBatch = () => {
     }
 
     // Normal (non-aggregate) background sync
-    const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
+    const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
     if (toSync.length === 0) {
       toast({
         variant: 'destructive',
