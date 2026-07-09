@@ -141,6 +141,8 @@ interface AggregatedInvoice {
     purchase: 'pending' | 'running' | 'created' | 'skipped' | 'failed';
   };
   errorMessage?: string;
+  sajelPayload?: any;
+  sajelResponse?: any;
   hasNonStock: boolean;
 }
 
