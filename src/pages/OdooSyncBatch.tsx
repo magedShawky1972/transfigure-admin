@@ -1379,6 +1379,15 @@ const OdooSyncBatch = () => {
         const [yyyy, mm] = dateStr.split('-');
         const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
+        const totalQty = invoice.productLines.reduce((s, pl) => s + (pl.totalQty || 0), 0);
+        const totalAmount = invoice.productLines.reduce((s, pl) => s + (pl.totalAmount || 0), 0);
+        const totalCost = invoice.productLines.reduce((s, pl) => {
+          const cs = (pl as any).costSold;
+          if (cs) return s + Number(cs);
+          const cp = (pl as any).costPrice ?? 0;
+          return s + Number(cp) * (pl.totalQty || 0);
+        }, 0);
+
         const invoicePayload: any = {
           businessUnitCode: 'Asus-Trading',
           customerCode: 'CASH-PURPLE',
@@ -1389,17 +1398,13 @@ const OdooSyncBatch = () => {
           reference: invoice.orderNumber,
           paymentMethod: 'card',
           status: 'POSTED',
-          lines: invoice.productLines.map(pl => ({
-            itemCode: pl.productSku,
-            description: pl.productName,
-            quantity: pl.totalQty,
-            unitPrice: pl.unitPrice,
-            unitCost: (() => {
-              const cs = (pl as any).costSold;
-              if (cs && pl.totalQty) return cs / pl.totalQty;
-              return (pl as any).costPrice ?? 0;
-            })(),
-          })),
+          lines: [{
+            itemCode: brandCode,
+            description: invoice.brandName || brandCode,
+            quantity: totalQty || 1,
+            unitPrice: totalQty ? totalAmount / totalQty : totalAmount,
+            unitCost: totalQty ? totalCost / totalQty : totalCost,
+          }],
         };
         if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
 
