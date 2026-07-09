@@ -30,9 +30,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve bankCode dynamically from Payment Methods Bank Linking
+    // Match payment.paymentType or payment.paymentMethod against payment_methods.(payment_type|payment_method),
+    // then read banks.bank_code via bank_id.
+    let resolvedPayment = payment;
+    if (payment) {
+      try {
+        const keys = [payment.paymentType, payment.paymentMethod]
+          .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
+          .map((v: string) => v.trim());
+        if (keys.length) {
+          const { data: pms } = await supabase
+            .from('payment_methods')
+            .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code)')
+            .or(
+              keys
+                .flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`])
+                .join(',')
+            );
+          const match = (pms || []).find((r: any) => r?.banks?.bank_code);
+          const bankCode = (match as any)?.banks?.bank_code;
+          if (bankCode) {
+            resolvedPayment = { ...payment, bankCode };
+          }
+        }
+      } catch (lookupErr) {
+        console.warn('bank_code lookup failed:', lookupErr);
+      }
+    }
+
     // Preserve Sajel-required attribute order: invoice first, then payment
     const body: Record<string, unknown> = { invoice };
-    if (payment) body.payment = payment;
+    if (resolvedPayment) body.payment = resolvedPayment;
     console.log('Posting to Sajel ERP One-Step:', settings.one_step_combined_transaction_url, JSON.stringify(body));
 
     const resp = await fetch(settings.one_step_combined_transaction_url, {
