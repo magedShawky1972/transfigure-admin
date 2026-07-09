@@ -2356,6 +2356,16 @@ const OdooSyncBatch = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer select-none bg-muted/30">
+            <Checkbox
+              checked={syncWithSajel}
+              onCheckedChange={(v) => setSyncWithSajel(!!v)}
+              disabled={isSyncing}
+            />
+            <span className="font-medium">
+              {language === 'ar' ? 'المزامنة مع Sajel' : 'Sync With Sajel'}
+            </span>
+          </label>
           <Button
             variant="outline"
             onClick={handleShowHistory}
