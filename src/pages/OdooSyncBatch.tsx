@@ -2416,8 +2416,8 @@ const OdooSyncBatch = () => {
           </Button>
           <Button 
             onClick={handleStartBackgroundSync} 
-            disabled={isSyncing || selectedCount === 0 || startingBackgroundSync || (!syncWithSajel && aggregateMode && missingVendorNonACount > 0)}
-            title={!syncWithSajel && aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
+            disabled={isSyncing || selectedCount === 0 || startingBackgroundSync || syncWithSajel || (!syncWithSajel && aggregateMode && missingVendorNonACount > 0)}
+            title={syncWithSajel ? (language === 'ar' ? 'التشغيل في الخلفية غير مدعوم لـ Sajel' : 'Background sync not supported for Sajel') : (!syncWithSajel && aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined)}
             variant="secondary"
             className="gap-2"
           >
