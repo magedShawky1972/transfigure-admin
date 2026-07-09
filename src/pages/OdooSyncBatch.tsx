@@ -1283,6 +1283,82 @@ const OdooSyncBatch = () => {
   // Sync an aggregated invoice to Odoo - sends combined data as ONE order
   const syncAggregatedInvoice = async (invoice: AggregatedInvoice): Promise<Partial<AggregatedInvoice>> => {
     const stepStatus = { ...invoice.stepStatus };
+
+    // Sajel path: consume One-Step Combined Transaction API
+    if (syncWithSajel) {
+      const updateSajelStep = (ns: typeof stepStatus) => {
+        setAggregatedInvoices(prev => prev.map(inv =>
+          inv.orderNumber === invoice.orderNumber ? { ...inv, stepStatus: { ...ns } } : inv
+        ));
+      };
+      stepStatus.customer = 'found';
+      stepStatus.brand = 'found';
+      stepStatus.product = 'found';
+      stepStatus.order = 'running';
+      stepStatus.purchase = 'skipped';
+      updateSajelStep(stepStatus);
+
+      try {
+        const brandCode = invoice.originalLines[0]?.brand_code || '';
+        const abc = brandAbcMap.get(brandCode);
+        const isClassA = abc === 'A';
+        const vendorName = invoice.vendorName || invoice.originalLines[0]?.vendor_name || '';
+        const vendorCode = vendorOptions.find(v => v.name === vendorName)?.code || vendorName;
+
+        const dateStr = (invoice.date || '').slice(0, 10);
+        const [yyyy, mm] = dateStr.split('-');
+        const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
+
+        const invoicePayload: any = {
+          businessUnitCode: 'Asus-Trading',
+          customerCode: 'CASH-PURPLE',
+          invoiceDate: dateStr,
+          periodCode,
+          currencyCode: 'SAR',
+          exchangeRate: 1.0,
+          reference: invoice.orderNumber,
+          paymentMethod: 'card',
+          status: 'POSTED',
+          lines: invoice.productLines.map(pl => ({
+            itemCode: pl.productSku,
+            description: pl.productName,
+            quantity: pl.totalQty,
+            unitPrice: pl.unitPrice,
+            unitCost: (() => {
+              const cs = (pl as any).costSold;
+              if (cs && pl.totalQty) return cs / pl.totalQty;
+              return (pl as any).costPrice ?? 0;
+            })(),
+          })),
+        };
+        if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
+
+        const resp = await supabase.functions.invoke('sync-order-to-sajel', {
+          body: { invoice: invoicePayload },
+        });
+
+        if (resp.error) {
+          stepStatus.order = 'failed';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error' };
+        }
+        const data: any = resp.data;
+        if (data?.success) {
+          stepStatus.order = 'sent';
+          updateSajelStep(stepStatus);
+          return { syncStatus: 'success', stepStatus };
+        }
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: data?.error || 'Sajel API failed' };
+      } catch (err: any) {
+        stepStatus.order = 'failed';
+        updateSajelStep(stepStatus);
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error' };
+      }
+    }
+
+
     
     // Build synthetic transactions from aggregated data for the edge function
     // We take the first original line to get customer info, then build product lines from aggregated data
