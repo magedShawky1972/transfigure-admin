@@ -1373,6 +1373,7 @@ const OdooSyncBatch = () => {
       stepStatus.purchase = 'skipped';
       updateSajelStep(stepStatus);
 
+      let invoicePayload: any = undefined;
       try {
         const brandCode = invoice.originalLines[0]?.brand_code || '';
         const abc = brandAbcMap.get(brandCode);
@@ -1393,7 +1394,7 @@ const OdooSyncBatch = () => {
           return s + Number(cp) * (pl.totalQty || 0);
         }, 0);
 
-        const invoicePayload: any = {
+        invoicePayload = {
           businessUnitCode: 'Asus-Trading',
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
@@ -1420,21 +1421,21 @@ const OdooSyncBatch = () => {
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error' };
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: resp.error };
         }
         const data: any = resp.data;
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'success', stepStatus };
+          return { syncStatus: 'success', stepStatus, sajelPayload: invoicePayload, sajelResponse: data };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed') };
+        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: invoicePayload, sajelResponse: data };
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error' };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: { error: err?.message } };
       }
     }
 
