@@ -2398,8 +2398,8 @@ const OdooSyncBatch = () => {
           )}
           <Button 
             onClick={handleStartSync} 
-            disabled={isSyncing || selectedCount === 0 || (aggregateMode && missingVendorNonACount > 0)}
-            title={aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
+            disabled={isSyncing || selectedCount === 0 || (!syncWithSajel && aggregateMode && missingVendorNonACount > 0)}
+            title={!syncWithSajel && aggregateMode && missingVendorNonACount > 0 ? (language === 'ar' ? `يوجد ${missingVendorNonACount} صف بدون مورد. يرجى تعيين مورد لكل الصفوف الحمراء أولاً.` : `${missingVendorNonACount} row(s) missing vendor. Assign a vendor to all red rows first.`) : undefined}
             className="gap-2"
           >
             {isSyncing ? (
