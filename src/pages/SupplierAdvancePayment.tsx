@@ -592,22 +592,27 @@ const SupplierAdvancePayment = () => {
   const isPdf = (url: string) => url?.includes(".pdf") || url?.includes("/raw/upload/");
 
   const getPhaseFromPayment = (payment: any) => {
-    return payment.current_phase || (payment.accounting_recorded ? "accounting" : payment.sent_for_receiving ? "receiving" : "entry");
+    if (payment.current_phase) return payment.current_phase;
+    if (payment.accounting_recorded) return "sent_to_acc";
+    if (payment.sent_for_receiving) return "receiving";
+    return "entry";
   };
 
   const getPhaseBadge = (phase: string) => {
     if (phase === "entry") return <Badge variant="secondary">{isArabic ? "إدخال" : "Entry"}</Badge>;
     if (phase === "receiving") return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">{isArabic ? "استلام" : "Receiving"}</Badge>;
+    if (phase === "sent_to_acc") return <Badge className="bg-blue-600 hover:bg-blue-700 text-white">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc"}</Badge>;
     return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white">{isArabic ? "محاسبة" : "Recorded"}</Badge>;
   };
 
-  const [phaseFilter, setPhaseFilter] = useState<"all" | "entry" | "receiving" | "accounting">("all");
+  const [phaseFilter, setPhaseFilter] = useState<"all" | "entry" | "receiving" | "accounting" | "sent_to_acc">("all");
 
   const phaseCounts = {
     all: payments.length,
     entry: payments.filter(p => getPhaseFromPayment(p) === "entry").length,
     receiving: payments.filter(p => getPhaseFromPayment(p) === "receiving").length,
     accounting: payments.filter(p => getPhaseFromPayment(p) === "accounting").length,
+    sent_to_acc: payments.filter(p => getPhaseFromPayment(p) === "sent_to_acc").length,
   };
 
   const filteredPayments = phaseFilter === "all" ? payments : payments.filter(p => getPhaseFromPayment(p) === phaseFilter);
@@ -615,11 +620,12 @@ const SupplierAdvancePayment = () => {
   if (accessLoading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
   if (!hasAccess) return <AccessDenied />;
 
-  const phaseTabButtons: { key: "all" | "entry" | "receiving" | "accounting"; labelEn: string; labelAr: string }[] = [
+  const phaseTabButtons: { key: "all" | "entry" | "receiving" | "accounting" | "sent_to_acc"; labelEn: string; labelAr: string }[] = [
     { key: "all", labelEn: "All", labelAr: "الكل" },
     { key: "entry", labelEn: "Entry", labelAr: "إدخال" },
     { key: "receiving", labelEn: "Receiving", labelAr: "استلام" },
     { key: "accounting", labelEn: "Recorded", labelAr: "محاسبة" },
+    { key: "sent_to_acc", labelEn: "Sent to Acc", labelAr: "أُرسل للمحاسبة" },
   ];
 
   return (
