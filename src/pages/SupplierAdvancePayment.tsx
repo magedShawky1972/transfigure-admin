@@ -507,9 +507,11 @@ const SupplierAdvancePayment = () => {
         accounting_recorded: true,
         accounting_recorded_at: new Date().toISOString(),
         accounting_recorded_by: profile?.user_name || user?.email,
-        current_phase: "accounting",
+        current_phase: "sent_to_acc",
       } as any).eq("id", selectedPaymentId);
       if (error) throw error;
+      setAccountingRecorded(true);
+      setCurrentPhase("sent_to_acc");
 
       setSajelStatus("success");
       setSajelMessage(isArabic ? "تم التسجيل والإرسال إلى Sajel ERP بنجاح" : "Recorded and sent to Sajel ERP successfully");
