@@ -1696,7 +1696,7 @@ const OdooSyncBatch = () => {
   const handleStartBackgroundSync = async () => {
     // Check if in aggregate mode
     if (aggregateMode && aggregatedInvoices.length > 0) {
-      const toSync = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync && inv.syncStatus !== 'success');
+      const toSync = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync && inv.syncStatus !== 'success');
       if (toSync.length === 0) {
         toast({
           variant: 'destructive',
@@ -1806,7 +1806,7 @@ const OdooSyncBatch = () => {
     }
 
     // Normal (non-aggregate) background sync
-    const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
+    const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
     if (toSync.length === 0) {
       toast({
         variant: 'destructive',
@@ -1906,7 +1906,7 @@ const OdooSyncBatch = () => {
   const handleStartSync = async () => {
     // When in aggregate mode, sync aggregated invoices directly (not individual orders)
     if (aggregateMode) {
-      const selectedAggregated = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
+      const selectedAggregated = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
       if (selectedAggregated.length === 0) {
         toast({
           variant: 'destructive',
@@ -1916,13 +1916,13 @@ const OdooSyncBatch = () => {
         return;
       }
       
-      // Sync aggregated invoices directly
+      // Sync aggregated invoices directly (respects active filters incl. ABC)
       await executeAggregatedSync(selectedAggregated);
       return;
     }
     
-    // Normal mode - use orderGroups selection directly
-    const toSync = orderGroups.filter(g => g.selected && !g.skipSync);
+    // Normal mode - use filtered orderGroups selection (respects active filters incl. ABC)
+    const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
     if (toSync.length === 0) {
       toast({
         variant: 'destructive',
