@@ -53,6 +53,7 @@ import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
 import { BackgroundSyncStatusCard } from "@/components/BackgroundSyncStatusCard";
 import { DailySyncStatusCard } from "@/components/DailySyncStatusCard";
 import { ResetOdooSyncDialog } from "@/components/ResetOdooSyncDialog";
+import { ResetSajelSyncDialog } from "@/components/ResetSajelSyncDialog";
 import { OdooSyncHistoryDialog } from "@/components/OdooSyncHistoryDialog";
 import { VirtualizedTransactionTable } from "@/components/transactions/VirtualizedTransactionTable";
 import { AggregatedInvoiceSearchDialog } from "@/components/AggregatedInvoiceSearchDialog";
