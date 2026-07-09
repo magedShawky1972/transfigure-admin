@@ -2302,6 +2302,8 @@ const OdooSyncBatch = () => {
         totalAmount: inv.grandTotal,
         errorMessage: inv.errorMessage,
         syncStatus: inv.syncStatus,
+        sajelPayload: (inv as any).sajelPayload,
+        sajelResponse: (inv as any).sajelResponse,
       }));
     }
     return orderGroups.filter(g => g.syncStatus === 'failed');
