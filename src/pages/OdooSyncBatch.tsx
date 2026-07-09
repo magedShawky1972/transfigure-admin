@@ -2296,39 +2296,41 @@ const OdooSyncBatch = () => {
 
   // Summary stats
   const summary = useMemo(() => {
-    // Use aggregatedInvoices when in aggregate mode, otherwise use orderGroups
-    const sourceData = aggregateMode && aggregatedInvoices.length > 0 ? aggregatedInvoices : orderGroups;
-    
+    // Use filtered data so totals reflect the active filters
+    const sourceData = aggregateMode && filteredAggregatedInvoices.length > 0
+      ? filteredAggregatedInvoices
+      : filteredOrderGroups;
+
     const total = sourceData.length;
     const success = sourceData.filter(g => g.syncStatus === 'success').length;
     const failed = sourceData.filter(g => g.syncStatus === 'failed').length;
     const skipped = sourceData.filter(g => g.syncStatus === 'skipped' || g.syncStatus === 'stopped').length;
-    
+
     // Count created items (status === 'created')
     const customersCreated = sourceData.filter(g => g.stepStatus.customer === 'created').length;
     const brandsCreated = sourceData.filter(g => g.stepStatus.brand === 'created').length;
     const productsCreated = sourceData.filter(g => g.stepStatus.product === 'created').length;
     const ordersCreated = sourceData.filter(g => g.stepStatus.order === 'sent').length;
     const purchasesCreated = sourceData.filter(g => g.stepStatus.purchase === 'created').length;
-    
+
     // Calculate total sales and purchase orders count
     let totalSales = 0;
     let totalPurchaseOrders = 0;
-    
-    if (aggregateMode && aggregatedInvoices.length > 0) {
-      totalSales = aggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
-      totalPurchaseOrders = aggregatedInvoices.filter(inv => inv.hasNonStock).length;
+
+    if (aggregateMode && filteredAggregatedInvoices.length > 0) {
+      totalSales = filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+      totalPurchaseOrders = filteredAggregatedInvoices.filter(inv => inv.hasNonStock).length;
     } else {
-      totalSales = orderGroups.reduce((sum, g) => sum + g.totalAmount, 0);
-      totalPurchaseOrders = orderGroups.filter(g => g.hasNonStock).length;
+      totalSales = filteredOrderGroups.reduce((sum, g) => sum + g.totalAmount, 0);
+      totalPurchaseOrders = filteredOrderGroups.filter(g => g.hasNonStock).length;
     }
-    
-    return { 
-      total, success, failed, skipped, 
+
+    return {
+      total, success, failed, skipped,
       customersCreated, brandsCreated, productsCreated, ordersCreated, purchasesCreated,
       totalSales, totalPurchaseOrders
     };
-  }, [orderGroups, aggregatedInvoices, aggregateMode]);
+  }, [filteredOrderGroups, filteredAggregatedInvoices, aggregateMode]);
 
   // Get failed orders for dialog (keep as OrderGroup for display purposes)
   const failedOrders = useMemo(() => {
