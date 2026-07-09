@@ -1190,7 +1190,7 @@ const OdooSyncBatch = () => {
           paymentMethod: 'CARD',
           paymentType: first?.payment_type || 'Hyperpay',
           cardType: (first?.payment_brand || 'MADA').toString().toUpperCase(),
-          bankCode: 'BNK002',
+          bankCode: '',
           referenceNo: group.orderNumber,
         };
 
