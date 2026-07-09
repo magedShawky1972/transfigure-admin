@@ -1042,12 +1042,17 @@ const SupplierAdvancePayment = () => {
           )}
 
           {/* ============ STEP 3: ACCOUNTING ============ */}
-          {currentPhase === "accounting" && selectedPaymentId && (
+          {(currentPhase === "accounting" || currentPhase === "sent_to_acc") && selectedPaymentId && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
                   {isArabic ? "القيد المحاسبي - تسجيل في Odoo" : "Accounting Record - Enter In Odoo"}
+                  {accountingRecorded && (
+                    <Badge className="bg-blue-600 hover:bg-blue-700 text-white ml-2">
+                      {isArabic ? "أُرسل للمحاسبة" : "Sent to Acc"}
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1056,9 +1061,16 @@ const SupplierAdvancePayment = () => {
                     <Undo2 className="h-4 w-4 mr-1" />
                     {isArabic ? "إرجاع إلى الاستلام" : "Rollback to Receiving"}
                   </Button>
-                  <Button onClick={handleConfirmToAccounting} className="min-w-[200px]">
+                  <Button
+                    onClick={handleConfirmToAccounting}
+                    className="min-w-[200px]"
+                    disabled={accountingRecorded}
+                    title={accountingRecorded ? (isArabic ? "تم الإرسال للمحاسبة مسبقاً" : "Already sent to Accounting") : undefined}
+                  >
                     <BookCheck className="h-4 w-4 mr-1" />
-                    {isArabic ? "تأكيد التسجيل" : "Confirm Record"}
+                    {accountingRecorded
+                      ? (isArabic ? "تم الإرسال للمحاسبة" : "Sent to Accounting")
+                      : (isArabic ? "تأكيد التسجيل" : "Confirm Record")}
                   </Button>
                 </div>
               </CardContent>
