@@ -3307,6 +3307,47 @@ const OdooSyncBatch = () => {
         </DialogContent>
       </Dialog>
 
+      {/* API Body Viewer Dialog */}
+      <Dialog open={!!apiBodyView} onOpenChange={(o) => !o && setApiBodyView(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {language === 'ar' ? 'جسم طلب API' : 'API Request Body'}
+              {apiBodyView?.orderNumber && <span className="font-mono text-sm text-muted-foreground">— {apiBodyView.orderNumber}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[65vh]">
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm font-medium">{language === 'ar' ? 'الطلب المرسل' : 'Request Payload'}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(apiBodyView?.payload ?? {}, null, 2));
+                      toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied' });
+                    }}
+                  >
+                    {language === 'ar' ? 'نسخ' : 'Copy'}
+                  </Button>
+                </div>
+                <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
+{JSON.stringify(apiBodyView?.payload ?? {}, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">{language === 'ar' ? 'الاستجابة' : 'Response'}</p>
+                <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
+{JSON.stringify(apiBodyView?.response ?? {}, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
       {/* History Dialog */}
       <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh]">
