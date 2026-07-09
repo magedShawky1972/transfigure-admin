@@ -5889,6 +5889,8 @@ export type Database = {
           purchase_error_message: string | null
           purchase_sync_failed: boolean | null
           run_id: string
+          sajel_payload: Json | null
+          sajel_response: Json | null
           step_brand: string | null
           step_customer: string | null
           step_order: string | null
@@ -5914,6 +5916,8 @@ export type Database = {
           purchase_error_message?: string | null
           purchase_sync_failed?: boolean | null
           run_id: string
+          sajel_payload?: Json | null
+          sajel_response?: Json | null
           step_brand?: string | null
           step_customer?: string | null
           step_order?: string | null
@@ -5939,6 +5943,8 @@ export type Database = {
           purchase_error_message?: string | null
           purchase_sync_failed?: boolean | null
           run_id?: string
+          sajel_payload?: Json | null
+          sajel_response?: Json | null
           step_brand?: string | null
           step_customer?: string | null
           step_order?: string | null

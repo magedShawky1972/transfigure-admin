@@ -1068,11 +1068,10 @@ const OdooSyncBatch = () => {
           return nonStockSkuSet.has(sku);
         });
         
-        // Whether this is a re-sync (has existing mapping)
         const isResync = !!existingAggregatedOrderNumber;
         // Already synced if every original line has sendodoo === true
         const aggAlreadySynced = invoice.lines.length > 0 && invoice.lines.every(l => (l as any).sendodoo === true);
-        
+
         result.push({
           orderNumber,
           date: invoice.date,
@@ -2084,6 +2083,30 @@ const OdooSyncBatch = () => {
         await supabase
           .from('aggregated_order_mapping')
           .upsert(mappings, { onConflict: 'original_order_number' });
+
+        // Save run detail for aggregated invoice
+        if (runId) {
+          await supabase
+            .from('odoo_sync_run_details')
+            .insert({
+              run_id: runId,
+              order_number: invoice.orderNumber,
+              order_date: invoice.date ? invoice.date.slice(0, 10) : null,
+              customer_phone: '0000',
+              product_names: invoice.productLines.map(pl => pl.productName).join(', ') || null,
+              total_amount: invoice.grandTotal,
+              sync_status: result.syncStatus,
+              error_message: result.errorMessage ? translateOdooError(result.errorMessage, language) : null,
+              step_customer: result.stepStatus?.customer || 'found',
+              step_brand: result.stepStatus?.brand || 'found',
+              step_product: result.stepStatus?.product || 'found',
+              step_order: result.stepStatus?.order || 'sent',
+              step_purchase: result.stepStatus?.purchase || 'skipped',
+              original_orders: invoice.originalOrderNumbers,
+              sajel_payload: (result as any).sajelPayload || null,
+              sajel_response: (result as any).sajelResponse || null,
+            });
+        }
       }
 
       processedCount++;
@@ -2221,6 +2244,8 @@ const OdooSyncBatch = () => {
             step_product: mergedForDb.stepStatus.product,
             step_order: mergedForDb.stepStatus.order,
             step_purchase: mergedForDb.stepStatus.purchase,
+            sajel_payload: (mergedForDb as any).sajelPayload || null,
+            sajel_response: (mergedForDb as any).sajelResponse || null,
           });
 
         if (perOrderInsertError) {
@@ -3129,11 +3154,11 @@ const OdooSyncBatch = () => {
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1">
                             {getSyncStatusBadge(invoice)}
-                            {invoice.syncStatus === 'failed' && ((invoice as any).sajelPayload || (invoice as any).sajelResponse) && (
+                            {(invoice.syncStatus === 'success' || invoice.syncStatus === 'failed') && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                className={`h-6 w-6 ${invoice.syncStatus === 'failed' ? 'text-destructive hover:text-destructive' : 'text-primary hover:text-primary'}`}
                                 title={language === 'ar' ? 'عرض جسم الطلب' : 'View API body'}
                                 onClick={() => setApiBodyView({
                                   orderNumber: invoice.orderNumber,
@@ -3289,11 +3314,11 @@ const OdooSyncBatch = () => {
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1">
                             {getSyncStatusBadge(group)}
-                            {group.syncStatus === 'failed' && ((group as any).sajelPayload || (group as any).sajelResponse) && (
+                            {(group.syncStatus === 'success' || group.syncStatus === 'failed') && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                className={`h-6 w-6 ${group.syncStatus === 'failed' ? 'text-destructive hover:text-destructive' : 'text-primary hover:text-primary'}`}
                                 title={language === 'ar' ? 'عرض جسم الطلب' : 'View API body'}
                                 onClick={() => setApiBodyView({
                                   orderNumber: group.orderNumber,
@@ -3497,13 +3522,13 @@ const OdooSyncBatch = () => {
                   </Button>
                 </div>
                 <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
-{JSON.stringify(apiBodyView?.payload ?? {}, null, 2)}
+                  {apiBodyView?.payload ? JSON.stringify(apiBodyView.payload, null, 2) : (language === 'ar' ? 'لا توجد بيانات طلب مخزنة' : 'No request payload stored for this order')}
                 </pre>
               </div>
               <div>
                 <p className="text-sm font-medium mb-1">{language === 'ar' ? 'الاستجابة' : 'Response'}</p>
                 <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
-{JSON.stringify(apiBodyView?.response ?? {}, null, 2)}
+                  {apiBodyView?.response ? JSON.stringify(apiBodyView.response, null, 2) : (language === 'ar' ? 'لا توجد استجابة مخزنة' : 'No response stored for this order')}
                 </pre>
               </div>
             </div>
