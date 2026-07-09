@@ -849,42 +849,6 @@ const OdooSyncBatch = () => {
           });
         }
 
-        // Attach latest Sajel payload/response from run details for already-synced orders
-        try {
-          const orderNumbers = groups.map(g => g.orderNumber);
-          if (orderNumbers.length > 0) {
-            const latestByOrder = new Map<string, { sajelPayload?: any; sajelResponse?: any }>();
-            const chunkSize = 100;
-            for (let i = 0; i < orderNumbers.length; i += chunkSize) {
-              const chunk = orderNumbers.slice(i, i + chunkSize);
-              const { data: runDetails } = await supabase
-                .from('odoo_sync_run_details')
-                .select('order_number, sajel_payload, sajel_response, created_at')
-                .in('order_number', chunk)
-                .order('created_at', { ascending: false });
-
-              (runDetails || []).forEach((rd: any) => {
-                if (!latestByOrder.has(rd.order_number)) {
-                  latestByOrder.set(rd.order_number, {
-                    sajelPayload: rd.sajel_payload,
-                    sajelResponse: rd.sajel_response,
-                  });
-                }
-              });
-            }
-
-            groups.forEach(g => {
-              const latest = latestByOrder.get(g.orderNumber);
-              if (latest) {
-                (g as any).sajelPayload = latest.sajelPayload;
-                (g as any).sajelResponse = latest.sajelResponse;
-              }
-            });
-          }
-        } catch (e) {
-          console.error('Error loading Sajel run details:', e);
-        }
-
         setOrderGroups(groups);
       } catch (error) {
         console.error('Error loading transactions:', error);
