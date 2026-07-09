@@ -2296,12 +2296,11 @@ const OdooSyncBatch = () => {
     }
   };
 
-  // Summary stats
   const summary = useMemo(() => {
-    // Use filtered data so totals reflect the active filters
+    // Use filtered data so totals reflect the active filters, and exclude skipped rows
     const sourceData = aggregateMode && filteredAggregatedInvoices.length > 0
-      ? filteredAggregatedInvoices
-      : filteredOrderGroups;
+      ? filteredAggregatedInvoices.filter(inv => !inv.skipSync)
+      : filteredOrderGroups.filter(g => !g.skipSync);
 
     const total = sourceData.length;
     const success = sourceData.filter(g => g.syncStatus === 'success').length;
@@ -2320,11 +2319,13 @@ const OdooSyncBatch = () => {
     let totalPurchaseOrders = 0;
 
     if (aggregateMode && filteredAggregatedInvoices.length > 0) {
-      totalSales = filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
-      totalPurchaseOrders = filteredAggregatedInvoices.filter(inv => inv.hasNonStock).length;
+      const src = filteredAggregatedInvoices.filter(inv => !inv.skipSync);
+      totalSales = src.reduce((sum, inv) => sum + inv.grandTotal, 0);
+      totalPurchaseOrders = src.filter(inv => inv.hasNonStock).length;
     } else {
-      totalSales = filteredOrderGroups.reduce((sum, g) => sum + g.totalAmount, 0);
-      totalPurchaseOrders = filteredOrderGroups.filter(g => g.hasNonStock).length;
+      const src = filteredOrderGroups.filter(g => !g.skipSync);
+      totalSales = src.reduce((sum, g) => sum + g.totalAmount, 0);
+      totalPurchaseOrders = src.filter(g => g.hasNonStock).length;
     }
 
     return {
