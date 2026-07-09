@@ -1151,6 +1151,7 @@ const OdooSyncBatch = () => {
       stepStatus.purchase = 'skipped';
       updateSajelStep(stepStatus);
       let invoicePayload: any = undefined;
+      let paymentPayload: any = undefined;
       try {
         const first = transactions[0];
         const brandCode = first?.brand_code || '';
@@ -1162,15 +1163,18 @@ const OdooSyncBatch = () => {
         const [yyyy, mm] = dateStr.split('-');
         const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
+        // Keep attribute order EXACTLY as Sajel spec:
+        // businessUnitCode, [vendorCode], customerCode, invoiceDate, periodCode,
+        // currencyCode, exchangeRate, reference, status, lines
         invoicePayload = {
           businessUnitCode: 'Asus-Trading',
+          ...((!isClassA && vendorCode) ? { vendorCode } : {}),
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
           periodCode,
           currencyCode: 'SAR',
           exchangeRate: 1.0,
           reference: group.orderNumber,
-          paymentMethod: 'card',
           status: 'POSTED',
           lines: transactions.map(l => ({
             itemCode: l.brand_code || '',
@@ -1180,10 +1184,18 @@ const OdooSyncBatch = () => {
             unitCost: l.cost_price || (l.cost_sold && l.qty ? l.cost_sold / l.qty : 0),
           })),
         };
-        if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
+
+        // payment block: paymentMethod, paymentType, cardType, bankCode, referenceNo
+        paymentPayload = {
+          paymentMethod: 'CARD',
+          paymentType: first?.payment_type || 'Hyperpay',
+          cardType: (first?.payment_brand || 'MADA').toString().toUpperCase(),
+          bankCode: 'BNK002',
+          referenceNo: group.orderNumber,
+        };
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload },
+          body: { invoice: invoicePayload, payment: paymentPayload },
         });
         if (resp.error) {
           stepStatus.order = 'failed';
