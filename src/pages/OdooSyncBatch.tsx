@@ -2997,7 +2997,24 @@ const OdooSyncBatch = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {getSyncStatusBadge(invoice)}
+                          <div className="flex items-center gap-1">
+                            {getSyncStatusBadge(invoice)}
+                            {invoice.syncStatus === 'failed' && ((invoice as any).sajelPayload || (invoice as any).sajelResponse) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                title={language === 'ar' ? 'عرض جسم الطلب' : 'View API body'}
+                                onClick={() => setApiBodyView({
+                                  orderNumber: invoice.orderNumber,
+                                  payload: (invoice as any).sajelPayload,
+                                  response: (invoice as any).sajelResponse,
+                                })}
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                           {invoice.syncStatus === 'failed' && invoice.errorMessage && (
                             <span className="text-xs text-destructive max-w-[150px] break-words">
                               {translateOdooError(invoice.errorMessage, language)}
