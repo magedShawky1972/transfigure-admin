@@ -1197,24 +1197,25 @@ const OdooSyncBatch = () => {
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
           body: { invoice: invoicePayload, payment: paymentPayload },
         });
+        const fullSent = { invoice: invoicePayload, payment: paymentPayload };
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: resp.error };
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: fullSent, sajelResponse: resp.error };
         }
         const data: any = resp.data;
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'success', stepStatus, sajelPayload: invoicePayload, sajelResponse: data };
+          return { syncStatus: 'success', stepStatus, sajelPayload: fullSent, sajelResponse: data };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: invoicePayload, sajelResponse: data };
+        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: fullSent, sajelResponse: data };
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: (typeof invoicePayload !== 'undefined' ? invoicePayload : undefined), sajelResponse: { error: err?.message } };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: { invoice: invoicePayload, payment: paymentPayload }, sajelResponse: { error: err?.message } };
       }
     }
 
