@@ -1167,8 +1167,8 @@ const OdooSyncBatch = () => {
           paymentMethod: 'card',
           status: 'POSTED',
           lines: transactions.map(l => ({
-            itemCode: l.sku || l.product_id || '',
-            description: l.product_name || '',
+            itemCode: l.brand_code || '',
+            description: l.brand_name || '',
             quantity: l.qty || 1,
             unitPrice: l.unit_price || 0,
             unitCost: l.cost_price || (l.cost_sold && l.qty ? l.cost_sold / l.qty : 0),
