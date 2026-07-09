@@ -59,8 +59,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Ensure costCenterCode appears before the lines array in the invoice payload
+    const invoiceForSajel: Record<string, unknown> = { ...invoice };
+    if (invoiceForSajel.lines !== undefined) {
+      const { lines, ...rest } = invoiceForSajel;
+      Object.assign(invoiceForSajel, { ...rest, costCenterCode: "P10", lines });
+    } else {
+      invoiceForSajel.costCenterCode = "P10";
+    }
+
     // Preserve Sajel-required attribute order: invoice first, then payment
-    const body: Record<string, unknown> = { invoice };
+    const body: Record<string, unknown> = { invoice: invoiceForSajel };
     if (resolvedPayment) body.payment = resolvedPayment;
     console.log('Posting to Sajel ERP One-Step:', settings.one_step_combined_transaction_url, JSON.stringify(body));
 
