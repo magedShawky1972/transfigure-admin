@@ -1420,7 +1420,7 @@ const OdooSyncBatch = () => {
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: data?.error || 'Sajel API failed' };
+        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed') };
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
