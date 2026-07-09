@@ -383,9 +383,17 @@ const OdooSyncBatch = () => {
       } else if (filterHasPurchase === 'no') {
         if (g.hasNonStock) return false;
       }
+      // Filter by ABC analysis
+      if (filterAbcAnalysis && filterAbcAnalysis !== 'all') {
+        const hasAbcClass = g.lines.some(l => {
+          const abc = brandAbcMap.get(l.brand_code || '');
+          return abc === filterAbcAnalysis;
+        });
+        if (!hasAbcClass) return false;
+      }
       return true;
     });
-  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
+  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterAbcAnalysis, brandAbcMap]);
 
   // Filtered aggregated invoices based on filter criteria
   const filteredAggregatedInvoices = useMemo(() => {
