@@ -5,7 +5,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { invoice } = await req.json();
+    const { invoice, payment } = await req.json();
     if (!invoice) {
       return new Response(JSON.stringify({ success: false, error: 'invoice required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = { invoice };
+    // Preserve Sajel-required attribute order: invoice first, then payment
+    const body: Record<string, unknown> = { invoice };
+    if (payment) body.payment = payment;
     console.log('Posting to Sajel ERP One-Step:', settings.one_step_combined_transaction_url, JSON.stringify(body));
 
     const resp = await fetch(settings.one_step_combined_transaction_url, {
