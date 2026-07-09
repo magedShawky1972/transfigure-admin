@@ -432,12 +432,14 @@ const OdooSyncBatch = () => {
   }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, brandAbcMap]);
 
   // Count of aggregated invoices with missing vendor for non-A brands (red rows)
+  // Respects active filters and excludes skipped rows
   const missingVendorNonACount = useMemo(() => {
-    return aggregatedInvoices.filter(inv => {
+    return filteredAggregatedInvoices.filter(inv => {
+      if (inv.skipSync) return false;
       const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
       return abc !== 'A' && !inv.vendorName;
     }).length;
-  }, [aggregatedInvoices, brandAbcMap]);
+  }, [filteredAggregatedInvoices, brandAbcMap]);
 
   // Auto-run supplier check once when orders/invoices first become available (Odoo path only)
   useEffect(() => {
@@ -2294,12 +2296,11 @@ const OdooSyncBatch = () => {
     }
   };
 
-  // Summary stats
   const summary = useMemo(() => {
-    // Use filtered data so totals reflect the active filters
+    // Use filtered data so totals reflect the active filters, and exclude skipped rows
     const sourceData = aggregateMode && filteredAggregatedInvoices.length > 0
-      ? filteredAggregatedInvoices
-      : filteredOrderGroups;
+      ? filteredAggregatedInvoices.filter(inv => !inv.skipSync)
+      : filteredOrderGroups.filter(g => !g.skipSync);
 
     const total = sourceData.length;
     const success = sourceData.filter(g => g.syncStatus === 'success').length;
@@ -2318,11 +2319,13 @@ const OdooSyncBatch = () => {
     let totalPurchaseOrders = 0;
 
     if (aggregateMode && filteredAggregatedInvoices.length > 0) {
-      totalSales = filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
-      totalPurchaseOrders = filteredAggregatedInvoices.filter(inv => inv.hasNonStock).length;
+      const src = filteredAggregatedInvoices.filter(inv => !inv.skipSync);
+      totalSales = src.reduce((sum, inv) => sum + inv.grandTotal, 0);
+      totalPurchaseOrders = src.filter(inv => inv.hasNonStock).length;
     } else {
-      totalSales = filteredOrderGroups.reduce((sum, g) => sum + g.totalAmount, 0);
-      totalPurchaseOrders = filteredOrderGroups.filter(g => g.hasNonStock).length;
+      const src = filteredOrderGroups.filter(g => !g.skipSync);
+      totalSales = src.reduce((sum, g) => sum + g.totalAmount, 0);
+      totalPurchaseOrders = src.filter(g => g.hasNonStock).length;
     }
 
     return {
@@ -3102,25 +3105,30 @@ const OdooSyncBatch = () => {
                     </TableRow>
                     );
                   })}
-                  {/* Grand Total Row */}
+                  {/* Grand Total Row - excludes skipped rows */}
+                  {(() => {
+                    const activeInvoices = filteredAggregatedInvoices.filter(inv => !inv.skipSync);
+                    return (
                   <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
                     <TableCell colSpan={8} className="text-right">
                       {language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}
                       <span className="text-muted-foreground font-normal mx-2">
-                        ({filteredAggregatedInvoices.length} {language === 'ar' ? 'فاتورة' : 'invoices'})
+                        ({activeInvoices.length} {language === 'ar' ? 'فاتورة' : 'invoices'})
                       </span>
                     </TableCell>
                      <TableCell className="text-lg">
-                       {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                       {activeInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
                      </TableCell>
                      <TableCell className="text-lg">
-                       {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.costSold || 0), 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                       {activeInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.costSold || 0), 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
                      </TableCell>
                      <TableCell className="text-center text-lg">
-                       {filteredAggregatedInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0), 0).toLocaleString('en-US')}
+                       {activeInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0), 0).toLocaleString('en-US')}
                      </TableCell>
                      <TableCell colSpan={8}></TableCell>
                    </TableRow>
+                    );
+                  })()}
                 </TableBody>
               </Table>
             </ScrollArea>
