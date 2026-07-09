@@ -104,6 +104,8 @@ interface OrderGroup {
     purchase: 'pending' | 'running' | 'created' | 'skipped' | 'failed';
   };
   errorMessage?: string;
+  sajelPayload?: any;
+  sajelResponse?: any;
   hasNonStock: boolean;
 }
 
@@ -139,6 +141,8 @@ interface AggregatedInvoice {
     purchase: 'pending' | 'running' | 'created' | 'skipped' | 'failed';
   };
   errorMessage?: string;
+  sajelPayload?: any;
+  sajelResponse?: any;
   hasNonStock: boolean;
 }
 
@@ -277,6 +281,7 @@ const OdooSyncBatch = () => {
   const [separateByDay, setSeparateByDay] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
   const [syncWithSajel, setSyncWithSajel] = useState(false);
+  const [apiBodyView, setApiBodyView] = useState<{ orderNumber: string; payload: any; response: any } | null>(null);
 
   // Supplier check states
   const [checkingSuppliers, setCheckingSuppliers] = useState(false);
@@ -1145,6 +1150,7 @@ const OdooSyncBatch = () => {
       stepStatus.order = 'running';
       stepStatus.purchase = 'skipped';
       updateSajelStep(stepStatus);
+      let invoicePayload: any = undefined;
       try {
         const first = transactions[0];
         const brandCode = first?.brand_code || '';
@@ -1156,7 +1162,7 @@ const OdooSyncBatch = () => {
         const [yyyy, mm] = dateStr.split('-');
         const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
-        const invoicePayload: any = {
+        invoicePayload = {
           businessUnitCode: 'Asus-Trading',
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
@@ -1182,21 +1188,21 @@ const OdooSyncBatch = () => {
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error' };
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: resp.error };
         }
         const data: any = resp.data;
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'success', stepStatus };
+          return { syncStatus: 'success', stepStatus, sajelPayload: invoicePayload, sajelResponse: data };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed') };
+        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: invoicePayload, sajelResponse: data };
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error' };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: (typeof invoicePayload !== 'undefined' ? invoicePayload : undefined), sajelResponse: { error: err?.message } };
       }
     }
 
@@ -1368,6 +1374,7 @@ const OdooSyncBatch = () => {
       stepStatus.purchase = 'skipped';
       updateSajelStep(stepStatus);
 
+      let invoicePayload: any = undefined;
       try {
         const brandCode = invoice.originalLines[0]?.brand_code || '';
         const abc = brandAbcMap.get(brandCode);
@@ -1388,7 +1395,7 @@ const OdooSyncBatch = () => {
           return s + Number(cp) * (pl.totalQty || 0);
         }, 0);
 
-        const invoicePayload: any = {
+        invoicePayload = {
           businessUnitCode: 'Asus-Trading',
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
@@ -1415,21 +1422,21 @@ const OdooSyncBatch = () => {
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error' };
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: resp.error };
         }
         const data: any = resp.data;
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'success', stepStatus };
+          return { syncStatus: 'success', stepStatus, sajelPayload: invoicePayload, sajelResponse: data };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed') };
+        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: invoicePayload, sajelResponse: data };
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error' };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: { error: err?.message } };
       }
     }
 
@@ -2295,6 +2302,8 @@ const OdooSyncBatch = () => {
         totalAmount: inv.grandTotal,
         errorMessage: inv.errorMessage,
         syncStatus: inv.syncStatus,
+        sajelPayload: (inv as any).sajelPayload,
+        sajelResponse: (inv as any).sajelResponse,
       }));
     }
     return orderGroups.filter(g => g.syncStatus === 'failed');
@@ -2988,7 +2997,24 @@ const OdooSyncBatch = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {getSyncStatusBadge(invoice)}
+                          <div className="flex items-center gap-1">
+                            {getSyncStatusBadge(invoice)}
+                            {invoice.syncStatus === 'failed' && ((invoice as any).sajelPayload || (invoice as any).sajelResponse) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                title={language === 'ar' ? 'عرض جسم الطلب' : 'View API body'}
+                                onClick={() => setApiBodyView({
+                                  orderNumber: invoice.orderNumber,
+                                  payload: (invoice as any).sajelPayload,
+                                  response: (invoice as any).sajelResponse,
+                                })}
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                           {invoice.syncStatus === 'failed' && invoice.errorMessage && (
                             <span className="text-xs text-destructive max-w-[150px] break-words">
                               {translateOdooError(invoice.errorMessage, language)}
@@ -3126,7 +3152,24 @@ const OdooSyncBatch = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {getSyncStatusBadge(group)}
+                          <div className="flex items-center gap-1">
+                            {getSyncStatusBadge(group)}
+                            {group.syncStatus === 'failed' && ((group as any).sajelPayload || (group as any).sajelResponse) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                title={language === 'ar' ? 'عرض جسم الطلب' : 'View API body'}
+                                onClick={() => setApiBodyView({
+                                  orderNumber: group.orderNumber,
+                                  payload: (group as any).sajelPayload,
+                                  response: (group as any).sajelResponse,
+                                })}
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                           {group.syncStatus === 'failed' && group.errorMessage && (
                             <span className="text-xs text-destructive max-w-[200px] break-words">
                               {translateOdooError(group.errorMessage, language)}
@@ -3214,6 +3257,7 @@ const OdooSyncBatch = () => {
                   <TableHead>{language === 'ar' ? 'المنتجات' : 'Products'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                   <TableHead>{language === 'ar' ? 'سبب الفشل' : 'Error Description'}</TableHead>
+                  <TableHead className="text-center">{language === 'ar' ? 'API' : 'API'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -3236,10 +3280,70 @@ const OdooSyncBatch = () => {
                         {translateOdooError(group.errorMessage || (language === 'ar' ? 'خطأ غير معروف' : 'Unknown error'), language)}
                       </p>
                     </TableCell>
+                    <TableCell className="text-center">
+                      {(group as any).sajelPayload || (group as any).sajelResponse ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          title={language === 'ar' ? 'عرض جسم الطلب' : 'View API body'}
+                          onClick={() => setApiBodyView({
+                            orderNumber: group.orderNumber,
+                            payload: (group as any).sajelPayload,
+                            response: (group as any).sajelResponse,
+                          })}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* API Body Viewer Dialog */}
+      <Dialog open={!!apiBodyView} onOpenChange={(o) => !o && setApiBodyView(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {language === 'ar' ? 'جسم طلب API' : 'API Request Body'}
+              {apiBodyView?.orderNumber && <span className="font-mono text-sm text-muted-foreground">— {apiBodyView.orderNumber}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[65vh]">
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm font-medium">{language === 'ar' ? 'الطلب المرسل' : 'Request Payload'}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(apiBodyView?.payload ?? {}, null, 2));
+                      toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied' });
+                    }}
+                  >
+                    {language === 'ar' ? 'نسخ' : 'Copy'}
+                  </Button>
+                </div>
+                <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
+{JSON.stringify(apiBodyView?.payload ?? {}, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">{language === 'ar' ? 'الاستجابة' : 'Response'}</p>
+                <pre className="text-xs bg-muted rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
+{JSON.stringify(apiBodyView?.response ?? {}, null, 2)}
+                </pre>
+              </div>
+            </div>
           </ScrollArea>
         </DialogContent>
       </Dialog>
