@@ -420,16 +420,17 @@ const OdooSyncBatch = () => {
     }).length;
   }, [aggregatedInvoices, brandAbcMap]);
 
-  // Auto-run supplier check once when orders/invoices first become available
+  // Auto-run supplier check once when orders/invoices first become available (Odoo path only)
   useEffect(() => {
     if (supplierCheckDone || checkingSuppliers) return;
+    if (syncWithSajel) return;
     const hasData = (aggregateMode && aggregatedInvoices.length > 0) ||
                     (!aggregateMode && orderGroups.length > 0);
     if (hasData) {
       checkSuppliersInOdoo();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aggregateMode, aggregatedInvoices.length, orderGroups.length]);
+  }, [aggregateMode, aggregatedInvoices.length, orderGroups.length, syncWithSajel]);
 
   // Reset product filter when brand changes
   // Load vendor list once for the inline editor
