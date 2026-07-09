@@ -3446,10 +3446,38 @@ const OdooSyncBatch = () => {
       <Dialog open={!!apiBodyView} onOpenChange={(o) => !o && setApiBodyView(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               <FileText className="h-5 w-5" />
               {language === 'ar' ? 'جسم طلب API' : 'API Request Body'}
               {apiBodyView?.orderNumber && <span className="font-mono text-sm text-muted-foreground">— {apiBodyView.orderNumber}</span>}
+              {(() => {
+                const resp: any = apiBodyView?.response;
+                if (!resp || typeof resp !== 'object') return null;
+                const invoiceResp = resp.invoice ?? resp;
+                const expenseResp = resp.expense;
+                const invoiceOk = invoiceResp && !invoiceResp.error && invoiceResp.success !== false;
+                const hasExpense = expenseResp !== undefined && expenseResp !== null;
+                const expenseSkipped = hasExpense && (expenseResp.skipped === true);
+                const expenseOk = hasExpense && !expenseSkipped && !expenseResp.error && expenseResp.success !== false;
+                return (
+                  <span className="flex items-center gap-2 ml-2">
+                    <Badge variant="outline" className="gap-1">
+                      {invoiceOk
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        : <XCircle className="h-3.5 w-3.5 text-destructive" />}
+                      <span className="text-xs">{language === 'ar' ? 'الطلب' : 'Order sent'}</span>
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      {!hasExpense || expenseSkipped
+                        ? <SkipForward className="h-3.5 w-3.5 text-muted-foreground" />
+                        : expenseOk
+                          ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                          : <XCircle className="h-3.5 w-3.5 text-destructive" />}
+                      <span className="text-xs">{language === 'ar' ? 'المصروف' : 'Expense sent'}</span>
+                    </Badge>
+                  </span>
+                );
+              })()}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[65vh]">
