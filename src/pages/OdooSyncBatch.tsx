@@ -1151,6 +1151,7 @@ const OdooSyncBatch = () => {
       stepStatus.purchase = 'skipped';
       updateSajelStep(stepStatus);
       let invoicePayload: any = undefined;
+      let paymentPayload: any = undefined;
       try {
         const first = transactions[0];
         const brandCode = first?.brand_code || '';
@@ -1162,15 +1163,18 @@ const OdooSyncBatch = () => {
         const [yyyy, mm] = dateStr.split('-');
         const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
+        // Keep attribute order EXACTLY as Sajel spec:
+        // businessUnitCode, [vendorCode], customerCode, invoiceDate, periodCode,
+        // currencyCode, exchangeRate, reference, status, lines
         invoicePayload = {
           businessUnitCode: 'Asus-Trading',
+          ...((!isClassA && vendorCode) ? { vendorCode } : {}),
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
           periodCode,
           currencyCode: 'SAR',
           exchangeRate: 1.0,
           reference: group.orderNumber,
-          paymentMethod: 'card',
           status: 'POSTED',
           lines: transactions.map(l => ({
             itemCode: l.brand_code || '',
@@ -1180,29 +1184,38 @@ const OdooSyncBatch = () => {
             unitCost: l.cost_price || (l.cost_sold && l.qty ? l.cost_sold / l.qty : 0),
           })),
         };
-        if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
+
+        // payment block: paymentMethod, paymentType, cardType, bankCode, referenceNo
+        paymentPayload = {
+          paymentMethod: 'CARD',
+          paymentType: first?.payment_type || 'Hyperpay',
+          cardType: (first?.payment_brand || 'MADA').toString().toUpperCase(),
+          bankCode: 'BNK002',
+          referenceNo: group.orderNumber,
+        };
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload },
+          body: { invoice: invoicePayload, payment: paymentPayload },
         });
+        const fullSent = { invoice: invoicePayload, payment: paymentPayload };
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: resp.error };
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: fullSent, sajelResponse: resp.error };
         }
         const data: any = resp.data;
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'success', stepStatus, sajelPayload: invoicePayload, sajelResponse: data };
+          return { syncStatus: 'success', stepStatus, sajelPayload: fullSent, sajelResponse: data };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: invoicePayload, sajelResponse: data };
+        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: fullSent, sajelResponse: data };
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: (typeof invoicePayload !== 'undefined' ? invoicePayload : undefined), sajelResponse: { error: err?.message } };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: { invoice: invoicePayload, payment: paymentPayload }, sajelResponse: { error: err?.message } };
       }
     }
 
@@ -1375,12 +1388,14 @@ const OdooSyncBatch = () => {
       updateSajelStep(stepStatus);
 
       let invoicePayload: any = undefined;
+      let paymentPayload: any = undefined;
       try {
         const brandCode = invoice.originalLines[0]?.brand_code || '';
         const abc = brandAbcMap.get(brandCode);
         const isClassA = abc === 'A';
         const vendorName = invoice.vendorName || invoice.originalLines[0]?.vendor_name || '';
         const vendorCode = vendorOptions.find(v => v.name === vendorName)?.code || vendorName;
+        const first = invoice.originalLines[0];
 
         const dateStr = (invoice.date || '').slice(0, 10);
         const [yyyy, mm] = dateStr.split('-');
@@ -1395,15 +1410,16 @@ const OdooSyncBatch = () => {
           return s + Number(cp) * (pl.totalQty || 0);
         }, 0);
 
+        // Keep attribute order EXACTLY as Sajel spec
         invoicePayload = {
           businessUnitCode: 'Asus-Trading',
+          ...((!isClassA && vendorCode) ? { vendorCode } : {}),
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
           periodCode,
           currencyCode: 'SAR',
           exchangeRate: 1.0,
           reference: invoice.orderNumber,
-          paymentMethod: 'card',
           status: 'POSTED',
           lines: [{
             itemCode: brandCode,
@@ -1413,30 +1429,38 @@ const OdooSyncBatch = () => {
             unitCost: totalQty ? totalCost / totalQty : totalCost,
           }],
         };
-        if (!isClassA && vendorCode) invoicePayload.vendorCode = vendorCode;
+
+        paymentPayload = {
+          paymentMethod: 'CARD',
+          paymentType: first?.payment_type || invoice.paymentMethod || 'Hyperpay',
+          cardType: (first?.payment_brand || invoice.paymentBrand || 'MADA').toString().toUpperCase(),
+          bankCode: 'BNK002',
+          referenceNo: invoice.orderNumber,
+        };
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload },
+          body: { invoice: invoicePayload, payment: paymentPayload },
         });
 
+        const fullSent = { invoice: invoicePayload, payment: paymentPayload };
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: resp.error };
+          return { syncStatus: 'failed', stepStatus, errorMessage: resp.error.message || 'Sajel error', sajelPayload: fullSent, sajelResponse: resp.error };
         }
         const data: any = resp.data;
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-          return { syncStatus: 'success', stepStatus, sajelPayload: invoicePayload, sajelResponse: data };
+          return { syncStatus: 'success', stepStatus, sajelPayload: fullSent, sajelResponse: data };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: invoicePayload, sajelResponse: data };
+        return { syncStatus: 'failed', stepStatus, errorMessage: typeof data?.error === 'string' ? data.error : (data?.error?.message || JSON.stringify(data?.error) || 'Sajel API failed'), sajelPayload: fullSent, sajelResponse: data };
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: invoicePayload, sajelResponse: { error: err?.message } };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: { invoice: invoicePayload, payment: paymentPayload }, sajelResponse: { error: err?.message } };
       }
     }
 
