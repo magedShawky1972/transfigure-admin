@@ -313,6 +313,7 @@ const OdooSyncBatch = () => {
   const [filterOrderNumber, setFilterOrderNumber] = useState<string>('');
   const [filterHasPurchase, setFilterHasPurchase] = useState<string>('all');
   const [filterMissingVendorNonA, setFilterMissingVendorNonA] = useState<boolean>(false);
+  const [filterAbcAnalysis, setFilterAbcAnalysis] = useState<string>('all');
 
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
@@ -382,9 +383,17 @@ const OdooSyncBatch = () => {
       } else if (filterHasPurchase === 'no') {
         if (g.hasNonStock) return false;
       }
+      // Filter by ABC analysis
+      if (filterAbcAnalysis && filterAbcAnalysis !== 'all') {
+        const hasAbcClass = g.lines.some(l => {
+          const abc = brandAbcMap.get(l.brand_code || '');
+          return abc === filterAbcAnalysis;
+        });
+        if (!hasAbcClass) return false;
+      }
       return true;
     });
-  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase]);
+  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterAbcAnalysis, brandAbcMap]);
 
   // Filtered aggregated invoices based on filter criteria
   const filteredAggregatedInvoices = useMemo(() => {
@@ -413,9 +422,14 @@ const OdooSyncBatch = () => {
         const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
         if (!(abc !== 'A' && !inv.vendorName)) return false;
       }
+      // Filter by ABC analysis
+      if (filterAbcAnalysis && filterAbcAnalysis !== 'all') {
+        const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+        if (abc !== filterAbcAnalysis) return false;
+      }
       return true;
     });
-  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, brandAbcMap]);
+  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, brandAbcMap]);
 
   // Count of aggregated invoices with missing vendor for non-A brands (red rows)
   const missingVendorNonACount = useMemo(() => {
@@ -543,13 +557,15 @@ const OdooSyncBatch = () => {
     setFilterOrderNumber('');
     setFilterHasPurchase('all');
     setFilterMissingVendorNonA(false);
+    setFilterAbcAnalysis('all');
   };
 
   const hasActiveFilters = (filterBrand && filterBrand !== 'all_brands') || 
                            (filterProduct && filterProduct !== 'all_products') || 
                            filterOrderNumber || 
                            filterHasPurchase !== 'all' ||
-                           filterMissingVendorNonA;
+                           filterMissingVendorNonA ||
+                           (filterAbcAnalysis && filterAbcAnalysis !== 'all');
 
   // Calculate duration in formatted string
   const formatDuration = (start: Date, end: Date): string => {
@@ -2839,6 +2855,19 @@ const OdooSyncBatch = () => {
                 <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
                 <SelectItem value="yes">{language === 'ar' ? 'يوجد شراء' : 'Has Purchase'}</SelectItem>
                 <SelectItem value="no">{language === 'ar' ? 'لا يوجد شراء' : 'No Purchase'}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* ABC Analysis Filter */}
+            <Select value={filterAbcAnalysis} onValueChange={setFilterAbcAnalysis} disabled={isSyncing}>
+              <SelectTrigger className="h-9 w-[140px]">
+                <SelectValue placeholder={language === 'ar' ? 'تحليل ABC' : 'ABC Analysis'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'كل التحاليل' : 'All ABC'}</SelectItem>
+                <SelectItem value="A">A</SelectItem>
+                <SelectItem value="B">B</SelectItem>
+                <SelectItem value="C">C</SelectItem>
               </SelectContent>
             </Select>
 
