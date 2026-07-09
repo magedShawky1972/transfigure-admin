@@ -53,6 +53,7 @@ import { OdooSyncStepDialog } from "@/components/OdooSyncStepDialog";
 import { BackgroundSyncStatusCard } from "@/components/BackgroundSyncStatusCard";
 import { DailySyncStatusCard } from "@/components/DailySyncStatusCard";
 import { ResetOdooSyncDialog } from "@/components/ResetOdooSyncDialog";
+import { ResetSajelSyncDialog } from "@/components/ResetSajelSyncDialog";
 import { OdooSyncHistoryDialog } from "@/components/OdooSyncHistoryDialog";
 import { VirtualizedTransactionTable } from "@/components/transactions/VirtualizedTransactionTable";
 import { AggregatedInvoiceSearchDialog } from "@/components/AggregatedInvoiceSearchDialog";
@@ -1672,6 +1673,7 @@ const Transactions = () => {
                 {language === 'ar' ? 'مزامنة يومية مجمعة' : 'Daily Aggregated Sync'}
               </Button>
               <ResetOdooSyncDialog fromDate={fromDate} toDate={toDate} language={language} />
+              <ResetSajelSyncDialog fromDate={fromDate} toDate={toDate} language={language} />
             </div>
           </div>
         </CardHeader>
