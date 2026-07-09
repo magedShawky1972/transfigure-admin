@@ -432,10 +432,10 @@ const OdooSyncBatch = () => {
   }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, brandAbcMap]);
 
   // Count of aggregated invoices with missing vendor for non-A brands (red rows)
-  // Respects active filters and excludes skipped rows
+  // Respects active filters and excludes unchecked/skipped rows
   const missingVendorNonACount = useMemo(() => {
     return filteredAggregatedInvoices.filter(inv => {
-      if (inv.skipSync) return false;
+      if (!inv.selected || inv.skipSync) return false;
       const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
       return abc !== 'A' && !inv.vendorName;
     }).length;
@@ -2297,10 +2297,10 @@ const OdooSyncBatch = () => {
   };
 
   const summary = useMemo(() => {
-    // Use filtered data so totals reflect the active filters, and exclude skipped rows
+    // Use filtered data so totals reflect active filters, and exclude unchecked/skipped rows
     const sourceData = aggregateMode && filteredAggregatedInvoices.length > 0
-      ? filteredAggregatedInvoices.filter(inv => !inv.skipSync)
-      : filteredOrderGroups.filter(g => !g.skipSync);
+      ? filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync)
+      : filteredOrderGroups.filter(g => g.selected && !g.skipSync);
 
     const total = sourceData.length;
     const success = sourceData.filter(g => g.syncStatus === 'success').length;
@@ -2319,11 +2319,11 @@ const OdooSyncBatch = () => {
     let totalPurchaseOrders = 0;
 
     if (aggregateMode && filteredAggregatedInvoices.length > 0) {
-      const src = filteredAggregatedInvoices.filter(inv => !inv.skipSync);
+      const src = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
       totalSales = src.reduce((sum, inv) => sum + inv.grandTotal, 0);
       totalPurchaseOrders = src.filter(inv => inv.hasNonStock).length;
     } else {
-      const src = filteredOrderGroups.filter(g => !g.skipSync);
+      const src = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
       totalSales = src.reduce((sum, g) => sum + g.totalAmount, 0);
       totalPurchaseOrders = src.filter(g => g.hasNonStock).length;
     }
@@ -3105,9 +3105,9 @@ const OdooSyncBatch = () => {
                     </TableRow>
                     );
                   })}
-                  {/* Grand Total Row - excludes skipped rows */}
+                  {/* Grand Total Row - excludes unchecked/skipped rows */}
                   {(() => {
-                    const activeInvoices = filteredAggregatedInvoices.filter(inv => !inv.skipSync);
+                    const activeInvoices = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
                     return (
                   <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
                     <TableCell colSpan={8} className="text-right">
