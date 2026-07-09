@@ -432,12 +432,14 @@ const OdooSyncBatch = () => {
   }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, brandAbcMap]);
 
   // Count of aggregated invoices with missing vendor for non-A brands (red rows)
+  // Respects active filters and excludes skipped rows
   const missingVendorNonACount = useMemo(() => {
-    return aggregatedInvoices.filter(inv => {
+    return filteredAggregatedInvoices.filter(inv => {
+      if (inv.skipSync) return false;
       const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
       return abc !== 'A' && !inv.vendorName;
     }).length;
-  }, [aggregatedInvoices, brandAbcMap]);
+  }, [filteredAggregatedInvoices, brandAbcMap]);
 
   // Auto-run supplier check once when orders/invoices first become available (Odoo path only)
   useEffect(() => {
