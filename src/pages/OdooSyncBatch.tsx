@@ -1696,7 +1696,7 @@ const OdooSyncBatch = () => {
   const handleStartBackgroundSync = async () => {
     // Check if in aggregate mode
     if (aggregateMode && aggregatedInvoices.length > 0) {
-      const toSync = aggregatedInvoices.filter(inv => inv.selected && !inv.skipSync && inv.syncStatus !== 'success');
+      const toSync = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync && inv.syncStatus !== 'success');
       if (toSync.length === 0) {
         toast({
           variant: 'destructive',
