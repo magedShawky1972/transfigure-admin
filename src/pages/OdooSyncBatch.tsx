@@ -1149,6 +1149,7 @@ const OdooSyncBatch = () => {
       stepStatus.order = 'running';
       stepStatus.purchase = 'skipped';
       updateSajelStep(stepStatus);
+      let invoicePayload: any = undefined;
       try {
         const first = transactions[0];
         const brandCode = first?.brand_code || '';
