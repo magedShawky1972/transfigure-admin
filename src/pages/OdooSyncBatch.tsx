@@ -1068,12 +1068,9 @@ const OdooSyncBatch = () => {
           return nonStockSkuSet.has(sku);
         });
         
-        // Whether this is a re-sync (has existing mapping)
         const isResync = !!existingAggregatedOrderNumber;
         // Already synced if every original line has sendodoo === true
         const aggAlreadySynced = invoice.lines.length > 0 && invoice.lines.every(l => (l as any).sendodoo === true);
-        
-        const runDetail = aggregatedRunDetailsMap.get(orderNumber);
 
         result.push({
           orderNumber,
@@ -1098,10 +1095,6 @@ const OdooSyncBatch = () => {
             purchase: aggAlreadySynced ? 'created' : 'pending',
           },
           hasNonStock,
-          ...(runDetail ? {
-            sajelPayload: runDetail.sajelPayload,
-            sajelResponse: runDetail.sajelResponse,
-          } : {}),
         });
       });
 
