@@ -702,8 +702,9 @@ const SupplierAdvancePayment = () => {
                           title={isArabic ? "إرجاع مرحلة" : "Rollback one phase"}
                           onClick={async () => {
                             const phase = getPhaseFromPayment(p);
-                            const target = phase === "recorded" ? "receiving" : "entry";
-                            if (!confirm(isArabic ? `إرجاع إلى ${target === "entry" ? "الإدخال" : "الاستلام"}؟` : `Rollback to ${target}?`)) return;
+                            const target = phase === "sent_to_acc" ? "accounting" : phase === "accounting" ? "receiving" : "entry";
+                            const targetLabel = target === "entry" ? (isArabic ? "الإدخال" : "Entry") : target === "receiving" ? (isArabic ? "الاستلام" : "Receiving") : (isArabic ? "التسجيل" : "Recorded");
+                            if (!confirm(isArabic ? `إرجاع إلى ${targetLabel}؟` : `Rollback to ${targetLabel}?`)) return;
                             const updates: any = { current_phase: target };
                             if (target === "entry") {
                               Object.assign(updates, {
@@ -711,7 +712,11 @@ const SupplierAdvancePayment = () => {
                                 receiving_image: null, receiving_notes: null,
                                 accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
                               });
-                            } else {
+                            } else if (target === "receiving") {
+                              Object.assign(updates, {
+                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+                              });
+                            } else if (target === "accounting") {
                               Object.assign(updates, {
                                 accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
                               });
