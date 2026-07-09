@@ -979,25 +979,6 @@ const OdooSyncBatch = () => {
       existingMappingsData?.forEach(m => {
         existingMappingMap.set(m.original_order_number, m.aggregated_order_number);
       });
-
-      // Fetch latest Sajel payload/response for existing aggregated order numbers
-      const existingAggregatedOrderNumbers = Array.from(new Set(existingMappingMap.values()));
-      const aggregatedRunDetailsMap = new Map<string, { sajelPayload?: any; sajelResponse?: any }>();
-      if (existingAggregatedOrderNumbers.length > 0) {
-        const { data: aggRunDetails } = await supabase
-          .from('odoo_sync_run_details')
-          .select('order_number, sajel_payload, sajel_response, created_at')
-          .in('order_number', existingAggregatedOrderNumbers)
-          .order('created_at', { ascending: false });
-        (aggRunDetails || []).forEach((rd: any) => {
-          if (!aggregatedRunDetailsMap.has(rd.order_number)) {
-            aggregatedRunDetailsMap.set(rd.order_number, {
-              sajelPayload: rd.sajel_payload,
-              sajelResponse: rd.sajel_response,
-            });
-          }
-        });
-      }
       
       // Fetch max sequence for each date from aggregated_order_mapping table
       const dateSequenceMap = new Map<string, number>();
