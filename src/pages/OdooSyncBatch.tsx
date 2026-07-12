@@ -1488,18 +1488,22 @@ const OdooSyncBatch = () => {
               bankFeeTotal = (otRows || []).reduce((s: number, r: any) => s + (Number(r.bank_fee) || 0), 0);
             }
 
-            // Resolve bankCode from payment_methods → banks
+            // Resolve bankCode + bankName + cardType from payment_methods → banks
             let bankCode = '';
+            let bankName = '';
+            let cardType = '';
             const keys = [paymentPayload?.paymentType, paymentPayload?.paymentMethod, invoice.paymentMethod]
               .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
               .map((v: string) => v.trim());
             if (keys.length) {
               const { data: pms } = await supabase
                 .from('payment_methods')
-                .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code)')
+                .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code, bank_name)')
                 .or(keys.flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`]).join(','));
               const match = (pms || []).find((r: any) => r?.banks?.bank_code);
               bankCode = (match as any)?.banks?.bank_code || '';
+              bankName = (match as any)?.banks?.bank_name || '';
+              cardType = (match as any)?.payment_method || (match as any)?.payment_type || (keys[0] || '');
             }
 
             const expenseTypeCode = bankCode ? bankCode.replace(/^BNK/i, 'BC') : '';
@@ -1515,7 +1519,7 @@ const OdooSyncBatch = () => {
                 grand_total: unitPrice,
                 expense_reference: invoice.orderNumber,
                 business_unit_code: 'Asus-Trading',
-                notes: `Bank fee for aggregate order ${invoice.orderNumber}`,
+                notes: `Bank Fee for Bank: ${bankName} For Card Type: ${cardType}`,
                 status: 'POSTED',
                 expense_entry_lines: [{
                   expense_type_code: expenseTypeCode,
@@ -1527,10 +1531,22 @@ const OdooSyncBatch = () => {
                 }],
               };
               expenseSent = expensePayload;
+              toast({
+                title: 'Sending Bank Fee Expense',
+                description: `Posting ${unitPrice} SAR to Sajel for ${bankName} (${cardType}) — ref ${invoice.orderNumber}`,
+              });
               const eResp = await supabase.functions.invoke('sync-expense-to-sajel', {
                 body: { expense: expensePayload },
               });
               expenseResp = eResp.error ? { error: eResp.error.message } : eResp.data;
+              const expOk = !eResp.error && (eResp.data?.success !== false) && !eResp.data?.error;
+              toast({
+                title: expOk ? 'Bank Fee Expense Sent' : 'Bank Fee Expense Failed',
+                description: expOk
+                  ? `Sajel accepted expense for ${invoice.orderNumber} (${bankName} - ${cardType})`
+                  : `Error: ${eResp.error?.message || eResp.data?.error || 'Unknown'}`,
+                variant: expOk ? 'default' : 'destructive',
+              });
             } else {
               expenseResp = { skipped: true, reason: 'No bank_fee, bank_code, or expense_type_code resolved' };
             }
