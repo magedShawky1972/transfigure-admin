@@ -1519,6 +1519,7 @@ const OdooSyncBatch = () => {
                 grand_total: unitPrice,
                 expense_reference: invoice.orderNumber,
                 business_unit_code: 'Asus-Trading',
+                cost_center_code: 'P10',
                 notes: `Bank Fee for Bank: ${bankName} For Card Type: ${cardType}`,
                 status: 'POSTED',
                 expense_entry_lines: [{
