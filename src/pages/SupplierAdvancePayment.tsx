@@ -1385,6 +1385,118 @@ const SupplierAdvancePayment = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk send progress dialog */}
+      <Dialog open={bulkProgress.open} onOpenChange={(o) => {
+        if (!o && bulkProgress.done >= bulkProgress.total) {
+          setBulkProgress({ open: false, total: 0, done: 0, ok: 0, fail: 0, currentRef: "", results: [] });
+        }
+      }}>
+        <DialogContent className="max-w-2xl" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {bulkProgress.done < bulkProgress.total
+                ? <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                : bulkProgress.fail > 0
+                  ? <AlertCircle className="h-5 w-5 text-destructive" />
+                  : <CheckCircle2 className="h-5 w-5 text-green-600" />}
+              {isArabic ? "الإرسال إلى Sajel ERP" : "Send to Sajel ERP"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Progress value={bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0} />
+            <div className="flex justify-between text-sm">
+              <span>{isArabic ? "التقدم:" : "Progress:"} {bulkProgress.done}/{bulkProgress.total}</span>
+              <span className="text-green-600">{isArabic ? "نجاح:" : "OK:"} {bulkProgress.ok}</span>
+              <span className="text-destructive">{isArabic ? "فشل:" : "Failed:"} {bulkProgress.fail}</span>
+            </div>
+            {bulkProgress.currentRef && (
+              <div className="text-xs text-muted-foreground">
+                {isArabic ? "جارٍ إرسال:" : "Sending:"} <span className="font-mono">{bulkProgress.currentRef}</span>
+              </div>
+            )}
+            {bulkProgress.results.length > 0 && (
+              <div className="border rounded max-h-64 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-2">{isArabic ? "المرجع" : "Ref"}</th>
+                      <th className="text-left p-2">{isArabic ? "الحالة" : "Status"}</th>
+                      <th className="text-left p-2">{isArabic ? "الخطأ" : "Error"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkProgress.results.map((r, i) => (
+                      <tr key={i} className="border-t">
+                        <td className="p-2 font-mono">{r.ref}</td>
+                        <td className="p-2">
+                          {r.ok
+                            ? <span className="text-green-600 inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />OK</span>
+                            : <span className="text-destructive inline-flex items-center gap-1"><XCircle className="h-3 w-3" />FAIL</span>}
+                        </td>
+                        <td className="p-2 text-destructive break-all">{r.error || ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setBulkProgress({ open: false, total: 0, done: 0, ok: 0, fail: 0, currentRef: "", results: [] })}
+              disabled={bulkProgress.done < bulkProgress.total}
+            >
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* API body / error dialog */}
+      <Dialog open={bodyDialog.open} onOpenChange={(o) => !o && setBodyDialog({ open: false, ref: "", body: null, response: null, error: null })}>
+        <DialogContent className="max-w-2xl" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {bodyDialog.error
+                ? <AlertCircle className="h-5 w-5 text-destructive" />
+                : <Code2 className="h-5 w-5 text-blue-600" />}
+              {isArabic ? "بيانات Sajel ERP" : "Sajel ERP Data"} — <span className="font-mono text-sm">{bodyDialog.ref}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {bodyDialog.error && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-destructive">{isArabic ? "خطأ الإرسال" : "Send Error"}</div>
+                <pre className="text-xs bg-destructive/10 text-destructive rounded p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all" dir="ltr">
+                  {bodyDialog.error}
+                </pre>
+              </div>
+            )}
+            {bodyDialog.body && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "البيانات المرسلة" : "Request Payload"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-64 overflow-auto" dir="ltr">
+                  {JSON.stringify(bodyDialog.body, null, 2)}
+                </pre>
+              </div>
+            )}
+            {bodyDialog.response != null && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-64 overflow-auto" dir="ltr">
+                  {typeof bodyDialog.response === "string" ? bodyDialog.response : JSON.stringify(bodyDialog.response, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setBodyDialog({ open: false, ref: "", body: null, response: null, error: null })}>
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
