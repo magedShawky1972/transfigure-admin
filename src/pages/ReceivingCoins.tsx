@@ -1404,9 +1404,10 @@ const ReceivingCoins = () => {
           const filteredReceipts = receipts.filter(r => {
             // Stage tab filter
             if (getReceiptStage(r) !== stageTab) return false;
-            // Date range filter
-            if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
-            if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
+            // Date range filter (normalize to yyyy-MM-dd to handle ISO datetimes)
+            const rDate = r.receipt_date ? String(r.receipt_date).slice(0, 10) : "";
+            if (fromDate && rDate && rDate < format(fromDate, "yyyy-MM-dd")) return false;
+            if (toDate && rDate && rDate > format(toDate, "yyyy-MM-dd")) return false;
             // Order number search
             if (searchOrderNumber) {
               const orderNum = ((r as any).coins_purchase_orders?.order_number || "").toLowerCase();
