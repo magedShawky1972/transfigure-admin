@@ -555,7 +555,7 @@ const ReceivingCoins = () => {
       setLines(updatedLines);
       // Determine if all brands are fully delivered or partial
       if (selectedReceiptId && receiptStatus !== "closed") {
-        const newStatus = computeDeliveryStatus(updatedLines, brandControlAmounts);
+        const newStatus = computeDeliveryStatus(updatedLines, brandControlAmounts, parseFloat(controlAmount) || 0);
         await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", selectedReceiptId);
         setReceiptStatus(newStatus);
       }
