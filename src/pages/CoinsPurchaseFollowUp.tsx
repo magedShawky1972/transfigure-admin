@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, ClipboardList, RefreshCw, Undo2, FileSpreadsheet } from "lucide-react";
+import { Eye, ClipboardList, RefreshCw, Undo2, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -88,6 +88,68 @@ const CoinsPurchaseFollowUp = () => {
     if (fromDate && d < fromDate) return false;
     if (toDate && d > toDate) return false;
     return true;
+  };
+
+  // Multi-column sort state: array of { key, direction } in priority order
+  type SortRule = { key: string; direction: "asc" | "desc" };
+  const [sortConfig, setSortConfig] = useState<SortRule[]>([]);
+
+  const applyMultiSort = <T extends any>(items: T[], getValue: (item: T, key: string) => any): T[] => {
+    if (sortConfig.length === 0) return items;
+    return [...items].sort((a, b) => {
+      for (const rule of sortConfig) {
+        const va = getValue(a, rule.key);
+        const vb = getValue(b, rule.key);
+        const aNull = va === undefined || va === null || va === "";
+        const bNull = vb === undefined || vb === null || vb === "";
+        if (aNull && bNull) continue;
+        if (aNull) return rule.direction === "asc" ? 1 : -1;
+        if (bNull) return rule.direction === "asc" ? -1 : 1;
+
+        let cmp = 0;
+        if (typeof va === "number" && typeof vb === "number") {
+          cmp = va - vb;
+        } else if (typeof va === "string" && typeof vb === "string") {
+          cmp = va.localeCompare(vb);
+        } else {
+          const aStr = String(va).toLowerCase();
+          const bStr = String(vb).toLowerCase();
+          cmp = aStr.localeCompare(bStr);
+        }
+        if (cmp !== 0) return rule.direction === "asc" ? cmp : -cmp;
+      }
+      return 0;
+    });
+  };
+
+  const handleHeaderClick = (key: string, e: React.MouseEvent) => {
+    setSortConfig(prev => {
+      const idx = prev.findIndex(r => r.key === key);
+      if (e.ctrlKey || e.metaKey) {
+        if (idx === -1) return [...prev, { key, direction: "asc" }];
+        const current = prev[idx];
+        if (current.direction === "asc") {
+          return prev.map(r => r.key === key ? { key, direction: "desc" } : r);
+        }
+        return prev.filter(r => r.key !== key);
+      }
+      if (idx === -1) return [{ key, direction: "asc" }];
+      if (prev[idx].direction === "asc") return [{ key, direction: "desc" }];
+      return [];
+    });
+  };
+
+  const getSortIcon = (key: string) => {
+    const idx = sortConfig.findIndex(r => r.key === key);
+    if (idx === -1) return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground opacity-50" />;
+    const rule = sortConfig[idx];
+    return rule.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5 text-primary" /> : <ArrowDown className="h-3.5 w-3.5 text-primary" />;
+  };
+
+  const getSortPriority = (key: string) => {
+    const idx = sortConfig.findIndex(r => r.key === key);
+    if (idx === -1 || sortConfig.length <= 1) return null;
+    return idx + 1;
   };
 
   useEffect(() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); fetchAdvancePayments(); }, []);
@@ -202,6 +264,63 @@ const CoinsPurchaseFollowUp = () => {
     }
     return true;
   });
+
+  const getPurchaseSortValue = (o: any, key: string) => {
+    switch (key) {
+      case "order_number": return o.order_number || "";
+      case "brand_name": return (o.brands as any)?.brand_name || "";
+      case "supplier_name": return (o.suppliers as any)?.supplier_name || "";
+      case "base_amount_sar": return parseFloat(o.base_amount_sar || 0);
+      case "current_phase": return o.current_phase || "";
+      case "status": return o.status || "";
+      case "created_at": return o.created_at || "";
+      case "created_by_name": return o.created_by_name || o.created_by || "";
+      default: return o[key];
+    }
+  };
+
+  const getSheetSortValue = (o: any, key: string) => {
+    switch (key) {
+      case "order_number": return o.order_number || "";
+      case "created_by_name": return o.created_by_name || "";
+      case "lines_count": return (o.coins_sheet_order_lines || []).length;
+      case "total_sar": return (o.coins_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
+      case "current_phase": return o.current_phase || "";
+      case "created_at": return o.created_at || "";
+      default: return o[key];
+    }
+  };
+
+  const getSalesSheetSortValue = (o: any, key: string) => {
+    switch (key) {
+      case "order_number": return o.order_number || "";
+      case "created_by_name": return o.created_by_name || "";
+      case "lines_count": return (o.sales_sheet_order_lines || []).length;
+      case "total_sar": return (o.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
+      case "current_phase": return o.current_phase || "";
+      case "created_at": return o.created_at || "";
+      default: return o[key];
+    }
+  };
+
+  const getAdvancePaymentSortValue = (o: any, key: string) => {
+    const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
+    switch (key) {
+      case "supplier_name": return (o.suppliers as any)?.supplier_name || "";
+      case "payment_date": return o.payment_date || "";
+      case "transaction_amount": return Number(o.transaction_amount || 0);
+      case "base_amount": return Number(o.base_amount || 0);
+      case "current_phase": return phase;
+      case "created_by_name": return o.created_by_name || "";
+      case "created_at": return o.created_at || "";
+      default: return o[key];
+    }
+  };
+
+  const sortedOrders = applyMultiSort(filteredOrders, getPurchaseSortValue);
+  const sortedSheetOrders = applyMultiSort(filteredSheetOrders, getSheetSortValue);
+  const sortedSalesSheetOrders = applyMultiSort(filteredSalesSheetOrders, getSalesSheetSortValue);
+  const sortedAdvancePayments = applyMultiSort(filteredAdvancePayments, getAdvancePaymentSortValue);
 
   const navigateToPhase = (order: any) => {
     const phaseRoutes: Record<string, string> = {
@@ -438,11 +557,16 @@ const CoinsPurchaseFollowUp = () => {
               {isArabic ? "مسح" : "Clear"}
             </Button>
           )}
+          {sortConfig.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setSortConfig([])}>
+              {isArabic ? "مسح الترتيب" : "Clear Sort"}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
 
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFilterPhase("all"); setSheetFilterPhase("all"); }}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFilterPhase("all"); setSheetFilterPhase("all"); setSortConfig([]); }}>
         <TabsList>
           <TabsTrigger value="purchase" className="gap-2">
             <ClipboardList className="h-4 w-4" />
@@ -508,25 +632,41 @@ const CoinsPurchaseFollowUp = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                      <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
-                      <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
-                      <TableHead>{isArabic ? "المرحلة الحالية" : "Current Phase"}</TableHead>
-                      <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                      <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("order_number", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "رقم الطلب" : "Order #"} {getSortIcon("order_number")} {getSortPriority("order_number") && <span className="text-[10px] text-primary">{getSortPriority("order_number")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("brand_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "العلامة التجارية" : "Brand"} {getSortIcon("brand_name")} {getSortPriority("brand_name") && <span className="text-[10px] text-primary">{getSortPriority("brand_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("supplier_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المورد" : "Supplier"} {getSortIcon("supplier_name")} {getSortPriority("supplier_name") && <span className="text-[10px] text-primary">{getSortPriority("supplier_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("base_amount_sar", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"} {getSortIcon("base_amount_sar")} {getSortPriority("base_amount_sar") && <span className="text-[10px] text-primary">{getSortPriority("base_amount_sar")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("current_phase", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المرحلة الحالية" : "Current Phase"} {getSortIcon("current_phase")} {getSortPriority("current_phase") && <span className="text-[10px] text-primary">{getSortPriority("current_phase")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("status", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "الحالة" : "Status"} {getSortIcon("status")} {getSortPriority("status") && <span className="text-[10px] text-primary">{getSortPriority("status")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_at", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")} {getSortPriority("created_at") && <span className="text-[10px] text-primary">{getSortPriority("created_at")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_by_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "أنشئ بواسطة" : "Created By"} {getSortIcon("created_by_name")} {getSortPriority("created_by_name") && <span className="text-[10px] text-primary">{getSortPriority("created_by_name")}</span>}</div>
+                      </TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredOrders.length === 0 ? (
+                    {sortedOrders.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           {loading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد طلبات" : "No orders found")}
                         </TableCell>
                       </TableRow>
-                    ) : filteredOrders.map(o => {
+                    ) : sortedOrders.map(o => {
                       const phase = phaseConfig[o.current_phase as keyof typeof phaseConfig] || phaseConfig.creation;
                       const status = statusConfig[o.status as keyof typeof statusConfig] || statusConfig.draft;
                       return (
@@ -596,23 +736,35 @@ const CoinsPurchaseFollowUp = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                      <TableHead>{isArabic ? "المنشئ" : "Created By"}</TableHead>
-                      <TableHead>{isArabic ? "عدد الأسطر" : "Lines"}</TableHead>
-                      <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
-                      <TableHead>{isArabic ? "المرحلة الحالية" : "Current Phase"}</TableHead>
-                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("order_number", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "رقم الطلب" : "Order #"} {getSortIcon("order_number")} {getSortPriority("order_number") && <span className="text-[10px] text-primary">{getSortPriority("order_number")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_by_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المنشئ" : "Created By"} {getSortIcon("created_by_name")} {getSortPriority("created_by_name") && <span className="text-[10px] text-primary">{getSortPriority("created_by_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("lines_count", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "عدد الأسطر" : "Lines"} {getSortIcon("lines_count")} {getSortPriority("lines_count") && <span className="text-[10px] text-primary">{getSortPriority("lines_count")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("total_sar", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "الإجمالي ر.س" : "Total SAR"} {getSortIcon("total_sar")} {getSortPriority("total_sar") && <span className="text-[10px] text-primary">{getSortPriority("total_sar")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("current_phase", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المرحلة الحالية" : "Current Phase"} {getSortIcon("current_phase")} {getSortPriority("current_phase") && <span className="text-[10px] text-primary">{getSortPriority("current_phase")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_at", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")} {getSortPriority("created_at") && <span className="text-[10px] text-primary">{getSortPriority("created_at")}</span>}</div>
+                      </TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSheetOrders.length === 0 ? (
+                    {sortedSheetOrders.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           {sheetLoading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد طلبات" : "No orders found")}
                         </TableCell>
                       </TableRow>
-                    ) : filteredSheetOrders.map(o => {
+                    ) : sortedSheetOrders.map(o => {
                       const phase = sheetPhaseConfig[o.current_phase as keyof typeof sheetPhaseConfig] || sheetPhaseConfig.creation;
                       const totalSar = (o.coins_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
                       return (
@@ -682,23 +834,35 @@ const CoinsPurchaseFollowUp = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                      <TableHead>{isArabic ? "المنشئ" : "Created By"}</TableHead>
-                      <TableHead>{isArabic ? "عدد الأسطر" : "Lines"}</TableHead>
-                      <TableHead>{isArabic ? "الإجمالي ر.س" : "Total SAR"}</TableHead>
-                      <TableHead>{isArabic ? "المرحلة الحالية" : "Current Phase"}</TableHead>
-                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("order_number", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "رقم الطلب" : "Order #"} {getSortIcon("order_number")} {getSortPriority("order_number") && <span className="text-[10px] text-primary">{getSortPriority("order_number")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_by_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المنشئ" : "Created By"} {getSortIcon("created_by_name")} {getSortPriority("created_by_name") && <span className="text-[10px] text-primary">{getSortPriority("created_by_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("lines_count", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "عدد الأسطر" : "Lines"} {getSortIcon("lines_count")} {getSortPriority("lines_count") && <span className="text-[10px] text-primary">{getSortPriority("lines_count")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("total_sar", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "الإجمالي ر.س" : "Total SAR"} {getSortIcon("total_sar")} {getSortPriority("total_sar") && <span className="text-[10px] text-primary">{getSortPriority("total_sar")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("current_phase", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المرحلة الحالية" : "Current Phase"} {getSortIcon("current_phase")} {getSortPriority("current_phase") && <span className="text-[10px] text-primary">{getSortPriority("current_phase")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_at", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")} {getSortPriority("created_at") && <span className="text-[10px] text-primary">{getSortPriority("created_at")}</span>}</div>
+                      </TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSalesSheetOrders.length === 0 ? (
+                    {sortedSalesSheetOrders.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           {salesSheetLoading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد طلبات" : "No orders found")}
                         </TableCell>
                       </TableRow>
-                    ) : filteredSalesSheetOrders.map(o => {
+                    ) : sortedSalesSheetOrders.map(o => {
                       const phase = salesSheetPhaseConfig[o.current_phase as keyof typeof salesSheetPhaseConfig] || salesSheetPhaseConfig.entry;
                       const totalSar = (o.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
                       return (
@@ -768,24 +932,38 @@ const CoinsPurchaseFollowUp = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                      <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ الأساسي" : "Base Amount"}</TableHead>
-                      <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
-                      <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
-                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("supplier_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المورد" : "Supplier"} {getSortIcon("supplier_name")} {getSortPriority("supplier_name") && <span className="text-[10px] text-primary">{getSortPriority("supplier_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("payment_date", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "تاريخ التحويل" : "Transfer Date"} {getSortIcon("payment_date")} {getSortPriority("payment_date") && <span className="text-[10px] text-primary">{getSortPriority("payment_date")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("transaction_amount", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المبلغ" : "Amount"} {getSortIcon("transaction_amount")} {getSortPriority("transaction_amount") && <span className="text-[10px] text-primary">{getSortPriority("transaction_amount")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("base_amount", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المبلغ الأساسي" : "Base Amount"} {getSortIcon("base_amount")} {getSortPriority("base_amount") && <span className="text-[10px] text-primary">{getSortPriority("base_amount")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("current_phase", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المرحلة" : "Phase"} {getSortIcon("current_phase")} {getSortPriority("current_phase") && <span className="text-[10px] text-primary">{getSortPriority("current_phase")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_by_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "أنشئ بواسطة" : "Created By"} {getSortIcon("created_by_name")} {getSortPriority("created_by_name") && <span className="text-[10px] text-primary">{getSortPriority("created_by_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_at", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")} {getSortPriority("created_at") && <span className="text-[10px] text-primary">{getSortPriority("created_at")}</span>}</div>
+                      </TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAdvancePayments.length === 0 ? (
+                    {sortedAdvancePayments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           {advancePaymentLoading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد دفعات" : "No payments found")}
                         </TableCell>
                       </TableRow>
-                    ) : filteredAdvancePayments.map(o => {
+                    ) : sortedAdvancePayments.map(o => {
                       const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
                       const phaseInfo = advancePaymentPhaseConfig[phase as keyof typeof advancePaymentPhaseConfig] || advancePaymentPhaseConfig.entry;
                       return (
