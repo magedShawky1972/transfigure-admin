@@ -88,6 +88,18 @@ Deno.serve(async (req) => {
 
     if (!resp.ok) {
       console.error(`Sajel ERP payment failed [${resp.status}]:`, respText);
+      const errText = typeof respJson === 'object' && respJson
+        ? (respJson.error || respJson.message || JSON.stringify(respJson))
+        : String(respText);
+      await supabase
+        .from('supplier_advance_payments')
+        .update({
+          sajel_request_body: body,
+          sajel_response: respJson ?? { raw: respText },
+          sajel_error: `[${resp.status}] ${errText}`,
+          sajel_sent_at: new Date().toISOString(),
+        } as any)
+        .eq('id', paymentId);
       return new Response(JSON.stringify({
         error: 'Sajel ERP request failed', status: resp.status, details: respJson ?? respText, sent: body,
       }), { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
