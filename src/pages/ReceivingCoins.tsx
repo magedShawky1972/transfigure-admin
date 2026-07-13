@@ -1494,10 +1494,25 @@ const ReceivingCoins = () => {
                                 <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                   <Checkbox checked={!!(r as any).sent_to_accounting} disabled />
                                 </TableCell>
-                                <TableCell>
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }} title={isArabic ? "عرض" : "View"}>
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    {getReceiptStage(r) !== "entry" && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={rollbackBusyId === r.id}
+                                        onClick={(e) => { e.stopPropagation(); rollbackReceipt(r); }}
+                                        title={isArabic ? "التراجع للمرحلة السابقة" : "Rollback to previous stage"}
+                                      >
+                                        {rollbackBusyId === r.id
+                                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                                          : <Undo2 className="h-4 w-4 text-orange-500" />}
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
