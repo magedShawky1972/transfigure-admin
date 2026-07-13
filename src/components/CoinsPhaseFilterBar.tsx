@@ -7,7 +7,7 @@ import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-export type PhaseViewFilter = "pending" | "sent" | "all";
+export type PhaseViewFilter = "pending" | "sent" | "all" | "sent_to_acc" | "not_sent_to_acc";
 
 interface CoinsPhaseFilterBarProps {
   viewFilter: PhaseViewFilter;
@@ -20,6 +20,8 @@ interface CoinsPhaseFilterBarProps {
   pendingLabel?: string;
   /** Label for the "sent" option — what "sent to next phase" means */
   sentLabel?: string;
+  /** When true, show the "Sent to Acc." / "Not Sent to Acc." accounting filter options */
+  showAccountingOptions?: boolean;
 }
 
 const CoinsPhaseFilterBar = ({
@@ -31,6 +33,7 @@ const CoinsPhaseFilterBar = ({
   onToDateChange,
   pendingLabel,
   sentLabel,
+  showAccountingOptions = false,
 }: CoinsPhaseFilterBarProps) => {
   const { language } = useLanguage();
   const isArabic = language === "ar";
@@ -42,15 +45,22 @@ const CoinsPhaseFilterBar = ({
     <div className="flex flex-wrap items-center gap-3">
       {/* Status Filter */}
       <Select value={viewFilter} onValueChange={(v) => onViewFilterChange(v as PhaseViewFilter)}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[200px]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="pending">{displayPendingLabel}</SelectItem>
           <SelectItem value="sent">{displaySentLabel}</SelectItem>
+          {showAccountingOptions && (
+            <>
+              <SelectItem value="sent_to_acc">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc."}</SelectItem>
+              <SelectItem value="not_sent_to_acc">{isArabic ? "لم يُرسل للمحاسبة" : "Not Sent to Acc."}</SelectItem>
+            </>
+          )}
           <SelectItem value="all">{isArabic ? "الكل" : "All"}</SelectItem>
         </SelectContent>
       </Select>
+
 
       {/* From Date */}
       <Popover>
