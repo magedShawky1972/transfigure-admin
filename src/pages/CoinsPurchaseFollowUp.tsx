@@ -627,14 +627,30 @@ const CoinsPurchaseFollowUp = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
-                      <TableHead>{isArabic ? "العلامة التجارية" : "Brand"}</TableHead>
-                      <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
-                      <TableHead>{isArabic ? "المرحلة الحالية" : "Current Phase"}</TableHead>
-                      <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
-                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
-                      <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("order_number", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "رقم الطلب" : "Order #"} {getSortIcon("order_number")} {getSortPriority("order_number") && <span className="text-[10px] text-primary">{getSortPriority("order_number")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("brand_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "العلامة التجارية" : "Brand"} {getSortIcon("brand_name")} {getSortPriority("brand_name") && <span className="text-[10px] text-primary">{getSortPriority("brand_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("supplier_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المورد" : "Supplier"} {getSortIcon("supplier_name")} {getSortPriority("supplier_name") && <span className="text-[10px] text-primary">{getSortPriority("supplier_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("base_amount_sar", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"} {getSortIcon("base_amount_sar")} {getSortPriority("base_amount_sar") && <span className="text-[10px] text-primary">{getSortPriority("base_amount_sar")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("current_phase", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المرحلة الحالية" : "Current Phase"} {getSortIcon("current_phase")} {getSortPriority("current_phase") && <span className="text-[10px] text-primary">{getSortPriority("current_phase")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("status", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "الحالة" : "Status"} {getSortIcon("status")} {getSortPriority("status") && <span className="text-[10px] text-primary">{getSortPriority("status")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_at", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")} {getSortPriority("created_at") && <span className="text-[10px] text-primary">{getSortPriority("created_at")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_by_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "أنشئ بواسطة" : "Created By"} {getSortIcon("created_by_name")} {getSortPriority("created_by_name") && <span className="text-[10px] text-primary">{getSortPriority("created_by_name")}</span>}</div>
+                      </TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
