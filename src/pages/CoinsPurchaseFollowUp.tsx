@@ -79,6 +79,17 @@ const CoinsPurchaseFollowUp = () => {
   const [advancePaymentFilterPhase, setAdvancePaymentFilterPhase] = useState("all");
   const [advancePaymentSearchText, setAdvancePaymentSearchText] = useState("");
 
+  // Shared date range filter (applies to all tabs, based on created_at)
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const inDateRange = (createdAt?: string | null) => {
+    if (!createdAt) return true;
+    const d = createdAt.slice(0, 10);
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    return true;
+  };
+
   useEffect(() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); fetchAdvancePayments(); }, []);
 
   const fetchOrders = async () => {
@@ -126,6 +137,7 @@ const CoinsPurchaseFollowUp = () => {
   };
 
   const filteredOrders = orders.filter(o => {
+    if (!inDateRange(o.created_at)) return false;
     if (filterPhase !== "all" && o.current_phase !== filterPhase) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (searchText) {
@@ -140,6 +152,7 @@ const CoinsPurchaseFollowUp = () => {
   });
 
   const filteredSheetOrders = sheetOrders.filter(o => {
+    if (!inDateRange(o.created_at)) return false;
     if (sheetFilterPhase !== "all" && o.current_phase !== sheetFilterPhase) return false;
     if (sheetSearchText) {
       const s = sheetSearchText.toLowerCase();
@@ -152,6 +165,7 @@ const CoinsPurchaseFollowUp = () => {
   });
 
   const filteredSalesSheetOrders = salesSheetOrders.filter(o => {
+    if (!inDateRange(o.created_at)) return false;
     if (salesSheetFilterPhase !== "all" && o.current_phase !== salesSheetFilterPhase) return false;
     if (salesSheetSearchText) {
       const s = salesSheetSearchText.toLowerCase();
@@ -164,6 +178,7 @@ const CoinsPurchaseFollowUp = () => {
   });
 
   const filteredAdvancePayments = advancePayments.filter(o => {
+    if (!inDateRange(o.created_at)) return false;
     const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
     if (advancePaymentFilterPhase !== "all" && phase !== advancePaymentFilterPhase) return false;
     if (advancePaymentSearchText) {
@@ -395,6 +410,25 @@ const CoinsPurchaseFollowUp = () => {
           {isArabic ? "تحديث" : "Refresh"}
         </Button>
       </div>
+
+      <Card>
+        <CardContent className="p-3 flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">{isArabic ? "من تاريخ" : "From Date"}</label>
+            <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-44" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">{isArabic ? "إلى تاريخ" : "To Date"}</label>
+            <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-44" />
+          </div>
+          {(fromDate || toDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>
+              {isArabic ? "مسح" : "Clear"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFilterPhase("all"); setSheetFilterPhase("all"); }}>
         <TabsList>
