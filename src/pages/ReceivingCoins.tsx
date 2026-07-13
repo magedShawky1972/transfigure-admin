@@ -137,6 +137,8 @@ const ReceivingCoins = () => {
 
   const [saving, setSaving] = useState(false);
   const [receipts, setReceipts] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [receiptNumber, setReceiptNumber] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
@@ -736,6 +738,163 @@ const ReceivingCoins = () => {
     }
   };
 
+  // ── BULK: Confirm all lines and close one receipt ──
+  const bulkConfirmCloseOne = async (receiptId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user?.id).maybeSingle();
+    const userName = (profile as any)?.display_name || user?.email || "";
+    const now = new Date().toISOString();
+    const { error: lineErr } = await supabase
+      .from("receiving_coins_line")
+      .update({ is_confirmed: true, confirmed_by: user?.id, confirmed_by_name: userName, confirmed_at: now } as any)
+      .eq("header_id", receiptId)
+      .eq("is_confirmed", false);
+    if (lineErr) throw lineErr;
+    const { error: hdrErr } = await supabase
+      .from("receiving_coins_header")
+      .update({ status: "closed" } as any)
+      .eq("id", receiptId);
+    if (hdrErr) throw hdrErr;
+  };
+
+  // ── BULK: Send one receipt to accounting (Sajel) ──
+  const bulkSendToAccountingOne = async (receiptId: string) => {
+    const [headerRes, linesRes] = await Promise.all([
+      supabase.from("receiving_coins_header").select("*").eq("id", receiptId).maybeSingle(),
+      supabase.from("receiving_coins_line").select("*").eq("header_id", receiptId).eq("is_confirmed", true),
+    ]);
+    const h: any = headerRes.data;
+    if (!h) throw new Error("Receipt not found");
+    const confirmedLines: any[] = linesRes.data || [];
+    if (confirmedLines.length === 0) throw new Error(`${h.receipt_number}: No confirmed lines`);
+
+    const brandIds = [...new Set(confirmedLines.map(l => l.brand_id).filter(Boolean))];
+    const vendorIds = [...new Set(confirmedLines.map(l => l.supplier_id).filter(Boolean))];
+
+    let orderNum = "";
+    let brandControlMap: Record<string, number> = {};
+    if (h.purchase_order_id) {
+      const [orderRes, olsRes] = await Promise.all([
+        supabase.from("coins_purchase_orders").select("order_number").eq("id", h.purchase_order_id).maybeSingle(),
+        supabase.from("coins_purchase_order_lines").select("brand_id, amount_in_currency").eq("purchase_order_id", h.purchase_order_id),
+      ]);
+      orderNum = (orderRes.data as any)?.order_number || "";
+      for (const ol of (olsRes.data || []) as any[]) {
+        if (ol.brand_id) brandControlMap[ol.brand_id] = (brandControlMap[ol.brand_id] || 0) + (ol.amount_in_currency || 0);
+      }
+    }
+
+    const [supplierRes, currencyRes, bankRes, brandsRes, vendorsRes] = await Promise.all([
+      h.supplier_id ? supabase.from("suppliers").select("supplier_code, supplier_name").eq("id", h.supplier_id).maybeSingle() : Promise.resolve({ data: null }),
+      h.currency_id ? supabase.from("currencies").select("currency_code").eq("id", h.currency_id).maybeSingle() : Promise.resolve({ data: null }),
+      h.bank_id ? supabase.from("banks").select("bank_code, bank_name").eq("id", h.bank_id).maybeSingle() : Promise.resolve({ data: null }),
+      brandIds.length ? supabase.from("brands").select("id, brand_code, brand_name, one_usd_to_coins").in("id", brandIds) : Promise.resolve({ data: [] }),
+      vendorIds.length ? supabase.from("suppliers").select("id, supplier_name").in("id", vendorIds) : Promise.resolve({ data: [] }),
+    ]);
+
+    const supplierCode = (supplierRes.data as any)?.supplier_code || "";
+    const currencyCode = (currencyRes.data as any)?.currency_code || "SAR";
+    const bankCode = (bankRes.data as any)?.bank_code || "";
+    const brandMap: Record<string, any> = {};
+    for (const b of (brandsRes.data || []) as any[]) brandMap[b.id] = b;
+    const vendorMap: Record<string, string> = {};
+    for (const v of (vendorsRes.data || []) as any[]) vendorMap[v.id] = v.supplier_name || "";
+
+    const dt = new Date(h.receipt_date);
+    const periodCode = `${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()}`;
+    const firstLine = confirmedLines[0];
+    const firstBrand = brandMap[firstLine.brand_id]?.brand_name || firstLine.brand_name || firstLine.product_name || "";
+    const firstVendor = vendorMap[firstLine.supplier_id] || "";
+    const headerNotes = `Purchase Coins For ${firstBrand} from ${firstVendor}`;
+
+    const invoice = {
+      vendorCode: supplierCode,
+      invoiceDate: h.receipt_date,
+      dueDate: h.receipt_date,
+      periodCode,
+      currencyCode,
+      exchangeRate: parseFloat(h.exchange_rate) || 1.0,
+      reference: orderNum || h.receipt_number,
+      notes: headerNotes,
+      status: "POSTED",
+      businessUnitCode: "Asus-Trading",
+      costCenterCode: "",
+      lines: confirmedLines.map(l => {
+        const brandName = brandMap[l.brand_id]?.brand_name || l.brand_name || l.product_name || "";
+        const vendorName = vendorMap[l.supplier_id] || "";
+        const brandControl = brandControlMap[l.brand_id] || 0;
+        const oneUsdToCoins = brandMap[l.brand_id]?.one_usd_to_coins || 0;
+        const expectedCoins = oneUsdToCoins > 0 && brandControl > 0 ? Math.floor(brandControl * oneUsdToCoins) : 0;
+        const coins = (l.coins || 0) > 0 ? (l.coins || 0) : expectedCoins;
+        const unitPrice = (l.unit_price && l.unit_price > 0)
+          ? l.unit_price
+          : (expectedCoins > 0 && brandControl > 0 ? brandControl / expectedCoins : 0);
+        return {
+          itemCode: brandMap[l.brand_id]?.brand_code || "",
+          description: `Purchase Coins For ${brandName} from ${vendorName}`,
+          quantity: Number(coins) || 0,
+          unitPrice: Number(unitPrice) || 0,
+          taxRate: 0,
+          costCenterCode: "",
+        };
+      }),
+    };
+
+    const payment = { paymentMethod: "BANK_TRANSFER", bankCode, referenceNo: h.receipt_number };
+
+    const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", { body: { invoice, payment } });
+    if (error) throw error;
+    const success = data?.success === true;
+    const { data: { user } } = await supabase.auth.getUser();
+    const userName = (user?.user_metadata as any)?.full_name || user?.email || "";
+    await supabase.from("receiving_coins_header").update({
+      sent_to_accounting: success,
+      sent_to_accounting_at: success ? new Date().toISOString() : null,
+      sent_to_accounting_by: success ? userName : null,
+      sajel_payload: data?.sent ?? { invoice, payment },
+      sajel_response: data?.response ?? data,
+    } as any).eq("id", receiptId);
+    if (success && h.purchase_order_id) {
+      await supabase.from("coins_purchase_orders").update({
+        current_phase: "sent_to_accounting",
+        phase_updated_at: new Date().toISOString(),
+      } as any).eq("id", h.purchase_order_id);
+    }
+    if (!success) throw new Error(`${h.receipt_number}: ${toDisplayMessage(data?.error, "Failed to send")}`);
+  };
+
+  const handleBulkConfirmClose = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkProcessing(true);
+    let ok = 0, fail = 0;
+    const errors: string[] = [];
+    for (const id of selectedIds) {
+      try { await bulkConfirmCloseOne(id); ok++; }
+      catch (e: any) { fail++; errors.push(toDisplayMessage(e)); }
+    }
+    setBulkProcessing(false);
+    if (fail === 0) toast.success(isArabic ? `تم إغلاق ${ok} إيصال` : `${ok} receipt(s) closed`);
+    else toast.error(isArabic ? `تم: ${ok} / فشل: ${fail} — ${errors[0] || ""}` : `Done: ${ok} / Failed: ${fail} — ${errors[0] || ""}`);
+    setSelectedIds([]);
+    fetchReceipts();
+  };
+
+  const handleBulkSendToAccounting = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkProcessing(true);
+    let ok = 0, fail = 0;
+    const errors: string[] = [];
+    for (const id of selectedIds) {
+      try { await bulkSendToAccountingOne(id); ok++; }
+      catch (e: any) { fail++; errors.push(toDisplayMessage(e)); }
+    }
+    setBulkProcessing(false);
+    if (fail === 0) toast.success(isArabic ? `تم إرسال ${ok} إيصال إلى المحاسبة` : `${ok} receipt(s) sent to Accounting`);
+    else toast.error(isArabic ? `تم: ${ok} / فشل: ${fail} — ${errors[0] || ""}` : `Done: ${ok} / Failed: ${fail} — ${errors[0] || ""}`);
+    setSelectedIds([]);
+    fetchReceipts();
+  };
+
 
   const openNewEntry = () => {
     resetForm();
@@ -1152,10 +1311,36 @@ const ReceivingCoins = () => {
           });
           return (
             <>
-              <div className="text-sm text-muted-foreground">
-                {isArabic
-                  ? `عدد السجلات: ${filteredReceipts.length}`
-                  : `Records loaded: ${filteredReceipts.length}`}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="text-sm text-muted-foreground">
+                  {isArabic
+                    ? `عدد السجلات: ${filteredReceipts.length}${selectedIds.length ? ` • مُحدد: ${selectedIds.length}` : ""}`
+                    : `Records loaded: ${filteredReceipts.length}${selectedIds.length ? ` • Selected: ${selectedIds.length}` : ""}`}
+                </div>
+                {selectedIds.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={bulkProcessing}
+                      onClick={handleBulkConfirmClose}
+                    >
+                      {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
+                      {isArabic ? `تأكيد وإغلاق (${selectedIds.length})` : `Confirm & Close (${selectedIds.length})`}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={bulkProcessing}
+                      onClick={handleBulkSendToAccounting}
+                    >
+                      {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                      {isArabic ? `إرسال للمحاسبة (${selectedIds.length})` : `Send to Accounting (${selectedIds.length})`}
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={bulkProcessing} onClick={() => setSelectedIds([])}>
+                      {isArabic ? "إلغاء التحديد" : "Clear"}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <Card>
@@ -1164,6 +1349,15 @@ const ReceivingCoins = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={filteredReceipts.length > 0 && filteredReceipts.every(r => selectedIds.includes(r.id))}
+                              onCheckedChange={(v) => {
+                                if (v) setSelectedIds(filteredReceipts.map(r => r.id));
+                                else setSelectedIds([]);
+                              }}
+                            />
+                          </TableHead>
                           <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
                           <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
                           <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
@@ -1181,7 +1375,7 @@ const ReceivingCoins = () => {
                       <TableBody>
                         {filteredReceipts.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                               {isArabic ? "لا توجد إيصالات" : "No receipts found"}
                             </TableCell>
                           </TableRow>
@@ -1190,8 +1384,17 @@ const ReceivingCoins = () => {
                             const rate = parseFloat(r.exchange_rate) || 0;
                             const txnAmount = parseFloat(r.control_amount) || 0;
                             const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
+                            const isSelected = selectedIds.includes(r.id);
                             return (
-                              <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${r.status === "closed" ? "bg-green-50 dark:bg-green-900/10" : ""}`} onClick={() => loadReceipt(r.id)}>
+                              <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${r.status === "closed" ? "bg-green-50 dark:bg-green-900/10" : ""} ${isSelected ? "bg-primary/5" : ""}`} onClick={() => loadReceipt(r.id)}>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(v) => {
+                                      setSelectedIds(prev => v ? [...prev, r.id] : prev.filter(x => x !== r.id));
+                                    }}
+                                  />
+                                </TableCell>
                                 <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
                                 <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
                                 <TableCell>{r.receipt_date}</TableCell>
@@ -1219,6 +1422,7 @@ const ReceivingCoins = () => {
                             );
                           })
                         )}
+
                       </TableBody>
                     </Table>
                   </div>
