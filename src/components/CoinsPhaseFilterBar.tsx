@@ -22,6 +22,8 @@ interface CoinsPhaseFilterBarProps {
   sentLabel?: string;
   /** When true, show the "Sent to Acc." / "Not Sent to Acc." accounting filter options */
   showAccountingOptions?: boolean;
+  /** When true, hide the status Select entirely (useful when the parent renders its own tabs) */
+  hideStatusSelect?: boolean;
 }
 
 const CoinsPhaseFilterBar = ({
