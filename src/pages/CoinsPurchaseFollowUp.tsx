@@ -701,7 +701,7 @@ const CoinsPurchaseFollowUp = () => {
                       return (
                         <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigateToPhase(o)}>
                           <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
-                          <TableCell>{(o.brands as any)?.brand_name || "-"}</TableCell>
+                          <TableCell>{getOrderBrandNames(o).join(", ") || "-"}</TableCell>
                           <TableCell>{(o.suppliers as any)?.supplier_name || "-"}</TableCell>
                           <TableCell>{parseFloat(o.base_amount_sar || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                           <TableCell>
