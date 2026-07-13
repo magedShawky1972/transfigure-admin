@@ -1455,6 +1455,59 @@ const OdooSyncBatch = () => {
           referenceNo: invoice.orderNumber,
         };
 
+        // Build expenses (bank fee) inline in the payment payload — same endpoint call
+        let expenseSent: any = undefined;
+        try {
+          const orderNumbers = Array.from(new Set(
+            (invoice.originalLines || [])
+              .map((l: any) => l.order_number)
+              .filter((v: any) => typeof v === 'string' && v.length > 0)
+          ));
+          let bankFeeTotal = 0;
+          if (orderNumbers.length) {
+            const { data: otRows } = await supabase
+              .from('ordertotals')
+              .select('order_number, bank_fee')
+              .in('order_number', orderNumbers);
+            bankFeeTotal = (otRows || []).reduce((s: number, r: any) => s + (Number(r.bank_fee) || 0), 0);
+          }
+
+          // Resolve bankCode + bankName + cardType from payment_methods → banks
+          let bankCode = '';
+          let bankName = '';
+          let cardType = '';
+          const keys = [paymentPayload?.paymentType, paymentPayload?.paymentMethod, invoice.paymentMethod]
+            .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
+            .map((v: string) => v.trim());
+          if (keys.length) {
+            const { data: pms } = await supabase
+              .from('payment_methods')
+              .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code, bank_name)')
+              .or(keys.flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`]).join(','));
+            const match = (pms || []).find((r: any) => r?.banks?.bank_code);
+            bankCode = (match as any)?.banks?.bank_code || '';
+            bankName = (match as any)?.banks?.bank_name || '';
+            cardType = (match as any)?.payment_method || (match as any)?.payment_type || (keys[0] || '');
+          }
+
+          const expenseTypeCode = bankCode ? bankCode.replace(/^BNK/i, 'BC') : '';
+          const feeAmount = Number(bankFeeTotal.toFixed(2));
+
+          if (feeAmount > 0 && bankCode && expenseTypeCode) {
+            const expensesArr = [{
+              expenseTypeCode,
+              description: `Bank Fee for Bank: ${bankName} For Card Type: ${cardType}`,
+              amount: feeAmount,
+              costCenterCode: 'P10',
+            }];
+            // Preserve attribute order: expenses last on payment
+            paymentPayload = { ...paymentPayload, expenses: expensesArr };
+            expenseSent = expensesArr;
+          }
+        } catch (expErr: any) {
+          console.warn('Bank fee expense build failed:', expErr);
+        }
+
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
           body: { invoice: invoicePayload, payment: paymentPayload },
         });
@@ -1469,96 +1522,13 @@ const OdooSyncBatch = () => {
         if (data?.success) {
           stepStatus.order = 'sent';
           updateSajelStep(stepStatus);
-
-          // Follow-up: post Expense Entry for the aggregate bank fee
-          let expenseSent: any = undefined;
-          let expenseResp: any = undefined;
-          try {
-            const orderNumbers = Array.from(new Set(
-              (invoice.originalLines || [])
-                .map((l: any) => l.order_number)
-                .filter((v: any) => typeof v === 'string' && v.length > 0)
-            ));
-            let bankFeeTotal = 0;
-            if (orderNumbers.length) {
-              const { data: otRows } = await supabase
-                .from('ordertotals')
-                .select('order_number, bank_fee')
-                .in('order_number', orderNumbers);
-              bankFeeTotal = (otRows || []).reduce((s: number, r: any) => s + (Number(r.bank_fee) || 0), 0);
-            }
-
-            // Resolve bankCode + bankName + cardType from payment_methods → banks
-            let bankCode = '';
-            let bankName = '';
-            let cardType = '';
-            const keys = [paymentPayload?.paymentType, paymentPayload?.paymentMethod, invoice.paymentMethod]
-              .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
-              .map((v: string) => v.trim());
-            if (keys.length) {
-              const { data: pms } = await supabase
-                .from('payment_methods')
-                .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code, bank_name)')
-                .or(keys.flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`]).join(','));
-              const match = (pms || []).find((r: any) => r?.banks?.bank_code);
-              bankCode = (match as any)?.banks?.bank_code || '';
-              bankName = (match as any)?.banks?.bank_name || '';
-              cardType = (match as any)?.payment_method || (match as any)?.payment_type || (keys[0] || '');
-            }
-
-            const expenseTypeCode = bankCode ? bankCode.replace(/^BNK/i, 'BC') : '';
-            const unitPrice = Number(bankFeeTotal.toFixed(2));
-
-            if (bankFeeTotal > 0 && bankCode && expenseTypeCode) {
-              const expensePayload = {
-                entry_date: dateStr,
-                payment_method: 'BANK',
-                bank_code: bankCode,
-                currency_code: 'SAR',
-                exchange_rate: 1.0,
-                grand_total: unitPrice,
-                expense_reference: invoice.orderNumber,
-                business_unit_code: 'Asus-Trading',
-                cost_center_code: 'P10',
-                notes: `Bank Fee for Bank: ${bankName} For Card Type: ${cardType}`,
-                status: 'POSTED',
-                expense_entry_lines: [{
-                  expense_type_code: expenseTypeCode,
-                  quantity: 1,
-                  unit_price: unitPrice,
-                  vat_percent: 0,
-                  vat_amount: 0,
-                  line_total: unitPrice,
-                }],
-              };
-              expenseSent = expensePayload;
-              toast({
-                title: 'Sending Bank Fee Expense',
-                description: `Posting ${unitPrice} SAR to Sajel for ${bankName} (${cardType}) — ref ${invoice.orderNumber}`,
-              });
-              const eResp = await supabase.functions.invoke('sync-expense-to-sajel', {
-                body: { expense: expensePayload },
-              });
-              expenseResp = eResp.error ? { error: eResp.error.message } : eResp.data;
-              const expOk = !eResp.error && (eResp.data?.success !== false) && !eResp.data?.error;
-              toast({
-                title: expOk ? 'Bank Fee Expense Sent' : 'Bank Fee Expense Failed',
-                description: expOk
-                  ? `Sajel accepted expense for ${invoice.orderNumber} (${bankName} - ${cardType})`
-                  : `Error: ${eResp.error?.message || eResp.data?.error || 'Unknown'}`,
-                variant: expOk ? 'default' : 'destructive',
-              });
-            } else {
-              expenseResp = { skipped: true, reason: 'No bank_fee, bank_code, or expense_type_code resolved' };
-            }
-          } catch (expErr: any) {
-            console.warn('Expense entry post failed:', expErr);
-            expenseResp = { error: expErr?.message || String(expErr) };
+          if (expenseSent) {
+            toast({
+              title: 'Bank Fee Expense Included',
+              description: `Sent ${expenseSent[0].amount} SAR bank fee inline with invoice ${invoice.orderNumber}`,
+            });
           }
-
-          const combinedSent = { ...fullSent, expense: expenseSent };
-          const combinedResp = { invoice: data, expense: expenseResp };
-          return { syncStatus: 'success', stepStatus, sajelPayload: combinedSent, sajelResponse: combinedResp };
+          return { syncStatus: 'success', stepStatus, sajelPayload: fullSent, sajelResponse: data };
         }
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
@@ -1569,6 +1539,7 @@ const OdooSyncBatch = () => {
         return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: { invoice: invoicePayload, payment: paymentPayload }, sajelResponse: { error: err?.message } };
       }
     }
+
 
 
     
