@@ -9575,6 +9575,10 @@ export type Database = {
           receiving_image: string | null
           receiving_notes: string | null
           ref_number: string | null
+          sajel_error: string | null
+          sajel_request_body: Json | null
+          sajel_response: Json | null
+          sajel_sent_at: string | null
           sent_for_receiving: boolean
           sent_for_receiving_at: string | null
           sent_for_receiving_by: string | null
@@ -9604,6 +9608,10 @@ export type Database = {
           receiving_image?: string | null
           receiving_notes?: string | null
           ref_number?: string | null
+          sajel_error?: string | null
+          sajel_request_body?: Json | null
+          sajel_response?: Json | null
+          sajel_sent_at?: string | null
           sent_for_receiving?: boolean
           sent_for_receiving_at?: string | null
           sent_for_receiving_by?: string | null
@@ -9633,6 +9641,10 @@ export type Database = {
           receiving_image?: string | null
           receiving_notes?: string | null
           ref_number?: string | null
+          sajel_error?: string | null
+          sajel_request_body?: Json | null
+          sajel_response?: Json | null
+          sajel_sent_at?: string | null
           sent_for_receiving?: boolean
           sent_for_receiving_at?: string | null
           sent_for_receiving_by?: string | null

@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck, Loader2, CheckCircle2, XCircle, Undo2 } from "lucide-react";
+import { Plus, Save, Upload, ArrowLeft, Eye, Trash2, FileText, Maximize2, Download, Check, Send, BookCheck, Loader2, CheckCircle2, XCircle, Undo2, AlertCircle, Code2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { convertToBaseCurrency, type CurrencyRate, type Currency } from "@/lib/currencyConversion";
 import { downloadFile } from "@/lib/fileDownload";
@@ -607,6 +608,127 @@ const SupplierAdvancePayment = () => {
 
   const [phaseFilter, setPhaseFilter] = useState<"all" | "entry" | "receiving" | "accounting" | "sent_to_acc">("all");
 
+  // Multi-select + bulk send state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProgress, setBulkProgress] = useState<{
+    open: boolean; total: number; done: number; ok: number; fail: number;
+    currentRef: string;
+    results: Array<{ ref: string; ok: boolean; error?: string }>;
+  }>({ open: false, total: 0, done: 0, ok: 0, fail: 0, currentRef: "", results: [] });
+  const [bodyDialog, setBodyDialog] = useState<{
+    open: boolean; ref: string; body: any; response: any; error: string | null;
+  }>({ open: false, ref: "", body: null, response: null, error: null });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = (rows: any[]) => {
+    setSelectedIds(prev => {
+      const allSelected = rows.length > 0 && rows.every(r => prev.has(r.id));
+      if (allSelected) return new Set();
+      return new Set(rows.map(r => r.id));
+    });
+  };
+
+  const handleBulkSendToAccounting = async () => {
+    const targets = payments.filter(p => selectedIds.has(p.id) && getPhaseFromPayment(p) === "accounting");
+    if (targets.length === 0) {
+      toast.error(isArabic ? "لا توجد دفعات جاهزة للإرسال (يجب أن تكون في مرحلة المحاسبة)" : "No payments ready to send (must be in Accounting phase)");
+      return;
+    }
+    if (!confirm(isArabic ? `إرسال ${targets.length} دفعة إلى Sajel ERP؟` : `Send ${targets.length} payment(s) to Sajel ERP?`)) return;
+
+    setBulkProgress({ open: true, total: targets.length, done: 0, ok: 0, fail: 0, currentRef: "", results: [] });
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
+    const userName = profile?.user_name || user?.email || "";
+
+    for (const p of targets) {
+      const ref = p.ref_number || p.id.slice(0, 8);
+      setBulkProgress(prev => ({ ...prev, currentRef: ref }));
+      try {
+        const { data: erpData, error: erpErr } = await supabase.functions.invoke("post-sajel-payment", {
+          body: { paymentId: p.id },
+        });
+        if (erpErr) {
+          const { FunctionsHttpError } = await import("@supabase/supabase-js");
+          let details: any = erpErr.message;
+          if (erpErr instanceof FunctionsHttpError) {
+            const txt = await erpErr.context.text();
+            try { details = JSON.parse(txt); } catch { details = txt; }
+          }
+          const errMsg = typeof details === "object" ? (details?.details?.message || details?.details?.error || details?.error || JSON.stringify(details)) : String(details);
+          setBulkProgress(prev => ({
+            ...prev, done: prev.done + 1, fail: prev.fail + 1,
+            results: [...prev.results, { ref, ok: false, error: errMsg }],
+          }));
+          continue;
+        }
+        await supabase.from("supplier_advance_payments").update({
+          accounting_recorded: true,
+          accounting_recorded_at: new Date().toISOString(),
+          accounting_recorded_by: userName,
+          current_phase: "sent_to_acc",
+        } as any).eq("id", p.id);
+        setBulkProgress(prev => ({
+          ...prev, done: prev.done + 1, ok: prev.ok + 1,
+          results: [...prev.results, { ref, ok: true }],
+        }));
+      } catch (err: any) {
+        setBulkProgress(prev => ({
+          ...prev, done: prev.done + 1, fail: prev.fail + 1,
+          results: [...prev.results, { ref, ok: false, error: err.message || String(err) }],
+        }));
+      }
+    }
+    setBulkProgress(prev => ({ ...prev, currentRef: "" }));
+    setSelectedIds(new Set());
+    fetchPayments();
+  };
+
+  const rollbackOne = async (payment: any) => {
+    const phase = getPhaseFromPayment(payment);
+    if (phase === "entry") return { ok: false, msg: "already at entry" };
+    const target = phase === "sent_to_acc" ? "accounting" : phase === "accounting" ? "receiving" : "entry";
+    const updates: any = { current_phase: target };
+    if (target === "entry") {
+      Object.assign(updates, {
+        sent_for_receiving: false, sent_for_receiving_at: null, sent_for_receiving_by: null,
+        receiving_image: null, receiving_notes: null,
+        accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+      });
+    } else if (target === "receiving" || target === "accounting") {
+      Object.assign(updates, {
+        accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+      });
+    }
+    const { error } = await supabase.from("supplier_advance_payments").update(updates).eq("id", payment.id);
+    return { ok: !error, msg: error?.message };
+  };
+
+  const handleBulkRollback = async () => {
+    const targets = payments.filter(p => selectedIds.has(p.id) && getPhaseFromPayment(p) !== "entry");
+    if (targets.length === 0) {
+      toast.error(isArabic ? "لا يوجد ما يمكن إرجاعه" : "Nothing to roll back");
+      return;
+    }
+    if (!confirm(isArabic ? `إرجاع ${targets.length} دفعة مرحلة واحدة؟` : `Rollback ${targets.length} payment(s) one phase?`)) return;
+    let ok = 0, fail = 0;
+    for (const p of targets) {
+      const r = await rollbackOne(p);
+      if (r.ok) ok++; else fail++;
+    }
+    toast.success(isArabic ? `تم الإرجاع: ${ok}، فشل: ${fail}` : `Rolled back: ${ok}, failed: ${fail}`);
+    setSelectedIds(new Set());
+    fetchPayments();
+  };
+
+
+
   const phaseCounts = {
     all: payments.length,
     entry: payments.filter(p => getPhaseFromPayment(p) === "entry").length,
@@ -660,11 +782,37 @@ const SupplierAdvancePayment = () => {
               </Button>
             ))}
           </div>
+
+          {selectedIds.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2">
+              <span className="text-sm font-medium">
+                {isArabic ? `تم اختيار ${selectedIds.size}` : `${selectedIds.size} selected`}
+              </span>
+              <Button size="sm" onClick={handleBulkSendToAccounting}>
+                <BookCheck className="h-4 w-4 mr-1" />
+                {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm & Send to Accounting"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleBulkRollback}>
+                <Undo2 className="h-4 w-4 mr-1 text-orange-600" />
+                {isArabic ? "إرجاع مرحلة" : "Rollback one phase"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                {isArabic ? "إلغاء التحديد" : "Clear"}
+              </Button>
+            </div>
+          )}
+
           <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={filteredPayments.length > 0 && filteredPayments.every(r => selectedIds.has(r.id))}
+                      onCheckedChange={() => toggleSelectAll(filteredPayments)}
+                    />
+                  </TableHead>
                   <TableHead>{isArabic ? "رقم المرجع" : "Ref. Number"}</TableHead>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
                   <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
@@ -679,8 +827,16 @@ const SupplierAdvancePayment = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPayments.map((p) => (
-                  <TableRow key={p.id}>
+                {filteredPayments.map((p) => {
+                  const phase = getPhaseFromPayment(p);
+                  const hasBody = !!(p as any).sajel_request_body;
+                  const hasError = !!(p as any).sajel_error;
+                  const ref = p.ref_number || p.id.slice(0, 8);
+                  return (
+                  <TableRow key={p.id} data-state={selectedIds.has(p.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{p.ref_number || "-"}</TableCell>
                     <TableCell className="font-medium">{(p.suppliers as any)?.supplier_name || "-"}</TableCell>
                     <TableCell>{p.payment_date}</TableCell>
@@ -690,39 +846,52 @@ const SupplierAdvancePayment = () => {
                     <TableCell className="font-bold">{Number(p.base_amount).toLocaleString()}</TableCell>
                     <TableCell>{p.created_by_name || "-"}</TableCell>
                     <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
-                    <TableCell>{getPhaseBadge(getPhaseFromPayment(p))}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {getPhaseBadge(phase)}
+                      {hasError && (
+                        <Button
+                          size="sm" variant="ghost" className="h-6 w-6 p-0 ml-1 inline-flex"
+                          title={isArabic ? "عرض خطأ الإرسال للمحاسبة" : "View send-to-accounting error"}
+                          onClick={() => setBodyDialog({
+                            open: true, ref,
+                            body: (p as any).sajel_request_body,
+                            response: (p as any).sajel_response,
+                            error: (p as any).sajel_error,
+                          })}
+                        >
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </TableCell>
                     <TableCell className="flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {getPhaseFromPayment(p) !== "entry" && (
+                      {hasBody && (
+                        <Button
+                          size="sm" variant="ghost"
+                          title={isArabic ? "عرض بيانات API المرسلة" : "View API body sent"}
+                          onClick={() => setBodyDialog({
+                            open: true, ref,
+                            body: (p as any).sajel_request_body,
+                            response: (p as any).sajel_response,
+                            error: (p as any).sajel_error,
+                          })}
+                        >
+                          <Code2 className="h-4 w-4 text-blue-600" />
+                        </Button>
+                      )}
+                      {phase !== "entry" && (
                         <Button
                           size="sm"
                           variant="ghost"
                           title={isArabic ? "إرجاع مرحلة" : "Rollback one phase"}
                           onClick={async () => {
-                            const phase = getPhaseFromPayment(p);
                             const target = phase === "sent_to_acc" ? "accounting" : phase === "accounting" ? "receiving" : "entry";
                             const targetLabel = target === "entry" ? (isArabic ? "الإدخال" : "Entry") : target === "receiving" ? (isArabic ? "الاستلام" : "Receiving") : (isArabic ? "التسجيل" : "Recorded");
                             if (!confirm(isArabic ? `إرجاع إلى ${targetLabel}؟` : `Rollback to ${targetLabel}?`)) return;
-                            const updates: any = { current_phase: target };
-                            if (target === "entry") {
-                              Object.assign(updates, {
-                                sent_for_receiving: false, sent_for_receiving_at: null, sent_for_receiving_by: null,
-                                receiving_image: null, receiving_notes: null,
-                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
-                              });
-                            } else if (target === "receiving") {
-                              Object.assign(updates, {
-                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
-                              });
-                            } else if (target === "accounting") {
-                              Object.assign(updates, {
-                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
-                              });
-                            }
-                            const { error } = await supabase.from("supplier_advance_payments").update(updates).eq("id", p.id);
-                            if (error) { toast.error(error.message); return; }
+                            const r = await rollbackOne(p);
+                            if (!r.ok) { toast.error(r.msg || "error"); return; }
                             toast.success(isArabic ? "تم الإرجاع" : "Rolled back");
                             fetchPayments();
                           }}
@@ -735,10 +904,11 @@ const SupplierAdvancePayment = () => {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {filteredPayments.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد دفعات" : "No payments found"}
                     </TableCell>
                   </TableRow>
@@ -1210,6 +1380,118 @@ const SupplierAdvancePayment = () => {
               disabled={sajelStatus === "loading"}
               variant={sajelStatus === "error" ? "destructive" : "default"}
             >
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk send progress dialog */}
+      <Dialog open={bulkProgress.open} onOpenChange={(o) => {
+        if (!o && bulkProgress.done >= bulkProgress.total) {
+          setBulkProgress({ open: false, total: 0, done: 0, ok: 0, fail: 0, currentRef: "", results: [] });
+        }
+      }}>
+        <DialogContent className="max-w-2xl" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {bulkProgress.done < bulkProgress.total
+                ? <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                : bulkProgress.fail > 0
+                  ? <AlertCircle className="h-5 w-5 text-destructive" />
+                  : <CheckCircle2 className="h-5 w-5 text-green-600" />}
+              {isArabic ? "الإرسال إلى Sajel ERP" : "Send to Sajel ERP"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Progress value={bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0} />
+            <div className="flex justify-between text-sm">
+              <span>{isArabic ? "التقدم:" : "Progress:"} {bulkProgress.done}/{bulkProgress.total}</span>
+              <span className="text-green-600">{isArabic ? "نجاح:" : "OK:"} {bulkProgress.ok}</span>
+              <span className="text-destructive">{isArabic ? "فشل:" : "Failed:"} {bulkProgress.fail}</span>
+            </div>
+            {bulkProgress.currentRef && (
+              <div className="text-xs text-muted-foreground">
+                {isArabic ? "جارٍ إرسال:" : "Sending:"} <span className="font-mono">{bulkProgress.currentRef}</span>
+              </div>
+            )}
+            {bulkProgress.results.length > 0 && (
+              <div className="border rounded max-h-64 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-2">{isArabic ? "المرجع" : "Ref"}</th>
+                      <th className="text-left p-2">{isArabic ? "الحالة" : "Status"}</th>
+                      <th className="text-left p-2">{isArabic ? "الخطأ" : "Error"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkProgress.results.map((r, i) => (
+                      <tr key={i} className="border-t">
+                        <td className="p-2 font-mono">{r.ref}</td>
+                        <td className="p-2">
+                          {r.ok
+                            ? <span className="text-green-600 inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />OK</span>
+                            : <span className="text-destructive inline-flex items-center gap-1"><XCircle className="h-3 w-3" />FAIL</span>}
+                        </td>
+                        <td className="p-2 text-destructive break-all">{r.error || ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setBulkProgress({ open: false, total: 0, done: 0, ok: 0, fail: 0, currentRef: "", results: [] })}
+              disabled={bulkProgress.done < bulkProgress.total}
+            >
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* API body / error dialog */}
+      <Dialog open={bodyDialog.open} onOpenChange={(o) => !o && setBodyDialog({ open: false, ref: "", body: null, response: null, error: null })}>
+        <DialogContent className="max-w-2xl" dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {bodyDialog.error
+                ? <AlertCircle className="h-5 w-5 text-destructive" />
+                : <Code2 className="h-5 w-5 text-blue-600" />}
+              {isArabic ? "بيانات Sajel ERP" : "Sajel ERP Data"} — <span className="font-mono text-sm">{bodyDialog.ref}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {bodyDialog.error && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-destructive">{isArabic ? "خطأ الإرسال" : "Send Error"}</div>
+                <pre className="text-xs bg-destructive/10 text-destructive rounded p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all" dir="ltr">
+                  {bodyDialog.error}
+                </pre>
+              </div>
+            )}
+            {bodyDialog.body && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "البيانات المرسلة" : "Request Payload"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-64 overflow-auto" dir="ltr">
+                  {JSON.stringify(bodyDialog.body, null, 2)}
+                </pre>
+              </div>
+            )}
+            {bodyDialog.response != null && (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
+                <pre className="text-xs bg-muted rounded p-3 max-h-64 overflow-auto" dir="ltr">
+                  {typeof bodyDialog.response === "string" ? bodyDialog.response : JSON.stringify(bodyDialog.response, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setBodyDialog({ open: false, ref: "", body: null, response: null, error: null })}>
               {isArabic ? "إغلاق" : "Close"}
             </Button>
           </DialogFooter>
