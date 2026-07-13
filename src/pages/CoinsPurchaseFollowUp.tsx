@@ -213,6 +213,18 @@ const CoinsPurchaseFollowUp = () => {
     setAdvancePaymentLoading(false);
   };
 
+  const getOrderBrandNames = (o: any): string[] => {
+    const names = new Set<string>();
+    const headerBrand = (o.brands as any)?.brand_name;
+    if (headerBrand) names.add(headerBrand);
+    const lines = (o.coins_purchase_order_lines as any[]) || [];
+    for (const l of lines) {
+      const n = l?.brands?.brand_name;
+      if (n) names.add(n);
+    }
+    return Array.from(names);
+  };
+
   const filteredOrders = orders.filter(o => {
     if (!purchaseOrderInDateRange(o)) return false;
     if (filterPhase !== "all" && o.current_phase !== filterPhase) return false;
@@ -220,10 +232,11 @@ const CoinsPurchaseFollowUp = () => {
     if (searchText) {
       const s = searchText.toLowerCase();
       const phase = phaseConfig[o.current_phase as keyof typeof phaseConfig] || phaseConfig.creation;
+      const brandNames = getOrderBrandNames(o).join(", ").toLowerCase();
       if (
         !o.order_number?.toLowerCase().includes(s) &&
         !o.created_by_name?.toLowerCase().includes(s) &&
-        !(o.brands as any)?.brand_name?.toLowerCase().includes(s) &&
+        !brandNames.includes(s) &&
         !phase.label.toLowerCase().includes(s) &&
         !phase.labelAr.includes(s)
       ) return false;
