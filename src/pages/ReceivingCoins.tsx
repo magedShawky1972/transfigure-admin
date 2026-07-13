@@ -1312,7 +1312,7 @@ const ReceivingCoins = () => {
             <div className="space-y-2">
               <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل (AP Invoice + Payment)" : "Request Sent (AP Invoice + Payment)"}</div>
               <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
-{safeJsonDisplay(sajelDialog.sent)}
+{String(safeJsonDisplay(sajelDialog.sent) ?? "")}
               </pre>
             </div>
             <div className="space-y-2">
