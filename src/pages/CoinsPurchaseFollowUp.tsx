@@ -187,7 +187,7 @@ const CoinsPurchaseFollowUp = () => {
     if (route) navigate(route);
   };
 
-  const phaseOrder = ["creation", "sending", "receiving", "coins_entry", "completed"];
+  const phaseOrder = ["creation", "sending", "receiving", "coins_entry", "sent_to_accounting", "completed"];
   const sheetPhaseOrder = ["creation", "sent_for_payment", "accounting_approved", "completed"];
 
   const returnToPreviousPhase = async (order: any, e: React.MouseEvent) => {
