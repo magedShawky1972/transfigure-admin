@@ -750,7 +750,7 @@ const CoinsPurchaseFollowUp = () => {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Input placeholder={isArabic ? "بحث بالمورد أو المستخدم..." : "Search by supplier or user..."} value={advancePaymentSearchText} onChange={e => setAdvancePaymentSearchText(e.target.value)} className="w-64" />
+            <Input placeholder={isArabic ? "بحث بالمورد أو المستخدم أو المرحلة..." : "Search by supplier, user or stage..."} value={advancePaymentSearchText} onChange={e => setAdvancePaymentSearchText(e.target.value)} className="w-64" />
             <Select value={advancePaymentFilterPhase} onValueChange={setAdvancePaymentFilterPhase}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
