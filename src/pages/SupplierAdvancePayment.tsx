@@ -782,11 +782,37 @@ const SupplierAdvancePayment = () => {
               </Button>
             ))}
           </div>
+
+          {selectedIds.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2">
+              <span className="text-sm font-medium">
+                {isArabic ? `تم اختيار ${selectedIds.size}` : `${selectedIds.size} selected`}
+              </span>
+              <Button size="sm" onClick={handleBulkSendToAccounting}>
+                <BookCheck className="h-4 w-4 mr-1" />
+                {isArabic ? "تأكيد وإرسال للمحاسبة" : "Confirm & Send to Accounting"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleBulkRollback}>
+                <Undo2 className="h-4 w-4 mr-1 text-orange-600" />
+                {isArabic ? "إرجاع مرحلة" : "Rollback one phase"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                {isArabic ? "إلغاء التحديد" : "Clear"}
+              </Button>
+            </div>
+          )}
+
           <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={filteredPayments.length > 0 && filteredPayments.every(r => selectedIds.has(r.id))}
+                      onCheckedChange={() => toggleSelectAll(filteredPayments)}
+                    />
+                  </TableHead>
                   <TableHead>{isArabic ? "رقم المرجع" : "Ref. Number"}</TableHead>
                   <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
                   <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
@@ -801,8 +827,16 @@ const SupplierAdvancePayment = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPayments.map((p) => (
-                  <TableRow key={p.id}>
+                {filteredPayments.map((p) => {
+                  const phase = getPhaseFromPayment(p);
+                  const hasBody = !!(p as any).sajel_request_body;
+                  const hasError = !!(p as any).sajel_error;
+                  const ref = p.ref_number || p.id.slice(0, 8);
+                  return (
+                  <TableRow key={p.id} data-state={selectedIds.has(p.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox checked={selectedIds.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{p.ref_number || "-"}</TableCell>
                     <TableCell className="font-medium">{(p.suppliers as any)?.supplier_name || "-"}</TableCell>
                     <TableCell>{p.payment_date}</TableCell>
@@ -812,39 +846,52 @@ const SupplierAdvancePayment = () => {
                     <TableCell className="font-bold">{Number(p.base_amount).toLocaleString()}</TableCell>
                     <TableCell>{p.created_by_name || "-"}</TableCell>
                     <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</TableCell>
-                    <TableCell>{getPhaseBadge(getPhaseFromPayment(p))}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {getPhaseBadge(phase)}
+                      {hasError && (
+                        <Button
+                          size="sm" variant="ghost" className="h-6 w-6 p-0 ml-1 inline-flex"
+                          title={isArabic ? "عرض خطأ الإرسال للمحاسبة" : "View send-to-accounting error"}
+                          onClick={() => setBodyDialog({
+                            open: true, ref,
+                            body: (p as any).sajel_request_body,
+                            response: (p as any).sajel_response,
+                            error: (p as any).sajel_error,
+                          })}
+                        >
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </TableCell>
                     <TableCell className="flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => loadPayment(p)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {getPhaseFromPayment(p) !== "entry" && (
+                      {hasBody && (
+                        <Button
+                          size="sm" variant="ghost"
+                          title={isArabic ? "عرض بيانات API المرسلة" : "View API body sent"}
+                          onClick={() => setBodyDialog({
+                            open: true, ref,
+                            body: (p as any).sajel_request_body,
+                            response: (p as any).sajel_response,
+                            error: (p as any).sajel_error,
+                          })}
+                        >
+                          <Code2 className="h-4 w-4 text-blue-600" />
+                        </Button>
+                      )}
+                      {phase !== "entry" && (
                         <Button
                           size="sm"
                           variant="ghost"
                           title={isArabic ? "إرجاع مرحلة" : "Rollback one phase"}
                           onClick={async () => {
-                            const phase = getPhaseFromPayment(p);
                             const target = phase === "sent_to_acc" ? "accounting" : phase === "accounting" ? "receiving" : "entry";
                             const targetLabel = target === "entry" ? (isArabic ? "الإدخال" : "Entry") : target === "receiving" ? (isArabic ? "الاستلام" : "Receiving") : (isArabic ? "التسجيل" : "Recorded");
                             if (!confirm(isArabic ? `إرجاع إلى ${targetLabel}؟` : `Rollback to ${targetLabel}?`)) return;
-                            const updates: any = { current_phase: target };
-                            if (target === "entry") {
-                              Object.assign(updates, {
-                                sent_for_receiving: false, sent_for_receiving_at: null, sent_for_receiving_by: null,
-                                receiving_image: null, receiving_notes: null,
-                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
-                              });
-                            } else if (target === "receiving") {
-                              Object.assign(updates, {
-                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
-                              });
-                            } else if (target === "accounting") {
-                              Object.assign(updates, {
-                                accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
-                              });
-                            }
-                            const { error } = await supabase.from("supplier_advance_payments").update(updates).eq("id", p.id);
-                            if (error) { toast.error(error.message); return; }
+                            const r = await rollbackOne(p);
+                            if (!r.ok) { toast.error(r.msg || "error"); return; }
                             toast.success(isArabic ? "تم الإرجاع" : "Rolled back");
                             fetchPayments();
                           }}
@@ -857,10 +904,11 @@ const SupplierAdvancePayment = () => {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {filteredPayments.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       {isArabic ? "لا توجد دفعات" : "No payments found"}
                     </TableCell>
                   </TableRow>
