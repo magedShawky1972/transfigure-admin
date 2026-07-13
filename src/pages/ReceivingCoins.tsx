@@ -1173,7 +1173,7 @@ const ReceivingCoins = () => {
               i === 0 ? (r.coins_purchase_orders?.order_number || "-") : "",
               i === 0 ? (r.receipt_number || "") : "",
               i === 0 ? (r.receipt_date || "") : "",
-              i === 0 ? (r.coins_purchase_orders?.suppliers?.supplier_name || "-") : "",
+              i === 0 ? ((r as any).main_supplier?.supplier_name || r.coins_purchase_orders?.suppliers?.supplier_name || "-") : "",
               i === 0 ? (r.currencies?.currency_code || "-") : "",
               i === 0 ? (rate > 0 ? rate : "-") : "",
               i === 0 ? txnAmount : "",
