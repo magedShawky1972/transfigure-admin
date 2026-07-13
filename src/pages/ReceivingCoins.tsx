@@ -715,7 +715,7 @@ const ReceivingCoins = () => {
     } catch (err: any) {
       const apiError = toDisplayMessage(err, "Error sending to accounting");
       toast.error(apiError);
-      setSajelDialog({ open: true, status: "failed", sent: null, response: err, error: apiError });
+      setSajelDialog({ open: true, status: "failed", sent: null, response: { error: apiError }, error: apiError });
     } finally {
       setSendingToAccounting(false);
     }
