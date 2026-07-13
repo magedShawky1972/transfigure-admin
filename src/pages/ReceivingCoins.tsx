@@ -683,11 +683,11 @@ const ReceivingCoins = () => {
         toast.error(data?.error || (isArabic ? "فشل الإرسال" : "Failed to send"));
       }
 
-      setSajelDialog({ open: true, success, sent: sentPayload, response: responsePayload, error: data?.error });
+      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: data?.error });
       fetchReceipts();
     } catch (err: any) {
       toast.error(err.message || "Error sending to accounting");
-      setSajelDialog({ open: true, success: false, sent: null, response: null, error: err.message });
+      setSajelDialog({ open: true, status: "failed", sent: null, response: null, error: err.message });
     } finally {
       setSendingToAccounting(false);
     }
