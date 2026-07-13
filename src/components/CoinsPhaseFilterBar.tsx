@@ -36,7 +36,7 @@ const CoinsPhaseFilterBar = ({
   pendingLabel,
   sentLabel,
   showAccountingOptions = false,
-}: CoinsPhaseFilterBarProps) => {
+  hideStatusSelect = false,
   const { language } = useLanguage();
   const isArabic = language === "ar";
 
