@@ -42,6 +42,31 @@ interface Attachment {
   file_size: number;
 }
 
+const toDisplayMessage = (value: unknown, fallback = "Unknown error") => {
+  if (!value) return fallback;
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return value.message || fallback;
+  if (typeof value === "object") {
+    const maybeError = value as Record<string, any>;
+    const message = maybeError.message || maybeError.error?.message || maybeError.error || maybeError.details;
+    if (typeof message === "string") return message;
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return fallback;
+    }
+  }
+  return String(value);
+};
+
+const safeJsonDisplay = (value: unknown) => {
+  try {
+    return JSON.stringify(value ?? null, null, 2);
+  } catch {
+    return toDisplayMessage(value, "Unable to display API payload");
+  }
+};
+
 // Determine if all brands in this receipt are fully delivered
 const computeDeliveryStatus = (currentLines: LineItem[], controlAmounts: Record<string, number>): string => {
   const confirmedLines = currentLines.filter(l => l.is_confirmed);
@@ -676,18 +701,21 @@ const ReceivingCoins = () => {
         sajel_response: responsePayload,
       } as any).eq("id", selectedReceiptId);
 
+      const apiError = toDisplayMessage(data?.error, isArabic ? "فشل الإرسال" : "Failed to send");
+
       if (success) {
         setSentToAccounting(true);
         toast.success(isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting successfully");
       } else {
-        toast.error(data?.error || (isArabic ? "فشل الإرسال" : "Failed to send"));
+        toast.error(apiError);
       }
 
-      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: data?.error });
+      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: success ? undefined : apiError });
       fetchReceipts();
     } catch (err: any) {
-      toast.error(err.message || "Error sending to accounting");
-      setSajelDialog({ open: true, status: "failed", sent: null, response: null, error: err.message });
+      const apiError = toDisplayMessage(err, "Error sending to accounting");
+      toast.error(apiError);
+      setSajelDialog({ open: true, status: "failed", sent: null, response: err, error: apiError });
     } finally {
       setSendingToAccounting(false);
     }
@@ -1284,7 +1312,7 @@ const ReceivingCoins = () => {
             <div className="space-y-2">
               <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل (AP Invoice + Payment)" : "Request Sent (AP Invoice + Payment)"}</div>
               <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
-{JSON.stringify(sajelDialog.sent, null, 2)}
+{safeJsonDisplay(sajelDialog.sent)}
               </pre>
             </div>
             <div className="space-y-2">
@@ -1293,7 +1321,7 @@ const ReceivingCoins = () => {
                 <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{sajelDialog.error}</div>
               )}
               <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
-{JSON.stringify(sajelDialog.response, null, 2)}
+{safeJsonDisplay(sajelDialog.response)}
               </pre>
             </div>
           </div>
