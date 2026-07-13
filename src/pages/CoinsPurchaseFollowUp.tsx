@@ -79,6 +79,17 @@ const CoinsPurchaseFollowUp = () => {
   const [advancePaymentFilterPhase, setAdvancePaymentFilterPhase] = useState("all");
   const [advancePaymentSearchText, setAdvancePaymentSearchText] = useState("");
 
+  // Shared date range filter (applies to all tabs, based on created_at)
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const inDateRange = (createdAt?: string | null) => {
+    if (!createdAt) return true;
+    const d = createdAt.slice(0, 10);
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    return true;
+  };
+
   useEffect(() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); fetchAdvancePayments(); }, []);
 
   const fetchOrders = async () => {
