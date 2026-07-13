@@ -140,6 +140,8 @@ const ReceivingCoins = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [stageTab, setStageTab] = useState<"entry" | "confirmed" | "closed" | "sent_to_acc">("entry");
+  const [rollbackBusyId, setRollbackBusyId] = useState<string | null>(null);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [receiptNumber, setReceiptNumber] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
