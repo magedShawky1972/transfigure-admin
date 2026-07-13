@@ -1493,6 +1493,11 @@ const OdooSyncBatch = () => {
           const expenseTypeCode = bankCode ? bankCode.replace(/^BNK/i, 'BC') : '';
           const feeAmount = Number(bankFeeTotal.toFixed(2));
 
+          // Always populate bankCode on the payment payload when resolved
+          if (bankCode) {
+            paymentPayload = { ...paymentPayload, bankCode };
+          }
+
           if (feeAmount > 0 && bankCode && expenseTypeCode) {
             const expensesArr = [{
               expenseTypeCode,
@@ -1504,6 +1509,7 @@ const OdooSyncBatch = () => {
             paymentPayload = { ...paymentPayload, expenses: expensesArr };
             expenseSent = expensesArr;
           }
+
         } catch (expErr: any) {
           console.warn('Bank fee expense build failed:', expErr);
         }
