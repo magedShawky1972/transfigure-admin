@@ -1512,6 +1512,24 @@ const ReceivingCoins = () => {
                                           : <Undo2 className="h-4 w-4 text-orange-500" />}
                                       </Button>
                                     )}
+                                    {getReceiptStage(r) === "sent_to_acc" && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSajelDialog({
+                                            open: true,
+                                            status: (r as any).sent_to_accounting ? "success" : "failed",
+                                            sent: (r as any).sajel_payload ?? null,
+                                            response: (r as any).sajel_response ?? null,
+                                          });
+                                        }}
+                                        title={isArabic ? "عرض البيانات المرسلة للمحاسبة" : "View API body sent to Accounting"}
+                                      >
+                                        <FileText className="h-4 w-4 text-blue-500" />
+                                      </Button>
+                                    )}
                                   </div>
                                 </TableCell>
                               </TableRow>
