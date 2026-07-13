@@ -100,7 +100,7 @@ const ReceivingCoins = () => {
   const [searchParams] = useSearchParams();
 
   const [view, setView] = useState<"list" | "form">("list");
-  const [statusFilter, setStatusFilter] = useState<"pending" | "sent" | "all">("pending");
+  const [statusFilter, setStatusFilter] = useState<"pending" | "sent" | "all" | "sent_to_acc" | "not_sent_to_acc">("pending");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
@@ -920,6 +920,8 @@ const ReceivingCoins = () => {
       const filtered = allReceipts.filter((r: any) => {
         if (statusFilter === "pending" && r.status === "closed") return false;
         if (statusFilter === "sent" && r.status !== "closed") return false;
+        if (statusFilter === "sent_to_acc" && !r.sent_to_accounting) return false;
+        if (statusFilter === "not_sent_to_acc" && r.sent_to_accounting) return false;
         if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
         if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
         if (searchOrderNumber) {
@@ -1267,7 +1269,9 @@ const ReceivingCoins = () => {
            onFromDateChange={setFromDate}
            onToDateChange={setToDate}
            pendingLabel={isArabic ? "غير مغلقة" : "Not Closed"}
-           sentLabel={isArabic ? "مغلقة" : "Closed"}
+            sentLabel={isArabic ? "مغلقة" : "Closed"}
+            showAccountingOptions
+
          />
 
          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1294,6 +1298,8 @@ const ReceivingCoins = () => {
             // Status filter
             if (statusFilter === "pending" && r.status === "closed") return false;
             if (statusFilter === "sent" && r.status !== "closed") return false;
+            if (statusFilter === "sent_to_acc" && !(r as any).sent_to_accounting) return false;
+            if (statusFilter === "not_sent_to_acc" && (r as any).sent_to_accounting) return false;
             // Date range filter
             if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
             if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
