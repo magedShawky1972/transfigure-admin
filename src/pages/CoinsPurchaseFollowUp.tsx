@@ -82,12 +82,27 @@ const CoinsPurchaseFollowUp = () => {
   // Shared date range filter (applies to all tabs, based on created_at)
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
-  const inDateRange = (createdAt?: string | null) => {
-    if (!createdAt) return true;
-    const d = createdAt.slice(0, 10);
+  const isDateInRange = (dateValue?: string | null) => {
+    if (!dateValue) return false;
+    const d = dateValue.slice(0, 10);
     if (fromDate && d < fromDate) return false;
     if (toDate && d > toDate) return false;
     return true;
+  };
+
+  const inDateRange = (createdAt?: string | null) => {
+    if (!fromDate && !toDate) return true;
+    return isDateInRange(createdAt);
+  };
+
+  const purchaseOrderInDateRange = (order: any) => {
+    if (!fromDate && !toDate) return true;
+    if (isDateInRange(order.created_at)) return true;
+
+    const receipts = Array.isArray(order.receiving_coins_header) ? order.receiving_coins_header : [];
+    return receipts.some((receipt: any) =>
+      isDateInRange(receipt.receipt_date) || isDateInRange(receipt.sent_to_accounting_at)
+    );
   };
 
   // Multi-column sort state: array of { key, direction } in priority order
@@ -158,7 +173,7 @@ const CoinsPurchaseFollowUp = () => {
     setLoading(true);
     const { data } = await supabase
       .from("coins_purchase_orders")
-      .select("*, brands(brand_name), suppliers(supplier_name), banks(bank_name)")
+      .select("*, brands(brand_name), suppliers(supplier_name), banks(bank_name), receiving_coins_header(receipt_date, sent_to_accounting_at, sent_to_accounting)")
       .order("created_at", { ascending: false })
       .limit(2000);
     if (data) setOrders(data);
@@ -199,7 +214,7 @@ const CoinsPurchaseFollowUp = () => {
   };
 
   const filteredOrders = orders.filter(o => {
-    if (!inDateRange(o.created_at)) return false;
+    if (!purchaseOrderInDateRange(o)) return false;
     if (filterPhase !== "all" && o.current_phase !== filterPhase) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (searchText) {
