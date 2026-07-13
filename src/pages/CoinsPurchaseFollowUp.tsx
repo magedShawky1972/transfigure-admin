@@ -504,7 +504,7 @@ const CoinsPurchaseFollowUp = () => {
       </Card>
 
 
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFilterPhase("all"); setSheetFilterPhase("all"); }}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFilterPhase("all"); setSheetFilterPhase("all"); setSortConfig([]); }}>
         <TabsList>
           <TabsTrigger value="purchase" className="gap-2">
             <ClipboardList className="h-4 w-4" />
