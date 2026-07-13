@@ -664,7 +664,7 @@ const CoinsPurchaseFollowUp = () => {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Input placeholder={isArabic ? "بحث بالرقم أو الاسم..." : "Search by number or name..."} value={salesSheetSearchText} onChange={e => setSalesSheetSearchText(e.target.value)} className="w-64" />
+            <Input placeholder={isArabic ? "بحث بالرقم أو الاسم أو المرحلة..." : "Search by number, name or stage..."} value={salesSheetSearchText} onChange={e => setSalesSheetSearchText(e.target.value)} className="w-64" />
             <Select value={salesSheetFilterPhase} onValueChange={setSalesSheetFilterPhase}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
