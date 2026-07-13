@@ -1333,6 +1333,15 @@ const ReceivingCoins = () => {
            </div>
          </div>
 
+         <Tabs value={stageTab} onValueChange={(v) => { setStageTab(v as any); setSelectedIds([]); }}>
+           <TabsList>
+             <TabsTrigger value="entry">{isArabic ? "إدخال" : "Entry"}</TabsTrigger>
+             <TabsTrigger value="confirmed">{isArabic ? "مؤكد" : "Confirmed"}</TabsTrigger>
+             <TabsTrigger value="closed">{isArabic ? "مغلق" : "Closed"}</TabsTrigger>
+             <TabsTrigger value="sent_to_acc">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc."}</TabsTrigger>
+           </TabsList>
+         </Tabs>
+
          <CoinsPhaseFilterBar
            viewFilter={statusFilter}
            onViewFilterChange={setStatusFilter}
@@ -1340,10 +1349,7 @@ const ReceivingCoins = () => {
            toDate={toDate}
            onFromDateChange={setFromDate}
            onToDateChange={setToDate}
-           pendingLabel={isArabic ? "غير مغلقة" : "Not Closed"}
-            sentLabel={isArabic ? "مغلقة" : "Closed"}
-            showAccountingOptions
-
+           hideStatusSelect
          />
 
          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
