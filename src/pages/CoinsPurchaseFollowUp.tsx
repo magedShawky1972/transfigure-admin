@@ -173,7 +173,7 @@ const CoinsPurchaseFollowUp = () => {
     setLoading(true);
     const { data } = await supabase
       .from("coins_purchase_orders")
-      .select("*, brands(brand_name), suppliers(supplier_name), banks(bank_name), receiving_coins_header(receipt_date, sent_to_accounting_at, sent_to_accounting)")
+      .select("*, brands(brand_name), suppliers(supplier_name), banks(bank_name), receiving_coins_header(receipt_date, sent_to_accounting_at, sent_to_accounting), coins_purchase_order_lines(brand_id, brands(brand_name))")
       .order("created_at", { ascending: false })
       .limit(2000);
     if (data) setOrders(data);
@@ -213,6 +213,18 @@ const CoinsPurchaseFollowUp = () => {
     setAdvancePaymentLoading(false);
   };
 
+  const getOrderBrandNames = (o: any): string[] => {
+    const names = new Set<string>();
+    const headerBrand = (o.brands as any)?.brand_name;
+    if (headerBrand) names.add(headerBrand);
+    const lines = (o.coins_purchase_order_lines as any[]) || [];
+    for (const l of lines) {
+      const n = l?.brands?.brand_name;
+      if (n) names.add(n);
+    }
+    return Array.from(names);
+  };
+
   const filteredOrders = orders.filter(o => {
     if (!purchaseOrderInDateRange(o)) return false;
     if (filterPhase !== "all" && o.current_phase !== filterPhase) return false;
@@ -220,10 +232,11 @@ const CoinsPurchaseFollowUp = () => {
     if (searchText) {
       const s = searchText.toLowerCase();
       const phase = phaseConfig[o.current_phase as keyof typeof phaseConfig] || phaseConfig.creation;
+      const brandNames = getOrderBrandNames(o).join(", ").toLowerCase();
       if (
         !o.order_number?.toLowerCase().includes(s) &&
         !o.created_by_name?.toLowerCase().includes(s) &&
-        !(o.brands as any)?.brand_name?.toLowerCase().includes(s) &&
+        !brandNames.includes(s) &&
         !phase.label.toLowerCase().includes(s) &&
         !phase.labelAr.includes(s)
       ) return false;
@@ -283,7 +296,7 @@ const CoinsPurchaseFollowUp = () => {
   const getPurchaseSortValue = (o: any, key: string) => {
     switch (key) {
       case "order_number": return o.order_number || "";
-      case "brand_name": return (o.brands as any)?.brand_name || "";
+      case "brand_name": return getOrderBrandNames(o).join(", ");
       case "supplier_name": return (o.suppliers as any)?.supplier_name || "";
       case "base_amount_sar": return parseFloat(o.base_amount_sar || 0);
       case "current_phase": return o.current_phase || "";
@@ -688,7 +701,7 @@ const CoinsPurchaseFollowUp = () => {
                       return (
                         <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigateToPhase(o)}>
                           <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
-                          <TableCell>{(o.brands as any)?.brand_name || "-"}</TableCell>
+                          <TableCell>{getOrderBrandNames(o).join(", ") || "-"}</TableCell>
                           <TableCell>{(o.suppliers as any)?.supplier_name || "-"}</TableCell>
                           <TableCell>{parseFloat(o.base_amount_sar || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                           <TableCell>
