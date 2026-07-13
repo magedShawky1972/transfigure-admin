@@ -1532,7 +1532,7 @@ const ReceivingCoins = () => {
                                 <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
                                 <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
                                 <TableCell>{r.receipt_date}</TableCell>
-                                <TableCell>{(r as any).coins_purchase_orders?.suppliers?.supplier_name || "-"}</TableCell>
+                                <TableCell>{(r as any).main_supplier?.supplier_name || (r as any).coins_purchase_orders?.suppliers?.supplier_name || "-"}</TableCell>
                                 <TableCell>{(r as any).currencies?.currency_code || "-"}</TableCell>
                                 <TableCell>{rate > 0 ? rate.toFixed(4) : "-"}</TableCell>
                                 <TableCell>{rate > 0 ? txnAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
