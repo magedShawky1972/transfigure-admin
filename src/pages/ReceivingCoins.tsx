@@ -1565,22 +1565,34 @@ const ReceivingCoins = () => {
                                           : <Undo2 className="h-4 w-4 text-orange-500" />}
                                       </Button>
                                     )}
-                                    {getReceiptStage(r) === "sent_to_acc" && (
+                                    {(getReceiptStage(r) === "sent_to_acc" || ((r as any).sajel_response || (r as any).sajel_payload)) && (
                                       <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          const isSuccess = !!(r as any).sent_to_accounting;
+                                          const resp: any = (r as any).sajel_response;
+                                          const errMsg = !isSuccess
+                                            ? (typeof resp === "string" ? resp : (resp?.error || resp?.message || (resp ? "API returned an error" : undefined)))
+                                            : undefined;
                                           setSajelDialog({
                                             open: true,
-                                            status: (r as any).sent_to_accounting ? "success" : "failed",
+                                            status: isSuccess ? "success" : "failed",
                                             sent: (r as any).sajel_payload ?? null,
-                                            response: (r as any).sajel_response ?? null,
+                                            response: resp ?? null,
+                                            error: errMsg,
                                           });
                                         }}
-                                        title={isArabic ? "عرض البيانات المرسلة للمحاسبة" : "View API body sent to Accounting"}
+                                        title={
+                                          (r as any).sent_to_accounting
+                                            ? (isArabic ? "عرض البيانات المرسلة للمحاسبة" : "View API body sent to Accounting")
+                                            : (isArabic ? "عرض خطأ الإرسال للمحاسبة" : "View send-to-accounting error")
+                                        }
                                       >
-                                        <FileText className="h-4 w-4 text-blue-500" />
+                                        {(r as any).sent_to_accounting
+                                          ? <FileText className="h-4 w-4 text-blue-500" />
+                                          : <AlertCircle className="h-4 w-4 text-destructive" />}
                                       </Button>
                                     )}
                                   </div>
