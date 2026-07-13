@@ -166,6 +166,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    await supabase
+      .from('supplier_advance_payments')
+      .update({
+        sajel_request_body: body,
+        sajel_response: respJson ?? { raw: respText },
+        sajel_error: null,
+        sajel_sent_at: new Date().toISOString(),
+      } as any)
+      .eq('id', paymentId);
+
     return new Response(JSON.stringify({
       success: true,
       sent: body,
