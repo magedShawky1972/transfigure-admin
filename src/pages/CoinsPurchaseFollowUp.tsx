@@ -265,6 +265,63 @@ const CoinsPurchaseFollowUp = () => {
     return true;
   });
 
+  const getPurchaseSortValue = (o: any, key: string) => {
+    switch (key) {
+      case "order_number": return o.order_number || "";
+      case "brand_name": return (o.brands as any)?.brand_name || "";
+      case "supplier_name": return (o.suppliers as any)?.supplier_name || "";
+      case "base_amount_sar": return parseFloat(o.base_amount_sar || 0);
+      case "current_phase": return o.current_phase || "";
+      case "status": return o.status || "";
+      case "created_at": return o.created_at || "";
+      case "created_by_name": return o.created_by_name || o.created_by || "";
+      default: return o[key];
+    }
+  };
+
+  const getSheetSortValue = (o: any, key: string) => {
+    switch (key) {
+      case "order_number": return o.order_number || "";
+      case "created_by_name": return o.created_by_name || "";
+      case "lines_count": return (o.coins_sheet_order_lines || []).length;
+      case "total_sar": return (o.coins_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
+      case "current_phase": return o.current_phase || "";
+      case "created_at": return o.created_at || "";
+      default: return o[key];
+    }
+  };
+
+  const getSalesSheetSortValue = (o: any, key: string) => {
+    switch (key) {
+      case "order_number": return o.order_number || "";
+      case "created_by_name": return o.created_by_name || "";
+      case "lines_count": return (o.sales_sheet_order_lines || []).length;
+      case "total_sar": return (o.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
+      case "current_phase": return o.current_phase || "";
+      case "created_at": return o.created_at || "";
+      default: return o[key];
+    }
+  };
+
+  const getAdvancePaymentSortValue = (o: any, key: string) => {
+    const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
+    switch (key) {
+      case "supplier_name": return (o.suppliers as any)?.supplier_name || "";
+      case "payment_date": return o.payment_date || "";
+      case "transaction_amount": return Number(o.transaction_amount || 0);
+      case "base_amount": return Number(o.base_amount || 0);
+      case "current_phase": return phase;
+      case "created_by_name": return o.created_by_name || "";
+      case "created_at": return o.created_at || "";
+      default: return o[key];
+    }
+  };
+
+  const sortedOrders = applyMultiSort(filteredOrders, getPurchaseSortValue);
+  const sortedSheetOrders = applyMultiSort(filteredSheetOrders, getSheetSortValue);
+  const sortedSalesSheetOrders = applyMultiSort(filteredSalesSheetOrders, getSalesSheetSortValue);
+  const sortedAdvancePayments = applyMultiSort(filteredAdvancePayments, getAdvancePaymentSortValue);
+
   const navigateToPhase = (order: any) => {
     const phaseRoutes: Record<string, string> = {
       creation: `/coins-creation`,
