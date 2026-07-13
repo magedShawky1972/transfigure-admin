@@ -557,6 +557,11 @@ const CoinsPurchaseFollowUp = () => {
               {isArabic ? "مسح" : "Clear"}
             </Button>
           )}
+          {sortConfig.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setSortConfig([])}>
+              {isArabic ? "مسح الترتيب" : "Clear Sort"}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
