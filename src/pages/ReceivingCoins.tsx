@@ -562,7 +562,7 @@ const ReceivingCoins = () => {
   const [receiptStatus, setReceiptStatus] = useState("draft");
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const [sendingToAccounting, setSendingToAccounting] = useState(false);
-  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; success: boolean; sent: any; response: any; error?: string }>({ open: false, success: false, sent: null, response: null });
+  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string }>({ open: false, status: "pending", sent: null, response: null });
 
   const handleCloseEntry = async () => {
     if (!selectedReceiptId) return;
@@ -590,6 +590,7 @@ const ReceivingCoins = () => {
       return;
     }
     setSendingToAccounting(true);
+    setSajelDialog({ open: true, status: "pending", sent: null, response: null });
     try {
       // Fetch supplier code (Main Supplier), currency code, bank code, and per-brand/vendor details
       const brandIds = [...new Set(confirmedLines.map(l => l.brand_id).filter(Boolean))];
@@ -682,11 +683,11 @@ const ReceivingCoins = () => {
         toast.error(data?.error || (isArabic ? "فشل الإرسال" : "Failed to send"));
       }
 
-      setSajelDialog({ open: true, success, sent: sentPayload, response: responsePayload, error: data?.error });
+      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: data?.error });
       fetchReceipts();
     } catch (err: any) {
       toast.error(err.message || "Error sending to accounting");
-      setSajelDialog({ open: true, success: false, sent: null, response: null, error: err.message });
+      setSajelDialog({ open: true, status: "failed", sent: null, response: null, error: err.message });
     } finally {
       setSendingToAccounting(false);
     }
@@ -1265,12 +1266,16 @@ const ReceivingCoins = () => {
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {sajelDialog.success ? (
+              {sajelDialog.status === "pending" ? (
+                <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+              ) : sajelDialog.status === "success" ? (
                 <CheckCircle className="h-5 w-5 text-green-600" />
               ) : (
                 <XCircle className="h-5 w-5 text-destructive" />
               )}
-              {sajelDialog.success
+              {sajelDialog.status === "pending"
+                ? (isArabic ? "جاري تنفيذ API..." : "Executing API...")
+                : sajelDialog.status === "success"
                 ? (isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting Successfully")
                 : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
             </DialogTitle>
