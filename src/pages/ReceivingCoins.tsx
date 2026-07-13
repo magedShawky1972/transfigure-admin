@@ -1146,7 +1146,7 @@ const ReceivingCoins = () => {
             r.coins_purchase_orders?.order_number || "-",
             r.receipt_number || "",
             r.receipt_date || "",
-            r.coins_purchase_orders?.suppliers?.supplier_name || "-",
+            (r as any).main_supplier?.supplier_name || r.coins_purchase_orders?.suppliers?.supplier_name || "-",
             r.currencies?.currency_code || "-",
             rate > 0 ? rate : "-",
             txnAmount,
