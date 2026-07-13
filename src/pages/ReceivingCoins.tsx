@@ -559,6 +559,9 @@ const ReceivingCoins = () => {
   };
 
   const [receiptStatus, setReceiptStatus] = useState("draft");
+  const [sentToAccounting, setSentToAccounting] = useState(false);
+  const [sendingToAccounting, setSendingToAccounting] = useState(false);
+  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; success: boolean; sent: any; response: any; error?: string }>({ open: false, success: false, sent: null, response: null });
 
   const handleCloseEntry = async () => {
     if (!selectedReceiptId) return;
@@ -577,6 +580,117 @@ const ReceivingCoins = () => {
       toast.error(err.message || "Error closing entry");
     }
   };
+
+  const handleSendToAccounting = async () => {
+    if (!selectedReceiptId) return;
+    const confirmedLines = lines.filter(l => l.is_confirmed);
+    if (confirmedLines.length === 0) {
+      toast.error(isArabic ? "لا توجد بنود مؤكدة" : "No confirmed lines to send");
+      return;
+    }
+    setSendingToAccounting(true);
+    try {
+      // Fetch supplier code (Main Supplier), currency code, bank code, and per-brand/vendor details
+      const brandIds = [...new Set(confirmedLines.map(l => l.brand_id).filter(Boolean))];
+      const vendorIds = [...new Set(confirmedLines.map(l => l.supplier_id).filter(Boolean))];
+
+      const [supplierRes, currencyRes, bankRes, brandsRes, vendorsRes] = await Promise.all([
+        supplierId ? supabase.from("suppliers").select("supplier_code, supplier_name").eq("id", supplierId).maybeSingle() : Promise.resolve({ data: null }),
+        currencyId ? supabase.from("currencies").select("currency_code").eq("id", currencyId).maybeSingle() : Promise.resolve({ data: null }),
+        bankId ? supabase.from("banks").select("bank_code, bank_name").eq("id", bankId).maybeSingle() : Promise.resolve({ data: null }),
+        brandIds.length ? supabase.from("brands").select("id, brand_code, brand_name").in("id", brandIds) : Promise.resolve({ data: [] }),
+        vendorIds.length ? supabase.from("suppliers").select("id, supplier_name").in("id", vendorIds) : Promise.resolve({ data: [] }),
+      ]);
+
+      const supplierCode = (supplierRes.data as any)?.supplier_code || "";
+      const currencyCode = (currencyRes.data as any)?.currency_code || "SAR";
+      const bankCode = (bankRes.data as any)?.bank_code || "";
+      const brandMap: Record<string, { code: string; name: string }> = {};
+      for (const b of (brandsRes.data || []) as any[]) brandMap[b.id] = { code: b.brand_code || "", name: b.brand_name || "" };
+      const vendorMap: Record<string, string> = {};
+      for (const v of (vendorsRes.data || []) as any[]) vendorMap[v.id] = v.supplier_name || "";
+
+      // periodCode as MM/yyyy from receipt date
+      const dt = new Date(receiptDate);
+      const periodCode = `${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()}`;
+
+      // Header-level notes: use the first confirmed line's brand + vendor for context
+      const firstLine = confirmedLines[0];
+      const firstBrand = brandMap[firstLine.brand_id]?.name || firstLine.brand_name || "";
+      const firstVendor = vendorMap[firstLine.supplier_id] || "";
+      const headerNotes = `Purchase Coins For ${firstBrand} from ${firstVendor}`;
+
+      const invoice = {
+        vendorCode: supplierCode,
+        invoiceDate: receiptDate,
+        dueDate: receiptDate,
+        periodCode,
+        currencyCode,
+        exchangeRate: parseFloat(exchangeRate) || 1.0,
+        reference: orderNumber || receiptNumber,
+        notes: headerNotes,
+        status: "POSTED",
+        businessUnitCode: "Asus-Trading",
+        costCenterCode: "",
+        lines: confirmedLines.map(l => {
+          const brandName = brandMap[l.brand_id]?.name || l.brand_name || "";
+          const vendorName = vendorMap[l.supplier_id] || "";
+          return {
+            itemCode: brandMap[l.brand_id]?.code || "",
+            description: `Purchase Coins For ${brandName} from ${vendorName}`,
+            quantity: Number(l.coins) || 0,
+            unitPrice: Number(l.unit_price) || 0,
+            taxRate: 0,
+            costCenterCode: "",
+          };
+        }),
+      };
+
+      const payment = {
+        paymentMethod: "BANK_TRANSFER",
+        bankCode,
+        referenceNo: receiptNumber,
+      };
+
+      toast.info(isArabic ? "جاري الإرسال إلى المحاسبة..." : "Sending to Accounting...");
+
+      const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", {
+        body: { invoice, payment },
+      });
+      if (error) throw error;
+
+      const success = data?.success === true;
+      const sentPayload = data?.sent ?? { invoice, payment };
+      const responsePayload = data?.response ?? data;
+
+      // Persist result
+      const { data: { user } } = await supabase.auth.getUser();
+      const userName = (user?.user_metadata as any)?.full_name || user?.email || "";
+      await supabase.from("receiving_coins_header").update({
+        sent_to_accounting: success,
+        sent_to_accounting_at: success ? new Date().toISOString() : null,
+        sent_to_accounting_by: success ? userName : null,
+        sajel_payload: sentPayload,
+        sajel_response: responsePayload,
+      } as any).eq("id", selectedReceiptId);
+
+      if (success) {
+        setSentToAccounting(true);
+        toast.success(isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting successfully");
+      } else {
+        toast.error(data?.error || (isArabic ? "فشل الإرسال" : "Failed to send"));
+      }
+
+      setSajelDialog({ open: true, success, sent: sentPayload, response: responsePayload, error: data?.error });
+      fetchReceipts();
+    } catch (err: any) {
+      toast.error(err.message || "Error sending to accounting");
+      setSajelDialog({ open: true, success: false, sent: null, response: null, error: err.message });
+    } finally {
+      setSendingToAccounting(false);
+    }
+  };
+
 
   const openNewEntry = () => {
     resetForm();
