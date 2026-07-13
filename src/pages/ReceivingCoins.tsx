@@ -907,6 +907,46 @@ const ReceivingCoins = () => {
   };
 
   // ── Rollback a receipt to the previous stage ──
+  const rollbackReceiptCore = async (r: any) => {
+    const stage = getReceiptStage(r);
+    if (stage === "entry") return;
+    if (stage === "sent_to_acc") {
+      const { error } = await supabase.from("receiving_coins_header").update({
+        sent_to_accounting: false,
+        sent_to_accounting_at: null,
+        sent_to_accounting_by: null,
+      } as any).eq("id", r.id);
+      if (error) throw error;
+      if (r.purchase_order_id) {
+        await supabase.from("coins_purchase_orders").update({
+          current_phase: "receiving",
+          phase_updated_at: new Date().toISOString(),
+        } as any).eq("id", r.purchase_order_id);
+      }
+    } else if (stage === "closed") {
+      const { data: cLines } = await supabase
+        .from("receiving_coins_line")
+        .select("total, is_confirmed")
+        .eq("header_id", r.id);
+      const confirmed = (cLines || []).filter((l: any) => l.is_confirmed);
+      const total = confirmed.reduce((s: number, l: any) => s + (Number(l.total) || 0), 0);
+      const ctrl = Number(r.control_amount) || 0;
+      const newStatus = confirmed.length === 0
+        ? "draft"
+        : (ctrl > 0 && total + 0.005 >= ctrl ? "full_delivery" : "partial_delivery");
+      const { error } = await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", r.id);
+      if (error) throw error;
+    } else if (stage === "confirmed") {
+      const { error: lErr } = await supabase
+        .from("receiving_coins_line")
+        .update({ is_confirmed: false, confirmed_by: null, confirmed_by_name: null, confirmed_at: null } as any)
+        .eq("header_id", r.id);
+      if (lErr) throw lErr;
+      const { error: hErr } = await supabase.from("receiving_coins_header").update({ status: "draft" } as any).eq("id", r.id);
+      if (hErr) throw hErr;
+    }
+  };
+
   const rollbackReceipt = async (r: any) => {
     const stage = getReceiptStage(r);
     if (stage === "entry") {
@@ -919,45 +959,9 @@ const ReceivingCoins = () => {
       confirmed: isArabic ? "التراجع من (مؤكد) إلى (إدخال)؟ سيتم إلغاء تأكيد جميع البنود" : "Roll back from (Confirmed) to (Entry)? All lines will be unconfirmed",
     };
     if (!window.confirm(labels[stage])) return;
-
     setRollbackBusyId(r.id);
     try {
-      if (stage === "sent_to_acc") {
-        const { error } = await supabase.from("receiving_coins_header").update({
-          sent_to_accounting: false,
-          sent_to_accounting_at: null,
-          sent_to_accounting_by: null,
-        } as any).eq("id", r.id);
-        if (error) throw error;
-        if (r.purchase_order_id) {
-          await supabase.from("coins_purchase_orders").update({
-            current_phase: "receiving",
-            phase_updated_at: new Date().toISOString(),
-          } as any).eq("id", r.purchase_order_id);
-        }
-      } else if (stage === "closed") {
-        // Reopen the receipt; recompute status from confirmed lines
-        const { data: cLines } = await supabase
-          .from("receiving_coins_line")
-          .select("total, is_confirmed")
-          .eq("header_id", r.id);
-        const confirmed = (cLines || []).filter((l: any) => l.is_confirmed);
-        const total = confirmed.reduce((s: number, l: any) => s + (Number(l.total) || 0), 0);
-        const ctrl = Number(r.control_amount) || 0;
-        const newStatus = confirmed.length === 0
-          ? "draft"
-          : (ctrl > 0 && total + 0.005 >= ctrl ? "full_delivery" : "partial_delivery");
-        const { error } = await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", r.id);
-        if (error) throw error;
-      } else if (stage === "confirmed") {
-        const { error: lErr } = await supabase
-          .from("receiving_coins_line")
-          .update({ is_confirmed: false, confirmed_by: null, confirmed_by_name: null, confirmed_at: null } as any)
-          .eq("header_id", r.id);
-        if (lErr) throw lErr;
-        const { error: hErr } = await supabase.from("receiving_coins_header").update({ status: "draft" } as any).eq("id", r.id);
-        if (hErr) throw hErr;
-      }
+      await rollbackReceiptCore(r);
       toast.success(isArabic ? "تم التراجع بنجاح" : "Rolled back successfully");
       fetchReceipts();
     } catch (e: any) {
@@ -966,6 +970,31 @@ const ReceivingCoins = () => {
       setRollbackBusyId(null);
     }
   };
+
+  const handleBulkRollback = async () => {
+    if (selectedIds.length === 0) return;
+    const msg = isArabic
+      ? `التراجع للمرحلة السابقة لعدد ${selectedIds.length} إيصال؟`
+      : `Roll back ${selectedIds.length} receipt(s) to the previous stage?`;
+    if (!window.confirm(msg)) return;
+    setBulkProcessing(true);
+    let ok = 0, fail = 0;
+    const errors: string[] = [];
+    const byId = new Map(receipts.map((x: any) => [x.id, x]));
+    for (const id of selectedIds) {
+      const r = byId.get(id);
+      if (!r) { fail++; continue; }
+      try { await rollbackReceiptCore(r); ok++; }
+      catch (e: any) { fail++; errors.push(toDisplayMessage(e)); }
+    }
+    setBulkProcessing(false);
+    if (fail === 0) toast.success(isArabic ? `تم التراجع لـ ${ok} إيصال` : `${ok} receipt(s) rolled back`);
+    else toast.error(isArabic ? `تم: ${ok} / فشل: ${fail} — ${errors[0] || ""}` : `Done: ${ok} / Failed: ${fail} — ${errors[0] || ""}`);
+    setSelectedIds([]);
+    fetchReceipts();
+  };
+
+
 
 
   const openNewEntry = () => {
@@ -1417,6 +1446,17 @@ const ReceivingCoins = () => {
                       {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                       {isArabic ? `إرسال للمحاسبة (${selectedIds.length})` : `Send to Accounting (${selectedIds.length})`}
                     </Button>
+                    {stageTab !== "entry" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={bulkProcessing}
+                        onClick={handleBulkRollback}
+                      >
+                        {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Undo2 className="h-4 w-4 mr-2 text-orange-500" />}
+                        {isArabic ? `تراجع (${selectedIds.length})` : `Rollback (${selectedIds.length})`}
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" disabled={bulkProcessing} onClick={() => setSelectedIds([])}>
                       {isArabic ? "إلغاء التحديد" : "Clear"}
                     </Button>
