@@ -495,6 +495,7 @@ const ReceivingCoins = () => {
     setSendingAttachments([]);
     setConfirmedBrands({});
     setBrandControlAmounts({});
+    setSentToAccounting(false);
   };
 
   const handleConfirmLine = async (lineId: string) => {
