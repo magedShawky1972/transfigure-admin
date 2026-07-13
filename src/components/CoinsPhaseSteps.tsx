@@ -6,6 +6,7 @@ const phases = [
   { key: "sending", en: "Sending", ar: "الإرسال" },
   { key: "receiving", en: "Receiving", ar: "الاستلام" },
   { key: "coins_entry", en: "Coins Entry", ar: "إدخال الكوينز" },
+  { key: "sent_to_accounting", en: "Send to Accounting", ar: "إرسال للمحاسبة" },
   { key: "completed", en: "Completed", ar: "مكتمل" },
 ];
 

@@ -20,6 +20,7 @@ const phaseConfig = {
   sending: { label: "Sending", labelAr: "الإرسال", color: "bg-yellow-100 text-yellow-800" },
   receiving: { label: "Receiving", labelAr: "الاستلام", color: "bg-orange-100 text-orange-800" },
   coins_entry: { label: "Coins Entry", labelAr: "إدخال الكوينز", color: "bg-purple-100 text-purple-800" },
+  sent_to_accounting: { label: "Send to Accounting", labelAr: "إرسال للمحاسبة", color: "bg-teal-100 text-teal-800" },
   completed: { label: "Completed", labelAr: "مكتمل", color: "bg-green-100 text-green-800" },
 };
 
@@ -186,7 +187,7 @@ const CoinsPurchaseFollowUp = () => {
     if (route) navigate(route);
   };
 
-  const phaseOrder = ["creation", "sending", "receiving", "coins_entry", "completed"];
+  const phaseOrder = ["creation", "sending", "receiving", "coins_entry", "sent_to_accounting", "completed"];
   const sheetPhaseOrder = ["creation", "sent_for_payment", "accounting_approved", "completed"];
 
   const returnToPreviousPhase = async (order: any, e: React.MouseEvent) => {
