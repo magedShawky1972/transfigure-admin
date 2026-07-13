@@ -1311,10 +1311,36 @@ const ReceivingCoins = () => {
           });
           return (
             <>
-              <div className="text-sm text-muted-foreground">
-                {isArabic
-                  ? `عدد السجلات: ${filteredReceipts.length}`
-                  : `Records loaded: ${filteredReceipts.length}`}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="text-sm text-muted-foreground">
+                  {isArabic
+                    ? `عدد السجلات: ${filteredReceipts.length}${selectedIds.length ? ` • مُحدد: ${selectedIds.length}` : ""}`
+                    : `Records loaded: ${filteredReceipts.length}${selectedIds.length ? ` • Selected: ${selectedIds.length}` : ""}`}
+                </div>
+                {selectedIds.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={bulkProcessing}
+                      onClick={handleBulkConfirmClose}
+                    >
+                      {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
+                      {isArabic ? `تأكيد وإغلاق (${selectedIds.length})` : `Confirm & Close (${selectedIds.length})`}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={bulkProcessing}
+                      onClick={handleBulkSendToAccounting}
+                    >
+                      {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                      {isArabic ? `إرسال للمحاسبة (${selectedIds.length})` : `Send to Accounting (${selectedIds.length})`}
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={bulkProcessing} onClick={() => setSelectedIds([])}>
+                      {isArabic ? "إلغاء التحديد" : "Clear"}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <Card>
@@ -1323,6 +1349,15 @@ const ReceivingCoins = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={filteredReceipts.length > 0 && filteredReceipts.every(r => selectedIds.includes(r.id))}
+                              onCheckedChange={(v) => {
+                                if (v) setSelectedIds(filteredReceipts.map(r => r.id));
+                                else setSelectedIds([]);
+                              }}
+                            />
+                          </TableHead>
                           <TableHead>{isArabic ? "رقم الطلب" : "Order #"}</TableHead>
                           <TableHead>{isArabic ? "رقم الإيصال" : "Receipt #"}</TableHead>
                           <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
@@ -1340,7 +1375,7 @@ const ReceivingCoins = () => {
                       <TableBody>
                         {filteredReceipts.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                               {isArabic ? "لا توجد إيصالات" : "No receipts found"}
                             </TableCell>
                           </TableRow>
@@ -1349,8 +1384,17 @@ const ReceivingCoins = () => {
                             const rate = parseFloat(r.exchange_rate) || 0;
                             const txnAmount = parseFloat(r.control_amount) || 0;
                             const sarAmount = rate > 0 ? txnAmount * rate : txnAmount;
+                            const isSelected = selectedIds.includes(r.id);
                             return (
-                              <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${r.status === "closed" ? "bg-green-50 dark:bg-green-900/10" : ""}`} onClick={() => loadReceipt(r.id)}>
+                              <TableRow key={r.id} className={`cursor-pointer hover:bg-muted/50 ${r.status === "closed" ? "bg-green-50 dark:bg-green-900/10" : ""} ${isSelected ? "bg-primary/5" : ""}`} onClick={() => loadReceipt(r.id)}>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(v) => {
+                                      setSelectedIds(prev => v ? [...prev, r.id] : prev.filter(x => x !== r.id));
+                                    }}
+                                  />
+                                </TableCell>
                                 <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
                                 <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
                                 <TableCell>{r.receipt_date}</TableCell>
@@ -1378,6 +1422,7 @@ const ReceivingCoins = () => {
                             );
                           })
                         )}
+
                       </TableBody>
                     </Table>
                   </div>
