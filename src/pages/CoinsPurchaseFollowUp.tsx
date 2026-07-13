@@ -171,7 +171,7 @@ const CoinsPurchaseFollowUp = () => {
       .from("coins_sheet_orders")
       .select("*, coins_sheet_order_lines(*)")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(2000);
     if (data) setSheetOrders(data);
     setSheetLoading(false);
   };
@@ -182,7 +182,7 @@ const CoinsPurchaseFollowUp = () => {
       .from("sales_sheet_orders" as any)
       .select("*, sales_sheet_order_lines(*)")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(2000);
     if (data) setSalesSheetOrders(data as any[]);
     setSalesSheetLoading(false);
   };
@@ -193,7 +193,7 @@ const CoinsPurchaseFollowUp = () => {
       .from("supplier_advance_payments")
       .select("*, suppliers(supplier_name), currencies(currency_code)")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(2000);
     if (data) setAdvancePayments(data as any[]);
     setAdvancePaymentLoading(false);
   };
