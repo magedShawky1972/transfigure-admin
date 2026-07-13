@@ -173,7 +173,7 @@ const CoinsPurchaseFollowUp = () => {
     setLoading(true);
     const { data } = await supabase
       .from("coins_purchase_orders")
-      .select("*, brands(brand_name), suppliers(supplier_name), banks(bank_name), receiving_coins_header(receipt_date, sent_to_accounting_at, sent_to_accounting)")
+      .select("*, brands(brand_name), suppliers(supplier_name), banks(bank_name), receiving_coins_header(receipt_date, sent_to_accounting_at, sent_to_accounting), coins_purchase_order_lines(brand_id, brands(brand_name))")
       .order("created_at", { ascending: false })
       .limit(2000);
     if (data) setOrders(data);
