@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Supplier { id: string; supplier_name: string; }
 interface Brand { id: string; brand_name: string; one_usd_to_coins?: number | null; }
@@ -139,6 +140,8 @@ const ReceivingCoins = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [stageTab, setStageTab] = useState<"entry" | "confirmed" | "closed" | "sent_to_acc">("entry");
+  const [rollbackBusyId, setRollbackBusyId] = useState<string | null>(null);
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [receiptNumber, setReceiptNumber] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
@@ -895,6 +898,75 @@ const ReceivingCoins = () => {
     fetchReceipts();
   };
 
+  // ── Stage classification ──
+  const getReceiptStage = (r: any): "entry" | "confirmed" | "closed" | "sent_to_acc" => {
+    if (r?.sent_to_accounting) return "sent_to_acc";
+    if (r?.status === "closed") return "closed";
+    if (r?.status === "partial_delivery" || r?.status === "full_delivery") return "confirmed";
+    return "entry";
+  };
+
+  // ── Rollback a receipt to the previous stage ──
+  const rollbackReceipt = async (r: any) => {
+    const stage = getReceiptStage(r);
+    if (stage === "entry") {
+      toast.info(isArabic ? "لا يوجد مرحلة سابقة" : "No previous stage");
+      return;
+    }
+    const labels: Record<string, string> = {
+      sent_to_acc: isArabic ? "التراجع من (مُرسل للمحاسبة) إلى (مغلق)؟" : "Roll back from (Sent to Acc.) to (Closed)?",
+      closed: isArabic ? "التراجع من (مغلق) إلى (مؤكد)؟" : "Roll back from (Closed) to (Confirmed)?",
+      confirmed: isArabic ? "التراجع من (مؤكد) إلى (إدخال)؟ سيتم إلغاء تأكيد جميع البنود" : "Roll back from (Confirmed) to (Entry)? All lines will be unconfirmed",
+    };
+    if (!window.confirm(labels[stage])) return;
+
+    setRollbackBusyId(r.id);
+    try {
+      if (stage === "sent_to_acc") {
+        const { error } = await supabase.from("receiving_coins_header").update({
+          sent_to_accounting: false,
+          sent_to_accounting_at: null,
+          sent_to_accounting_by: null,
+        } as any).eq("id", r.id);
+        if (error) throw error;
+        if (r.purchase_order_id) {
+          await supabase.from("coins_purchase_orders").update({
+            current_phase: "receiving",
+            phase_updated_at: new Date().toISOString(),
+          } as any).eq("id", r.purchase_order_id);
+        }
+      } else if (stage === "closed") {
+        // Reopen the receipt; recompute status from confirmed lines
+        const { data: cLines } = await supabase
+          .from("receiving_coins_line")
+          .select("total, is_confirmed")
+          .eq("header_id", r.id);
+        const confirmed = (cLines || []).filter((l: any) => l.is_confirmed);
+        const total = confirmed.reduce((s: number, l: any) => s + (Number(l.total) || 0), 0);
+        const ctrl = Number(r.control_amount) || 0;
+        const newStatus = confirmed.length === 0
+          ? "draft"
+          : (ctrl > 0 && total + 0.005 >= ctrl ? "full_delivery" : "partial_delivery");
+        const { error } = await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", r.id);
+        if (error) throw error;
+      } else if (stage === "confirmed") {
+        const { error: lErr } = await supabase
+          .from("receiving_coins_line")
+          .update({ is_confirmed: false, confirmed_by: null, confirmed_by_name: null, confirmed_at: null } as any)
+          .eq("header_id", r.id);
+        if (lErr) throw lErr;
+        const { error: hErr } = await supabase.from("receiving_coins_header").update({ status: "draft" } as any).eq("id", r.id);
+        if (hErr) throw hErr;
+      }
+      toast.success(isArabic ? "تم التراجع بنجاح" : "Rolled back successfully");
+      fetchReceipts();
+    } catch (e: any) {
+      toast.error(toDisplayMessage(e, isArabic ? "فشل التراجع" : "Rollback failed"));
+    } finally {
+      setRollbackBusyId(null);
+    }
+  };
+
 
   const openNewEntry = () => {
     resetForm();
@@ -1261,6 +1333,15 @@ const ReceivingCoins = () => {
            </div>
          </div>
 
+         <Tabs value={stageTab} onValueChange={(v) => { setStageTab(v as any); setSelectedIds([]); }}>
+           <TabsList>
+             <TabsTrigger value="entry">{isArabic ? "إدخال" : "Entry"}</TabsTrigger>
+             <TabsTrigger value="confirmed">{isArabic ? "مؤكد" : "Confirmed"}</TabsTrigger>
+             <TabsTrigger value="closed">{isArabic ? "مغلق" : "Closed"}</TabsTrigger>
+             <TabsTrigger value="sent_to_acc">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc."}</TabsTrigger>
+           </TabsList>
+         </Tabs>
+
          <CoinsPhaseFilterBar
            viewFilter={statusFilter}
            onViewFilterChange={setStatusFilter}
@@ -1268,10 +1349,7 @@ const ReceivingCoins = () => {
            toDate={toDate}
            onFromDateChange={setFromDate}
            onToDateChange={setToDate}
-           pendingLabel={isArabic ? "غير مغلقة" : "Not Closed"}
-            sentLabel={isArabic ? "مغلقة" : "Closed"}
-            showAccountingOptions
-
+           hideStatusSelect
          />
 
          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1295,11 +1373,8 @@ const ReceivingCoins = () => {
 
         {(() => {
           const filteredReceipts = receipts.filter(r => {
-            // Status filter
-            if (statusFilter === "pending" && r.status === "closed") return false;
-            if (statusFilter === "sent" && (r.status !== "closed" || (r as any).sent_to_accounting)) return false;
-            if (statusFilter === "sent_to_acc" && !(r as any).sent_to_accounting) return false;
-            if (statusFilter === "not_sent_to_acc" && (r as any).sent_to_accounting) return false;
+            // Stage tab filter
+            if (getReceiptStage(r) !== stageTab) return false;
             // Date range filter
             if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
             if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
@@ -1419,10 +1494,25 @@ const ReceivingCoins = () => {
                                 <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                   <Checkbox checked={!!(r as any).sent_to_accounting} disabled />
                                 </TableCell>
-                                <TableCell>
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }} title={isArabic ? "عرض" : "View"}>
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    {getReceiptStage(r) !== "entry" && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={rollbackBusyId === r.id}
+                                        onClick={(e) => { e.stopPropagation(); rollbackReceipt(r); }}
+                                        title={isArabic ? "التراجع للمرحلة السابقة" : "Rollback to previous stage"}
+                                      >
+                                        {rollbackBusyId === r.id
+                                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                                          : <Undo2 className="h-4 w-4 text-orange-500" />}
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
