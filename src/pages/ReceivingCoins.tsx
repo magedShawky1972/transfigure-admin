@@ -1266,12 +1266,16 @@ const ReceivingCoins = () => {
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {sajelDialog.success ? (
+              {sajelDialog.status === "pending" ? (
+                <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+              ) : sajelDialog.status === "success" ? (
                 <CheckCircle className="h-5 w-5 text-green-600" />
               ) : (
                 <XCircle className="h-5 w-5 text-destructive" />
               )}
-              {sajelDialog.success
+              {sajelDialog.status === "pending"
+                ? (isArabic ? "جاري تنفيذ API..." : "Executing API...")
+                : sajelDialog.status === "success"
                 ? (isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting Successfully")
                 : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
             </DialogTitle>
