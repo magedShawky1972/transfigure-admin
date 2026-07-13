@@ -1244,8 +1244,63 @@ const ReceivingCoins = () => {
               {isArabic ? "إغلاق الإيصال" : "Close Entry"}
             </Button>
           )}
+          {selectedReceiptId && receiptStatus === "closed" && (
+            <Button
+              variant="outline"
+              onClick={handleSendToAccounting}
+              disabled={sendingToAccounting || sentToAccounting}
+              className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              {sendingToAccounting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+              {sentToAccounting
+                ? (isArabic ? "تم الإرسال إلى المحاسبة" : "Sent to Accounting")
+                : (isArabic ? "إرسال إلى المحاسبة" : "Send to Accounting")}
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Send to Accounting Result Dialog */}
+      <Dialog open={sajelDialog.open} onOpenChange={(o) => setSajelDialog(s => ({ ...s, open: o }))}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {sajelDialog.success ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-destructive" />
+              )}
+              {sajelDialog.success
+                ? (isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting Successfully")
+                : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل (AP Invoice + Payment)" : "Request Sent (AP Invoice + Payment)"}</div>
+              <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
+{JSON.stringify(sajelDialog.sent, null, 2)}
+              </pre>
+            </div>
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
+              {sajelDialog.error && (
+                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{sajelDialog.error}</div>
+              )}
+              <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
+{JSON.stringify(sajelDialog.response, null, 2)}
+              </pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSajelDialog(s => ({ ...s, open: false }))}>
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       {/* Header Form */}
       <Card>
