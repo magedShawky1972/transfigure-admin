@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download, CalendarIcon, FileDown, Send, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download, CalendarIcon, FileDown, Send, CheckCircle, XCircle, Loader2, AlertCircle } from "lucide-react";
 import ExcelJS from "exceljs";
 import CoinsPhaseFilterBar from "@/components/CoinsPhaseFilterBar";
 import { downloadFile } from "@/lib/fileDownload";
@@ -601,6 +601,7 @@ const ReceivingCoins = () => {
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const [sendingToAccounting, setSendingToAccounting] = useState(false);
   const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string }>({ open: false, status: "pending", sent: null, response: null });
+  const [sendProgress, setSendProgress] = useState<{ open: boolean; total: number; done: number; currentRef: string; ok: number; fail: number; results: { ref: string; ok: boolean; error?: string }[] }>({ open: false, total: 0, done: 0, currentRef: "", ok: 0, fail: 0, results: [] });
 
   const handleCloseEntry = async () => {
     if (!selectedReceiptId) return;
@@ -885,15 +886,26 @@ const ReceivingCoins = () => {
   const handleBulkSendToAccounting = async () => {
     if (selectedIds.length === 0) return;
     setBulkProcessing(true);
+    setSendProgress({ open: true, total: selectedIds.length, done: 0, currentRef: "", ok: 0, fail: 0, results: [] });
     let ok = 0, fail = 0;
-    const errors: string[] = [];
     for (const id of selectedIds) {
-      try { await bulkSendToAccountingOne(id); ok++; }
-      catch (e: any) { fail++; errors.push(toDisplayMessage(e)); }
+      const r = receipts.find(x => x.id === id);
+      const ref = r?.receipt_number || id.slice(0, 8);
+      setSendProgress(s => ({ ...s, currentRef: ref }));
+      try {
+        await bulkSendToAccountingOne(id);
+        ok++;
+        setSendProgress(s => ({ ...s, done: s.done + 1, ok: s.ok + 1, results: [...s.results, { ref, ok: true }] }));
+      } catch (e: any) {
+        fail++;
+        const err = toDisplayMessage(e);
+        setSendProgress(s => ({ ...s, done: s.done + 1, fail: s.fail + 1, results: [...s.results, { ref, ok: false, error: err }] }));
+      }
     }
     setBulkProcessing(false);
+    setSendProgress(s => ({ ...s, currentRef: "" }));
     if (fail === 0) toast.success(isArabic ? `تم إرسال ${ok} إيصال إلى المحاسبة` : `${ok} receipt(s) sent to Accounting`);
-    else toast.error(isArabic ? `تم: ${ok} / فشل: ${fail} — ${errors[0] || ""}` : `Done: ${ok} / Failed: ${fail} — ${errors[0] || ""}`);
+    else toast.error(isArabic ? `تم: ${ok} / فشل: ${fail}` : `Done: ${ok} / Failed: ${fail}`);
     setSelectedIds([]);
     fetchReceipts();
   };
@@ -1553,22 +1565,34 @@ const ReceivingCoins = () => {
                                           : <Undo2 className="h-4 w-4 text-orange-500" />}
                                       </Button>
                                     )}
-                                    {getReceiptStage(r) === "sent_to_acc" && (
+                                    {(getReceiptStage(r) === "sent_to_acc" || ((r as any).sajel_response || (r as any).sajel_payload)) && (
                                       <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          const isSuccess = !!(r as any).sent_to_accounting;
+                                          const resp: any = (r as any).sajel_response;
+                                          const errMsg = !isSuccess
+                                            ? (typeof resp === "string" ? resp : (resp?.error || resp?.message || (resp ? "API returned an error" : undefined)))
+                                            : undefined;
                                           setSajelDialog({
                                             open: true,
-                                            status: (r as any).sent_to_accounting ? "success" : "failed",
+                                            status: isSuccess ? "success" : "failed",
                                             sent: (r as any).sajel_payload ?? null,
-                                            response: (r as any).sajel_response ?? null,
+                                            response: resp ?? null,
+                                            error: errMsg,
                                           });
                                         }}
-                                        title={isArabic ? "عرض البيانات المرسلة للمحاسبة" : "View API body sent to Accounting"}
+                                        title={
+                                          (r as any).sent_to_accounting
+                                            ? (isArabic ? "عرض البيانات المرسلة للمحاسبة" : "View API body sent to Accounting")
+                                            : (isArabic ? "عرض خطأ الإرسال للمحاسبة" : "View send-to-accounting error")
+                                        }
                                       >
-                                        <FileText className="h-4 w-4 text-blue-500" />
+                                        {(r as any).sent_to_accounting
+                                          ? <FileText className="h-4 w-4 text-blue-500" />
+                                          : <AlertCircle className="h-4 w-4 text-destructive" />}
                                       </Button>
                                     )}
                                   </div>
@@ -1586,6 +1610,101 @@ const ReceivingCoins = () => {
             </>
           );
         })()}
+
+        {/* Send to Accounting Progress Dialog */}
+        <Dialog open={sendProgress.open} onOpenChange={(o) => { if (!bulkProcessing) setSendProgress(s => ({ ...s, open: o })); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {bulkProcessing
+                  ? <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                  : (sendProgress.fail === 0 ? <CheckCircle className="h-5 w-5 text-green-600" /> : <AlertCircle className="h-5 w-5 text-destructive" />)}
+                {bulkProcessing
+                  ? (isArabic ? "جاري الإرسال إلى المحاسبة..." : "Sending to Accounting...")
+                  : (isArabic ? "اكتمل الإرسال" : "Send Completed")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="w-full bg-muted rounded h-2 overflow-hidden">
+                <div className="h-full bg-primary transition-all" style={{ width: `${sendProgress.total ? (sendProgress.done / sendProgress.total) * 100 : 0}%` }} />
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>{sendProgress.done} / {sendProgress.total}</span>
+                <span className="text-green-600">✓ {sendProgress.ok}</span>
+                <span className="text-destructive">✗ {sendProgress.fail}</span>
+              </div>
+              {bulkProcessing && sendProgress.currentRef && (
+                <div className="text-xs text-muted-foreground">
+                  {isArabic ? "الحالي: " : "Current: "}<span className="font-mono">{sendProgress.currentRef}</span>
+                </div>
+              )}
+              {sendProgress.results.length > 0 && (
+                <div className="max-h-64 overflow-auto border rounded text-xs">
+                  <table className="w-full">
+                    <tbody>
+                      {sendProgress.results.map((r, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="p-2 w-6">
+                            {r.ok ? <CheckCircle className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                          </td>
+                          <td className="p-2 font-mono whitespace-nowrap">{r.ref}</td>
+                          <td className="p-2 text-destructive break-all">{r.error || ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" disabled={bulkProcessing} onClick={() => setSendProgress(s => ({ ...s, open: false }))}>
+                {isArabic ? "إغلاق" : "Close"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Sajel Result / Error Details Dialog (list view) */}
+        <Dialog open={sajelDialog.open} onOpenChange={(o) => setSajelDialog(s => ({ ...s, open: o }))}>
+          <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {sajelDialog.status === "pending" ? (
+                  <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+                ) : sajelDialog.status === "success" ? (
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-destructive" />
+                )}
+                {sajelDialog.status === "success"
+                  ? (isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting Successfully")
+                  : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
+              <div className="space-y-2">
+                <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل" : "Request Sent"}</div>
+                <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
+{String(safeJsonDisplay(sajelDialog.sent) ?? "")}
+                </pre>
+              </div>
+              <div className="space-y-2">
+                <div className="font-semibold text-sm">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
+                {sajelDialog.error && (
+                  <div className="text-sm text-destructive p-2 bg-destructive/10 rounded whitespace-pre-wrap break-all">{toDisplayMessage(sajelDialog.error)}</div>
+                )}
+                <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
+{String(safeJsonDisplay(sajelDialog.response) ?? "")}
+                </pre>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSajelDialog(s => ({ ...s, open: false }))}>
+                {isArabic ? "إغلاق" : "Close"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
