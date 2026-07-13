@@ -927,13 +927,27 @@ const CoinsPurchaseFollowUp = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isArabic ? "المورد" : "Supplier"}</TableHead>
-                      <TableHead>{isArabic ? "تاريخ التحويل" : "Transfer Date"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ" : "Amount"}</TableHead>
-                      <TableHead>{isArabic ? "المبلغ الأساسي" : "Base Amount"}</TableHead>
-                      <TableHead>{isArabic ? "المرحلة" : "Phase"}</TableHead>
-                      <TableHead>{isArabic ? "أنشئ بواسطة" : "Created By"}</TableHead>
-                      <TableHead>{isArabic ? "التاريخ" : "Date"}</TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("supplier_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المورد" : "Supplier"} {getSortIcon("supplier_name")} {getSortPriority("supplier_name") && <span className="text-[10px] text-primary">{getSortPriority("supplier_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("payment_date", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "تاريخ التحويل" : "Transfer Date"} {getSortIcon("payment_date")} {getSortPriority("payment_date") && <span className="text-[10px] text-primary">{getSortPriority("payment_date")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("transaction_amount", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المبلغ" : "Amount"} {getSortIcon("transaction_amount")} {getSortPriority("transaction_amount") && <span className="text-[10px] text-primary">{getSortPriority("transaction_amount")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("base_amount", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المبلغ الأساسي" : "Base Amount"} {getSortIcon("base_amount")} {getSortPriority("base_amount") && <span className="text-[10px] text-primary">{getSortPriority("base_amount")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("current_phase", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "المرحلة" : "Phase"} {getSortIcon("current_phase")} {getSortPriority("current_phase") && <span className="text-[10px] text-primary">{getSortPriority("current_phase")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_by_name", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "أنشئ بواسطة" : "Created By"} {getSortIcon("created_by_name")} {getSortPriority("created_by_name") && <span className="text-[10px] text-primary">{getSortPriority("created_by_name")}</span>}</div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer select-none" onClick={(e) => handleHeaderClick("created_at", e)}>
+                        <div className="flex items-center gap-1">{isArabic ? "التاريخ" : "Date"} {getSortIcon("created_at")} {getSortPriority("created_at") && <span className="text-[10px] text-primary">{getSortPriority("created_at")}</span>}</div>
+                      </TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
