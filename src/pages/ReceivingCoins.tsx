@@ -1032,7 +1032,7 @@ const ReceivingCoins = () => {
       const currentStatus = (headerRes.data as any)?.status || "draft";
       const loadedBrandAmounts = (headerRes.data as any)?._brandAmounts || {};
       if (anyConfirmed && currentStatus !== "closed" && receiptId) {
-        const newStatus = computeDeliveryStatus(mappedLines, loadedBrandAmounts);
+        const newStatus = computeDeliveryStatus(mappedLines, loadedBrandAmounts, parseFloat((headerRes.data as any)?.control_amount) || 0);
         if (newStatus !== currentStatus) {
           await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", receiptId);
           setReceiptStatus(newStatus);
