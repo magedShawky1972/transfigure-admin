@@ -283,7 +283,7 @@ const ReceivingCoins = () => {
   const fetchReceipts = async () => {
     const { data } = await supabase
       .from("receiving_coins_header")
-      .select("*, currencies(currency_code), coins_purchase_orders(order_number, suppliers(supplier_name))")
+      .select("*, currencies(currency_code), main_supplier:suppliers!receiving_coins_header_supplier_id_fkey(supplier_name), coins_purchase_orders(order_number, suppliers(supplier_name))")
       .order("created_at", { ascending: false })
       .range(0, 9999);
     if (data) {
@@ -1020,7 +1020,7 @@ const ReceivingCoins = () => {
       // Fetch all receipts with filters applied
       let query = supabase
         .from("receiving_coins_header")
-        .select("*, currencies(currency_code), coins_purchase_orders(order_number, suppliers(supplier_name))")
+        .select("*, currencies(currency_code), main_supplier:suppliers!receiving_coins_header_supplier_id_fkey(supplier_name), coins_purchase_orders(order_number, suppliers(supplier_name))")
         .order("created_at", { ascending: false });
 
       const { data: allReceipts } = await query;
@@ -1146,7 +1146,7 @@ const ReceivingCoins = () => {
             r.coins_purchase_orders?.order_number || "-",
             r.receipt_number || "",
             r.receipt_date || "",
-            r.coins_purchase_orders?.suppliers?.supplier_name || "-",
+            (r as any).main_supplier?.supplier_name || r.coins_purchase_orders?.suppliers?.supplier_name || "-",
             r.currencies?.currency_code || "-",
             rate > 0 ? rate : "-",
             txnAmount,
@@ -1173,7 +1173,7 @@ const ReceivingCoins = () => {
               i === 0 ? (r.coins_purchase_orders?.order_number || "-") : "",
               i === 0 ? (r.receipt_number || "") : "",
               i === 0 ? (r.receipt_date || "") : "",
-              i === 0 ? (r.coins_purchase_orders?.suppliers?.supplier_name || "-") : "",
+              i === 0 ? ((r as any).main_supplier?.supplier_name || r.coins_purchase_orders?.suppliers?.supplier_name || "-") : "",
               i === 0 ? (r.currencies?.currency_code || "-") : "",
               i === 0 ? (rate > 0 ? rate : "-") : "",
               i === 0 ? txnAmount : "",
@@ -1532,7 +1532,7 @@ const ReceivingCoins = () => {
                                 <TableCell className="font-mono text-sm">{(r as any).coins_purchase_orders?.order_number || "-"}</TableCell>
                                 <TableCell className="font-mono text-sm">{r.receipt_number}</TableCell>
                                 <TableCell>{r.receipt_date}</TableCell>
-                                <TableCell>{(r as any).coins_purchase_orders?.suppliers?.supplier_name || "-"}</TableCell>
+                                <TableCell>{(r as any).main_supplier?.supplier_name || (r as any).coins_purchase_orders?.suppliers?.supplier_name || "-"}</TableCell>
                                 <TableCell>{(r as any).currencies?.currency_code || "-"}</TableCell>
                                 <TableCell>{rate > 0 ? rate.toFixed(4) : "-"}</TableCell>
                                 <TableCell>{rate > 0 ? txnAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</TableCell>
