@@ -898,6 +898,75 @@ const ReceivingCoins = () => {
     fetchReceipts();
   };
 
+  // ── Stage classification ──
+  const getReceiptStage = (r: any): "entry" | "confirmed" | "closed" | "sent_to_acc" => {
+    if (r?.sent_to_accounting) return "sent_to_acc";
+    if (r?.status === "closed") return "closed";
+    if (r?.status === "partial_delivery" || r?.status === "full_delivery") return "confirmed";
+    return "entry";
+  };
+
+  // ── Rollback a receipt to the previous stage ──
+  const rollbackReceipt = async (r: any) => {
+    const stage = getReceiptStage(r);
+    if (stage === "entry") {
+      toast.info(isArabic ? "لا يوجد مرحلة سابقة" : "No previous stage");
+      return;
+    }
+    const labels: Record<string, string> = {
+      sent_to_acc: isArabic ? "التراجع من (مُرسل للمحاسبة) إلى (مغلق)؟" : "Roll back from (Sent to Acc.) to (Closed)?",
+      closed: isArabic ? "التراجع من (مغلق) إلى (مؤكد)؟" : "Roll back from (Closed) to (Confirmed)?",
+      confirmed: isArabic ? "التراجع من (مؤكد) إلى (إدخال)؟ سيتم إلغاء تأكيد جميع البنود" : "Roll back from (Confirmed) to (Entry)? All lines will be unconfirmed",
+    };
+    if (!window.confirm(labels[stage])) return;
+
+    setRollbackBusyId(r.id);
+    try {
+      if (stage === "sent_to_acc") {
+        const { error } = await supabase.from("receiving_coins_header").update({
+          sent_to_accounting: false,
+          sent_to_accounting_at: null,
+          sent_to_accounting_by: null,
+        } as any).eq("id", r.id);
+        if (error) throw error;
+        if (r.purchase_order_id) {
+          await supabase.from("coins_purchase_orders").update({
+            current_phase: "receiving",
+            phase_updated_at: new Date().toISOString(),
+          } as any).eq("id", r.purchase_order_id);
+        }
+      } else if (stage === "closed") {
+        // Reopen the receipt; recompute status from confirmed lines
+        const { data: cLines } = await supabase
+          .from("receiving_coins_line")
+          .select("total, is_confirmed")
+          .eq("header_id", r.id);
+        const confirmed = (cLines || []).filter((l: any) => l.is_confirmed);
+        const total = confirmed.reduce((s: number, l: any) => s + (Number(l.total) || 0), 0);
+        const ctrl = Number(r.control_amount) || 0;
+        const newStatus = confirmed.length === 0
+          ? "draft"
+          : (ctrl > 0 && total + 0.005 >= ctrl ? "full_delivery" : "partial_delivery");
+        const { error } = await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", r.id);
+        if (error) throw error;
+      } else if (stage === "confirmed") {
+        const { error: lErr } = await supabase
+          .from("receiving_coins_line")
+          .update({ is_confirmed: false, confirmed_by: null, confirmed_by_name: null, confirmed_at: null } as any)
+          .eq("header_id", r.id);
+        if (lErr) throw lErr;
+        const { error: hErr } = await supabase.from("receiving_coins_header").update({ status: "draft" } as any).eq("id", r.id);
+        if (hErr) throw hErr;
+      }
+      toast.success(isArabic ? "تم التراجع بنجاح" : "Rolled back successfully");
+      fetchReceipts();
+    } catch (e: any) {
+      toast.error(toDisplayMessage(e, isArabic ? "فشل التراجع" : "Rollback failed"));
+    } finally {
+      setRollbackBusyId(null);
+    }
+  };
+
 
   const openNewEntry = () => {
     resetForm();
