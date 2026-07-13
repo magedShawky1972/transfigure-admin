@@ -851,13 +851,13 @@ const CoinsPurchaseFollowUp = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredSalesSheetOrders.length === 0 ? (
+                    {sortedSalesSheetOrders.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           {salesSheetLoading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد طلبات" : "No orders found")}
                         </TableCell>
                       </TableRow>
-                    ) : filteredSalesSheetOrders.map(o => {
+                    ) : sortedSalesSheetOrders.map(o => {
                       const phase = salesSheetPhaseConfig[o.current_phase as keyof typeof salesSheetPhaseConfig] || salesSheetPhaseConfig.entry;
                       const totalSar = (o.sales_sheet_order_lines || []).reduce((s: number, l: any) => s + (l.total_sar || 0), 0);
                       return (
