@@ -1417,6 +1417,17 @@ const ReceivingCoins = () => {
                       {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                       {isArabic ? `إرسال للمحاسبة (${selectedIds.length})` : `Send to Accounting (${selectedIds.length})`}
                     </Button>
+                    {stageTab !== "entry" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={bulkProcessing}
+                        onClick={handleBulkRollback}
+                      >
+                        {bulkProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Undo2 className="h-4 w-4 mr-2 text-orange-500" />}
+                        {isArabic ? `تراجع (${selectedIds.length})` : `Rollback (${selectedIds.length})`}
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" disabled={bulkProcessing} onClick={() => setSelectedIds([])}>
                       {isArabic ? "إلغاء التحديد" : "Clear"}
                     </Button>
