@@ -1166,6 +1166,7 @@ const ReceivingCoins = () => {
                           <TableHead>{isArabic ? "المبلغ (SAR)" : "Amount (SAR)"}</TableHead>
                           <TableHead>{isArabic ? "المستلم" : "Receiver"}</TableHead>
                           <TableHead>{isArabic ? "الحالة" : "Status"}</TableHead>
+                          <TableHead className="text-center">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc."}</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
