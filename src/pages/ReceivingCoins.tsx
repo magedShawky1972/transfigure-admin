@@ -715,7 +715,7 @@ const ReceivingCoins = () => {
     } catch (err: any) {
       const apiError = toDisplayMessage(err, "Error sending to accounting");
       toast.error(apiError);
-      setSajelDialog({ open: true, status: "failed", sent: null, response: err, error: apiError });
+      setSajelDialog({ open: true, status: "failed", sent: null, response: { error: apiError }, error: apiError });
     } finally {
       setSendingToAccounting(false);
     }
@@ -1312,16 +1312,16 @@ const ReceivingCoins = () => {
             <div className="space-y-2">
               <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل (AP Invoice + Payment)" : "Request Sent (AP Invoice + Payment)"}</div>
               <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
-{safeJsonDisplay(sajelDialog.sent)}
+{String(safeJsonDisplay(sajelDialog.sent) ?? "")}
               </pre>
             </div>
             <div className="space-y-2">
               <div className="font-semibold text-sm">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
               {sajelDialog.error && (
-                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{sajelDialog.error}</div>
+                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{toDisplayMessage(sajelDialog.error)}</div>
               )}
               <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
-{safeJsonDisplay(sajelDialog.response)}
+{String(safeJsonDisplay(sajelDialog.response) ?? "")}
               </pre>
             </div>
           </div>
