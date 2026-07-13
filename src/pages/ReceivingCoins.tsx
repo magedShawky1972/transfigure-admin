@@ -68,15 +68,22 @@ const safeJsonDisplay = (value: unknown) => {
   }
 };
 
-// Determine if all brands in this receipt are fully delivered
-const computeDeliveryStatus = (currentLines: LineItem[], controlAmounts: Record<string, number>): string => {
+// Determine delivery status based on the receipt header's control amount
+const computeDeliveryStatus = (currentLines: LineItem[], controlAmounts: Record<string, number>, headerControlAmount?: number): string => {
   const confirmedLines = currentLines.filter(l => l.is_confirmed);
   if (confirmedLines.length === 0) return "draft";
-  
-  // Only check brands that exist in the current receipt's lines
+
+  // Prefer receipt header's control amount when provided
+  if (typeof headerControlAmount === "number" && headerControlAmount > 0) {
+    const totalReceived = confirmedLines.reduce((sum, l) => sum + (l.total || 0), 0);
+    // Allow tiny floating rounding
+    if (totalReceived + 0.005 >= headerControlAmount) return "full_delivery";
+    return "partial_delivery";
+  }
+
+  // Fallback: per-brand PO control amounts
   const receiptBrandIds = [...new Set(currentLines.map(l => l.brand_id).filter(Boolean))];
   if (receiptBrandIds.length === 0) return "partial_delivery";
-  
   for (const brandId of receiptBrandIds) {
     const control = controlAmounts[brandId] || 0;
     if (control <= 0) continue;
@@ -548,7 +555,7 @@ const ReceivingCoins = () => {
       setLines(updatedLines);
       // Determine if all brands are fully delivered or partial
       if (selectedReceiptId && receiptStatus !== "closed") {
-        const newStatus = computeDeliveryStatus(updatedLines, brandControlAmounts);
+        const newStatus = computeDeliveryStatus(updatedLines, brandControlAmounts, parseFloat(controlAmount) || 0);
         await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", selectedReceiptId);
         setReceiptStatus(newStatus);
       }
@@ -575,7 +582,7 @@ const ReceivingCoins = () => {
       // Recompute status
       if (selectedReceiptId && receiptStatus !== "closed") {
         const anyConfirmed = updatedLines.some(l => l.is_confirmed);
-        const newStatus = anyConfirmed ? computeDeliveryStatus(updatedLines, brandControlAmounts) : "draft";
+        const newStatus = anyConfirmed ? computeDeliveryStatus(updatedLines, brandControlAmounts, parseFloat(controlAmount) || 0) : "draft";
         await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", selectedReceiptId);
         setReceiptStatus(newStatus);
       }
@@ -1025,7 +1032,7 @@ const ReceivingCoins = () => {
       const currentStatus = (headerRes.data as any)?.status || "draft";
       const loadedBrandAmounts = (headerRes.data as any)?._brandAmounts || {};
       if (anyConfirmed && currentStatus !== "closed" && receiptId) {
-        const newStatus = computeDeliveryStatus(mappedLines, loadedBrandAmounts);
+        const newStatus = computeDeliveryStatus(mappedLines, loadedBrandAmounts, parseFloat((headerRes.data as any)?.control_amount) || 0);
         if (newStatus !== currentStatus) {
           await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", receiptId);
           setReceiptStatus(newStatus);
