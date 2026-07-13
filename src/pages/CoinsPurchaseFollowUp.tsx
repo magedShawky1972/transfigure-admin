@@ -343,6 +343,7 @@ const CoinsPurchaseFollowUp = () => {
       sending: `/coins-sending?order=${order.id}`,
       receiving: `/coins-receiving-phase?order=${order.id}`,
       coins_entry: `/receiving-coins`,
+      sent_to_accounting: `/receiving-coins?fromOrder=${order.id}`,
     };
     const route = phaseRoutes[order.current_phase];
     if (route) navigate(route);
