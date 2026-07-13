@@ -142,10 +142,13 @@ const CoinsPurchaseFollowUp = () => {
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (searchText) {
       const s = searchText.toLowerCase();
+      const phase = phaseConfig[o.current_phase as keyof typeof phaseConfig] || phaseConfig.creation;
       if (
         !o.order_number?.toLowerCase().includes(s) &&
         !o.created_by_name?.toLowerCase().includes(s) &&
-        !(o.brands as any)?.brand_name?.toLowerCase().includes(s)
+        !(o.brands as any)?.brand_name?.toLowerCase().includes(s) &&
+        !phase.label.toLowerCase().includes(s) &&
+        !phase.labelAr.includes(s)
       ) return false;
     }
     return true;
@@ -156,9 +159,12 @@ const CoinsPurchaseFollowUp = () => {
     if (sheetFilterPhase !== "all" && o.current_phase !== sheetFilterPhase) return false;
     if (sheetSearchText) {
       const s = sheetSearchText.toLowerCase();
+      const phase = sheetPhaseConfig[o.current_phase as keyof typeof sheetPhaseConfig] || sheetPhaseConfig.creation;
       if (
         !o.order_number?.toLowerCase().includes(s) &&
-        !o.created_by_name?.toLowerCase().includes(s)
+        !o.created_by_name?.toLowerCase().includes(s) &&
+        !phase.label.toLowerCase().includes(s) &&
+        !phase.labelAr.includes(s)
       ) return false;
     }
     return true;
@@ -169,9 +175,12 @@ const CoinsPurchaseFollowUp = () => {
     if (salesSheetFilterPhase !== "all" && o.current_phase !== salesSheetFilterPhase) return false;
     if (salesSheetSearchText) {
       const s = salesSheetSearchText.toLowerCase();
+      const phase = salesSheetPhaseConfig[o.current_phase as keyof typeof salesSheetPhaseConfig] || salesSheetPhaseConfig.entry;
       if (
         !o.order_number?.toLowerCase().includes(s) &&
-        !o.created_by_name?.toLowerCase().includes(s)
+        !o.created_by_name?.toLowerCase().includes(s) &&
+        !phase.label.toLowerCase().includes(s) &&
+        !phase.labelAr.includes(s)
       ) return false;
     }
     return true;
@@ -183,9 +192,12 @@ const CoinsPurchaseFollowUp = () => {
     if (advancePaymentFilterPhase !== "all" && phase !== advancePaymentFilterPhase) return false;
     if (advancePaymentSearchText) {
       const s = advancePaymentSearchText.toLowerCase();
+      const phaseCfg = advancePaymentPhaseConfig[phase as keyof typeof advancePaymentPhaseConfig] || advancePaymentPhaseConfig.entry;
       if (
         !(o.suppliers as any)?.supplier_name?.toLowerCase().includes(s) &&
-        !o.created_by_name?.toLowerCase().includes(s)
+        !o.created_by_name?.toLowerCase().includes(s) &&
+        !phaseCfg.label.toLowerCase().includes(s) &&
+        !phaseCfg.labelAr.includes(s)
       ) return false;
     }
     return true;
