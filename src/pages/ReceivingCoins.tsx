@@ -600,7 +600,7 @@ const ReceivingCoins = () => {
   const handleCloseEntry = async () => {
     if (!selectedReceiptId) return;
     const controlNum = parseFloat(controlAmount) || 0;
-    if (controlNum > 0 && totalAmount < controlNum) {
+    if (controlNum > 0 && totalAmount + 0.005 < controlNum) {
       toast.error(isArabic ? "لا يمكن إغلاق الإيصال - المبلغ المستلم أقل من المبلغ المتحكم" : "Cannot close - received amount is less than control amount");
       return;
     }
