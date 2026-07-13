@@ -178,6 +178,7 @@ const CoinsPurchaseFollowUp = () => {
   });
 
   const filteredAdvancePayments = advancePayments.filter(o => {
+    if (!inDateRange(o.created_at)) return false;
     const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
     if (advancePaymentFilterPhase !== "all" && phase !== advancePaymentFilterPhase) return false;
     if (advancePaymentSearchText) {
