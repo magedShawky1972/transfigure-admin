@@ -100,7 +100,7 @@ const ReceivingCoins = () => {
   const [searchParams] = useSearchParams();
 
   const [view, setView] = useState<"list" | "form">("list");
-  const [statusFilter, setStatusFilter] = useState<"pending" | "sent" | "all">("pending");
+  const [statusFilter, setStatusFilter] = useState<"pending" | "sent" | "all" | "sent_to_acc" | "not_sent_to_acc">("pending");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
