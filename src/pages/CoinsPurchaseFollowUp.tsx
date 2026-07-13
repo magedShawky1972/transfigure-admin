@@ -387,6 +387,15 @@ const CoinsPurchaseFollowUp = () => {
           await supabase.from("receiving_coins_attachments").delete().in("header_id", headerIds);
           await supabase.from("receiving_coins_header").delete().in("id", headerIds);
         }
+      } else if (order.current_phase === "sent_to_accounting") {
+        await supabase
+          .from("receiving_coins_header")
+          .update({
+            sent_to_accounting: false,
+            sent_to_accounting_at: null,
+            sent_to_accounting_by: null,
+          } as any)
+          .eq("purchase_order_id", order.id);
       }
 
       await supabase.from("coins_purchase_orders").update({
