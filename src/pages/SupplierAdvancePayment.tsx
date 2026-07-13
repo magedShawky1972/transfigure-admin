@@ -608,6 +608,127 @@ const SupplierAdvancePayment = () => {
 
   const [phaseFilter, setPhaseFilter] = useState<"all" | "entry" | "receiving" | "accounting" | "sent_to_acc">("all");
 
+  // Multi-select + bulk send state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProgress, setBulkProgress] = useState<{
+    open: boolean; total: number; done: number; ok: number; fail: number;
+    currentRef: string;
+    results: Array<{ ref: string; ok: boolean; error?: string }>;
+  }>({ open: false, total: 0, done: 0, ok: 0, fail: 0, currentRef: "", results: [] });
+  const [bodyDialog, setBodyDialog] = useState<{
+    open: boolean; ref: string; body: any; response: any; error: string | null;
+  }>({ open: false, ref: "", body: null, response: null, error: null });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = (rows: any[]) => {
+    setSelectedIds(prev => {
+      const allSelected = rows.length > 0 && rows.every(r => prev.has(r.id));
+      if (allSelected) return new Set();
+      return new Set(rows.map(r => r.id));
+    });
+  };
+
+  const handleBulkSendToAccounting = async () => {
+    const targets = payments.filter(p => selectedIds.has(p.id) && getPhaseFromPayment(p) === "accounting");
+    if (targets.length === 0) {
+      toast.error(isArabic ? "لا توجد دفعات جاهزة للإرسال (يجب أن تكون في مرحلة المحاسبة)" : "No payments ready to send (must be in Accounting phase)");
+      return;
+    }
+    if (!confirm(isArabic ? `إرسال ${targets.length} دفعة إلى Sajel ERP؟` : `Send ${targets.length} payment(s) to Sajel ERP?`)) return;
+
+    setBulkProgress({ open: true, total: targets.length, done: 0, ok: 0, fail: 0, currentRef: "", results: [] });
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user?.id).maybeSingle();
+    const userName = profile?.user_name || user?.email || "";
+
+    for (const p of targets) {
+      const ref = p.ref_number || p.id.slice(0, 8);
+      setBulkProgress(prev => ({ ...prev, currentRef: ref }));
+      try {
+        const { data: erpData, error: erpErr } = await supabase.functions.invoke("post-sajel-payment", {
+          body: { paymentId: p.id },
+        });
+        if (erpErr) {
+          const { FunctionsHttpError } = await import("@supabase/supabase-js");
+          let details: any = erpErr.message;
+          if (erpErr instanceof FunctionsHttpError) {
+            const txt = await erpErr.context.text();
+            try { details = JSON.parse(txt); } catch { details = txt; }
+          }
+          const errMsg = typeof details === "object" ? (details?.details?.message || details?.details?.error || details?.error || JSON.stringify(details)) : String(details);
+          setBulkProgress(prev => ({
+            ...prev, done: prev.done + 1, fail: prev.fail + 1,
+            results: [...prev.results, { ref, ok: false, error: errMsg }],
+          }));
+          continue;
+        }
+        await supabase.from("supplier_advance_payments").update({
+          accounting_recorded: true,
+          accounting_recorded_at: new Date().toISOString(),
+          accounting_recorded_by: userName,
+          current_phase: "sent_to_acc",
+        } as any).eq("id", p.id);
+        setBulkProgress(prev => ({
+          ...prev, done: prev.done + 1, ok: prev.ok + 1,
+          results: [...prev.results, { ref, ok: true }],
+        }));
+      } catch (err: any) {
+        setBulkProgress(prev => ({
+          ...prev, done: prev.done + 1, fail: prev.fail + 1,
+          results: [...prev.results, { ref, ok: false, error: err.message || String(err) }],
+        }));
+      }
+    }
+    setBulkProgress(prev => ({ ...prev, currentRef: "" }));
+    setSelectedIds(new Set());
+    fetchPayments();
+  };
+
+  const rollbackOne = async (payment: any) => {
+    const phase = getPhaseFromPayment(payment);
+    if (phase === "entry") return { ok: false, msg: "already at entry" };
+    const target = phase === "sent_to_acc" ? "accounting" : phase === "accounting" ? "receiving" : "entry";
+    const updates: any = { current_phase: target };
+    if (target === "entry") {
+      Object.assign(updates, {
+        sent_for_receiving: false, sent_for_receiving_at: null, sent_for_receiving_by: null,
+        receiving_image: null, receiving_notes: null,
+        accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+      });
+    } else if (target === "receiving" || target === "accounting") {
+      Object.assign(updates, {
+        accounting_recorded: false, accounting_recorded_at: null, accounting_recorded_by: null,
+      });
+    }
+    const { error } = await supabase.from("supplier_advance_payments").update(updates).eq("id", payment.id);
+    return { ok: !error, msg: error?.message };
+  };
+
+  const handleBulkRollback = async () => {
+    const targets = payments.filter(p => selectedIds.has(p.id) && getPhaseFromPayment(p) !== "entry");
+    if (targets.length === 0) {
+      toast.error(isArabic ? "لا يوجد ما يمكن إرجاعه" : "Nothing to roll back");
+      return;
+    }
+    if (!confirm(isArabic ? `إرجاع ${targets.length} دفعة مرحلة واحدة؟` : `Rollback ${targets.length} payment(s) one phase?`)) return;
+    let ok = 0, fail = 0;
+    for (const p of targets) {
+      const r = await rollbackOne(p);
+      if (r.ok) ok++; else fail++;
+    }
+    toast.success(isArabic ? `تم الإرجاع: ${ok}، فشل: ${fail}` : `Rolled back: ${ok}, failed: ${fail}`);
+    setSelectedIds(new Set());
+    fetchPayments();
+  };
+
+
+
   const phaseCounts = {
     all: payments.length,
     entry: payments.filter(p => getPhaseFromPayment(p) === "entry").length,
