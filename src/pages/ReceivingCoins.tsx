@@ -886,15 +886,26 @@ const ReceivingCoins = () => {
   const handleBulkSendToAccounting = async () => {
     if (selectedIds.length === 0) return;
     setBulkProcessing(true);
+    setSendProgress({ open: true, total: selectedIds.length, done: 0, currentRef: "", ok: 0, fail: 0, results: [] });
     let ok = 0, fail = 0;
-    const errors: string[] = [];
     for (const id of selectedIds) {
-      try { await bulkSendToAccountingOne(id); ok++; }
-      catch (e: any) { fail++; errors.push(toDisplayMessage(e)); }
+      const r = receipts.find(x => x.id === id);
+      const ref = r?.receipt_number || id.slice(0, 8);
+      setSendProgress(s => ({ ...s, currentRef: ref }));
+      try {
+        await bulkSendToAccountingOne(id);
+        ok++;
+        setSendProgress(s => ({ ...s, done: s.done + 1, ok: s.ok + 1, results: [...s.results, { ref, ok: true }] }));
+      } catch (e: any) {
+        fail++;
+        const err = toDisplayMessage(e);
+        setSendProgress(s => ({ ...s, done: s.done + 1, fail: s.fail + 1, results: [...s.results, { ref, ok: false, error: err }] }));
+      }
     }
     setBulkProcessing(false);
+    setSendProgress(s => ({ ...s, currentRef: "" }));
     if (fail === 0) toast.success(isArabic ? `تم إرسال ${ok} إيصال إلى المحاسبة` : `${ok} receipt(s) sent to Accounting`);
-    else toast.error(isArabic ? `تم: ${ok} / فشل: ${fail} — ${errors[0] || ""}` : `Done: ${ok} / Failed: ${fail} — ${errors[0] || ""}`);
+    else toast.error(isArabic ? `تم: ${ok} / فشل: ${fail}` : `Done: ${ok} / Failed: ${fail}`);
     setSelectedIds([]);
     fetchReceipts();
   };
