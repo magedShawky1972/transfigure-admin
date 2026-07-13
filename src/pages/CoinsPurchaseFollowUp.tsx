@@ -137,6 +137,7 @@ const CoinsPurchaseFollowUp = () => {
   };
 
   const filteredOrders = orders.filter(o => {
+    if (!inDateRange(o.created_at)) return false;
     if (filterPhase !== "all" && o.current_phase !== filterPhase) return false;
     if (filterStatus !== "all" && o.status !== filterStatus) return false;
     if (searchText) {
