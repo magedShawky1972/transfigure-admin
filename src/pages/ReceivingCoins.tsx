@@ -826,11 +826,18 @@ const ReceivingCoins = () => {
       lines: confirmedLines.map(l => {
         const brandName = brandMap[l.brand_id]?.brand_name || l.brand_name || l.product_name || "";
         const vendorName = vendorMap[l.supplier_id] || "";
+        const brandControl = brandControlMap[l.brand_id] || 0;
+        const oneUsdToCoins = brandMap[l.brand_id]?.one_usd_to_coins || 0;
+        const expectedCoins = oneUsdToCoins > 0 && brandControl > 0 ? Math.floor(brandControl * oneUsdToCoins) : 0;
+        // Recompute unit_price the same way the form loader does; DB may hold a stale value
+        const unitPrice = expectedCoins > 0 && brandControl > 0
+          ? (brandControl / expectedCoins)
+          : (Number(l.unit_price) || 0);
         return {
           itemCode: brandMap[l.brand_id]?.brand_code || "",
           description: `Purchase Coins For ${brandName} from ${vendorName}`,
           quantity: Number(l.coins) || 0,
-          unitPrice: Number(l.unit_price) || 0,
+          unitPrice,
           taxRate: 0,
           costCenterCode: "",
         };
