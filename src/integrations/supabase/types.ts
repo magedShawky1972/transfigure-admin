@@ -7717,6 +7717,11 @@ export type Database = {
           receipt_date: string
           receipt_number: string
           receiver_name: string | null
+          sajel_payload: Json | null
+          sajel_response: Json | null
+          sent_to_accounting: boolean
+          sent_to_accounting_at: string | null
+          sent_to_accounting_by: string | null
           status: string
           supplier_id: string | null
           total_amount: number
@@ -7736,6 +7741,11 @@ export type Database = {
           receipt_date?: string
           receipt_number: string
           receiver_name?: string | null
+          sajel_payload?: Json | null
+          sajel_response?: Json | null
+          sent_to_accounting?: boolean
+          sent_to_accounting_at?: string | null
+          sent_to_accounting_by?: string | null
           status?: string
           supplier_id?: string | null
           total_amount?: number
@@ -7755,6 +7765,11 @@ export type Database = {
           receipt_date?: string
           receipt_number?: string
           receiver_name?: string | null
+          sajel_payload?: Json | null
+          sajel_response?: Json | null
+          sent_to_accounting?: boolean
+          sent_to_accounting_at?: string | null
+          sent_to_accounting_by?: string | null
           status?: string
           supplier_id?: string | null
           total_amount?: number

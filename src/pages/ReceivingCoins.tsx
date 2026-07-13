@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download, CalendarIcon, FileDown } from "lucide-react";
+import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download, CalendarIcon, FileDown, Send, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import ExcelJS from "exceljs";
 import CoinsPhaseFilterBar from "@/components/CoinsPhaseFilterBar";
 import { downloadFile } from "@/lib/fileDownload";
@@ -18,6 +18,7 @@ import { parseBankTransferImages } from "@/lib/bankTransferImages";
 import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 interface Supplier { id: string; supplier_name: string; }
 interface Brand { id: string; brand_name: string; one_usd_to_coins?: number | null; }
@@ -494,6 +495,7 @@ const ReceivingCoins = () => {
     setSendingAttachments([]);
     setConfirmedBrands({});
     setBrandControlAmounts({});
+    setSentToAccounting(false);
   };
 
   const handleConfirmLine = async (lineId: string) => {
@@ -558,6 +560,9 @@ const ReceivingCoins = () => {
   };
 
   const [receiptStatus, setReceiptStatus] = useState("draft");
+  const [sentToAccounting, setSentToAccounting] = useState(false);
+  const [sendingToAccounting, setSendingToAccounting] = useState(false);
+  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; success: boolean; sent: any; response: any; error?: string }>({ open: false, success: false, sent: null, response: null });
 
   const handleCloseEntry = async () => {
     if (!selectedReceiptId) return;
@@ -576,6 +581,117 @@ const ReceivingCoins = () => {
       toast.error(err.message || "Error closing entry");
     }
   };
+
+  const handleSendToAccounting = async () => {
+    if (!selectedReceiptId) return;
+    const confirmedLines = lines.filter(l => l.is_confirmed);
+    if (confirmedLines.length === 0) {
+      toast.error(isArabic ? "لا توجد بنود مؤكدة" : "No confirmed lines to send");
+      return;
+    }
+    setSendingToAccounting(true);
+    try {
+      // Fetch supplier code (Main Supplier), currency code, bank code, and per-brand/vendor details
+      const brandIds = [...new Set(confirmedLines.map(l => l.brand_id).filter(Boolean))];
+      const vendorIds = [...new Set(confirmedLines.map(l => l.supplier_id).filter(Boolean))];
+
+      const [supplierRes, currencyRes, bankRes, brandsRes, vendorsRes] = await Promise.all([
+        supplierId ? supabase.from("suppliers").select("supplier_code, supplier_name").eq("id", supplierId).maybeSingle() : Promise.resolve({ data: null }),
+        currencyId ? supabase.from("currencies").select("currency_code").eq("id", currencyId).maybeSingle() : Promise.resolve({ data: null }),
+        bankId ? supabase.from("banks").select("bank_code, bank_name").eq("id", bankId).maybeSingle() : Promise.resolve({ data: null }),
+        brandIds.length ? supabase.from("brands").select("id, brand_code, brand_name").in("id", brandIds) : Promise.resolve({ data: [] }),
+        vendorIds.length ? supabase.from("suppliers").select("id, supplier_name").in("id", vendorIds) : Promise.resolve({ data: [] }),
+      ]);
+
+      const supplierCode = (supplierRes.data as any)?.supplier_code || "";
+      const currencyCode = (currencyRes.data as any)?.currency_code || "SAR";
+      const bankCode = (bankRes.data as any)?.bank_code || "";
+      const brandMap: Record<string, { code: string; name: string }> = {};
+      for (const b of (brandsRes.data || []) as any[]) brandMap[b.id] = { code: b.brand_code || "", name: b.brand_name || "" };
+      const vendorMap: Record<string, string> = {};
+      for (const v of (vendorsRes.data || []) as any[]) vendorMap[v.id] = v.supplier_name || "";
+
+      // periodCode as MM/yyyy from receipt date
+      const dt = new Date(receiptDate);
+      const periodCode = `${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()}`;
+
+      // Header-level notes: use the first confirmed line's brand + vendor for context
+      const firstLine = confirmedLines[0];
+      const firstBrand = brandMap[firstLine.brand_id]?.name || firstLine.brand_name || "";
+      const firstVendor = vendorMap[firstLine.supplier_id] || "";
+      const headerNotes = `Purchase Coins For ${firstBrand} from ${firstVendor}`;
+
+      const invoice = {
+        vendorCode: supplierCode,
+        invoiceDate: receiptDate,
+        dueDate: receiptDate,
+        periodCode,
+        currencyCode,
+        exchangeRate: parseFloat(exchangeRate) || 1.0,
+        reference: orderNumber || receiptNumber,
+        notes: headerNotes,
+        status: "POSTED",
+        businessUnitCode: "Asus-Trading",
+        costCenterCode: "",
+        lines: confirmedLines.map(l => {
+          const brandName = brandMap[l.brand_id]?.name || l.brand_name || "";
+          const vendorName = vendorMap[l.supplier_id] || "";
+          return {
+            itemCode: brandMap[l.brand_id]?.code || "",
+            description: `Purchase Coins For ${brandName} from ${vendorName}`,
+            quantity: Number(l.coins) || 0,
+            unitPrice: Number(l.unit_price) || 0,
+            taxRate: 0,
+            costCenterCode: "",
+          };
+        }),
+      };
+
+      const payment = {
+        paymentMethod: "BANK_TRANSFER",
+        bankCode,
+        referenceNo: receiptNumber,
+      };
+
+      toast.info(isArabic ? "جاري الإرسال إلى المحاسبة..." : "Sending to Accounting...");
+
+      const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", {
+        body: { invoice, payment },
+      });
+      if (error) throw error;
+
+      const success = data?.success === true;
+      const sentPayload = data?.sent ?? { invoice, payment };
+      const responsePayload = data?.response ?? data;
+
+      // Persist result
+      const { data: { user } } = await supabase.auth.getUser();
+      const userName = (user?.user_metadata as any)?.full_name || user?.email || "";
+      await supabase.from("receiving_coins_header").update({
+        sent_to_accounting: success,
+        sent_to_accounting_at: success ? new Date().toISOString() : null,
+        sent_to_accounting_by: success ? userName : null,
+        sajel_payload: sentPayload,
+        sajel_response: responsePayload,
+      } as any).eq("id", selectedReceiptId);
+
+      if (success) {
+        setSentToAccounting(true);
+        toast.success(isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting successfully");
+      } else {
+        toast.error(data?.error || (isArabic ? "فشل الإرسال" : "Failed to send"));
+      }
+
+      setSajelDialog({ open: true, success, sent: sentPayload, response: responsePayload, error: data?.error });
+      fetchReceipts();
+    } catch (err: any) {
+      toast.error(err.message || "Error sending to accounting");
+      setSajelDialog({ open: true, success: false, sent: null, response: null, error: err.message });
+    } finally {
+      setSendingToAccounting(false);
+    }
+  };
+
 
   const openNewEntry = () => {
     resetForm();
@@ -799,6 +915,7 @@ const ReceivingCoins = () => {
       setCurrencyId(h.currency_id || "");
       setExchangeRate(h.exchange_rate?.toString() || "");
       setReceiptStatus(h.status || "draft");
+      setSentToAccounting(!!h.sent_to_accounting);
       setLinkedPurchaseOrderId(h.purchase_order_id || null);
 
       // Fetch order number if linked
@@ -1127,8 +1244,63 @@ const ReceivingCoins = () => {
               {isArabic ? "إغلاق الإيصال" : "Close Entry"}
             </Button>
           )}
+          {selectedReceiptId && receiptStatus === "closed" && (
+            <Button
+              variant="outline"
+              onClick={handleSendToAccounting}
+              disabled={sendingToAccounting || sentToAccounting}
+              className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              {sendingToAccounting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+              {sentToAccounting
+                ? (isArabic ? "تم الإرسال إلى المحاسبة" : "Sent to Accounting")
+                : (isArabic ? "إرسال إلى المحاسبة" : "Send to Accounting")}
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Send to Accounting Result Dialog */}
+      <Dialog open={sajelDialog.open} onOpenChange={(o) => setSajelDialog(s => ({ ...s, open: o }))}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {sajelDialog.success ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-destructive" />
+              )}
+              {sajelDialog.success
+                ? (isArabic ? "تم الإرسال إلى المحاسبة بنجاح" : "Sent to Accounting Successfully")
+                : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل (AP Invoice + Payment)" : "Request Sent (AP Invoice + Payment)"}</div>
+              <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
+{JSON.stringify(sajelDialog.sent, null, 2)}
+              </pre>
+            </div>
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
+              {sajelDialog.error && (
+                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{sajelDialog.error}</div>
+              )}
+              <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
+{JSON.stringify(sajelDialog.response, null, 2)}
+              </pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSajelDialog(s => ({ ...s, open: false }))}>
+              {isArabic ? "إغلاق" : "Close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       {/* Header Form */}
       <Card>
