@@ -562,7 +562,7 @@ const ReceivingCoins = () => {
   const [receiptStatus, setReceiptStatus] = useState("draft");
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const [sendingToAccounting, setSendingToAccounting] = useState(false);
-  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; success: boolean; sent: any; response: any; error?: string }>({ open: false, success: false, sent: null, response: null });
+  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string }>({ open: false, status: "pending", sent: null, response: null });
 
   const handleCloseEntry = async () => {
     if (!selectedReceiptId) return;
