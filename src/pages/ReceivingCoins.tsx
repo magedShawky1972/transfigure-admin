@@ -915,6 +915,7 @@ const ReceivingCoins = () => {
       setCurrencyId(h.currency_id || "");
       setExchangeRate(h.exchange_rate?.toString() || "");
       setReceiptStatus(h.status || "draft");
+      setSentToAccounting(!!h.sent_to_accounting);
       setLinkedPurchaseOrderId(h.purchase_order_id || null);
 
       // Fetch order number if linked
