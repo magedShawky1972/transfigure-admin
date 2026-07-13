@@ -90,6 +90,68 @@ const CoinsPurchaseFollowUp = () => {
     return true;
   };
 
+  // Multi-column sort state: array of { key, direction } in priority order
+  type SortRule = { key: string; direction: "asc" | "desc" };
+  const [sortConfig, setSortConfig] = useState<SortRule[]>([]);
+
+  const applyMultiSort = <T extends any>(items: T[], getValue: (item: T, key: string) => any): T[] => {
+    if (sortConfig.length === 0) return items;
+    return [...items].sort((a, b) => {
+      for (const rule of sortConfig) {
+        const va = getValue(a, rule.key);
+        const vb = getValue(b, rule.key);
+        const aNull = va === undefined || va === null || va === "";
+        const bNull = vb === undefined || vb === null || vb === "";
+        if (aNull && bNull) continue;
+        if (aNull) return rule.direction === "asc" ? 1 : -1;
+        if (bNull) return rule.direction === "asc" ? -1 : 1;
+
+        let cmp = 0;
+        if (typeof va === "number" && typeof vb === "number") {
+          cmp = va - vb;
+        } else if (typeof va === "string" && typeof vb === "string") {
+          cmp = va.localeCompare(vb);
+        } else {
+          const aStr = String(va).toLowerCase();
+          const bStr = String(vb).toLowerCase();
+          cmp = aStr.localeCompare(bStr);
+        }
+        if (cmp !== 0) return rule.direction === "asc" ? cmp : -cmp;
+      }
+      return 0;
+    });
+  };
+
+  const handleHeaderClick = (key: string, e: React.MouseEvent) => {
+    setSortConfig(prev => {
+      const idx = prev.findIndex(r => r.key === key);
+      if (e.ctrlKey || e.metaKey) {
+        if (idx === -1) return [...prev, { key, direction: "asc" }];
+        const current = prev[idx];
+        if (current.direction === "asc") {
+          return prev.map(r => r.key === key ? { key, direction: "desc" } : r);
+        }
+        return prev.filter(r => r.key !== key);
+      }
+      if (idx === -1) return [{ key, direction: "asc" }];
+      if (prev[idx].direction === "asc") return [{ key, direction: "desc" }];
+      return [];
+    });
+  };
+
+  const getSortIcon = (key: string) => {
+    const idx = sortConfig.findIndex(r => r.key === key);
+    if (idx === -1) return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground opacity-50" />;
+    const rule = sortConfig[idx];
+    return rule.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5 text-primary" /> : <ArrowDown className="h-3.5 w-3.5 text-primary" />;
+  };
+
+  const getSortPriority = (key: string) => {
+    const idx = sortConfig.findIndex(r => r.key === key);
+    if (idx === -1 || sortConfig.length <= 1) return null;
+    return idx + 1;
+  };
+
   useEffect(() => { fetchOrders(); fetchSheetOrders(); fetchSalesSheetOrders(); fetchAdvancePayments(); }, []);
 
   const fetchOrders = async () => {
