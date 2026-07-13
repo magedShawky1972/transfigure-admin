@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, Trash2, Save, Upload, FileText, X, Coins, ArrowLeft, Eye, Image, CheckCircle2, Lock, ShieldCheck, Undo2, Download, CalendarIcon, FileDown, Send, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import ExcelJS from "exceljs";
