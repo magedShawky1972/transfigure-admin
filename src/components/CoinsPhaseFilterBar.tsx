@@ -47,22 +47,24 @@ const CoinsPhaseFilterBar = ({
   return (
     <div className="flex flex-wrap items-center gap-3">
       {/* Status Filter */}
-      <Select value={viewFilter} onValueChange={(v) => onViewFilterChange(v as PhaseViewFilter)}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="pending">{displayPendingLabel}</SelectItem>
-          <SelectItem value="sent">{displaySentLabel}</SelectItem>
-          {showAccountingOptions && (
-            <>
-              <SelectItem value="sent_to_acc">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc."}</SelectItem>
-              <SelectItem value="not_sent_to_acc">{isArabic ? "لم يُرسل للمحاسبة" : "Not Sent to Acc."}</SelectItem>
-            </>
-          )}
-          <SelectItem value="all">{isArabic ? "الكل" : "All"}</SelectItem>
-        </SelectContent>
-      </Select>
+      {!hideStatusSelect && (
+        <Select value={viewFilter} onValueChange={(v) => onViewFilterChange(v as PhaseViewFilter)}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">{displayPendingLabel}</SelectItem>
+            <SelectItem value="sent">{displaySentLabel}</SelectItem>
+            {showAccountingOptions && (
+              <>
+                <SelectItem value="sent_to_acc">{isArabic ? "أُرسل للمحاسبة" : "Sent to Acc."}</SelectItem>
+                <SelectItem value="not_sent_to_acc">{isArabic ? "لم يُرسل للمحاسبة" : "Not Sent to Acc."}</SelectItem>
+              </>
+            )}
+            <SelectItem value="all">{isArabic ? "الكل" : "All"}</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
 
 
       {/* From Date */}
