@@ -1318,10 +1318,10 @@ const ReceivingCoins = () => {
             <div className="space-y-2">
               <div className="font-semibold text-sm">{isArabic ? "استجابة الخادم" : "Server Response"}</div>
               {sajelDialog.error && (
-                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{sajelDialog.error}</div>
+                <div className="text-sm text-destructive p-2 bg-destructive/10 rounded">{toDisplayMessage(sajelDialog.error)}</div>
               )}
               <pre className="text-xs bg-muted p-3 rounded max-h-[60vh] overflow-auto whitespace-pre-wrap">
-{safeJsonDisplay(sajelDialog.response)}
+{String(safeJsonDisplay(sajelDialog.response) ?? "")}
               </pre>
             </div>
           </div>
