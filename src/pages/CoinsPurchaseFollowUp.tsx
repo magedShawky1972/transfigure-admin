@@ -165,6 +165,7 @@ const CoinsPurchaseFollowUp = () => {
   });
 
   const filteredSalesSheetOrders = salesSheetOrders.filter(o => {
+    if (!inDateRange(o.created_at)) return false;
     if (salesSheetFilterPhase !== "all" && o.current_phase !== salesSheetFilterPhase) return false;
     if (salesSheetSearchText) {
       const s = salesSheetSearchText.toLowerCase();
