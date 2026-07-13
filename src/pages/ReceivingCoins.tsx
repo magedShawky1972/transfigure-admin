@@ -1269,7 +1269,9 @@ const ReceivingCoins = () => {
            onFromDateChange={setFromDate}
            onToDateChange={setToDate}
            pendingLabel={isArabic ? "غير مغلقة" : "Not Closed"}
-           sentLabel={isArabic ? "مغلقة" : "Closed"}
+            sentLabel={isArabic ? "مغلقة" : "Closed"}
+            showAccountingOptions
+
          />
 
          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
