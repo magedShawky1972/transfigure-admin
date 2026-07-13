@@ -952,13 +952,13 @@ const CoinsPurchaseFollowUp = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAdvancePayments.length === 0 ? (
+                    {sortedAdvancePayments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           {advancePaymentLoading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد دفعات" : "No payments found")}
                         </TableCell>
                       </TableRow>
-                    ) : filteredAdvancePayments.map(o => {
+                    ) : sortedAdvancePayments.map(o => {
                       const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
                       const phaseInfo = advancePaymentPhaseConfig[phase as keyof typeof advancePaymentPhaseConfig] || advancePaymentPhaseConfig.entry;
                       return (
