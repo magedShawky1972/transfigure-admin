@@ -283,7 +283,7 @@ const ReceivingCoins = () => {
   const fetchReceipts = async () => {
     const { data } = await supabase
       .from("receiving_coins_header")
-      .select("*, currencies(currency_code), coins_purchase_orders(order_number, suppliers(supplier_name))")
+      .select("*, currencies(currency_code), main_supplier:suppliers!receiving_coins_header_supplier_id_fkey(supplier_name), coins_purchase_orders(order_number, suppliers(supplier_name))")
       .order("created_at", { ascending: false })
       .range(0, 9999);
     if (data) {
