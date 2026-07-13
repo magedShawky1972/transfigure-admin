@@ -411,6 +411,25 @@ const CoinsPurchaseFollowUp = () => {
         </Button>
       </div>
 
+      <Card>
+        <CardContent className="p-3 flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">{isArabic ? "من تاريخ" : "From Date"}</label>
+            <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-44" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">{isArabic ? "إلى تاريخ" : "To Date"}</label>
+            <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-44" />
+          </div>
+          {(fromDate || toDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>
+              {isArabic ? "مسح" : "Clear"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFilterPhase("all"); setSheetFilterPhase("all"); }}>
         <TabsList>
           <TabsTrigger value="purchase" className="gap-2">
