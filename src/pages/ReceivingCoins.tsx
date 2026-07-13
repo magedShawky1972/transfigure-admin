@@ -1285,7 +1285,7 @@ const ReceivingCoins = () => {
             <Button 
               variant="outline" 
               onClick={handleCloseEntry} 
-              disabled={(() => { const c = parseFloat(controlAmount) || 0; return c <= 0 || totalAmount < c; })()}
+              disabled={(() => { const c = parseFloat(controlAmount) || 0; return c <= 0 || totalAmount + 0.005 < c; })()}
               className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
             >
               <CheckCircle2 className="h-4 w-4 mr-1" />
