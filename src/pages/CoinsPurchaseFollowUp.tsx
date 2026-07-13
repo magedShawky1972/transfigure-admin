@@ -296,7 +296,7 @@ const CoinsPurchaseFollowUp = () => {
   const getPurchaseSortValue = (o: any, key: string) => {
     switch (key) {
       case "order_number": return o.order_number || "";
-      case "brand_name": return (o.brands as any)?.brand_name || "";
+      case "brand_name": return getOrderBrandNames(o).join(", ");
       case "supplier_name": return (o.suppliers as any)?.supplier_name || "";
       case "base_amount_sar": return parseFloat(o.base_amount_sar || 0);
       case "current_phase": return o.current_phase || "";
