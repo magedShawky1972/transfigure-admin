@@ -582,7 +582,7 @@ const ReceivingCoins = () => {
       // Recompute status
       if (selectedReceiptId && receiptStatus !== "closed") {
         const anyConfirmed = updatedLines.some(l => l.is_confirmed);
-        const newStatus = anyConfirmed ? computeDeliveryStatus(updatedLines, brandControlAmounts) : "draft";
+        const newStatus = anyConfirmed ? computeDeliveryStatus(updatedLines, brandControlAmounts, parseFloat(controlAmount) || 0) : "draft";
         await supabase.from("receiving_coins_header").update({ status: newStatus } as any).eq("id", selectedReceiptId);
         setReceiptStatus(newStatus);
       }
