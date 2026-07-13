@@ -655,13 +655,13 @@ const CoinsPurchaseFollowUp = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredOrders.length === 0 ? (
+                    {sortedOrders.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           {loading ? (isArabic ? "جاري التحميل..." : "Loading...") : (isArabic ? "لا توجد طلبات" : "No orders found")}
                         </TableCell>
                       </TableRow>
-                    ) : filteredOrders.map(o => {
+                    ) : sortedOrders.map(o => {
                       const phase = phaseConfig[o.current_phase as keyof typeof phaseConfig] || phaseConfig.creation;
                       const status = statusConfig[o.status as keyof typeof statusConfig] || statusConfig.draft;
                       return (
