@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import CoinsOrderAttachments from "@/components/CoinsOrderAttachments";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Supplier { id: string; supplier_name: string; }
 interface Brand { id: string; brand_name: string; one_usd_to_coins?: number | null; }
