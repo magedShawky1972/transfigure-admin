@@ -1373,11 +1373,8 @@ const ReceivingCoins = () => {
 
         {(() => {
           const filteredReceipts = receipts.filter(r => {
-            // Status filter
-            if (statusFilter === "pending" && r.status === "closed") return false;
-            if (statusFilter === "sent" && (r.status !== "closed" || (r as any).sent_to_accounting)) return false;
-            if (statusFilter === "sent_to_acc" && !(r as any).sent_to_accounting) return false;
-            if (statusFilter === "not_sent_to_acc" && (r as any).sent_to_accounting) return false;
+            // Stage tab filter
+            if (getReceiptStage(r) !== stageTab) return false;
             // Date range filter
             if (fromDate && r.receipt_date && r.receipt_date < format(fromDate, "yyyy-MM-dd")) return false;
             if (toDate && r.receipt_date && r.receipt_date > format(toDate, "yyyy-MM-dd")) return false;
