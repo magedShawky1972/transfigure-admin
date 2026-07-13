@@ -1173,7 +1173,7 @@ const ReceivingCoins = () => {
                       <TableBody>
                         {filteredReceipts.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                               {isArabic ? "لا توجد إيصالات" : "No receipts found"}
                             </TableCell>
                           </TableRow>
@@ -1198,6 +1198,9 @@ const ReceivingCoins = () => {
                                   {r.status === "full_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{isArabic ? "تسليم كامل" : "Full Delivery"}</span>}
                                   {r.status === "partial_delivery" && <span className="text-xs font-medium px-2 py-1 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{isArabic ? "تسليم جزئي" : "Partial Delivery"}</span>}
                                   {(r.status === "draft" || !r.status) && <span className="text-xs font-medium px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{isArabic ? "تم الإنشاء" : "Created"}</span>}
+                                </TableCell>
+                                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox checked={!!(r as any).sent_to_accounting} disabled />
                                 </TableCell>
                                 <TableCell>
                                   <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); loadReceipt(r.id); }}>
