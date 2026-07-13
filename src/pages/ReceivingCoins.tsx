@@ -701,6 +701,13 @@ const ReceivingCoins = () => {
         sajel_response: responsePayload,
       } as any).eq("id", selectedReceiptId);
 
+      if (success && linkedPurchaseOrderId) {
+        await supabase.from("coins_purchase_orders").update({
+          current_phase: "sent_to_accounting",
+          phase_updated_at: new Date().toISOString(),
+        } as any).eq("id", linkedPurchaseOrderId);
+      }
+
       const apiError = toDisplayMessage(data?.error, isArabic ? "فشل الإرسال" : "Failed to send");
 
       if (success) {
