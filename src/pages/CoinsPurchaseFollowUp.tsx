@@ -160,7 +160,7 @@ const CoinsPurchaseFollowUp = () => {
       .from("coins_purchase_orders")
       .select("*, brands(brand_name), suppliers(supplier_name), banks(bank_name)")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(2000);
     if (data) setOrders(data);
     setLoading(false);
   };
