@@ -590,6 +590,7 @@ const ReceivingCoins = () => {
       return;
     }
     setSendingToAccounting(true);
+    setSajelDialog({ open: true, status: "pending", sent: null, response: null });
     try {
       // Fetch supplier code (Main Supplier), currency code, bank code, and per-brand/vendor details
       const brandIds = [...new Set(confirmedLines.map(l => l.brand_id).filter(Boolean))];
