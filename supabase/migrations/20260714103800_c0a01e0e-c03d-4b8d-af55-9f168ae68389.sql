@@ -1,0 +1,1 @@
+ALTER TABLE public.sajel_erp_settings ADD COLUMN IF NOT EXISTS generate_batch_number_url text;
