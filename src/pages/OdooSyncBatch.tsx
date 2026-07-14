@@ -2172,7 +2172,7 @@ const OdooSyncBatch = () => {
 
 
   // Execute sync for aggregated invoices
-  const executeAggregatedSync = async (toSync: AggregatedInvoice[]) => {
+  const executeAggregatedSync = async (toSync: AggregatedInvoice[], preFetchedBatchNumber?: string) => {
     // Reset stop flag
     stopRequestedRef.current = false;
     setStopRequested(false);
