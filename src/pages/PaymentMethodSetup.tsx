@@ -839,7 +839,7 @@ const PaymentMethodSetup = () => {
               ))}
 
               {/* Add New Method */}
-              <div className="grid grid-cols-9 gap-4 items-center pt-4 border-t">
+              <div className="grid grid-cols-10 gap-4 items-center pt-4 border-t">
                 <Input
                   placeholder={language === "ar" ? "نوع الدفع" : "Payment method"}
                   value={newMethod.payment_type}
@@ -857,6 +857,16 @@ const PaymentMethodSetup = () => {
                     setNewMethod((prev) => ({
                       ...prev,
                       payment_method: e.target.value,
+                    }))
+                  }
+                />
+                <Input
+                  placeholder={language === "ar" ? "لاحقة" : "Suffix"}
+                  value={newMethod.suffix_for_payment_brand}
+                  onChange={(e) =>
+                    setNewMethod((prev) => ({
+                      ...prev,
+                      suffix_for_payment_brand: e.target.value,
                     }))
                   }
                 />
