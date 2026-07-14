@@ -50,6 +50,7 @@ const PaymentMethodSetup = () => {
   const [newMethod, setNewMethod] = useState({
     payment_type: "",
     payment_method: "",
+    suffix_for_payment_brand: "",
     gateway_fee: 0,
     fixed_value: 0,
     vat_fee: 0,
