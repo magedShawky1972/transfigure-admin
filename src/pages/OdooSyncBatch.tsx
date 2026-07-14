@@ -2375,9 +2375,9 @@ const OdooSyncBatch = () => {
     // Track results for database storage (since state updates are async)
     const syncResults: Map<string, Partial<OrderGroup>> = new Map();
 
-    // For Sajel: fetch a fresh batchNumber once for the entire batch.
-    let sajelBatchNumber: string | undefined;
-    if (syncWithSajel) {
+    // For Sajel: fetch a fresh batchNumber once for the entire batch (unless one was pre-fetched via the confirm dialog).
+    let sajelBatchNumber: string | undefined = preFetchedBatchNumber;
+    if (syncWithSajel && !sajelBatchNumber) {
       try {
         sajelBatchNumber = await fetchSajelBatchNumber();
         console.log('Sajel batchNumber for run:', sajelBatchNumber);
