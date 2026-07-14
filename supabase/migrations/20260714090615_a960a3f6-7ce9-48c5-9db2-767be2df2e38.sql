@@ -1,0 +1,1 @@
+ALTER TABLE public.payment_methods ADD COLUMN IF NOT EXISTS suffix_for_payment_brand TEXT;

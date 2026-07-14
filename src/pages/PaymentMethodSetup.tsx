@@ -24,6 +24,7 @@ interface PaymentMethod {
   id: string;
   payment_type: string;
   payment_method: string;
+  suffix_for_payment_brand: string | null;
   gateway_fee: number;
   fixed_value: number;
   vat_fee: number;
@@ -33,6 +34,7 @@ interface PaymentMethod {
 const paymentMethodSchema = z.object({
   payment_type: z.string().trim().min(1, { message: "Payment method is required" }).max(100),
   payment_method: z.string().trim().min(1, { message: "Payment brand is required" }).max(100),
+  suffix_for_payment_brand: z.string().trim().max(100).optional().nullable(),
   gateway_fee: z.number().min(0, { message: "Gateway fee must be 0 or greater" }),
   fixed_value: z.number().min(0, { message: "Fixed value must be 0 or greater" }),
   vat_fee: z.number().min(0, { message: "VAT fee must be 0 or greater" }),
@@ -48,6 +50,7 @@ const PaymentMethodSetup = () => {
   const [newMethod, setNewMethod] = useState({
     payment_type: "",
     payment_method: "",
+    suffix_for_payment_brand: "",
     gateway_fee: 0,
     fixed_value: 0,
     vat_fee: 0,
@@ -101,6 +104,7 @@ const PaymentMethodSetup = () => {
       paymentMethodSchema.parse({
         payment_type: method.payment_type,
         payment_method: method.payment_method,
+        suffix_for_payment_brand: method.suffix_for_payment_brand,
         gateway_fee: method.gateway_fee,
         fixed_value: method.fixed_value,
         vat_fee: method.vat_fee,
@@ -111,11 +115,12 @@ const PaymentMethodSetup = () => {
         .update({
           payment_type: method.payment_type,
           payment_method: method.payment_method,
+          suffix_for_payment_brand: method.suffix_for_payment_brand?.trim() || null,
           gateway_fee: method.gateway_fee,
           fixed_value: method.fixed_value,
           vat_fee: method.vat_fee,
           is_active: method.is_active,
-        })
+        } as any)
         .eq("id", method.id)
         .select("id");
 
@@ -158,6 +163,7 @@ const PaymentMethodSetup = () => {
       const payload = {
         payment_type: newMethod.payment_type.trim(),
         payment_method: newMethod.payment_method.trim(),
+        suffix_for_payment_brand: newMethod.suffix_for_payment_brand.trim() || null,
         gateway_fee: newMethod.gateway_fee,
         fixed_value: newMethod.fixed_value,
         vat_fee: newMethod.vat_fee,
@@ -167,8 +173,8 @@ const PaymentMethodSetup = () => {
 
       const { data, error } = await supabase
         .from("payment_methods")
-        .insert([{ ...payload, is_active: true }])
-        .select("id, payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active");
+        .insert([{ ...payload, is_active: true } as any])
+        .select("*");
 
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -188,13 +194,15 @@ const PaymentMethodSetup = () => {
       setNewMethod({
         payment_type: "",
         payment_method: "",
+        suffix_for_payment_brand: "",
         gateway_fee: 0,
         fixed_value: 0,
         vat_fee: 0,
       });
 
-      setPaymentMethods((prev) => [...data, ...prev]);
+      setPaymentMethods((prev) => [...(data as any as PaymentMethod[]), ...prev]);
       return true;
+
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
@@ -259,6 +267,7 @@ const PaymentMethodSetup = () => {
       const hasPendingNewMethod =
         newMethod.payment_type.trim() !== "" ||
         newMethod.payment_method.trim() !== "" ||
+        newMethod.suffix_for_payment_brand.trim() !== "" ||
         newMethod.gateway_fee !== 0 ||
         newMethod.fixed_value !== 0 ||
         newMethod.vat_fee !== 0;
@@ -659,12 +668,15 @@ const PaymentMethodSetup = () => {
           ) : (
             <div className="space-y-4">
               {/* Header */}
-              <div className="grid grid-cols-9 gap-4 font-semibold text-sm pb-2 border-b">
+              <div className="grid grid-cols-10 gap-4 font-semibold text-sm pb-2 border-b">
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "طريقة الدفع" : "Payment Method"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "علامة الدفع التجارية" : "Payment Brand"}
+                </div>
+                <div className={language === "ar" ? "text-right" : ""}>
+                  {language === "ar" ? "لاحقة علامة الدفع" : "Suffix for Payment Brand"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "رسوم البوابة %" : "Gateway Fee %"}
@@ -691,7 +703,7 @@ const PaymentMethodSetup = () => {
 
               {/* Existing Payment Methods */}
               {paymentMethods.map((method) => (
-                <div key={method.id} className="grid grid-cols-9 gap-4 items-center">
+                <div key={method.id} className="grid grid-cols-10 gap-4 items-center">
                   <Input
                     value={method.payment_type || ""}
                     onChange={(e) => {
@@ -713,6 +725,17 @@ const PaymentMethodSetup = () => {
                       );
                     }}
                     placeholder={language === "ar" ? "علامة الدفع" : "Payment brand"}
+                  />
+                  <Input
+                    value={method.suffix_for_payment_brand ?? ""}
+                    onChange={(e) => {
+                      setPaymentMethods((prev) =>
+                        prev.map((m) =>
+                          m.id === method.id ? { ...m, suffix_for_payment_brand: e.target.value } : m
+                        )
+                      );
+                    }}
+                    placeholder={language === "ar" ? "لاحقة" : "Suffix"}
                   />
                   <Input
                     type="number"
@@ -816,7 +839,7 @@ const PaymentMethodSetup = () => {
               ))}
 
               {/* Add New Method */}
-              <div className="grid grid-cols-9 gap-4 items-center pt-4 border-t">
+              <div className="grid grid-cols-10 gap-4 items-center pt-4 border-t">
                 <Input
                   placeholder={language === "ar" ? "نوع الدفع" : "Payment method"}
                   value={newMethod.payment_type}
@@ -834,6 +857,16 @@ const PaymentMethodSetup = () => {
                     setNewMethod((prev) => ({
                       ...prev,
                       payment_method: e.target.value,
+                    }))
+                  }
+                />
+                <Input
+                  placeholder={language === "ar" ? "لاحقة" : "Suffix"}
+                  value={newMethod.suffix_for_payment_brand}
+                  onChange={(e) =>
+                    setNewMethod((prev) => ({
+                      ...prev,
+                      suffix_for_payment_brand: e.target.value,
                     }))
                   }
                 />
