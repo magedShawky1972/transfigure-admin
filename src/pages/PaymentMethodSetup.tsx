@@ -104,6 +104,7 @@ const PaymentMethodSetup = () => {
       paymentMethodSchema.parse({
         payment_type: method.payment_type,
         payment_method: method.payment_method,
+        suffix_for_payment_brand: method.suffix_for_payment_brand,
         gateway_fee: method.gateway_fee,
         fixed_value: method.fixed_value,
         vat_fee: method.vat_fee,
@@ -114,11 +115,12 @@ const PaymentMethodSetup = () => {
         .update({
           payment_type: method.payment_type,
           payment_method: method.payment_method,
+          suffix_for_payment_brand: method.suffix_for_payment_brand?.trim() || null,
           gateway_fee: method.gateway_fee,
           fixed_value: method.fixed_value,
           vat_fee: method.vat_fee,
           is_active: method.is_active,
-        })
+        } as any)
         .eq("id", method.id)
         .select("id");
 
@@ -161,6 +163,7 @@ const PaymentMethodSetup = () => {
       const payload = {
         payment_type: newMethod.payment_type.trim(),
         payment_method: newMethod.payment_method.trim(),
+        suffix_for_payment_brand: newMethod.suffix_for_payment_brand.trim() || null,
         gateway_fee: newMethod.gateway_fee,
         fixed_value: newMethod.fixed_value,
         vat_fee: newMethod.vat_fee,
@@ -170,8 +173,8 @@ const PaymentMethodSetup = () => {
 
       const { data, error } = await supabase
         .from("payment_methods")
-        .insert([{ ...payload, is_active: true }])
-        .select("id, payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active");
+        .insert([{ ...payload, is_active: true } as any])
+        .select("*");
 
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -191,13 +194,15 @@ const PaymentMethodSetup = () => {
       setNewMethod({
         payment_type: "",
         payment_method: "",
+        suffix_for_payment_brand: "",
         gateway_fee: 0,
         fixed_value: 0,
         vat_fee: 0,
       });
 
-      setPaymentMethods((prev) => [...data, ...prev]);
+      setPaymentMethods((prev) => [...(data as any as PaymentMethod[]), ...prev]);
       return true;
+
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
