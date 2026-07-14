@@ -1424,6 +1424,7 @@ const OdooSyncBatch = () => {
         const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
         const totalQty = invoice.productLines.reduce((s, pl) => s + (pl.totalQty || 0), 0);
+        const totalCoins = invoice.productLines.reduce((s, pl) => s + ((pl as any).totalCoins || 0), 0);
         const totalAmount = invoice.productLines.reduce((s, pl) => s + (pl.totalAmount || 0), 0);
         const totalCost = invoice.productLines.reduce((s, pl) => {
           const cs = (pl as any).costSold;
@@ -1431,6 +1432,10 @@ const OdooSyncBatch = () => {
           const cp = (pl as any).costPrice ?? 0;
           return s + Number(cp) * (pl.totalQty || 0);
         }, 0);
+
+        // For ABC class A brands, quantity sent to Sajel is the sum of coins
+        // (not the sum of item qty). Unit price/cost are re-derived accordingly.
+        const qtyForSajel = isClassA ? (totalCoins || totalQty || 1) : (totalQty || 1);
 
         // Keep attribute order EXACTLY as Sajel spec
         invoicePayload = {
@@ -1446,9 +1451,9 @@ const OdooSyncBatch = () => {
           lines: [{
             itemCode: brandCode,
             description: invoice.brandName || brandCode,
-            quantity: totalQty || 1,
-            unitPrice: totalQty ? totalAmount / totalQty : totalAmount,
-            unitCost: totalQty ? totalCost / totalQty : totalCost,
+            quantity: qtyForSajel,
+            unitPrice: qtyForSajel ? totalAmount / qtyForSajel : totalAmount,
+            unitCost: qtyForSajel ? totalCost / qtyForSajel : totalCost,
           }],
         };
 
