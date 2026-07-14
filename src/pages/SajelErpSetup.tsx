@@ -166,6 +166,17 @@ export default function SajelErpSetup() {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط توليد رقم الدفعة" : "Generate Batch Number URL"}</Label>
+            <Input
+              value={form.generate_batch_number_url}
+              onChange={update("generate_batch_number_url")}
+              placeholder="https://erp.edaraasus.com/ap/batch-number/reset"
+              dir="ltr"
+            />
+          </div>
+
+
           <div className="flex justify-end pt-2">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
