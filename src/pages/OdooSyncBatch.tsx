@@ -2196,40 +2196,21 @@ const OdooSyncBatch = () => {
     // Track results for database storage (since state updates are async)
     const syncResults: Map<string, Partial<OrderGroup>> = new Map();
 
-    for (let i = 0; i < toSync.length; i++) {
-      // Check if stop was requested
+    // Worker for a single order group. Extracted so we can run the Sajel path
+    // with bounded concurrency (much faster than one-at-a-time).
+    const processGroup = async (group: OrderGroup) => {
       if (stopRequestedRef.current) {
-        stoppedEarly = true;
-        // Mark remaining orders as stopped
-        const remainingOrders = toSync.slice(i);
-        remainingOrders.forEach(g => {
-          syncResults.set(g.orderNumber, { syncStatus: 'stopped' });
-        });
-        setOrderGroups(prev => prev.map(g => {
-          const isRemaining = remainingOrders.some(ts => ts.orderNumber === g.orderNumber);
-          if (isRemaining && g.syncStatus === 'pending') {
-            return { ...g, syncStatus: 'stopped' };
-          }
-          return g;
-        }));
-        break;
+        syncResults.set(group.orderNumber, { syncStatus: 'stopped' });
+        return;
       }
-
-      const group = toSync[i];
       setCurrentOrderIndex(orderGroups.findIndex(g => g.orderNumber === group.orderNumber));
-
-      // Mark as running
-      setOrderGroups(prev => prev.map(g => 
+      setOrderGroups(prev => prev.map(g =>
         g.orderNumber === group.orderNumber ? { ...g, syncStatus: 'running' } : g
       ));
 
-      // Sync the order
       const result = await syncSingleOrder(group);
-      
-      // Store result for database
       syncResults.set(group.orderNumber, result);
 
-      // Save this order detail immediately (avoid relying on async state)
       if (runId) {
         const mergedForDb: OrderGroup = { ...group, ...result } as OrderGroup;
         const { error: perOrderInsertError } = await supabase
@@ -2251,21 +2232,42 @@ const OdooSyncBatch = () => {
             sajel_payload: (mergedForDb as any).sajelPayload || null,
             sajel_response: (mergedForDb as any).sajelResponse || null,
           });
-
-        if (perOrderInsertError) {
-          console.error('Error saving per-order sync detail:', perOrderInsertError);
-        }
+        if (perOrderInsertError) console.error('Error saving per-order sync detail:', perOrderInsertError);
       }
 
-      // Update with result
-      setOrderGroups(prev => prev.map(g => 
+      setOrderGroups(prev => prev.map(g =>
         g.orderNumber === group.orderNumber ? { ...g, ...result } : g
       ));
 
       processedCount++;
-      // Update progress
       setSyncProgress(Math.round((processedCount / toSync.length) * 100));
+    };
+
+    // Parallel pool for Sajel (independent per-order requests). Odoo path stays
+    // sequential because its step calls share upstream state.
+    const concurrency = syncWithSajel ? 5 : 1;
+    let cursor = 0;
+    const runWorker = async () => {
+      while (true) {
+        if (stopRequestedRef.current) break;
+        const idx = cursor++;
+        if (idx >= toSync.length) break;
+        await processGroup(toSync[idx]);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, toSync.length) }, runWorker));
+
+    if (stopRequestedRef.current) {
+      stoppedEarly = true;
+      const remaining = toSync.filter(g => !syncResults.has(g.orderNumber));
+      remaining.forEach(g => syncResults.set(g.orderNumber, { syncStatus: 'stopped' }));
+      setOrderGroups(prev => prev.map(g => {
+        const isRemaining = remaining.some(ts => ts.orderNumber === g.orderNumber);
+        if (isRemaining && g.syncStatus === 'pending') return { ...g, syncStatus: 'stopped' };
+        return g;
+      }));
     }
+
 
     // Mark skipped orders
     const skippedOrders = orderGroups.filter(g => g.skipSync && g.selected);
