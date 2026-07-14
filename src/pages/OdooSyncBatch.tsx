@@ -1193,13 +1193,18 @@ const OdooSyncBatch = () => {
           exchangeRate: 1.0,
           reference: group.orderNumber,
           status: 'POSTED',
-          lines: transactions.map(l => ({
-            itemCode: l.brand_code || '',
-            description: l.brand_name || '',
-            quantity: l.qty || 1,
-            unitPrice: l.unit_price || 0,
-            unitCost: l.cost_price || (l.cost_sold && l.qty ? l.cost_sold / l.qty : 0),
-          })),
+          lines: transactions.map(l => {
+            const lineAbc = brandAbcMap.get(l.brand_code || '');
+            const lineIsClassA = lineAbc === 'A';
+            const qtyOut = lineIsClassA ? (l.coins_number || l.qty || 1) : (l.qty || 1);
+            return {
+              itemCode: l.brand_code || '',
+              description: l.brand_name || '',
+              quantity: qtyOut,
+              unitPrice: l.unit_price || 0,
+              unitCost: l.cost_price || (l.cost_sold && l.qty ? l.cost_sold / l.qty : 0),
+            };
+          }),
         };
 
         // payment block: paymentMethod, paymentType, cardType, bankCode, referenceNo
