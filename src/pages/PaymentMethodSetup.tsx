@@ -24,6 +24,7 @@ interface PaymentMethod {
   id: string;
   payment_type: string;
   payment_method: string;
+  suffix_for_payment_brand: string | null;
   gateway_fee: number;
   fixed_value: number;
   vat_fee: number;
@@ -33,6 +34,7 @@ interface PaymentMethod {
 const paymentMethodSchema = z.object({
   payment_type: z.string().trim().min(1, { message: "Payment method is required" }).max(100),
   payment_method: z.string().trim().min(1, { message: "Payment brand is required" }).max(100),
+  suffix_for_payment_brand: z.string().trim().max(100).optional().nullable(),
   gateway_fee: z.number().min(0, { message: "Gateway fee must be 0 or greater" }),
   fixed_value: z.number().min(0, { message: "Fixed value must be 0 or greater" }),
   vat_fee: z.number().min(0, { message: "VAT fee must be 0 or greater" }),
