@@ -2150,6 +2150,8 @@ const OdooSyncBatch = () => {
   const requestBatchAndConfirm = async (runFn: () => void) => {
     setBatchConfirmFetching(true);
     setBatchConfirmNumber(null);
+    setBatchConfirmRequest(null);
+    setBatchConfirmResponse(null);
     setBatchConfirmOpen(true);
     try {
       const bn = await fetchSajelBatchNumber();
