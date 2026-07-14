@@ -915,11 +915,13 @@ const OdooSyncBatch = () => {
       try {
         const { data: pmRows } = await supabase
           .from('payment_methods')
-          .select('payment_method, payment_brand, suffix_for_payment_brand');
+          .select('payment_type, payment_method, suffix_for_payment_brand');
         (pmRows || []).forEach((r: any) => {
           const sfx = (r?.suffix_for_payment_brand || '').toString().trim();
           if (!sfx) return;
-          const k = `${(r.payment_method || '').toString().trim().toLowerCase()}|${(r.payment_brand || '').toString().trim().toLowerCase()}`;
+          // In payment_methods: payment_type = gateway (e.g. hyperpay), payment_method = brand (e.g. APPLEPAY - VISA)
+          // In transaction lines: payment_method = gateway, payment_brand = brand.
+          const k = `${(r.payment_type || '').toString().trim().toLowerCase()}|${(r.payment_method || '').toString().trim().toLowerCase()}`;
           suffixMap.set(k, sfx);
         });
       } catch (e) {
@@ -929,6 +931,7 @@ const OdooSyncBatch = () => {
         const k = `${(pm || '').toString().trim().toLowerCase()}|${(pb || '').toString().trim().toLowerCase()}`;
         return suffixMap.get(k) || (pb || '');
       };
+
 
       // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
       const invoiceMap = new Map<string, {
