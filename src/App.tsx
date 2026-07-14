@@ -221,6 +221,7 @@ const App = () => (
               <Route path="/api-documentation" element={<ApiDocumentation />} />
               <Route path="/api-integration-status" element={<ApiIntegrationStatus />} />
               <Route path="/sajel-erp-setup" element={<SajelErpSetup />} />
+              <Route path="/notification-settings" element={<NotificationSettings />} />
               <Route path="/excel-sheets" element={<ExcelSheets />} />
               <Route path="/table-generator" element={<TableGenerator />} />
               <Route path="/user-setup" element={<UserSetup />} />
