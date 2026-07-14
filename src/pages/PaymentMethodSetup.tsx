@@ -668,12 +668,15 @@ const PaymentMethodSetup = () => {
           ) : (
             <div className="space-y-4">
               {/* Header */}
-              <div className="grid grid-cols-9 gap-4 font-semibold text-sm pb-2 border-b">
+              <div className="grid grid-cols-10 gap-4 font-semibold text-sm pb-2 border-b">
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "طريقة الدفع" : "Payment Method"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "علامة الدفع التجارية" : "Payment Brand"}
+                </div>
+                <div className={language === "ar" ? "text-right" : ""}>
+                  {language === "ar" ? "لاحقة علامة الدفع" : "Suffix for Payment Brand"}
                 </div>
                 <div className={language === "ar" ? "text-right" : ""}>
                   {language === "ar" ? "رسوم البوابة %" : "Gateway Fee %"}
