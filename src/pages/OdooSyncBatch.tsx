@@ -4526,6 +4526,48 @@ const OdooSyncBatch = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Batch number confirmation before Send Orders */}
+      <AlertDialog open={batchConfirmOpen} onOpenChange={setBatchConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'تأكيد رقم الدفعة' : 'Batch Number Requested'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div>
+                  {language === 'ar'
+                    ? 'تم طلب رقم الدفعة من Sajel. راجع الرقم ثم اضغط "تشغيل إرسال الطلبات" للمتابعة.'
+                    : 'A batch number has been requested from Sajel. Review it and click "Run Send Orders" to proceed.'}
+                </div>
+                <div className="rounded-md border bg-muted px-3 py-2 font-mono text-base flex items-center gap-2">
+                  <Hash className="h-4 w-4" />
+                  {batchConfirmFetching || !batchConfirmNumber
+                    ? (language === 'ar' ? 'جاري الطلب...' : 'Requesting...')
+                    : batchConfirmNumber}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={batchConfirmFetching || !batchConfirmNumber}
+              onClick={() => {
+                const run = pendingSyncRef.current;
+                pendingSyncRef.current = null;
+                setBatchConfirmOpen(false);
+                if (run) run();
+              }}
+            >
+              {language === 'ar' ? 'تشغيل إرسال الطلبات' : 'Run Send Orders'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
