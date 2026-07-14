@@ -908,6 +908,28 @@ const OdooSyncBatch = () => {
     }
     
     const buildAggregatedInvoices = async () => {
+      // Load payment_methods suffix map to normalize payment_brand for aggregation.
+      // e.g. payment_method=hyperpay, payment_brand="APPLEPAY - VISA", suffix="VISA"
+      // → normalized brand becomes "VISA" so it sums with "hyperpay/VISA".
+      const suffixMap = new Map<string, string>();
+      try {
+        const { data: pmRows } = await supabase
+          .from('payment_methods')
+          .select('payment_method, payment_brand, suffix_for_payment_brand');
+        (pmRows || []).forEach((r: any) => {
+          const sfx = (r?.suffix_for_payment_brand || '').toString().trim();
+          if (!sfx) return;
+          const k = `${(r.payment_method || '').toString().trim().toLowerCase()}|${(r.payment_brand || '').toString().trim().toLowerCase()}`;
+          suffixMap.set(k, sfx);
+        });
+      } catch (e) {
+        console.warn('Failed to load payment_methods suffix map:', e);
+      }
+      const normalizeBrand = (pm: string | null | undefined, pb: string | null | undefined) => {
+        const k = `${(pm || '').toString().trim().toLowerCase()}|${(pb || '').toString().trim().toLowerCase()}`;
+        return suffixMap.get(k) || (pb || '');
+      };
+
       // First, group by invoice criteria: date, brand, payment_method, payment_brand, user_name
       const invoiceMap = new Map<string, {
         date: string;
@@ -925,7 +947,8 @@ const OdooSyncBatch = () => {
           const dateOnly = line.created_at_date?.substring(0, 10) || '';
           // When separateByDay is false, use a fixed date part to consolidate all days
           const datePart = separateByDay ? dateOnly : 'ALL';
-          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${line.payment_brand}|${line.vendor_name || ''}`;
+          const normalizedBrand = normalizeBrand(line.payment_method, line.payment_brand);
+          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${normalizedBrand}|${line.vendor_name || ''}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -938,7 +961,7 @@ const OdooSyncBatch = () => {
               date: dateOnly,
               brandName: line.brand_name || '',
               paymentMethod: line.payment_method || '',
-              paymentBrand: line.payment_brand || '',
+              paymentBrand: normalizedBrand,
               userName: line.user_name || '',
               vendorName: line.vendor_name || '',
               lines: [line],
@@ -947,6 +970,7 @@ const OdooSyncBatch = () => {
           }
         });
       });
+
 
       // Build result with sync status
       const result: AggregatedInvoice[] = [];
