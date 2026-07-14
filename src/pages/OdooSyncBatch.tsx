@@ -285,6 +285,8 @@ const OdooSyncBatch = () => {
   const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
   const [batchConfirmNumber, setBatchConfirmNumber] = useState<string | null>(null);
   const [batchConfirmFetching, setBatchConfirmFetching] = useState(false);
+  const [batchConfirmRequest, setBatchConfirmRequest] = useState<{ method: string; url: string; body: unknown } | null>(null);
+  const [batchConfirmResponse, setBatchConfirmResponse] = useState<{ status: number; ok: boolean; body: unknown } | null>(null);
   const pendingSyncRef = useRef<null | (() => void)>(null);
   const [apiBodyView, setApiBodyView] = useState<{ orderNumber: string; payload: any; response: any } | null>(null);
 
