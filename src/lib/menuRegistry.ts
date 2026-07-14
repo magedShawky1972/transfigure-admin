@@ -258,6 +258,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/menu-customization", defaultEn: "Menu Customization", defaultAr: "تخصيص القائمة", icon: Settings },
       { url: "/integrations", defaultEn: "Integrations", defaultAr: "التكاملات", icon: Plug },
       { url: "/sajel-erp-setup", defaultEn: "Sajel ERP Setup", defaultAr: "إعداد Sajel ERP", icon: Plug },
+      { url: "/notification-settings", defaultEn: "Notification Settings", defaultAr: "إعدادات الإشعارات", icon: Mail },
     ],
   },
   {
