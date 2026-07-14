@@ -2904,7 +2904,7 @@ const OdooSyncBatch = () => {
                 isActive && "ring-2 ring-red-500/60"
               )}
               onClick={() => {
-                if (missingVendorNonACount > 0) {
+                if (missingVendorNonACount > 0 || filterMissingVendorNonA) {
                   setFilterMissingVendorNonA(prev => !prev);
                 }
               }}
