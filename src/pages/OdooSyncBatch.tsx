@@ -1177,7 +1177,7 @@ const OdooSyncBatch = () => {
   const allSelected = filteredOrderGroups.length > 0 && filteredOrderGroups.every(g => g.selected);
 
   // Sync a single order to Odoo with step tracking using edge function
-  const syncSingleOrder = async (group: OrderGroup): Promise<Partial<OrderGroup>> => {
+  const syncSingleOrder = async (group: OrderGroup, batchNumber?: string): Promise<Partial<OrderGroup>> => {
     const stepStatus = { ...group.stepStatus };
     const transactions = group.lines;
 
