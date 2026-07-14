@@ -1,6 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
+// Module-level warm caches (per edge instance) to avoid re-fetching settings and
+// payment-method → bank lookups on every request. TTL 5 minutes.
+const SETTINGS_TTL_MS = 5 * 60 * 1000;
+let cachedSettings: { api_key: string; one_step_combined_transaction_url: string } | null = null;
+let cachedSettingsAt = 0;
+const bankCodeCache = new Map<string, { code: string; at: number }>();
+const BANK_TTL_MS = 5 * 60 * 1000;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
