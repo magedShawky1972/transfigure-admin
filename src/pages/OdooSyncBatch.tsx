@@ -1244,6 +1244,9 @@ const OdooSyncBatch = () => {
     const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
     if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
 
+    // Track request/response so the confirm popup can show them.
+    setBatchConfirmRequest({ method: 'POST', url: batchUrl, body: null });
+
     const response = await fetch(batchUrl, { method: 'POST' });
     const responseText = await response.text();
     let responseJson: unknown;
@@ -1252,6 +1255,8 @@ const OdooSyncBatch = () => {
     } catch {
       responseJson = responseText;
     }
+
+    setBatchConfirmResponse({ status: response.status, ok: response.ok, body: responseJson ?? responseText });
 
     if (!response.ok) {
       throw new Error(`Generate Batch Number API failed: ${response.status}`);
