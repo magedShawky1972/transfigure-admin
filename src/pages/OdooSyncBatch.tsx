@@ -1244,9 +1244,9 @@ const OdooSyncBatch = () => {
         };
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload, payment: paymentPayload },
+          body: { invoice: invoicePayload, payment: paymentPayload, batchNumber },
         });
-        const fullSent = { invoice: invoicePayload, payment: paymentPayload };
+        const fullSent = { invoice: invoicePayload, payment: paymentPayload, batchNumber };
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
