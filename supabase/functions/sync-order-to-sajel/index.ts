@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { invoice, payment } = await req.json();
+    const { invoice, payment, batchNumber } = await req.json();
     if (!invoice) {
       return new Response(JSON.stringify({ success: false, error: 'invoice required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -85,13 +85,14 @@ Deno.serve(async (req) => {
     }
 
 
-    // Ensure costCenterCode appears before the lines array in the invoice payload
+    // Ensure costCenterCode (and batchNumber) appear before the lines array in the invoice payload
     const invoiceForSajel: Record<string, unknown> = { ...invoice };
     if (invoiceForSajel.lines !== undefined) {
       const { lines, ...rest } = invoiceForSajel;
-      Object.assign(invoiceForSajel, { ...rest, costCenterCode: "P10", lines });
+      Object.assign(invoiceForSajel, { ...rest, costCenterCode: "P10", ...(batchNumber ? { batchNumber } : {}), lines });
     } else {
       invoiceForSajel.costCenterCode = "P10";
+      if (batchNumber) (invoiceForSajel as any).batchNumber = batchNumber;
     }
 
     // Preserve Sajel-required attribute order: invoice first, then payment

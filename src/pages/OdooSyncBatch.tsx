@@ -1177,7 +1177,7 @@ const OdooSyncBatch = () => {
   const allSelected = filteredOrderGroups.length > 0 && filteredOrderGroups.every(g => g.selected);
 
   // Sync a single order to Odoo with step tracking using edge function
-  const syncSingleOrder = async (group: OrderGroup): Promise<Partial<OrderGroup>> => {
+  const syncSingleOrder = async (group: OrderGroup, batchNumber?: string): Promise<Partial<OrderGroup>> => {
     const stepStatus = { ...group.stepStatus };
     const transactions = group.lines;
 
@@ -1244,9 +1244,9 @@ const OdooSyncBatch = () => {
         };
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload, payment: paymentPayload },
+          body: { invoice: invoicePayload, payment: paymentPayload, batchNumber },
         });
-        const fullSent = { invoice: invoicePayload, payment: paymentPayload };
+        const fullSent = { invoice: invoicePayload, payment: paymentPayload, batchNumber };
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
@@ -1419,7 +1419,7 @@ const OdooSyncBatch = () => {
   };
 
   // Sync an aggregated invoice to Odoo - sends combined data as ONE order
-  const syncAggregatedInvoice = async (invoice: AggregatedInvoice): Promise<Partial<AggregatedInvoice>> => {
+  const syncAggregatedInvoice = async (invoice: AggregatedInvoice, batchNumber?: string): Promise<Partial<AggregatedInvoice>> => {
     const stepStatus = { ...invoice.stepStatus };
 
     // Sajel path: consume One-Step Combined Transaction API
@@ -1552,10 +1552,10 @@ const OdooSyncBatch = () => {
         }
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload, payment: paymentPayload },
+          body: { invoice: invoicePayload, payment: paymentPayload, batchNumber },
         });
 
-        const fullSent = { invoice: invoicePayload, payment: paymentPayload };
+        const fullSent = { invoice: invoicePayload, payment: paymentPayload, batchNumber };
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
@@ -2061,13 +2061,26 @@ const OdooSyncBatch = () => {
     let processedCount = 0;
     let stoppedEarly = false;
 
+    // For Sajel: fetch a fresh batchNumber once for the entire batch.
+    let sajelBatchNumber: string | undefined;
+    if (syncWithSajel) {
+      try {
+        const r = await fetch('https://erp.edaraasus.com/ap/batch-number/reset', { method: 'POST' });
+        const j = await r.json();
+        sajelBatchNumber = j?.data?.batchNumber;
+        console.log('Sajel batchNumber for run:', sajelBatchNumber);
+      } catch (e) {
+        console.error('Failed to fetch Sajel batchNumber:', e);
+      }
+    }
+
     const processInvoice = async (invoice: AggregatedInvoice) => {
       if (stopRequestedRef.current) return;
       setAggregatedInvoices(prev => prev.map(inv =>
         inv.orderNumber === invoice.orderNumber ? { ...inv, syncStatus: 'running' } : inv
       ));
 
-      const result = await syncAggregatedInvoice(invoice);
+      const result = await syncAggregatedInvoice(invoice, sajelBatchNumber);
 
       setAggregatedInvoices(prev => prev.map(inv =>
         inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
@@ -2224,6 +2237,19 @@ const OdooSyncBatch = () => {
     // Track results for database storage (since state updates are async)
     const syncResults: Map<string, Partial<OrderGroup>> = new Map();
 
+    // For Sajel: fetch a fresh batchNumber once for the entire batch.
+    let sajelBatchNumber: string | undefined;
+    if (syncWithSajel) {
+      try {
+        const r = await fetch('https://erp.edaraasus.com/ap/batch-number/reset', { method: 'POST' });
+        const j = await r.json();
+        sajelBatchNumber = j?.data?.batchNumber;
+        console.log('Sajel batchNumber for run:', sajelBatchNumber);
+      } catch (e) {
+        console.error('Failed to fetch Sajel batchNumber:', e);
+      }
+    }
+
     // Worker for a single order group. Extracted so we can run the Sajel path
     // with bounded concurrency (much faster than one-at-a-time).
     const processGroup = async (group: OrderGroup) => {
@@ -2236,7 +2262,7 @@ const OdooSyncBatch = () => {
         g.orderNumber === group.orderNumber ? { ...g, syncStatus: 'running' } : g
       ));
 
-      const result = await syncSingleOrder(group);
+      const result = await syncSingleOrder(group, sajelBatchNumber);
       syncResults.set(group.orderNumber, result);
 
       if (runId) {
