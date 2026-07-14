@@ -6198,6 +6198,7 @@ export type Database = {
           is_active: boolean
           payment_method: string
           payment_type: string | null
+          suffix_for_payment_brand: string | null
           updated_at: string
           vat_fee: number
         }
@@ -6210,6 +6211,7 @@ export type Database = {
           is_active?: boolean
           payment_method: string
           payment_type?: string | null
+          suffix_for_payment_brand?: string | null
           updated_at?: string
           vat_fee?: number
         }
@@ -6222,6 +6224,7 @@ export type Database = {
           is_active?: boolean
           payment_method?: string
           payment_type?: string | null
+          suffix_for_payment_brand?: string | null
           updated_at?: string
           vat_fee?: number
         }
