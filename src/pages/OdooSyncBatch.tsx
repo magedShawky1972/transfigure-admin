@@ -1176,6 +1176,90 @@ const OdooSyncBatch = () => {
 
   const allSelected = filteredOrderGroups.length > 0 && filteredOrderGroups.every(g => g.selected);
 
+  const extractSajelBatchNumber = (payload: unknown): string | undefined => {
+    const keyCandidates = new Set([
+      'batchnumber',
+      'batchno',
+      'batchnum',
+      'batchid',
+      'batch',
+    ]);
+
+    const primitiveToString = (value: unknown): string | undefined => {
+      if (typeof value === 'string' || typeof value === 'number') {
+        const text = String(value).trim();
+        return text.length > 0 ? text : undefined;
+      }
+      return undefined;
+    };
+
+    const visit = (value: unknown, depth = 0): string | undefined => {
+      const primitive = primitiveToString(value);
+      if (primitive) return primitive;
+      if (!value || depth > 5) return undefined;
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          const found = visit(item, depth + 1);
+          if (found) return found;
+        }
+        return undefined;
+      }
+
+      if (typeof value !== 'object') return undefined;
+
+      const entries = Object.entries(value as Record<string, unknown>);
+      for (const [key, entryValue] of entries) {
+        const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (keyCandidates.has(normalizedKey) || normalizedKey.includes('batchnumber')) {
+          const found = visit(entryValue, depth + 1);
+          if (found) return found;
+        }
+      }
+
+      for (const wrapperKey of ['data', 'result', 'response', 'payload', 'body']) {
+        const wrapper = (value as Record<string, unknown>)[wrapperKey];
+        const found = visit(wrapper, depth + 1);
+        if (found) return found;
+      }
+
+      return undefined;
+    };
+
+    return visit(payload);
+  };
+
+  const fetchSajelBatchNumber = async (): Promise<string> => {
+    const { data: sajelCfg } = await supabase
+      .from('sajel_erp_settings')
+      .select('generate_batch_number_url')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
+    if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
+
+    const response = await fetch(batchUrl, { method: 'POST' });
+    const responseText = await response.text();
+    let responseJson: unknown;
+    try {
+      responseJson = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      responseJson = responseText;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Generate Batch Number API failed: ${response.status}`);
+    }
+
+    const batchNumber = extractSajelBatchNumber(responseJson);
+    if (!batchNumber) {
+      throw new Error('Generate Batch Number API returned no batchNumber');
+    }
+
+    return batchNumber;
+  };
+
   // Sync a single order to Odoo with step tracking using edge function
   const syncSingleOrder = async (group: OrderGroup, batchNumber?: string): Promise<Partial<OrderGroup>> => {
     const stepStatus = { ...group.stepStatus };
@@ -2069,20 +2153,18 @@ const OdooSyncBatch = () => {
     let sajelBatchNumber: string | undefined;
     if (syncWithSajel) {
       try {
-        const { data: sajelCfg } = await supabase
-          .from('sajel_erp_settings')
-          .select('generate_batch_number_url')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
-        if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
-        const r = await fetch(batchUrl, { method: 'POST' });
-        const j = await r.json();
-        sajelBatchNumber = j?.data?.batchNumber;
+        sajelBatchNumber = await fetchSajelBatchNumber();
         console.log('Sajel batchNumber for run:', sajelBatchNumber);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to fetch Sajel batchNumber:', e);
+        toast({
+          title: language === 'ar' ? 'رقم الدفعة مفقود' : 'Batch Number Missing',
+          description: e?.message || 'Generate Batch Number API did not return a batch number',
+          variant: 'destructive',
+        });
+        setIsSyncing(false);
+        setEndTime(new Date());
+        return;
       }
     }
 
@@ -2253,20 +2335,18 @@ const OdooSyncBatch = () => {
     let sajelBatchNumber: string | undefined;
     if (syncWithSajel) {
       try {
-        const { data: sajelCfg } = await supabase
-          .from('sajel_erp_settings')
-          .select('generate_batch_number_url')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
-        if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
-        const r = await fetch(batchUrl, { method: 'POST' });
-        const j = await r.json();
-        sajelBatchNumber = j?.data?.batchNumber;
+        sajelBatchNumber = await fetchSajelBatchNumber();
         console.log('Sajel batchNumber for run:', sajelBatchNumber);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to fetch Sajel batchNumber:', e);
+        toast({
+          title: language === 'ar' ? 'رقم الدفعة مفقود' : 'Batch Number Missing',
+          description: e?.message || 'Generate Batch Number API did not return a batch number',
+          variant: 'destructive',
+        });
+        setIsSyncing(false);
+        setEndTime(new Date());
+        return;
       }
     }
 
