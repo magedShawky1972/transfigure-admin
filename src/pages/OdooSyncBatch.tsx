@@ -2350,7 +2350,7 @@ const OdooSyncBatch = () => {
   };
 
   // Execute sync for given orders
-  const executeSync = async (toSync: OrderGroup[]) => {
+  const executeSync = async (toSync: OrderGroup[], preFetchedBatchNumber?: string) => {
 
     // Reset stop flag
     stopRequestedRef.current = false;
