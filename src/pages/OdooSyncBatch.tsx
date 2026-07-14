@@ -2034,46 +2034,24 @@ const OdooSyncBatch = () => {
     let processedCount = 0;
     let stoppedEarly = false;
 
-    for (let i = 0; i < toSync.length; i++) {
-      // Check if stop was requested
-      if (stopRequestedRef.current) {
-        stoppedEarly = true;
-        // Mark remaining invoices as stopped
-        const remainingInvoices = toSync.slice(i);
-        setAggregatedInvoices(prev => prev.map(inv => {
-          const isRemaining = remainingInvoices.some(r => r.orderNumber === inv.orderNumber);
-          if (isRemaining && inv.syncStatus === 'pending') {
-            return { ...inv, syncStatus: 'stopped' };
-          }
-          return inv;
-        }));
-        break;
-      }
-
-      const invoice = toSync[i];
-
-      // Mark as running
-      setAggregatedInvoices(prev => prev.map(inv => 
+    const processInvoice = async (invoice: AggregatedInvoice) => {
+      if (stopRequestedRef.current) return;
+      setAggregatedInvoices(prev => prev.map(inv =>
         inv.orderNumber === invoice.orderNumber ? { ...inv, syncStatus: 'running' } : inv
       ));
 
-      // Sync the aggregated invoice
       const result = await syncAggregatedInvoice(invoice);
 
-      // Update with result
-      setAggregatedInvoices(prev => prev.map(inv => 
+      setAggregatedInvoices(prev => prev.map(inv =>
         inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
       ));
 
-      // If success, mark all original orders as synced and save mapping
       if (result.syncStatus === 'success' && invoice.originalOrderNumbers.length > 0) {
-        // Mark original orders as synced
         await supabase
           .from('purpletransaction')
           .update({ sendodoo: true })
           .in('order_number', invoice.originalOrderNumbers);
 
-        // Save aggregated order mapping with payment details
         const mappings = invoice.originalOrderNumbers.map(originalOrderNumber => ({
           aggregated_order_number: invoice.orderNumber,
           original_order_number: originalOrderNumber,
@@ -2083,12 +2061,11 @@ const OdooSyncBatch = () => {
           payment_brand: invoice.paymentBrand,
           user_name: invoice.userName,
         }));
-        
+
         await supabase
           .from('aggregated_order_mapping')
           .upsert(mappings, { onConflict: 'original_order_number' });
 
-        // Save run detail for aggregated invoice
         if (runId) {
           await supabase
             .from('odoo_sync_run_details')
@@ -2115,7 +2092,31 @@ const OdooSyncBatch = () => {
 
       processedCount++;
       setSyncProgress(Math.round((processedCount / toSync.length) * 100));
+    };
+
+    const concurrency = syncWithSajel ? 5 : 1;
+    let cursor = 0;
+    const runWorker = async () => {
+      while (true) {
+        if (stopRequestedRef.current) break;
+        const idx = cursor++;
+        if (idx >= toSync.length) break;
+        await processInvoice(toSync[idx]);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, toSync.length) }, runWorker));
+
+    if (stopRequestedRef.current) {
+      stoppedEarly = true;
+      setAggregatedInvoices(prev => prev.map(inv => {
+        const isRemaining = toSync.some(r => r.orderNumber === inv.orderNumber);
+        if (isRemaining && inv.syncStatus === 'pending') {
+          return { ...inv, syncStatus: 'stopped' };
+        }
+        return inv;
+      }));
     }
+
 
     // Mark skipped invoices
     setAggregatedInvoices(prev => prev.map(inv => 
