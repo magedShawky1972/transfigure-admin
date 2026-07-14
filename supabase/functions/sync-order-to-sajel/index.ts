@@ -85,15 +85,14 @@ Deno.serve(async (req) => {
     }
 
 
-    // Ensure costCenterCode (and batchNumber) appear before the lines array in the invoice payload
-    const invoiceForSajel: Record<string, unknown> = { ...invoice };
-    if (invoiceForSajel.lines !== undefined) {
-      const { lines, ...rest } = invoiceForSajel;
-      Object.assign(invoiceForSajel, { ...rest, costCenterCode: "P10", ...(batchNumber ? { batchNumber } : {}), lines });
-    } else {
-      invoiceForSajel.costCenterCode = "P10";
-      if (batchNumber) (invoiceForSajel as any).batchNumber = batchNumber;
-    }
+    // Rebuild invoice so order is: ...original fields (without lines), costCenterCode, batchNumber, lines
+    const { lines: _invLines, costCenterCode: _cc, batchNumber: _bn, ...invoiceRest } = (invoice ?? {}) as Record<string, unknown>;
+    const invoiceForSajel: Record<string, unknown> = {
+      ...invoiceRest,
+      costCenterCode: "P10",
+      ...(batchNumber ? { batchNumber } : {}),
+      ...(_invLines !== undefined ? { lines: _invLines } : {}),
+    };
 
     // Preserve Sajel-required attribute order: invoice first, then payment
     const body: Record<string, unknown> = { invoice: invoiceForSajel };
