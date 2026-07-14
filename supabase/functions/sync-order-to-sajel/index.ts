@@ -25,39 +25,56 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: settings, error: sErr } = await supabase
-      .from('sajel_erp_settings')
-      .select('api_key, one_step_combined_transaction_url')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (sErr) throw sErr;
+    const now = Date.now();
+    let settings = cachedSettings;
+    if (!settings || now - cachedSettingsAt > SETTINGS_TTL_MS) {
+      const { data, error: sErr } = await supabase
+        .from('sajel_erp_settings')
+        .select('api_key, one_step_combined_transaction_url')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (sErr) throw sErr;
+      if (data?.one_step_combined_transaction_url && data?.api_key) {
+        settings = data as any;
+        cachedSettings = settings;
+        cachedSettingsAt = now;
+      }
+    }
     if (!settings?.one_step_combined_transaction_url || !settings?.api_key) {
       return new Response(JSON.stringify({ success: false, error: 'Sajel ERP One-Step Combined Transaction URL or API Key not configured' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Resolve bankCode dynamically from Payment Methods Bank Linking
-    // Match payment.paymentType or payment.paymentMethod against payment_methods.(payment_type|payment_method),
-    // then read banks.bank_code via bank_id.
+    // Resolve bankCode dynamically. If the caller already provided a bankCode
+    // (e.g. resolved once on the client for a whole batch), trust it and skip
+    // the extra DB round trip. Otherwise look it up with a per-instance cache.
     let resolvedPayment = payment;
-    if (payment) {
+    if (payment && !payment.bankCode) {
       try {
         const keys = [payment.paymentType, payment.paymentMethod]
           .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
-          .map((v: string) => v.trim());
+          .map((v: string) => v.trim().toLowerCase());
         if (keys.length) {
-          const { data: pms } = await supabase
-            .from('payment_methods')
-            .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code)')
-            .or(
-              keys
-                .flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`])
-                .join(',')
-            );
-          const match = (pms || []).find((r: any) => r?.banks?.bank_code);
-          const bankCode = (match as any)?.banks?.bank_code;
+          const cacheKey = keys.join('|');
+          const cached = bankCodeCache.get(cacheKey);
+          let bankCode: string | undefined;
+          if (cached && now - cached.at < BANK_TTL_MS) {
+            bankCode = cached.code || undefined;
+          } else {
+            const { data: pms } = await supabase
+              .from('payment_methods')
+              .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code)')
+              .or(
+                keys
+                  .flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`])
+                  .join(',')
+              );
+            const match = (pms || []).find((r: any) => r?.banks?.bank_code);
+            bankCode = (match as any)?.banks?.bank_code;
+            bankCodeCache.set(cacheKey, { code: bankCode || '', at: now });
+          }
           if (bankCode) {
             resolvedPayment = { ...payment, bankCode };
           }
@@ -66,6 +83,7 @@ Deno.serve(async (req) => {
         console.warn('bank_code lookup failed:', lookupErr);
       }
     }
+
 
     // Ensure costCenterCode appears before the lines array in the invoice payload
     const invoiceForSajel: Record<string, unknown> = { ...invoice };
