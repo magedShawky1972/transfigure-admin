@@ -703,7 +703,7 @@ const PaymentMethodSetup = () => {
 
               {/* Existing Payment Methods */}
               {paymentMethods.map((method) => (
-                <div key={method.id} className="grid grid-cols-9 gap-4 items-center">
+                <div key={method.id} className="grid grid-cols-10 gap-4 items-center">
                   <Input
                     value={method.payment_type || ""}
                     onChange={(e) => {
@@ -725,6 +725,17 @@ const PaymentMethodSetup = () => {
                       );
                     }}
                     placeholder={language === "ar" ? "علامة الدفع" : "Payment brand"}
+                  />
+                  <Input
+                    value={method.suffix_for_payment_brand ?? ""}
+                    onChange={(e) => {
+                      setPaymentMethods((prev) =>
+                        prev.map((m) =>
+                          m.id === method.id ? { ...m, suffix_for_payment_brand: e.target.value } : m
+                        )
+                      );
+                    }}
+                    placeholder={language === "ar" ? "لاحقة" : "Suffix"}
                   />
                   <Input
                     type="number"
