@@ -2061,13 +2061,26 @@ const OdooSyncBatch = () => {
     let processedCount = 0;
     let stoppedEarly = false;
 
+    // For Sajel: fetch a fresh batchNumber once for the entire batch.
+    let sajelBatchNumber: string | undefined;
+    if (syncWithSajel) {
+      try {
+        const r = await fetch('https://erp.edaraasus.com/ap/batch-number/reset', { method: 'POST' });
+        const j = await r.json();
+        sajelBatchNumber = j?.data?.batchNumber;
+        console.log('Sajel batchNumber for run:', sajelBatchNumber);
+      } catch (e) {
+        console.error('Failed to fetch Sajel batchNumber:', e);
+      }
+    }
+
     const processInvoice = async (invoice: AggregatedInvoice) => {
       if (stopRequestedRef.current) return;
       setAggregatedInvoices(prev => prev.map(inv =>
         inv.orderNumber === invoice.orderNumber ? { ...inv, syncStatus: 'running' } : inv
       ));
 
-      const result = await syncAggregatedInvoice(invoice);
+      const result = await syncAggregatedInvoice(invoice, sajelBatchNumber);
 
       setAggregatedInvoices(prev => prev.map(inv =>
         inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
