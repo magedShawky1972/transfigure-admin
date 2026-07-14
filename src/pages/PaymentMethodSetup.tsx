@@ -267,6 +267,7 @@ const PaymentMethodSetup = () => {
       const hasPendingNewMethod =
         newMethod.payment_type.trim() !== "" ||
         newMethod.payment_method.trim() !== "" ||
+        newMethod.suffix_for_payment_brand.trim() !== "" ||
         newMethod.gateway_fee !== 0 ||
         newMethod.fixed_value !== 0 ||
         newMethod.vat_fee !== 0;
