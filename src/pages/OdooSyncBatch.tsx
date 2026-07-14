@@ -2112,8 +2112,11 @@ const OdooSyncBatch = () => {
         });
         return;
       }
-      
-      // Sync aggregated invoices directly (respects active filters incl. ABC)
+
+      if (syncWithSajel) {
+        await requestBatchAndConfirm(() => executeAggregatedSync(selectedAggregated, batchConfirmNumber || undefined));
+        return;
+      }
       await executeAggregatedSync(selectedAggregated);
       return;
     }
@@ -2128,9 +2131,45 @@ const OdooSyncBatch = () => {
       });
       return;
     }
-    
+
+    if (syncWithSajel) {
+      await requestBatchAndConfirm(() => executeSync(toSync, batchConfirmNumber || undefined));
+      return;
+    }
     await executeSync(toSync);
   };
+
+  // Fetch Sajel batch number then open an in-app confirmation dialog before running.
+  const requestBatchAndConfirm = async (runFn: () => void) => {
+    setBatchConfirmFetching(true);
+    setBatchConfirmNumber(null);
+    setBatchConfirmOpen(true);
+    try {
+      const bn = await fetchSajelBatchNumber();
+      setBatchConfirmNumber(bn);
+      // Rebind runFn to use freshly-fetched batch number
+      pendingSyncRef.current = () => {
+        // Replace the closure so it uses this specific batch number
+        if (aggregateMode) {
+          const selectedAggregated = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
+          executeAggregatedSync(selectedAggregated, bn);
+        } else {
+          const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
+          executeSync(toSync, bn);
+        }
+      };
+    } catch (e: any) {
+      setBatchConfirmOpen(false);
+      toast({
+        title: language === 'ar' ? 'رقم الدفعة مفقود' : 'Batch Number Missing',
+        description: e?.message || 'Generate Batch Number API did not return a batch number',
+        variant: 'destructive',
+      });
+    } finally {
+      setBatchConfirmFetching(false);
+    }
+  };
+
 
   // Execute sync for aggregated invoices
   const executeAggregatedSync = async (toSync: AggregatedInvoice[]) => {
