@@ -15,6 +15,7 @@ interface SajelErpSettings {
   payment_api_url: string;
   one_step_combined_transaction_url: string;
   expense_entry_api_url: string;
+  generate_batch_number_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
@@ -23,6 +24,7 @@ const EMPTY: SajelErpSettings = {
   payment_api_url: "",
   one_step_combined_transaction_url: "",
   expense_entry_api_url: "",
+  generate_batch_number_url: "",
 };
 
 export default function SajelErpSetup() {
@@ -51,6 +53,7 @@ export default function SajelErpSetup() {
           payment_api_url: data.payment_api_url ?? "",
           one_step_combined_transaction_url: data.one_step_combined_transaction_url ?? "",
           expense_entry_api_url: data.expense_entry_api_url ?? "",
+          generate_batch_number_url: (data as any).generate_batch_number_url ?? "",
         });
       }
       setLoading(false);
@@ -70,6 +73,7 @@ export default function SajelErpSetup() {
         payment_api_url: form.payment_api_url || null,
         one_step_combined_transaction_url: form.one_step_combined_transaction_url || null,
         expense_entry_api_url: form.expense_entry_api_url || null,
+        generate_batch_number_url: form.generate_batch_number_url || null,
         updated_by: user?.id ?? null,
       };
       const query = form.id
