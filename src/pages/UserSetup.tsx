@@ -275,6 +275,7 @@ interface UserPermission {
         { key: "menuCustomization", label: "تخصيص القائمة", labelEn: "Menu Customization" },
         { key: "integrations", label: "التكاملات", labelEn: "Integrations" },
         { key: "sajelErpSetup", label: "إعداد Sajel ERP", labelEn: "Sajel ERP Setup" },
+        { key: "notificationSettings", label: "إعدادات الإشعارات", labelEn: "Notification Settings" },
       ]
     },
     {

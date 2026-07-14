@@ -5732,6 +5732,80 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_processes: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          process_key: string
+          process_name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          process_key: string
+          process_name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          process_key?: string
+          process_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_recipients: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          notes: string | null
+          process_key: string
+          recipient_email: string
+          recipient_name: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          notes?: string | null
+          process_key: string
+          recipient_email: string
+          recipient_name?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          notes?: string | null
+          process_key?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_recipients_process_key_fkey"
+            columns: ["process_key"]
+            isOneToOne: false
+            referencedRelation: "notification_processes"
+            referencedColumns: ["process_key"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
