@@ -285,6 +285,8 @@ const OdooSyncBatch = () => {
   const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
   const [batchConfirmNumber, setBatchConfirmNumber] = useState<string | null>(null);
   const [batchConfirmFetching, setBatchConfirmFetching] = useState(false);
+  const [batchConfirmRequest, setBatchConfirmRequest] = useState<{ method: string; url: string; body: unknown } | null>(null);
+  const [batchConfirmResponse, setBatchConfirmResponse] = useState<{ status: number; ok: boolean; body: unknown } | null>(null);
   const pendingSyncRef = useRef<null | (() => void)>(null);
   const [apiBodyView, setApiBodyView] = useState<{ orderNumber: string; payload: any; response: any } | null>(null);
 
@@ -1244,6 +1246,9 @@ const OdooSyncBatch = () => {
     const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
     if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
 
+    // Track request/response so the confirm popup can show them.
+    setBatchConfirmRequest({ method: 'POST', url: batchUrl, body: null });
+
     const response = await fetch(batchUrl, { method: 'POST' });
     const responseText = await response.text();
     let responseJson: unknown;
@@ -1252,6 +1257,8 @@ const OdooSyncBatch = () => {
     } catch {
       responseJson = responseText;
     }
+
+    setBatchConfirmResponse({ status: response.status, ok: response.ok, body: responseJson ?? responseText });
 
     if (!response.ok) {
       throw new Error(`Generate Batch Number API failed: ${response.status}`);
@@ -2143,6 +2150,8 @@ const OdooSyncBatch = () => {
   const requestBatchAndConfirm = async (runFn: () => void) => {
     setBatchConfirmFetching(true);
     setBatchConfirmNumber(null);
+    setBatchConfirmRequest(null);
+    setBatchConfirmResponse(null);
     setBatchConfirmOpen(true);
     try {
       const bn = await fetchSajelBatchNumber();
@@ -4529,27 +4538,69 @@ const OdooSyncBatch = () => {
 
       {/* Batch number confirmation before Send Orders */}
       <AlertDialog open={batchConfirmOpen} onOpenChange={setBatchConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {language === 'ar' ? 'تأكيد رقم الدفعة' : 'Batch Number Requested'}
             </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <div>
-                  {language === 'ar'
-                    ? 'تم طلب رقم الدفعة من Sajel. راجع الرقم ثم اضغط "تشغيل إرسال الطلبات" للمتابعة.'
-                    : 'A batch number has been requested from Sajel. Review it and click "Run Send Orders" to proceed.'}
-                </div>
-                <div className="rounded-md border bg-muted px-3 py-2 font-mono text-base flex items-center gap-2">
-                  <Hash className="h-4 w-4" />
-                  {batchConfirmFetching || !batchConfirmNumber
-                    ? (language === 'ar' ? 'جاري الطلب...' : 'Requesting...')
-                    : batchConfirmNumber}
-                </div>
-              </div>
+            <AlertDialogDescription>
+              {language === 'ar'
+                ? 'تم طلب رقم الدفعة من Sajel. راجع الطلب والنتيجة ثم اضغط "تشغيل إرسال الطلبات" للمتابعة.'
+                : 'A batch number has been requested from Sajel. Review the request/response and click "Run Send Orders" to proceed.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="space-y-3 text-sm">
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">
+                {language === 'ar' ? 'رقم الدفعة' : 'Batch Number'}
+              </div>
+              <div className="rounded-md border bg-muted px-3 py-2 font-mono text-base flex items-center gap-2">
+                <Hash className="h-4 w-4" />
+                {batchConfirmFetching || !batchConfirmNumber
+                  ? (language === 'ar' ? 'جاري الطلب...' : 'Requesting...')
+                  : batchConfirmNumber}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">
+                {language === 'ar' ? 'الطلب' : 'Request'}
+              </div>
+              <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-40 overflow-auto">
+{batchConfirmRequest
+  ? `${batchConfirmRequest.method} ${batchConfirmRequest.url}\n\n${
+      batchConfirmRequest.body == null
+        ? '(no body)'
+        : (typeof batchConfirmRequest.body === 'string'
+            ? batchConfirmRequest.body
+            : JSON.stringify(batchConfirmRequest.body, null, 2))
+    }`
+  : (language === 'ar' ? 'جاري التحضير...' : 'Preparing...')}
+              </pre>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">
+                {language === 'ar' ? 'النتيجة' : 'Result'}
+              </div>
+              <pre className={cn(
+                "rounded-md border px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-56 overflow-auto",
+                batchConfirmResponse
+                  ? (batchConfirmResponse.ok ? "bg-green-500/10 border-green-500/40" : "bg-red-500/10 border-red-500/40")
+                  : "bg-muted"
+              )}>
+{batchConfirmResponse
+  ? `HTTP ${batchConfirmResponse.status}\n\n${
+      typeof batchConfirmResponse.body === 'string'
+        ? batchConfirmResponse.body
+        : JSON.stringify(batchConfirmResponse.body, null, 2)
+    }`
+  : (language === 'ar' ? 'في انتظار الرد...' : 'Waiting for response...')}
+              </pre>
+            </div>
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel>
               {language === 'ar' ? 'إلغاء' : 'Cancel'}
