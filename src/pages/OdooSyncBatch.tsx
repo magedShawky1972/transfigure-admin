@@ -2237,6 +2237,19 @@ const OdooSyncBatch = () => {
     // Track results for database storage (since state updates are async)
     const syncResults: Map<string, Partial<OrderGroup>> = new Map();
 
+    // For Sajel: fetch a fresh batchNumber once for the entire batch.
+    let sajelBatchNumber: string | undefined;
+    if (syncWithSajel) {
+      try {
+        const r = await fetch('https://erp.edaraasus.com/ap/batch-number/reset', { method: 'POST' });
+        const j = await r.json();
+        sajelBatchNumber = j?.data?.batchNumber;
+        console.log('Sajel batchNumber for run:', sajelBatchNumber);
+      } catch (e) {
+        console.error('Failed to fetch Sajel batchNumber:', e);
+      }
+    }
+
     // Worker for a single order group. Extracted so we can run the Sajel path
     // with bounded concurrency (much faster than one-at-a-time).
     const processGroup = async (group: OrderGroup) => {
@@ -2249,7 +2262,7 @@ const OdooSyncBatch = () => {
         g.orderNumber === group.orderNumber ? { ...g, syncStatus: 'running' } : g
       ));
 
-      const result = await syncSingleOrder(group);
+      const result = await syncSingleOrder(group, sajelBatchNumber);
       syncResults.set(group.orderNumber, result);
 
       if (runId) {
