@@ -1419,7 +1419,7 @@ const OdooSyncBatch = () => {
   };
 
   // Sync an aggregated invoice to Odoo - sends combined data as ONE order
-  const syncAggregatedInvoice = async (invoice: AggregatedInvoice): Promise<Partial<AggregatedInvoice>> => {
+  const syncAggregatedInvoice = async (invoice: AggregatedInvoice, batchNumber?: string): Promise<Partial<AggregatedInvoice>> => {
     const stepStatus = { ...invoice.stepStatus };
 
     // Sajel path: consume One-Step Combined Transaction API
