@@ -1220,6 +1220,8 @@ const OdooSyncBatch = () => {
           exchangeRate: 1.0,
           reference: group.orderNumber,
           status: 'POSTED',
+          costCenterCode: 'P10',
+          ...(batchNumber ? { batchNumber } : {}),
           lines: transactions.map(l => {
             const lineAbc = brandAbcMap.get(l.brand_code || '');
             const lineIsClassA = lineAbc === 'A';
@@ -1475,6 +1477,8 @@ const OdooSyncBatch = () => {
           exchangeRate: 1.0,
           reference: invoice.orderNumber,
           status: 'POSTED',
+          costCenterCode: 'P10',
+          ...(batchNumber ? { batchNumber } : {}),
           lines: [{
             itemCode: brandCode,
             description: invoice.brandName || brandCode,
