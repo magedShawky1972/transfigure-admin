@@ -4538,27 +4538,69 @@ const OdooSyncBatch = () => {
 
       {/* Batch number confirmation before Send Orders */}
       <AlertDialog open={batchConfirmOpen} onOpenChange={setBatchConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {language === 'ar' ? 'تأكيد رقم الدفعة' : 'Batch Number Requested'}
             </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <div>
-                  {language === 'ar'
-                    ? 'تم طلب رقم الدفعة من Sajel. راجع الرقم ثم اضغط "تشغيل إرسال الطلبات" للمتابعة.'
-                    : 'A batch number has been requested from Sajel. Review it and click "Run Send Orders" to proceed.'}
-                </div>
-                <div className="rounded-md border bg-muted px-3 py-2 font-mono text-base flex items-center gap-2">
-                  <Hash className="h-4 w-4" />
-                  {batchConfirmFetching || !batchConfirmNumber
-                    ? (language === 'ar' ? 'جاري الطلب...' : 'Requesting...')
-                    : batchConfirmNumber}
-                </div>
-              </div>
+            <AlertDialogDescription>
+              {language === 'ar'
+                ? 'تم طلب رقم الدفعة من Sajel. راجع الطلب والنتيجة ثم اضغط "تشغيل إرسال الطلبات" للمتابعة.'
+                : 'A batch number has been requested from Sajel. Review the request/response and click "Run Send Orders" to proceed.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="space-y-3 text-sm">
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">
+                {language === 'ar' ? 'رقم الدفعة' : 'Batch Number'}
+              </div>
+              <div className="rounded-md border bg-muted px-3 py-2 font-mono text-base flex items-center gap-2">
+                <Hash className="h-4 w-4" />
+                {batchConfirmFetching || !batchConfirmNumber
+                  ? (language === 'ar' ? 'جاري الطلب...' : 'Requesting...')
+                  : batchConfirmNumber}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">
+                {language === 'ar' ? 'الطلب' : 'Request'}
+              </div>
+              <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-40 overflow-auto">
+{batchConfirmRequest
+  ? `${batchConfirmRequest.method} ${batchConfirmRequest.url}\n\n${
+      batchConfirmRequest.body == null
+        ? '(no body)'
+        : (typeof batchConfirmRequest.body === 'string'
+            ? batchConfirmRequest.body
+            : JSON.stringify(batchConfirmRequest.body, null, 2))
+    }`
+  : (language === 'ar' ? 'جاري التحضير...' : 'Preparing...')}
+              </pre>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">
+                {language === 'ar' ? 'النتيجة' : 'Result'}
+              </div>
+              <pre className={cn(
+                "rounded-md border px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-56 overflow-auto",
+                batchConfirmResponse
+                  ? (batchConfirmResponse.ok ? "bg-green-500/10 border-green-500/40" : "bg-red-500/10 border-red-500/40")
+                  : "bg-muted"
+              )}>
+{batchConfirmResponse
+  ? `HTTP ${batchConfirmResponse.status}\n\n${
+      typeof batchConfirmResponse.body === 'string'
+        ? batchConfirmResponse.body
+        : JSON.stringify(batchConfirmResponse.body, null, 2)
+    }`
+  : (language === 'ar' ? 'في انتظار الرد...' : 'Waiting for response...')}
+              </pre>
+            </div>
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel>
               {language === 'ar' ? 'إلغاء' : 'Cancel'}
