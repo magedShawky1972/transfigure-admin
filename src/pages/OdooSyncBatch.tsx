@@ -2065,7 +2065,15 @@ const OdooSyncBatch = () => {
     let sajelBatchNumber: string | undefined;
     if (syncWithSajel) {
       try {
-        const r = await fetch('https://erp.edaraasus.com/ap/batch-number/reset', { method: 'POST' });
+        const { data: sajelCfg } = await supabase
+          .from('sajel_erp_settings')
+          .select('generate_batch_number_url')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
+        if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
+        const r = await fetch(batchUrl, { method: 'POST' });
         const j = await r.json();
         sajelBatchNumber = j?.data?.batchNumber;
         console.log('Sajel batchNumber for run:', sajelBatchNumber);
@@ -2241,7 +2249,15 @@ const OdooSyncBatch = () => {
     let sajelBatchNumber: string | undefined;
     if (syncWithSajel) {
       try {
-        const r = await fetch('https://erp.edaraasus.com/ap/batch-number/reset', { method: 'POST' });
+        const { data: sajelCfg } = await supabase
+          .from('sajel_erp_settings')
+          .select('generate_batch_number_url')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
+        if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
+        const r = await fetch(batchUrl, { method: 'POST' });
         const j = await r.json();
         sajelBatchNumber = j?.data?.batchNumber;
         console.log('Sajel batchNumber for run:', sajelBatchNumber);

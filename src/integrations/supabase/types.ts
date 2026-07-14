@@ -8052,6 +8052,7 @@ export type Database = {
           api_key: string | null
           created_at: string
           expense_entry_api_url: string | null
+          generate_batch_number_url: string | null
           id: string
           one_step_combined_transaction_url: string | null
           payment_api_url: string | null
@@ -8063,6 +8064,7 @@ export type Database = {
           api_key?: string | null
           created_at?: string
           expense_entry_api_url?: string | null
+          generate_batch_number_url?: string | null
           id?: string
           one_step_combined_transaction_url?: string | null
           payment_api_url?: string | null
@@ -8074,6 +8076,7 @@ export type Database = {
           api_key?: string | null
           created_at?: string
           expense_entry_api_url?: string | null
+          generate_batch_number_url?: string | null
           id?: string
           one_step_combined_transaction_url?: string | null
           payment_api_url?: string | null
