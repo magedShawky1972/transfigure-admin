@@ -282,6 +282,10 @@ const OdooSyncBatch = () => {
   const [separateByDay, setSeparateByDay] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
   const [syncWithSajel, setSyncWithSajel] = useState(true);
+  const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+  const [batchConfirmNumber, setBatchConfirmNumber] = useState<string | null>(null);
+  const [batchConfirmFetching, setBatchConfirmFetching] = useState(false);
+  const pendingSyncRef = useRef<null | (() => void)>(null);
   const [apiBodyView, setApiBodyView] = useState<{ orderNumber: string; payload: any; response: any } | null>(null);
 
   // Supplier check states
