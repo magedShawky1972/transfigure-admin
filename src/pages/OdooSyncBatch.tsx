@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText, ChevronsUpDown, Check } from "lucide-react";
@@ -281,6 +282,10 @@ const OdooSyncBatch = () => {
   const [separateByDay, setSeparateByDay] = useState(true);
   const [aggregatedInvoices, setAggregatedInvoices] = useState<AggregatedInvoice[]>([]);
   const [syncWithSajel, setSyncWithSajel] = useState(true);
+  const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+  const [batchConfirmNumber, setBatchConfirmNumber] = useState<string | null>(null);
+  const [batchConfirmFetching, setBatchConfirmFetching] = useState(false);
+  const pendingSyncRef = useRef<null | (() => void)>(null);
   const [apiBodyView, setApiBodyView] = useState<{ orderNumber: string; payload: any; response: any } | null>(null);
 
   // Supplier check states
@@ -2107,8 +2112,11 @@ const OdooSyncBatch = () => {
         });
         return;
       }
-      
-      // Sync aggregated invoices directly (respects active filters incl. ABC)
+
+      if (syncWithSajel) {
+        await requestBatchAndConfirm(() => executeAggregatedSync(selectedAggregated, batchConfirmNumber || undefined));
+        return;
+      }
       await executeAggregatedSync(selectedAggregated);
       return;
     }
@@ -2123,12 +2131,48 @@ const OdooSyncBatch = () => {
       });
       return;
     }
-    
+
+    if (syncWithSajel) {
+      await requestBatchAndConfirm(() => executeSync(toSync, batchConfirmNumber || undefined));
+      return;
+    }
     await executeSync(toSync);
   };
 
+  // Fetch Sajel batch number then open an in-app confirmation dialog before running.
+  const requestBatchAndConfirm = async (runFn: () => void) => {
+    setBatchConfirmFetching(true);
+    setBatchConfirmNumber(null);
+    setBatchConfirmOpen(true);
+    try {
+      const bn = await fetchSajelBatchNumber();
+      setBatchConfirmNumber(bn);
+      // Rebind runFn to use freshly-fetched batch number
+      pendingSyncRef.current = () => {
+        // Replace the closure so it uses this specific batch number
+        if (aggregateMode) {
+          const selectedAggregated = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
+          executeAggregatedSync(selectedAggregated, bn);
+        } else {
+          const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
+          executeSync(toSync, bn);
+        }
+      };
+    } catch (e: any) {
+      setBatchConfirmOpen(false);
+      toast({
+        title: language === 'ar' ? 'رقم الدفعة مفقود' : 'Batch Number Missing',
+        description: e?.message || 'Generate Batch Number API did not return a batch number',
+        variant: 'destructive',
+      });
+    } finally {
+      setBatchConfirmFetching(false);
+    }
+  };
+
+
   // Execute sync for aggregated invoices
-  const executeAggregatedSync = async (toSync: AggregatedInvoice[]) => {
+  const executeAggregatedSync = async (toSync: AggregatedInvoice[], preFetchedBatchNumber?: string) => {
     // Reset stop flag
     stopRequestedRef.current = false;
     setStopRequested(false);
@@ -2149,9 +2193,9 @@ const OdooSyncBatch = () => {
     let processedCount = 0;
     let stoppedEarly = false;
 
-    // For Sajel: fetch a fresh batchNumber once for the entire batch.
-    let sajelBatchNumber: string | undefined;
-    if (syncWithSajel) {
+    // For Sajel: fetch a fresh batchNumber once for the entire batch (unless one was pre-fetched via the confirm dialog).
+    let sajelBatchNumber: string | undefined = preFetchedBatchNumber;
+    if (syncWithSajel && !sajelBatchNumber) {
       try {
         sajelBatchNumber = await fetchSajelBatchNumber();
         console.log('Sajel batchNumber for run:', sajelBatchNumber);
@@ -2306,7 +2350,7 @@ const OdooSyncBatch = () => {
   };
 
   // Execute sync for given orders
-  const executeSync = async (toSync: OrderGroup[]) => {
+  const executeSync = async (toSync: OrderGroup[], preFetchedBatchNumber?: string) => {
 
     // Reset stop flag
     stopRequestedRef.current = false;
@@ -2331,9 +2375,9 @@ const OdooSyncBatch = () => {
     // Track results for database storage (since state updates are async)
     const syncResults: Map<string, Partial<OrderGroup>> = new Map();
 
-    // For Sajel: fetch a fresh batchNumber once for the entire batch.
-    let sajelBatchNumber: string | undefined;
-    if (syncWithSajel) {
+    // For Sajel: fetch a fresh batchNumber once for the entire batch (unless one was pre-fetched via the confirm dialog).
+    let sajelBatchNumber: string | undefined = preFetchedBatchNumber;
+    if (syncWithSajel && !sajelBatchNumber) {
       try {
         sajelBatchNumber = await fetchSajelBatchNumber();
         console.log('Sajel batchNumber for run:', sajelBatchNumber);
@@ -4482,6 +4526,48 @@ const OdooSyncBatch = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Batch number confirmation before Send Orders */}
+      <AlertDialog open={batchConfirmOpen} onOpenChange={setBatchConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === 'ar' ? 'تأكيد رقم الدفعة' : 'Batch Number Requested'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div>
+                  {language === 'ar'
+                    ? 'تم طلب رقم الدفعة من Sajel. راجع الرقم ثم اضغط "تشغيل إرسال الطلبات" للمتابعة.'
+                    : 'A batch number has been requested from Sajel. Review it and click "Run Send Orders" to proceed.'}
+                </div>
+                <div className="rounded-md border bg-muted px-3 py-2 font-mono text-base flex items-center gap-2">
+                  <Hash className="h-4 w-4" />
+                  {batchConfirmFetching || !batchConfirmNumber
+                    ? (language === 'ar' ? 'جاري الطلب...' : 'Requesting...')
+                    : batchConfirmNumber}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={batchConfirmFetching || !batchConfirmNumber}
+              onClick={() => {
+                const run = pendingSyncRef.current;
+                pendingSyncRef.current = null;
+                setBatchConfirmOpen(false);
+                if (run) run();
+              }}
+            >
+              {language === 'ar' ? 'تشغيل إرسال الطلبات' : 'Run Send Orders'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
