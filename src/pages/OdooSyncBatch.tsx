@@ -4574,6 +4574,12 @@ const OdooSyncBatch = () => {
               <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-40 overflow-auto">
 {batchConfirmRequest
   ? `${batchConfirmRequest.method} ${batchConfirmRequest.url}\n\n${
+      batchConfirmRequest.headers && Object.keys(batchConfirmRequest.headers).length
+        ? `Headers:\n${Object.entries(batchConfirmRequest.headers)
+            .map(([k, v]) => `  ${k}: ${k.toLowerCase() === 'authorization' && v.length > 12 ? v.slice(0, 8) + '…' + v.slice(-4) : v}`)
+            .join('\n')}\n\n`
+        : ''
+    }${
       batchConfirmRequest.body == null
         ? '(no body)'
         : (typeof batchConfirmRequest.body === 'string'
