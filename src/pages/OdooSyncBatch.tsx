@@ -2239,7 +2239,7 @@ const OdooSyncBatch = () => {
       const result = await syncAggregatedInvoice(invoice, sajelBatchNumber);
 
       setAggregatedInvoices(prev => prev.map(inv =>
-        inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
+        inv.orderNumber === invoice.orderNumber ? { ...inv, ...result, ...(result.syncStatus === 'success' && sajelBatchNumber ? { batchNumber: sajelBatchNumber } : {}) } : inv
       ));
 
       if (result.syncStatus === 'success' && invoice.originalOrderNumbers.length > 0) {
@@ -2256,6 +2256,7 @@ const OdooSyncBatch = () => {
           payment_method: invoice.paymentMethod,
           payment_brand: invoice.paymentBrand,
           user_name: invoice.userName,
+          batch_number: sajelBatchNumber || null,
         }));
 
         await supabase
