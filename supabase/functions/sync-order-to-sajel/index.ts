@@ -85,18 +85,20 @@ Deno.serve(async (req) => {
     }
 
 
-    // Rebuild invoice so order is: ...original fields (without lines), costCenterCode, batchNumber, lines
+    // Rebuild invoice so order is: ...original fields (without lines), costCenterCode, lines
+    // NOTE: batchNumber must be the LAST attribute at the ROOT of body (after payment),
+    // otherwise Sajel ignores it and stores the order without a batch number.
     const { lines: _invLines, costCenterCode: _cc, batchNumber: _bn, ...invoiceRest } = (invoice ?? {}) as Record<string, unknown>;
     const invoiceForSajel: Record<string, unknown> = {
       ...invoiceRest,
       costCenterCode: "P10",
-      ...(batchNumber ? { batchNumber } : {}),
       ...(_invLines !== undefined ? { lines: _invLines } : {}),
     };
 
-    // Preserve Sajel-required attribute order: invoice first, then payment
+    // Preserve Sajel-required attribute order: invoice, payment, then batchNumber LAST
     const body: Record<string, unknown> = { invoice: invoiceForSajel };
     if (resolvedPayment) body.payment = resolvedPayment;
+    if (batchNumber) body.batchNumber = batchNumber;
     console.log('Posting to Sajel ERP One-Step:', settings.one_step_combined_transaction_url, JSON.stringify(body));
 
     const resp = await fetch(settings.one_step_combined_transaction_url, {
