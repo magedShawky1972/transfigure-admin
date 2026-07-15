@@ -285,7 +285,7 @@ const OdooSyncBatch = () => {
   const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
   const [batchConfirmNumber, setBatchConfirmNumber] = useState<string | null>(null);
   const [batchConfirmFetching, setBatchConfirmFetching] = useState(false);
-  const [batchConfirmRequest, setBatchConfirmRequest] = useState<{ method: string; url: string; body: unknown } | null>(null);
+  const [batchConfirmRequest, setBatchConfirmRequest] = useState<{ method: string; url: string; body: unknown; headers?: Record<string, string> } | null>(null);
   const [batchConfirmResponse, setBatchConfirmResponse] = useState<{ status: number; ok: boolean; body: unknown } | null>(null);
   const pendingSyncRef = useRef<null | (() => void)>(null);
   const [apiBodyView, setApiBodyView] = useState<{ orderNumber: string; payload: any; response: any } | null>(null);
@@ -1239,17 +1239,21 @@ const OdooSyncBatch = () => {
   const fetchSajelBatchNumber = async (): Promise<string> => {
     const { data: sajelCfg } = await supabase
       .from('sajel_erp_settings')
-      .select('generate_batch_number_url')
+      .select('generate_batch_number_url, api_key')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
+    const apiKey = (sajelCfg as any)?.api_key;
     if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
 
-    // Track request/response so the confirm popup can show them.
-    setBatchConfirmRequest({ method: 'POST', url: batchUrl, body: null });
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['Authorization'] = apiKey;
 
-    const response = await fetch(batchUrl, { method: 'POST' });
+    // Track request/response so the confirm popup can show them.
+    setBatchConfirmRequest({ method: 'POST', url: batchUrl, body: null, headers });
+
+    const response = await fetch(batchUrl, { method: 'POST', headers });
     const responseText = await response.text();
     let responseJson: unknown;
     try {
@@ -4570,6 +4574,12 @@ const OdooSyncBatch = () => {
               <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-40 overflow-auto">
 {batchConfirmRequest
   ? `${batchConfirmRequest.method} ${batchConfirmRequest.url}\n\n${
+      batchConfirmRequest.headers && Object.keys(batchConfirmRequest.headers).length
+        ? `Headers:\n${Object.entries(batchConfirmRequest.headers)
+            .map(([k, v]) => `  ${k}: ${k.toLowerCase() === 'authorization' && v.length > 12 ? v.slice(0, 8) + '…' + v.slice(-4) : v}`)
+            .join('\n')}\n\n`
+        : ''
+    }${
       batchConfirmRequest.body == null
         ? '(no body)'
         : (typeof batchConfirmRequest.body === 'string'
