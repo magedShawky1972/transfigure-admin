@@ -1007,13 +1007,15 @@ const OdooSyncBatch = () => {
       
       const { data: existingMappingsData } = await supabase
         .from('aggregated_order_mapping')
-        .select('original_order_number, aggregated_order_number')
+        .select('original_order_number, aggregated_order_number, batch_number')
         .in('original_order_number', allOriginalOrderNumbers);
       
       // Create a map of original order -> aggregated order number (for re-use if re-syncing)
       const existingMappingMap = new Map<string, string>();
+      const existingBatchMap = new Map<string, string>(); // aggregated_order_number -> batch_number
       existingMappingsData?.forEach(m => {
         existingMappingMap.set(m.original_order_number, m.aggregated_order_number);
+        if ((m as any).batch_number) existingBatchMap.set(m.aggregated_order_number, (m as any).batch_number);
       });
       
       // Fetch max sequence for each date from aggregated_order_mapping table
