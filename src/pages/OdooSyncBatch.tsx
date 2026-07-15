@@ -3512,6 +3512,7 @@ const OdooSyncBatch = () => {
                     <TableHead className="text-center">{language === 'ar' ? 'الطلب' : 'Order'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'الشراء' : 'Purchase'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'رقم الدفعة' : 'Batch #'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3633,6 +3634,13 @@ const OdooSyncBatch = () => {
                           <p className="text-xs text-destructive truncate max-w-[150px]" title={translateOdooError(group.errorMessage, language)}>
                             {translateOdooError(group.errorMessage, language)}
                           </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {group.batchNumber ? (
+                          <Badge variant="outline" className="text-xs">{group.batchNumber}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                     </TableRow>
