@@ -108,6 +108,7 @@ interface OrderGroup {
   sajelPayload?: any;
   sajelResponse?: any;
   hasNonStock: boolean;
+  batchNumber?: string;
 }
 
 interface AggregatedInvoice {
@@ -145,6 +146,7 @@ interface AggregatedInvoice {
   sajelPayload?: any;
   sajelResponse?: any;
   hasNonStock: boolean;
+  batchNumber?: string;
 }
 
 // Normalize Arabic brand names for tolerant matching (alef/yaa/taa marbuta variants, kashida, diacritics)
