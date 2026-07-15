@@ -1239,17 +1239,21 @@ const OdooSyncBatch = () => {
   const fetchSajelBatchNumber = async (): Promise<string> => {
     const { data: sajelCfg } = await supabase
       .from('sajel_erp_settings')
-      .select('generate_batch_number_url')
+      .select('generate_batch_number_url, api_key')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     const batchUrl = (sajelCfg as any)?.generate_batch_number_url;
+    const apiKey = (sajelCfg as any)?.api_key;
     if (!batchUrl) throw new Error('Generate Batch Number URL not configured in Sajel ERP Setup');
 
-    // Track request/response so the confirm popup can show them.
-    setBatchConfirmRequest({ method: 'POST', url: batchUrl, body: null });
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['Authorization'] = apiKey;
 
-    const response = await fetch(batchUrl, { method: 'POST' });
+    // Track request/response so the confirm popup can show them.
+    setBatchConfirmRequest({ method: 'POST', url: batchUrl, body: null, headers });
+
+    const response = await fetch(batchUrl, { method: 'POST', headers });
     const responseText = await response.text();
     let responseJson: unknown;
     try {
