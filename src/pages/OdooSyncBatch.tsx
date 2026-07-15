@@ -1133,6 +1133,7 @@ const OdooSyncBatch = () => {
             purchase: aggAlreadySynced ? 'created' : 'pending',
           },
           hasNonStock,
+          batchNumber: existingBatchMap.get(orderNumber),
         });
       });
 
