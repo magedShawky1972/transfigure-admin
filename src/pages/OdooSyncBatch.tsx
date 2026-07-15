@@ -858,6 +858,22 @@ const OdooSyncBatch = () => {
           });
         }
 
+        // Hydrate batch numbers from previously saved aggregated_order_mapping
+        try {
+          const orderNums = groups.map(g => g.orderNumber);
+          if (orderNums.length) {
+            const { data: bnRows } = await supabase
+              .from('aggregated_order_mapping')
+              .select('original_order_number, batch_number')
+              .in('original_order_number', orderNums);
+            const bnMap = new Map<string, string>();
+            bnRows?.forEach((r: any) => { if (r.batch_number) bnMap.set(r.original_order_number, r.batch_number); });
+            groups.forEach(g => { const bn = bnMap.get(g.orderNumber); if (bn) g.batchNumber = bn; });
+          }
+        } catch (bnErr) {
+          console.warn('Batch number hydration failed:', bnErr);
+        }
+
         setOrderGroups(groups);
       } catch (error) {
         console.error('Error loading transactions:', error);
