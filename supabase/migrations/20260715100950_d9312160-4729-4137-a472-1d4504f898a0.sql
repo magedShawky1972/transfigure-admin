@@ -1,0 +1,2 @@
+ALTER TABLE public.aggregated_order_mapping ADD COLUMN IF NOT EXISTS batch_number text;
+CREATE INDEX IF NOT EXISTS idx_aggregated_order_mapping_batch_number ON public.aggregated_order_mapping(batch_number);

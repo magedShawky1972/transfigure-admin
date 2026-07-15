@@ -108,6 +108,7 @@ interface OrderGroup {
   sajelPayload?: any;
   sajelResponse?: any;
   hasNonStock: boolean;
+  batchNumber?: string;
 }
 
 interface AggregatedInvoice {
@@ -145,6 +146,7 @@ interface AggregatedInvoice {
   sajelPayload?: any;
   sajelResponse?: any;
   hasNonStock: boolean;
+  batchNumber?: string;
 }
 
 // Normalize Arabic brand names for tolerant matching (alef/yaa/taa marbuta variants, kashida, diacritics)
@@ -856,6 +858,22 @@ const OdooSyncBatch = () => {
           });
         }
 
+        // Hydrate batch numbers from previously saved aggregated_order_mapping
+        try {
+          const orderNums = groups.map(g => g.orderNumber);
+          if (orderNums.length) {
+            const { data: bnRows } = await supabase
+              .from('aggregated_order_mapping')
+              .select('original_order_number, batch_number')
+              .in('original_order_number', orderNums);
+            const bnMap = new Map<string, string>();
+            bnRows?.forEach((r: any) => { if (r.batch_number) bnMap.set(r.original_order_number, r.batch_number); });
+            groups.forEach(g => { const bn = bnMap.get(g.orderNumber); if (bn) g.batchNumber = bn; });
+          }
+        } catch (bnErr) {
+          console.warn('Batch number hydration failed:', bnErr);
+        }
+
         setOrderGroups(groups);
       } catch (error) {
         console.error('Error loading transactions:', error);
@@ -1005,13 +1023,15 @@ const OdooSyncBatch = () => {
       
       const { data: existingMappingsData } = await supabase
         .from('aggregated_order_mapping')
-        .select('original_order_number, aggregated_order_number')
+        .select('original_order_number, aggregated_order_number, batch_number')
         .in('original_order_number', allOriginalOrderNumbers);
       
       // Create a map of original order -> aggregated order number (for re-use if re-syncing)
       const existingMappingMap = new Map<string, string>();
+      const existingBatchMap = new Map<string, string>(); // aggregated_order_number -> batch_number
       existingMappingsData?.forEach(m => {
         existingMappingMap.set(m.original_order_number, m.aggregated_order_number);
+        if ((m as any).batch_number) existingBatchMap.set(m.aggregated_order_number, (m as any).batch_number);
       });
       
       // Fetch max sequence for each date from aggregated_order_mapping table
@@ -1129,6 +1149,7 @@ const OdooSyncBatch = () => {
             purchase: aggAlreadySynced ? 'created' : 'pending',
           },
           hasNonStock,
+          batchNumber: existingBatchMap.get(orderNumber),
         });
       });
 
@@ -2234,7 +2255,7 @@ const OdooSyncBatch = () => {
       const result = await syncAggregatedInvoice(invoice, sajelBatchNumber);
 
       setAggregatedInvoices(prev => prev.map(inv =>
-        inv.orderNumber === invoice.orderNumber ? { ...inv, ...result } : inv
+        inv.orderNumber === invoice.orderNumber ? { ...inv, ...result, ...(result.syncStatus === 'success' && sajelBatchNumber ? { batchNumber: sajelBatchNumber } : {}) } : inv
       ));
 
       if (result.syncStatus === 'success' && invoice.originalOrderNumbers.length > 0) {
@@ -2251,6 +2272,7 @@ const OdooSyncBatch = () => {
           payment_method: invoice.paymentMethod,
           payment_brand: invoice.paymentBrand,
           user_name: invoice.userName,
+          batch_number: sajelBatchNumber || null,
         }));
 
         await supabase
@@ -3254,6 +3276,7 @@ const OdooSyncBatch = () => {
                     <TableHead className="text-center">{language === 'ar' ? 'الطلب' : 'Order'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'الشراء' : 'Purchase'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'رقم الدفعة' : 'Batch #'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3416,6 +3439,13 @@ const OdooSyncBatch = () => {
                           </p>
                         )}
                       </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {invoice.batchNumber ? (
+                          <Badge variant="outline" className="text-xs">{invoice.batchNumber}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                     );
                   })}
@@ -3439,7 +3469,7 @@ const OdooSyncBatch = () => {
                      <TableCell className="text-center text-lg">
                        {activeInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0), 0).toLocaleString('en-US')}
                      </TableCell>
-                     <TableCell colSpan={8}></TableCell>
+                     <TableCell colSpan={9}></TableCell>
                    </TableRow>
                     );
                   })()}
@@ -3482,6 +3512,7 @@ const OdooSyncBatch = () => {
                     <TableHead className="text-center">{language === 'ar' ? 'الطلب' : 'Order'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'الشراء' : 'Purchase'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'رقم الدفعة' : 'Batch #'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3603,6 +3634,13 @@ const OdooSyncBatch = () => {
                           <p className="text-xs text-destructive truncate max-w-[150px]" title={translateOdooError(group.errorMessage, language)}>
                             {translateOdooError(group.errorMessage, language)}
                           </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {group.batchNumber ? (
+                          <Badge variant="outline" className="text-xs">{group.batchNumber}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                     </TableRow>
