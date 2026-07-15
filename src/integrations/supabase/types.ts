@@ -205,6 +205,7 @@ export type Database = {
         Row: {
           aggregated_order_number: string
           aggregation_date: string
+          batch_number: string | null
           brand_name: string | null
           created_at: string
           id: string
@@ -216,6 +217,7 @@ export type Database = {
         Insert: {
           aggregated_order_number: string
           aggregation_date: string
+          batch_number?: string | null
           brand_name?: string | null
           created_at?: string
           id?: string
@@ -227,6 +229,7 @@ export type Database = {
         Update: {
           aggregated_order_number?: string
           aggregation_date?: string
+          batch_number?: string | null
           brand_name?: string | null
           created_at?: string
           id?: string
