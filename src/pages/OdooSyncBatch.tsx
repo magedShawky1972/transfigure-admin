@@ -3276,6 +3276,7 @@ const OdooSyncBatch = () => {
                     <TableHead className="text-center">{language === 'ar' ? 'الطلب' : 'Order'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'الشراء' : 'Purchase'}</TableHead>
                     <TableHead>{language === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                    <TableHead>{language === 'ar' ? 'رقم الدفعة' : 'Batch #'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3438,6 +3439,13 @@ const OdooSyncBatch = () => {
                           </p>
                         )}
                       </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {invoice.batchNumber ? (
+                          <Badge variant="outline" className="text-xs">{invoice.batchNumber}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                     );
                   })}
@@ -3461,7 +3469,7 @@ const OdooSyncBatch = () => {
                      <TableCell className="text-center text-lg">
                        {activeInvoices.reduce((sum, inv) => sum + inv.productLines.reduce((s, pl: any) => s + (pl.totalCoins || 0), 0), 0).toLocaleString('en-US')}
                      </TableCell>
-                     <TableCell colSpan={8}></TableCell>
+                     <TableCell colSpan={9}></TableCell>
                    </TableRow>
                     );
                   })()}
