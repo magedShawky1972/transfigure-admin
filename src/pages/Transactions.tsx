@@ -572,6 +572,7 @@ const Transactions = () => {
           if (filterCompany !== 'all') query = query.eq('company', filterCompany);
           if (phone) query = query.ilike('customer_phone', `%${phone}%`);
           if (orderNo) query = query.ilike('order_number', `%${orderNo}%`);
+          if (pointsOnly) query = query.ilike('payment_method', '%point%');
 
           if (sortColumn) {
             if (numericSortColumns.has(sortColumn)) {
