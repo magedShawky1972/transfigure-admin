@@ -764,9 +764,14 @@ const OdooSyncBatch = () => {
             .select('*')
             .gte('created_at_date_int', fromDateInt)
             .lte('created_at_date_int', toDateInt)
-            .or('payment_method.is.null,payment_method.neq.point')
             .eq('is_deleted', false)
             .order('created_at_date_int', { ascending: false });
+
+          if (pointsOnly) {
+            query = query.ilike('payment_method', '%point%');
+          } else {
+            query = query.or('payment_method.is.null,payment_method.neq.point');
+          }
           
           if (companyFilter) query = query.eq('company', companyFilter);
           
