@@ -327,6 +327,7 @@ const OdooSyncBatch = () => {
   const fromDate = searchParams.get('from');
   const toDate = searchParams.get('to');
   const companyFilter = searchParams.get('company');
+  const pointsOnly = searchParams.get('points') === '1';
 
   // Get unique brands and products from order groups for filter dropdowns
   const uniqueBrands = useMemo(() => {
