@@ -148,6 +148,7 @@ const Transactions = () => {
   const [groupLevels, setGroupLevels] = useState<GroupLevel[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
+  const [pointsOnlyLoaded, setPointsOnlyLoaded] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
