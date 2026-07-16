@@ -642,6 +642,7 @@ const Transactions = () => {
       setLoadingProgress(100);
       setTransactions(allData);
       setIsAllDataLoaded(true);
+      setPointsOnlyLoaded(pointsOnly);
       // Update totalCountAll to match actual loaded count (don't change totalCount which is for pagination)
       setTotalCountAll(allData.length);
       
