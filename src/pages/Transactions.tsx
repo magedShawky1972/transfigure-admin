@@ -514,7 +514,7 @@ const Transactions = () => {
     }
   };
 
-  const loadAllData = async () => {
+  const loadAllData = async (pointsOnly: boolean = false) => {
     setLoadingAll(true);
     setLoadingProgress(0);
 
