@@ -1640,7 +1640,7 @@ const Transactions = () => {
                 <Button 
                   variant="outline" 
                   className="gap-2" 
-                  onClick={loadAllData}
+                  onClick={() => loadAllData()}
                   disabled={loadingAll}
                 >
                   <ChevronsRight className="h-4 w-4" />
