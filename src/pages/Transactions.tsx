@@ -1650,6 +1650,20 @@ const Transactions = () => {
                     : (language === 'ar' ? `تحميل الكل (${totalCountAll.toLocaleString()})` : `Load All (${totalCountAll.toLocaleString()})`)}
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  setDataLoaded(true);
+                  loadAllData(true);
+                }}
+                disabled={loadingAll || loading}
+                title={language === 'ar' ? 'تحميل معاملات النقاط فقط للفلاتر المحددة' : 'Load only Points transactions for selected filters'}
+              >
+                {loadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {language === 'ar' ? 'تحميل النقاط فقط' : 'Load Points Only'}
+              </Button>
               <Button variant="outline" className="gap-2" onClick={exportToCSV}>
                 <Download className="h-4 w-4" />
                 {t("transactions.export")}
