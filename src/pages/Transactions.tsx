@@ -1143,7 +1143,8 @@ const Transactions = () => {
     const fromDateStr = format(fromDate, 'yyyy-MM-dd');
     const toDateStr = format(toDate, 'yyyy-MM-dd');
     const companyParam = filterCompany !== 'all' ? `&company=${filterCompany}` : '';
-    navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}${companyParam}`);
+    const pointsParam = pointsOnlyLoaded ? '&points=1' : '';
+    navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}${companyParam}${pointsParam}`);
   };
 
   // Handle Daily Sync to Odoo (day by day background processing)
