@@ -148,6 +148,7 @@ const Transactions = () => {
   const [groupLevels, setGroupLevels] = useState<GroupLevel[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isAllDataLoaded, setIsAllDataLoaded] = useState(false);
+  const [pointsOnlyLoaded, setPointsOnlyLoaded] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -641,6 +642,7 @@ const Transactions = () => {
       setLoadingProgress(100);
       setTransactions(allData);
       setIsAllDataLoaded(true);
+      setPointsOnlyLoaded(pointsOnly);
       // Update totalCountAll to match actual loaded count (don't change totalCount which is for pagination)
       setTotalCountAll(allData.length);
       
@@ -1141,7 +1143,8 @@ const Transactions = () => {
     const fromDateStr = format(fromDate, 'yyyy-MM-dd');
     const toDateStr = format(toDate, 'yyyy-MM-dd');
     const companyParam = filterCompany !== 'all' ? `&company=${filterCompany}` : '';
-    navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}${companyParam}`);
+    const pointsParam = pointsOnlyLoaded ? '&points=1' : '';
+    navigate(`/odoo-sync-batch?from=${fromDateStr}&to=${toDateStr}${companyParam}${pointsParam}`);
   };
 
   // Handle Daily Sync to Odoo (day by day background processing)
