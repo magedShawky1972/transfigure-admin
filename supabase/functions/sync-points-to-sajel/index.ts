@@ -28,7 +28,8 @@ Deno.serve(async (req) => {
 
     let url: string | null | undefined;
     if (type === 'stock_issue') {
-      url = (settings as any)?.stock_movement_api_url || (settings as any)?.stock_issue_api_url;
+      // Points stock issues are sent via the "Stock Issue API URL (Points)" setting.
+      url = (settings as any)?.stock_issue_api_url || (settings as any)?.stock_movement_api_url;
     } else if (type === 'ap_invoice') url = (settings as any)?.ap_invoice_api_url;
     else {
       return new Response(JSON.stringify({ success: false, error: `Unknown type: ${type}` }), {
