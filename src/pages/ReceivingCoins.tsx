@@ -822,7 +822,6 @@ const ReceivingCoins = () => {
       notes: headerNotes,
       status: "POSTED",
       businessUnitCode: "Asus-Trading",
-      costCenterCode: "",
       lines: confirmedLines.map(l => {
         const brandName = brandMap[l.brand_id]?.brand_name || l.brand_name || l.product_name || "";
         const vendorName = vendorMap[l.supplier_id] || "";
