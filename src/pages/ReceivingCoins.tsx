@@ -696,7 +696,7 @@ const ReceivingCoins = () => {
       toast.info(isArabic ? "جاري الإرسال إلى المحاسبة..." : "Sending to Accounting...");
 
       const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", {
-        body: { invoice, payment },
+        body: { invoice, payment, skipCostCenter: true },
       });
       if (error) throw error;
 
