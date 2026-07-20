@@ -2266,23 +2266,29 @@ const OdooSyncBatch = () => {
 
       if (bucket.classA.length) {
         const orderNumbers = Array.from(new Set(bucket.classA.map(l => l._orderNumber)));
-        const lines = bucket.classA.map(l => {
+        // Aggregate by itemCode: sum qty (coins) and sum cost, then unitCost = totalCost / totalQty
+        const agg = new Map<string, { qty: number; cost: number; brandName: string }>();
+        for (const l of bucket.classA) {
+          const code = l.brand_code || '';
           const coins = l.coins_number || 0;
-          const qty = coins || l.qty || 1;
-          // Class A: unit cost = total cost / coins
-          const unitCost = coins && l.cost_sold ? l.cost_sold / coins : 0;
-          return {
-            itemCode: l.brand_code || '',
-            quantity: qty,
-            unitCost,
-            drAccountCode: '501200',
-            costCenterCode: 'P10',
-          };
-        });
+          const qty = coins || l.qty || 0;
+          const cost = l.cost_sold || 0;
+          const cur = agg.get(code) || { qty: 0, cost: 0, brandName: l.brand_name || '' };
+          cur.qty += qty;
+          cur.cost += cost;
+          agg.set(code, cur);
+        }
+        const lines = Array.from(agg.entries()).map(([itemCode, v]) => ({
+          itemCode,
+          quantity: v.qty,
+          unitCost: v.qty ? v.cost / v.qty : 0,
+          drAccountCode: '501200',
+          costCenterCode: 'P10',
+        }));
         jobs.push({
           type: 'stock_issue',
           day,
-          label: `${day} · Stock Issue (Class A) · ${lines.length} lines`,
+          label: `${day} · Stock Issue (Class A) · ${lines.length} items`,
           orderNumbers,
           payload: {
             documentType: 'ISSUE',
@@ -2301,27 +2307,32 @@ const OdooSyncBatch = () => {
 
       for (const [vendorCode, vlines] of bucket.nonAByVendor) {
         const orderNumbers = Array.from(new Set(vlines.map(l => l._orderNumber)));
-        const totalAmount = vlines.reduce((s, l) => s + (l.total || 0), 0);
-        const lines = vlines.map(l => {
-          const qty = l.qty || 1;
-          // Non-A: unit cost = total cost / line quantity
-          const unitPrice = qty && l.cost_sold ? l.cost_sold / qty : (l.cost_price || 0);
-          return {
-            itemCode: l.brand_code || '',
-            description: l.brand_name || '',
-            quantity: qty,
-            unitPrice,
-            taxRate: 0,
-            costCenterCode: 'P10',
-            drAccountCode: '501200',
-          };
-        });
+        // Aggregate by itemCode within vendor: sum qty and sum cost, then unitPrice = totalCost / totalQty
+        const agg = new Map<string, { qty: number; cost: number; brandName: string; fallbackPrice: number }>();
+        for (const l of vlines) {
+          const code = l.brand_code || '';
+          const qty = l.qty || 0;
+          const cost = l.cost_sold || 0;
+          const cur = agg.get(code) || { qty: 0, cost: 0, brandName: l.brand_name || '', fallbackPrice: l.cost_price || 0 };
+          cur.qty += qty;
+          cur.cost += cost;
+          agg.set(code, cur);
+        }
+        const lines = Array.from(agg.entries()).map(([itemCode, v]) => ({
+          itemCode,
+          description: v.brandName,
+          quantity: v.qty,
+          unitPrice: v.qty ? v.cost / v.qty : v.fallbackPrice,
+          taxRate: 0,
+          costCenterCode: 'P10',
+          drAccountCode: '501200',
+        }));
         const dueDateObj = new Date(day); dueDateObj.setDate(dueDateObj.getDate() + 30);
         const dueDate = dueDateObj.toISOString().slice(0, 10);
         jobs.push({
           type: 'ap_invoice',
           day,
-          label: `${day} · AP Invoice · ${vendorCode} · ${lines.length} lines`,
+          label: `${day} · AP Invoice · ${vendorCode} · ${lines.length} items`,
           orderNumbers,
           payload: {
             vendorCode,
