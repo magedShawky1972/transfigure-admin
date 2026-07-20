@@ -1002,7 +1002,13 @@ const OdooSyncBatch = () => {
           const normalizedMethod = (line.payment_method || '').toString().trim().toLowerCase();
           // Aggregate per day + payment_method + payment_brand (normalized, case-insensitive).
           // Multiple brands/vendors are consolidated into ONE order with a lines[] array.
-          const invoiceKey = `${datePart}|${normalizedMethod}|${normalizedBrand}`;
+          // EXCEPTION: non-A brand lines with missing vendor stay in SEPARATE rows
+          // (per brand_code) so the user can spot & assign a vendor before syncing.
+          const lineAbc = brandAbcMap.get(line.brand_code || '');
+          const isNonAMissingVendor = lineAbc !== 'A' && !line.vendor_name;
+          const invoiceKey = isNonAMissingVendor
+            ? `${datePart}|${normalizedMethod}|${normalizedBrand}|MISSINGVENDOR|${line.brand_code || ''}`
+            : `${datePart}|${normalizedMethod}|${normalizedBrand}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -1213,7 +1219,7 @@ const OdooSyncBatch = () => {
     };
 
     buildAggregatedInvoices();
-  }, [orderGroups, aggregateMode, separateByDay, nonStockSkuSet]);
+  }, [orderGroups, aggregateMode, separateByDay, nonStockSkuSet, brandAbcMap]);
 
   // Aggregated invoice selection handlers (only for filtered items)
   const handleSelectAggregatedRow = (orderNumber: string, checked: boolean) => {
