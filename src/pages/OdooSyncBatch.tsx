@@ -5030,7 +5030,26 @@ const OdooSyncBatch = () => {
               </div>
             )}
             <div>
-              <div className="text-xs font-semibold text-muted-foreground mb-1">Request Body (sent to Sajel)</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs font-semibold text-muted-foreground">Request Body (sent to Sajel)</div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  onClick={() => {
+                    if (!pointsDetailJob?.body) return;
+                    navigator.clipboard.writeText(JSON.stringify(pointsDetailJob.body, null, 2)).then(() => {
+                      toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied', description: language === 'ar' ? 'تم نسخ جسم الطلب' : 'Request body copied to clipboard' });
+                    }).catch(() => {
+                      toast({ title: language === 'ar' ? 'فشل النسخ' : 'Copy failed', variant: 'destructive' });
+                    });
+                  }}
+                  disabled={!pointsDetailJob?.body}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  {language === 'ar' ? 'نسخ' : 'Copy'}
+                </Button>
+              </div>
               <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-[40vh] overflow-auto">
 {pointsDetailJob?.body ? JSON.stringify(pointsDetailJob.body, null, 2) : '(none)'}
               </pre>
