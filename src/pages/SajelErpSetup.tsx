@@ -16,6 +16,7 @@ interface SajelErpSettings {
   one_step_combined_transaction_url: string;
   expense_entry_api_url: string;
   generate_batch_number_url: string;
+  stock_issue_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
@@ -25,6 +26,7 @@ const EMPTY: SajelErpSettings = {
   one_step_combined_transaction_url: "",
   expense_entry_api_url: "",
   generate_batch_number_url: "",
+  stock_issue_api_url: "",
 };
 
 export default function SajelErpSetup() {
