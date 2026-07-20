@@ -77,6 +77,7 @@ export default function SajelErpSetup() {
         one_step_combined_transaction_url: form.one_step_combined_transaction_url || null,
         expense_entry_api_url: form.expense_entry_api_url || null,
         generate_batch_number_url: form.generate_batch_number_url || null,
+        stock_issue_api_url: form.stock_issue_api_url || null,
         updated_by: user?.id ?? null,
       };
       const query = form.id
