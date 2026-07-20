@@ -821,8 +821,8 @@ const Transactions = () => {
       const matchesCompany = filterCompany === "all" || (transaction as any).company === filterCompany;
       const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
       const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
-      const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
-      const matchesPaymentBrand = filterPaymentBrand === "all" || transaction.payment_brand === filterPaymentBrand;
+      const matchesPaymentMethod = filterPaymentMethod === "all" || String(transaction.payment_method || '').trim().toLowerCase() === filterPaymentMethod.trim().toLowerCase();
+      const matchesPaymentBrand = filterPaymentBrand === "all" || String(transaction.payment_brand || '').trim().toLowerCase() === filterPaymentBrand.trim().toLowerCase();
       const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
       
       const matchesSku = filterSku === "" || 
