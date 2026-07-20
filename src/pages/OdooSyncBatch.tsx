@@ -262,6 +262,20 @@ const OdooSyncBatch = () => {
   const [syncProgress, setSyncProgress] = useState(0);
   const [currentOrderIndex, setCurrentOrderIndex] = useState(-1);
   const [syncComplete, setSyncComplete] = useState(false);
+  // Points sync live progress dialog
+  type PointsJob = {
+    id: string;
+    label: string;
+    type: 'stock_issue' | 'ap_invoice';
+    day: string;
+    status: 'pending' | 'running' | 'success' | 'failed';
+    body?: any;
+    response?: any;
+    error?: string;
+  };
+  const [pointsProgressOpen, setPointsProgressOpen] = useState(false);
+  const [pointsJobs, setPointsJobs] = useState<PointsJob[]>([]);
+  const [pointsDetailJob, setPointsDetailJob] = useState<PointsJob | null>(null);
   const [nonStockSkuSet, setNonStockSkuSet] = useState<Set<string>>(new Set());
   const [brandAbcMap, setBrandAbcMap] = useState<Map<string, string>>(new Map());
   
@@ -2332,24 +2346,43 @@ const OdooSyncBatch = () => {
       return;
     }
 
+    // Seed live progress dialog
+    const initialPJobs: PointsJob[] = jobs.map((j, i) => ({
+      id: `${j.type}-${j.day}-${i}`,
+      label: j.label,
+      type: j.type,
+      day: j.day,
+      status: 'pending',
+      body: { type: j.type, ...j.payload },
+    }));
+    setPointsJobs(initialPJobs);
+    setPointsProgressOpen(true);
+
     let processed = 0;
     let success = 0, failed = 0;
     const affectedOrderNums = new Set<string>();
 
-    for (const job of jobs) {
+    for (let i = 0; i < jobs.length; i++) {
       if (stopRequestedRef.current) break;
+      const job = jobs[i];
+      const pid = initialPJobs[i].id;
+      setPointsJobs(prev => prev.map(p => p.id === pid ? { ...p, status: 'running' } : p));
       try {
         const resp = await supabase.functions.invoke('sync-points-to-sajel', {
           body: { type: job.type, payload: job.payload },
         });
         const data: any = resp.data;
         const ok = !resp.error && data?.success;
+        const errMsg = ok ? undefined : (typeof data?.error === 'string' ? data.error : (data?.error?.message || resp.error?.message || 'Failed'));
         if (ok) {
           success++;
           job.orderNumbers.forEach(n => affectedOrderNums.add(n));
         } else {
           failed++;
         }
+        setPointsJobs(prev => prev.map(p => p.id === pid ? {
+          ...p, status: ok ? 'success' : 'failed', response: data ?? resp.error, error: errMsg,
+        } : p));
         if (runId) {
           await supabase.from('odoo_sync_run_details').insert({
             run_id: runId,
@@ -2359,7 +2392,7 @@ const OdooSyncBatch = () => {
             product_names: job.label,
             total_amount: null,
             sync_status: ok ? 'success' : 'failed',
-            error_message: ok ? null : (typeof data?.error === 'string' ? data.error : (data?.error?.message || resp.error?.message || 'Failed')),
+            error_message: ok ? null : errMsg,
             step_customer: 'found', step_brand: 'found', step_product: 'found',
             step_order: ok ? 'sent' : 'failed', step_purchase: 'skipped',
             original_orders: job.orderNumbers,
@@ -2369,6 +2402,10 @@ const OdooSyncBatch = () => {
         }
       } catch (e: any) {
         failed++;
+        const errMsg = e?.message || 'Error';
+        setPointsJobs(prev => prev.map(p => p.id === pid ? {
+          ...p, status: 'failed', error: errMsg, response: { error: errMsg },
+        } : p));
         if (runId) {
           await supabase.from('odoo_sync_run_details').insert({
             run_id: runId,
@@ -2376,12 +2413,12 @@ const OdooSyncBatch = () => {
             order_date: job.day,
             product_names: job.label,
             sync_status: 'failed',
-            error_message: e?.message || 'Error',
+            error_message: errMsg,
             step_customer: 'found', step_brand: 'found', step_product: 'found',
             step_order: 'failed', step_purchase: 'skipped',
             original_orders: job.orderNumbers,
             sajel_payload: { type: job.type, ...job.payload },
-            sajel_response: { error: e?.message },
+            sajel_response: { error: errMsg },
           });
         }
       }
@@ -4914,6 +4951,105 @@ const OdooSyncBatch = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Points sync live progress dialog */}
+      <Dialog open={pointsProgressOpen} onOpenChange={setPointsProgressOpen}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تقدم مزامنة النقاط' : 'Points Sync Progress'}
+              {pointsJobs.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {pointsJobs.filter(j => j.status === 'success').length} ✓ ·{' '}
+                  {pointsJobs.filter(j => j.status === 'failed').length} ✗ ·{' '}
+                  {pointsJobs.filter(j => j.status === 'pending' || j.status === 'running').length} …
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-auto flex-1">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-24">Status</TableHead>
+                  <TableHead className="w-24">Type</TableHead>
+                  <TableHead className="w-28">Day</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Error</TableHead>
+                  <TableHead className="w-32 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pointsJobs.map(j => (
+                  <TableRow key={j.id}>
+                    <TableCell>
+                      {j.status === 'success' && <Badge className="bg-green-500/15 text-green-700 border-green-500/30"><CheckCircle2 className="h-3 w-3 mr-1" />OK</Badge>}
+                      {j.status === 'failed' && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Fail</Badge>}
+                      {j.status === 'running' && <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Running</Badge>}
+                      {j.status === 'pending' && <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Pending</Badge>}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{j.type}</TableCell>
+                    <TableCell className="font-mono text-xs">{j.day}</TableCell>
+                    <TableCell className="text-xs">{j.label}</TableCell>
+                    <TableCell className="text-xs text-red-600 max-w-[300px] truncate" title={j.error}>{j.error || ''}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => setPointsDetailJob(j)} disabled={!j.body && !j.response}>
+                        <Eye className="h-3.5 w-3.5 mr-1" /> View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex justify-end pt-3 border-t">
+            <Button variant="outline" onClick={() => setPointsProgressOpen(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Points job details (body + response) */}
+      <Dialog open={!!pointsDetailJob} onOpenChange={(o) => !o && setPointsDetailJob(null)}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {pointsDetailJob?.type} · {pointsDetailJob?.day}
+              {pointsDetailJob?.status === 'failed' && <span className="ml-2 text-sm text-red-600">Failed</span>}
+              {pointsDetailJob?.status === 'success' && <span className="ml-2 text-sm text-green-600">Success</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-auto flex-1 space-y-4 text-sm">
+            {pointsDetailJob?.error && (
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-1">Error</div>
+                <pre className="rounded-md border bg-red-500/10 border-red-500/40 px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all">
+{pointsDetailJob.error}
+                </pre>
+              </div>
+            )}
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">Request Body (sent to Sajel)</div>
+              <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-[40vh] overflow-auto">
+{pointsDetailJob?.body ? JSON.stringify(pointsDetailJob.body, null, 2) : '(none)'}
+              </pre>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-1">Response</div>
+              <pre className={cn(
+                "rounded-md border px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-[40vh] overflow-auto",
+                pointsDetailJob?.status === 'success' ? 'bg-green-500/10 border-green-500/40' : 'bg-red-500/10 border-red-500/40'
+              )}>
+{pointsDetailJob?.response ? JSON.stringify(pointsDetailJob.response, null, 2) : '(waiting)'}
+              </pre>
+            </div>
+          </div>
+          <div className="flex justify-end pt-3 border-t">
+            <Button variant="outline" onClick={() => setPointsDetailJob(null)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
