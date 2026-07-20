@@ -57,12 +57,12 @@ Deno.serve(async (req) => {
     console.log(`Sajel ${type} response:`, resp.status, respText);
 
     if (!resp.ok) {
-      return new Response(JSON.stringify({ success: false, error: respJson?.error || respJson?.message || respText || `HTTP ${resp.status}`, response: respJson, sent: payload }), {
+      return new Response(JSON.stringify({ success: false, url, error: respJson?.error || respJson?.message || respText || `HTTP ${resp.status}`, response: respJson, sent: payload }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, response: respJson, sent: payload }), {
+    return new Response(JSON.stringify({ success: true, url, response: respJson, sent: payload }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e: any) {

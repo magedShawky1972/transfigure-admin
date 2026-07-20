@@ -269,6 +269,7 @@ const OdooSyncBatch = () => {
     type: 'stock_issue' | 'ap_invoice';
     day: string;
     status: 'pending' | 'running' | 'success' | 'failed';
+    url?: string;
     body?: any;
     response?: any;
     error?: string;
@@ -2367,6 +2368,7 @@ const OdooSyncBatch = () => {
       type: j.type,
       day: j.day,
       status: 'pending',
+      url: undefined,
       body: { type: j.type, ...j.payload },
     }));
     setPointsJobs(initialPJobs);
@@ -2395,7 +2397,7 @@ const OdooSyncBatch = () => {
           failed++;
         }
         setPointsJobs(prev => prev.map(p => p.id === pid ? {
-          ...p, status: ok ? 'success' : 'failed', response: data ?? resp.error, error: errMsg,
+          ...p, status: ok ? 'success' : 'failed', url: data?.url || p.url, response: data ?? resp.error, error: errMsg,
         } : p));
         if (runId) {
           await supabase.from('odoo_sync_run_details').insert({
@@ -5035,6 +5037,16 @@ const OdooSyncBatch = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="overflow-auto flex-1 space-y-4 text-sm">
+            {pointsDetailJob?.url && (
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground mb-1">
+                  {language === 'ar' ? 'رابط API' : 'API URL'}
+                </div>
+                <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all">
+                  {pointsDetailJob.url}
+                </pre>
+              </div>
+            )}
             {pointsDetailJob?.error && (
               <div>
                 <div className="text-xs font-semibold text-muted-foreground mb-1">Error</div>
