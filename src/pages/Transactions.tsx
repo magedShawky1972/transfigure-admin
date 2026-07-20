@@ -499,9 +499,25 @@ const Transactions = () => {
       if (page === 1) {
         const uniqueBrands = [...new Set(rows.map(t => t.brand_name).filter(Boolean))];
         const uniqueProducts = [...new Set(rows.map(t => t.product_name).filter(Boolean))];
-        const uniquePaymentMethods = [...new Set(rows.map(t => t.payment_method).filter(Boolean))];
-        const uniquePaymentBrands = [...new Set(rows.map(t => t.payment_brand).filter(Boolean))];
         const uniqueCustomers = [...new Set(rows.map(t => t.customer_name).filter(Boolean))];
+
+        // Case-insensitive deduplication for payment method/brand so e.g. MADA == mada
+        const dedupCI = (values: (string | null | undefined)[]): string[] => {
+          const seen = new Set<string>();
+          const out: string[] = [];
+          for (const v of values) {
+            if (!v) continue;
+            const key = String(v).trim().toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(String(v).trim());
+          }
+          return out;
+        };
+
+        const uniquePaymentMethods = dedupCI(rows.map(t => t.payment_method));
+        const uniquePaymentBrands = dedupCI(rows.map(t => t.payment_brand));
+
         setBrands(uniqueBrands as string[]);
         setProducts(uniqueProducts as string[]);
         setPaymentMethods(uniquePaymentMethods as string[]);
@@ -805,8 +821,8 @@ const Transactions = () => {
       const matchesCompany = filterCompany === "all" || (transaction as any).company === filterCompany;
       const matchesBrand = filterBrand === "all" || transaction.brand_name === filterBrand;
       const matchesProduct = filterProduct === "all" || transaction.product_name === filterProduct;
-      const matchesPaymentMethod = filterPaymentMethod === "all" || transaction.payment_method === filterPaymentMethod;
-      const matchesPaymentBrand = filterPaymentBrand === "all" || transaction.payment_brand === filterPaymentBrand;
+      const matchesPaymentMethod = filterPaymentMethod === "all" || String(transaction.payment_method || '').trim().toLowerCase() === filterPaymentMethod.trim().toLowerCase();
+      const matchesPaymentBrand = filterPaymentBrand === "all" || String(transaction.payment_brand || '').trim().toLowerCase() === filterPaymentBrand.trim().toLowerCase();
       const matchesCustomer = filterCustomer === "all" || transaction.customer_name === filterCustomer;
       
       const matchesSku = filterSku === "" || 
