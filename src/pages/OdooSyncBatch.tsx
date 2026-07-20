@@ -2397,7 +2397,7 @@ const OdooSyncBatch = () => {
           failed++;
         }
         setPointsJobs(prev => prev.map(p => p.id === pid ? {
-          ...p, status: ok ? 'success' : 'failed', response: data ?? resp.error, error: errMsg,
+          ...p, status: ok ? 'success' : 'failed', url: data?.url || p.url, response: data ?? resp.error, error: errMsg,
         } : p));
         if (runId) {
           await supabase.from('odoo_sync_run_details').insert({
