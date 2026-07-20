@@ -681,7 +681,6 @@ const ReceivingCoins = () => {
             quantity: Number(l.coins) || 0,
             unitPrice: Number(l.unit_price) || 0,
             taxRate: 0,
-            costCenterCode: "",
           };
         }),
       };
