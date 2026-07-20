@@ -997,7 +997,9 @@ const OdooSyncBatch = () => {
           // When separateByDay is false, use a fixed date part to consolidate all days
           const datePart = separateByDay ? dateOnly : 'ALL';
           const normalizedBrand = normalizeBrand(line.payment_method, line.payment_brand);
-          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${normalizedBrand}|${line.vendor_name || ''}`;
+          // Aggregate per day + payment_method + payment_brand (normalized).
+          // Multiple brands/vendors are consolidated into ONE order with a lines[] array.
+          const invoiceKey = `${datePart}|${line.payment_method || ''}|${normalizedBrand}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -1018,6 +1020,16 @@ const OdooSyncBatch = () => {
             });
           }
         });
+      });
+
+      // After grouping, mark headers whose grouped lines span multiple brands / vendors as MIXED
+      invoiceMap.forEach((inv) => {
+        const brandNames = new Set(inv.lines.map(l => l.brand_name || '').filter(Boolean));
+        const vendorNames = new Set(inv.lines.map(l => (l as any).vendor_name || '').filter(Boolean));
+        if (brandNames.size > 1) inv.brandName = 'MIXED';
+        else if (brandNames.size === 1) inv.brandName = Array.from(brandNames)[0];
+        if (vendorNames.size > 1) inv.vendorName = 'MIXED';
+        else if (vendorNames.size === 1) inv.vendorName = Array.from(vendorNames)[0];
       });
 
 
