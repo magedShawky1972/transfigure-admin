@@ -56,6 +56,7 @@ export default function SajelErpSetup() {
           one_step_combined_transaction_url: data.one_step_combined_transaction_url ?? "",
           expense_entry_api_url: data.expense_entry_api_url ?? "",
           generate_batch_number_url: (data as any).generate_batch_number_url ?? "",
+          stock_issue_api_url: (data as any).stock_issue_api_url ?? "",
         });
       }
       setLoading(false);
