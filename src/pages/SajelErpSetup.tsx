@@ -180,6 +180,18 @@ export default function SajelErpSetup() {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط Stock Issue API (نقاط)" : "Stock Issue API URL (Points)"}</Label>
+            <Input
+              value={form.stock_issue_api_url}
+              onChange={update("stock_issue_api_url")}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
+
+
+
 
           <div className="flex justify-end pt-2">
             <Button onClick={handleSave} disabled={saving}>
