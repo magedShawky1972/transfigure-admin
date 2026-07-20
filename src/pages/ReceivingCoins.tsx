@@ -846,7 +846,7 @@ const ReceivingCoins = () => {
 
     const payment = { paymentMethod: "BANK_TRANSFER", bankCode, referenceNo: h.receipt_number };
 
-    const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", { body: { invoice, payment } });
+    const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", { body: { invoice, payment, skipCostCenter: true } });
     if (error) throw error;
     const success = data?.success === true;
     const { data: { user } } = await supabase.auth.getUser();
