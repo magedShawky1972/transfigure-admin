@@ -2267,8 +2267,10 @@ const OdooSyncBatch = () => {
       if (bucket.classA.length) {
         const orderNumbers = Array.from(new Set(bucket.classA.map(l => l._orderNumber)));
         const lines = bucket.classA.map(l => {
-          const qty = l.coins_number || l.qty || 1;
-          const unitCost = l.cost_price || (l.cost_sold && qty ? l.cost_sold / qty : 0);
+          const coins = l.coins_number || 0;
+          const qty = coins || l.qty || 1;
+          // Class A: unit cost = total cost / coins
+          const unitCost = coins && l.cost_sold ? l.cost_sold / coins : 0;
           return {
             itemCode: l.brand_code || '',
             quantity: qty,
