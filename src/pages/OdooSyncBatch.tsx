@@ -2428,8 +2428,10 @@ const OdooSyncBatch = () => {
       setBatchConfirmNumber(bn);
       // Rebind runFn to use freshly-fetched batch number
       pendingSyncRef.current = () => {
-        // Replace the closure so it uses this specific batch number
-        if (aggregateMode) {
+        if (pointsOnly) {
+          const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
+          executePointsSync(toSync, bn);
+        } else if (aggregateMode) {
           const selectedAggregated = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
           executeAggregatedSync(selectedAggregated, bn);
         } else {
