@@ -2296,7 +2296,7 @@ const OdooSyncBatch = () => {
             unitPrice,
             taxRate: 0,
             costCenterCode: 'P10',
-            drAccountCode: '601000',
+            drAccountCode: '501200',
           };
         });
         const dueDateObj = new Date(day); dueDateObj.setDate(dueDateObj.getDate() + 30);
