@@ -2368,6 +2368,7 @@ const OdooSyncBatch = () => {
       type: j.type,
       day: j.day,
       status: 'pending',
+      url: undefined,
       body: { type: j.type, ...j.payload },
     }));
     setPointsJobs(initialPJobs);
