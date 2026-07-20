@@ -20,15 +20,16 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, stock_issue_api_url, ap_invoice_api_url')
+      .select('api_key, stock_issue_api_url, stock_movement_api_url, ap_invoice_api_url')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (sErr) throw sErr;
 
     let url: string | null | undefined;
-    if (type === 'stock_issue') url = (settings as any)?.stock_issue_api_url;
-    else if (type === 'ap_invoice') url = (settings as any)?.ap_invoice_api_url;
+    if (type === 'stock_issue') {
+      url = (settings as any)?.stock_movement_api_url || (settings as any)?.stock_issue_api_url;
+    } else if (type === 'ap_invoice') url = (settings as any)?.ap_invoice_api_url;
     else {
       return new Response(JSON.stringify({ success: false, error: `Unknown type: ${type}` }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
