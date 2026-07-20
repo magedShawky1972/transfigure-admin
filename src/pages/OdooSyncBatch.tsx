@@ -997,7 +997,9 @@ const OdooSyncBatch = () => {
           // When separateByDay is false, use a fixed date part to consolidate all days
           const datePart = separateByDay ? dateOnly : 'ALL';
           const normalizedBrand = normalizeBrand(line.payment_method, line.payment_brand);
-          const invoiceKey = `${datePart}|${line.brand_name || ''}|${line.payment_method}|${normalizedBrand}|${line.vendor_name || ''}`;
+          // Aggregate per day + payment_method + payment_brand (normalized).
+          // Multiple brands/vendors are consolidated into ONE order with a lines[] array.
+          const invoiceKey = `${datePart}|${line.payment_method || ''}|${normalizedBrand}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -1018,6 +1020,16 @@ const OdooSyncBatch = () => {
             });
           }
         });
+      });
+
+      // After grouping, mark headers whose grouped lines span multiple brands / vendors as MIXED
+      invoiceMap.forEach((inv) => {
+        const brandNames = new Set(inv.lines.map(l => l.brand_name || '').filter(Boolean));
+        const vendorNames = new Set(inv.lines.map(l => (l as any).vendor_name || '').filter(Boolean));
+        if (brandNames.size > 1) inv.brandName = 'MIXED';
+        else if (brandNames.size === 1) inv.brandName = Array.from(brandNames)[0];
+        if (vendorNames.size > 1) inv.vendorName = 'MIXED';
+        else if (vendorNames.size === 1) inv.vendorName = Array.from(vendorNames)[0];
       });
 
 
@@ -1583,35 +1595,68 @@ const OdooSyncBatch = () => {
       let invoicePayload: any = undefined;
       let paymentPayload: any = undefined;
       try {
-        const brandCode = invoice.originalLines[0]?.brand_code || '';
-        const abc = brandAbcMap.get(brandCode);
-        const isClassA = abc === 'A';
-        const vendorName = invoice.vendorName || invoice.originalLines[0]?.vendor_name || '';
-        const vendorCode = vendorOptions.find(v => v.name === vendorName)?.code || vendorName;
         const first = invoice.originalLines[0];
 
         const dateStr = (invoice.date || '').slice(0, 10);
         const [yyyy, mm] = dateStr.split('-');
         const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
-        const totalQty = invoice.productLines.reduce((s, pl) => s + (pl.totalQty || 0), 0);
-        const totalCoins = invoice.productLines.reduce((s, pl) => s + ((pl as any).totalCoins || 0), 0);
-        const totalAmount = invoice.productLines.reduce((s, pl) => s + (pl.totalAmount || 0), 0);
-        const totalCost = invoice.productLines.reduce((s, pl) => {
-          const cs = (pl as any).costSold;
-          if (cs) return s + Number(cs);
-          const cp = (pl as any).costPrice ?? 0;
-          return s + Number(cp) * (pl.totalQty || 0);
-        }, 0);
+        // Aggregate original lines per brand_code so we send ONE order with a
+        // lines[] array (day + payment_method + payment_type consolidation).
+        // For ABC Class A brands, quantity = sum of coins; otherwise sum of qty.
+        type BrandAgg = {
+          brandCode: string;
+          brandName: string;
+          isClassA: boolean;
+          totalQty: number;
+          totalCoins: number;
+          totalAmount: number;
+          totalCost: number;
+          vendorName: string;
+        };
+        const brandAggMap = new Map<string, BrandAgg>();
+        for (const l of invoice.originalLines) {
+          const code = l.brand_code || '';
+          const isA = brandAbcMap.get(code) === 'A';
+          const cur = brandAggMap.get(code) || {
+            brandCode: code,
+            brandName: l.brand_name || code,
+            isClassA: isA,
+            totalQty: 0,
+            totalCoins: 0,
+            totalAmount: 0,
+            totalCost: 0,
+            vendorName: (l as any).vendor_name || '',
+          };
+          cur.totalQty += l.qty || 0;
+          cur.totalCoins += l.coins_number || 0;
+          cur.totalAmount += l.total || 0;
+          cur.totalCost += l.cost_sold || 0;
+          brandAggMap.set(code, cur);
+        }
 
-        // For ABC class A brands, quantity sent to Sajel is the sum of coins
-        // (not the sum of item qty). Unit price/cost are re-derived accordingly.
-        const qtyForSajel = isClassA ? (totalCoins || totalQty || 1) : (totalQty || 1);
+        const lines = Array.from(brandAggMap.values()).map((b) => {
+          const qty = b.isClassA ? (b.totalCoins || b.totalQty || 1) : (b.totalQty || 1);
+          return {
+            itemCode: b.brandCode,
+            description: b.brandName,
+            quantity: qty,
+            unitPrice: qty ? b.totalAmount / qty : b.totalAmount,
+            unitCost: qty ? b.totalCost / qty : b.totalCost,
+          };
+        });
+
+        // Pick a vendorCode from the first non-Class-A brand (Class A doesn't need one).
+        const firstNonA = Array.from(brandAggMap.values()).find(b => !b.isClassA);
+        const vendorName = firstNonA?.vendorName || '';
+        const vendorCode = vendorName
+          ? (vendorOptions.find(v => v.name === vendorName)?.code || vendorName)
+          : '';
 
         // Keep attribute order EXACTLY as Sajel spec
         invoicePayload = {
           businessUnitCode: 'Asus-Trading',
-          ...((!isClassA && vendorCode) ? { vendorCode } : {}),
+          ...(vendorCode ? { vendorCode } : {}),
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
           periodCode,
@@ -1621,13 +1666,7 @@ const OdooSyncBatch = () => {
           status: 'POSTED',
           costCenterCode: 'P10',
           ...(batchNumber ? { batchNumber } : {}),
-          lines: [{
-            itemCode: brandCode,
-            description: invoice.brandName || brandCode,
-            quantity: qtyForSajel,
-            unitPrice: qtyForSajel ? totalAmount / qtyForSajel : totalAmount,
-            unitCost: qtyForSajel ? totalCost / qtyForSajel : totalCost,
-          }],
+          lines,
         };
 
         paymentPayload = {
