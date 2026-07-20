@@ -672,7 +672,6 @@ const ReceivingCoins = () => {
         notes: headerNotes,
         status: "POSTED",
         businessUnitCode: "Asus-Trading",
-        costCenterCode: "",
         lines: confirmedLines.map(l => {
           const brandName = brandMap[l.brand_id]?.name || l.brand_name || "";
           const vendorName = vendorMap[l.supplier_id] || "";
@@ -682,7 +681,6 @@ const ReceivingCoins = () => {
             quantity: Number(l.coins) || 0,
             unitPrice: Number(l.unit_price) || 0,
             taxRate: 0,
-            costCenterCode: "",
           };
         }),
       };
@@ -696,7 +694,7 @@ const ReceivingCoins = () => {
       toast.info(isArabic ? "جاري الإرسال إلى المحاسبة..." : "Sending to Accounting...");
 
       const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", {
-        body: { invoice, payment },
+        body: { invoice, payment, skipCostCenter: true },
       });
       if (error) throw error;
 
@@ -822,7 +820,6 @@ const ReceivingCoins = () => {
       notes: headerNotes,
       status: "POSTED",
       businessUnitCode: "Asus-Trading",
-      costCenterCode: "",
       lines: confirmedLines.map(l => {
         const brandName = brandMap[l.brand_id]?.brand_name || l.brand_name || l.product_name || "";
         const vendorName = vendorMap[l.supplier_id] || "";
@@ -839,14 +836,13 @@ const ReceivingCoins = () => {
           quantity: Number(l.coins) || 0,
           unitPrice,
           taxRate: 0,
-          costCenterCode: "",
         };
       }),
     };
 
     const payment = { paymentMethod: "BANK_TRANSFER", bankCode, referenceNo: h.receipt_number };
 
-    const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", { body: { invoice, payment } });
+    const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", { body: { invoice, payment, skipCostCenter: true } });
     if (error) throw error;
     const success = data?.success === true;
     const { data: { user } } = await supabase.auth.getUser();

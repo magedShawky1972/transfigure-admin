@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { invoice, payment, batchNumber } = await req.json();
+    const { invoice, payment, batchNumber, skipCostCenter } = await req.json();
     if (!invoice) {
       return new Response(JSON.stringify({ success: false, error: 'invoice required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     const { lines: _invLines, costCenterCode: _cc, batchNumber: _bn, ...invoiceRest } = (invoice ?? {}) as Record<string, unknown>;
     const invoiceForSajel: Record<string, unknown> = {
       ...invoiceRest,
-      costCenterCode: "P10",
+      ...(skipCostCenter ? {} : { costCenterCode: "P10" }),
       ...(_invLines !== undefined ? { lines: _invLines } : {}),
     };
 
