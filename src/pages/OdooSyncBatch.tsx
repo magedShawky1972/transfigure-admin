@@ -2303,8 +2303,9 @@ const OdooSyncBatch = () => {
         const orderNumbers = Array.from(new Set(vlines.map(l => l._orderNumber)));
         const totalAmount = vlines.reduce((s, l) => s + (l.total || 0), 0);
         const lines = vlines.map(l => {
-          const qty = l.coins_number || l.qty || 1;
-          const unitPrice = l.unit_price || (l.total && qty ? l.total / qty : 0);
+          const qty = l.qty || 1;
+          // Non-A: unit cost = total cost / line quantity
+          const unitPrice = qty && l.cost_sold ? l.cost_sold / qty : (l.cost_price || 0);
           return {
             itemCode: l.brand_code || '',
             description: l.brand_name || '',
