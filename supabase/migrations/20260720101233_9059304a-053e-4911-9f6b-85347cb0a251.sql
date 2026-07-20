@@ -1,0 +1,1 @@
+ALTER TABLE public.sajel_erp_settings ADD COLUMN IF NOT EXISTS stock_issue_api_url text;

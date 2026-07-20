@@ -16,6 +16,7 @@ interface SajelErpSettings {
   one_step_combined_transaction_url: string;
   expense_entry_api_url: string;
   generate_batch_number_url: string;
+  stock_issue_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
@@ -25,6 +26,7 @@ const EMPTY: SajelErpSettings = {
   one_step_combined_transaction_url: "",
   expense_entry_api_url: "",
   generate_batch_number_url: "",
+  stock_issue_api_url: "",
 };
 
 export default function SajelErpSetup() {
@@ -54,6 +56,7 @@ export default function SajelErpSetup() {
           one_step_combined_transaction_url: data.one_step_combined_transaction_url ?? "",
           expense_entry_api_url: data.expense_entry_api_url ?? "",
           generate_batch_number_url: (data as any).generate_batch_number_url ?? "",
+          stock_issue_api_url: (data as any).stock_issue_api_url ?? "",
         });
       }
       setLoading(false);
@@ -74,6 +77,7 @@ export default function SajelErpSetup() {
         one_step_combined_transaction_url: form.one_step_combined_transaction_url || null,
         expense_entry_api_url: form.expense_entry_api_url || null,
         generate_batch_number_url: form.generate_batch_number_url || null,
+        stock_issue_api_url: form.stock_issue_api_url || null,
         updated_by: user?.id ?? null,
       };
       const query = form.id
@@ -175,6 +179,18 @@ export default function SajelErpSetup() {
               dir="ltr"
             />
           </div>
+
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط Stock Issue API (نقاط)" : "Stock Issue API URL (Points)"}</Label>
+            <Input
+              value={form.stock_issue_api_url}
+              onChange={update("stock_issue_api_url")}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
+
+
 
 
           <div className="flex justify-end pt-2">

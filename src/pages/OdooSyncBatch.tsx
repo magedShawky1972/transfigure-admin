@@ -2139,6 +2139,21 @@ const OdooSyncBatch = () => {
 
   // Start sync process
   const handleStartSync = async () => {
+    // Points mode: send as Stock Issue (Class A) / AP Invoice (non-A) grouped by day.
+    if (pointsOnly) {
+      const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
+      if (toSync.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'لا توجد طلبات' : 'No Orders',
+          description: language === 'ar' ? 'يرجى اختيار طلبات للمزامنة' : 'Please select orders to sync',
+        });
+        return;
+      }
+      await requestBatchAndConfirm(() => executePointsSync(toSync, batchConfirmNumber || undefined));
+      return;
+    }
+
     // When in aggregate mode, sync aggregated invoices directly (not individual orders)
     if (aggregateMode) {
       const selectedAggregated = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
@@ -2177,6 +2192,230 @@ const OdooSyncBatch = () => {
     await executeSync(toSync);
   };
 
+  // Execute POINTS-only sync: group by day; Class A → Stock Issue, non-A → AP Invoice per vendor.
+  const executePointsSync = async (toSync: OrderGroup[], preFetchedBatchNumber?: string) => {
+    stopRequestedRef.current = false;
+    setStopRequested(false);
+    const syncStartTime = new Date();
+    setStartTime(syncStartTime);
+    setEndTime(null);
+    const runId = await createSyncRun();
+    setCurrentRunId(runId);
+    setIsSyncing(true);
+    setSyncProgress(0);
+    setSyncComplete(false);
+
+    // Fetch a batch number (unless one was pre-fetched)
+    let sajelBatchNumber: string | undefined = preFetchedBatchNumber;
+    if (!sajelBatchNumber) {
+      try {
+        sajelBatchNumber = await fetchSajelBatchNumber();
+      } catch (e: any) {
+        toast({ title: 'Batch Number Missing', description: e?.message || 'batchNumber required', variant: 'destructive' });
+        setIsSyncing(false);
+        setEndTime(new Date());
+        return;
+      }
+    }
+
+    // Flatten all selected lines
+    type PLine = Transaction & { _orderNumber: string };
+    const allLines: PLine[] = [];
+    toSync.forEach(g => g.lines.forEach(l => allLines.push({ ...l, _orderNumber: g.orderNumber })));
+
+    // Group by day → { classA: PLine[], vendorMap: Map<vendorCode, PLine[]> }
+    const byDay = new Map<string, { classA: PLine[]; nonAByVendor: Map<string, PLine[]> }>();
+    for (const l of allLines) {
+      const day = (l.created_at_date || '').slice(0, 10);
+      if (!day) continue;
+      const abc = brandAbcMap.get(l.brand_code || '');
+      const bucket = byDay.get(day) || { classA: [], nonAByVendor: new Map() };
+      if (abc === 'A') {
+        bucket.classA.push(l);
+      } else {
+        const vendorName = l.vendor_name || 'UNKNOWN';
+        const vendorCode = vendorOptions.find(v => v.name === vendorName)?.code || vendorName;
+        const arr = bucket.nonAByVendor.get(vendorCode) || [];
+        arr.push(l);
+        bucket.nonAByVendor.set(vendorCode, arr);
+      }
+      byDay.set(day, bucket);
+    }
+
+    // Build payloads list
+    type Job = { type: 'stock_issue' | 'ap_invoice'; day: string; label: string; payload: any; orderNumbers: string[] };
+    const jobs: Job[] = [];
+
+    for (const [day, bucket] of byDay) {
+      const [yyyy, mm] = day.split('-');
+      const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
+
+      if (bucket.classA.length) {
+        const orderNumbers = Array.from(new Set(bucket.classA.map(l => l._orderNumber)));
+        const lines = bucket.classA.map(l => {
+          const qty = l.coins_number || l.qty || 1;
+          const unitCost = l.cost_price || (l.cost_sold && qty ? l.cost_sold / qty : 0);
+          return {
+            itemCode: l.brand_code || '',
+            quantity: qty,
+            unitCost,
+            drAccountCode: '501200',
+            costCenterCode: 'P10',
+          };
+        });
+        jobs.push({
+          type: 'stock_issue',
+          day,
+          label: `${day} · Stock Issue (Class A) · ${lines.length} lines`,
+          orderNumbers,
+          payload: {
+            documentType: 'ISSUE',
+            businessUnitCode: 'Asus-Trading',
+            warehouseCode: 'MAIN',
+            date: day,
+            periodCode,
+            noGl: false,
+            status: 'POSTED',
+            notes: 'Points redemption stock issue',
+            batchNumber: sajelBatchNumber,
+            lines,
+          },
+        });
+      }
+
+      for (const [vendorCode, vlines] of bucket.nonAByVendor) {
+        const orderNumbers = Array.from(new Set(vlines.map(l => l._orderNumber)));
+        const totalAmount = vlines.reduce((s, l) => s + (l.total || 0), 0);
+        const lines = vlines.map(l => {
+          const qty = l.coins_number || l.qty || 1;
+          const unitPrice = l.unit_price || (l.total && qty ? l.total / qty : 0);
+          return {
+            itemCode: l.brand_code || '',
+            description: l.brand_name || '',
+            quantity: qty,
+            unitPrice,
+            taxRate: 0,
+            costCenterCode: 'P10',
+            drAccountCode: '601000',
+          };
+        });
+        const dueDateObj = new Date(day); dueDateObj.setDate(dueDateObj.getDate() + 30);
+        const dueDate = dueDateObj.toISOString().slice(0, 10);
+        jobs.push({
+          type: 'ap_invoice',
+          day,
+          label: `${day} · AP Invoice · ${vendorCode} · ${lines.length} lines`,
+          orderNumbers,
+          payload: {
+            vendorCode,
+            invoiceDate: day,
+            dueDate,
+            periodCode,
+            currencyCode: 'SAR',
+            exchangeRate: 1.0,
+            reference: `POINTS-${day}-${vendorCode}`,
+            notes: 'Points redemption AP invoice',
+            status: 'POSTED',
+            businessUnitCode: 'Asus-Trading',
+            costCenterCode: 'P10',
+            batchNumber: sajelBatchNumber,
+            drAccountCode: '501200',
+            lines,
+          },
+        });
+      }
+    }
+
+    if (!jobs.length) {
+      setIsSyncing(false); setSyncComplete(true); setEndTime(new Date());
+      toast({ title: language === 'ar' ? 'لا توجد بيانات' : 'Nothing to send', description: 'No points lines' });
+      return;
+    }
+
+    let processed = 0;
+    let success = 0, failed = 0;
+    const affectedOrderNums = new Set<string>();
+
+    for (const job of jobs) {
+      if (stopRequestedRef.current) break;
+      try {
+        const resp = await supabase.functions.invoke('sync-points-to-sajel', {
+          body: { type: job.type, payload: job.payload },
+        });
+        const data: any = resp.data;
+        const ok = !resp.error && data?.success;
+        if (ok) {
+          success++;
+          job.orderNumbers.forEach(n => affectedOrderNums.add(n));
+        } else {
+          failed++;
+        }
+        if (runId) {
+          await supabase.from('odoo_sync_run_details').insert({
+            run_id: runId,
+            order_number: `${job.type.toUpperCase()}-${job.day}`,
+            order_date: job.day,
+            customer_phone: null,
+            product_names: job.label,
+            total_amount: null,
+            sync_status: ok ? 'success' : 'failed',
+            error_message: ok ? null : (typeof data?.error === 'string' ? data.error : (data?.error?.message || resp.error?.message || 'Failed')),
+            step_customer: 'found', step_brand: 'found', step_product: 'found',
+            step_order: ok ? 'sent' : 'failed', step_purchase: 'skipped',
+            original_orders: job.orderNumbers,
+            sajel_payload: { type: job.type, ...job.payload },
+            sajel_response: data ?? resp.error,
+          });
+        }
+      } catch (e: any) {
+        failed++;
+        if (runId) {
+          await supabase.from('odoo_sync_run_details').insert({
+            run_id: runId,
+            order_number: `${job.type.toUpperCase()}-${job.day}`,
+            order_date: job.day,
+            product_names: job.label,
+            sync_status: 'failed',
+            error_message: e?.message || 'Error',
+            step_customer: 'found', step_brand: 'found', step_product: 'found',
+            step_order: 'failed', step_purchase: 'skipped',
+            original_orders: job.orderNumbers,
+            sajel_payload: { type: job.type, ...job.payload },
+            sajel_response: { error: e?.message },
+          });
+        }
+      }
+      processed++;
+      setSyncProgress(Math.round((processed / jobs.length) * 100));
+    }
+
+    if (affectedOrderNums.size) {
+      await supabase.from('purpletransaction').update({ sendodoo: true }).in('order_number', Array.from(affectedOrderNums));
+    }
+
+    const syncEndTime = new Date();
+    setEndTime(syncEndTime);
+    setIsSyncing(false);
+    setSyncComplete(true);
+
+    if (runId) {
+      await supabase.from('odoo_sync_runs').update({
+        end_time: syncEndTime.toISOString(),
+        successful_orders: success,
+        failed_orders: failed,
+        skipped_orders: 0,
+        status: failed > 0 ? 'completed_with_errors' : 'completed',
+      }).eq('id', runId);
+    }
+
+    toast({
+      title: language === 'ar' ? 'اكتملت مزامنة النقاط' : 'Points Sync Complete',
+      description: `Batch: ${sajelBatchNumber} · Success: ${success} · Failed: ${failed}`,
+    });
+  };
+
+
+
   // Fetch Sajel batch number then open an in-app confirmation dialog before running.
   const requestBatchAndConfirm = async (runFn: () => void) => {
     setBatchConfirmFetching(true);
@@ -2189,8 +2428,10 @@ const OdooSyncBatch = () => {
       setBatchConfirmNumber(bn);
       // Rebind runFn to use freshly-fetched batch number
       pendingSyncRef.current = () => {
-        // Replace the closure so it uses this specific batch number
-        if (aggregateMode) {
+        if (pointsOnly) {
+          const toSync = filteredOrderGroups.filter(g => g.selected && !g.skipSync);
+          executePointsSync(toSync, bn);
+        } else if (aggregateMode) {
           const selectedAggregated = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
           executeAggregatedSync(selectedAggregated, bn);
         } else {
