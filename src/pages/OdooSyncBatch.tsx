@@ -975,7 +975,9 @@ const OdooSyncBatch = () => {
       }
       const normalizeBrand = (pm: string | null | undefined, pb: string | null | undefined) => {
         const k = `${(pm || '').toString().trim().toLowerCase()}|${(pb || '').toString().trim().toLowerCase()}`;
-        return suffixMap.get(k) || (pb || '');
+        const suffix = suffixMap.get(k);
+        if (suffix) return suffix.toLowerCase();
+        return (pb || '').toString().trim().toLowerCase();
       };
 
 
@@ -997,9 +999,10 @@ const OdooSyncBatch = () => {
           // When separateByDay is false, use a fixed date part to consolidate all days
           const datePart = separateByDay ? dateOnly : 'ALL';
           const normalizedBrand = normalizeBrand(line.payment_method, line.payment_brand);
-          // Aggregate per day + payment_method + payment_brand (normalized).
+          const normalizedMethod = (line.payment_method || '').toString().trim().toLowerCase();
+          // Aggregate per day + payment_method + payment_brand (normalized, case-insensitive).
           // Multiple brands/vendors are consolidated into ONE order with a lines[] array.
-          const invoiceKey = `${datePart}|${line.payment_method || ''}|${normalizedBrand}`;
+          const invoiceKey = `${datePart}|${normalizedMethod}|${normalizedBrand}`;
 
           const existing = invoiceMap.get(invoiceKey);
           if (existing) {
@@ -1011,7 +1014,7 @@ const OdooSyncBatch = () => {
             invoiceMap.set(invoiceKey, {
               date: dateOnly,
               brandName: line.brand_name || '',
-              paymentMethod: line.payment_method || '',
+              paymentMethod: normalizedMethod,
               paymentBrand: normalizedBrand,
               userName: line.user_name || '',
               vendorName: line.vendor_name || '',
