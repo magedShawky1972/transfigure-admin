@@ -1219,7 +1219,7 @@ const OdooSyncBatch = () => {
     };
 
     buildAggregatedInvoices();
-  }, [orderGroups, aggregateMode, separateByDay, nonStockSkuSet]);
+  }, [orderGroups, aggregateMode, separateByDay, nonStockSkuSet, brandAbcMap]);
 
   // Aggregated invoice selection handlers (only for filtered items)
   const handleSelectAggregatedRow = (orderNumber: string, checked: boolean) => {
