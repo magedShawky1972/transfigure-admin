@@ -2346,24 +2346,43 @@ const OdooSyncBatch = () => {
       return;
     }
 
+    // Seed live progress dialog
+    const initialPJobs: PointsJob[] = jobs.map((j, i) => ({
+      id: `${j.type}-${j.day}-${i}`,
+      label: j.label,
+      type: j.type,
+      day: j.day,
+      status: 'pending',
+      body: { type: j.type, ...j.payload },
+    }));
+    setPointsJobs(initialPJobs);
+    setPointsProgressOpen(true);
+
     let processed = 0;
     let success = 0, failed = 0;
     const affectedOrderNums = new Set<string>();
 
-    for (const job of jobs) {
+    for (let i = 0; i < jobs.length; i++) {
       if (stopRequestedRef.current) break;
+      const job = jobs[i];
+      const pid = initialPJobs[i].id;
+      setPointsJobs(prev => prev.map(p => p.id === pid ? { ...p, status: 'running' } : p));
       try {
         const resp = await supabase.functions.invoke('sync-points-to-sajel', {
           body: { type: job.type, payload: job.payload },
         });
         const data: any = resp.data;
         const ok = !resp.error && data?.success;
+        const errMsg = ok ? undefined : (typeof data?.error === 'string' ? data.error : (data?.error?.message || resp.error?.message || 'Failed'));
         if (ok) {
           success++;
           job.orderNumbers.forEach(n => affectedOrderNums.add(n));
         } else {
           failed++;
         }
+        setPointsJobs(prev => prev.map(p => p.id === pid ? {
+          ...p, status: ok ? 'success' : 'failed', response: data ?? resp.error, error: errMsg,
+        } : p));
         if (runId) {
           await supabase.from('odoo_sync_run_details').insert({
             run_id: runId,
@@ -2373,7 +2392,7 @@ const OdooSyncBatch = () => {
             product_names: job.label,
             total_amount: null,
             sync_status: ok ? 'success' : 'failed',
-            error_message: ok ? null : (typeof data?.error === 'string' ? data.error : (data?.error?.message || resp.error?.message || 'Failed')),
+            error_message: ok ? null : errMsg,
             step_customer: 'found', step_brand: 'found', step_product: 'found',
             step_order: ok ? 'sent' : 'failed', step_purchase: 'skipped',
             original_orders: job.orderNumbers,
@@ -2383,6 +2402,10 @@ const OdooSyncBatch = () => {
         }
       } catch (e: any) {
         failed++;
+        const errMsg = e?.message || 'Error';
+        setPointsJobs(prev => prev.map(p => p.id === pid ? {
+          ...p, status: 'failed', error: errMsg, response: { error: errMsg },
+        } : p));
         if (runId) {
           await supabase.from('odoo_sync_run_details').insert({
             run_id: runId,
@@ -2390,12 +2413,12 @@ const OdooSyncBatch = () => {
             order_date: job.day,
             product_names: job.label,
             sync_status: 'failed',
-            error_message: e?.message || 'Error',
+            error_message: errMsg,
             step_customer: 'found', step_brand: 'found', step_product: 'found',
             step_order: 'failed', step_purchase: 'skipped',
             original_orders: job.orderNumbers,
             sajel_payload: { type: job.type, ...job.payload },
-            sajel_response: { error: e?.message },
+            sajel_response: { error: errMsg },
           });
         }
       }
