@@ -262,6 +262,20 @@ const OdooSyncBatch = () => {
   const [syncProgress, setSyncProgress] = useState(0);
   const [currentOrderIndex, setCurrentOrderIndex] = useState(-1);
   const [syncComplete, setSyncComplete] = useState(false);
+  // Points sync live progress dialog
+  type PointsJob = {
+    id: string;
+    label: string;
+    type: 'stock_issue' | 'ap_invoice';
+    day: string;
+    status: 'pending' | 'running' | 'success' | 'failed';
+    body?: any;
+    response?: any;
+    error?: string;
+  };
+  const [pointsProgressOpen, setPointsProgressOpen] = useState(false);
+  const [pointsJobs, setPointsJobs] = useState<PointsJob[]>([]);
+  const [pointsDetailJob, setPointsDetailJob] = useState<PointsJob | null>(null);
   const [nonStockSkuSet, setNonStockSkuSet] = useState<Set<string>>(new Set());
   const [brandAbcMap, setBrandAbcMap] = useState<Map<string, string>>(new Map());
   
