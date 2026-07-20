@@ -269,6 +269,7 @@ const OdooSyncBatch = () => {
     type: 'stock_issue' | 'ap_invoice';
     day: string;
     status: 'pending' | 'running' | 'success' | 'failed';
+    url?: string;
     body?: any;
     response?: any;
     error?: string;
