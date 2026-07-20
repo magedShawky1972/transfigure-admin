@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText, ChevronsUpDown, Check } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText, ChevronsUpDown, Check, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -5030,7 +5030,26 @@ const OdooSyncBatch = () => {
               </div>
             )}
             <div>
-              <div className="text-xs font-semibold text-muted-foreground mb-1">Request Body (sent to Sajel)</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs font-semibold text-muted-foreground">Request Body (sent to Sajel)</div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  onClick={() => {
+                    if (!pointsDetailJob?.body) return;
+                    navigator.clipboard.writeText(JSON.stringify(pointsDetailJob.body, null, 2)).then(() => {
+                      toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied', description: language === 'ar' ? 'تم نسخ جسم الطلب' : 'Request body copied to clipboard' });
+                    }).catch(() => {
+                      toast({ title: language === 'ar' ? 'فشل النسخ' : 'Copy failed', variant: 'destructive' });
+                    });
+                  }}
+                  disabled={!pointsDetailJob?.body}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  {language === 'ar' ? 'نسخ' : 'Copy'}
+                </Button>
+              </div>
               <pre className="rounded-md border bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-[40vh] overflow-auto">
 {pointsDetailJob?.body ? JSON.stringify(pointsDetailJob.body, null, 2) : '(none)'}
               </pre>
