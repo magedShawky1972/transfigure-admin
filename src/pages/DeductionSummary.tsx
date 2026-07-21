@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, X } from "lucide-react";
+import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, X, Eraser } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
@@ -615,6 +615,64 @@ export default function DeductionSummary() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
 
+  const [clearingId, setClearingId] = useState<string | null>(null);
+  const [clearTarget, setClearTarget] = useState<Row | null>(null);
+
+  const handleClearLateEarly = async (row: Row) => {
+    setClearingId(row.employee_id);
+    try {
+      const dFrom = mode === "date" ? date : mode === "range" ? from : `${month}-01`;
+      const dTo = mode === "date" ? date : mode === "range" ? to :
+        (() => { const [y, m] = month.split("-").map(Number); return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`; })();
+
+      // Only zero deduction for days where the deduction came from late/early (not from absence rule)
+      const { data: tsRows, error: tsErr } = await supabase
+        .from("timesheets")
+        .select("id, is_absent, deduction_amount")
+        .eq("employee_id", row.employee_id)
+        .gte("work_date", dFrom)
+        .lte("work_date", dTo);
+      if (tsErr) throw tsErr;
+
+      const ids = (tsRows || []).map((t: any) => t.id);
+      if (ids.length === 0) {
+        toast.info(isAr ? "لا توجد سجلات" : "No timesheets in range");
+        return;
+      }
+
+      // Zero late/early minutes for all rows in range
+      const { error: updErr } = await supabase
+        .from("timesheets")
+        .update({ late_minutes: 0, early_leave_minutes: 0 })
+        .in("id", ids)
+        .select();
+      if (updErr) throw updErr;
+
+      // Also zero deduction_amount for non-absent rows (absence deduction stays)
+      const nonAbsentIds = (tsRows || []).filter((t: any) => !t.is_absent).map((t: any) => t.id);
+      if (nonAbsentIds.length > 0) {
+        const { error: dedErr } = await supabase
+          .from("timesheets")
+          .update({ deduction_amount: 0, deduction_rule_id: null })
+          .in("id", nonAbsentIds)
+          .select();
+        if (dedErr) throw dedErr;
+      }
+
+      toast.success(isAr
+        ? `تم مسح دقائق التأخير/الخروج المبكر لـ ${row.name}`
+        : `Cleared late/early minutes for ${row.name}`);
+      setClearTarget(null);
+      await fetchData();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || (isAr ? "فشل المسح" : "Failed to clear"));
+    } finally {
+      setClearingId(null);
+    }
+  };
+
+
   const handlePrint = () => { setTimeout(() => window.print(), 100); };
 
   const handleExportExcel = () => {
@@ -815,6 +873,7 @@ export default function DeductionSummary() {
                           {col.l}{sortIndicator(col.k)}
                         </TableHead>
                       ))}
+                      <TableHead className="text-right print:hidden">{isAr ? "إجراءات" : "Actions"}</TableHead>
                     </TableRow>
                     <TableRow className="print:hidden">
                       <TableHead></TableHead>
@@ -828,6 +887,7 @@ export default function DeductionSummary() {
                           />
                         </TableHead>
                       ))}
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -846,11 +906,23 @@ export default function DeductionSummary() {
                           ))}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-red-600">{formatNumber(r.totalDeduction)}</TableCell>
+                        <TableCell className="text-right print:hidden">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setClearTarget(r)}
+                            disabled={clearingId === r.employee_id || (r.totalLateMinutes === 0 && r.totalEarlyLeaveMinutes === 0)}
+                            title={isAr ? "مسح دقائق التأخير والخروج المبكر" : "Clear late & early leave minutes"}
+                          >
+                            {clearingId === r.employee_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4" />}
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-bold border-t-2">
                       <TableCell colSpan={8} className={isAr ? "text-left" : "text-right"}>{isAr ? "الإجمالي" : "Grand Total"}</TableCell>
                       <TableCell className="text-right text-red-600">{formatNumber(grandTotal)}</TableCell>
+                      <TableCell className="print:hidden"></TableCell>
                     </TableRow>
                   </TableBody>
 
@@ -917,6 +989,29 @@ export default function DeductionSummary() {
             <AlertDialogAction onClick={(e) => { e.preventDefault(); handleRollback(); }} disabled={rollingBack}>
               {rollingBack && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isAr ? "تراجع" : "Rollback"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!clearTarget} onOpenChange={(o) => !o && setClearTarget(null)}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isAr ? "مسح دقائق التأخير والخروج المبكر" : "Clear Late & Early Leave Minutes"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isAr
+                ? `سيتم تصفير دقائق التأخير والخروج المبكر لـ ${clearTarget?.name} خلال الفترة (${filterLabel}) وحفظ التغييرات. لن يتم تعديل أيام الغياب.`
+                : `This will zero out late and early leave minutes for ${clearTarget?.name} across the current period (${filterLabel}) and save. Absence days are not affected.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!clearingId}>{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (clearTarget) handleClearLateEarly(clearTarget); }}
+              disabled={!!clearingId}
+            >
+              {clearingId ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eraser className="h-4 w-4 mr-2" />}
+              {isAr ? "مسح وحفظ" : "Clear & Save"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
