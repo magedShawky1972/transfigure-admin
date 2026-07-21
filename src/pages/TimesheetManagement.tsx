@@ -1318,16 +1318,26 @@ export default function TimesheetManagement() {
   };
 
   const openEditDialog = (timesheet: Timesheet) => {
+    // Some virtual rows (WFH) come with full ISO timestamps; extract HH:MM for <input type="time">.
+    const toHHMM = (v: any): string => {
+      if (!v) return "";
+      const s = String(v).trim();
+      if (!s) return "";
+      if (/^\d{1,2}:\d{2}/.test(s)) return s.slice(0, 5);
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return "";
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    };
     setEditingTimesheet(timesheet);
     setFormData({
       employee_id: timesheet.employee_id,
       work_date: timesheet.work_date,
-      scheduled_start: timesheet.scheduled_start || "",
-      scheduled_end: timesheet.scheduled_end || "",
-      actual_start: timesheet.actual_start || "",
-      actual_end: timesheet.actual_end || "",
-      changed_start: (timesheet as any).changed_start || "",
-      changed_end: (timesheet as any).changed_end || "",
+      scheduled_start: toHHMM(timesheet.scheduled_start),
+      scheduled_end: toHHMM(timesheet.scheduled_end),
+      actual_start: toHHMM(timesheet.actual_start),
+      actual_end: toHHMM(timesheet.actual_end),
+      changed_start: toHHMM((timesheet as any).changed_start),
+      changed_end: toHHMM((timesheet as any).changed_end),
       break_duration_minutes: timesheet.break_duration_minutes || 0,
       is_absent: timesheet.is_absent,
       absence_reason: timesheet.absence_reason || "",
@@ -1336,6 +1346,7 @@ export default function TimesheetManagement() {
     });
     setDialogOpen(true);
   };
+
 
   const handleEmployeeSelect = (employeeId: string) => {
     const employee = employees.find((e) => e.id === employeeId);
