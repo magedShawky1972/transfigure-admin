@@ -54,9 +54,10 @@ import {
   AlertTriangle,
   Eye,
   Trash2,
+  Home,
 } from "lucide-react";
 
-type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'penalty_deduction' | 'other';
+type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'penalty_deduction' | 'work_from_home' | 'other';
 
 const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; labelEn: string; color: string }> = {
   sick_leave: { icon: Thermometer, labelAr: 'إجازة مرضية', labelEn: 'Sick Leave', color: 'bg-red-100 text-red-800' },
@@ -66,6 +67,7 @@ const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; label
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
   penalty_deduction: { icon: AlertTriangle, labelAr: 'خصم جزائي', labelEn: 'Penalty Deduction', color: 'bg-rose-100 text-rose-800' },
+  work_from_home: { icon: Home, labelAr: 'العمل من المنزل', labelEn: 'Work From Home', color: 'bg-indigo-100 text-indigo-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
 };
 
