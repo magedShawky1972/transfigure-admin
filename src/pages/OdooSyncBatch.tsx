@@ -465,9 +465,13 @@ const OdooSyncBatch = () => {
         const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
         if (abc !== filterAbcAnalysis) return false;
       }
+      // Filter by errors only
+      if (filterErrors) {
+        if (inv.syncStatus !== 'failed') return false;
+      }
       return true;
     });
-  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, brandAbcMap]);
+  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, filterErrors, brandAbcMap]);
 
   // Count of aggregated invoices with missing vendor for non-A brands (red rows)
   // Respects active filters and excludes unchecked/skipped rows
