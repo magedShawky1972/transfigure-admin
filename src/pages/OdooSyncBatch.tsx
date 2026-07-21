@@ -5065,7 +5065,7 @@ const OdooSyncBatch = () => {
       </Dialog>
 
       {/* Aggregated Lines preview (what will be sent to Sajel) */}
-      <Dialog open={showAggLinesDialog} onOpenChange={setShowAggLinesDialog}>
+      <Dialog open={showAggLinesDialog} onOpenChange={(o) => { setShowAggLinesDialog(o); if (!o) { setTestSajelResult(null); setTestSajelLoading(false); } }}>
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
