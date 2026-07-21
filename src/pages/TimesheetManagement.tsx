@@ -1210,14 +1210,20 @@ export default function TimesheetManagement() {
       const actualStart = parseISO(`${data.work_date}T${data.actual_start}`);
       const actualEnd = parseISO(`${data.work_date}T${data.actual_end}`);
 
-      // Calculate late minutes
+      // Apply the employee's attendance-type grace so the saved values match the dialog preview.
+      const allowLate = employee?.attendance_types?.allow_late_minutes || 0;
+      const allowEarlyExit = employee?.attendance_types?.allow_early_exit_minutes || 0;
+
+      // Calculate late minutes (net of allowed grace)
       if (actualStart > scheduledStart) {
-        late_minutes = differenceInMinutes(actualStart, scheduledStart);
+        const rawLate = differenceInMinutes(actualStart, scheduledStart);
+        late_minutes = Math.max(0, rawLate - allowLate);
       }
 
-      // Calculate early leave minutes
+      // Calculate early leave minutes (net of allowed grace)
       if (actualEnd < scheduledEnd) {
-        early_leave_minutes = differenceInMinutes(scheduledEnd, actualEnd);
+        const rawEarly = differenceInMinutes(scheduledEnd, actualEnd);
+        early_leave_minutes = Math.max(0, rawEarly - allowEarlyExit);
       }
 
       // Calculate overtime - only count if worked MORE than scheduled hours
