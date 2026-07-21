@@ -5025,8 +5025,11 @@ const OdooSyncBatch = () => {
           {selectedAggLinesInvoice && (() => {
             const aggLines = buildAggregatedLinesPreview(selectedAggLinesInvoice);
             const jsonPreview = JSON.stringify({ lines: aggLines }, null, 2);
+            const totalQty = aggLines.reduce((s, l) => s + (l.quantity || 0), 0);
+            const totalSales = aggLines.reduce((s, l) => s + (l.totalAmount || 0), 0);
+            const totalCost = aggLines.reduce((s, l) => s + (l.totalCost || 0), 0);
             return (
-              <ScrollArea className="flex-1 pr-3">
+              <div className="flex-1 overflow-y-auto pr-3 [scrollbar-width:auto] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-track]:bg-muted/30">
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2 text-xs">
                     <Badge variant="secondary">
@@ -5075,6 +5078,18 @@ const OdooSyncBatch = () => {
                           </TableCell>
                         </TableRow>
                       )}
+                      {aggLines.length > 0 && (
+                        <TableRow className="bg-muted/50 font-bold border-t-2">
+                          <TableCell colSpan={3} className="text-xs">
+                            {language === 'ar' ? 'الإجمالي' : 'Total'}
+                          </TableCell>
+                          <TableCell className="text-right text-xs">{totalQty.toLocaleString('en-US')}</TableCell>
+                          <TableCell />
+                          <TableCell />
+                          <TableCell className="text-right text-xs text-green-600 dark:text-green-400">{totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right text-xs text-orange-600 dark:text-orange-400">{totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                   <div>
@@ -5097,7 +5112,7 @@ const OdooSyncBatch = () => {
                     <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-[300px]">{jsonPreview}</pre>
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
             );
           })()}
           <div className="flex justify-end pt-4 border-t">
