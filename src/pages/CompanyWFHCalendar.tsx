@@ -333,12 +333,13 @@ const CompanyWFHCalendar = () => {
                 const isWfh = wfhDateSet.has(dateStr);
                 const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
                 const specificEntry = specificDays.find((d) => d.wfh_date === dateStr);
+                const empCount = employeeWfhDays.filter((r) => r.wfh_date === dateStr).length;
 
                 return (
                   <div
                     key={dateStr}
                     className={`h-16 rounded-lg border p-1 text-xs transition-colors relative cursor-pointer
-                      ${isWfh ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : "hover:bg-muted/50"}
+                      ${isWfh ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : empCount > 0 ? "bg-sky-50 dark:bg-sky-900/20 border-sky-300 dark:border-sky-700" : "hover:bg-muted/50"}
                       ${isToday ? "ring-2 ring-primary" : ""}
                     `}
                     onClick={() => {
@@ -354,6 +355,12 @@ const CompanyWFHCalendar = () => {
                     {isWfh && (
                       <div className="absolute bottom-1 right-1">
                         <Home className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                    )}
+                    {empCount > 0 && (
+                      <div className="absolute bottom-1 left-1 flex items-center gap-0.5 text-[10px] text-sky-700 dark:text-sky-300 font-medium">
+                        <User className="h-3 w-3" />
+                        {empCount}
                       </div>
                     )}
                     {specificEntry && (
