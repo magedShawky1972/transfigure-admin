@@ -1318,16 +1318,26 @@ export default function TimesheetManagement() {
   };
 
   const openEditDialog = (timesheet: Timesheet) => {
+    // Some virtual rows (WFH) come with full ISO timestamps; extract HH:MM for <input type="time">.
+    const toHHMM = (v: any): string => {
+      if (!v) return "";
+      const s = String(v).trim();
+      if (!s) return "";
+      if (/^\d{1,2}:\d{2}/.test(s)) return s.slice(0, 5);
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return "";
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    };
     setEditingTimesheet(timesheet);
     setFormData({
       employee_id: timesheet.employee_id,
       work_date: timesheet.work_date,
-      scheduled_start: timesheet.scheduled_start || "",
-      scheduled_end: timesheet.scheduled_end || "",
-      actual_start: timesheet.actual_start || "",
-      actual_end: timesheet.actual_end || "",
-      changed_start: (timesheet as any).changed_start || "",
-      changed_end: (timesheet as any).changed_end || "",
+      scheduled_start: toHHMM(timesheet.scheduled_start),
+      scheduled_end: toHHMM(timesheet.scheduled_end),
+      actual_start: toHHMM(timesheet.actual_start),
+      actual_end: toHHMM(timesheet.actual_end),
+      changed_start: toHHMM((timesheet as any).changed_start),
+      changed_end: toHHMM((timesheet as any).changed_end),
       break_duration_minutes: timesheet.break_duration_minutes || 0,
       is_absent: timesheet.is_absent,
       absence_reason: timesheet.absence_reason || "",
@@ -1336,6 +1346,7 @@ export default function TimesheetManagement() {
     });
     setDialogOpen(true);
   };
+
 
   const handleEmployeeSelect = (employeeId: string) => {
     const employee = employees.find((e) => e.id === employeeId);
@@ -1438,15 +1449,31 @@ export default function TimesheetManagement() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Normalize time-like inputs — some rows (e.g. WFH virtual rows) provide
+      // full ISO timestamps in actual_start/end, but the DB column is `time`.
+      const toTimeStr = (v: any): string | null => {
+        if (!v) return null;
+        const s = String(v).trim();
+        if (!s) return null;
+        // Already HH:MM or HH:MM:SS
+        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) return s.length === 5 ? `${s}:00` : s;
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return null;
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mm = String(d.getMinutes()).padStart(2, "0");
+        const ss = String(d.getSeconds()).padStart(2, "0");
+        return `${hh}:${mm}:${ss}`;
+      };
+
       const payload: any = {
         employee_id: formData.employee_id,
         work_date: formData.work_date,
-        scheduled_start: formData.scheduled_start || null,
-        scheduled_end: formData.scheduled_end || null,
-        actual_start: formData.actual_start || null,
-        actual_end: formData.actual_end || null,
-        changed_start: formData.changed_start || null,
-        changed_end: formData.changed_end || null,
+        scheduled_start: toTimeStr(formData.scheduled_start),
+        scheduled_end: toTimeStr(formData.scheduled_end),
+        actual_start: toTimeStr(formData.actual_start),
+        actual_end: toTimeStr(formData.actual_end),
+        changed_start: toTimeStr(formData.changed_start),
+        changed_end: toTimeStr(formData.changed_end),
         break_duration_minutes: formData.break_duration_minutes,
         is_absent: formData.is_absent,
         absence_reason: formData.absence_reason || null,
@@ -1463,6 +1490,7 @@ export default function TimesheetManagement() {
         payload.changed_by = user?.id || null;
         payload.changed_at = new Date().toISOString();
       }
+
 
       const { error } = await supabase.from("timesheets").upsert(payload, {
         onConflict: "employee_id,work_date",
