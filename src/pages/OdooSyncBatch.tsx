@@ -5078,7 +5078,7 @@ const OdooSyncBatch = () => {
           </DialogHeader>
           {selectedAggLinesInvoice && (() => {
             const aggLines = buildAggregatedLinesPreview(selectedAggLinesInvoice);
-            const jsonPreview = JSON.stringify({ lines: aggLines }, null, 2);
+            const jsonPreview = JSON.stringify(buildAggregatedInvoiceBodyPreview(selectedAggLinesInvoice), null, 2);
             const totalQty = aggLines.reduce((s, l) => s + (l.quantity || 0), 0);
             const totalSales = aggLines.reduce((s, l) => s + (l.totalAmount || 0), 0);
             const totalCost = aggLines.reduce((s, l) => s + (l.totalCost || 0), 0);
