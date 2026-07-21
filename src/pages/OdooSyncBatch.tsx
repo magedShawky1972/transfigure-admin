@@ -3658,6 +3658,7 @@ const OdooSyncBatch = () => {
                     <TableHead className="w-12"></TableHead>
                     <TableHead>{language === 'ar' ? 'رقم الفاتورة' : 'Invoice Number'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'عدد الطلبات' : 'Lines'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'أسطر مجمعة' : 'Agg Lines'}</TableHead>
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                     <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
