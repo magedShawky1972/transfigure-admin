@@ -305,6 +305,10 @@ const OdooSyncBatch = () => {
   const [batchConfirmRequest, setBatchConfirmRequest] = useState<{ method: string; url: string; body: unknown; headers?: Record<string, string> } | null>(null);
   const [batchConfirmResponse, setBatchConfirmResponse] = useState<{ status: number; ok: boolean; body: unknown } | null>(null);
   const pendingSyncRef = useRef<null | (() => void)>(null);
+  // Precomputed caches for Sajel aggregated sync (populated once per run to avoid
+  // per-invoice DB round-trips before each Sajel API call).
+  const bankFeeMapRef = useRef<Map<string, number> | null>(null);
+  const paymentBankMapRef = useRef<Map<string, { bankCode: string; bankName: string; cardType: string }> | null>(null);
   const [apiBodyView, setApiBodyView] = useState<{ orderNumber: string; payload: any; response: any } | null>(null);
 
   // Supplier check states
