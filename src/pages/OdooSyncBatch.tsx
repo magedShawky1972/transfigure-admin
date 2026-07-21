@@ -482,6 +482,7 @@ const OdooSyncBatch = () => {
       itemCode: string;
       description: string;
       isClassA: boolean;
+      vendorName: string;
       totalQty: number;
       totalCoins: number;
       totalAmount: number;
@@ -490,10 +491,13 @@ const OdooSyncBatch = () => {
     for (const l of invoice.originalLines || []) {
       const code = (l as any).brand_code || '';
       const isA = brandAbcMap.get(code) === 'A';
-      const cur = map.get(code) || {
+      const vendorName = isA ? '' : ((l as any).vendor_name || '');
+      const key = `${code}||${vendorName}`;
+      const cur = map.get(key) || {
         itemCode: code,
         description: (l as any).brand_name || code,
         isClassA: isA,
+        vendorName,
         totalQty: 0,
         totalCoins: 0,
         totalAmount: 0,
@@ -503,14 +507,18 @@ const OdooSyncBatch = () => {
       cur.totalCoins += (l as any).coins_number || 0;
       cur.totalAmount += (l as any).total || 0;
       cur.totalCost += (l as any).cost_sold || 0;
-      map.set(code, cur);
+      map.set(key, cur);
     }
     return Array.from(map.values()).map((b) => {
       const qty = b.isClassA ? (b.totalCoins || b.totalQty || 1) : (b.totalQty || 1);
+      const vendorCode = b.vendorName
+        ? (vendorOptions.find(v => v.name === b.vendorName)?.code || b.vendorName)
+        : '';
       return {
         itemCode: b.itemCode,
         description: b.description,
         classAbc: b.isClassA ? 'A' : (brandAbcMap.get(b.itemCode) || '-'),
+        vendorCode,
         quantity: qty,
         unitPrice: qty ? b.totalAmount / qty : b.totalAmount,
         unitCost: qty ? b.totalCost / qty : b.totalCost,
@@ -530,6 +538,7 @@ const OdooSyncBatch = () => {
     const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
     const aggLines = buildAggregatedLinesPreview(invoice).map(l => ({
+      ...(l.vendorCode ? { vendorCode: l.vendorCode } : {}),
       itemCode: l.itemCode,
       description: l.description,
       quantity: l.quantity,
@@ -1733,11 +1742,16 @@ const OdooSyncBatch = () => {
           totalCost: number;
           vendorName: string;
         };
+        // Group by brand_code + vendor_name so the same item from different
+        // vendors ends up as separate line entries (each with its own vendorCode).
+        // Class A brands don't need vendorCode, so we collapse them into an empty vendor bucket.
         const brandAggMap = new Map<string, BrandAgg>();
         for (const l of invoice.originalLines) {
           const code = l.brand_code || '';
           const isA = brandAbcMap.get(code) === 'A';
-          const cur = brandAggMap.get(code) || {
+          const vName = isA ? '' : ((l as any).vendor_name || '');
+          const key = `${code}||${vName}`;
+          const cur = brandAggMap.get(key) || {
             brandCode: code,
             brandName: l.brand_name || code,
             isClassA: isA,
@@ -1745,18 +1759,22 @@ const OdooSyncBatch = () => {
             totalCoins: 0,
             totalAmount: 0,
             totalCost: 0,
-            vendorName: (l as any).vendor_name || '',
+            vendorName: vName,
           };
           cur.totalQty += l.qty || 0;
           cur.totalCoins += l.coins_number || 0;
           cur.totalAmount += l.total || 0;
           cur.totalCost += l.cost_sold || 0;
-          brandAggMap.set(code, cur);
+          brandAggMap.set(key, cur);
         }
 
         const lines = Array.from(brandAggMap.values()).map((b) => {
           const qty = b.isClassA ? (b.totalCoins || b.totalQty || 1) : (b.totalQty || 1);
+          const vCode = b.vendorName
+            ? (vendorOptions.find(v => v.name === b.vendorName)?.code || b.vendorName)
+            : '';
           return {
+            ...(vCode ? { vendorCode: vCode } : {}),
             itemCode: b.brandCode,
             description: b.brandName,
             quantity: qty,
@@ -1765,8 +1783,8 @@ const OdooSyncBatch = () => {
           };
         });
 
-        // Pick a vendorCode from the first non-Class-A brand (Class A doesn't need one).
-        const firstNonA = Array.from(brandAggMap.values()).find(b => !b.isClassA);
+        // Pick a header vendorCode from the first non-Class-A brand (kept for backward compatibility).
+        const firstNonA = Array.from(brandAggMap.values()).find(b => !b.isClassA && b.vendorName);
         const vendorName = firstNonA?.vendorName || '';
         const vendorCode = vendorName
           ? (vendorOptions.find(v => v.name === vendorName)?.code || vendorName)
