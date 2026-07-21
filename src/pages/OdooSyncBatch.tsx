@@ -483,6 +483,14 @@ const OdooSyncBatch = () => {
     }).length;
   }, [filteredAggregatedInvoices, brandAbcMap]);
 
+  // Count of rows with sync errors in the current view
+  const errorCount = useMemo(() => {
+    if (aggregateMode) {
+      return filteredAggregatedInvoices.filter(inv => inv.syncStatus === 'failed').length;
+    }
+    return filteredOrderGroups.filter(g => g.syncStatus === 'failed').length;
+  }, [filteredAggregatedInvoices, filteredOrderGroups, aggregateMode]);
+
   // Preview of the aggregated lines[] that will be sent to Sajel for an invoice.
   // Mirrors the aggregation performed in runOneSajelSyncFromInvoice
   // (group by brand_code; qty = coins for Class A, else qty; unitPrice/unitCost derived).
