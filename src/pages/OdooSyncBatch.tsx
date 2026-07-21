@@ -482,6 +482,7 @@ const OdooSyncBatch = () => {
       itemCode: string;
       description: string;
       isClassA: boolean;
+      vendorName: string;
       totalQty: number;
       totalCoins: number;
       totalAmount: number;
@@ -490,10 +491,13 @@ const OdooSyncBatch = () => {
     for (const l of invoice.originalLines || []) {
       const code = (l as any).brand_code || '';
       const isA = brandAbcMap.get(code) === 'A';
-      const cur = map.get(code) || {
+      const vendorName = isA ? '' : ((l as any).vendor_name || '');
+      const key = `${code}||${vendorName}`;
+      const cur = map.get(key) || {
         itemCode: code,
         description: (l as any).brand_name || code,
         isClassA: isA,
+        vendorName,
         totalQty: 0,
         totalCoins: 0,
         totalAmount: 0,
@@ -503,14 +507,18 @@ const OdooSyncBatch = () => {
       cur.totalCoins += (l as any).coins_number || 0;
       cur.totalAmount += (l as any).total || 0;
       cur.totalCost += (l as any).cost_sold || 0;
-      map.set(code, cur);
+      map.set(key, cur);
     }
     return Array.from(map.values()).map((b) => {
       const qty = b.isClassA ? (b.totalCoins || b.totalQty || 1) : (b.totalQty || 1);
+      const vendorCode = b.vendorName
+        ? (vendorOptions.find(v => v.name === b.vendorName)?.code || b.vendorName)
+        : '';
       return {
         itemCode: b.itemCode,
         description: b.description,
         classAbc: b.isClassA ? 'A' : (brandAbcMap.get(b.itemCode) || '-'),
+        vendorCode,
         quantity: qty,
         unitPrice: qty ? b.totalAmount / qty : b.totalAmount,
         unitCost: qty ? b.totalCost / qty : b.totalCost,
