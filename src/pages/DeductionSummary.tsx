@@ -906,11 +906,23 @@ export default function DeductionSummary() {
                           ))}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-red-600">{formatNumber(r.totalDeduction)}</TableCell>
+                        <TableCell className="text-right print:hidden">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setClearTarget(r)}
+                            disabled={clearingId === r.employee_id || (r.totalLateMinutes === 0 && r.totalEarlyLeaveMinutes === 0)}
+                            title={isAr ? "مسح دقائق التأخير والخروج المبكر" : "Clear late & early leave minutes"}
+                          >
+                            {clearingId === r.employee_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4" />}
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-bold border-t-2">
                       <TableCell colSpan={8} className={isAr ? "text-left" : "text-right"}>{isAr ? "الإجمالي" : "Grand Total"}</TableCell>
                       <TableCell className="text-right text-red-600">{formatNumber(grandTotal)}</TableCell>
+                      <TableCell className="print:hidden"></TableCell>
                     </TableRow>
                   </TableBody>
 
