@@ -615,6 +615,64 @@ export default function DeductionSummary() {
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
 
+  const [clearingId, setClearingId] = useState<string | null>(null);
+  const [clearTarget, setClearTarget] = useState<Row | null>(null);
+
+  const handleClearLateEarly = async (row: Row) => {
+    setClearingId(row.employee_id);
+    try {
+      const dFrom = mode === "date" ? date : mode === "range" ? from : `${month}-01`;
+      const dTo = mode === "date" ? date : mode === "range" ? to :
+        (() => { const [y, m] = month.split("-").map(Number); return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`; })();
+
+      // Only zero deduction for days where the deduction came from late/early (not from absence rule)
+      const { data: tsRows, error: tsErr } = await supabase
+        .from("timesheets")
+        .select("id, is_absent, deduction_amount")
+        .eq("employee_id", row.employee_id)
+        .gte("work_date", dFrom)
+        .lte("work_date", dTo);
+      if (tsErr) throw tsErr;
+
+      const ids = (tsRows || []).map((t: any) => t.id);
+      if (ids.length === 0) {
+        toast.info(isAr ? "لا توجد سجلات" : "No timesheets in range");
+        return;
+      }
+
+      // Zero late/early minutes for all rows in range
+      const { error: updErr } = await supabase
+        .from("timesheets")
+        .update({ late_minutes: 0, early_leave_minutes: 0 })
+        .in("id", ids)
+        .select();
+      if (updErr) throw updErr;
+
+      // Also zero deduction_amount for non-absent rows (absence deduction stays)
+      const nonAbsentIds = (tsRows || []).filter((t: any) => !t.is_absent).map((t: any) => t.id);
+      if (nonAbsentIds.length > 0) {
+        const { error: dedErr } = await supabase
+          .from("timesheets")
+          .update({ deduction_amount: 0, deduction_rule_id: null })
+          .in("id", nonAbsentIds)
+          .select();
+        if (dedErr) throw dedErr;
+      }
+
+      toast.success(isAr
+        ? `تم مسح دقائق التأخير/الخروج المبكر لـ ${row.name}`
+        : `Cleared late/early minutes for ${row.name}`);
+      setClearTarget(null);
+      await fetchData();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || (isAr ? "فشل المسح" : "Failed to clear"));
+    } finally {
+      setClearingId(null);
+    }
+  };
+
+
   const handlePrint = () => { setTimeout(() => window.print(), 100); };
 
   const handleExportExcel = () => {
