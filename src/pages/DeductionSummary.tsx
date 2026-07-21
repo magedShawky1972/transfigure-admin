@@ -877,8 +877,6 @@ export default function DeductionSummary() {
                     </TableRow>
                     <TableRow className="print:hidden">
                       <TableHead></TableHead>
-                    <TableRow className="print:hidden">
-                      <TableHead></TableHead>
                       {(["empNumber","name","lateCount","totalLateMinutes","earlyLeaveCount","absentCount","rules","totalDeduction"] as const).map(k => (
                         <TableHead key={k} className="py-1">
                           <Input
@@ -889,6 +887,7 @@ export default function DeductionSummary() {
                           />
                         </TableHead>
                       ))}
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
