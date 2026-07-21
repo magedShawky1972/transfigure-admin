@@ -3736,7 +3736,38 @@ const OdooSyncBatch = () => {
                           </Badge>
                         </Button>
                       </TableCell>
+                      <TableCell className="text-center">
+                        {(() => {
+                          const aggLines = buildAggregatedLinesPreview(invoice);
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 gap-1"
+                                    onClick={() => {
+                                      setSelectedAggLinesInvoice(invoice);
+                                      setShowAggLinesDialog(true);
+                                    }}
+                                  >
+                                    <Badge variant="outline" className="text-xs cursor-pointer hover:bg-primary/20">
+                                      {aggLines.length}
+                                    </Badge>
+                                    <Eye className="h-3.5 w-3.5 text-primary" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {language === 'ar' ? 'عرض الأسطر المجمعة المرسلة إلى ساجل' : 'View aggregated lines sent to Sajel'}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-xs">
+
                         {invoice.date ? format(parseISO(invoice.date), 'yyyy-MM-dd') : '-'}
                       </TableCell>
                       <TableCell className="max-w-[120px] truncate text-xs" title={invoice.brandName}>
