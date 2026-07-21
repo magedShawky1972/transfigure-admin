@@ -5008,6 +5008,107 @@ const OdooSyncBatch = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Aggregated Lines preview (what will be sent to Sajel) */}
+      <Dialog open={showAggLinesDialog} onOpenChange={setShowAggLinesDialog}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              {language === 'ar' ? 'الأسطر المجمعة المرسلة إلى ساجل' : 'Aggregated Lines Sent to Sajel'}
+              {selectedAggLinesInvoice && (
+                <Badge variant="outline" className="font-mono ml-2">
+                  {selectedAggLinesInvoice.orderNumber}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedAggLinesInvoice && (() => {
+            const aggLines = buildAggregatedLinesPreview(selectedAggLinesInvoice);
+            const jsonPreview = JSON.stringify({ lines: aggLines }, null, 2);
+            return (
+              <ScrollArea className="flex-1 pr-3">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <Badge variant="secondary">
+                      {language === 'ar' ? 'التاريخ' : 'Date'}: {selectedAggLinesInvoice.date?.slice(0, 10) || '-'}
+                    </Badge>
+                    <Badge variant="secondary">
+                      {language === 'ar' ? 'الدفع' : 'Payment'}: {selectedAggLinesInvoice.paymentMethod}/{selectedAggLinesInvoice.paymentBrand}
+                    </Badge>
+                    <Badge variant="secondary">
+                      {language === 'ar' ? 'الطلبات الأصلية' : 'Original Orders'}: {selectedAggLinesInvoice.originalOrderNumbers.length}
+                    </Badge>
+                    <Badge variant="default">
+                      {language === 'ar' ? 'أسطر مجمعة' : 'Aggregated Lines'}: {aggLines.length}
+                    </Badge>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{language === 'ar' ? 'كود' : 'Item Code'}</TableHead>
+                        <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
+                        <TableHead className="text-center">ABC</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Quantity'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'تكلفة الوحدة' : 'Unit Cost'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'الإجمالي' : 'Total Amount'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'إجمالي التكلفة' : 'Total Cost'}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {aggLines.map((l, i) => (
+                        <TableRow key={`${l.itemCode}-${i}`}>
+                          <TableCell className="font-mono text-xs">{l.itemCode || '-'}</TableCell>
+                          <TableCell className="text-xs">{l.description || '-'}</TableCell>
+                          <TableCell className="text-center text-xs font-semibold">{l.classAbc}</TableCell>
+                          <TableCell className="text-right text-xs">{l.quantity.toLocaleString('en-US')}</TableCell>
+                          <TableCell className="text-right text-xs">{l.unitPrice.toFixed(6)}</TableCell>
+                          <TableCell className="text-right text-xs">{l.unitCost.toFixed(6)}</TableCell>
+                          <TableCell className="text-right text-xs font-semibold">{l.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-xs font-semibold">{l.totalCost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {aggLines.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                            {language === 'ar' ? 'لا توجد أسطر' : 'No lines'}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold">
+                        {language === 'ar' ? 'معاينة JSON (lines[])' : 'JSON Preview (lines[])'}
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(jsonPreview);
+                          toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied' });
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-1" />
+                        {language === 'ar' ? 'نسخ' : 'Copy'}
+                      </Button>
+                    </div>
+                    <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-[300px]">{jsonPreview}</pre>
+                  </div>
+                </div>
+              </ScrollArea>
+            );
+          })()}
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={() => setShowAggLinesDialog(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Batch number confirmation before Send Orders */}
       <AlertDialog open={batchConfirmOpen} onOpenChange={setBatchConfirmOpen}>
         <AlertDialogContent className="max-w-2xl">
