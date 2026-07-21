@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, X } from "lucide-react";
+import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, X, Eraser } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
