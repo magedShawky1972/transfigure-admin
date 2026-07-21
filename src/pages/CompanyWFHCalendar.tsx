@@ -448,6 +448,45 @@ const CompanyWFHCalendar = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Employee-Specific WFH Days */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {isRTL ? "أيام موظفين محددين" : "Employee-Specific WFH"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {employeeWfhDays.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {isRTL ? "لا يوجد موظفين هذا الشهر" : "No employees this month"}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {employeeWfhDays.map((row) => (
+                    <div key={row.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium">{empName(row.employees)}</p>
+                        <p className="text-xs text-muted-foreground">{row.wfh_date}</p>
+                        {row.description && (
+                          <p className="text-xs text-muted-foreground italic">{row.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => handleDeleteEmployeeWfh(row.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
