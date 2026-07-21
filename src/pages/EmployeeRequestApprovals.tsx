@@ -449,10 +449,11 @@ const EmployeeRequestApprovals = () => {
 
             // Auto-update timesheets for sick leave / vacation approvals
             if (
-              (selectedRequest.request_type === 'sick_leave' || selectedRequest.request_type === 'vacation') &&
+              (selectedRequest.request_type === 'sick_leave' || selectedRequest.request_type === 'vacation' || selectedRequest.request_type === 'work_from_home') &&
               selectedRequest.start_date && selectedRequest.end_date
             ) {
               await updateTimesheetsForLeave(selectedRequest);
+
 
               // Deduct from employee_vacation_types balance
               if (selectedRequest.vacation_code_id && selectedRequest.employee_id) {
