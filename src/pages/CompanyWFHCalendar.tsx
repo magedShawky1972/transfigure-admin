@@ -127,6 +127,41 @@ const CompanyWFHCalendar = () => {
     fetchData();
   };
 
+  const handleAddEmployeeWfh = async () => {
+    if (!empWfhDate || !empWfhEmployeeId) return;
+    const { error } = await supabase.from("employee_wfh_days").insert({
+      employee_id: empWfhEmployeeId,
+      wfh_date: empWfhDate,
+      description: empWfhDescription || null,
+    });
+    if (error) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: isRTL ? "تم الإضافة" : "Added", description: isRTL ? "تم إضافة يوم عمل من المنزل للموظف" : "Employee WFH day added" });
+      setEmpDialogOpen(false);
+      setEmpWfhDate("");
+      setEmpWfhEmployeeId("");
+      setEmpWfhDescription("");
+      fetchData();
+    }
+  };
+
+  const handleDeleteEmployeeWfh = async (id: string) => {
+    const { error } = await supabase.from("employee_wfh_days").delete().eq("id", id);
+    if (error) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    } else {
+      fetchData();
+    }
+  };
+
+  const empName = (emp: any) => {
+    if (!emp) return "";
+    return isRTL
+      ? `${emp.first_name_ar || emp.first_name || ""} ${emp.last_name_ar || emp.last_name || ""}`.trim()
+      : `${emp.first_name || ""} ${emp.last_name || ""}`.trim();
+  };
+
   // Build a set of WFH dates for the calendar
   const wfhDateSet = useMemo(() => {
     const set = new Set<string>();
