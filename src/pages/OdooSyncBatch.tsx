@@ -514,6 +514,60 @@ const OdooSyncBatch = () => {
     });
   };
 
+  // Build the actual body that will be sent to the sync-order-to-sajel edge function
+  // (mirrors syncAggregatedInvoice). Bank fee / expenses are resolved at send-time and
+  // are not included in this synchronous preview.
+  const buildAggregatedInvoiceBodyPreview = (invoice: AggregatedInvoice) => {
+    const first: any = invoice.originalLines?.[0] || {};
+    const dateStr = (invoice.date || '').slice(0, 10);
+    const [yyyy, mm] = dateStr.split('-');
+    const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
+
+    const aggLines = buildAggregatedLinesPreview(invoice).map(l => ({
+      itemCode: l.itemCode,
+      description: l.description,
+      quantity: l.quantity,
+      unitPrice: l.unitPrice,
+      unitCost: l.unitCost,
+    }));
+
+    // Vendor from first non-Class-A brand
+    const firstNonA = (invoice.originalLines || []).find((l: any) => brandAbcMap.get(l.brand_code) !== 'A') as any;
+    const vendorName = firstNonA?.vendor_name || '';
+    const vendorCode = vendorName
+      ? (vendorOptions.find(v => v.name === vendorName)?.code || vendorName)
+      : '';
+
+    const invoicePayload: any = {
+      businessUnitCode: 'Asus-Trading',
+      ...(vendorCode ? { vendorCode } : {}),
+      customerCode: 'CASH-PURPLE',
+      invoiceDate: dateStr,
+      periodCode,
+      currencyCode: 'SAR',
+      exchangeRate: 1.0,
+      reference: invoice.orderNumber,
+      status: 'POSTED',
+      costCenterCode: 'P10',
+      ...(invoice.batchNumber ? { batchNumber: invoice.batchNumber } : {}),
+      lines: aggLines,
+    };
+
+    const paymentPayload = {
+      paymentMethod: 'CARD',
+      paymentType: first?.payment_type || invoice.paymentMethod || 'Hyperpay',
+      cardType: (first?.payment_brand || invoice.paymentBrand || 'MADA').toString().toUpperCase(),
+      bankCode: '',
+      referenceNo: invoice.orderNumber,
+    };
+
+    return {
+      invoice: invoicePayload,
+      payment: paymentPayload,
+      ...(invoice.batchNumber ? { batchNumber: invoice.batchNumber } : {}),
+    };
+  };
+
 
 
   // Auto-run supplier check once when orders/invoices first become available (Odoo path only)
@@ -5024,7 +5078,7 @@ const OdooSyncBatch = () => {
           </DialogHeader>
           {selectedAggLinesInvoice && (() => {
             const aggLines = buildAggregatedLinesPreview(selectedAggLinesInvoice);
-            const jsonPreview = JSON.stringify({ lines: aggLines }, null, 2);
+            const jsonPreview = JSON.stringify(buildAggregatedInvoiceBodyPreview(selectedAggLinesInvoice), null, 2);
             const totalQty = aggLines.reduce((s, l) => s + (l.quantity || 0), 0);
             const totalSales = aggLines.reduce((s, l) => s + (l.totalAmount || 0), 0);
             const totalCost = aggLines.reduce((s, l) => s + (l.totalCost || 0), 0);
@@ -5095,7 +5149,7 @@ const OdooSyncBatch = () => {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold">
-                        {language === 'ar' ? 'معاينة JSON (lines[])' : 'JSON Preview (lines[])'}
+                        {language === 'ar' ? 'جسم الطلب إلى ساجل (Sync Order Body)' : 'Sajel Sync Order API Body'}
                       </h4>
                       <Button
                         variant="ghost"
