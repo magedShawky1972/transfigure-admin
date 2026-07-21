@@ -873,7 +873,10 @@ export default function DeductionSummary() {
                           {col.l}{sortIndicator(col.k)}
                         </TableHead>
                       ))}
+                      <TableHead className="text-right print:hidden">{isAr ? "إجراءات" : "Actions"}</TableHead>
                     </TableRow>
+                    <TableRow className="print:hidden">
+                      <TableHead></TableHead>
                     <TableRow className="print:hidden">
                       <TableHead></TableHead>
                       {(["empNumber","name","lateCount","totalLateMinutes","earlyLeaveCount","absentCount","rules","totalDeduction"] as const).map(k => (
