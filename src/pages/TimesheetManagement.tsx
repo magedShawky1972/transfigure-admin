@@ -905,11 +905,12 @@ export default function TimesheetManagement() {
         wfhQuery = wfhQuery.gte("checkin_date", vacDateFrom).lte("checkin_date", vacDateTo);
       }
 
-      // Fetch company WFH days (specific + recurring) in parallel with WFH check-ins
-      const [{ data: wfhData }, { data: companyWfhSpecific }, { data: companyWfhRecurring }] = await Promise.all([
+      // Fetch company and employee-specific WFH days in parallel with WFH check-ins
+      const [{ data: wfhData }, { data: companyWfhSpecific }, { data: companyWfhRecurring }, { data: employeeWfhDays }] = await Promise.all([
         wfhQuery,
         supabase.from("company_wfh_days").select("wfh_date").gte("wfh_date", vacDateFrom).lte("wfh_date", vacDateTo),
         supabase.from("company_wfh_recurring").select("day_of_week").eq("is_active", true),
+        supabase.from("employee_wfh_days").select("employee_id, wfh_date").gte("wfh_date", vacDateFrom).lte("wfh_date", vacDateTo),
       ]);
 
       // Build set of company WFH dates
@@ -926,6 +927,11 @@ export default function TimesheetManagement() {
           }
         }
       }
+
+      const employeeWfhDateSet = new Set<string>();
+      (employeeWfhDays || []).forEach((day: any) => {
+        employeeWfhDateSet.add(`${day.employee_id}_${day.wfh_date}`);
+      });
 
       // Build WFH sessions list (each check-in is a separate session)
       const wfhSessions: { empId: string; date: string; checkin_time: string | null; checkout_time: string | null; checkinId: string; manager_note?: string | null; manager_note_by?: string | null; status?: string | null }[] = [];
@@ -986,20 +992,21 @@ export default function TimesheetManagement() {
         const key = `${ts.employee_id}_${ts.work_date}`;
         const vacationDetail = vacationDays.get(key);
         const isVacationDay = !!vacationDetail;
+        const isEmployeeWfhDay = employeeWfhDateSet.has(key);
         const hasApprovedDelay = approvedDelayDays.has(key);
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
         return {
           ...ts,
           mailSent: ts.deduction_notification_sent === true,
-          status: isVacationDay ? "vacation" : ts.status,
+          status: isVacationDay ? "vacation" : isEmployeeWfhDay ? "wfh" : ts.status,
           vacation_name_en: vacationDetail?.nameEn || null,
           vacation_name_ar: vacationDetail?.nameAr || null,
-          is_absent: isVacationDay ? false : ts.is_absent,
-          late_minutes: hasApprovedDelay ? 0 : ts.late_minutes,
-          early_leave_minutes: hasApprovedEarlyLeave ? 0 : ts.early_leave_minutes,
-          deduction_amount: (hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
-          deduction_rule_id: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
-          deduction_rules: (hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
+          is_absent: (isVacationDay || isEmployeeWfhDay) ? false : ts.is_absent,
+          late_minutes: (isEmployeeWfhDay || hasApprovedDelay) ? 0 : ts.late_minutes,
+          early_leave_minutes: (isEmployeeWfhDay || hasApprovedEarlyLeave) ? 0 : ts.early_leave_minutes,
+          deduction_amount: (isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
+          deduction_rule_id: (isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
+          deduction_rules: (isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
           has_approved_delay: hasApprovedDelay,
           has_approved_early_leave: hasApprovedEarlyLeave,
           is_wfh: false,
@@ -1135,7 +1142,8 @@ export default function TimesheetManagement() {
       const filteredBase = timesheetsWithMailStatus.filter((ts: any) => {
         const key = `${ts.employee_id}_${ts.work_date}`;
         const isCompanyWfh = companyWfhDateSet.has(ts.work_date);
-        if (isCompanyWfh && wfhSessionKeys.has(key)) return false;
+        const isEmployeeWfh = employeeWfhDateSet.has(key);
+        if ((isCompanyWfh || isEmployeeWfh) && wfhSessionKeys.has(key)) return false;
         return true;
       });
 
