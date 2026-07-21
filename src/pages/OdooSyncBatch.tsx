@@ -1742,11 +1742,16 @@ const OdooSyncBatch = () => {
           totalCost: number;
           vendorName: string;
         };
+        // Group by brand_code + vendor_name so the same item from different
+        // vendors ends up as separate line entries (each with its own vendorCode).
+        // Class A brands don't need vendorCode, so we collapse them into an empty vendor bucket.
         const brandAggMap = new Map<string, BrandAgg>();
         for (const l of invoice.originalLines) {
           const code = l.brand_code || '';
           const isA = brandAbcMap.get(code) === 'A';
-          const cur = brandAggMap.get(code) || {
+          const vName = isA ? '' : ((l as any).vendor_name || '');
+          const key = `${code}||${vName}`;
+          const cur = brandAggMap.get(key) || {
             brandCode: code,
             brandName: l.brand_name || code,
             isClassA: isA,
@@ -1754,18 +1759,22 @@ const OdooSyncBatch = () => {
             totalCoins: 0,
             totalAmount: 0,
             totalCost: 0,
-            vendorName: (l as any).vendor_name || '',
+            vendorName: vName,
           };
           cur.totalQty += l.qty || 0;
           cur.totalCoins += l.coins_number || 0;
           cur.totalAmount += l.total || 0;
           cur.totalCost += l.cost_sold || 0;
-          brandAggMap.set(code, cur);
+          brandAggMap.set(key, cur);
         }
 
         const lines = Array.from(brandAggMap.values()).map((b) => {
           const qty = b.isClassA ? (b.totalCoins || b.totalQty || 1) : (b.totalQty || 1);
+          const vCode = b.vendorName
+            ? (vendorOptions.find(v => v.name === b.vendorName)?.code || b.vendorName)
+            : '';
           return {
+            ...(vCode ? { vendorCode: vCode } : {}),
             itemCode: b.brandCode,
             description: b.brandName,
             quantity: qty,
@@ -1774,8 +1783,8 @@ const OdooSyncBatch = () => {
           };
         });
 
-        // Pick a vendorCode from the first non-Class-A brand (Class A doesn't need one).
-        const firstNonA = Array.from(brandAggMap.values()).find(b => !b.isClassA);
+        // Pick a header vendorCode from the first non-Class-A brand (kept for backward compatibility).
+        const firstNonA = Array.from(brandAggMap.values()).find(b => !b.isClassA && b.vendorName);
         const vendorName = firstNonA?.vendorName || '';
         const vendorCode = vendorName
           ? (vendorOptions.find(v => v.name === vendorName)?.code || vendorName)
