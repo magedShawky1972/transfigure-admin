@@ -993,6 +993,29 @@ export default function DeductionSummary() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!clearTarget} onOpenChange={(o) => !o && setClearTarget(null)}>
+        <AlertDialogContent dir={isAr ? "rtl" : "ltr"}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isAr ? "مسح دقائق التأخير والخروج المبكر" : "Clear Late & Early Leave Minutes"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isAr
+                ? `سيتم تصفير دقائق التأخير والخروج المبكر لـ ${clearTarget?.name} خلال الفترة (${filterLabel}) وحفظ التغييرات. لن يتم تعديل أيام الغياب.`
+                : `This will zero out late and early leave minutes for ${clearTarget?.name} across the current period (${filterLabel}) and save. Absence days are not affected.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!clearingId}>{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (clearTarget) handleClearLateEarly(clearTarget); }}
+              disabled={!!clearingId}
+            >
+              {clearingId ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eraser className="h-4 w-4 mr-2" />}
+              {isAr ? "مسح وحفظ" : "Clear & Save"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
