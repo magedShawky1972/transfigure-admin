@@ -3884,7 +3884,7 @@ const OdooSyncBatch = () => {
                     const activeInvoices = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
                     return (
                   <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
-                    <TableCell colSpan={8} className="text-right">
+                    <TableCell colSpan={9} className="text-right">
                       {language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}
                       <span className="text-muted-foreground font-normal mx-2">
                         ({activeInvoices.length} {language === 'ar' ? 'فاتورة' : 'invoices'})
