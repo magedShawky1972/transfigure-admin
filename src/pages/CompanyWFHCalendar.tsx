@@ -45,7 +45,7 @@ const CompanyWFHCalendar = () => {
       const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
       const monthEnd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
-      const [{ data: specific }, { data: recurring }] = await Promise.all([
+      const [{ data: specific }, { data: recurring }, { data: empWfh }, { data: empList }] = await Promise.all([
         supabase
           .from("company_wfh_days")
           .select("*")
@@ -56,10 +56,23 @@ const CompanyWFHCalendar = () => {
           .from("company_wfh_recurring")
           .select("*")
           .order("day_of_week"),
+        supabase
+          .from("employee_wfh_days")
+          .select("id, employee_id, wfh_date, description, employees(first_name, last_name, first_name_ar, last_name_ar, employee_number)")
+          .gte("wfh_date", monthStart)
+          .lte("wfh_date", monthEnd)
+          .order("wfh_date"),
+        supabase
+          .from("employees")
+          .select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number")
+          .eq("employment_status", "active")
+          .order("first_name"),
       ]);
 
       setSpecificDays(specific || []);
       setRecurringDays(recurring || []);
+      setEmployeeWfhDays(empWfh || []);
+      setEmployees(empList || []);
     } catch (err: any) {
       toast({ title: isRTL ? "خطأ" : "Error", description: err.message, variant: "destructive" });
     } finally {
