@@ -915,15 +915,28 @@ export default function DeductionSummary() {
                         </TableCell>
                         <TableCell className="text-right font-semibold text-red-600">{formatNumber(r.totalDeduction)}</TableCell>
                         <TableCell className="text-right print:hidden">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setClearTarget(r)}
-                            disabled={clearingId === r.employee_id || (r.totalLateMinutes === 0 && r.totalEarlyLeaveMinutes === 0)}
-                            title={isAr ? "مسح دقائق التأخير والخروج المبكر" : "Clear late & early leave minutes"}
-                          >
-                            {clearingId === r.employee_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4" />}
-                          </Button>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setClearTarget({ row: r, kind: "late" })}
+                              disabled={clearingId?.startsWith(r.employee_id) || r.totalLateMinutes === 0}
+                              title={isAr ? "مسح دقائق التأخير" : "Remove Late Min"}
+                            >
+                              {clearingId === r.employee_id + ":late" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4 text-amber-600" />}
+                              <span className="ml-1 text-xs">{isAr ? "تأخير" : "Late"}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setClearTarget({ row: r, kind: "early" })}
+                              disabled={clearingId?.startsWith(r.employee_id) || r.totalEarlyLeaveMinutes === 0}
+                              title={isAr ? "مسح دقائق الخروج المبكر" : "Remove Early Leave"}
+                            >
+                              {clearingId === r.employee_id + ":early" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4 text-blue-600" />}
+                              <span className="ml-1 text-xs">{isAr ? "خروج مبكر" : "Early"}</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
