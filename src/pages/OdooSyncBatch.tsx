@@ -5149,23 +5149,98 @@ const OdooSyncBatch = () => {
                     </TableBody>
                   </Table>
                   <div>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                       <h4 className="text-sm font-semibold">
                         {language === 'ar' ? 'جسم الطلب إلى ساجل (Sync Order Body)' : 'Sajel Sync Order API Body'}
                       </h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(jsonPreview);
-                          toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied' });
-                        }}
-                      >
-                        <Copy className="h-3.5 w-3.5 mr-1" />
-                        {language === 'ar' ? 'نسخ' : 'Copy'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {testSajelResult?.durationMs != null && (
+                          <Badge variant={testSajelResult.success ? 'default' : 'destructive'} className="font-mono text-xs">
+                            {language === 'ar' ? 'الوقت' : 'Time'}: {(testSajelResult.durationMs / 1000).toFixed(2)}s
+                            {testSajelResult.httpStatus ? ` · HTTP ${testSajelResult.httpStatus}` : ''}
+                          </Badge>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={testSajelLoading}
+                          onClick={async () => {
+                            if (!selectedAggLinesInvoice) return;
+                            setTestSajelLoading(true);
+                            setTestSajelResult(null);
+                            const preview = buildAggregatedInvoiceBodyPreview(selectedAggLinesInvoice) as any;
+                            const startedAt = performance.now();
+                            try {
+                              const { data, error } = await supabase.functions.invoke('sync-order-to-sajel', {
+                                body: { invoice: preview.invoice, payment: preview.payment, batchNumber: preview.batchNumber },
+                              });
+                              const clientMs = Math.round(performance.now() - startedAt);
+                              if (error) {
+                                setTestSajelResult({ success: false, error: error.message || String(error), durationMs: clientMs });
+                              } else {
+                                setTestSajelResult({
+                                  success: !!data?.success,
+                                  durationMs: data?.durationMs ?? clientMs,
+                                  httpStatus: data?.httpStatus,
+                                  response: data?.response,
+                                  error: data?.error,
+                                  url: data?.url,
+                                });
+                              }
+                            } catch (e: any) {
+                              const clientMs = Math.round(performance.now() - startedAt);
+                              setTestSajelResult({ success: false, error: e?.message || String(e), durationMs: clientMs });
+                            } finally {
+                              setTestSajelLoading(false);
+                            }
+                          }}
+                        >
+                          {testSajelLoading ? (
+                            <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />{language === 'ar' ? 'جاري الاختبار...' : 'Testing...'}</>
+                          ) : (
+                            <><Send className="h-3.5 w-3.5 mr-1" />{language === 'ar' ? 'اختبار API' : 'Test API'}</>
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(jsonPreview);
+                            toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied' });
+                          }}
+                        >
+                          <Copy className="h-3.5 w-3.5 mr-1" />
+                          {language === 'ar' ? 'نسخ' : 'Copy'}
+                        </Button>
+                      </div>
                     </div>
                     <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-[300px]">{jsonPreview}</pre>
+                    {testSajelResult && (
+                      <div className={cn(
+                        "mt-3 rounded-md border p-3 text-xs",
+                        testSajelResult.success ? "bg-green-500/10 border-green-500/40" : "bg-red-500/10 border-red-500/40"
+                      )}>
+                        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                          <div className="font-semibold">
+                            {testSajelResult.success
+                              ? (language === 'ar' ? 'نجح الاختبار' : 'Test Succeeded')
+                              : (language === 'ar' ? 'فشل الاختبار' : 'Test Failed')}
+                          </div>
+                          <div className="font-mono">
+                            {(language === 'ar' ? 'المدة' : 'Duration')}: {((testSajelResult.durationMs || 0) / 1000).toFixed(2)}s
+                          </div>
+                        </div>
+                        {testSajelResult.url && (
+                          <div className="font-mono text-[11px] break-all mb-2 opacity-80">{testSajelResult.url}</div>
+                        )}
+                        {testSajelResult.error && (
+                          <div className="font-mono text-[11px] whitespace-pre-wrap break-all mb-2">{testSajelResult.error}</div>
+                        )}
+                        {testSajelResult.response && (
+                          <pre className="text-[11px] bg-background/50 p-2 rounded overflow-auto max-h-[220px]">{JSON.stringify(testSajelResult.response, null, 2)}</pre>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
