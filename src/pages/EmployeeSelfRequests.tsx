@@ -585,6 +585,12 @@ const EmployeeSelfRequests = () => {
         requestData.total_days = calculateTotalDays();
       }
 
+      if (selectedType === 'work_from_home') {
+        requestData.start_date = startDate ? format(startDate, 'yyyy-MM-dd') : null;
+        requestData.end_date = endDate ? format(endDate, 'yyyy-MM-dd') : null;
+        requestData.total_days = calculateTotalDays();
+      }
+
       if (selectedType === 'sick_leave' || selectedType === 'other') {
         requestData.attachment_url = attachmentUrl || null;
       }
