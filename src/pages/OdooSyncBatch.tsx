@@ -1805,7 +1805,10 @@ const OdooSyncBatch = () => {
               .filter((v: any) => typeof v === 'string' && v.length > 0)
           ));
           let bankFeeTotal = 0;
-          if (orderNumbers.length) {
+          const feeCache = bankFeeMapRef.current;
+          if (feeCache) {
+            for (const on of orderNumbers) bankFeeTotal += feeCache.get(on) || 0;
+          } else if (orderNumbers.length) {
             const { data: otRows } = await supabase
               .from('ordertotals')
               .select('order_number, bank_fee')
@@ -1820,7 +1823,13 @@ const OdooSyncBatch = () => {
           const keys = [paymentPayload?.paymentType, paymentPayload?.paymentMethod, invoice.paymentMethod]
             .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
             .map((v: string) => v.trim());
-          if (keys.length) {
+          const pbCache = paymentBankMapRef.current;
+          if (pbCache && keys.length) {
+            for (const k of keys) {
+              const hit = pbCache.get(k.toLowerCase());
+              if (hit?.bankCode) { bankCode = hit.bankCode; bankName = hit.bankName; cardType = hit.cardType; break; }
+            }
+          } else if (keys.length) {
             const { data: pms } = await supabase
               .from('payment_methods')
               .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code, bank_name)')
