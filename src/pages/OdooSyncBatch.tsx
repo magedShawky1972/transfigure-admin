@@ -327,6 +327,8 @@ const OdooSyncBatch = () => {
   const [selectedInvoiceDetail, setSelectedInvoiceDetail] = useState<AggregatedInvoice | null>(null);
   const [showLinesBreakdownDialog, setShowLinesBreakdownDialog] = useState(false);
   const [selectedLinesBreakdown, setSelectedLinesBreakdown] = useState<AggregatedInvoice | null>(null);
+  const [showAggLinesDialog, setShowAggLinesDialog] = useState(false);
+  const [selectedAggLinesInvoice, setSelectedAggLinesInvoice] = useState<AggregatedInvoice | null>(null);
   const [vendorOptions, setVendorOptions] = useState<{ name: string; code?: string }[]>([]);
   const [updatingVendorId, setUpdatingVendorId] = useState<string | null>(null);
   const [vendorPopoverOpenId, setVendorPopoverOpenId] = useState<string | null>(null);
@@ -465,6 +467,54 @@ const OdooSyncBatch = () => {
       return abc !== 'A' && !inv.vendorName;
     }).length;
   }, [filteredAggregatedInvoices, brandAbcMap]);
+
+  // Preview of the aggregated lines[] that will be sent to Sajel for an invoice.
+  // Mirrors the aggregation performed in runOneSajelSyncFromInvoice
+  // (group by brand_code; qty = coins for Class A, else qty; unitPrice/unitCost derived).
+  const buildAggregatedLinesPreview = (invoice: AggregatedInvoice) => {
+    const map = new Map<string, {
+      itemCode: string;
+      description: string;
+      isClassA: boolean;
+      totalQty: number;
+      totalCoins: number;
+      totalAmount: number;
+      totalCost: number;
+    }>();
+    for (const l of invoice.originalLines || []) {
+      const code = (l as any).brand_code || '';
+      const isA = brandAbcMap.get(code) === 'A';
+      const cur = map.get(code) || {
+        itemCode: code,
+        description: (l as any).brand_name || code,
+        isClassA: isA,
+        totalQty: 0,
+        totalCoins: 0,
+        totalAmount: 0,
+        totalCost: 0,
+      };
+      cur.totalQty += (l as any).qty || 0;
+      cur.totalCoins += (l as any).coins_number || 0;
+      cur.totalAmount += (l as any).total || 0;
+      cur.totalCost += (l as any).cost_sold || 0;
+      map.set(code, cur);
+    }
+    return Array.from(map.values()).map((b) => {
+      const qty = b.isClassA ? (b.totalCoins || b.totalQty || 1) : (b.totalQty || 1);
+      return {
+        itemCode: b.itemCode,
+        description: b.description,
+        classAbc: b.isClassA ? 'A' : (brandAbcMap.get(b.itemCode) || '-'),
+        quantity: qty,
+        unitPrice: qty ? b.totalAmount / qty : b.totalAmount,
+        unitCost: qty ? b.totalCost / qty : b.totalCost,
+        totalAmount: b.totalAmount,
+        totalCost: b.totalCost,
+      };
+    });
+  };
+
+
 
   // Auto-run supplier check once when orders/invoices first become available (Odoo path only)
   useEffect(() => {
@@ -3608,6 +3658,7 @@ const OdooSyncBatch = () => {
                     <TableHead className="w-12"></TableHead>
                     <TableHead>{language === 'ar' ? 'رقم الفاتورة' : 'Invoice Number'}</TableHead>
                     <TableHead className="text-center">{language === 'ar' ? 'عدد الطلبات' : 'Lines'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'أسطر مجمعة' : 'Agg Lines'}</TableHead>
                     <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
                     <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
                     <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment'}</TableHead>
@@ -3685,7 +3736,38 @@ const OdooSyncBatch = () => {
                           </Badge>
                         </Button>
                       </TableCell>
+                      <TableCell className="text-center">
+                        {(() => {
+                          const aggLines = buildAggregatedLinesPreview(invoice);
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 gap-1"
+                                    onClick={() => {
+                                      setSelectedAggLinesInvoice(invoice);
+                                      setShowAggLinesDialog(true);
+                                    }}
+                                  >
+                                    <Badge variant="outline" className="text-xs cursor-pointer hover:bg-primary/20">
+                                      {aggLines.length}
+                                    </Badge>
+                                    <Eye className="h-3.5 w-3.5 text-primary" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {language === 'ar' ? 'عرض الأسطر المجمعة المرسلة إلى ساجل' : 'View aggregated lines sent to Sajel'}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-xs">
+
                         {invoice.date ? format(parseISO(invoice.date), 'yyyy-MM-dd') : '-'}
                       </TableCell>
                       <TableCell className="max-w-[120px] truncate text-xs" title={invoice.brandName}>
@@ -3802,7 +3884,7 @@ const OdooSyncBatch = () => {
                     const activeInvoices = filteredAggregatedInvoices.filter(inv => inv.selected && !inv.skipSync);
                     return (
                   <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
-                    <TableCell colSpan={8} className="text-right">
+                    <TableCell colSpan={9} className="text-right">
                       {language === 'ar' ? 'الإجمالي الكلي' : 'Grand Total'}
                       <span className="text-muted-foreground font-normal mx-2">
                         ({activeInvoices.length} {language === 'ar' ? 'فاتورة' : 'invoices'})
@@ -4925,6 +5007,107 @@ const OdooSyncBatch = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Aggregated Lines preview (what will be sent to Sajel) */}
+      <Dialog open={showAggLinesDialog} onOpenChange={setShowAggLinesDialog}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              {language === 'ar' ? 'الأسطر المجمعة المرسلة إلى ساجل' : 'Aggregated Lines Sent to Sajel'}
+              {selectedAggLinesInvoice && (
+                <Badge variant="outline" className="font-mono ml-2">
+                  {selectedAggLinesInvoice.orderNumber}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedAggLinesInvoice && (() => {
+            const aggLines = buildAggregatedLinesPreview(selectedAggLinesInvoice);
+            const jsonPreview = JSON.stringify({ lines: aggLines }, null, 2);
+            return (
+              <ScrollArea className="flex-1 pr-3">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <Badge variant="secondary">
+                      {language === 'ar' ? 'التاريخ' : 'Date'}: {selectedAggLinesInvoice.date?.slice(0, 10) || '-'}
+                    </Badge>
+                    <Badge variant="secondary">
+                      {language === 'ar' ? 'الدفع' : 'Payment'}: {selectedAggLinesInvoice.paymentMethod}/{selectedAggLinesInvoice.paymentBrand}
+                    </Badge>
+                    <Badge variant="secondary">
+                      {language === 'ar' ? 'الطلبات الأصلية' : 'Original Orders'}: {selectedAggLinesInvoice.originalOrderNumbers.length}
+                    </Badge>
+                    <Badge variant="default">
+                      {language === 'ar' ? 'أسطر مجمعة' : 'Aggregated Lines'}: {aggLines.length}
+                    </Badge>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{language === 'ar' ? 'كود' : 'Item Code'}</TableHead>
+                        <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
+                        <TableHead className="text-center">ABC</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Quantity'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'تكلفة الوحدة' : 'Unit Cost'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'الإجمالي' : 'Total Amount'}</TableHead>
+                        <TableHead className="text-right">{language === 'ar' ? 'إجمالي التكلفة' : 'Total Cost'}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {aggLines.map((l, i) => (
+                        <TableRow key={`${l.itemCode}-${i}`}>
+                          <TableCell className="font-mono text-xs">{l.itemCode || '-'}</TableCell>
+                          <TableCell className="text-xs">{l.description || '-'}</TableCell>
+                          <TableCell className="text-center text-xs font-semibold">{l.classAbc}</TableCell>
+                          <TableCell className="text-right text-xs">{l.quantity.toLocaleString('en-US')}</TableCell>
+                          <TableCell className="text-right text-xs">{l.unitPrice.toFixed(6)}</TableCell>
+                          <TableCell className="text-right text-xs">{l.unitCost.toFixed(6)}</TableCell>
+                          <TableCell className="text-right text-xs font-semibold">{l.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-xs font-semibold">{l.totalCost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {aggLines.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                            {language === 'ar' ? 'لا توجد أسطر' : 'No lines'}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold">
+                        {language === 'ar' ? 'معاينة JSON (lines[])' : 'JSON Preview (lines[])'}
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(jsonPreview);
+                          toast({ title: language === 'ar' ? 'تم النسخ' : 'Copied' });
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-1" />
+                        {language === 'ar' ? 'نسخ' : 'Copy'}
+                      </Button>
+                    </div>
+                    <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-[300px]">{jsonPreview}</pre>
+                  </div>
+                </div>
+              </ScrollArea>
+            );
+          })()}
+          <div className="flex justify-end pt-4 border-t">
+            <Button onClick={() => setShowAggLinesDialog(false)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Batch number confirmation before Send Orders */}
       <AlertDialog open={batchConfirmOpen} onOpenChange={setBatchConfirmOpen}>
