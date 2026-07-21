@@ -5149,7 +5149,7 @@ const OdooSyncBatch = () => {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold">
-                        {language === 'ar' ? 'معاينة JSON (lines[])' : 'JSON Preview (lines[])'}
+                        {language === 'ar' ? 'جسم الطلب إلى ساجل (Sync Order Body)' : 'Sajel Sync Order API Body'}
                       </h4>
                       <Button
                         variant="ghost"
