@@ -329,6 +329,8 @@ const OdooSyncBatch = () => {
   const [selectedLinesBreakdown, setSelectedLinesBreakdown] = useState<AggregatedInvoice | null>(null);
   const [showAggLinesDialog, setShowAggLinesDialog] = useState(false);
   const [selectedAggLinesInvoice, setSelectedAggLinesInvoice] = useState<AggregatedInvoice | null>(null);
+  const [testSajelLoading, setTestSajelLoading] = useState(false);
+  const [testSajelResult, setTestSajelResult] = useState<{ success: boolean; durationMs?: number; httpStatus?: number; response?: any; error?: string; url?: string } | null>(null);
   const [vendorOptions, setVendorOptions] = useState<{ name: string; code?: string }[]>([]);
   const [updatingVendorId, setUpdatingVendorId] = useState<string | null>(null);
   const [vendorPopoverOpenId, setVendorPopoverOpenId] = useState<string | null>(null);
