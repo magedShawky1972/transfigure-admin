@@ -720,6 +720,7 @@ const OdooSyncBatch = () => {
     setFilterOrderNumber('');
     setFilterHasPurchase('all');
     setFilterMissingVendorNonA(false);
+    setFilterErrors(false);
     setFilterAbcAnalysis('all');
   };
 
@@ -728,6 +729,7 @@ const OdooSyncBatch = () => {
                            filterOrderNumber || 
                            filterHasPurchase !== 'all' ||
                            filterMissingVendorNonA ||
+                           filterErrors ||
                            (filterAbcAnalysis && filterAbcAnalysis !== 'all');
 
   // Calculate duration in formatted string
