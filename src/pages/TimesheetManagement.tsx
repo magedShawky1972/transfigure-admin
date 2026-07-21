@@ -1139,6 +1139,20 @@ export default function TimesheetManagement() {
       // Suppress the base timesheet row when a WFH check-in exists for the same employee+date on a Company WFH day
       // (avoids showing both an empty "WFH" row and the actual WFH session row)
       const wfhSessionKeys = new Set(wfhSessions.map((s) => `${s.empId}_${s.date}`));
+      // Build a quick lookup of base timesheets by emp+date so virtual WFH rows can inherit
+      // manually edited changed_start / changed_end / actual times from the underlying timesheet row.
+      const baseByKey = new Map<string, any>();
+      timesheetsWithMailStatus.forEach((ts: any) => {
+        baseByKey.set(`${ts.employee_id}_${ts.work_date}`, ts);
+      });
+      virtualWfhRows.forEach((v: any) => {
+        const base = baseByKey.get(`${v.employee_id}_${v.work_date}`);
+        if (!base) return;
+        if (base.changed_start) v.changed_start = base.changed_start;
+        if (base.changed_end) v.changed_end = base.changed_end;
+        if (base.actual_start && !v.actual_start) v.actual_start = base.actual_start;
+        if (base.actual_end && !v.actual_end) v.actual_end = base.actual_end;
+      });
       const filteredBase = timesheetsWithMailStatus.filter((ts: any) => {
         const key = `${ts.employee_id}_${ts.work_date}`;
         const isCompanyWfh = companyWfhDateSet.has(ts.work_date);
@@ -1146,6 +1160,7 @@ export default function TimesheetManagement() {
         if ((isCompanyWfh || isEmployeeWfh) && wfhSessionKeys.has(key)) return false;
         return true;
       });
+
 
       // Fetch shift_sessions for shift-based employees in the date range, to display shift name + scheduled times
       const shiftBasedUserIds = (employeesRes.data || [])
