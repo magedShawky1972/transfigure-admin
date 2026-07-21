@@ -425,9 +425,13 @@ const OdooSyncBatch = () => {
         });
         if (!hasAbcClass) return false;
       }
+      // Filter by errors only
+      if (filterErrors) {
+        if (g.syncStatus !== 'failed') return false;
+      }
       return true;
     });
-  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterAbcAnalysis, brandAbcMap]);
+  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterAbcAnalysis, filterErrors, brandAbcMap]);
 
   // Filtered aggregated invoices based on filter criteria
   const filteredAggregatedInvoices = useMemo(() => {
