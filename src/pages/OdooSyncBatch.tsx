@@ -345,6 +345,7 @@ const OdooSyncBatch = () => {
   const [filterOrderNumber, setFilterOrderNumber] = useState<string>('');
   const [filterHasPurchase, setFilterHasPurchase] = useState<string>('all');
   const [filterMissingVendorNonA, setFilterMissingVendorNonA] = useState<boolean>(false);
+  const [filterErrors, setFilterErrors] = useState<boolean>(false);
   const [filterAbcAnalysis, setFilterAbcAnalysis] = useState<string>('all');
 
   const fromDate = searchParams.get('from');
@@ -424,9 +425,13 @@ const OdooSyncBatch = () => {
         });
         if (!hasAbcClass) return false;
       }
+      // Filter by errors only
+      if (filterErrors) {
+        if (g.syncStatus !== 'failed') return false;
+      }
       return true;
     });
-  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterAbcAnalysis, brandAbcMap]);
+  }, [orderGroups, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterAbcAnalysis, filterErrors, brandAbcMap]);
 
   // Filtered aggregated invoices based on filter criteria
   const filteredAggregatedInvoices = useMemo(() => {
@@ -460,9 +465,13 @@ const OdooSyncBatch = () => {
         const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
         if (abc !== filterAbcAnalysis) return false;
       }
+      // Filter by errors only
+      if (filterErrors) {
+        if (inv.syncStatus !== 'failed') return false;
+      }
       return true;
     });
-  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, brandAbcMap]);
+  }, [aggregatedInvoices, filterBrand, filterProduct, filterOrderNumber, filterHasPurchase, filterMissingVendorNonA, filterAbcAnalysis, filterErrors, brandAbcMap]);
 
   // Count of aggregated invoices with missing vendor for non-A brands (red rows)
   // Respects active filters and excludes unchecked/skipped rows
@@ -473,6 +482,14 @@ const OdooSyncBatch = () => {
       return abc !== 'A' && !inv.vendorName;
     }).length;
   }, [filteredAggregatedInvoices, brandAbcMap]);
+
+  // Count of rows with sync errors in the current view
+  const errorCount = useMemo(() => {
+    if (aggregateMode) {
+      return filteredAggregatedInvoices.filter(inv => inv.syncStatus === 'failed').length;
+    }
+    return filteredOrderGroups.filter(g => g.syncStatus === 'failed').length;
+  }, [filteredAggregatedInvoices, filteredOrderGroups, aggregateMode]);
 
   // Preview of the aggregated lines[] that will be sent to Sajel for an invoice.
   // Mirrors the aggregation performed in runOneSajelSyncFromInvoice
@@ -703,6 +720,7 @@ const OdooSyncBatch = () => {
     setFilterOrderNumber('');
     setFilterHasPurchase('all');
     setFilterMissingVendorNonA(false);
+    setFilterErrors(false);
     setFilterAbcAnalysis('all');
   };
 
@@ -711,6 +729,7 @@ const OdooSyncBatch = () => {
                            filterOrderNumber || 
                            filterHasPurchase !== 'all' ||
                            filterMissingVendorNonA ||
+                           filterErrors ||
                            (filterAbcAnalysis && filterAbcAnalysis !== 'all');
 
   // Calculate duration in formatted string
@@ -3627,6 +3646,49 @@ const OdooSyncBatch = () => {
                       {language === 'ar'
                         ? 'بدون مورد (ليست A)'
                         : 'Missing Vendor (non-A)'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+        {(() => {
+          const isActive = filterErrors;
+          return (
+            <Card
+              className={cn(
+                "cursor-pointer transition-colors",
+                errorCount > 0
+                  ? "border-red-500/40 bg-red-500/5 hover:border-red-500/60"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50",
+                isActive && "ring-2 ring-red-500/60"
+              )}
+              onClick={() => {
+                if (errorCount > 0 || filterErrors) {
+                  setFilterErrors(prev => !prev);
+                }
+              }}
+              title={language === 'ar' ? 'تصفية الصفوف التي بها أخطاء' : 'Filter rows with errors'}
+            >
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  {errorCount > 0 ? (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  )}
+                  <div>
+                    <div className={cn(
+                      "text-2xl font-bold",
+                      errorCount > 0 ? "text-red-500" : "text-green-500"
+                    )}>
+                      {errorCount}
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      {language === 'ar'
+                        ? 'بها أخطاء'
+                        : 'With Errors'}
                     </p>
                   </div>
                 </div>
