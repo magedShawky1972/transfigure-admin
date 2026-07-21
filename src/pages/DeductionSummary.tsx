@@ -616,52 +616,59 @@ export default function DeductionSummary() {
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
 
   const [clearingId, setClearingId] = useState<string | null>(null);
-  const [clearTarget, setClearTarget] = useState<Row | null>(null);
+  const [clearTarget, setClearTarget] = useState<{ row: Row; kind: "late" | "early" } | null>(null);
 
-  const handleClearLateEarly = async (row: Row) => {
-    setClearingId(row.employee_id);
+  const handleClearField = async (row: Row, kind: "late" | "early") => {
+    setClearingId(row.employee_id + ":" + kind);
     try {
       const dFrom = mode === "date" ? date : mode === "range" ? from : `${month}-01`;
       const dTo = mode === "date" ? date : mode === "range" ? to :
         (() => { const [y, m] = month.split("-").map(Number); return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`; })();
 
-      // Only zero deduction for days where the deduction came from late/early (not from absence rule)
+      const field = kind === "late" ? "late_minutes" : "early_leave_minutes";
+      const otherField = kind === "late" ? "early_leave_minutes" : "late_minutes";
+
+      // Fetch affected timesheets and their other-minute values to recompute deduction
       const { data: tsRows, error: tsErr } = await supabase
         .from("timesheets")
-        .select("id, is_absent, deduction_amount")
+        .select(`id, is_absent, ${otherField}`)
         .eq("employee_id", row.employee_id)
         .gte("work_date", dFrom)
-        .lte("work_date", dTo);
+        .lte("work_date", dTo)
+        .gt(field, 0);
       if (tsErr) throw tsErr;
 
       const ids = (tsRows || []).map((t: any) => t.id);
       if (ids.length === 0) {
-        toast.info(isAr ? "لا توجد سجلات" : "No timesheets in range");
+        toast.info(isAr ? "لا توجد سجلات لمسحها" : "Nothing to clear");
+        setClearTarget(null);
         return;
       }
 
-      // Zero late/early minutes for all rows in range
+      // Zero the selected field
       const { error: updErr } = await supabase
         .from("timesheets")
-        .update({ late_minutes: 0, early_leave_minutes: 0 })
+        .update({ [field]: 0 })
         .in("id", ids)
         .select();
       if (updErr) throw updErr;
 
-      // Also zero deduction_amount for non-absent rows (absence deduction stays)
-      const nonAbsentIds = (tsRows || []).filter((t: any) => !t.is_absent).map((t: any) => t.id);
-      if (nonAbsentIds.length > 0) {
+      // For non-absent rows where the other minute is also 0, clear deduction too
+      const clearDeductionIds = (tsRows || [])
+        .filter((t: any) => !t.is_absent && (Number(t[otherField]) || 0) === 0)
+        .map((t: any) => t.id);
+      if (clearDeductionIds.length > 0) {
         const { error: dedErr } = await supabase
           .from("timesheets")
           .update({ deduction_amount: 0, deduction_rule_id: null })
-          .in("id", nonAbsentIds)
+          .in("id", clearDeductionIds)
           .select();
         if (dedErr) throw dedErr;
       }
 
       toast.success(isAr
-        ? `تم مسح دقائق التأخير/الخروج المبكر لـ ${row.name}`
-        : `Cleared late/early minutes for ${row.name}`);
+        ? `تم المسح لـ ${row.name}`
+        : `Cleared for ${row.name}`);
       setClearTarget(null);
       await fetchData();
     } catch (e: any) {
@@ -671,6 +678,7 @@ export default function DeductionSummary() {
       setClearingId(null);
     }
   };
+
 
 
   const handlePrint = () => { setTimeout(() => window.print(), 100); };
@@ -907,15 +915,28 @@ export default function DeductionSummary() {
                         </TableCell>
                         <TableCell className="text-right font-semibold text-red-600">{formatNumber(r.totalDeduction)}</TableCell>
                         <TableCell className="text-right print:hidden">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setClearTarget(r)}
-                            disabled={clearingId === r.employee_id || (r.totalLateMinutes === 0 && r.totalEarlyLeaveMinutes === 0)}
-                            title={isAr ? "مسح دقائق التأخير والخروج المبكر" : "Clear late & early leave minutes"}
-                          >
-                            {clearingId === r.employee_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4" />}
-                          </Button>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setClearTarget({ row: r, kind: "late" })}
+                              disabled={clearingId?.startsWith(r.employee_id) || r.totalLateMinutes === 0}
+                              title={isAr ? "مسح دقائق التأخير" : "Remove Late Min"}
+                            >
+                              {clearingId === r.employee_id + ":late" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4 text-amber-600" />}
+                              <span className="ml-1 text-xs">{isAr ? "تأخير" : "Late"}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setClearTarget({ row: r, kind: "early" })}
+                              disabled={clearingId?.startsWith(r.employee_id) || r.totalEarlyLeaveMinutes === 0}
+                              title={isAr ? "مسح دقائق الخروج المبكر" : "Remove Early Leave"}
+                            >
+                              {clearingId === r.employee_id + ":early" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4 text-blue-600" />}
+                              <span className="ml-1 text-xs">{isAr ? "خروج مبكر" : "Early"}</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -997,17 +1018,21 @@ export default function DeductionSummary() {
       <AlertDialog open={!!clearTarget} onOpenChange={(o) => !o && setClearTarget(null)}>
         <AlertDialogContent dir={isAr ? "rtl" : "ltr"}>
           <AlertDialogHeader>
-            <AlertDialogTitle>{isAr ? "مسح دقائق التأخير والخروج المبكر" : "Clear Late & Early Leave Minutes"}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {clearTarget?.kind === "late"
+                ? (isAr ? "مسح دقائق التأخير" : "Remove Late Minutes")
+                : (isAr ? "مسح دقائق الخروج المبكر" : "Remove Early Leave Minutes")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {isAr
-                ? `سيتم تصفير دقائق التأخير والخروج المبكر لـ ${clearTarget?.name} خلال الفترة (${filterLabel}) وحفظ التغييرات. لن يتم تعديل أيام الغياب.`
-                : `This will zero out late and early leave minutes for ${clearTarget?.name} across the current period (${filterLabel}) and save. Absence days are not affected.`}
+                ? `سيتم تصفير ${clearTarget?.kind === "late" ? "دقائق التأخير" : "دقائق الخروج المبكر"} لـ ${clearTarget?.row.name} خلال الفترة (${filterLabel}) وحفظ التغييرات.`
+                : `This will zero out ${clearTarget?.kind === "late" ? "late minutes" : "early leave minutes"} for ${clearTarget?.row.name} across the current period (${filterLabel}) and save.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={!!clearingId}>{isAr ? "إلغاء" : "Cancel"}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); if (clearTarget) handleClearLateEarly(clearTarget); }}
+              onClick={(e) => { e.preventDefault(); if (clearTarget) handleClearField(clearTarget.row, clearTarget.kind); }}
               disabled={!!clearingId}
             >
               {clearingId ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eraser className="h-4 w-4 mr-2" />}
