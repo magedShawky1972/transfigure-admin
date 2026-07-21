@@ -345,6 +345,7 @@ const OdooSyncBatch = () => {
   const [filterOrderNumber, setFilterOrderNumber] = useState<string>('');
   const [filterHasPurchase, setFilterHasPurchase] = useState<string>('all');
   const [filterMissingVendorNonA, setFilterMissingVendorNonA] = useState<boolean>(false);
+  const [filterErrors, setFilterErrors] = useState<boolean>(false);
   const [filterAbcAnalysis, setFilterAbcAnalysis] = useState<string>('all');
 
   const fromDate = searchParams.get('from');
