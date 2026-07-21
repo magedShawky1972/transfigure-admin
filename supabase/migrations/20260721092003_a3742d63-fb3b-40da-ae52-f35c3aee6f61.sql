@@ -1,0 +1,2 @@
+ALTER TABLE public.employee_requests DROP CONSTRAINT IF EXISTS employee_requests_request_type_check;
+ALTER TABLE public.employee_requests ADD CONSTRAINT employee_requests_request_type_check CHECK (request_type = ANY (ARRAY['sick_leave','vacation','delay','early_leave','expense_refund','experience_certificate','penalty_deduction','work_from_home','other']));

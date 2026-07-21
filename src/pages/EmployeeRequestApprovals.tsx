@@ -57,6 +57,7 @@ import {
   Trash2,
   ChevronsUpDown,
   CalendarIcon,
+  Home,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
@@ -69,6 +70,7 @@ const REQUEST_TYPE_INFO: Record<string, { icon: any; labelAr: string; labelEn: s
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
   penalty_deduction: { icon: AlertTriangle, labelAr: 'خصم جزائي', labelEn: 'Penalty Deduction', color: 'bg-rose-100 text-rose-800' },
+  work_from_home: { icon: Home, labelAr: 'العمل من المنزل', labelEn: 'Work From Home', color: 'bg-indigo-100 text-indigo-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
 };
 
@@ -295,9 +297,13 @@ const EmployeeRequestApprovals = () => {
 
       if (dates.length === 0) return;
 
+      const isWfh = request.request_type === 'work_from_home';
+
       // Look up vacation type name for the note
-      let leaveLabel = request.request_type === 'sick_leave' ? 'Sick Leave' : 'Vacation';
-      if (request.vacation_code_id) {
+      let leaveLabel = request.request_type === 'sick_leave'
+        ? 'Sick Leave'
+        : (isWfh ? (language === 'ar' ? 'العمل من المنزل' : 'Work From Home') : 'Vacation');
+      if (request.vacation_code_id && !isWfh) {
         const { data: vacType } = await supabase
           .from('vacation_codes')
           .select('name_en, name_ar')
@@ -313,7 +319,7 @@ const EmployeeRequestApprovals = () => {
         employee_id: request.employee_id,
         work_date: date,
         is_absent: false,
-        status: 'vacation' as const,
+        status: (isWfh ? 'wfh' : 'vacation') as any,
         notes: leaveLabel,
         late_minutes: 0,
         deduction_rule_id: null,
@@ -443,10 +449,11 @@ const EmployeeRequestApprovals = () => {
 
             // Auto-update timesheets for sick leave / vacation approvals
             if (
-              (selectedRequest.request_type === 'sick_leave' || selectedRequest.request_type === 'vacation') &&
+              (selectedRequest.request_type === 'sick_leave' || selectedRequest.request_type === 'vacation' || selectedRequest.request_type === 'work_from_home') &&
               selectedRequest.start_date && selectedRequest.end_date
             ) {
               await updateTimesheetsForLeave(selectedRequest);
+
 
               // Deduct from employee_vacation_types balance
               if (selectedRequest.vacation_code_id && selectedRequest.employee_id) {

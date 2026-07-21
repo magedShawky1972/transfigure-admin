@@ -54,9 +54,10 @@ import {
   AlertTriangle,
   Eye,
   Trash2,
+  Home,
 } from "lucide-react";
 
-type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'penalty_deduction' | 'other';
+type RequestType = 'sick_leave' | 'vacation' | 'delay' | 'early_leave' | 'expense_refund' | 'experience_certificate' | 'penalty_deduction' | 'work_from_home' | 'other';
 
 const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; labelEn: string; color: string }> = {
   sick_leave: { icon: Thermometer, labelAr: 'إجازة مرضية', labelEn: 'Sick Leave', color: 'bg-red-100 text-red-800' },
@@ -66,6 +67,7 @@ const REQUEST_TYPE_INFO: Record<RequestType, { icon: any; labelAr: string; label
   expense_refund: { icon: DollarSign, labelAr: 'استرداد مصروفات', labelEn: 'Expense Refund', color: 'bg-blue-100 text-blue-800' },
   experience_certificate: { icon: FileText, labelAr: 'شهادة خبرة', labelEn: 'Experience Certificate', color: 'bg-purple-100 text-purple-800' },
   penalty_deduction: { icon: AlertTriangle, labelAr: 'خصم جزائي', labelEn: 'Penalty Deduction', color: 'bg-rose-100 text-rose-800' },
+  work_from_home: { icon: Home, labelAr: 'العمل من المنزل', labelEn: 'Work From Home', color: 'bg-indigo-100 text-indigo-800' },
   other: { icon: MessageSquare, labelAr: 'طلب آخر', labelEn: 'Other Request', color: 'bg-teal-100 text-teal-800' },
 };
 
@@ -583,6 +585,12 @@ const EmployeeSelfRequests = () => {
         requestData.total_days = calculateTotalDays();
       }
 
+      if (selectedType === 'work_from_home') {
+        requestData.start_date = startDate ? format(startDate, 'yyyy-MM-dd') : null;
+        requestData.end_date = endDate ? format(endDate, 'yyyy-MM-dd') : null;
+        requestData.total_days = calculateTotalDays();
+      }
+
       if (selectedType === 'sick_leave' || selectedType === 'other') {
         requestData.attachment_url = attachmentUrl || null;
       }
@@ -804,6 +812,13 @@ const EmployeeSelfRequests = () => {
                 </div>
               </>
             )}
+            {selectedType === 'work_from_home' && (
+              <div className="grid grid-cols-2 gap-4">
+                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{startDate ? format(startDate, 'yyyy-MM-dd') : (language === 'ar' ? 'من' : 'From')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} /></PopoverContent></Popover>
+                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{endDate ? format(endDate, 'yyyy-MM-dd') : (language === 'ar' ? 'إلى' : 'To')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} /></PopoverContent></Popover>
+              </div>
+            )}
+
 
             {/* Sick Leave Attachment - Mandatory */}
             {selectedType === 'sick_leave' && (
@@ -1022,7 +1037,7 @@ const EmployeeSelfRequests = () => {
                   <div className="text-muted-foreground">{language === 'ar' ? 'تاريخ الإنشاء' : 'Created'}</div>
                   <div>{format(new Date(detailRequest.created_at), 'yyyy-MM-dd HH:mm')}</div>
 
-                  {(detailRequest.request_type === 'vacation' || detailRequest.request_type === 'sick_leave') && detailRequest.start_date && (
+                  {(detailRequest.request_type === 'vacation' || detailRequest.request_type === 'sick_leave' || detailRequest.request_type === 'work_from_home') && detailRequest.start_date && (
                     <>
                       <div className="text-muted-foreground">{language === 'ar' ? 'من' : 'From'}</div>
                       <div>{detailRequest.start_date}</div>

@@ -864,11 +864,11 @@ export default function TimesheetManagement() {
         vacDateTo = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
       }
 
-      // Fetch approved vacation/sick leave requests that overlap with the date range
+      // Fetch approved vacation/sick leave/work-from-home requests that overlap with the date range
       const { data: approvedLeaves } = await supabase
         .from("employee_requests")
         .select("employee_id, start_date, end_date, request_type, delay_date, vacation_code_id, vacation_codes(name_en, name_ar)")
-        .in("request_type", ["vacation", "sick_leave"])
+        .in("request_type", ["vacation", "sick_leave", "work_from_home"])
         .eq("status", "approved")
         .lte("start_date", vacDateTo)
         .gte("end_date", vacDateFrom);
@@ -947,7 +947,11 @@ export default function TimesheetManagement() {
         const details = leave.vacation_codes ? {
           nameEn: leave.vacation_codes.name_en,
           nameAr: leave.vacation_codes.name_ar || leave.vacation_codes.name_en
-        } : (leave.request_type === "sick_leave" ? { nameEn: "Sick Leave", nameAr: "إجازة مرضية" } : { nameEn: "Vacation", nameAr: "إجازة" });
+        } : (leave.request_type === "sick_leave"
+              ? { nameEn: "Sick Leave", nameAr: "إجازة مرضية" }
+              : leave.request_type === "work_from_home"
+                ? { nameEn: "Work From Home", nameAr: "العمل من المنزل" }
+                : { nameEn: "Vacation", nameAr: "إجازة" });
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           vacationDays.set(`${leave.employee_id}_${d.toISOString().split("T")[0]}`, details);
         }
