@@ -468,6 +468,54 @@ const OdooSyncBatch = () => {
     }).length;
   }, [filteredAggregatedInvoices, brandAbcMap]);
 
+  // Preview of the aggregated lines[] that will be sent to Sajel for an invoice.
+  // Mirrors the aggregation performed in runOneSajelSyncFromInvoice
+  // (group by brand_code; qty = coins for Class A, else qty; unitPrice/unitCost derived).
+  const buildAggregatedLinesPreview = (invoice: AggregatedInvoice) => {
+    const map = new Map<string, {
+      itemCode: string;
+      description: string;
+      isClassA: boolean;
+      totalQty: number;
+      totalCoins: number;
+      totalAmount: number;
+      totalCost: number;
+    }>();
+    for (const l of invoice.originalLines || []) {
+      const code = (l as any).brand_code || '';
+      const isA = brandAbcMap.get(code) === 'A';
+      const cur = map.get(code) || {
+        itemCode: code,
+        description: (l as any).brand_name || code,
+        isClassA: isA,
+        totalQty: 0,
+        totalCoins: 0,
+        totalAmount: 0,
+        totalCost: 0,
+      };
+      cur.totalQty += (l as any).qty || 0;
+      cur.totalCoins += (l as any).coins_number || 0;
+      cur.totalAmount += (l as any).total || 0;
+      cur.totalCost += (l as any).cost_sold || 0;
+      map.set(code, cur);
+    }
+    return Array.from(map.values()).map((b) => {
+      const qty = b.isClassA ? (b.totalCoins || b.totalQty || 1) : (b.totalQty || 1);
+      return {
+        itemCode: b.itemCode,
+        description: b.description,
+        classAbc: b.isClassA ? 'A' : (brandAbcMap.get(b.itemCode) || '-'),
+        quantity: qty,
+        unitPrice: qty ? b.totalAmount / qty : b.totalAmount,
+        unitCost: qty ? b.totalCost / qty : b.totalCost,
+        totalAmount: b.totalAmount,
+        totalCost: b.totalCost,
+      };
+    });
+  };
+
+
+
   // Auto-run supplier check once when orders/invoices first become available (Odoo path only)
   useEffect(() => {
     if (supplierCheckDone || checkingSuppliers) return;
