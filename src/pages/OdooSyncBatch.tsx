@@ -3653,6 +3653,49 @@ const OdooSyncBatch = () => {
             </Card>
           );
         })()}
+        {(() => {
+          const isActive = filterErrors;
+          return (
+            <Card
+              className={cn(
+                "cursor-pointer transition-colors",
+                errorCount > 0
+                  ? "border-red-500/40 bg-red-500/5 hover:border-red-500/60"
+                  : "border-green-500/30 bg-green-500/5 hover:border-green-500/50",
+                isActive && "ring-2 ring-red-500/60"
+              )}
+              onClick={() => {
+                if (errorCount > 0 || filterErrors) {
+                  setFilterErrors(prev => !prev);
+                }
+              }}
+              title={language === 'ar' ? 'تصفية الصفوف التي بها أخطاء' : 'Filter rows with errors'}
+            >
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  {errorCount > 0 ? (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  )}
+                  <div>
+                    <div className={cn(
+                      "text-2xl font-bold",
+                      errorCount > 0 ? "text-red-500" : "text-green-500"
+                    )}>
+                      {errorCount}
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      {language === 'ar'
+                        ? 'بها أخطاء'
+                        : 'With Errors'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* Orders table */}
