@@ -311,6 +311,21 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${zkLogs?.length || 0} ZK logs for ${targetDate}`);
 
+    // Manual Changed In/Out values are authoritative. The ZK processor may run
+    // again for the same date, but it must not restore calculations based on a
+    // missed/raw machine punch after an administrator has corrected the row.
+    const { data: correctedTimesheets, error: correctedTimesheetsError } = await supabase
+      .from('timesheets')
+      .select('employee_id, changed_start, changed_end')
+      .eq('work_date', targetDate)
+      .or('changed_start.not.is.null,changed_end.not.is.null');
+
+    if (correctedTimesheetsError) throw correctedTimesheetsError;
+
+    const correctedTimesheetMap = new Map<string, { changed_start: string | null; changed_end: string | null }>(
+      (correctedTimesheets || []).map((row: any) => [row.employee_id, row])
+    );
+
     // Group logs by employee
     const employeeLogs = new Map<string, ZkLog[]>();
     (zkLogs || []).forEach(log => {
@@ -552,6 +567,10 @@ Deno.serve(async (req) => {
       // For evening processing, we update with out_time
       if (processType === 'morning' && !inTime) continue;
 
+      const manualCorrection = correctedTimesheetMap.get(employee.id);
+      const effectiveInTime = manualCorrection?.changed_start || inTime;
+      const effectiveOutTime = manualCorrection?.changed_end || outTime;
+
       // If today is a Company WFH day and the employee has no ZK check-in,
       // record as WFH instead of Absent (employees check in via the WFH system, not ZK)
       if (isCompanyWfhDay && !inTime) {
@@ -590,16 +609,16 @@ Deno.serve(async (req) => {
       const allowLate = attendanceType?.allow_late_minutes || 0;
       const allowEarly = attendanceType?.allow_early_exit_minutes || 0;
 
-      if (inTime && attendanceType?.fixed_start_time) {
+      if (effectiveInTime && attendanceType?.fixed_start_time) {
         const scheduledStart = timeToMinutes(attendanceType.fixed_start_time);
-        const actualStart = timeToMinutes(inTime);
+        const actualStart = timeToMinutes(effectiveInTime);
         const rawLate = actualStart - scheduledStart;
         lateMinutes = rawLate > allowLate ? rawLate - allowLate : 0;
       }
 
-      if (outTime && attendanceType?.fixed_end_time) {
+      if (effectiveOutTime && attendanceType?.fixed_end_time) {
         const scheduledEnd = timeToMinutes(attendanceType.fixed_end_time);
-        const actualEnd = timeToMinutes(outTime);
+        const actualEnd = timeToMinutes(effectiveOutTime);
         const rawEarly = scheduledEnd - actualEnd;
         earlyExitMinutes = rawEarly > allowEarly ? rawEarly - allowEarly : 0;
       }
@@ -614,7 +633,7 @@ Deno.serve(async (req) => {
       );
 
       // Calculate hours
-      const totalHours = calculateTotalHours(inTime, outTime);
+      const totalHours = calculateTotalHours(effectiveInTime, effectiveOutTime);
       const expectedHours = calculateExpectedHours(attendanceType || null);
       const differenceHours = totalHours !== null && expectedHours !== null 
         ? Math.round((totalHours - expectedHours) * 100) / 100 
@@ -673,9 +692,9 @@ Deno.serve(async (req) => {
       // Calculate overtime - only if employee worked MORE than scheduled hours
       // Overtime should offset late arrival and early exit first
       let overtimeMinutes = 0;
-      if (outTime && attendanceType?.fixed_end_time) {
+      if (effectiveOutTime && attendanceType?.fixed_end_time) {
         const scheduledEndMins = timeToMinutes(attendanceType.fixed_end_time);
-        const actualEndMins = timeToMinutes(outTime);
+        const actualEndMins = timeToMinutes(effectiveOutTime);
         const extraMinutesAfterEnd = actualEndMins > scheduledEndMins ? actualEndMins - scheduledEndMins : 0;
         // Net overtime = extra time at end minus late arrival and early exit
         const netOvertime = extraMinutesAfterEnd - lateMinutes - earlyExitMinutes;
