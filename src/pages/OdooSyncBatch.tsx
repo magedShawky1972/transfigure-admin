@@ -2713,6 +2713,57 @@ const OdooSyncBatch = () => {
       }
     }
 
+    // Precompute per-run caches to eliminate 2 DB round-trips per invoice
+    // (bank_fee lookup + payment_methods→banks lookup) before each Sajel call.
+    if (syncWithSajel) {
+      try {
+        const allOrderNumbers = Array.from(new Set(
+          toSync.flatMap((inv: any) => (inv.originalLines || [])
+            .map((l: any) => l.order_number)
+            .filter((v: any) => typeof v === 'string' && v.length > 0))
+        ));
+        const feeMap = new Map<string, number>();
+        // Chunk IN() to avoid URL length limits
+        for (let i = 0; i < allOrderNumbers.length; i += 500) {
+          const chunk = allOrderNumbers.slice(i, i + 500);
+          const { data } = await supabase
+            .from('ordertotals')
+            .select('order_number, bank_fee')
+            .in('order_number', chunk);
+          (data || []).forEach((r: any) => {
+            feeMap.set(r.order_number, (feeMap.get(r.order_number) || 0) + (Number(r.bank_fee) || 0));
+          });
+        }
+        bankFeeMapRef.current = feeMap;
+
+        const { data: pmAll } = await supabase
+          .from('payment_methods')
+          .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code, bank_name)');
+        const pbMap = new Map<string, { bankCode: string; bankName: string; cardType: string }>();
+        (pmAll || []).forEach((r: any) => {
+          const bankCode = r?.banks?.bank_code || '';
+          if (!bankCode) return;
+          const entry = {
+            bankCode,
+            bankName: r?.banks?.bank_name || '',
+            cardType: r?.payment_method || r?.payment_type || '',
+          };
+          [r.payment_type, r.payment_method].forEach((k: any) => {
+            if (typeof k === 'string' && k.trim()) {
+              const key = k.trim().toLowerCase();
+              if (!pbMap.has(key)) pbMap.set(key, entry);
+            }
+          });
+        });
+        paymentBankMapRef.current = pbMap;
+        console.log(`[Sajel Prewarm] bank_fee rows=${feeMap.size}, payment_methods keys=${pbMap.size}`);
+      } catch (e) {
+        console.warn('[Sajel Prewarm] failed, falling back to per-invoice lookups:', e);
+        bankFeeMapRef.current = null;
+        paymentBankMapRef.current = null;
+      }
+    }
+
     const processInvoice = async (invoice: AggregatedInvoice) => {
       if (stopRequestedRef.current) return;
       setAggregatedInvoices(prev => prev.map(inv =>
