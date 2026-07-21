@@ -2447,7 +2447,7 @@ export default function TimesheetManagement() {
               <Label htmlFor="is_absent">{language === "ar" ? "غائب" : "Absent"}</Label>
             </div>
 
-            {formData.is_absent ? (
+            {formData.is_absent && (
               <>
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "حالة الإشعار" : "Notice Status"}</Label>
@@ -2486,122 +2486,120 @@ export default function TimesheetManagement() {
                     rows={2}
                   />
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{language === "ar" ? "بداية الوردية المجدولة" : "Scheduled Start"}</Label>
-                    <Input
-                      type="time"
-                      value={formData.scheduled_start}
-                      onChange={(e) => setFormData({ ...formData, scheduled_start: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{language === "ar" ? "نهاية الوردية المجدولة" : "Scheduled End"}</Label>
-                    <Input
-                      type="time"
-                      value={formData.scheduled_end}
-                      onChange={(e) => setFormData({ ...formData, scheduled_end: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{language === "ar" ? "وقت الحضور الفعلي" : "Actual Start"}</Label>
-                    <Input
-                      type="time"
-                      value={formData.actual_start}
-                      onChange={(e) => setFormData({ ...formData, actual_start: e.target.value })}
-                      disabled={!!editingTimesheet}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{language === "ar" ? "وقت الانصراف الفعلي" : "Actual End"}</Label>
-                    <Input
-                      type="time"
-                      value={formData.actual_end}
-                      onChange={(e) => setFormData({ ...formData, actual_end: e.target.value })}
-                      disabled={!!editingTimesheet}
-                    />
-                  </div>
-                </div>
-
-                {editingTimesheet && (
-                  <div className="grid grid-cols-2 gap-4 p-3 border border-blue-200 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
-                    <div className="col-span-2">
-                      <Label className="text-blue-700 dark:text-blue-400 font-semibold text-xs">
-                        {language === "ar" ? "الوقت المعدّل (يُستخدم للحساب بدلاً من الفعلي)" : "Changed Time (used for calculation instead of actual)"}
-                      </Label>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{language === "ar" ? "حضور معدّل" : "Changed In"}</Label>
-                      <Input
-                        type="time"
-                        value={formData.changed_start}
-                        onChange={(e) => setFormData({ ...formData, changed_start: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{language === "ar" ? "انصراف معدّل" : "Changed Out"}</Label>
-                      <Input
-                        type="time"
-                        value={formData.changed_end}
-                        onChange={(e) => setFormData({ ...formData, changed_end: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Attendance Summary - Auto calculated */}
-                {(delayMinutes > 0 || earlyLeaveMinutes > 0 || (totalAttendance.hours > 0 || totalAttendance.minutes > 0)) && (
-                  <div className="p-3 bg-muted/50 border rounded-lg space-y-2">
-                    {/* Total Hours */}
-                    {(totalAttendance.hours > 0 || totalAttendance.minutes > 0) && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-primary" />
-                        <span className="font-medium">
-                          {language === "ar" ? "إجمالي ساعات الحضور:" : "Total Attendance:"} {totalAttendance.hours}{language === "ar" ? " ساعة " : "h "}{totalAttendance.minutes}{language === "ar" ? " دقيقة" : "m"}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Delay */}
-                    {delayMinutes > 0 && (
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                        <span className="font-medium text-destructive">
-                          {language === "ar" ? "التأخير:" : "Delay:"} {delayMinutes} {language === "ar" ? "دقيقة" : "min"}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Early Leave */}
-                    {earlyLeaveMinutes > 0 && (
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        <span className="font-medium text-amber-500">
-                          {language === "ar" ? "الانصراف المبكر:" : "Early Leave:"} {earlyLeaveMinutes} {language === "ar" ? "دقيقة" : "min"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label>{language === "ar" ? "مدة الاستراحة (دقائق)" : "Break Duration (minutes)"}</Label>
-                  <Input
-                    type="number"
-                    value={formData.break_duration_minutes}
-                    onChange={(e) =>
-                      setFormData({ ...formData, break_duration_minutes: parseInt(e.target.value) || 0 })
-                    }
-                  />
+                <div className="text-xs text-muted-foreground italic border-l-2 border-amber-400 pl-2">
+                  {language === "ar"
+                    ? "يمكنك إدخال وقت الحضور والانصراف حتى لو كان الموظف غائباً (في حال نسي التسجيل في جهاز البصمة)."
+                    : "You can still enter check-in / check-out times when marked absent (in case the employee forgot to punch in/out on the attendance machine)."}
                 </div>
               </>
             )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "بداية الوردية المجدولة" : "Scheduled Start"}</Label>
+                <Input
+                  type="time"
+                  value={formData.scheduled_start}
+                  onChange={(e) => setFormData({ ...formData, scheduled_start: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "نهاية الوردية المجدولة" : "Scheduled End"}</Label>
+                <Input
+                  type="time"
+                  value={formData.scheduled_end}
+                  onChange={(e) => setFormData({ ...formData, scheduled_end: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "وقت الحضور الفعلي" : "Actual Start"}</Label>
+                <Input
+                  type="time"
+                  value={formData.actual_start}
+                  onChange={(e) => setFormData({ ...formData, actual_start: e.target.value })}
+                  disabled={!!editingTimesheet}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === "ar" ? "وقت الانصراف الفعلي" : "Actual End"}</Label>
+                <Input
+                  type="time"
+                  value={formData.actual_end}
+                  onChange={(e) => setFormData({ ...formData, actual_end: e.target.value })}
+                  disabled={!!editingTimesheet}
+                />
+              </div>
+            </div>
+
+            {editingTimesheet && (
+              <div className="grid grid-cols-2 gap-4 p-3 border border-blue-200 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+                <div className="col-span-2">
+                  <Label className="text-blue-700 dark:text-blue-400 font-semibold text-xs">
+                    {language === "ar" ? "الوقت المعدّل (يُستخدم للحساب بدلاً من الفعلي)" : "Changed Time (used for calculation instead of actual)"}
+                  </Label>
+                </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "حضور معدّل" : "Changed In"}</Label>
+                  <Input
+                    type="time"
+                    value={formData.changed_start}
+                    onChange={(e) => setFormData({ ...formData, changed_start: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "انصراف معدّل" : "Changed Out"}</Label>
+                  <Input
+                    type="time"
+                    value={formData.changed_end}
+                    onChange={(e) => setFormData({ ...formData, changed_end: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Attendance Summary - Auto calculated */}
+            {!formData.is_absent && (delayMinutes > 0 || earlyLeaveMinutes > 0 || (totalAttendance.hours > 0 || totalAttendance.minutes > 0)) && (
+              <div className="p-3 bg-muted/50 border rounded-lg space-y-2">
+                {(totalAttendance.hours > 0 || totalAttendance.minutes > 0) && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span className="font-medium">
+                      {language === "ar" ? "إجمالي ساعات الحضور:" : "Total Attendance:"} {totalAttendance.hours}{language === "ar" ? " ساعة " : "h "}{totalAttendance.minutes}{language === "ar" ? " دقيقة" : "m"}
+                    </span>
+                  </div>
+                )}
+                {delayMinutes > 0 && (
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span className="font-medium text-destructive">
+                      {language === "ar" ? "التأخير:" : "Delay:"} {delayMinutes} {language === "ar" ? "دقيقة" : "min"}
+                    </span>
+                  </div>
+                )}
+                {earlyLeaveMinutes > 0 && (
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <span className="font-medium text-amber-500">
+                      {language === "ar" ? "الانصراف المبكر:" : "Early Leave:"} {earlyLeaveMinutes} {language === "ar" ? "دقيقة" : "min"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "مدة الاستراحة (دقائق)" : "Break Duration (minutes)"}</Label>
+              <Input
+                type="number"
+                value={formData.break_duration_minutes}
+                onChange={(e) =>
+                  setFormData({ ...formData, break_duration_minutes: parseInt(e.target.value) || 0 })
+                }
+              />
+            </div>
 
             <div className="space-y-2">
               <Label>{language === "ar" ? "ملاحظات" : "Notes"}</Label>
