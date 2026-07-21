@@ -3550,6 +3550,44 @@ export type Database = {
           },
         ]
       }
+      employee_wfh_days: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          employee_id: string
+          id: string
+          updated_at: string
+          wfh_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employee_id: string
+          id?: string
+          updated_at?: string
+          wfh_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employee_id?: string
+          id?: string
+          updated_at?: string
+          wfh_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_wfh_days_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           address: string | null

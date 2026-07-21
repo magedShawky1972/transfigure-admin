@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Home, Calendar as CalendarIcon, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Home, Calendar as CalendarIcon, RefreshCw, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from "date-fns";
 
@@ -27,10 +28,16 @@ const CompanyWFHCalendar = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [specificDays, setSpecificDays] = useState<any[]>([]);
   const [recurringDays, setRecurringDays] = useState<any[]>([]);
+  const [employeeWfhDays, setEmployeeWfhDays] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newDate, setNewDate] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [empDialogOpen, setEmpDialogOpen] = useState(false);
+  const [empWfhDate, setEmpWfhDate] = useState("");
+  const [empWfhEmployeeId, setEmpWfhEmployeeId] = useState("");
+  const [empWfhDescription, setEmpWfhDescription] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -38,7 +45,7 @@ const CompanyWFHCalendar = () => {
       const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
       const monthEnd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
-      const [{ data: specific }, { data: recurring }] = await Promise.all([
+      const [{ data: specific }, { data: recurring }, { data: empWfh }, { data: empList }] = await Promise.all([
         supabase
           .from("company_wfh_days")
           .select("*")
@@ -49,10 +56,23 @@ const CompanyWFHCalendar = () => {
           .from("company_wfh_recurring")
           .select("*")
           .order("day_of_week"),
+        supabase
+          .from("employee_wfh_days")
+          .select("id, employee_id, wfh_date, description, employees(first_name, last_name, first_name_ar, last_name_ar, employee_number)")
+          .gte("wfh_date", monthStart)
+          .lte("wfh_date", monthEnd)
+          .order("wfh_date"),
+        supabase
+          .from("employees")
+          .select("id, first_name, last_name, first_name_ar, last_name_ar, employee_number")
+          .eq("employment_status", "active")
+          .order("first_name"),
       ]);
 
       setSpecificDays(specific || []);
       setRecurringDays(recurring || []);
+      setEmployeeWfhDays(empWfh || []);
+      setEmployees(empList || []);
     } catch (err: any) {
       toast({ title: isRTL ? "خطأ" : "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -105,6 +125,41 @@ const CompanyWFHCalendar = () => {
       if (error) toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     }
     fetchData();
+  };
+
+  const handleAddEmployeeWfh = async () => {
+    if (!empWfhDate || !empWfhEmployeeId) return;
+    const { error } = await supabase.from("employee_wfh_days").insert({
+      employee_id: empWfhEmployeeId,
+      wfh_date: empWfhDate,
+      description: empWfhDescription || null,
+    });
+    if (error) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: isRTL ? "تم الإضافة" : "Added", description: isRTL ? "تم إضافة يوم عمل من المنزل للموظف" : "Employee WFH day added" });
+      setEmpDialogOpen(false);
+      setEmpWfhDate("");
+      setEmpWfhEmployeeId("");
+      setEmpWfhDescription("");
+      fetchData();
+    }
+  };
+
+  const handleDeleteEmployeeWfh = async (id: string) => {
+    const { error } = await supabase.from("employee_wfh_days").delete().eq("id", id);
+    if (error) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    } else {
+      fetchData();
+    }
+  };
+
+  const empName = (emp: any) => {
+    if (!emp) return "";
+    return isRTL
+      ? `${emp.first_name_ar || emp.first_name || ""} ${emp.last_name_ar || emp.last_name || ""}`.trim()
+      : `${emp.first_name || ""} ${emp.last_name || ""}`.trim();
   };
 
   // Build a set of WFH dates for the calendar
@@ -196,6 +251,51 @@ const CompanyWFHCalendar = () => {
               </div>
             </DialogContent>
           </Dialog>
+          <Dialog open={empDialogOpen} onOpenChange={setEmpDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="secondary" className="gap-1">
+                <User className="h-4 w-4" />
+                {isRTL ? "إضافة موظف" : "Add Employee WFH"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent dir={isRTL ? "rtl" : "ltr"}>
+              <DialogHeader>
+                <DialogTitle>{isRTL ? "إضافة يوم عمل من المنزل لموظف" : "Add Employee WFH Day"}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>{isRTL ? "الموظف" : "Employee"}</Label>
+                  <Select value={empWfhEmployeeId} onValueChange={setEmpWfhEmployeeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isRTL ? "اختر موظف" : "Select employee"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {employees.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {empName(e)} {e.employee_number ? `(${e.employee_number})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isRTL ? "التاريخ" : "Date"}</Label>
+                  <Input type="date" value={empWfhDate} onChange={(e) => setEmpWfhDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isRTL ? "الوصف (اختياري)" : "Description (optional)"}</Label>
+                  <Textarea
+                    value={empWfhDescription}
+                    onChange={(e) => setEmpWfhDescription(e.target.value)}
+                    placeholder={isRTL ? "مثال: ظرف خاص" : "e.g. Special arrangement"}
+                  />
+                </div>
+                <Button onClick={handleAddEmployeeWfh} className="w-full" disabled={!empWfhDate || !empWfhEmployeeId}>
+                  {isRTL ? "إضافة" : "Add"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -233,12 +333,13 @@ const CompanyWFHCalendar = () => {
                 const isWfh = wfhDateSet.has(dateStr);
                 const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
                 const specificEntry = specificDays.find((d) => d.wfh_date === dateStr);
+                const empCount = employeeWfhDays.filter((r) => r.wfh_date === dateStr).length;
 
                 return (
                   <div
                     key={dateStr}
                     className={`h-16 rounded-lg border p-1 text-xs transition-colors relative cursor-pointer
-                      ${isWfh ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : "hover:bg-muted/50"}
+                      ${isWfh ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : empCount > 0 ? "bg-sky-50 dark:bg-sky-900/20 border-sky-300 dark:border-sky-700" : "hover:bg-muted/50"}
                       ${isToday ? "ring-2 ring-primary" : ""}
                     `}
                     onClick={() => {
@@ -254,6 +355,12 @@ const CompanyWFHCalendar = () => {
                     {isWfh && (
                       <div className="absolute bottom-1 right-1">
                         <Home className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                    )}
+                    {empCount > 0 && (
+                      <div className="absolute bottom-1 left-1 flex items-center gap-0.5 text-[10px] text-sky-700 dark:text-sky-300 font-medium">
+                        <User className="h-3 w-3" />
+                        {empCount}
                       </div>
                     )}
                     {specificEntry && (
@@ -339,6 +446,45 @@ const CompanyWFHCalendar = () => {
                         size="icon"
                         className="h-7 w-7 text-destructive"
                         onClick={() => handleDeleteSpecificDay(day.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Employee-Specific WFH Days */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {isRTL ? "أيام موظفين محددين" : "Employee-Specific WFH"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {employeeWfhDays.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {isRTL ? "لا يوجد موظفين هذا الشهر" : "No employees this month"}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {employeeWfhDays.map((row) => (
+                    <div key={row.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium">{empName(row.employees)}</p>
+                        <p className="text-xs text-muted-foreground">{row.wfh_date}</p>
+                        {row.description && (
+                          <p className="text-xs text-muted-foreground italic">{row.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => handleDeleteEmployeeWfh(row.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

@@ -254,14 +254,18 @@ Deno.serve(async (req) => {
     console.log(`Official holidays on ${targetDate}: ${matchingHolidays.length} found${holidayName ? ` (${holidayName})` : ''}`);
 
     // Check if target date is a Company WFH day (specific date or recurring weekday)
+    // Also fetch employee-specific WFH days for the date
     const targetDowForWfh = new Date(targetDate + 'T12:00:00').getDay();
-    const [{ data: wfhSpecificRow }, { data: wfhRecurringRow }] = await Promise.all([
+    const [{ data: wfhSpecificRow }, { data: wfhRecurringRow }, { data: employeeWfhRows }] = await Promise.all([
       supabase.from('company_wfh_days').select('wfh_date,description').eq('wfh_date', targetDate).maybeSingle(),
       supabase.from('company_wfh_recurring').select('day_of_week').eq('day_of_week', targetDowForWfh).eq('is_active', true).maybeSingle(),
+      supabase.from('employee_wfh_days').select('employee_id,description').eq('wfh_date', targetDate),
     ]);
     const isCompanyWfhDay = !!wfhSpecificRow || !!wfhRecurringRow;
     const wfhDayLabel = wfhSpecificRow?.description || (wfhRecurringRow ? 'Recurring WFH day' : 'Company WFH Day');
-    console.log(`Company WFH day for ${targetDate}: ${isCompanyWfhDay}`);
+    const employeeWfhMap = new Map<string, string>();
+    (employeeWfhRows || []).forEach((r: any) => employeeWfhMap.set(r.employee_id, r.description || 'Employee WFH Day'));
+    console.log(`Company WFH day for ${targetDate}: ${isCompanyWfhDay}; employee-specific WFH: ${employeeWfhMap.size}`);
 
     // Fetch all employees with ZK codes who require attendance sign-in
     const { data: employees, error: empError } = await supabase
@@ -571,11 +575,14 @@ Deno.serve(async (req) => {
       const effectiveInTime = manualCorrection?.changed_start || inTime;
       const effectiveOutTime = manualCorrection?.changed_end || outTime;
 
-      // If today is a Company WFH day and the employee has no ZK check-in,
-      // record as WFH instead of Absent (employees check in via the WFH system, not ZK)
-      if (isCompanyWfhDay && !inTime) {
+      // If today is a Company WFH day OR this employee has an employee-specific WFH day,
+      // and the employee has no ZK check-in, record as WFH instead of Absent.
+      const empWfhLabel = employeeWfhMap.get(employee.id);
+      const isEmpWfh = !!empWfhLabel;
+      if ((isCompanyWfhDay || isEmpWfh) && !inTime) {
         const scheduledStartWfh = attendanceType?.fixed_start_time || null;
         const scheduledEndWfh = attendanceType?.fixed_end_time || null;
+        const noteLabel = isCompanyWfhDay ? `Company WFH Day - ${wfhDayLabel}` : `Employee WFH Day - ${empWfhLabel}`;
         const wfhTimesheetRecord = {
           employee_id: employee.id,
           work_date: targetDate,
@@ -593,7 +600,7 @@ Deno.serve(async (req) => {
           total_work_minutes: 0,
           deduction_amount: 0,
           overtime_amount: 0,
-          notes: `Company WFH Day - ${wfhDayLabel}`,
+          notes: noteLabel,
         };
         const { error: wfhErr } = await supabase
           .from('timesheets')
