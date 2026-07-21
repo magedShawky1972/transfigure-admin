@@ -297,9 +297,13 @@ const EmployeeRequestApprovals = () => {
 
       if (dates.length === 0) return;
 
+      const isWfh = request.request_type === 'work_from_home';
+
       // Look up vacation type name for the note
-      let leaveLabel = request.request_type === 'sick_leave' ? 'Sick Leave' : 'Vacation';
-      if (request.vacation_code_id) {
+      let leaveLabel = request.request_type === 'sick_leave'
+        ? 'Sick Leave'
+        : (isWfh ? (language === 'ar' ? 'العمل من المنزل' : 'Work From Home') : 'Vacation');
+      if (request.vacation_code_id && !isWfh) {
         const { data: vacType } = await supabase
           .from('vacation_codes')
           .select('name_en, name_ar')
@@ -315,7 +319,7 @@ const EmployeeRequestApprovals = () => {
         employee_id: request.employee_id,
         work_date: date,
         is_absent: false,
-        status: 'vacation' as const,
+        status: (isWfh ? 'wfh' : 'vacation') as any,
         notes: leaveLabel,
         late_minutes: 0,
         deduction_rule_id: null,
