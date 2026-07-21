@@ -806,6 +806,13 @@ const EmployeeSelfRequests = () => {
                 </div>
               </>
             )}
+            {selectedType === 'work_from_home' && (
+              <div className="grid grid-cols-2 gap-4">
+                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{startDate ? format(startDate, 'yyyy-MM-dd') : (language === 'ar' ? 'من' : 'From')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} /></PopoverContent></Popover>
+                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{endDate ? format(endDate, 'yyyy-MM-dd') : (language === 'ar' ? 'إلى' : 'To')}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} /></PopoverContent></Popover>
+              </div>
+            )}
+
 
             {/* Sick Leave Attachment - Mandatory */}
             {selectedType === 'sick_leave' && (
