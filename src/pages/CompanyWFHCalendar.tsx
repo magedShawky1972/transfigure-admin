@@ -28,10 +28,16 @@ const CompanyWFHCalendar = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [specificDays, setSpecificDays] = useState<any[]>([]);
   const [recurringDays, setRecurringDays] = useState<any[]>([]);
+  const [employeeWfhDays, setEmployeeWfhDays] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newDate, setNewDate] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [empDialogOpen, setEmpDialogOpen] = useState(false);
+  const [empWfhDate, setEmpWfhDate] = useState("");
+  const [empWfhEmployeeId, setEmpWfhEmployeeId] = useState("");
+  const [empWfhDescription, setEmpWfhDescription] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
