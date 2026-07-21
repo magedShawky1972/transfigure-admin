@@ -1037,7 +1037,7 @@ const EmployeeSelfRequests = () => {
                   <div className="text-muted-foreground">{language === 'ar' ? 'تاريخ الإنشاء' : 'Created'}</div>
                   <div>{format(new Date(detailRequest.created_at), 'yyyy-MM-dd HH:mm')}</div>
 
-                  {(detailRequest.request_type === 'vacation' || detailRequest.request_type === 'sick_leave') && detailRequest.start_date && (
+                  {(detailRequest.request_type === 'vacation' || detailRequest.request_type === 'sick_leave' || detailRequest.request_type === 'work_from_home') && detailRequest.start_date && (
                     <>
                       <div className="text-muted-foreground">{language === 'ar' ? 'من' : 'From'}</div>
                       <div>{detailRequest.start_date}</div>
