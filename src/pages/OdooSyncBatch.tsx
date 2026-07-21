@@ -2930,7 +2930,7 @@ const OdooSyncBatch = () => {
 
     // Parallel pool for Sajel (independent per-order requests). Odoo path stays
     // sequential because its step calls share upstream state.
-    const concurrency = syncWithSajel ? 5 : 1;
+    const concurrency = syncWithSajel ? 12 : 1;
     let cursor = 0;
     const runWorker = async () => {
       while (true) {
