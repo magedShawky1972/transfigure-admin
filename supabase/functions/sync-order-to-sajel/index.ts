@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
     if (batchNumber) body.batchNumber = batchNumber;
     console.log('Posting to Sajel ERP One-Step:', settings.one_step_combined_transaction_url, JSON.stringify(body));
 
+    const startedAt = Date.now();
     const resp = await fetch(settings.one_step_combined_transaction_url, {
       method: 'POST',
       headers: {
@@ -111,17 +112,18 @@ Deno.serve(async (req) => {
     });
 
     const respText = await resp.text();
+    const durationMs = Date.now() - startedAt;
     let respJson: any;
     try { respJson = JSON.parse(respText); } catch { respJson = { raw: respText }; }
-    console.log('Sajel response:', resp.status, respText);
+    console.log('Sajel response:', resp.status, `${durationMs}ms`, respText);
 
     if (!resp.ok) {
-      return new Response(JSON.stringify({ success: false, error: respJson?.error || respJson?.message || respText || `HTTP ${resp.status}`, response: respJson, sent: body }), {
+      return new Response(JSON.stringify({ success: false, error: respJson?.error || respJson?.message || respText || `HTTP ${resp.status}`, response: respJson, sent: body, durationMs, httpStatus: resp.status, url: settings.one_step_combined_transaction_url }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, response: respJson, sent: body }), {
+    return new Response(JSON.stringify({ success: true, response: respJson, sent: body, durationMs, httpStatus: resp.status, url: settings.one_step_combined_transaction_url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e: any) {
