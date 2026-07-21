@@ -251,6 +251,51 @@ const CompanyWFHCalendar = () => {
               </div>
             </DialogContent>
           </Dialog>
+          <Dialog open={empDialogOpen} onOpenChange={setEmpDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="secondary" className="gap-1">
+                <User className="h-4 w-4" />
+                {isRTL ? "إضافة موظف" : "Add Employee WFH"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent dir={isRTL ? "rtl" : "ltr"}>
+              <DialogHeader>
+                <DialogTitle>{isRTL ? "إضافة يوم عمل من المنزل لموظف" : "Add Employee WFH Day"}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>{isRTL ? "الموظف" : "Employee"}</Label>
+                  <Select value={empWfhEmployeeId} onValueChange={setEmpWfhEmployeeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isRTL ? "اختر موظف" : "Select employee"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {employees.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {empName(e)} {e.employee_number ? `(${e.employee_number})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isRTL ? "التاريخ" : "Date"}</Label>
+                  <Input type="date" value={empWfhDate} onChange={(e) => setEmpWfhDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{isRTL ? "الوصف (اختياري)" : "Description (optional)"}</Label>
+                  <Textarea
+                    value={empWfhDescription}
+                    onChange={(e) => setEmpWfhDescription(e.target.value)}
+                    placeholder={isRTL ? "مثال: ظرف خاص" : "e.g. Special arrangement"}
+                  />
+                </div>
+                <Button onClick={handleAddEmployeeWfh} className="w-full" disabled={!empWfhDate || !empWfhEmployeeId}>
+                  {isRTL ? "إضافة" : "Add"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
