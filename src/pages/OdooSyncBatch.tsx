@@ -538,6 +538,7 @@ const OdooSyncBatch = () => {
     const periodCode = yyyy && mm ? `${mm}/${yyyy}` : '';
 
     const aggLines = buildAggregatedLinesPreview(invoice).map(l => ({
+      ...(l.vendorCode ? { vendorCode: l.vendorCode } : {}),
       itemCode: l.itemCode,
       description: l.description,
       quantity: l.quantity,
