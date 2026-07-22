@@ -1,0 +1,2 @@
+ALTER TABLE public.purpletransaction ADD COLUMN IF NOT EXISTS sendsajel boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_purpletransaction_sendsajel ON public.purpletransaction(sendsajel);

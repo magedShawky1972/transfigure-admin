@@ -7457,6 +7457,7 @@ export type Database = {
           sales_person: string | null
           sales_reference: string | null
           sendodoo: boolean | null
+          sendsajel: boolean
           source: string
           status: number | null
           status_description: string | null
@@ -7512,6 +7513,7 @@ export type Database = {
           sales_person?: string | null
           sales_reference?: string | null
           sendodoo?: boolean | null
+          sendsajel?: boolean
           source?: string
           status?: number | null
           status_description?: string | null
@@ -7567,6 +7569,7 @@ export type Database = {
           sales_person?: string | null
           sales_reference?: string | null
           sendodoo?: boolean | null
+          sendsajel?: boolean
           source?: string
           status?: number | null
           status_description?: string | null
