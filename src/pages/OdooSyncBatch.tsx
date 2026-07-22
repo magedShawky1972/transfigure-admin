@@ -1818,7 +1818,6 @@ const OdooSyncBatch = () => {
         // Keep attribute order EXACTLY as Sajel spec
         invoicePayload = {
           businessUnitCode: 'Asus-Trading',
-          ...(vendorCode ? { vendorCode } : {}),
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
           periodCode,
