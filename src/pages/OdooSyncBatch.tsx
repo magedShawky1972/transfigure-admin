@@ -572,7 +572,6 @@ const OdooSyncBatch = () => {
 
     const invoicePayload: any = {
       businessUnitCode: 'Asus-Trading',
-      ...(vendorCode ? { vendorCode } : {}),
       customerCode: 'CASH-PURPLE',
       invoiceDate: dateStr,
       periodCode,
