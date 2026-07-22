@@ -992,7 +992,11 @@ const OdooSyncBatch = () => {
             return sku && nonStockSet.has(sku);
           });
 
-          const alreadySynced = lines.every(l => (l as any).sendodoo === true);
+          // Sajel and Odoo track their own sync flag. Use the one that matches
+          // the active mode so toggling Sync With Sajel reflects Sajel state.
+          const alreadySynced = syncWithSajel
+            ? lines.every(l => (l as any).sendsajel === true)
+            : lines.every(l => (l as any).sendodoo === true);
 
           groups.push({
             orderNumber,
@@ -1047,7 +1051,7 @@ const OdooSyncBatch = () => {
     };
 
     loadTransactions();
-  }, [fromDate, toDate, companyFilter, language, navigate, refreshKey]);
+  }, [fromDate, toDate, companyFilter, language, navigate, refreshKey, syncWithSajel]);
 
   // Refresh all data and re-run supplier check
   const handleRefreshAll = () => {
@@ -1303,8 +1307,12 @@ const OdooSyncBatch = () => {
         });
         
         const isResync = !!existingAggregatedOrderNumber;
-        // Already synced if every original line has sendodoo === true
-        const aggAlreadySynced = invoice.lines.length > 0 && invoice.lines.every(l => (l as any).sendodoo === true);
+        // Already synced if every original line has the mode-appropriate flag = true
+        const aggAlreadySynced = invoice.lines.length > 0 && (
+          syncWithSajel
+            ? invoice.lines.every(l => (l as any).sendsajel === true)
+            : invoice.lines.every(l => (l as any).sendodoo === true)
+        );
 
         result.push({
           orderNumber,
@@ -2647,7 +2655,7 @@ const OdooSyncBatch = () => {
     }
 
     if (affectedOrderNums.size) {
-      await supabase.from('purpletransaction').update({ sendodoo: true }).in('order_number', Array.from(affectedOrderNums));
+      await supabase.from('purpletransaction').update(syncWithSajel ? { sendsajel: true } : { sendodoo: true }).in('order_number', Array.from(affectedOrderNums));
     }
 
     const syncEndTime = new Date();
@@ -2816,7 +2824,7 @@ const OdooSyncBatch = () => {
       if (result.syncStatus === 'success' && invoice.originalOrderNumbers.length > 0) {
         await supabase
           .from('purpletransaction')
-          .update({ sendodoo: true })
+          .update(syncWithSajel ? { sendsajel: true } : { sendodoo: true })
           .in('order_number', invoice.originalOrderNumbers);
 
         const mappings = invoice.originalOrderNumbers.map(originalOrderNumber => ({
