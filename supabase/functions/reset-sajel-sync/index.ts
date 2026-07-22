@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     }
 
     // Reset the sendsajel flag in batched chunks to avoid statement timeouts.
-    const CHUNK = 2000;
+    const CHUNK = 500;
     let updatedCount = 0;
     let lastId: string | number | null = null;
     // eslint-disable-next-line no-constant-condition
