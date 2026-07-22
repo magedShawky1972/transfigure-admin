@@ -572,7 +572,6 @@ const OdooSyncBatch = () => {
 
     const invoicePayload: any = {
       businessUnitCode: 'Asus-Trading',
-      ...(vendorCode ? { vendorCode } : {}),
       customerCode: 'CASH-PURPLE',
       invoiceDate: dateStr,
       periodCode,
@@ -1521,7 +1520,6 @@ const OdooSyncBatch = () => {
         // currencyCode, exchangeRate, reference, status, lines
         invoicePayload = {
           businessUnitCode: 'Asus-Trading',
-          ...((!isClassA && vendorCode) ? { vendorCode } : {}),
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
           periodCode,
@@ -1820,7 +1818,6 @@ const OdooSyncBatch = () => {
         // Keep attribute order EXACTLY as Sajel spec
         invoicePayload = {
           businessUnitCode: 'Asus-Trading',
-          ...(vendorCode ? { vendorCode } : {}),
           customerCode: 'CASH-PURPLE',
           invoiceDate: dateStr,
           periodCode,
