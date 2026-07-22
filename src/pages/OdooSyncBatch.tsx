@@ -5253,6 +5253,7 @@ const OdooSyncBatch = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="text-center w-12">#</TableHead>
                         <TableHead>{language === 'ar' ? 'كود' : 'Item Code'}</TableHead>
                         <TableHead>{language === 'ar' ? 'الوصف' : 'Description'}</TableHead>
                         <TableHead className="text-center">ABC</TableHead>
@@ -5266,6 +5267,7 @@ const OdooSyncBatch = () => {
                     <TableBody>
                       {aggLines.map((l, i) => (
                         <TableRow key={`${l.itemCode}-${i}`}>
+                          <TableCell className="text-center text-xs text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="font-mono text-xs">{l.itemCode || '-'}</TableCell>
                           <TableCell className="text-xs">{l.description || '-'}</TableCell>
                           <TableCell className="text-center text-xs font-semibold">{l.classAbc}</TableCell>
@@ -5278,14 +5280,14 @@ const OdooSyncBatch = () => {
                       ))}
                       {aggLines.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                          <TableCell colSpan={9} className="text-center text-muted-foreground py-6">
                             {language === 'ar' ? 'لا توجد أسطر' : 'No lines'}
                           </TableCell>
                         </TableRow>
                       )}
                       {aggLines.length > 0 && (
                         <TableRow className="bg-muted/50 font-bold border-t-2">
-                          <TableCell colSpan={3} className="text-xs">
+                          <TableCell colSpan={4} className="text-xs">
                             {language === 'ar' ? 'الإجمالي' : 'Total'}
                           </TableCell>
                           <TableCell className="text-right text-xs">{totalQty.toLocaleString('en-US')}</TableCell>
