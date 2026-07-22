@@ -24,9 +24,9 @@ export const ResetSajelSyncDialog = memo(function ResetSajelSyncDialog({
       const fromDateInt = parseInt(format(fromDate, "yyyyMMdd"), 10);
       const toDateInt = parseInt(format(toDate, "yyyyMMdd"), 10);
 
-      // Sajel sync uses the same sendodoo flag + aggregated_order_mapping table,
-      // so reuse the reset-odoo-sync edge function to clear the aggregation state.
-      const { data, error } = await supabase.functions.invoke("reset-odoo-sync", {
+      // Reset ONLY Sajel-side aggregation state (aggregated_order_mapping).
+      // sendodoo controls Odoo sync and is handled by Reset Odoo Sync.
+      const { data, error } = await supabase.functions.invoke("reset-sajel-sync", {
         body: { fromDateInt, toDateInt },
       });
 
