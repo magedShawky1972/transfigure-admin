@@ -61,23 +61,48 @@ Deno.serve(async (req) => {
       console.log(`Deleted ${deletedMappingsCount || 0} aggregated order mappings`);
     }
 
-    // Perform the batch update (return minimal payload to avoid freezing the client)
-    const { count: updatedCount, error } = await supabase
-      .from('purpletransaction')
-      .update(
-        { sendodoo: false },
-        ({ count: 'exact', returning: 'minimal' } as any)
-      )
-      .gte('created_at_date_int', fromDateInt)
-      .lte('created_at_date_int', toDateInt)
-      .eq('sendodoo', true);
+    // Batched update to avoid Postgres statement timeout on very large ranges.
+    // Fetch primary keys in pages and update each chunk by id.
+    const CHUNK = 2000;
+    let updatedCount = 0;
+    let lastId: string | number | null = null;
+    // Loop until no more matching rows are returned.
+    // Order by id ascending and use keyset pagination on id for stability.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      let q = supabase
+        .from('purpletransaction')
+        .select('id')
+        .gte('created_at_date_int', fromDateInt)
+        .lte('created_at_date_int', toDateInt)
+        .eq('sendodoo', true)
+        .order('id', { ascending: true })
+        .limit(CHUNK);
+      if (lastId !== null) q = q.gt('id', lastId as any);
 
-    if (error) {
-      console.error('Error resetting Odoo sync:', error);
-      throw error;
+      const { data: idRows, error: idErr } = await q;
+      if (idErr) {
+        console.error('Error fetching ids to reset:', idErr);
+        throw idErr;
+      }
+      if (!idRows || idRows.length === 0) break;
+
+      const ids = idRows.map((r: any) => r.id);
+      const { error: upErr } = await supabase
+        .from('purpletransaction')
+        .update({ sendodoo: false } as any)
+        .in('id', ids);
+      if (upErr) {
+        console.error('Error updating chunk:', upErr);
+        throw upErr;
+      }
+      updatedCount += ids.length;
+      lastId = ids[ids.length - 1];
+      console.log(`Reset chunk of ${ids.length}, running total: ${updatedCount}`);
+      if (idRows.length < CHUNK) break;
     }
 
-    console.log(`Successfully reset ${updatedCount || 0} records`);
+    console.log(`Successfully reset ${updatedCount} records`);
 
     return new Response(
       JSON.stringify({
