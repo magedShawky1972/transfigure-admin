@@ -1051,7 +1051,7 @@ const OdooSyncBatch = () => {
     };
 
     loadTransactions();
-  }, [fromDate, toDate, companyFilter, language, navigate, refreshKey]);
+  }, [fromDate, toDate, companyFilter, language, navigate, refreshKey, syncWithSajel]);
 
   // Refresh all data and re-run supplier check
   const handleRefreshAll = () => {

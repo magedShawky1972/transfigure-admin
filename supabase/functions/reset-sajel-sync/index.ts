@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
     const fromDateStr = `${String(fromDateInt).slice(0, 4)}-${String(fromDateInt).slice(4, 6)}-${String(fromDateInt).slice(6, 8)}`;
     const toDateStr = `${String(toDateInt).slice(0, 4)}-${String(toDateInt).slice(4, 6)}-${String(toDateInt).slice(6, 8)}`;
 
-    console.log(`Resetting Sajel sync (aggregated_order_mapping) between ${fromDateStr} and ${toDateStr}`);
+    console.log(`Resetting Sajel sync between ${fromDateStr} and ${toDateStr}`);
 
-    // Only clear Sajel-side aggregation state. Do NOT touch sendodoo — that flag
+    // Clear Sajel-side aggregation state. Do NOT touch sendodoo — that flag
     // controls Odoo sync and has its own reset.
     const { count: deletedMappingsCount, error: mappingError } = await supabase
       .from('aggregated_order_mapping')
@@ -43,14 +43,43 @@ Deno.serve(async (req) => {
       throw mappingError;
     }
 
-    console.log(`Deleted ${deletedMappingsCount || 0} aggregated order mappings`);
+    // Reset the sendsajel flag in batched chunks to avoid statement timeouts.
+    const CHUNK = 2000;
+    let updatedCount = 0;
+    let lastId: string | number | null = null;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      let q = supabase
+        .from('purpletransaction')
+        .select('id')
+        .gte('created_at_date_int', fromDateInt)
+        .lte('created_at_date_int', toDateInt)
+        .eq('sendsajel', true)
+        .order('id', { ascending: true })
+        .limit(CHUNK);
+      if (lastId !== null) q = q.gt('id', lastId as any);
+      const { data: idRows, error: idErr } = await q;
+      if (idErr) throw idErr;
+      if (!idRows || idRows.length === 0) break;
+      const ids = idRows.map((r: any) => r.id);
+      const { error: upErr } = await supabase
+        .from('purpletransaction')
+        .update({ sendsajel: false } as any)
+        .in('id', ids);
+      if (upErr) throw upErr;
+      updatedCount += ids.length;
+      lastId = ids[ids.length - 1];
+      if (idRows.length < CHUNK) break;
+    }
+
+    console.log(`Deleted ${deletedMappingsCount || 0} aggregated mappings; reset sendsajel on ${updatedCount} rows`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        updatedCount: 0,
+        updatedCount,
         deletedMappingsCount: deletedMappingsCount || 0,
-        message: `Reset ${deletedMappingsCount || 0} aggregated mapping(s) successfully`,
+        message: `Reset ${updatedCount} transaction(s) and ${deletedMappingsCount || 0} aggregated mapping(s) successfully`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
