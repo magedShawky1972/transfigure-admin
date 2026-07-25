@@ -1,0 +1,2 @@
+ALTER TABLE public.business_unit_cost_center_mapping DROP CONSTRAINT IF EXISTS business_unit_cost_center_mapping_business_unit_id_key;
+ALTER TABLE public.business_unit_cost_center_mapping ADD CONSTRAINT business_unit_cost_center_mapping_bu_cc_key UNIQUE (business_unit_id, cost_center_id);

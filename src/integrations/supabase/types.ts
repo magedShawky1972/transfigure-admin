@@ -1378,7 +1378,7 @@ export type Database = {
           {
             foreignKeyName: "business_unit_cost_center_mapping_business_unit_id_fkey"
             columns: ["business_unit_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "business_units"
             referencedColumns: ["id"]
           },
