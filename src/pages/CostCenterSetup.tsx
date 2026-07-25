@@ -199,6 +199,52 @@ const CostCenterSetup = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    if (!confirm(
+      language === "ar"
+        ? `هل أنت متأكد من حذف ${ids.length} مركز تكلفة؟`
+        : `Are you sure you want to delete ${ids.length} cost center(s)?`
+    )) return;
+    try {
+      const { error } = await supabase.from("cost_centers").delete().in("id", ids);
+      if (error) throw error;
+      toast({
+        title: language === "ar" ? "تم الحذف" : "Deleted",
+        description: language === "ar"
+          ? `تم حذف ${ids.length} مركز تكلفة`
+          : `Deleted ${ids.length} cost center(s)`,
+      });
+      setSelectedIds(new Set());
+      fetchCostCenters();
+    } catch (error: any) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredCostCenters.length && filteredCostCenters.every((cc) => selectedIds.has(cc.id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredCostCenters.map((cc) => cc.id)));
+    }
+  };
+
+
   const handleAddNew = () => {
     resetForm();
     setEditingId(null);
