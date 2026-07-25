@@ -1006,6 +1006,7 @@ export default function EmployeeSetup() {
         department_id: formData.department_id || null,
         job_position_id: formData.job_position_id || null,
         working_business_unit_id: formData.working_business_unit_id || null,
+        cost_center_id: formData.cost_center_id || null,
         job_start_date: formData.job_start_date,
         termination_date: formData.termination_date || null,
         employment_status: formData.employment_status as any,
