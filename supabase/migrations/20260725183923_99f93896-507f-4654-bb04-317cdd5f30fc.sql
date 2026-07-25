@@ -1,0 +1,2 @@
+ALTER TABLE public.business_units ADD COLUMN IF NOT EXISTS unit_code text;
+CREATE UNIQUE INDEX IF NOT EXISTS business_units_unit_code_key ON public.business_units(unit_code) WHERE unit_code IS NOT NULL;

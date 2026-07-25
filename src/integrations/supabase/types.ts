@@ -1354,6 +1354,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          unit_code: string | null
           unit_name: string
           unit_name_ar: string | null
           updated_at: string
@@ -1362,6 +1363,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          unit_code?: string | null
           unit_name: string
           unit_name_ar?: string | null
           updated_at?: string
@@ -1370,6 +1372,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          unit_code?: string | null
           unit_name?: string
           unit_name_ar?: string | null
           updated_at?: string
