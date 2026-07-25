@@ -27,6 +27,7 @@ import {
 import { Plus, Pencil, Trash2, Search, Loader2, Download, Upload, FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CostCenter {
   id: string;
