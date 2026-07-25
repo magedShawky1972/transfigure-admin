@@ -99,6 +99,7 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/update-bank-ledger": "updateBankLedger",
   "/cost-center-setup": "costCenterSetup",
   "/business-unit-setup": "businessUnitSetup",
+  "/business-unit-cost-center-mapping": "buCostCenterMapping",
   "/void-payment": "voidPayment",
   "/expense-reports": "expenseReports",
   "/odoo-sync-all": "odooSyncAll",
