@@ -147,6 +147,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/user-group-setup", defaultEn: "User Groups", defaultAr: "مجموعات المستخدمين", icon: Users },
       { url: "/company-setup", defaultEn: "Company Setup", defaultAr: "إعداد الشركات", icon: Settings },
       { url: "/business-unit-setup", defaultEn: "Business Unit Setup", defaultAr: "إعداد وحدات العمل", icon: Building2 },
+      { url: "/business-unit-cost-center-mapping", defaultEn: "BU ↔ Cost Center Mapping", defaultAr: "ربط وحدات العمل بمراكز التكلفة", icon: Building2 },
     ],
   },
   {

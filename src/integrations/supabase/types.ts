@@ -1349,6 +1349,48 @@ export type Database = {
           },
         ]
       }
+      business_unit_cost_center_mapping: {
+        Row: {
+          business_unit_id: string
+          cost_center_id: string
+          created_at: string
+          id: string
+          payroll_dr_account: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_unit_id: string
+          cost_center_id: string
+          created_at?: string
+          id?: string
+          payroll_dr_account?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_unit_id?: string
+          cost_center_id?: string
+          created_at?: string
+          id?: string
+          payroll_dr_account?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_unit_cost_center_mapping_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: true
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_unit_cost_center_mapping_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_units: {
         Row: {
           created_at: string

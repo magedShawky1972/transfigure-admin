@@ -135,6 +135,7 @@ import ApiConsumptionLogs from "./pages/ApiConsumptionLogs";
 import UpdateBankLedger from "./pages/UpdateBankLedger";
 import CostCenterSetup from "./pages/CostCenterSetup";
 import BusinessUnitSetup from "./pages/BusinessUnitSetup";
+import BusinessUnitCostCenterMapping from "./pages/BusinessUnitCostCenterMapping";
 import CostCenterReport from "./pages/CostCenterReport";
 import ManualShiftTransactionReport from "./pages/ManualShiftTransactionReport";
 import ProjectSetup from "./pages/ProjectSetup";
@@ -341,6 +342,7 @@ const App = () => (
               <Route path="/update-bank-ledger" element={<UpdateBankLedger />} />
               <Route path="/cost-center-setup" element={<CostCenterSetup />} />
               <Route path="/business-unit-setup" element={<BusinessUnitSetup />} />
+              <Route path="/business-unit-cost-center-mapping" element={<BusinessUnitCostCenterMapping />} />
               <Route path="/reports/cost-center" element={<CostCenterReport />} />
               <Route path="/reports/manual-shift-transactions" element={<ManualShiftTransactionReport />} />
               <Route path="/project-setup" element={<ProjectSetup />} />

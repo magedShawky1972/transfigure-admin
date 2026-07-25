@@ -210,6 +210,7 @@ interface UserPermission {
         { key: "expenseTypeSetup", label: "أنواع المصروفات", labelEn: "Expense Types" },
         { key: "costCenterSetup", label: "مراكز التكلفة", labelEn: "Cost Centers" },
         { key: "businessUnitSetup", label: "وحدات العمل", labelEn: "Business Unit Setup" },
+        { key: "buCostCenterMapping", label: "ربط وحدات العمل بمراكز التكلفة", labelEn: "BU ↔ Cost Center Mapping" },
         { key: "treasuryOpeningBalance", label: "رصيد الخزينة الافتتاحي", labelEn: "Treasury Opening Balance" },
         { key: "treasuryEntry", label: "قيد الخزينة", labelEn: "Treasury Entry" },
         { key: "bankEntry", label: "قيد البنك", labelEn: "Bank Entry" },
