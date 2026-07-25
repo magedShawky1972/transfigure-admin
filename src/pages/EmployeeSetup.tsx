@@ -2114,6 +2114,27 @@ export default function EmployeeSetup() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
+                  <Select
+                    value={formData.cost_center_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, cost_center_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر مركز التكلفة" : "Select Cost Center"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {costCenters.map((cc) => (
+                        <SelectItem key={cc.id} value={cc.id}>
+                          {cc.cost_center_code} - {language === "ar" ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+
+                <div className="space-y-2">
                   <Label>{language === "ar" ? "تاريخ بدء العمل *" : "Job Start Date *"}</Label>
                   <Input
                     type="date"
