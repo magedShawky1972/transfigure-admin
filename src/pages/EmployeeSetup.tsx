@@ -384,6 +384,7 @@ export default function EmployeeSetup() {
       setDocumentTypes(docTypesRes.data || []);
       setAttendanceTypes(attendanceTypesRes.data || []);
       setBusinessUnits((businessUnitsRes.data as any) || []);
+      setCostCenters((costCentersRes.data as any) || []);
       // Find users without employee records
       const allProfiles = profilesRes.data || [];
       const existingUserIds = (employeesRes.data || []).map(emp => emp.user_id).filter(Boolean);
