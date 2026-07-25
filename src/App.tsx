@@ -135,6 +135,7 @@ import ApiConsumptionLogs from "./pages/ApiConsumptionLogs";
 import UpdateBankLedger from "./pages/UpdateBankLedger";
 import CostCenterSetup from "./pages/CostCenterSetup";
 import BusinessUnitSetup from "./pages/BusinessUnitSetup";
+import BusinessUnitCostCenterMapping from "./pages/BusinessUnitCostCenterMapping";
 import CostCenterReport from "./pages/CostCenterReport";
 import ManualShiftTransactionReport from "./pages/ManualShiftTransactionReport";
 import ProjectSetup from "./pages/ProjectSetup";
