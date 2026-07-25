@@ -340,6 +340,7 @@ const App = () => (
               <Route path="/api-consumption-logs" element={<ApiConsumptionLogs />} />
               <Route path="/update-bank-ledger" element={<UpdateBankLedger />} />
               <Route path="/cost-center-setup" element={<CostCenterSetup />} />
+              <Route path="/business-unit-setup" element={<BusinessUnitSetup />} />
               <Route path="/reports/cost-center" element={<CostCenterReport />} />
               <Route path="/reports/manual-shift-transactions" element={<ManualShiftTransactionReport />} />
               <Route path="/project-setup" element={<ProjectSetup />} />
