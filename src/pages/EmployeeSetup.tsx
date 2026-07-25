@@ -239,7 +239,7 @@ export default function EmployeeSetup() {
   
   const SALARY_AUTHORIZED_EMAILS = [
     'abdulhamed@asuscards.com',
-    'mohamed.saad@asuscards.com',
+    
     'maged.shawky@asuscards.com',
   ];
   const canViewSalary = SALARY_AUTHORIZED_EMAILS.includes(currentUserEmail.toLowerCase());
