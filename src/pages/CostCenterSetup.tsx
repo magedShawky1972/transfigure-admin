@@ -339,10 +339,32 @@ const CostCenterSetup = () => {
         <h1 className="text-3xl font-bold text-foreground">
           {language === "ar" ? "مراكز التكلفة" : "Cost Centers"}
         </h1>
-        <Button onClick={handleAddNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          {language === "ar" ? "إضافة مركز تكلفة" : "Add Cost Center"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleDownloadTemplate}>
+            <FileDown className="h-4 w-4 mr-2" />
+            {language === "ar" ? "قالب Excel" : "Template"}
+          </Button>
+          <Button variant="outline" asChild>
+            <label className="cursor-pointer">
+              <Upload className="h-4 w-4 mr-2" />
+              {language === "ar" ? "استيراد" : "Import"}
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleImport}
+              />
+            </label>
+          </Button>
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            {language === "ar" ? "تصدير" : "Export"}
+          </Button>
+          <Button onClick={handleAddNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "ar" ? "إضافة مركز تكلفة" : "Add Cost Center"}
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
