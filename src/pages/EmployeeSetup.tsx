@@ -184,6 +184,7 @@ export default function EmployeeSetup() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string; cost_center_name_ar: string | null }[]>([]);
   const [addBuOpen, setAddBuOpen] = useState(false);
   const [newBuName, setNewBuName] = useState("");
   const [newBuNameAr, setNewBuNameAr] = useState("");
@@ -269,6 +270,7 @@ export default function EmployeeSetup() {
     department_id: "",
     job_position_id: "",
     working_business_unit_id: "",
+    cost_center_id: "",
     job_start_date: "",
     termination_date: "",
     employment_status: "active",
@@ -343,6 +345,7 @@ export default function EmployeeSetup() {
         docTypesRes,
         attendanceTypesRes,
         businessUnitsRes,
+        costCentersRes,
       ] = await Promise.all([
         supabase
           .from("employees")
@@ -363,6 +366,7 @@ export default function EmployeeSetup() {
         supabase.from("document_types").select("id, type_name, type_name_ar, is_mandatory").eq("is_active", true).order("type_name"),
         supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes").eq("is_active", true).order("type_name"),
         supabase.from("business_units").select("id, unit_name, unit_name_ar").eq("is_active", true).order("unit_name"),
+        supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true).order("cost_center_code"),
       ]);
 
       if (employeesRes.error) throw employeesRes.error;
@@ -381,6 +385,7 @@ export default function EmployeeSetup() {
       setDocumentTypes(docTypesRes.data || []);
       setAttendanceTypes(attendanceTypesRes.data || []);
       setBusinessUnits((businessUnitsRes.data as any) || []);
+      setCostCenters((costCentersRes.data as any) || []);
       // Find users without employee records
       const allProfiles = profilesRes.data || [];
       const existingUserIds = (employeesRes.data || []).map(emp => emp.user_id).filter(Boolean);
@@ -481,6 +486,7 @@ export default function EmployeeSetup() {
       department_id: "",
       job_position_id: "",
       working_business_unit_id: "",
+      cost_center_id: "",
       job_start_date: new Date().toISOString().split('T')[0],
       termination_date: "",
       employment_status: "active",
@@ -756,6 +762,7 @@ export default function EmployeeSetup() {
       department_id: "",
       job_position_id: "",
       working_business_unit_id: "",
+      cost_center_id: "",
       job_start_date: "",
       termination_date: "",
       employment_status: "active",
@@ -802,6 +809,7 @@ export default function EmployeeSetup() {
       department_id: employee.department_id || "",
       job_position_id: employee.job_position_id || "",
       working_business_unit_id: (employee as any).working_business_unit_id || "",
+      cost_center_id: (employee as any).cost_center_id || "",
       job_start_date: employee.job_start_date,
       termination_date: employee.termination_date || "",
       employment_status: employee.employment_status,
@@ -998,6 +1006,7 @@ export default function EmployeeSetup() {
         department_id: formData.department_id || null,
         job_position_id: formData.job_position_id || null,
         working_business_unit_id: formData.working_business_unit_id || null,
+        cost_center_id: formData.cost_center_id || null,
         job_start_date: formData.job_start_date,
         termination_date: formData.termination_date || null,
         employment_status: formData.employment_status as any,
@@ -2103,6 +2112,27 @@ export default function EmployeeSetup() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</Label>
+                  <Select
+                    value={formData.cost_center_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, cost_center_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر مركز التكلفة" : "Select Cost Center"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {costCenters.map((cc) => (
+                        <SelectItem key={cc.id} value={cc.id}>
+                          {cc.cost_center_code} - {language === "ar" ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
 
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "تاريخ بدء العمل *" : "Job Start Date *"}</Label>
