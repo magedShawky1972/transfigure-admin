@@ -762,6 +762,7 @@ export default function EmployeeSetup() {
       department_id: "",
       job_position_id: "",
       working_business_unit_id: "",
+      cost_center_id: "",
       job_start_date: "",
       termination_date: "",
       employment_status: "active",
