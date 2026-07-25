@@ -27,6 +27,7 @@ import {
 import { Plus, Pencil, Trash2, Search, Loader2, Download, Upload, FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CostCenter {
   id: string;
@@ -48,6 +49,7 @@ const CostCenterSetup = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     cost_center_code: "",
@@ -196,6 +198,52 @@ const CostCenterSetup = () => {
       });
     }
   };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    if (!confirm(
+      language === "ar"
+        ? `هل أنت متأكد من حذف ${ids.length} مركز تكلفة؟`
+        : `Are you sure you want to delete ${ids.length} cost center(s)?`
+    )) return;
+    try {
+      const { error } = await supabase.from("cost_centers").delete().in("id", ids);
+      if (error) throw error;
+      toast({
+        title: language === "ar" ? "تم الحذف" : "Deleted",
+        description: language === "ar"
+          ? `تم حذف ${ids.length} مركز تكلفة`
+          : `Deleted ${ids.length} cost center(s)`,
+      });
+      setSelectedIds(new Set());
+      fetchCostCenters();
+    } catch (error: any) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredCostCenters.length && filteredCostCenters.every((cc) => selectedIds.has(cc.id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredCostCenters.map((cc) => cc.id)));
+    }
+  };
+
 
   const handleAddNew = () => {
     resetForm();
@@ -378,6 +426,26 @@ const CostCenterSetup = () => {
         />
       </div>
 
+      {/* Bulk actions */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between rounded-md border bg-muted/40 px-4 py-2">
+          <span className="text-sm">
+            {language === "ar"
+              ? `تم اختيار ${selectedIds.size}`
+              : `${selectedIds.size} selected`}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>
+              {language === "ar" ? "إلغاء" : "Clear"}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              {language === "ar" ? "حذف المحدد" : "Delete Selected"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Data Table */}
       <Card>
         <CardContent className="p-0">
@@ -385,6 +453,16 @@ const CostCenterSetup = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        filteredCostCenters.length > 0 &&
+                        filteredCostCenters.every((cc) => selectedIds.has(cc.id))
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
                   <TableHead>{language === "ar" ? "الرمز" : "Code"}</TableHead>
                   <TableHead>{language === "ar" ? "الاسم" : "Name"}</TableHead>
                   <TableHead>{language === "ar" ? "الاسم بالعربية" : "Arabic Name"}</TableHead>
@@ -396,19 +474,26 @@ const CostCenterSetup = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : filteredCostCenters.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد مراكز تكلفة" : "No cost centers found"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredCostCenters.map((cc) => (
-                    <TableRow key={cc.id}>
+                    <TableRow key={cc.id} data-state={selectedIds.has(cc.id) ? "selected" : undefined}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(cc.id)}
+                          onCheckedChange={() => toggleSelect(cc.id)}
+                          aria-label={`Select ${cc.cost_center_code}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-mono">{cc.cost_center_code}</TableCell>
                       <TableCell>{cc.cost_center_name}</TableCell>
                       <TableCell>{cc.cost_center_name_ar || "-"}</TableCell>
