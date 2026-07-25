@@ -213,6 +213,114 @@ const CostCenterSetup = () => {
     });
   };
 
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        cost_center_code: "CC001",
+        cost_center_name: "Sample Cost Center",
+        cost_center_name_ar: "مركز تكلفة",
+        description: "Optional description",
+        is_active: true,
+      },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "CostCenters");
+    XLSX.writeFile(wb, "cost_centers_template.xlsx");
+  };
+
+  const handleExport = () => {
+    const rows = filteredCostCenters.map((cc) => ({
+      cost_center_code: cc.cost_center_code,
+      cost_center_name: cc.cost_center_name,
+      cost_center_name_ar: cc.cost_center_name_ar || "",
+      description: cc.description || "",
+      is_active: cc.is_active,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "CostCenters");
+    XLSX.writeFile(wb, "cost_centers.xlsx");
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(sheet, { defval: "" });
+
+      if (!rows.length) throw new Error(language === "ar" ? "الملف فارغ" : "File is empty");
+
+      const existingByCode = new Map(costCenters.map((c) => [c.cost_center_code, c.id]));
+      let inserted = 0;
+      let updated = 0;
+      const errors: string[] = [];
+
+      for (const [idx, row] of rows.entries()) {
+        const code = String(row.cost_center_code ?? "").trim();
+        const name = String(row.cost_center_name ?? "").trim();
+        if (!code || !name) {
+          errors.push(`Row ${idx + 2}: missing code/name`);
+          continue;
+        }
+        const activeRaw = row.is_active;
+        const is_active =
+          typeof activeRaw === "boolean"
+            ? activeRaw
+            : ["true", "1", "yes", "y", "نشط"].includes(String(activeRaw).toLowerCase().trim());
+
+        const payload = {
+          cost_center_code: code,
+          cost_center_name: name,
+          cost_center_name_ar: row.cost_center_name_ar ? String(row.cost_center_name_ar) : null,
+          description: row.description ? String(row.description) : null,
+          is_active,
+          updated_by: user.id,
+        };
+
+        const existingId = existingByCode.get(code);
+        if (existingId) {
+          const { error } = await supabase.from("cost_centers").update(payload).eq("id", existingId);
+          if (error) errors.push(`Row ${idx + 2}: ${error.message}`);
+          else updated++;
+        } else {
+          const { error } = await supabase
+            .from("cost_centers")
+            .insert([{ ...payload, created_by: user.id }]);
+          if (error) errors.push(`Row ${idx + 2}: ${error.message}`);
+          else inserted++;
+        }
+      }
+
+      toast({
+        title: language === "ar" ? "تم الاستيراد" : "Import complete",
+        description:
+          (language === "ar"
+            ? `تمت الإضافة: ${inserted}، التحديث: ${updated}`
+            : `Inserted: ${inserted}, Updated: ${updated}`) +
+          (errors.length ? ` — ${errors.length} error(s)` : ""),
+        variant: errors.length ? "destructive" : "default",
+      });
+      if (errors.length) console.error("Cost center import errors:", errors);
+      fetchCostCenters();
+    } catch (err: any) {
+      toast({
+        title: language === "ar" ? "خطأ" : "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (accessLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
