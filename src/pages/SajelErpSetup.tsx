@@ -30,6 +30,7 @@ const EMPTY: SajelErpSettings = {
   generate_batch_number_url: "",
   stock_issue_api_url: "",
   stock_movement_api_url: "",
+  payroll_api_url: "",
 };
 
 export default function SajelErpSetup() {
