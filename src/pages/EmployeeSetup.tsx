@@ -185,6 +185,8 @@ export default function EmployeeSetup() {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string; cost_center_name_ar: string | null }[]>([]);
+  const [buCcMappings, setBuCcMappings] = useState<{ business_unit_id: string; cost_center_id: string; payroll_dr_account: string | null }[]>([]);
+
   const [addBuOpen, setAddBuOpen] = useState(false);
   const [newBuName, setNewBuName] = useState("");
   const [newBuNameAr, setNewBuNameAr] = useState("");
@@ -346,6 +348,8 @@ export default function EmployeeSetup() {
         attendanceTypesRes,
         businessUnitsRes,
         costCentersRes,
+        buCcMappingRes,
+
       ] = await Promise.all([
         supabase
           .from("employees")
@@ -367,7 +371,10 @@ export default function EmployeeSetup() {
         supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes").eq("is_active", true).order("type_name"),
         supabase.from("business_units").select("id, unit_name, unit_name_ar").eq("is_active", true).order("unit_name"),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true).order("cost_center_code"),
+        supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
       ]);
+      
+
 
       if (employeesRes.error) throw employeesRes.error;
       // Sort employees alphabetically by first name
@@ -386,6 +393,8 @@ export default function EmployeeSetup() {
       setAttendanceTypes(attendanceTypesRes.data || []);
       setBusinessUnits((businessUnitsRes.data as any) || []);
       setCostCenters((costCentersRes.data as any) || []);
+      setBuCcMappings((buCcMappingRes.data as any) || []);
+
       // Find users without employee records
       const allProfiles = profilesRes.data || [];
       const existingUserIds = (employeesRes.data || []).map(emp => emp.user_id).filter(Boolean);
@@ -2132,6 +2141,23 @@ export default function EmployeeSetup() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {(() => {
+                  const m = buCcMappings.find(
+                    (x) =>
+                      x.cost_center_id === formData.cost_center_id &&
+                      (!formData.working_business_unit_id || x.business_unit_id === formData.working_business_unit_id)
+                  );
+                  if (!m?.payroll_dr_account) return null;
+                  return (
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "حساب مدين للرواتب" : "Payroll Dr. Account"}</Label>
+                      <Input value={m.payroll_dr_account} readOnly disabled className="bg-muted" />
+                    </div>
+                  );
+                })()}
+
+
 
 
                 <div className="space-y-2">
