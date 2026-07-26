@@ -420,7 +420,8 @@ export default function PayrollRun() {
 
         // Determine effective working window within the period (30-day payroll month)
         const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
-        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const tdRaw = emp.termination_date ? new Date(emp.termination_date) : null;
+        const td = tdRaw && !isNaN(tdRaw.getTime()) && tdRaw.getFullYear() > 1900 ? tdRaw : null;
         const effStart = jsd && jsd > periodStart ? jsd : periodStart;
         const effEnd = td && td < periodEnd ? td : periodEnd;
         let workedDays = PAYROLL_DAYS;
