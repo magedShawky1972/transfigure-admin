@@ -2158,6 +2158,19 @@ export default function TimesheetManagement() {
                 </div>
               </CardContent>
             </Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "early_leave" ? "all" : "early_leave")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "early_leave" ? "ring-2 ring-rose-600" : ""}`}
+            >
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-rose-600">
+                    {timesheets.reduce((sum, t) => sum + (t.early_leave_minutes || 0), 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي دقائب الخروج المبكر" : "Total Early Leave Min"}</p>
+                </div>
+              </CardContent>
+            </Card>
 
             
             
