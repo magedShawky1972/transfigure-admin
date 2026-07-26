@@ -881,13 +881,15 @@ export default function TimesheetManagement() {
         .lte("start_date", vacDateTo)
         .gte("end_date", vacDateFrom);
 
-      // Fetch approved delay and early_leave requests that overlap with the date range
+      // Fetch approved delay and early_leave requests that overlap with the date range.
+      // Some legacy requests were saved without `delay_date` — fall back to the
+      // request date / start date so the day is still treated as approved.
       const { data: approvedDelays } = await supabase
         .from("employee_requests")
-        .select("employee_id, delay_date, request_type")
+        .select("employee_id, delay_date, request_type, request_date, start_date")
         .in("request_type", ["delay", "early_leave"])
-        .eq("status", "approved")
-        .not("delay_date", "is", null);
+        .eq("status", "approved");
+
 
       // Fetch WFH check-ins for the date range
       // Build a map from user_id to employee_id
