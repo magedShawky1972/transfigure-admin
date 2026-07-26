@@ -273,6 +273,7 @@ export default function EmployeeSetup() {
     job_position_id: "",
     working_business_unit_id: "",
     cost_center_id: "",
+    payroll_country: "",
     job_start_date: "",
     termination_date: "",
     employment_status: "active",
@@ -496,6 +497,7 @@ export default function EmployeeSetup() {
       job_position_id: "",
       working_business_unit_id: "",
       cost_center_id: "",
+      payroll_country: "",
       job_start_date: new Date().toISOString().split('T')[0],
       termination_date: "",
       employment_status: "active",
@@ -772,6 +774,7 @@ export default function EmployeeSetup() {
       job_position_id: "",
       working_business_unit_id: "",
       cost_center_id: "",
+      payroll_country: "",
       job_start_date: "",
       termination_date: "",
       employment_status: "active",
@@ -819,6 +822,7 @@ export default function EmployeeSetup() {
       job_position_id: employee.job_position_id || "",
       working_business_unit_id: (employee as any).working_business_unit_id || "",
       cost_center_id: (employee as any).cost_center_id || "",
+      payroll_country: (employee as any).payroll_country || "",
       job_start_date: employee.job_start_date,
       termination_date: employee.termination_date || "",
       employment_status: employee.employment_status,
@@ -1016,6 +1020,7 @@ export default function EmployeeSetup() {
         job_position_id: formData.job_position_id || null,
         working_business_unit_id: formData.working_business_unit_id || null,
         cost_center_id: formData.cost_center_id || null,
+        payroll_country: formData.payroll_country || null,
         job_start_date: formData.job_start_date,
         termination_date: formData.termination_date || null,
         employment_status: formData.employment_status as any,
@@ -2167,7 +2172,22 @@ export default function EmployeeSetup() {
                   );
                 })()}
 
-
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "دولة الرواتب" : "Payroll Country"}</Label>
+                  <Select
+                    value={formData.payroll_country || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, payroll_country: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر الدولة" : "Select Country"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      <SelectItem value="Egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                      <SelectItem value="KSA">{language === "ar" ? "السعودية" : "KSA"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
 
                 <div className="space-y-2">
