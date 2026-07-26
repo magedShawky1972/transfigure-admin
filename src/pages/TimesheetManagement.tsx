@@ -635,16 +635,21 @@ export default function TimesheetManagement() {
           .order("work_date", { ascending: false }),
         supabase
           .from("employee_requests")
-          .select("delay_date")
+          .select("delay_date, request_date, start_date")
           .eq("employee_id", employeeId)
           .eq("request_type", "delay")
-          .eq("status", "approved")
-          .not("delay_date", "is", null),
+          .eq("status", "approved"),
       ]);
 
       if (tsRes.error) throw tsRes.error;
 
-      const approvedDates = new Set((delaysRes.data || []).map((r: any) => r.delay_date));
+      const approvedDates = new Set(
+        (delaysRes.data || [])
+          .map((r: any) => r.delay_date || r.start_date || r.request_date)
+          .filter(Boolean)
+          .map((d: any) => String(d).slice(0, 10))
+      );
+
 
       setNaughtyDrilldownRecords((tsRes.data || [])
         .filter((r: any) => !approvedDates.has(r.work_date))
