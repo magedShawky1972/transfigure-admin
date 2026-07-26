@@ -185,6 +185,8 @@ export default function EmployeeSetup() {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string; cost_center_name_ar: string | null }[]>([]);
+  const [buCcMappings, setBuCcMappings] = useState<{ business_unit_id: string; cost_center_id: string; payroll_dr_account: string | null }[]>([]);
+
   const [addBuOpen, setAddBuOpen] = useState(false);
   const [newBuName, setNewBuName] = useState("");
   const [newBuNameAr, setNewBuNameAr] = useState("");
