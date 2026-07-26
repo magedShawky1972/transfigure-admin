@@ -2167,7 +2167,7 @@ export default function TimesheetManagement() {
                   <p className="text-2xl font-bold text-rose-600">
                     {timesheets.reduce((sum, t) => sum + (t.early_leave_minutes || 0), 0)}
                   </p>
-                  <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي دقائب الخروج المبكر" : "Total Early Leave Min"}</p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي دقائق الخروج المبكر" : "Total Early Leave Min"}</p>
                 </div>
               </CardContent>
             </Card>
