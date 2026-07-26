@@ -377,6 +377,76 @@ export default function PayrollVariableEntry() {
     }
   };
 
+  const printDocument = () => {
+    const isAr = language === "ar";
+    const months = isAr
+      ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+      : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const esc = (s: any) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+    const headCols = [
+      isAr ? "الموظف" : "Employee",
+      isAr ? "الرقم" : "Number",
+      isAr ? "القسم" : "Department",
+      isAr ? "الوظيفة" : "Job",
+      ...visibleElements.map((el) => (isAr && el.name_ar) ? el.name_ar : el.name_en),
+    ];
+    const totals = visibleElements.map((el) =>
+      sorted.reduce((s, emp) => s + (Number(matrix[`${emp.id}|${el.id}`]?.amount) || 0), 0)
+    );
+    const bodyRows = sorted.map((emp) => `
+      <tr>
+        <td>${esc(empName(emp))}</td>
+        <td>${esc(emp.employee_number)}</td>
+        <td>${esc(deptName(emp.departments) || "—")}</td>
+        <td>${esc(jobName(emp.job_positions) || "—")}</td>
+        ${visibleElements.map((el) => {
+          const v = Number(matrix[`${emp.id}|${el.id}`]?.amount) || 0;
+          return `<td class="num">${v ? v.toFixed(2) : "—"}</td>`;
+        }).join("")}
+      </tr>`).join("");
+
+    const html = `<!doctype html><html dir="${isAr ? "rtl" : "ltr"}"><head><meta charset="utf-8">
+      <title>${isAr ? "إدخال العناصر المتغيرة" : "Variable Element Entry"} ${year}-${String(month).padStart(2, "0")}</title>
+      <style>
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 11px; }
+        .head { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; }
+        .head img { width: 120px; height: auto; }
+        h1 { font-size: 16px; margin: 0 0 4px; }
+        .meta { font-size: 10px; color: #555; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #999; padding: 4px 5px; text-align: ${isAr ? "right" : "left"}; }
+        th { background: #f0f0f0; font-size: 10px; }
+        td.num, th.num { text-align: ${isAr ? "left" : "right"}; }
+        tfoot td { font-weight: bold; background: #f7f7f7; }
+        tr { page-break-inside: avoid; }
+      </style></head><body>
+      <div class="head">
+        <div>
+          <h1>${isAr ? "إدخال العناصر المتغيرة" : "Variable Element Entry"}</h1>
+          <div class="meta">${months[month - 1]} ${year} — ${sorted.length} ${isAr ? "موظف" : "employees"} × ${visibleElements.length} ${isAr ? "عنصر" : "elements"}</div>
+          <div class="meta">${isAr ? "تاريخ الطباعة:" : "Printed:"} ${new Date().toLocaleString()}</div>
+        </div>
+        <img src="${getPrintLogoUrl()}" alt="Logo" />
+      </div>
+      <table>
+        <thead><tr>${headCols.map((h, i) => `<th class="${i > 3 ? "num" : ""}">${esc(h)}</th>`).join("")}</tr></thead>
+        <tbody>${bodyRows || `<tr><td colspan="${headCols.length}">${isAr ? "لا توجد بيانات" : "No data"}</td></tr>`}</tbody>
+        <tfoot><tr><td colspan="4">${isAr ? "الإجمالي" : "Total"}</td>${totals.map((t) => `<td class="num">${t.toFixed(2)}</td>`).join("")}</tr></tfoot>
+      </table>
+      </body></html>`;
+
+    const w = window.open("", "_blank");
+    if (!w) {
+      toast({ title: isAr ? "خطأ" : "Error", description: isAr ? "الرجاء السماح بالنوافذ المنبثقة" : "Please allow pop-ups to print", variant: "destructive" });
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  };
+
   const clearFilters = () => {
     setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setElementFilter([]); setCountryFilter([]);
   };
