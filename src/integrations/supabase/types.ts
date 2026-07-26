@@ -8229,6 +8229,7 @@ export type Database = {
           id: string
           one_step_combined_transaction_url: string | null
           payment_api_url: string | null
+          payroll_api_url: string | null
           stock_issue_api_url: string | null
           stock_movement_api_url: string | null
           updated_at: string
@@ -8243,6 +8244,7 @@ export type Database = {
           id?: string
           one_step_combined_transaction_url?: string | null
           payment_api_url?: string | null
+          payroll_api_url?: string | null
           stock_issue_api_url?: string | null
           stock_movement_api_url?: string | null
           updated_at?: string
@@ -8257,6 +8259,7 @@ export type Database = {
           id?: string
           one_step_combined_transaction_url?: string | null
           payment_api_url?: string | null
+          payroll_api_url?: string | null
           stock_issue_api_url?: string | null
           stock_movement_api_url?: string | null
           updated_at?: string

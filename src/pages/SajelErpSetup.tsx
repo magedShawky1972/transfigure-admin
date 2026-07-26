@@ -18,6 +18,7 @@ interface SajelErpSettings {
   generate_batch_number_url: string;
   stock_issue_api_url: string;
   stock_movement_api_url: string;
+  payroll_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
@@ -29,6 +30,7 @@ const EMPTY: SajelErpSettings = {
   generate_batch_number_url: "",
   stock_issue_api_url: "",
   stock_movement_api_url: "",
+  payroll_api_url: "",
 };
 
 export default function SajelErpSetup() {
@@ -60,6 +62,7 @@ export default function SajelErpSetup() {
           generate_batch_number_url: (data as any).generate_batch_number_url ?? "",
           stock_issue_api_url: (data as any).stock_issue_api_url ?? "",
           stock_movement_api_url: (data as any).stock_movement_api_url ?? "",
+          payroll_api_url: (data as any).payroll_api_url ?? "",
         });
       }
       setLoading(false);
@@ -82,6 +85,7 @@ export default function SajelErpSetup() {
         generate_batch_number_url: form.generate_batch_number_url || null,
         stock_issue_api_url: form.stock_issue_api_url || null,
         stock_movement_api_url: form.stock_movement_api_url || null,
+        payroll_api_url: form.payroll_api_url || null,
         updated_by: user?.id ?? null,
       };
       const query = form.id
@@ -203,6 +207,17 @@ export default function SajelErpSetup() {
               dir="ltr"
             />
           </div>
+
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط Payroll API" : "Payroll API URL"}</Label>
+            <Input
+              value={form.payroll_api_url}
+              onChange={update("payroll_api_url")}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
+
 
           <div className="flex justify-end pt-2">
             <Button onClick={handleSave} disabled={saving}>
