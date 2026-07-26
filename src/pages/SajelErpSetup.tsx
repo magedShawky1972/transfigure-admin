@@ -85,6 +85,7 @@ export default function SajelErpSetup() {
         generate_batch_number_url: form.generate_batch_number_url || null,
         stock_issue_api_url: form.stock_issue_api_url || null,
         stock_movement_api_url: form.stock_movement_api_url || null,
+        payroll_api_url: form.payroll_api_url || null,
         updated_by: user?.id ?? null,
       };
       const query = form.id
