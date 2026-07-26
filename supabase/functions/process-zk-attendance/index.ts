@@ -320,15 +320,16 @@ Deno.serve(async (req) => {
     // missed/raw machine punch after an administrator has corrected the row.
     const { data: correctedTimesheets, error: correctedTimesheetsError } = await supabase
       .from('timesheets')
-      .select('employee_id, changed_start, changed_end')
+      .select('employee_id, changed_start, changed_end, is_absent, changed_by, changed_at')
       .eq('work_date', targetDate)
-      .or('changed_start.not.is.null,changed_end.not.is.null');
+      .or('changed_start.not.is.null,changed_end.not.is.null,changed_by.not.is.null');
 
     if (correctedTimesheetsError) throw correctedTimesheetsError;
 
-    const correctedTimesheetMap = new Map<string, { changed_start: string | null; changed_end: string | null }>(
+    const correctedTimesheetMap = new Map<string, { changed_start: string | null; changed_end: string | null; is_absent: boolean | null; changed_by: string | null }>(
       (correctedTimesheets || []).map((row: any) => [row.employee_id, row])
     );
+
 
     // Group logs by employee
     const employeeLogs = new Map<string, ZkLog[]>();
@@ -477,11 +478,13 @@ Deno.serve(async (req) => {
       // opened a shift session on this date. No late/early/overtime calculations.
       if ((attendanceType as any)?.is_shift_based) {
         const openedShift = !!employee.user_id && shiftOpenedUserIds.has(employee.user_id);
+        const shiftManual = correctedTimesheetMap.get(employee.id);
+        const shiftManualNotAbsent = !!shiftManual && shiftManual.is_absent === false;
 
         // Morning run: don't mark absent yet — wait for evening
         if (processType === 'morning' && !openedShift) continue;
 
-        const isAbsent = processType === 'evening' && !openedShift;
+        const isAbsent = shiftManualNotAbsent ? false : (processType === 'evening' && !openedShift);
 
         // Compute absence deduction only
         const { amount: absDeduction, ruleId: absRuleId } = isAbsent
@@ -510,6 +513,7 @@ Deno.serve(async (req) => {
             ? `Shift-based attendance - shift opened on ${targetDate}`
             : `Shift-based attendance - no shift opened on ${targetDate}`,
         };
+
 
         const { error: shiftTsErr } = await supabase
           .from('timesheets')
@@ -708,10 +712,17 @@ Deno.serve(async (req) => {
         overtimeMinutes = netOvertime > 0 ? netOvertime : 0;
       }
       
-      // Determine status: morning = waiting_for_exit, evening = auto-approve, absent if no check-in
+      // Determine status: morning = waiting_for_exit, evening = auto-approve, absent if no check-in.
+      // A manual correction (Changed In/Out, or an admin clearing the Absent flag) is authoritative:
+      // never re-flag such a day as absent.
+      const manuallyEdited = !!manualCorrection;
+      const manualNotAbsent = manuallyEdited && manualCorrection?.is_absent === false;
+      const computedAbsent = !effectiveInTime && processType === 'evening';
+      const finalAbsent = manualNotAbsent ? false : computedAbsent;
+
       let timesheetStatus = 'waiting_for_exit';
       if (processType === 'evening') {
-        if (!inTime) {
+        if (finalAbsent) {
           timesheetStatus = 'absent';
         } else {
           timesheetStatus = 'approved'; // Auto-approve after exit time loaded
@@ -727,17 +738,18 @@ Deno.serve(async (req) => {
         actual_end: processType === 'evening' ? outTime : null,
         break_duration_minutes: 0,
         status: timesheetStatus,
-        is_absent: !inTime && processType === 'evening',
-        absence_reason: !inTime && processType === 'evening' ? 'No check-in recorded' : null,
+        is_absent: finalAbsent,
+        absence_reason: finalAbsent ? 'No check-in recorded' : null,
         late_minutes: lateMinutes,
         early_leave_minutes: earlyExitMinutes,
         overtime_minutes: overtimeMinutes,
         total_work_minutes: totalHours ? Math.round(totalHours * 60) : 0,
-        deduction_amount: deductionAmount,
+        deduction_amount: finalAbsent ? deductionAmount : (manualNotAbsent && !effectiveInTime ? 0 : deductionAmount),
         deduction_rule_id: deductionRuleId,
         overtime_amount: 0,
         notes: `Auto-processed from ZK attendance (${processType})`,
       };
+
 
       const { error: timesheetError } = await supabase
         .from('timesheets')

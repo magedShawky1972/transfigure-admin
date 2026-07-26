@@ -1500,11 +1500,11 @@ export default function TimesheetManagement() {
         ...calculations,
       };
 
-      // Track who made the change
-      if (formData.changed_start || formData.changed_end) {
-        payload.changed_by = user?.id || null;
-        payload.changed_at = new Date().toISOString();
-      }
+      // Track who made the change — any manual save is authoritative, so the
+      // ZK recalculation must not re-flag this day as absent afterwards.
+      payload.changed_by = user?.id || null;
+      payload.changed_at = new Date().toISOString();
+
 
 
       const { error } = await supabase.from("timesheets").upsert(payload, {
