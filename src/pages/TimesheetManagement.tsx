@@ -694,12 +694,33 @@ export default function TimesheetManagement() {
     return dates;
   };
 
+  // Employees targeted by the current filter (employee > department > all in scope)
+  const buildFilterEmployeeIds = (): string[] | null => {
+    if (selectedEmployee) return [selectedEmployee];
+    if (selectedDepartment) {
+      const getDescendants = (parentId: string): string[] => {
+        const result: string[] = [parentId];
+        departments.filter(d => d.parent_department_id === parentId).forEach(child => {
+          result.push(...getDescendants(child.id));
+        });
+        return result;
+      };
+      const deptIds = getDescendants(selectedDepartment);
+      const ids = employees
+        .filter(emp => emp.department_id && deptIds.includes(emp.department_id))
+        .map(emp => emp.id);
+      return ids.length > 0 ? ids : null;
+    }
+    return null;
+  };
+
   const handleRecalculate = async () => {
     const dates = buildFilterDates();
     if (dates.length === 0) {
       toast.error(language === "ar" ? "اختر فترة صالحة" : "Select a valid period");
       return;
     }
+    const employeeIds = buildFilterEmployeeIds();
     setRecalcRunning(true);
     setRecalcProgress({ done: 0, total: dates.length });
     let failed = 0;
@@ -708,7 +729,12 @@ export default function TimesheetManagement() {
         const target_date = dates[i];
         try {
           const { error } = await supabase.functions.invoke("process-zk-attendance", {
-            body: { target_date, process_type: "evening", send_notifications: false },
+            body: {
+              target_date,
+              process_type: "evening",
+              send_notifications: false,
+              ...(employeeIds ? { employee_ids: employeeIds } : {}),
+            },
           });
           if (error) {
             failed++;
