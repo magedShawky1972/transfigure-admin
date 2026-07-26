@@ -2844,8 +2844,8 @@ export default function TimesheetManagement() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {language === "ar"
-                ? `سيتم إعادة حساب سجل الحضور للفترة المحددة (الإجازات، الغياب، الوقت، التأخير وطلبات الانصراف المبكر). عدد الأيام: ${buildFilterDates().length}. قد تستغرق العملية بعض الوقت.`
-                : `This will recalculate the timesheet for the selected filter (vacations, absences, shift time, delay and early-leave requests). Days: ${buildFilterDates().length}. This may take a while.`}
+                ? `سيتم إعادة حساب سجل الحضور للفترة المحددة (الإجازات، الغياب، الوقت، التأخير وطلبات الانصراف المبكر). عدد الأيام: ${buildFilterDates().length}. النطاق: ${buildFilterEmployeeIds() ? `${buildFilterEmployeeIds()!.length} موظف محدد` : "كل الموظفين"}. قد تستغرق العملية بعض الوقت.`
+                : `This will recalculate the timesheet for the selected filter (vacations, absences, shift time, delay and early-leave requests). Days: ${buildFilterDates().length}. Scope: ${buildFilterEmployeeIds() ? `${buildFilterEmployeeIds()!.length} selected employee(s)` : "all employees"}. This may take a while.`}
               {recalcRunning && (
                 <div className="mt-3 text-sm">
                   {language === "ar" ? "التقدم:" : "Progress:"} {recalcProgress.done}/{recalcProgress.total}
