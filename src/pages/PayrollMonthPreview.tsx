@@ -36,6 +36,7 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
+  payroll_country?: string | null;
   job_start_date?: string | null;
   termination_date?: string | null;
   basic_salary?: number | null;
@@ -64,6 +65,7 @@ export default function PayrollMonthPreview() {
   const [deptFilter, setDeptFilter] = useState<string[]>([]);
   const [jobFilter, setJobFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [payrollCountryFilter, setPayrollCountryFilter] = useState<string[]>([]);
   const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [elementFilter, setElementFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -76,7 +78,7 @@ export default function PayrollMonthPreview() {
     setLoading(true);
     let empQuery = supabase
       .from("employees")
-      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, job_start_date, termination_date, basic_salary, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, payroll_country, job_start_date, termination_date, basic_salary, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
       .order("first_name");
     let peQuery = supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true);
     let pvQuery = supabase.from("payroll_variable_entries").select("employee_id, element_id, amount").eq("period_year", year).eq("period_month", month);
