@@ -183,6 +183,58 @@ const WFHCheckIn = () => {
     }
   };
 
+  const openEndDialog = (record: any) => {
+    const now = new Date();
+    const cairoNow = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo", hour12: false,
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    }).formatToParts(now);
+    const p = Object.fromEntries(cairoNow.map(x => [x.type, x.value]));
+    setEndDialog({
+      record,
+      date: record.checkin_date || `${p.year}-${p.month}-${p.day}`,
+      time: `${String(Number(p.hour) % 24).padStart(2, "0")}:${p.minute}`,
+    });
+  };
+
+  const handleEndSession = async () => {
+    if (!endDialog) return;
+    const { record, date, time } = endDialog;
+    if (!date || !time) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: isRTL ? "يرجى إدخال التاريخ والوقت" : "Please enter date and time", variant: "destructive" });
+      return;
+    }
+    const iso = cairoLocalToISO(date, time);
+    if (new Date(iso) <= new Date(record.checkin_time)) {
+      toast({
+        title: isRTL ? "خطأ" : "Error",
+        description: isRTL ? "وقت الانصراف يجب أن يكون بعد وقت الحضور" : "Check-out must be after check-in time",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEndSaving(true);
+    try {
+      const { error } = await supabase
+        .from("wfh_checkins")
+        .update({ checkout_time: iso, status: "checked_out" })
+        .eq("id", record.id)
+        .select();
+      if (error) throw error;
+      toast({
+        title: isRTL ? "تم إنهاء الجلسة" : "Session Ended",
+        description: isRTL ? "تم تسجيل وقت الانصراف" : "Check-out time has been recorded",
+      });
+      setEndDialog(null);
+      fetchTodayCheckins();
+      fetchHistory();
+    } catch (error: any) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setEndSaving(false);
+    }
+  };
+
   const formatTime = (dateStr: string | null) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleTimeString(isRTL ? 'ar-SA' : 'en-US', {
