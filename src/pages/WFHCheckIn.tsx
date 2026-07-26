@@ -437,6 +437,7 @@ const WFHCheckIn = () => {
                     <TableHead>{isRTL ? "وقت الانصراف" : "Check Out"}</TableHead>
                     <TableHead>{isRTL ? "الحالة" : "Status"}</TableHead>
                     <TableHead>{isRTL ? "ملاحظات" : "Notes"}</TableHead>
+                    <TableHead className="text-right">{isRTL ? "إجراء" : "Action"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -453,6 +454,14 @@ const WFHCheckIn = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        {record.status !== 'checked_out' && (
+                          <Button variant="outline" size="sm" onClick={() => openEndDialog(record)}>
+                            <LogOut className="h-3 w-3 mr-1" />
+                            {isRTL ? "إنهاء العمل من المنزل" : "End WFH"}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -461,6 +470,56 @@ const WFHCheckIn = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* End WFH session dialog */}
+      <Dialog open={!!endDialog} onOpenChange={(open) => !open && setEndDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "إنهاء جلسة العمل من المنزل" : "End Work From Home Session"}</DialogTitle>
+            <DialogDescription>
+              {isRTL
+                ? "حدد تاريخ ووقت الانصراف (توقيت القاهرة)"
+                : "Set the check-out date and time (Cairo time)"}
+            </DialogDescription>
+          </DialogHeader>
+          {endDialog && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                {isRTL ? "وقت الحضور:" : "Check-in:"} {formatDate(endDialog.record.checkin_date)} • {formatTime(endDialog.record.checkin_time)}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="end-date">{isRTL ? "تاريخ الانصراف" : "Check-out Date"}</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDialog.date}
+                    onChange={(e) => setEndDialog({ ...endDialog, date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-time">{isRTL ? "وقت الانصراف" : "Check-out Time"}</Label>
+                  <Input
+                    id="end-time"
+                    type="time"
+                    value={endDialog.time}
+                    onChange={(e) => setEndDialog({ ...endDialog, time: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEndDialog(null)} disabled={endSaving}>
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleEndSession} disabled={endSaving}>
+              {endSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isRTL ? "حفظ الانصراف" : "Save Check-out"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
