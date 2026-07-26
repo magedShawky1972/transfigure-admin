@@ -979,14 +979,22 @@ export default function TimesheetManagement() {
       // Build sets for approved delay/early_leave dates
       const approvedDelayDays = new Set<string>();
       const approvedEarlyLeaveDays = new Set<string>();
+      const requestDay = (req: any): string | null => {
+        const raw = req.delay_date || req.start_date || req.request_date;
+        if (!raw) return null;
+        return String(raw).slice(0, 10);
+      };
       (approvedDelays || []).forEach((req: any) => {
-        const key = `${req.employee_id}_${req.delay_date}`;
+        const day = requestDay(req);
+        if (!day) return;
+        const key = `${req.employee_id}_${day}`;
         if (req.request_type === "delay") {
           approvedDelayDays.add(key);
         } else if (req.request_type === "early_leave") {
           approvedEarlyLeaveDays.add(key);
         }
       });
+
 
       // Mail status + auto-detect vacation days + clear delay/early leave for approved requests
       // WFH days no longer overwrite ZK rows — WFH sessions appear as separate rows
