@@ -7,11 +7,34 @@ import { AccessDenied } from "@/components/AccessDenied";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, MapPin, LogIn, LogOut, Clock, CheckCircle, Home, Calendar } from "lucide-react";
 import { getKSADateString, getKSATimeFormatted } from "@/lib/ksaTime";
+
+// Convert a Cairo-local date/time (YYYY-MM-DD, HH:MM) into a UTC ISO string
+const cairoLocalToISO = (dateStr: string, timeStr: string) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh, mm, 0);
+  // Determine Cairo offset at that instant
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Cairo", hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(new Date(guess)).map(p => [p.type, p.value]));
+  const asCairo = Date.UTC(
+    Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+    Number(parts.hour) % 24, Number(parts.minute), Number(parts.second)
+  );
+  const offset = asCairo - guess;
+  return new Date(guess - offset).toISOString();
+};
+
 
 const WFHCheckIn = () => {
   const { toast } = useToast();
