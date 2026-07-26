@@ -319,7 +319,7 @@ export default function EmployeeSetup() {
   // Re-sort when language changes
   useEffect(() => {
     if (allEmployees.length > 0) {
-      applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy);
+      applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
     }
   }, [language]);
 
