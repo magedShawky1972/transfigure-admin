@@ -3667,6 +3667,7 @@ export type Database = {
           nationality: string | null
           notes: string | null
           passport_number: string | null
+          payroll_country: string | null
           phone: string | null
           photo_url: string | null
           religion: string | null
@@ -3715,6 +3716,7 @@ export type Database = {
           nationality?: string | null
           notes?: string | null
           passport_number?: string | null
+          payroll_country?: string | null
           phone?: string | null
           photo_url?: string | null
           religion?: string | null
@@ -3763,6 +3765,7 @@ export type Database = {
           nationality?: string | null
           notes?: string | null
           passport_number?: string | null
+          payroll_country?: string | null
           phone?: string | null
           photo_url?: string | null
           religion?: string | null
