@@ -320,15 +320,16 @@ Deno.serve(async (req) => {
     // missed/raw machine punch after an administrator has corrected the row.
     const { data: correctedTimesheets, error: correctedTimesheetsError } = await supabase
       .from('timesheets')
-      .select('employee_id, changed_start, changed_end')
+      .select('employee_id, changed_start, changed_end, is_absent, changed_by, changed_at')
       .eq('work_date', targetDate)
-      .or('changed_start.not.is.null,changed_end.not.is.null');
+      .or('changed_start.not.is.null,changed_end.not.is.null,changed_by.not.is.null');
 
     if (correctedTimesheetsError) throw correctedTimesheetsError;
 
-    const correctedTimesheetMap = new Map<string, { changed_start: string | null; changed_end: string | null }>(
+    const correctedTimesheetMap = new Map<string, { changed_start: string | null; changed_end: string | null; is_absent: boolean | null; changed_by: string | null }>(
       (correctedTimesheets || []).map((row: any) => [row.employee_id, row])
     );
+
 
     // Group logs by employee
     const employeeLogs = new Map<string, ZkLog[]>();
