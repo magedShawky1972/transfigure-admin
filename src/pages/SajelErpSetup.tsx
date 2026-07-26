@@ -62,6 +62,7 @@ export default function SajelErpSetup() {
           generate_batch_number_url: (data as any).generate_batch_number_url ?? "",
           stock_issue_api_url: (data as any).stock_issue_api_url ?? "",
           stock_movement_api_url: (data as any).stock_movement_api_url ?? "",
+          payroll_api_url: (data as any).payroll_api_url ?? "",
         });
       }
       setLoading(false);
