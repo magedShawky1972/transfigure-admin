@@ -53,6 +53,8 @@ const WFHCheckIn = () => {
   const getCairoTime = () => new Date().toLocaleTimeString('ar-SA', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' });
   const [currentTime, setCurrentTime] = useState(getCairoTime());
   const [userName, setUserName] = useState("");
+  const [endDialog, setEndDialog] = useState<{ record: any; date: string; time: string } | null>(null);
+  const [endSaving, setEndSaving] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCairoTime()), 1000);
