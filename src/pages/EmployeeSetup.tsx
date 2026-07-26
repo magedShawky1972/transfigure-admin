@@ -549,7 +549,8 @@ export default function EmployeeSetup() {
     job: string, 
     letter: string,
     searchMode: "all" | "zk",
-    businessUnit: string = filterBusinessUnit
+    businessUnit: string = filterBusinessUnit,
+    payrollCountry: string = filterPayrollCountry
   ) => {
     let filtered = [...allEmployees];
 
