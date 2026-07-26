@@ -164,14 +164,20 @@ export default function DeductionSummary() {
 
       const { data: approved } = await supabase
         .from("employee_requests")
-        .select("employee_id, delay_date, request_type")
+        .select("employee_id, delay_date, request_type, request_date, start_date")
         .in("request_type", ["delay", "early_leave"])
-        .eq("status", "approved")
-        .gte("delay_date", dFrom)
-        .lte("delay_date", dTo);
+        .eq("status", "approved");
 
       const approvedSet = new Set<string>();
-      (approved || []).forEach((r: any) => approvedSet.add(`${r.employee_id}_${r.delay_date}_${r.request_type}`));
+      (approved || []).forEach((r: any) => {
+        // Legacy requests may miss delay_date — fall back to start/request date
+        const raw = r.delay_date || r.start_date || r.request_date;
+        if (!raw) return;
+        const day = String(raw).slice(0, 10);
+        if (day < dFrom || day > dTo) return;
+        approvedSet.add(`${r.employee_id}_${day}_${r.request_type}`);
+      });
+
 
       // Fetch approved vacation/sick_leave requests and manual vacation_requests to exclude absences on covered days
       const vacationDaySet = new Set<string>();
