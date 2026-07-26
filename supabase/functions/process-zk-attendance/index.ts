@@ -478,11 +478,13 @@ Deno.serve(async (req) => {
       // opened a shift session on this date. No late/early/overtime calculations.
       if ((attendanceType as any)?.is_shift_based) {
         const openedShift = !!employee.user_id && shiftOpenedUserIds.has(employee.user_id);
+        const shiftManual = correctedTimesheetMap.get(employee.id);
+        const shiftManualNotAbsent = !!shiftManual && shiftManual.is_absent === false;
 
         // Morning run: don't mark absent yet — wait for evening
         if (processType === 'morning' && !openedShift) continue;
 
-        const isAbsent = processType === 'evening' && !openedShift;
+        const isAbsent = shiftManualNotAbsent ? false : (processType === 'evening' && !openedShift);
 
         // Compute absence deduction only
         const { amount: absDeduction, ruleId: absRuleId } = isAbsent
@@ -511,6 +513,7 @@ Deno.serve(async (req) => {
             ? `Shift-based attendance - shift opened on ${targetDate}`
             : `Shift-based attendance - no shift opened on ${targetDate}`,
         };
+
 
         const { error: shiftTsErr } = await supabase
           .from('timesheets')
