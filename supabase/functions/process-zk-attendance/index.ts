@@ -709,10 +709,17 @@ Deno.serve(async (req) => {
         overtimeMinutes = netOvertime > 0 ? netOvertime : 0;
       }
       
-      // Determine status: morning = waiting_for_exit, evening = auto-approve, absent if no check-in
+      // Determine status: morning = waiting_for_exit, evening = auto-approve, absent if no check-in.
+      // A manual correction (Changed In/Out, or an admin clearing the Absent flag) is authoritative:
+      // never re-flag such a day as absent.
+      const manuallyEdited = !!manualCorrection;
+      const manualNotAbsent = manuallyEdited && manualCorrection?.is_absent === false;
+      const computedAbsent = !effectiveInTime && processType === 'evening';
+      const finalAbsent = manualNotAbsent ? false : computedAbsent;
+
       let timesheetStatus = 'waiting_for_exit';
       if (processType === 'evening') {
-        if (!inTime) {
+        if (finalAbsent) {
           timesheetStatus = 'absent';
         } else {
           timesheetStatus = 'approved'; // Auto-approve after exit time loaded
@@ -728,17 +735,18 @@ Deno.serve(async (req) => {
         actual_end: processType === 'evening' ? outTime : null,
         break_duration_minutes: 0,
         status: timesheetStatus,
-        is_absent: !inTime && processType === 'evening',
-        absence_reason: !inTime && processType === 'evening' ? 'No check-in recorded' : null,
+        is_absent: finalAbsent,
+        absence_reason: finalAbsent ? 'No check-in recorded' : null,
         late_minutes: lateMinutes,
         early_leave_minutes: earlyExitMinutes,
         overtime_minutes: overtimeMinutes,
         total_work_minutes: totalHours ? Math.round(totalHours * 60) : 0,
-        deduction_amount: deductionAmount,
+        deduction_amount: finalAbsent ? deductionAmount : (manualNotAbsent && !effectiveInTime ? 0 : deductionAmount),
         deduction_rule_id: deductionRuleId,
         overtime_amount: 0,
         notes: `Auto-processed from ZK attendance (${processType})`,
       };
+
 
       const { error: timesheetError } = await supabase
         .from('timesheets')
