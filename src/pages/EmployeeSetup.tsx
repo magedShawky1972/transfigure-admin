@@ -67,6 +67,7 @@ interface Employee {
   fixed_shift_end: string | null;
   shift_plan_id: string | null;
   attendance_type_id: string | null;
+  payroll_country: string | null;
   attendance_types?: { type_name: string; type_name_ar: string | null; is_shift_based: boolean } | null;
   vacation_code_id: string | null;
   vacation_balance: number | null;
