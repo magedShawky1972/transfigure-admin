@@ -61,6 +61,7 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
+  payroll_country?: string | null;
   departments?: { department_name: string; department_name_ar?: string | null } | null;
   job_positions?: { position_name: string; position_name_ar?: string | null } | null;
 
@@ -89,6 +90,7 @@ export default function PayrollVariableEntry() {
   const [jobFilter, setJobFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [elementFilter, setElementFilter] = useState<string[]>([]);
+  const [countryFilter, setCountryFilter] = useState<string[]>([]);
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "name", dir: "asc" }]);
 
   const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
@@ -96,7 +98,7 @@ export default function PayrollVariableEntry() {
   const loadStatic = async () => {
     let empQuery = supabase
       .from("employees")
-      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, payroll_country, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
       .order("first_name");
     if (allowedEmployeeIds !== null) {
       if (allowedEmployeeIds.length === 0) { setEmps([]); return; }
@@ -161,6 +163,12 @@ export default function PayrollVariableEntry() {
   const statuses = useMemo(() => {
     const s = new Set<string>();
     emps.forEach((e) => { if (e.employment_status) s.add(e.employment_status); });
+    return Array.from(s);
+  }, [emps]);
+
+  const payrollCountries = useMemo(() => {
+    const s = new Set<string>();
+    emps.forEach((e) => { if (e.payroll_country) s.add(e.payroll_country); });
     return Array.from(s);
   }, [emps]);
 
