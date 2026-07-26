@@ -67,6 +67,7 @@ interface Employee {
   fixed_shift_end: string | null;
   shift_plan_id: string | null;
   attendance_type_id: string | null;
+  payroll_country: string | null;
   attendance_types?: { type_name: string; type_name_ar: string | null; is_shift_based: boolean } | null;
   vacation_code_id: string | null;
   vacation_balance: number | null;
@@ -208,6 +209,7 @@ export default function EmployeeSetup() {
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [filterJob, setFilterJob] = useState<string>("all");
   const [filterBusinessUnit, setFilterBusinessUnit] = useState<string>("all");
+  const [filterPayrollCountry, setFilterPayrollCountry] = useState<string>("all");
   const [filterLetter, setFilterLetter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -317,7 +319,7 @@ export default function EmployeeSetup() {
   // Re-sort when language changes
   useEffect(() => {
     if (allEmployees.length > 0) {
-      applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy);
+      applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
     }
   }, [language]);
 
@@ -547,7 +549,8 @@ export default function EmployeeSetup() {
     job: string, 
     letter: string,
     searchMode: "all" | "zk",
-    businessUnit: string = filterBusinessUnit
+    businessUnit: string = filterBusinessUnit,
+    payrollCountry: string = filterPayrollCountry
   ) => {
     let filtered = [...allEmployees];
 
@@ -586,6 +589,11 @@ export default function EmployeeSetup() {
       filtered = filtered.filter((emp) => (emp as any).working_business_unit_id === businessUnit);
     }
 
+    // Payroll Country filter
+    if (payrollCountry && payrollCountry !== "all") {
+      filtered = filtered.filter((emp) => emp.payroll_country === payrollCountry);
+    }
+
     // Letter filter
     if (letter) {
       filtered = filtered.filter((emp) => {
@@ -612,33 +620,38 @@ export default function EmployeeSetup() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    applyFilters(term, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit);
+    applyFilters(term, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleSearchByChange = (mode: "all" | "zk") => {
     setSearchBy(mode);
-    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, mode, filterBusinessUnit);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, mode, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleDepartmentFilter = (dept: string) => {
     setFilterDepartment(dept);
-    applyFilters(searchTerm, dept, filterJob, filterLetter, searchBy, filterBusinessUnit);
+    applyFilters(searchTerm, dept, filterJob, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleJobFilter = (job: string) => {
     setFilterJob(job);
-    applyFilters(searchTerm, filterDepartment, job, filterLetter, searchBy, filterBusinessUnit);
+    applyFilters(searchTerm, filterDepartment, job, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleBusinessUnitFilter = (bu: string) => {
     setFilterBusinessUnit(bu);
-    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, bu);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, bu, filterPayrollCountry);
+  };
+
+  const handlePayrollCountryFilter = (country: string) => {
+    setFilterPayrollCountry(country);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit, country);
   };
 
   const handleLetterFilter = (letter: string) => {
     const newLetter = filterLetter === letter ? "" : letter;
     setFilterLetter(newLetter);
-    applyFilters(searchTerm, filterDepartment, filterJob, newLetter, searchBy, filterBusinessUnit);
+    applyFilters(searchTerm, filterDepartment, filterJob, newLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
 
@@ -1331,8 +1344,20 @@ export default function EmployeeSetup() {
                 </SelectContent>
               </Select>
 
+              {/* Payroll Country Filter */}
+              <Select value={filterPayrollCountry} onValueChange={handlePayrollCountryFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder={language === "ar" ? "دولة الرواتب" : "Payroll Country"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "كل الدول" : "All Countries"}</SelectItem>
+                  <SelectItem value="Egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                  <SelectItem value="KSA">{language === "ar" ? "السعودية" : "KSA"}</SelectItem>
+                </SelectContent>
+              </Select>
+
               {/* Clear Filters */}
-              {(filterDepartment !== "all" || filterJob !== "all" || filterBusinessUnit !== "all" || filterLetter || searchTerm) && (
+              {(filterDepartment !== "all" || filterJob !== "all" || filterBusinessUnit !== "all" || filterPayrollCountry !== "all" || filterLetter || searchTerm) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1341,6 +1366,7 @@ export default function EmployeeSetup() {
                     setFilterDepartment("all");
                     setFilterJob("all");
                     setFilterBusinessUnit("all");
+                    setFilterPayrollCountry("all");
                     setFilterLetter("");
                     setEmployees(allEmployees);
                   }}
