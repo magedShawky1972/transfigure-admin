@@ -480,6 +480,12 @@ const EmployeeRequestApprovals = () => {
             ) {
               await updateTimesheetsForLeave(selectedRequest);
 
+              // Add approved WFH days to the employee WFH calendar
+              if (selectedRequest.request_type === 'work_from_home') {
+                await addEmployeeWfhDays(selectedRequest);
+              }
+
+
 
               // Deduct from employee_vacation_types balance
               if (selectedRequest.vacation_code_id && selectedRequest.employee_id) {
