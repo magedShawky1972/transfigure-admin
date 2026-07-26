@@ -570,17 +570,22 @@ export default function TimesheetManagement() {
           .gte("work_date", monthStart),
         supabase
           .from("employee_requests")
-          .select("employee_id, delay_date")
+          .select("employee_id, delay_date, request_date, start_date")
           .eq("request_type", "delay")
-          .eq("status", "approved")
-          .not("delay_date", "is", null),
+          .eq("status", "approved"),
       ]);
       
       if (timesheetsRes.error) throw timesheetsRes.error;
       
-      // Build set of approved delay days
+      // Build set of approved delay days (fall back to request/start date when
+      // the request was saved without an explicit delay date)
       const approvedDelaySet = new Set<string>();
-      (delaysRes.data || []).forEach((r: any) => approvedDelaySet.add(`${r.employee_id}_${r.delay_date}`));
+      (delaysRes.data || []).forEach((r: any) => {
+        const raw = r.delay_date || r.start_date || r.request_date;
+        if (!raw) return;
+        approvedDelaySet.add(`${r.employee_id}_${String(raw).slice(0, 10)}`);
+      });
+
       
       // Group by employee and count late occurrences, excluding approved delays
       const lateCount = new Map<string, {employeeId: string; name: string; count: number; photoUrl: string | null}>();
