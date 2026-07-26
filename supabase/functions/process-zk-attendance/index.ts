@@ -268,12 +268,23 @@ Deno.serve(async (req) => {
     console.log(`Company WFH day for ${targetDate}: ${isCompanyWfhDay}; employee-specific WFH: ${employeeWfhMap.size}`);
 
     // Fetch all employees with ZK codes who require attendance sign-in
-    const { data: employees, error: empError } = await supabase
+    // Optional filter: only process a specific subset of employees
+    const employeeIdsFilter: string[] | null = Array.isArray(body.employee_ids) && body.employee_ids.length > 0
+      ? body.employee_ids
+      : null;
+
+    let empQuery = supabase
       .from('employees')
       .select('id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, email, user_id, basic_salary, requires_attendance_signin, religion, job_start_date')
       .not('zk_employee_code', 'is', null)
       .eq('employment_status', 'active')
       .eq('requires_attendance_signin', true);
+
+    if (employeeIdsFilter) {
+      empQuery = empQuery.in('id', employeeIdsFilter);
+    }
+
+    const { data: employees, error: empError } = await empQuery;
 
     if (empError) throw empError;
 
