@@ -346,6 +346,8 @@ export default function EmployeeSetup() {
         attendanceTypesRes,
         businessUnitsRes,
         costCentersRes,
+        buCcMappingRes,
+
       ] = await Promise.all([
         supabase
           .from("employees")
