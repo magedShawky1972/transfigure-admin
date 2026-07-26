@@ -118,7 +118,8 @@ export default function PayrollMonthPreview() {
         const bs = map[key] || Number(emp.basic_salary) || 0;
         if (bs <= 0) continue;
         const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
-        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const tdRaw = emp.termination_date ? new Date(emp.termination_date) : null;
+        const td = tdRaw && !isNaN(tdRaw.getTime()) && tdRaw.getFullYear() > 1900 ? tdRaw : null;
         const effStart = jsd && jsd > periodStart ? jsd : periodStart;
         const effEnd = td && td < periodEnd ? td : periodEnd;
         let workedDays = PAYROLL_DAYS;
@@ -174,7 +175,8 @@ export default function PayrollMonthPreview() {
         if (bs <= 0) continue;
 
         const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
-        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const tdRaw = emp.termination_date ? new Date(emp.termination_date) : null;
+        const td = tdRaw && !isNaN(tdRaw.getTime()) && tdRaw.getFullYear() > 1900 ? tdRaw : null;
         const effStart = jsd && jsd > periodStart ? jsd : periodStart;
         const effEnd = td && td < periodEnd ? td : periodEnd;
         let workedDays = PAYROLL_DAYS;
