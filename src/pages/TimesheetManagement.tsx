@@ -694,12 +694,33 @@ export default function TimesheetManagement() {
     return dates;
   };
 
+  // Employees targeted by the current filter (employee > department > all in scope)
+  const buildFilterEmployeeIds = (): string[] | null => {
+    if (selectedEmployee) return [selectedEmployee];
+    if (selectedDepartment) {
+      const getDescendants = (parentId: string): string[] => {
+        const result: string[] = [parentId];
+        departments.filter(d => d.parent_department_id === parentId).forEach(child => {
+          result.push(...getDescendants(child.id));
+        });
+        return result;
+      };
+      const deptIds = getDescendants(selectedDepartment);
+      const ids = employees
+        .filter(emp => emp.department_id && deptIds.includes(emp.department_id))
+        .map(emp => emp.id);
+      return ids.length > 0 ? ids : null;
+    }
+    return null;
+  };
+
   const handleRecalculate = async () => {
     const dates = buildFilterDates();
     if (dates.length === 0) {
       toast.error(language === "ar" ? "اختر فترة صالحة" : "Select a valid period");
       return;
     }
+    const employeeIds = buildFilterEmployeeIds();
     setRecalcRunning(true);
     setRecalcProgress({ done: 0, total: dates.length });
     let failed = 0;
@@ -708,7 +729,12 @@ export default function TimesheetManagement() {
         const target_date = dates[i];
         try {
           const { error } = await supabase.functions.invoke("process-zk-attendance", {
-            body: { target_date, process_type: "evening", send_notifications: false },
+            body: {
+              target_date,
+              process_type: "evening",
+              send_notifications: false,
+              ...(employeeIds ? { employee_ids: employeeIds } : {}),
+            },
           });
           if (error) {
             failed++;
@@ -2818,8 +2844,8 @@ export default function TimesheetManagement() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {language === "ar"
-                ? `سيتم إعادة حساب سجل الحضور للفترة المحددة (الإجازات، الغياب، الوقت، التأخير وطلبات الانصراف المبكر). عدد الأيام: ${buildFilterDates().length}. قد تستغرق العملية بعض الوقت.`
-                : `This will recalculate the timesheet for the selected filter (vacations, absences, shift time, delay and early-leave requests). Days: ${buildFilterDates().length}. This may take a while.`}
+                ? `سيتم إعادة حساب سجل الحضور للفترة المحددة (الإجازات، الغياب، الوقت، التأخير وطلبات الانصراف المبكر). عدد الأيام: ${buildFilterDates().length}. النطاق: ${buildFilterEmployeeIds() ? `${buildFilterEmployeeIds()!.length} موظف محدد` : "كل الموظفين"}. قد تستغرق العملية بعض الوقت.`
+                : `This will recalculate the timesheet for the selected filter (vacations, absences, shift time, delay and early-leave requests). Days: ${buildFilterDates().length}. Scope: ${buildFilterEmployeeIds() ? `${buildFilterEmployeeIds()!.length} selected employee(s)` : "all employees"}. This may take a while.`}
               {recalcRunning && (
                 <div className="mt-3 text-sm">
                   {language === "ar" ? "التقدم:" : "Progress:"} {recalcProgress.done}/{recalcProgress.total}
