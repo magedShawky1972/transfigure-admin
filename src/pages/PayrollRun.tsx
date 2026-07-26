@@ -13,7 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
-import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer } from "lucide-react";
+import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer, Eye, Send, Loader2, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
 
 type Run = {
