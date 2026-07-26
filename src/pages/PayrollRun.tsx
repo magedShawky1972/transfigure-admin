@@ -928,9 +928,17 @@ export default function PayrollRun() {
                       </>
                     )}
                     {r.status === "confirmed" && (
-                      <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
-                        <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
-                      </Button>
+                      <>
+                        <Button size="sm" variant="ghost" title={isAr ? "عرض بيانات API" : "View API Body"} onClick={() => openJournalPreview(r)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" onClick={() => openJournalPreview(r)}>
+                          <Send className="h-4 w-4 mr-1" /> {isAr ? "إرسال للمحاسبة" : "Send to Acc."}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
+                          <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
+                        </Button>
+                      </>
                     )}
                   </TableCell>
                 </TableRow>
