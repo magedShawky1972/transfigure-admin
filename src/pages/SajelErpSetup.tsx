@@ -208,6 +208,17 @@ export default function SajelErpSetup() {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط Payroll API" : "Payroll API URL"}</Label>
+            <Input
+              value={form.payroll_api_url}
+              onChange={update("payroll_api_url")}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
+
+
           <div className="flex justify-end pt-2">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
