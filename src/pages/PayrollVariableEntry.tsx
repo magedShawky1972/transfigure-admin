@@ -183,13 +183,14 @@ export default function PayrollVariableEntry() {
       if (deptFilter.length && (!e.department_id || !deptFilter.includes(e.department_id))) return false;
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
+      if (countryFilter.length && (!e.payroll_country || !countryFilter.includes(e.payroll_country))) return false;
       if (terms.length) {
         const hay = `${empName(e)} ${e.employee_number} ${deptName(e.departments)} ${jobName(e.job_positions)}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
       return true;
     });
-  }, [emps, deptFilter, jobFilter, statusFilter, search]);
+  }, [emps, deptFilter, jobFilter, statusFilter, countryFilter, search]);
 
   const sorted = useMemo(() => {
     if (!sortRules.length) return filtered;
@@ -377,7 +378,7 @@ export default function PayrollVariableEntry() {
   };
 
   const clearFilters = () => {
-    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setElementFilter([]);
+    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setElementFilter([]); setCountryFilter([]);
   };
 
   const MultiCheckPop = ({
@@ -482,6 +483,7 @@ export default function PayrollVariableEntry() {
             <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} />
             <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} />
             <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
+            <MultiCheckPop label={language === "ar" ? "دولة الرواتب" : "Payroll Country"} options={payrollCountries.map((c) => ({ id: c, name: c }))} selected={countryFilter} onChange={setCountryFilter} />
             <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${(language === "ar" && e.name_ar) ? e.name_ar : e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
             <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X className="h-3.5 w-3.5 mr-1" /> {language === "ar" ? "مسح" : "Clear"} all
