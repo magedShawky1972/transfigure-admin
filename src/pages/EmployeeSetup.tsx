@@ -2167,7 +2167,22 @@ export default function EmployeeSetup() {
                   );
                 })()}
 
-
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "دولة الرواتب" : "Payroll Country"}</Label>
+                  <Select
+                    value={formData.payroll_country || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, payroll_country: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر الدولة" : "Select Country"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      <SelectItem value="Egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                      <SelectItem value="KSA">{language === "ar" ? "السعودية" : "KSA"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
 
                 <div className="space-y-2">
