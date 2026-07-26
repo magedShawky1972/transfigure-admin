@@ -620,33 +620,38 @@ export default function EmployeeSetup() {
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    applyFilters(term, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit);
+    applyFilters(term, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleSearchByChange = (mode: "all" | "zk") => {
     setSearchBy(mode);
-    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, mode, filterBusinessUnit);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, mode, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleDepartmentFilter = (dept: string) => {
     setFilterDepartment(dept);
-    applyFilters(searchTerm, dept, filterJob, filterLetter, searchBy, filterBusinessUnit);
+    applyFilters(searchTerm, dept, filterJob, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleJobFilter = (job: string) => {
     setFilterJob(job);
-    applyFilters(searchTerm, filterDepartment, job, filterLetter, searchBy, filterBusinessUnit);
+    applyFilters(searchTerm, filterDepartment, job, filterLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
   const handleBusinessUnitFilter = (bu: string) => {
     setFilterBusinessUnit(bu);
-    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, bu);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, bu, filterPayrollCountry);
+  };
+
+  const handlePayrollCountryFilter = (country: string) => {
+    setFilterPayrollCountry(country);
+    applyFilters(searchTerm, filterDepartment, filterJob, filterLetter, searchBy, filterBusinessUnit, country);
   };
 
   const handleLetterFilter = (letter: string) => {
     const newLetter = filterLetter === letter ? "" : letter;
     setFilterLetter(newLetter);
-    applyFilters(searchTerm, filterDepartment, filterJob, newLetter, searchBy, filterBusinessUnit);
+    applyFilters(searchTerm, filterDepartment, filterJob, newLetter, searchBy, filterBusinessUnit, filterPayrollCountry);
   };
 
 
