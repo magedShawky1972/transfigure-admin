@@ -547,6 +547,137 @@ export default function PayrollRun() {
     }
   };
 
+  // ---------- Sajel Payroll Journal ----------
+  const buildPayrollJournals = async (run: Run) => {
+    const { data: runLines, error: rlErr } = await supabase
+      .from("payroll_run_lines")
+      .select("employee_id, element_type, amount")
+      .eq("run_id", run.id);
+    if (rlErr) throw rlErr;
+    if (!runLines || runLines.length === 0) throw new Error(isAr ? "لا توجد سطور في المسيرة" : "No lines in this run");
+
+    const empIds = Array.from(new Set(runLines.map((l: any) => l.employee_id)));
+    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }] = await Promise.all([
+      supabase.from("employees").select("id, working_business_unit_id, cost_center_id").in("id", empIds),
+      supabase.from("business_units").select("id, unit_code, unit_name"),
+      supabase.from("cost_centers").select("id, cost_center_code, cost_center_name"),
+      supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
+    ]);
+
+    const buMap: Record<string, any> = {};
+    (bus || []).forEach((b: any) => { buMap[b.id] = b; });
+    const ccMap: Record<string, any> = {};
+    (ccs || []).forEach((c: any) => { ccMap[c.id] = c; });
+    const drMap: Record<string, string> = {};
+    (maps || []).forEach((m: any) => { drMap[`${m.business_unit_id}|${m.cost_center_id}`] = m.payroll_dr_account; });
+    const empMeta: Record<string, any> = {};
+    (emps || []).forEach((e: any) => { empMeta[e.id] = e; });
+
+    // Net per employee
+    const netByEmp: Record<string, number> = {};
+    (runLines as any[]).forEach((l) => {
+      const amt = Number(l.amount) || 0;
+      const sign = l.element_type === "deduction" ? -1 : l.element_type === "earning" ? 1 : 0;
+      if (!sign) return;
+      netByEmp[l.employee_id] = (netByEmp[l.employee_id] || 0) + sign * amt;
+    });
+
+    const period = `${String(run.period_month).padStart(2, "0")}/${run.period_year}`;
+    const lastDate = new Date(run.period_year, run.period_month, 0).getDate();
+    const entryDate = `${run.period_year}-${String(run.period_month).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
+
+    // Group by BU -> cost center
+    const grouped: Record<string, Record<string, number>> = {};
+    const warnings: string[] = [];
+    Object.entries(netByEmp).forEach(([empId, net]) => {
+      if (!net) return;
+      const meta = empMeta[empId];
+      const buId = meta?.working_business_unit_id;
+      const ccId = meta?.cost_center_id;
+      if (!buId || !ccId) {
+        warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد وحدة عمل / مركز تكلفة" : "missing business unit / cost center"}`);
+        return;
+      }
+      if (!drMap[`${buId}|${ccId}`]) {
+        warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد حساب مدين في الربط" : "no payroll Dr. account mapping"}`);
+        return;
+      }
+      grouped[buId] = grouped[buId] || {};
+      grouped[buId][ccId] = (grouped[buId][ccId] || 0) + net;
+    });
+
+    const journals = Object.entries(grouped).map(([buId, byCc]) => {
+      const drLines = Object.entries(byCc).map(([ccId, amount]) => ({
+        accountCode: drMap[`${buId}|${ccId}`],
+        description: `Payroll ${period} - ${ccMap[ccId]?.cost_center_name || ccMap[ccId]?.cost_center_code || ccId}`,
+        debitAmount: Number(Number(amount).toFixed(2)),
+        costCenterCode: ccMap[ccId]?.cost_center_code || "",
+      }));
+      const total = Number(drLines.reduce((s, l) => s + l.debitAmount, 0).toFixed(2));
+      return {
+        businessUnitCode: buMap[buId]?.unit_code || "",
+        periodCode: period,
+        entryDate,
+        journalCode: "GJ",
+        currencyCode: "SAR",
+        exchangeRate: 1,
+        reference: `Payroll ${period}`,
+        description: `Payroll accrual ${period} - ${buMap[buId]?.unit_name || ""}`.trim(),
+        lines: [
+          ...drLines,
+          {
+            accountCode: "201401",
+            description: `Payroll payable ${period}`,
+            creditAmount: total,
+          },
+        ],
+      };
+    });
+
+    return { journals, warnings };
+  };
+
+  const [journalDlg, setJournalDlg] = useState<{
+    open: boolean;
+    run: Run | null;
+    journals: any[];
+    warnings: string[];
+    sending: boolean;
+    results: any[] | null;
+  }>({ open: false, run: null, journals: [], warnings: [], sending: false, results: null });
+
+  const openJournalPreview = async (run: Run) => {
+    try {
+      const { journals, warnings } = await buildPayrollJournals(run);
+      setJournalDlg({ open: true, run, journals, warnings, sending: false, results: null });
+    } catch (e: any) {
+      toast({ title: isAr ? "خطأ" : "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const sendJournalsToSajel = async () => {
+    if (!journalDlg.journals.length) return;
+    setJournalDlg((s) => ({ ...s, sending: true, results: null }));
+    try {
+      const { data, error } = await supabase.functions.invoke("post-sajel-payroll", {
+        body: { journals: journalDlg.journals },
+      });
+      if (error) throw error;
+      const results = (data as any)?.results || [];
+      setJournalDlg((s) => ({ ...s, sending: false, results }));
+      const failed = results.filter((r: any) => !r.ok).length;
+      toast({
+        title: failed === 0 ? (isAr ? "تم الإرسال إلى المحاسبة" : "Sent to Accounting") : (isAr ? "إرسال جزئي" : "Partially sent"),
+        description: `${results.length - failed}/${results.length} ${isAr ? "قيد تم إرساله" : "journal(s) posted"}`,
+        variant: failed === 0 ? undefined : "destructive",
+      });
+    } catch (e: any) {
+      setJournalDlg((s) => ({ ...s, sending: false }));
+      toast({ title: isAr ? "فشل الإرسال" : "Send failed", description: e.message, variant: "destructive" });
+    }
+  };
+
+
   const confirmRun = (run: Run) => {
     const period = `${run.period_year}-${String(run.period_month).padStart(2, "0")}`;
     askConfirm({
