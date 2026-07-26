@@ -145,6 +145,15 @@ Deno.serve(async (req) => {
           order_date: r.created_at_date,
           payment_method: r.payment_method,
           payment_brand: r.payment_brand,
+          payment_card_number: r.payment_card_number ?? null,
+          payment_reference: r.payment_reference ?? null,
+          customer_ip: r.customer_ip ?? null,
+          customer_ip_country: null as string | null,
+          device_fingerprint: r.device_fingerprint ?? null,
+          profit_center: r.profit_center ?? null,
+          status_description: r.status_description ?? null,
+          register_user_id: r.register_user_id ?? null,
+          player_id: r.player_id ?? null,
           order_status: r.order_status,
           order_total: 0,
           total_qty: 0,
@@ -156,6 +165,14 @@ Deno.serve(async (req) => {
       const total = Number(r.total) || 0;
       o.order_total += total;
       o.total_qty += qty;
+      if (!o.payment_card_number && r.payment_card_number) o.payment_card_number = r.payment_card_number;
+      if (!o.payment_reference && r.payment_reference) o.payment_reference = r.payment_reference;
+      if (!o.customer_ip && r.customer_ip) o.customer_ip = r.customer_ip;
+      if (!o.device_fingerprint && r.device_fingerprint) o.device_fingerprint = r.device_fingerprint;
+      if (!o.profit_center && r.profit_center) o.profit_center = r.profit_center;
+      if (!o.status_description && r.status_description) o.status_description = r.status_description;
+      if (!o.register_user_id && r.register_user_id) o.register_user_id = r.register_user_id;
+      if (!o.player_id && r.player_id) o.player_id = r.player_id;
       o.lines.push({
         product_name: r.product_name,
         brand_name: r.brand_name,
@@ -164,6 +181,9 @@ Deno.serve(async (req) => {
         coins_number: r.coins_number != null ? Number(r.coins_number) : null,
         unit_price: r.unit_price != null ? Number(r.unit_price) : null,
         total,
+        player_id: r.player_id ?? null,
+        profit_center: r.profit_center ?? null,
+        status_description: r.status_description ?? null,
       });
     }
 
@@ -172,6 +192,25 @@ Deno.serve(async (req) => {
       ...o,
       order_total: Math.round(o.order_total * 100) / 100,
     }));
+
+    // Resolve country for the IPs used in the returned orders (cached per IP)
+    const uniqueIps = Array.from(new Set(last10.map((o) => o.customer_ip).filter(Boolean))) as string[];
+    const ipCountry = new Map<string, string | null>();
+    await Promise.all(
+      uniqueIps.slice(0, 10).map(async (ip) => {
+        try {
+          const resp = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode`);
+          const geo = await resp.json();
+          ipCountry.set(ip, geo?.status === 'success' ? (geo.country || geo.countryCode || null) : null);
+        } catch (_e) {
+          ipCountry.set(ip, null);
+        }
+      })
+    );
+    for (const o of last10) {
+      if (o.customer_ip) o.customer_ip_country = ipCountry.get(o.customer_ip) ?? null;
+    }
+
 
     const totalLast10 = last10.reduce((s, o) => s + o.order_total, 0);
     const totalLast2Months = rows
