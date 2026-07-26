@@ -98,13 +98,44 @@ export default function PayrollMonthPreview() {
     for (const r of (pe.data || []) as any[]) {
       map[`${r.employee_id}|${r.element_id}`] = (map[`${r.employee_id}|${r.element_id}`] || 0) + Number(r.amount || 0);
     }
+    const pvKeys = new Set<string>();
     for (const r of (pv.data || []) as any[]) {
       // Variable entries override assigned amounts for that month
       map[`${r.employee_id}|${r.element_id}`] = Number(r.amount || 0);
+      pvKeys.add(`${r.employee_id}|${r.element_id}`);
+    }
+
+    // Auto-prorate basic salary (fixed 30-day payroll month) for mid-month joiners/leavers
+    const basicEl = ((el.data || []) as any[]).find((x) => x.is_basic_salary_element);
+    if (basicEl) {
+      const PAYROLL_DAYS = 30;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const periodStart = new Date(year, month - 1, 1);
+      const periodEnd = new Date(year, month - 1, daysInMonth);
+      for (const emp of ((e.data || []) as any[])) {
+        const key = `${emp.id}|${basicEl.id}`;
+        if (pvKeys.has(key)) continue; // manual/variable override wins
+        const bs = map[key] || Number(emp.basic_salary) || 0;
+        if (bs <= 0) continue;
+        const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
+        const td = emp.termination_date ? new Date(emp.termination_date) : null;
+        const effStart = jsd && jsd > periodStart ? jsd : periodStart;
+        const effEnd = td && td < periodEnd ? td : periodEnd;
+        let workedDays = PAYROLL_DAYS;
+        if (effStart > periodEnd || effEnd < periodStart) workedDays = 0;
+        else {
+          const startDay = Math.min(effStart.getDate(), PAYROLL_DAYS);
+          const endDay = Math.min(effEnd.getDate(), PAYROLL_DAYS);
+          workedDays = Math.max(0, Math.min(PAYROLL_DAYS, endDay - startDay + 1));
+        }
+        if (workedDays >= PAYROLL_DAYS) continue;
+        map[key] = Number(((bs / PAYROLL_DAYS) * workedDays).toFixed(2));
+      }
     }
     setAmounts(map);
     setLoading(false);
   };
+
 
   useEffect(() => { if (!scopeLoading) load(); /* eslint-disable-next-line */ }, [year, month, scopeLoading, allowedEmployeeIds]);
 
