@@ -61,6 +61,7 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
+  payroll_country?: string | null;
   departments?: { department_name: string; department_name_ar?: string | null } | null;
   job_positions?: { position_name: string; position_name_ar?: string | null } | null;
 
@@ -89,6 +90,7 @@ export default function PayrollVariableEntry() {
   const [jobFilter, setJobFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [elementFilter, setElementFilter] = useState<string[]>([]);
+  const [countryFilter, setCountryFilter] = useState<string[]>([]);
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "name", dir: "asc" }]);
 
   const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
@@ -96,7 +98,7 @@ export default function PayrollVariableEntry() {
   const loadStatic = async () => {
     let empQuery = supabase
       .from("employees")
-      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, payroll_country, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
       .order("first_name");
     if (allowedEmployeeIds !== null) {
       if (allowedEmployeeIds.length === 0) { setEmps([]); return; }
@@ -164,6 +166,12 @@ export default function PayrollVariableEntry() {
     return Array.from(s);
   }, [emps]);
 
+  const payrollCountries = useMemo(() => {
+    const s = new Set<string>();
+    emps.forEach((e) => { if (e.payroll_country) s.add(e.payroll_country); });
+    return Array.from(s);
+  }, [emps]);
+
   const visibleElements = useMemo(() => {
     if (elementFilter.length === 0) return elements;
     return elements.filter((el) => elementFilter.includes(el.id));
@@ -175,13 +183,14 @@ export default function PayrollVariableEntry() {
       if (deptFilter.length && (!e.department_id || !deptFilter.includes(e.department_id))) return false;
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
+      if (countryFilter.length && (!e.payroll_country || !countryFilter.includes(e.payroll_country))) return false;
       if (terms.length) {
         const hay = `${empName(e)} ${e.employee_number} ${deptName(e.departments)} ${jobName(e.job_positions)}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
       }
       return true;
     });
-  }, [emps, deptFilter, jobFilter, statusFilter, search]);
+  }, [emps, deptFilter, jobFilter, statusFilter, countryFilter, search]);
 
   const sorted = useMemo(() => {
     if (!sortRules.length) return filtered;
@@ -369,7 +378,7 @@ export default function PayrollVariableEntry() {
   };
 
   const clearFilters = () => {
-    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setElementFilter([]);
+    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setElementFilter([]); setCountryFilter([]);
   };
 
   const MultiCheckPop = ({
@@ -474,6 +483,7 @@ export default function PayrollVariableEntry() {
             <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} />
             <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} />
             <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
+            <MultiCheckPop label={language === "ar" ? "دولة الرواتب" : "Payroll Country"} options={payrollCountries.map((c) => ({ id: c, name: c }))} selected={countryFilter} onChange={setCountryFilter} />
             <MultiCheckPop label={language === "ar" ? "العناصر" : "Elements"} options={elements.map((e) => ({ id: e.id, name: `[${e.element_type}] ${(language === "ar" && e.name_ar) ? e.name_ar : e.name_en}` }))} selected={elementFilter} onChange={setElementFilter} />
             <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X className="h-3.5 w-3.5 mr-1" /> {language === "ar" ? "مسح" : "Clear"} all
