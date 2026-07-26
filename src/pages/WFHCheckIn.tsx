@@ -7,11 +7,34 @@ import { AccessDenied } from "@/components/AccessDenied";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, MapPin, LogIn, LogOut, Clock, CheckCircle, Home, Calendar } from "lucide-react";
 import { getKSADateString, getKSATimeFormatted } from "@/lib/ksaTime";
+
+// Convert a Cairo-local date/time (YYYY-MM-DD, HH:MM) into a UTC ISO string
+const cairoLocalToISO = (dateStr: string, timeStr: string) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh, mm, 0);
+  // Determine Cairo offset at that instant
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Cairo", hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(new Date(guess)).map(p => [p.type, p.value]));
+  const asCairo = Date.UTC(
+    Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+    Number(parts.hour) % 24, Number(parts.minute), Number(parts.second)
+  );
+  const offset = asCairo - guess;
+  return new Date(guess - offset).toISOString();
+};
+
 
 const WFHCheckIn = () => {
   const { toast } = useToast();
@@ -30,6 +53,8 @@ const WFHCheckIn = () => {
   const getCairoTime = () => new Date().toLocaleTimeString('ar-SA', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit' });
   const [currentTime, setCurrentTime] = useState(getCairoTime());
   const [userName, setUserName] = useState("");
+  const [endDialog, setEndDialog] = useState<{ record: any; date: string; time: string } | null>(null);
+  const [endSaving, setEndSaving] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCairoTime()), 1000);
@@ -155,6 +180,58 @@ const WFHCheckIn = () => {
       toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
     } finally {
       setCheckoutLoading(null);
+    }
+  };
+
+  const openEndDialog = (record: any) => {
+    const now = new Date();
+    const cairoNow = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Cairo", hour12: false,
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    }).formatToParts(now);
+    const p = Object.fromEntries(cairoNow.map(x => [x.type, x.value]));
+    setEndDialog({
+      record,
+      date: record.checkin_date || `${p.year}-${p.month}-${p.day}`,
+      time: `${String(Number(p.hour) % 24).padStart(2, "0")}:${p.minute}`,
+    });
+  };
+
+  const handleEndSession = async () => {
+    if (!endDialog) return;
+    const { record, date, time } = endDialog;
+    if (!date || !time) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: isRTL ? "يرجى إدخال التاريخ والوقت" : "Please enter date and time", variant: "destructive" });
+      return;
+    }
+    const iso = cairoLocalToISO(date, time);
+    if (new Date(iso) <= new Date(record.checkin_time)) {
+      toast({
+        title: isRTL ? "خطأ" : "Error",
+        description: isRTL ? "وقت الانصراف يجب أن يكون بعد وقت الحضور" : "Check-out must be after check-in time",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEndSaving(true);
+    try {
+      const { error } = await supabase
+        .from("wfh_checkins")
+        .update({ checkout_time: iso, status: "checked_out" })
+        .eq("id", record.id)
+        .select();
+      if (error) throw error;
+      toast({
+        title: isRTL ? "تم إنهاء الجلسة" : "Session Ended",
+        description: isRTL ? "تم تسجيل وقت الانصراف" : "Check-out time has been recorded",
+      });
+      setEndDialog(null);
+      fetchTodayCheckins();
+      fetchHistory();
+    } catch (error: any) {
+      toast({ title: isRTL ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setEndSaving(false);
     }
   };
 
@@ -360,6 +437,7 @@ const WFHCheckIn = () => {
                     <TableHead>{isRTL ? "وقت الانصراف" : "Check Out"}</TableHead>
                     <TableHead>{isRTL ? "الحالة" : "Status"}</TableHead>
                     <TableHead>{isRTL ? "ملاحظات" : "Notes"}</TableHead>
+                    <TableHead className="text-right">{isRTL ? "إجراء" : "Action"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -376,6 +454,14 @@ const WFHCheckIn = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">{record.notes || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        {record.status !== 'checked_out' && (
+                          <Button variant="outline" size="sm" onClick={() => openEndDialog(record)}>
+                            <LogOut className="h-3 w-3 mr-1" />
+                            {isRTL ? "إنهاء العمل من المنزل" : "End WFH"}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -384,6 +470,56 @@ const WFHCheckIn = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* End WFH session dialog */}
+      <Dialog open={!!endDialog} onOpenChange={(open) => !open && setEndDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isRTL ? "إنهاء جلسة العمل من المنزل" : "End Work From Home Session"}</DialogTitle>
+            <DialogDescription>
+              {isRTL
+                ? "حدد تاريخ ووقت الانصراف (توقيت القاهرة)"
+                : "Set the check-out date and time (Cairo time)"}
+            </DialogDescription>
+          </DialogHeader>
+          {endDialog && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                {isRTL ? "وقت الحضور:" : "Check-in:"} {formatDate(endDialog.record.checkin_date)} • {formatTime(endDialog.record.checkin_time)}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="end-date">{isRTL ? "تاريخ الانصراف" : "Check-out Date"}</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDialog.date}
+                    onChange={(e) => setEndDialog({ ...endDialog, date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-time">{isRTL ? "وقت الانصراف" : "Check-out Time"}</Label>
+                  <Input
+                    id="end-time"
+                    type="time"
+                    value={endDialog.time}
+                    onChange={(e) => setEndDialog({ ...endDialog, time: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEndDialog(null)} disabled={endSaving}>
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button onClick={handleEndSession} disabled={endSaving}>
+              {endSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isRTL ? "حفظ الانصراف" : "Save Check-out"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
