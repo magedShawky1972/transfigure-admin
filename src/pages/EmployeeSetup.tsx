@@ -371,7 +371,7 @@ export default function EmployeeSetup() {
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true).order("cost_center_code"),
         supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
       ]);
-      const buCcMappingRes = (arguments as any) ? undefined : undefined;
+      
 
 
       if (employeesRes.error) throw employeesRes.error;
