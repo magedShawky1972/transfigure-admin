@@ -286,7 +286,33 @@ const EmployeeRequestApprovals = () => {
     setPendingApprovers(approverMap);
   };
 
+  const addEmployeeWfhDays = async (request: any) => {
+    try {
+      if (!request.employee_id || !request.start_date) return;
+      const start = new Date(request.start_date);
+      const end = new Date(request.end_date || request.start_date);
+      const rows: any[] = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        rows.push({
+          employee_id: request.employee_id,
+          wfh_date: d.toISOString().split('T')[0],
+          description: request.request_number
+            ? `WFH Request ${request.request_number}`
+            : 'Approved WFH Request',
+        });
+      }
+      if (rows.length === 0) return;
+      const { error } = await supabase
+        .from('employee_wfh_days')
+        .upsert(rows, { onConflict: 'employee_id,wfh_date' });
+      if (error) console.error('Error adding employee WFH days:', error);
+    } catch (err) {
+      console.error('Error in addEmployeeWfhDays:', err);
+    }
+  };
+
   const updateTimesheetsForLeave = async (request: any) => {
+
     try {
       const start = new Date(request.start_date);
       const end = new Date(request.end_date);
