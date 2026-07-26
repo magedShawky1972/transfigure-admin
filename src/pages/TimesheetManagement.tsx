@@ -186,7 +186,7 @@ export default function TimesheetManagement() {
   const [naughtyDrilldownRecords, setNaughtyDrilldownRecords] = useState<{work_date: string; late_minutes: number; scheduled_start: string | null; actual_start: string | null; deduction_rule_name: string | null}[]>([]);
   const [naughtyDrilldownLoading, setNaughtyDrilldownLoading] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
-  const [cardFilter, setCardFilter] = useState<"all" | "approved" | "waiting" | "absent" | "delay">("all");
+  const [cardFilter, setCardFilter] = useState<"all" | "approved" | "waiting" | "absent" | "delay" | "early_leave">("all");
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([
     { key: "work_date", direction: "asc" },
     { key: "employee", direction: "asc" },
@@ -246,6 +246,7 @@ export default function TimesheetManagement() {
     if (cardFilter === "waiting") return t.status === "waiting_for_exit" || t.status === "pending";
     if (cardFilter === "absent") return t.is_absent;
     if (cardFilter === "delay") return (t.late_minutes || 0) > 0;
+    if (cardFilter === "early_leave") return (t.early_leave_minutes || 0) > 0;
 
     return true;
   });
@@ -2093,7 +2094,7 @@ export default function TimesheetManagement() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
             <Card
               onClick={() => setCardFilter("all")}
               className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "all" ? "ring-2 ring-primary" : ""}`}
@@ -2154,6 +2155,19 @@ export default function TimesheetManagement() {
                     {timesheets.reduce((sum, t) => sum + (t.late_minutes || 0), 0)}
                   </p>
                   <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي دقائق التأخير" : "Total Delay Min"}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card
+              onClick={() => setCardFilter(cardFilter === "early_leave" ? "all" : "early_leave")}
+              className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "early_leave" ? "ring-2 ring-rose-600" : ""}`}
+            >
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-rose-600">
+                    {timesheets.reduce((sum, t) => sum + (t.early_leave_minutes || 0), 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{language === "ar" ? "إجمالي دقائق الخروج المبكر" : "Total Early Leave Min"}</p>
                 </div>
               </CardContent>
             </Card>
