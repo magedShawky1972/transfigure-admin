@@ -407,6 +407,7 @@ export default function PayrollRun() {
       const basicSalaryByEmp: Record<string, number> = {};
       const proratedDaysByEmp: Record<string, { worked: number; total: number }> = {};
       const daysInMonth = new Date(year, month, 0).getDate();
+      const PAYROLL_DAYS = 30; // salary is always divided by 30 days
       const periodStart = new Date(year, month - 1, 1);
       const periodEnd = new Date(year, month - 1, daysInMonth);
       for (const emp of activeEmps) {
@@ -417,24 +418,27 @@ export default function PayrollRun() {
         }
         if (!bs) bs = Number(emp.basic_salary) || 0; // fallback to legacy field
 
-        // Determine effective working window within the period
+        // Determine effective working window within the period (30-day payroll month)
         const jsd = emp.job_start_date ? new Date(emp.job_start_date) : null;
         const td = emp.termination_date ? new Date(emp.termination_date) : null;
         const effStart = jsd && jsd > periodStart ? jsd : periodStart;
         const effEnd = td && td < periodEnd ? td : periodEnd;
-        let workedDays = daysInMonth;
+        let workedDays = PAYROLL_DAYS;
         if (effStart > periodEnd || effEnd < periodStart) {
           workedDays = 0;
         } else {
-          workedDays = Math.floor((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          const startDay = Math.min(effStart.getDate(), PAYROLL_DAYS);
+          const endDay = Math.min(effEnd.getDate(), PAYROLL_DAYS);
+          workedDays = endDay - startDay + 1;
           if (workedDays < 0) workedDays = 0;
-          if (workedDays > daysInMonth) workedDays = daysInMonth;
+          if (workedDays > PAYROLL_DAYS) workedDays = PAYROLL_DAYS;
         }
-        if (workedDays < daysInMonth && bs > 0) {
-          bs = (bs * workedDays) / daysInMonth;
+        if (workedDays < PAYROLL_DAYS && bs > 0) {
+          bs = (bs / PAYROLL_DAYS) * workedDays;
         }
         basicSalaryByEmp[emp.id] = bs;
-        proratedDaysByEmp[emp.id] = { worked: workedDays, total: daysInMonth };
+        proratedDaysByEmp[emp.id] = { worked: workedDays, total: PAYROLL_DAYS };
+
       }
 
       for (const emp of activeEmps) {
