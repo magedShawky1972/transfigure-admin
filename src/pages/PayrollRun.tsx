@@ -13,7 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
-import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer } from "lucide-react";
+import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer, Eye, Send, Loader2, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
 
 type Run = {
@@ -547,6 +548,137 @@ export default function PayrollRun() {
     }
   };
 
+  // ---------- Sajel Payroll Journal ----------
+  const buildPayrollJournals = async (run: Run) => {
+    const { data: runLines, error: rlErr } = await supabase
+      .from("payroll_run_lines")
+      .select("employee_id, element_type, amount")
+      .eq("run_id", run.id);
+    if (rlErr) throw rlErr;
+    if (!runLines || runLines.length === 0) throw new Error(isAr ? "لا توجد سطور في المسيرة" : "No lines in this run");
+
+    const empIds = Array.from(new Set(runLines.map((l: any) => l.employee_id)));
+    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }] = await Promise.all([
+      supabase.from("employees").select("id, working_business_unit_id, cost_center_id").in("id", empIds),
+      supabase.from("business_units").select("id, unit_code, unit_name"),
+      supabase.from("cost_centers").select("id, cost_center_code, cost_center_name"),
+      supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
+    ]);
+
+    const buMap: Record<string, any> = {};
+    (bus || []).forEach((b: any) => { buMap[b.id] = b; });
+    const ccMap: Record<string, any> = {};
+    (ccs || []).forEach((c: any) => { ccMap[c.id] = c; });
+    const drMap: Record<string, string> = {};
+    (maps || []).forEach((m: any) => { drMap[`${m.business_unit_id}|${m.cost_center_id}`] = m.payroll_dr_account; });
+    const empMeta: Record<string, any> = {};
+    (emps || []).forEach((e: any) => { empMeta[e.id] = e; });
+
+    // Net per employee
+    const netByEmp: Record<string, number> = {};
+    (runLines as any[]).forEach((l) => {
+      const amt = Number(l.amount) || 0;
+      const sign = l.element_type === "deduction" ? -1 : l.element_type === "earning" ? 1 : 0;
+      if (!sign) return;
+      netByEmp[l.employee_id] = (netByEmp[l.employee_id] || 0) + sign * amt;
+    });
+
+    const period = `${String(run.period_month).padStart(2, "0")}/${run.period_year}`;
+    const lastDate = new Date(run.period_year, run.period_month, 0).getDate();
+    const entryDate = `${run.period_year}-${String(run.period_month).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
+
+    // Group by BU -> cost center
+    const grouped: Record<string, Record<string, number>> = {};
+    const warnings: string[] = [];
+    Object.entries(netByEmp).forEach(([empId, net]) => {
+      if (!net) return;
+      const meta = empMeta[empId];
+      const buId = meta?.working_business_unit_id;
+      const ccId = meta?.cost_center_id;
+      if (!buId || !ccId) {
+        warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد وحدة عمل / مركز تكلفة" : "missing business unit / cost center"}`);
+        return;
+      }
+      if (!drMap[`${buId}|${ccId}`]) {
+        warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد حساب مدين في الربط" : "no payroll Dr. account mapping"}`);
+        return;
+      }
+      grouped[buId] = grouped[buId] || {};
+      grouped[buId][ccId] = (grouped[buId][ccId] || 0) + net;
+    });
+
+    const journals = Object.entries(grouped).map(([buId, byCc]) => {
+      const drLines = Object.entries(byCc).map(([ccId, amount]) => ({
+        accountCode: drMap[`${buId}|${ccId}`],
+        description: `Payroll ${period} - ${ccMap[ccId]?.cost_center_name || ccMap[ccId]?.cost_center_code || ccId}`,
+        debitAmount: Number(Number(amount).toFixed(2)),
+        costCenterCode: ccMap[ccId]?.cost_center_code || "",
+      }));
+      const total = Number(drLines.reduce((s, l) => s + l.debitAmount, 0).toFixed(2));
+      return {
+        businessUnitCode: buMap[buId]?.unit_code || "",
+        periodCode: period,
+        entryDate,
+        journalCode: "GJ",
+        currencyCode: "SAR",
+        exchangeRate: 1,
+        reference: `Payroll ${period}`,
+        description: `Payroll accrual ${period} - ${buMap[buId]?.unit_name || ""}`.trim(),
+        lines: [
+          ...drLines,
+          {
+            accountCode: "201401",
+            description: `Payroll payable ${period}`,
+            creditAmount: total,
+          },
+        ],
+      };
+    });
+
+    return { journals, warnings };
+  };
+
+  const [journalDlg, setJournalDlg] = useState<{
+    open: boolean;
+    run: Run | null;
+    journals: any[];
+    warnings: string[];
+    sending: boolean;
+    results: any[] | null;
+  }>({ open: false, run: null, journals: [], warnings: [], sending: false, results: null });
+
+  const openJournalPreview = async (run: Run) => {
+    try {
+      const { journals, warnings } = await buildPayrollJournals(run);
+      setJournalDlg({ open: true, run, journals, warnings, sending: false, results: null });
+    } catch (e: any) {
+      toast({ title: isAr ? "خطأ" : "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const sendJournalsToSajel = async () => {
+    if (!journalDlg.journals.length) return;
+    setJournalDlg((s) => ({ ...s, sending: true, results: null }));
+    try {
+      const { data, error } = await supabase.functions.invoke("post-sajel-payroll", {
+        body: { journals: journalDlg.journals },
+      });
+      if (error) throw error;
+      const results = (data as any)?.results || [];
+      setJournalDlg((s) => ({ ...s, sending: false, results }));
+      const failed = results.filter((r: any) => !r.ok).length;
+      toast({
+        title: failed === 0 ? (isAr ? "تم الإرسال إلى المحاسبة" : "Sent to Accounting") : (isAr ? "إرسال جزئي" : "Partially sent"),
+        description: `${results.length - failed}/${results.length} ${isAr ? "قيد تم إرساله" : "journal(s) posted"}`,
+        variant: failed === 0 ? undefined : "destructive",
+      });
+    } catch (e: any) {
+      setJournalDlg((s) => ({ ...s, sending: false }));
+      toast({ title: isAr ? "فشل الإرسال" : "Send failed", description: e.message, variant: "destructive" });
+    }
+  };
+
+
   const confirmRun = (run: Run) => {
     const period = `${run.period_year}-${String(run.period_month).padStart(2, "0")}`;
     askConfirm({
@@ -797,9 +929,17 @@ export default function PayrollRun() {
                       </>
                     )}
                     {r.status === "confirmed" && (
-                      <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
-                        <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
-                      </Button>
+                      <>
+                        <Button size="sm" variant="ghost" title={isAr ? "عرض بيانات API" : "View API Body"} onClick={() => openJournalPreview(r)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" onClick={() => openJournalPreview(r)}>
+                          <Send className="h-4 w-4 mr-1" /> {isAr ? "إرسال للمحاسبة" : "Send to Acc."}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
+                          <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
+                        </Button>
+                      </>
                     )}
                   </TableCell>
                 </TableRow>
@@ -928,6 +1068,67 @@ export default function PayrollRun() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={journalDlg.open} onOpenChange={(o) => setJournalDlg((s) => ({ ...s, open: o }))}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto" dir={isAr ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>
+              {isAr ? "قيود الرواتب المرسلة إلى ساجل" : "Payroll Journals to Sajel"}
+              {journalDlg.run ? ` — ${journalDlg.run.period_year}-${String(journalDlg.run.period_month).padStart(2, "0")}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {journalDlg.warnings.length > 0 && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
+              <div className="flex items-center gap-2 font-medium text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {isAr ? "موظفون مستثنون" : "Excluded employees"}
+              </div>
+              {journalDlg.warnings.map((w, i) => (<div key={i} className="text-xs">{w}</div>))}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {journalDlg.journals.map((j, i) => (
+              <div key={i} className="border rounded-md">
+                <div className="px-3 py-2 bg-muted/50 font-medium text-sm flex items-center justify-between">
+                  <span>{j.businessUnitCode || "—"} • {j.periodCode}</span>
+                  <span className="font-mono">{fmt(j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0))}</span>
+                </div>
+                <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify(j, null, 2)}</pre>
+              </div>
+            ))}
+            {journalDlg.journals.length === 0 && (
+              <p className="text-sm text-muted-foreground">{isAr ? "لا توجد قيود قابلة للإرسال" : "No postable journals"}</p>
+            )}
+          </div>
+
+          {journalDlg.results && (
+            <div className="space-y-2">
+              <div className="font-medium text-sm">{isAr ? "النتائج" : "Results"}</div>
+              {journalDlg.results.map((r, i) => (
+                <div key={i} className={`border rounded-md p-3 text-xs ${r.ok ? "border-green-500/40 bg-green-500/5" : "border-destructive/40 bg-destructive/10"}`}>
+                  <div className="font-medium">
+                    {r.businessUnitCode || "—"} — {r.ok ? (isAr ? "تم" : "Success") : (isAr ? "فشل" : "Failed")} ({r.status}) • {(Number(r.durationMs || 0) / 1000).toFixed(2)}s
+                  </div>
+                  <pre className="mt-1 whitespace-pre-wrap overflow-x-auto" dir="ltr">{typeof r.response === "string" ? r.response : JSON.stringify(r.response ?? r.error, null, 2)}</pre>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setJournalDlg((s) => ({ ...s, open: false }))}>
+              {isAr ? "إغلاق" : "Close"}
+            </Button>
+            <Button onClick={sendJournalsToSajel} disabled={journalDlg.sending || journalDlg.journals.length === 0}>
+              {journalDlg.sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+              {isAr ? "إرسال إلى المحاسبة" : "Send to Accounting"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
