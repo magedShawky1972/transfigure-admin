@@ -1068,6 +1068,67 @@ export default function PayrollRun() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={journalDlg.open} onOpenChange={(o) => setJournalDlg((s) => ({ ...s, open: o }))}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto" dir={isAr ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>
+              {isAr ? "قيود الرواتب المرسلة إلى ساجل" : "Payroll Journals to Sajel"}
+              {journalDlg.run ? ` — ${journalDlg.run.period_year}-${String(journalDlg.run.period_month).padStart(2, "0")}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {journalDlg.warnings.length > 0 && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
+              <div className="flex items-center gap-2 font-medium text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {isAr ? "موظفون مستثنون" : "Excluded employees"}
+              </div>
+              {journalDlg.warnings.map((w, i) => (<div key={i} className="text-xs">{w}</div>))}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {journalDlg.journals.map((j, i) => (
+              <div key={i} className="border rounded-md">
+                <div className="px-3 py-2 bg-muted/50 font-medium text-sm flex items-center justify-between">
+                  <span>{j.businessUnitCode || "—"} • {j.periodCode}</span>
+                  <span className="font-mono">{fmt(j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0))}</span>
+                </div>
+                <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify(j, null, 2)}</pre>
+              </div>
+            ))}
+            {journalDlg.journals.length === 0 && (
+              <p className="text-sm text-muted-foreground">{isAr ? "لا توجد قيود قابلة للإرسال" : "No postable journals"}</p>
+            )}
+          </div>
+
+          {journalDlg.results && (
+            <div className="space-y-2">
+              <div className="font-medium text-sm">{isAr ? "النتائج" : "Results"}</div>
+              {journalDlg.results.map((r, i) => (
+                <div key={i} className={`border rounded-md p-3 text-xs ${r.ok ? "border-green-500/40 bg-green-500/5" : "border-destructive/40 bg-destructive/10"}`}>
+                  <div className="font-medium">
+                    {r.businessUnitCode || "—"} — {r.ok ? (isAr ? "تم" : "Success") : (isAr ? "فشل" : "Failed")} ({r.status}) • {(Number(r.durationMs || 0) / 1000).toFixed(2)}s
+                  </div>
+                  <pre className="mt-1 whitespace-pre-wrap overflow-x-auto" dir="ltr">{typeof r.response === "string" ? r.response : JSON.stringify(r.response ?? r.error, null, 2)}</pre>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setJournalDlg((s) => ({ ...s, open: false }))}>
+              {isAr ? "إغلاق" : "Close"}
+            </Button>
+            <Button onClick={sendJournalsToSajel} disabled={journalDlg.sending || journalDlg.journals.length === 0}>
+              {journalDlg.sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+              {isAr ? "إرسال إلى المحاسبة" : "Send to Accounting"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
