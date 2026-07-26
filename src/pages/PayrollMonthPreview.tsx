@@ -130,6 +130,7 @@ export default function PayrollMonthPreview() {
       (assigns || []).forEach((a: any) => assignedMap.set(a.employee_id, Number(a.amount) || 0));
 
       const daysInMonth = new Date(year, month, 0).getDate();
+      const PAYROLL_DAYS = 30; // salary is always divided by 30 days
       const periodStart = new Date(year, month - 1, 1);
       const periodEnd = new Date(year, month - 1, daysInMonth);
 
@@ -145,25 +146,28 @@ export default function PayrollMonthPreview() {
         const td = emp.termination_date ? new Date(emp.termination_date) : null;
         const effStart = jsd && jsd > periodStart ? jsd : periodStart;
         const effEnd = td && td < periodEnd ? td : periodEnd;
-        let workedDays = daysInMonth;
+        let workedDays = PAYROLL_DAYS;
         if (effStart > periodEnd || effEnd < periodStart) workedDays = 0;
         else {
-          workedDays = Math.floor((effEnd.getTime() - effStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          const startDay = Math.min(effStart.getDate(), PAYROLL_DAYS);
+          const endDay = Math.min(effEnd.getDate(), PAYROLL_DAYS);
+          workedDays = endDay - startDay + 1;
           if (workedDays < 0) workedDays = 0;
-          if (workedDays > daysInMonth) workedDays = daysInMonth;
+          if (workedDays > PAYROLL_DAYS) workedDays = PAYROLL_DAYS;
         }
         empsToClear.push(emp.id);
-        if (workedDays >= daysInMonth) continue; // full month → no override needed
-        const prorated = (bs * workedDays) / daysInMonth;
+        if (workedDays >= PAYROLL_DAYS) continue; // full month → no override needed
+        const prorated = (bs / PAYROLL_DAYS) * workedDays;
         rowsToUpsert.push({
           employee_id: emp.id,
           element_id: basicElement.id,
           period_year: year,
           period_month: month,
           amount: Number(prorated.toFixed(2)),
-          notes: `Prorated: ${workedDays}/${daysInMonth} days`,
+          notes: `Prorated: ${workedDays}/${PAYROLL_DAYS} days`,
         });
         proratedCount++;
+
       }
 
       // Clear previous variable entries for these employees (this element) for the period
