@@ -197,3 +197,6 @@ verify_jwt = false
 
 
 
+
+[functions.api-crm-customer-info]
+verify_jwt = false
