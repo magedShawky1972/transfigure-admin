@@ -1344,8 +1344,20 @@ export default function EmployeeSetup() {
                 </SelectContent>
               </Select>
 
+              {/* Payroll Country Filter */}
+              <Select value={filterPayrollCountry} onValueChange={handlePayrollCountryFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder={language === "ar" ? "دولة الرواتب" : "Payroll Country"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{language === "ar" ? "كل الدول" : "All Countries"}</SelectItem>
+                  <SelectItem value="Egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                  <SelectItem value="KSA">{language === "ar" ? "السعودية" : "KSA"}</SelectItem>
+                </SelectContent>
+              </Select>
+
               {/* Clear Filters */}
-              {(filterDepartment !== "all" || filterJob !== "all" || filterBusinessUnit !== "all" || filterLetter || searchTerm) && (
+              {(filterDepartment !== "all" || filterJob !== "all" || filterBusinessUnit !== "all" || filterPayrollCountry !== "all" || filterLetter || searchTerm) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1354,6 +1366,7 @@ export default function EmployeeSetup() {
                     setFilterDepartment("all");
                     setFilterJob("all");
                     setFilterBusinessUnit("all");
+                    setFilterPayrollCountry("all");
                     setFilterLetter("");
                     setEmployees(allEmployees);
                   }}
