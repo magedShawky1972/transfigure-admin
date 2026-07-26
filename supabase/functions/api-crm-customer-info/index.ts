@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
 
     const { data: txRows, error: txError } = await supabase
       .from('purpletransaction')
-      .select('order_number, ordernumber, created_at_date, product_name, brand_name, brand_code, qty, coins_number, unit_price, total, payment_method, payment_brand, order_status, customer_name')
+      .select('order_number, ordernumber, created_at_date, product_name, brand_name, brand_code, qty, coins_number, unit_price, total, payment_method, payment_brand, order_status, customer_name, payment_card_number, payment_reference, customer_ip, device_fingerprint, profit_center, status_description, register_user_id, player_id')
       .eq('customer_phone', phone)
       .or('is_deleted.is.null,is_deleted.eq.false')
       .order('created_at_date', { ascending: false })
