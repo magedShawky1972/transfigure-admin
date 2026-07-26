@@ -1566,7 +1566,8 @@ export default function EmployeeSetup() {
                       </div>
                     </CardContent>
                   </Card>
-                ))
+                  );
+                })
               )}
             </div>
           )}
