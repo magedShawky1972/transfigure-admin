@@ -246,6 +246,7 @@ export default function TimesheetManagement() {
     if (cardFilter === "waiting") return t.status === "waiting_for_exit" || t.status === "pending";
     if (cardFilter === "absent") return t.is_absent;
     if (cardFilter === "delay") return (t.late_minutes || 0) > 0;
+    if (cardFilter === "early_leave") return (t.early_leave_minutes || 0) > 0;
 
     return true;
   });
