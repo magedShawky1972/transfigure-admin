@@ -367,7 +367,10 @@ export default function EmployeeSetup() {
         supabase.from("attendance_types").select("id, type_code, type_name, type_name_ar, is_shift_based, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes").eq("is_active", true).order("type_name"),
         supabase.from("business_units").select("id, unit_name, unit_name_ar").eq("is_active", true).order("unit_name"),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true).order("cost_center_code"),
+        supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
       ]);
+      const buCcMappingRes = (arguments as any) ? undefined : undefined;
+
 
       if (employeesRes.error) throw employeesRes.error;
       // Sort employees alphabetically by first name
