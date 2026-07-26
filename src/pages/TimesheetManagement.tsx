@@ -2094,7 +2094,7 @@ export default function TimesheetManagement() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
             <Card
               onClick={() => setCardFilter("all")}
               className={`cursor-pointer transition-all hover:shadow-md ${cardFilter === "all" ? "ring-2 ring-primary" : ""}`}
