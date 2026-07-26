@@ -2142,6 +2142,23 @@ export default function EmployeeSetup() {
                   </Select>
                 </div>
 
+                {(() => {
+                  const m = buCcMappings.find(
+                    (x) =>
+                      x.cost_center_id === formData.cost_center_id &&
+                      (!formData.working_business_unit_id || x.business_unit_id === formData.working_business_unit_id)
+                  );
+                  if (!m?.payroll_dr_account) return null;
+                  return (
+                    <div className="space-y-2">
+                      <Label>{language === "ar" ? "حساب مدين للرواتب" : "Payroll Dr. Account"}</Label>
+                      <Input value={m.payroll_dr_account} readOnly disabled className="bg-muted" />
+                    </div>
+                  );
+                })()}
+
+
+
 
                 <div className="space-y-2">
                   <Label>{language === "ar" ? "تاريخ بدء العمل *" : "Job Start Date *"}</Label>
