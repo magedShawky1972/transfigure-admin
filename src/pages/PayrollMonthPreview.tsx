@@ -248,6 +248,10 @@ export default function PayrollMonthPreview() {
     const s = new Set<string>(); emps.forEach((e) => { if (e.employment_status) s.add(e.employment_status); });
     return Array.from(s);
   }, [emps]);
+  const payrollCountries = useMemo(() => {
+    const s = new Set<string>(); emps.forEach((e) => { if (e.payroll_country) s.add(e.payroll_country); });
+    return Array.from(s);
+  }, [emps]);
 
   const visibleElements = useMemo(() => {
     let arr = elements;
@@ -263,6 +267,7 @@ export default function PayrollMonthPreview() {
       if (deptFilter.length && (!e.department_id || !deptFilter.includes(e.department_id))) return false;
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
+      if (payrollCountryFilter.length && (!e.payroll_country || !payrollCountryFilter.includes(e.payroll_country))) return false;
       if (terms.length) {
         const hay = `${empName(e)} ${e.employee_number} ${deptName(e.departments)} ${jobName(e.job_positions)}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
@@ -273,7 +278,7 @@ export default function PayrollMonthPreview() {
       }
       return true;
     });
-  }, [emps, employeeFilter, deptFilter, jobFilter, statusFilter, search, hideZeroEmployees, visibleElements, amounts]);
+  }, [emps, employeeFilter, deptFilter, jobFilter, statusFilter, payrollCountryFilter, search, hideZeroEmployees, visibleElements, amounts]);
 
   const sorted = useMemo(() => {
     if (!sortRules.length) return filtered;
@@ -482,7 +487,7 @@ export default function PayrollMonthPreview() {
   };
 
   const clearFilters = () => {
-    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setEmployeeFilter([]); setElementFilter([]); setTypeFilter([]); setHideZeroEmployees(false);
+    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setPayrollCountryFilter([]); setEmployeeFilter([]); setElementFilter([]); setTypeFilter([]); setHideZeroEmployees(false);
   };
 
   const MultiCheckPop = ({
