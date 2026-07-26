@@ -570,17 +570,22 @@ export default function TimesheetManagement() {
           .gte("work_date", monthStart),
         supabase
           .from("employee_requests")
-          .select("employee_id, delay_date")
+          .select("employee_id, delay_date, request_date, start_date")
           .eq("request_type", "delay")
-          .eq("status", "approved")
-          .not("delay_date", "is", null),
+          .eq("status", "approved"),
       ]);
       
       if (timesheetsRes.error) throw timesheetsRes.error;
       
-      // Build set of approved delay days
+      // Build set of approved delay days (fall back to request/start date when
+      // the request was saved without an explicit delay date)
       const approvedDelaySet = new Set<string>();
-      (delaysRes.data || []).forEach((r: any) => approvedDelaySet.add(`${r.employee_id}_${r.delay_date}`));
+      (delaysRes.data || []).forEach((r: any) => {
+        const raw = r.delay_date || r.start_date || r.request_date;
+        if (!raw) return;
+        approvedDelaySet.add(`${r.employee_id}_${String(raw).slice(0, 10)}`);
+      });
+
       
       // Group by employee and count late occurrences, excluding approved delays
       const lateCount = new Map<string, {employeeId: string; name: string; count: number; photoUrl: string | null}>();
@@ -630,16 +635,21 @@ export default function TimesheetManagement() {
           .order("work_date", { ascending: false }),
         supabase
           .from("employee_requests")
-          .select("delay_date")
+          .select("delay_date, request_date, start_date")
           .eq("employee_id", employeeId)
           .eq("request_type", "delay")
-          .eq("status", "approved")
-          .not("delay_date", "is", null),
+          .eq("status", "approved"),
       ]);
 
       if (tsRes.error) throw tsRes.error;
 
-      const approvedDates = new Set((delaysRes.data || []).map((r: any) => r.delay_date));
+      const approvedDates = new Set(
+        (delaysRes.data || [])
+          .map((r: any) => r.delay_date || r.start_date || r.request_date)
+          .filter(Boolean)
+          .map((d: any) => String(d).slice(0, 10))
+      );
+
 
       setNaughtyDrilldownRecords((tsRes.data || [])
         .filter((r: any) => !approvedDates.has(r.work_date))
@@ -881,13 +891,15 @@ export default function TimesheetManagement() {
         .lte("start_date", vacDateTo)
         .gte("end_date", vacDateFrom);
 
-      // Fetch approved delay and early_leave requests that overlap with the date range
+      // Fetch approved delay and early_leave requests that overlap with the date range.
+      // Some legacy requests were saved without `delay_date` — fall back to the
+      // request date / start date so the day is still treated as approved.
       const { data: approvedDelays } = await supabase
         .from("employee_requests")
-        .select("employee_id, delay_date, request_type")
+        .select("employee_id, delay_date, request_type, request_date, start_date")
         .in("request_type", ["delay", "early_leave"])
-        .eq("status", "approved")
-        .not("delay_date", "is", null);
+        .eq("status", "approved");
+
 
       // Fetch WFH check-ins for the date range
       // Build a map from user_id to employee_id
@@ -977,14 +989,22 @@ export default function TimesheetManagement() {
       // Build sets for approved delay/early_leave dates
       const approvedDelayDays = new Set<string>();
       const approvedEarlyLeaveDays = new Set<string>();
+      const requestDay = (req: any): string | null => {
+        const raw = req.delay_date || req.start_date || req.request_date;
+        if (!raw) return null;
+        return String(raw).slice(0, 10);
+      };
       (approvedDelays || []).forEach((req: any) => {
-        const key = `${req.employee_id}_${req.delay_date}`;
+        const day = requestDay(req);
+        if (!day) return;
+        const key = `${req.employee_id}_${day}`;
         if (req.request_type === "delay") {
           approvedDelayDays.add(key);
         } else if (req.request_type === "early_leave") {
           approvedEarlyLeaveDays.add(key);
         }
       });
+
 
       // Mail status + auto-detect vacation days + clear delay/early leave for approved requests
       // WFH days no longer overwrite ZK rows — WFH sessions appear as separate rows
