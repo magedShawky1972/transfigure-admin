@@ -18,6 +18,7 @@ interface SajelErpSettings {
   generate_batch_number_url: string;
   stock_issue_api_url: string;
   stock_movement_api_url: string;
+  payroll_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
