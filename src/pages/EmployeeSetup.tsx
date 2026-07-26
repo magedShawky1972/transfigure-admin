@@ -589,6 +589,11 @@ export default function EmployeeSetup() {
       filtered = filtered.filter((emp) => (emp as any).working_business_unit_id === businessUnit);
     }
 
+    // Payroll Country filter
+    if (payrollCountry && payrollCountry !== "all") {
+      filtered = filtered.filter((emp) => emp.payroll_country === payrollCountry);
+    }
+
     // Letter filter
     if (letter) {
       filtered = filtered.filter((emp) => {
