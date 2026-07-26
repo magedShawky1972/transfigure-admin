@@ -1489,8 +1489,17 @@ export default function EmployeeSetup() {
                   {language === "ar" ? "لا توجد بيانات" : "No data found"}
                 </div>
               ) : (
-                employees.map((emp) => (
-                  <Card key={emp.id} className="hover:shadow-lg transition-shadow">
+                employees.map((emp) => {
+                  const empDrAccount = buCcMappings.find(
+                    (x) =>
+                      x.cost_center_id === (emp as any).cost_center_id &&
+                      (!(emp as any).working_business_unit_id || x.business_unit_id === (emp as any).working_business_unit_id)
+                  )?.payroll_dr_account;
+                  return (
+                  <Card
+                    key={emp.id}
+                    className={`hover:shadow-lg transition-shadow ${!empDrAccount ? "border-2 border-destructive" : ""}`}
+                  >
                     <CardContent className="p-4">
                       <div className="flex flex-col items-center text-center">
                         <Avatar className="h-20 w-20 mb-3">
