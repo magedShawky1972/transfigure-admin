@@ -604,6 +604,7 @@ export default function PayrollMonthPreview() {
             <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} searchable />
             <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} searchable />
             <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
+            <MultiCheckPop label={language === "ar" ? "بلد الرواتب" : "Payroll Country"} options={payrollCountries.map((c) => ({ id: c, name: c }))} selected={payrollCountryFilter} onChange={setPayrollCountryFilter} />
             <MultiCheckPop label={language === "ar" ? "نوع العنصر" : "Element Type"} options={[
               { id: "earning", name: language === "ar" ? "مستحق" : "Earning" },
               { id: "deduction", name: language === "ar" ? "استقطاع" : "Deduction" },
