@@ -36,6 +36,7 @@ type Emp = {
   department_id: string | null;
   job_position_id: string | null;
   employment_status: string | null;
+  payroll_country?: string | null;
   job_start_date?: string | null;
   termination_date?: string | null;
   basic_salary?: number | null;
@@ -64,6 +65,7 @@ export default function PayrollMonthPreview() {
   const [deptFilter, setDeptFilter] = useState<string[]>([]);
   const [jobFilter, setJobFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [payrollCountryFilter, setPayrollCountryFilter] = useState<string[]>([]);
   const [employeeFilter, setEmployeeFilter] = useState<string[]>([]);
   const [elementFilter, setElementFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -76,7 +78,7 @@ export default function PayrollMonthPreview() {
     setLoading(true);
     let empQuery = supabase
       .from("employees")
-      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, job_start_date, termination_date, basic_salary, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
+      .select("id, first_name, first_name_ar, last_name, last_name_ar, employee_number, department_id, job_position_id, employment_status, payroll_country, job_start_date, termination_date, basic_salary, departments(department_name, department_name_ar), job_positions(position_name, position_name_ar)")
       .order("first_name");
     let peQuery = supabase.from("payroll_employee_elements").select("employee_id, element_id, amount, is_active").eq("is_active", true);
     let pvQuery = supabase.from("payroll_variable_entries").select("employee_id, element_id, amount").eq("period_year", year).eq("period_month", month);
@@ -246,6 +248,10 @@ export default function PayrollMonthPreview() {
     const s = new Set<string>(); emps.forEach((e) => { if (e.employment_status) s.add(e.employment_status); });
     return Array.from(s);
   }, [emps]);
+  const payrollCountries = useMemo(() => {
+    const s = new Set<string>(); emps.forEach((e) => { if (e.payroll_country) s.add(e.payroll_country); });
+    return Array.from(s);
+  }, [emps]);
 
   const visibleElements = useMemo(() => {
     let arr = elements;
@@ -261,6 +267,7 @@ export default function PayrollMonthPreview() {
       if (deptFilter.length && (!e.department_id || !deptFilter.includes(e.department_id))) return false;
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
+      if (payrollCountryFilter.length && (!e.payroll_country || !payrollCountryFilter.includes(e.payroll_country))) return false;
       if (terms.length) {
         const hay = `${empName(e)} ${e.employee_number} ${deptName(e.departments)} ${jobName(e.job_positions)}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
@@ -271,7 +278,7 @@ export default function PayrollMonthPreview() {
       }
       return true;
     });
-  }, [emps, employeeFilter, deptFilter, jobFilter, statusFilter, search, hideZeroEmployees, visibleElements, amounts]);
+  }, [emps, employeeFilter, deptFilter, jobFilter, statusFilter, payrollCountryFilter, search, hideZeroEmployees, visibleElements, amounts]);
 
   const sorted = useMemo(() => {
     if (!sortRules.length) return filtered;
@@ -480,7 +487,7 @@ export default function PayrollMonthPreview() {
   };
 
   const clearFilters = () => {
-    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setEmployeeFilter([]); setElementFilter([]); setTypeFilter([]); setHideZeroEmployees(false);
+    setSearch(""); setDeptFilter([]); setJobFilter([]); setStatusFilter([]); setPayrollCountryFilter([]); setEmployeeFilter([]); setElementFilter([]); setTypeFilter([]); setHideZeroEmployees(false);
   };
 
   const MultiCheckPop = ({
@@ -597,6 +604,7 @@ export default function PayrollMonthPreview() {
             <MultiCheckPop label={language === "ar" ? "القسم" : "Department"} options={departments} selected={deptFilter} onChange={setDeptFilter} searchable />
             <MultiCheckPop label={language === "ar" ? "الوظيفة" : "Job"} options={jobs} selected={jobFilter} onChange={setJobFilter} searchable />
             <MultiCheckPop label={language === "ar" ? "الحالة" : "Status"} options={statuses.map((s) => ({ id: s, name: s }))} selected={statusFilter} onChange={setStatusFilter} />
+            <MultiCheckPop label={language === "ar" ? "بلد الرواتب" : "Payroll Country"} options={payrollCountries.map((c) => ({ id: c, name: c }))} selected={payrollCountryFilter} onChange={setPayrollCountryFilter} />
             <MultiCheckPop label={language === "ar" ? "نوع العنصر" : "Element Type"} options={[
               { id: "earning", name: language === "ar" ? "مستحق" : "Earning" },
               { id: "deduction", name: language === "ar" ? "استقطاع" : "Deduction" },
