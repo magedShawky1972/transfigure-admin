@@ -153,7 +153,7 @@ export default function PayrollMonthPreview() {
         el.scrollLeft = maxScroll;
       }
     }
-  }, [loading, sorted.length, visibleElements.length]);
+  }, [loading, emps.length, elements.length]);
 
   const [calculating, setCalculating] = useState(false);
   const calculateProratedBasic = async () => {
