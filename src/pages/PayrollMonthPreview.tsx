@@ -150,7 +150,8 @@ export default function PayrollMonthPreview() {
       const el = tableScrollRef.current;
       const maxScroll = el.scrollWidth - el.clientWidth;
       if (maxScroll > 0) {
-        el.scrollLeft = maxScroll;
+        const isRtl = getComputedStyle(el).direction === "rtl";
+        el.scrollLeft = isRtl ? -maxScroll : 0;
       }
     }
   }, [loading, emps.length, elements.length]);
