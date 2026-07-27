@@ -463,19 +463,13 @@ export default function PayrollRun() {
           let minutes: number | null = null;
 
           if (el.is_delay_minutes_element || el.calculation_type === "delay_minutes") {
-            // Prefer value coming from Deduction Summary (payroll_variable_entries) if present
+            // Only use values posted from Deduction Summary (payroll_variable_entries).
+            // No automatic calculation from attendance.
             const v = (variables || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
-            if (v) {
-              amount = Number(v.amount) || 0;
-              minutes = null;
-            } else {
-              const mins = delayMinutesByEmp[emp.id] || 0;
-              const totalSalary = basicSalaryByEmp[emp.id] || 0;
-              const perMinute = totalSalary > 0 ? totalSalary / 30 / 8 / 60 : 0;
-              amount = mins * perMinute;
-              minutes = mins;
-            }
-            if (amount <= 0 && !minutes) continue;
+            if (!v) continue;
+            amount = Number(v.amount) || 0;
+            minutes = null;
+            if (amount <= 0) continue;
           } else if (el.calculation_type === "variable") {
             const v = (variables || []).find((x: any) => x.employee_id === emp.id && x.element_id === el.id);
             if (!v) continue;
