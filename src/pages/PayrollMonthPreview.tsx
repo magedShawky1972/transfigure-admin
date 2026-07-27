@@ -634,7 +634,7 @@ export default function PayrollMonthPreview() {
         </CardHeader>
         <CardContent>
           <TopHorizontalScrollbar>
-            <div className="overflow-auto">
+            <div className="payroll-scroll overflow-auto">
               <Table dir={language === "ar" ? "rtl" : "ltr"} className="min-w-max">
                 <TableHeader>
                   <TableRow>
