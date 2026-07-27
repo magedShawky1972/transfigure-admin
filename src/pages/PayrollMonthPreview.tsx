@@ -1,5 +1,5 @@
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,7 @@ export default function PayrollMonthPreview() {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [hideZeroEmployees, setHideZeroEmployees] = useState(false);
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "name", dir: "asc" }]);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
 
@@ -141,6 +142,19 @@ export default function PayrollMonthPreview() {
 
 
   useEffect(() => { if (!scopeLoading) load(); /* eslint-disable-next-line */ }, [year, month, scopeLoading, allowedEmployeeIds]);
+
+  // In RTL the first column should be visible at the right edge; browsers sometimes
+  // leave a fresh overflow container at the far left, so scroll to the start once data loads.
+  useEffect(() => {
+    if (!loading && tableScrollRef.current) {
+      const el = tableScrollRef.current;
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll > 0) {
+        const isRtl = getComputedStyle(el).direction === "rtl";
+        el.scrollLeft = isRtl ? -maxScroll : 0;
+      }
+    }
+  }, [loading, emps.length, elements.length]);
 
   const [calculating, setCalculating] = useState(false);
   const calculateProratedBasic = async () => {
@@ -634,14 +648,13 @@ export default function PayrollMonthPreview() {
         </CardHeader>
         <CardContent>
           <TopHorizontalScrollbar>
-            <ScrollArea className="w-full">
-              <div className="min-w-full overflow-x-auto">
-                <Table dir={language === "ar" ? "rtl" : "ltr"}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky start-0 ltr:left-0 rtl:right-0 bg-background z-20 cursor-pointer select-none min-w-[200px] border-r dark:border-zinc-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] rtl:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]" onClick={(e) => toggleSort("name", e)}>
-                        <div className="flex items-center gap-1">{language === "ar" ? "الموظف" : "Employee"} {sortBadge("name")}</div>
-                      </TableHead>
+            <div ref={tableScrollRef} className="payroll-scroll overflow-auto">
+              <Table dir={language === "ar" ? "rtl" : "ltr"} className="min-w-max" wrapperClassName="overflow-visible">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky start-0 ltr:left-0 rtl:right-0 bg-background z-20 cursor-pointer select-none min-w-[200px] border-r dark:border-zinc-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] rtl:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]" onClick={(e) => toggleSort("name", e)}>
+                      <div className="flex items-center gap-1">{language === "ar" ? "الموظف" : "Employee"} {sortBadge("name")}</div>
+                    </TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={(e) => toggleSort("employee_number", e)}>
                         <div className="flex items-center gap-1">{language === "ar" ? "الرقم" : "Number"} {sortBadge("employee_number")}</div>
                       </TableHead>
@@ -715,9 +728,8 @@ export default function PayrollMonthPreview() {
                       </TableRow>
                     </tfoot>
                   )}
-                </Table>
-              </div>
-            </ScrollArea>
+              </Table>
+            </div>
           </TopHorizontalScrollbar>
         </CardContent>
       </Card>
