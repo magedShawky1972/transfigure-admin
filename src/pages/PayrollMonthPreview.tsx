@@ -71,6 +71,7 @@ export default function PayrollMonthPreview() {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [hideZeroEmployees, setHideZeroEmployees] = useState(false);
   const [sortRules, setSortRules] = useState<SortRule[]>([{ key: "name", dir: "asc" }]);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
 
