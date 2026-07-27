@@ -143,6 +143,18 @@ export default function PayrollMonthPreview() {
 
   useEffect(() => { if (!scopeLoading) load(); /* eslint-disable-next-line */ }, [year, month, scopeLoading, allowedEmployeeIds]);
 
+  // In RTL the first column should be visible at the right edge; browsers sometimes
+  // leave a fresh overflow container at the far left, so scroll to the start once data loads.
+  useEffect(() => {
+    if (!loading && tableScrollRef.current) {
+      const el = tableScrollRef.current;
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll > 0) {
+        el.scrollLeft = maxScroll;
+      }
+    }
+  }, [loading, sorted.length, visibleElements.length]);
+
   const [calculating, setCalculating] = useState(false);
   const calculateProratedBasic = async () => {
     const basicElement = elements.find((el) => (el as any).is_basic_salary_element);
