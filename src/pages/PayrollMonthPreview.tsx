@@ -714,9 +714,8 @@ export default function PayrollMonthPreview() {
                       </TableRow>
                     </tfoot>
                   )}
-                </Table>
-              </div>
-            </ScrollArea>
+              </Table>
+            </div>
           </TopHorizontalScrollbar>
         </CardContent>
       </Card>
