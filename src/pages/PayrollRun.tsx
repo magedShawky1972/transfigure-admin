@@ -337,34 +337,10 @@ export default function PayrollRun() {
         supabase.from("payroll_variable_entries").select("*").eq("period_year", year).eq("period_month", month),
       ]);
 
-      // 3. Compute delay minutes per employee (from saved_attendance for the month)
-      const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
-      const lastDate = new Date(year, month, 0).getDate();
-      const lastDay = `${year}-${String(month).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
+      // 3. Delay/late deductions come exclusively from posted Deduction Summary entries
+      //    (payroll_variable_entries) — no attendance-based auto-calculation.
 
-      const empCodeToId: Record<string, string> = {};
-      const { data: empCodes } = await supabase
-        .from("employees")
-        .select("id, employee_number, zk_employee_code");
-      (empCodes || []).forEach((e: any) => {
-        if (e.employee_number) empCodeToId[String(e.employee_number)] = e.id;
-        if (e.zk_employee_code) empCodeToId[String(e.zk_employee_code)] = e.id;
-      });
 
-      const { data: attendance } = await supabase
-        .from("saved_attendance")
-        .select("employee_code, difference_hours")
-        .gte("attendance_date", firstDay)
-        .lte("attendance_date", lastDay);
-      const delayMinutesByEmp: Record<string, number> = {};
-      (attendance || []).forEach((a: any) => {
-        const empId = empCodeToId[String(a.employee_code)];
-        if (!empId) return;
-        const diff = Number(a.difference_hours) || 0;
-        if (diff < 0) {
-          delayMinutesByEmp[empId] = (delayMinutesByEmp[empId] || 0) + Math.abs(diff) * 60;
-        }
-      });
 
       // 4. Build run
       // Delete or get existing run for the period
