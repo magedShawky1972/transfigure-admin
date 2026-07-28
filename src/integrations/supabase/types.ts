@@ -3672,6 +3672,7 @@ export type Database = {
           photo_url: string | null
           religion: string | null
           requires_attendance_signin: boolean | null
+          salary_currency_id: string | null
           shift_plan_id: string | null
           shift_type: Database["public"]["Enums"]["shift_type"]
           termination_date: string | null
@@ -3721,6 +3722,7 @@ export type Database = {
           photo_url?: string | null
           religion?: string | null
           requires_attendance_signin?: boolean | null
+          salary_currency_id?: string | null
           shift_plan_id?: string | null
           shift_type?: Database["public"]["Enums"]["shift_type"]
           termination_date?: string | null
@@ -3770,6 +3772,7 @@ export type Database = {
           photo_url?: string | null
           religion?: string | null
           requires_attendance_signin?: boolean | null
+          salary_currency_id?: string | null
           shift_plan_id?: string | null
           shift_type?: Database["public"]["Enums"]["shift_type"]
           termination_date?: string | null
@@ -3822,6 +3825,13 @@ export type Database = {
             columns: ["medical_insurance_plan_id"]
             isOneToOne: false
             referencedRelation: "medical_insurance_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_salary_currency_id_fkey"
+            columns: ["salary_currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
             referencedColumns: ["id"]
           },
           {

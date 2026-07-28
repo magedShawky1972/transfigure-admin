@@ -1,0 +1,1 @@
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS salary_currency_id uuid REFERENCES public.currencies(id);
