@@ -288,6 +288,7 @@ export default function EmployeeSetup() {
     vacation_balance: "",
     medical_insurance_plan_id: "",
     basic_salary: "",
+    salary_currency_id: "",
     manager_id: "",
     photo_url: "",
     address: "",
@@ -353,6 +354,7 @@ export default function EmployeeSetup() {
         businessUnitsRes,
         costCentersRes,
         buCcMappingRes,
+        currenciesRes,
 
       ] = await Promise.all([
         supabase
@@ -376,6 +378,7 @@ export default function EmployeeSetup() {
         supabase.from("business_units").select("id, unit_name, unit_name_ar").eq("is_active", true).order("unit_name"),
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true).order("cost_center_code"),
         supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
+        supabase.from("currencies").select("id, currency_code, currency_name").eq("is_active", true).order("currency_code"),
       ]);
       
 
@@ -398,6 +401,7 @@ export default function EmployeeSetup() {
       setBusinessUnits((businessUnitsRes.data as any) || []);
       setCostCenters((costCentersRes.data as any) || []);
       setBuCcMappings((buCcMappingRes.data as any) || []);
+      setCurrencies((currenciesRes.data as any) || []);
 
       // Find users without employee records
       const allProfiles = profilesRes.data || [];
@@ -512,6 +516,8 @@ export default function EmployeeSetup() {
       vacation_balance: "",
       medical_insurance_plan_id: "",
       basic_salary: "",
+      salary_currency_id: "",
+    salary_currency_id: "",
       manager_id: "",
       photo_url: "",
       address: "",
@@ -800,6 +806,8 @@ export default function EmployeeSetup() {
       vacation_balance: "",
       medical_insurance_plan_id: "",
       basic_salary: "",
+      salary_currency_id: "",
+    salary_currency_id: "",
       manager_id: "",
       photo_url: "",
       address: "",
@@ -848,6 +856,7 @@ export default function EmployeeSetup() {
       vacation_balance: employee.vacation_balance?.toString() || "",
       medical_insurance_plan_id: employee.medical_insurance_plan_id || "",
       basic_salary: canViewSalary ? (employee.basic_salary?.toString() || "") : "",
+      salary_currency_id: (employee as any).salary_currency_id || "",
       manager_id: employee.manager_id || "",
       photo_url: employee.photo_url || "",
       address: (employee as any).address || "",
@@ -1046,6 +1055,7 @@ export default function EmployeeSetup() {
         vacation_balance: formData.vacation_balance ? parseFloat(formData.vacation_balance) : null,
         medical_insurance_plan_id: formData.medical_insurance_plan_id || null,
         ...(canViewSalary ? { basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : null } : {}),
+        salary_currency_id: formData.salary_currency_id || null,
         manager_id: formData.manager_id || null,
         address: formData.address || null,
         requires_attendance_signin: formData.requires_attendance_signin,
@@ -2291,6 +2301,24 @@ export default function EmployeeSetup() {
                       className="cursor-not-allowed"
                     />
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "عملة الراتب" : "Salary Currency"}</Label>
+                  <Select
+                    value={formData.salary_currency_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, salary_currency_id: value === "_none_" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر العملة" : "Select Currency"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "بدون" : "None"}</SelectItem>
+                      {currencies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.currency_code} - {c.currency_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </TabsContent>
