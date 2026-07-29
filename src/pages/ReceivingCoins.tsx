@@ -168,6 +168,13 @@ const ReceivingCoins = () => {
     }
   }, [view]);
 
+  useEffect(() => {
+    // Load brands for the product filter dropdown in list view
+    supabase.from("brands").select("id, brand_name").eq("status", "active").order("brand_name").then(({ data }) => {
+      if (data) setBrands(data);
+    });
+  }, []);
+
   const fetchDropdowns = async () => {
     const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
       supabase.from("suppliers").select("id, supplier_name").eq("status", "active").order("supplier_name"),
