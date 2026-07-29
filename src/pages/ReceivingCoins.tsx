@@ -763,7 +763,7 @@ const ReceivingCoins = () => {
         toast.error(apiError);
       }
 
-      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: success ? undefined : apiError });
+      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: success ? undefined : apiError, apiUrl });
       fetchReceipts();
     } catch (err: any) {
       const apiError = toDisplayMessage(err, "Error sending to accounting");
@@ -886,7 +886,10 @@ const ReceivingCoins = () => {
       sent_to_accounting_at: success ? new Date().toISOString() : null,
       sent_to_accounting_by: success ? userName : null,
       sajel_payload: data?.sent ?? { invoice, payment },
-      sajel_response: data?.response ?? data,
+      sajel_response: (() => {
+        const r = data?.response ?? data;
+        return r && typeof r === "object" && !Array.isArray(r) ? { ...r, __apiUrl: data?.url } : r;
+      })(),
     } as any).eq("id", receiptId);
     if (success && h.purchase_order_id) {
       await supabase.from("coins_purchase_orders").update({
