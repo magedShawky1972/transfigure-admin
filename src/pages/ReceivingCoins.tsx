@@ -1416,24 +1416,35 @@ const ReceivingCoins = () => {
            hideStatusSelect
          />
 
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-           <div className="relative">
-             <Input
-               placeholder={isArabic ? "البحث برقم الطلب..." : "Search by Order Number..."}
-               value={searchOrderNumber}
-               onChange={(e) => setSearchOrderNumber(e.target.value)}
-               className="pr-10"
-             />
-           </div>
-           <div className="relative">
-             <Input
-               placeholder={isArabic ? "البحث برقم الإيصال..." : "Search by Receipt Number..."}
-               value={searchReceiptNumber}
-               onChange={(e) => setSearchReceiptNumber(e.target.value)}
-               className="pr-10"
-             />
-           </div>
-         </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="relative">
+              <Input
+                placeholder={isArabic ? "البحث برقم الطلب..." : "Search by Order Number..."}
+                value={searchOrderNumber}
+                onChange={(e) => setSearchOrderNumber(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            <div className="relative">
+              <Input
+                placeholder={isArabic ? "البحث برقم الإيصال..." : "Search by Receipt Number..."}
+                value={searchReceiptNumber}
+                onChange={(e) => setSearchReceiptNumber(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            <Select value={productFilter} onValueChange={setProductFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder={isArabic ? "تصفية حسب المنتج" : "Filter by Product"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل المنتجات" : "All Products"}</SelectItem>
+                {brands.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
         {(() => {
           const filteredReceipts = receipts.filter(r => {
