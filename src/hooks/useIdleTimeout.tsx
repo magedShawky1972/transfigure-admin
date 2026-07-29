@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
-const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const DEFAULT_IDLE_TIMEOUT_MINUTES = 180; // 3 hours
 const WARNING_TIME = 2 * 60 * 1000; // Show warning 2 minutes before logout
 
 interface IdleTimeoutConfig {
@@ -17,8 +17,9 @@ export const useIdleTimeout = () => {
   const timeoutId = useRef<NodeJS.Timeout | null>(null);
   const warningId = useRef<NodeJS.Timeout | null>(null);
   const [showWarning, setShowWarning] = useState(false);
-  const [isEnabled, setIsEnabled] = useState(true);
-  const isEnabledRef = useRef(true);
+  const [isEnabled, setIsEnabled] = useState(false);
+  const isEnabledRef = useRef(false);
+  const timeoutMinutesRef = useRef(DEFAULT_IDLE_TIMEOUT_MINUTES);
 
   // Load configuration from database
   const loadConfig = async () => {
@@ -36,8 +37,13 @@ export const useIdleTimeout = () => {
 
       if (data && data.setting_value) {
         const config = data.setting_value as unknown as IdleTimeoutConfig;
-        setIsEnabled(config.enabled ?? true);
-        isEnabledRef.current = config.enabled ?? true;
+        const enabled = config.enabled ?? false;
+        const configuredMinutes = Number(config.timeout_minutes);
+        timeoutMinutesRef.current = Number.isFinite(configuredMinutes) && configuredMinutes > 0
+          ? configuredMinutes
+          : DEFAULT_IDLE_TIMEOUT_MINUTES;
+        setIsEnabled(enabled);
+        isEnabledRef.current = enabled;
       }
     } catch (error) {
       console.error("Error loading idle timeout config:", error);
@@ -75,6 +81,8 @@ export const useIdleTimeout = () => {
     // Hide warning if it was showing
     setShowWarning(false);
 
+    const idleTimeout = timeoutMinutesRef.current * 60 * 1000;
+
     // Set warning timer (2 minutes before logout)
     warningId.current = setTimeout(() => {
       setShowWarning(true);
@@ -83,12 +91,12 @@ export const useIdleTimeout = () => {
         description: "You'll be logged out in 2 minutes due to inactivity.",
         duration: 10000,
       });
-    }, IDLE_TIMEOUT - WARNING_TIME);
+    }, Math.max(idleTimeout - WARNING_TIME, 0));
 
     // Set logout timer
     timeoutId.current = setTimeout(() => {
       logout();
-    }, IDLE_TIMEOUT);
+    }, idleTimeout);
   };
 
   const handleActivity = () => {
@@ -98,21 +106,14 @@ export const useIdleTimeout = () => {
   };
 
   useEffect(() => {
-    // Load config first
-    loadConfig();
-
-    // Check if user is logged in
-    const checkAuth = async () => {
+    // Load the configuration before starting any timer so the old 30-minute
+    // default can never log a user out while settings are still loading.
+    const initialize = async () => {
+      await loadConfig();
       const { data: { session } } = await supabase.auth.getSession();
-      if (session && isEnabledRef.current) {
-        resetTimer();
-      }
+      if (session && isEnabledRef.current) resetTimer();
     };
-
-    // Delay auth check to allow config to load first
-    const initTimeout = setTimeout(() => {
-      checkAuth();
-    }, 500);
+    void initialize();
 
     // Activity events to track
     const events = [
@@ -141,7 +142,6 @@ export const useIdleTimeout = () => {
 
     // Cleanup
     return () => {
-      clearTimeout(initTimeout);
       events.forEach((event) => {
         document.removeEventListener(event, handleActivity);
       });

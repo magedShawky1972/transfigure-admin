@@ -96,7 +96,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     localStorage.setItem("menuMode", newMode);
   };
   
-  // Initialize idle timeout session manager (30 minutes)
+  // Initialize configurable idle timeout session manager (default: 3 hours)
   useIdleTimeout();
 
   // Check for sysadmin session

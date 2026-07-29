@@ -91,7 +91,7 @@ const SystemConfig = () => {
   const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [idleTimeoutConfig, setIdleTimeoutConfig] = useState<IdleTimeoutConfig>({
     enabled: true,
-    timeout_minutes: 30,
+    timeout_minutes: 180,
   });
   const [savingIdleTimeout, setSavingIdleTimeout] = useState(false);
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
@@ -248,7 +248,7 @@ const SystemConfig = () => {
       const value = data.setting_value as unknown as IdleTimeoutConfig;
       setIdleTimeoutConfig({
         enabled: value.enabled ?? true,
-        timeout_minutes: value.timeout_minutes ?? 30,
+        timeout_minutes: value.timeout_minutes ?? 180,
       });
     }
   };
@@ -1208,11 +1208,11 @@ const SystemConfig = () => {
                 }
               />
               <Label htmlFor="idle_timeout_enabled" className="cursor-pointer">
-                Enable automatic logout after idle session (30 minutes)
+                 Enable automatic logout after idle session (3 hours)
               </Label>
             </div>
             <p className="text-sm text-muted-foreground">
-              When enabled, users will be automatically logged out after 30 minutes of inactivity. 
+               When enabled, users will be automatically logged out after 3 hours of inactivity. 
               A warning notification will appear 2 minutes before logout.
             </p>
 
