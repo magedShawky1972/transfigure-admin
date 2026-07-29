@@ -533,12 +533,31 @@ export default function PayrollRun() {
     if (!runLines || runLines.length === 0) throw new Error(isAr ? "لا توجد سطور في المسيرة" : "No lines in this run");
 
     const empIds = Array.from(new Set(runLines.map((l: any) => l.employee_id)));
-    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }] = await Promise.all([
-      supabase.from("employees").select("id, working_business_unit_id, cost_center_id").in("id", empIds),
+    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }, { data: currs }, { data: rates }] = await Promise.all([
+      supabase.from("employees").select("id, working_business_unit_id, cost_center_id, salary_currency_id").in("id", empIds),
       supabase.from("business_units").select("id, unit_code, unit_name"),
       supabase.from("cost_centers").select("id, cost_center_code, cost_center_name"),
       supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
+      supabase.from("currencies").select("id, currency_code, is_base, is_active"),
+      supabase.from("currency_rates").select("currency_id, rate_to_base, conversion_operator, effective_date"),
     ]);
+
+    const currMap: Record<string, any> = {};
+    (currs || []).forEach((c: any) => { currMap[c.id] = c; });
+    const baseCurr = (currs || []).find((c: any) => c.is_base);
+    // latest rate per currency
+    const rateMap: Record<string, any> = {};
+    (rates || []).forEach((r: any) => {
+      const prev = rateMap[r.currency_id];
+      if (!prev || String(r.effective_date) > String(prev.effective_date)) rateMap[r.currency_id] = r;
+    });
+    const rateFor = (currencyId?: string | null) => {
+      if (!currencyId || (baseCurr && currencyId === baseCurr.id)) return 1;
+      const r = rateMap[currencyId];
+      if (!r || !Number(r.rate_to_base)) return 1;
+      const v = Number(r.rate_to_base);
+      return (r.conversion_operator || "multiply") === "multiply" ? v : 1 / v;
+    };
 
     const buMap: Record<string, any> = {};
     (bus || []).forEach((b: any) => { buMap[b.id] = b; });
