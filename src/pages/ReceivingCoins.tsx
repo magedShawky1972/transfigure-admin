@@ -629,7 +629,7 @@ const ReceivingCoins = () => {
   const [receiptStatus, setReceiptStatus] = useState("draft");
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const [sendingToAccounting, setSendingToAccounting] = useState(false);
-  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string }>({ open: false, status: "pending", sent: null, response: null });
+  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string; apiUrl?: string }>({ open: false, status: "pending", sent: null, response: null });
   const [sendProgress, setSendProgress] = useState<{ open: boolean; total: number; done: number; currentRef: string; ok: number; fail: number; results: { ref: string; ok: boolean; error?: string }[] }>({ open: false, total: 0, done: 0, currentRef: "", ok: 0, fail: 0, results: [] });
 
   const handleCloseEntry = async () => {
@@ -729,7 +729,12 @@ const ReceivingCoins = () => {
 
       const success = data?.success === true;
       const sentPayload = data?.sent ?? { invoice, payment };
+      const apiUrl: string | undefined = data?.url;
       const responsePayload = data?.response ?? data;
+      const storedResponse =
+        responsePayload && typeof responsePayload === "object" && !Array.isArray(responsePayload)
+          ? { ...responsePayload, __apiUrl: apiUrl }
+          : responsePayload;
 
       // Persist result
       const { data: { user } } = await supabase.auth.getUser();
@@ -739,7 +744,7 @@ const ReceivingCoins = () => {
         sent_to_accounting_at: success ? new Date().toISOString() : null,
         sent_to_accounting_by: success ? userName : null,
         sajel_payload: sentPayload,
-        sajel_response: responsePayload,
+        sajel_response: storedResponse,
       } as any).eq("id", selectedReceiptId);
 
       if (success && linkedPurchaseOrderId) {
