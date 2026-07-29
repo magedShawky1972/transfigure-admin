@@ -311,6 +311,24 @@ const ReceivingCoins = () => {
           }
         }
       }
+      // Build product/brand map for filtering
+      const headerIds = data.map((r: any) => r.id);
+      const brandMap: Record<string, { brand_id: string; brand_name: string; product_name: string }[]> = {};
+      if (headerIds.length > 0) {
+        const { data: allLines } = await supabase
+          .from("receiving_coins_line")
+          .select("header_id, brand_id, brand_name, product_name")
+          .in("header_id", headerIds);
+        for (const line of allLines || []) {
+          if (!brandMap[line.header_id]) brandMap[line.header_id] = [];
+          brandMap[line.header_id].push({
+            brand_id: line.brand_id || "",
+            brand_name: line.brand_name || "",
+            product_name: line.product_name || "",
+          });
+        }
+      }
+      setReceiptBrandMap(brandMap);
       setReceipts(data);
     }
   };
