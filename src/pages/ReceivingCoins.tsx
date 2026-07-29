@@ -1464,6 +1464,12 @@ const ReceivingCoins = () => {
               const rcptNum = (r.receipt_number || "").toLowerCase();
               if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
             }
+            // Product filter
+            if (productFilter && productFilter !== "all") {
+              const lines = receiptBrandMap[r.id] || [];
+              const matches = lines.some(l => l.brand_id === productFilter || l.product_name === productFilter);
+              if (!matches) return false;
+            }
             return true;
           });
           return (
