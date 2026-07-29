@@ -1052,6 +1052,23 @@ const ReceivingCoins = () => {
         return;
       }
 
+      // Build product/brand map for export filtering
+      const exportHeaderIds = allReceipts.map((r: any) => r.id);
+      const exportBrandMap: Record<string, { brand_id: string; product_name: string }[]> = {};
+      if (exportHeaderIds.length > 0) {
+        const { data: exportLines } = await supabase
+          .from("receiving_coins_line")
+          .select("header_id, brand_id, product_name")
+          .in("header_id", exportHeaderIds);
+        for (const line of exportLines || []) {
+          if (!exportBrandMap[line.header_id]) exportBrandMap[line.header_id] = [];
+          exportBrandMap[line.header_id].push({
+            brand_id: line.brand_id || "",
+            product_name: line.product_name || "",
+          });
+        }
+      }
+
       // Apply same filters as the list view
       const filtered = allReceipts.filter((r: any) => {
         if (statusFilter === "pending" && r.status === "closed") return false;
@@ -1067,6 +1084,10 @@ const ReceivingCoins = () => {
         if (searchReceiptNumber) {
           const rcptNum = (r.receipt_number || "").toLowerCase();
           if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+        }
+        if (productFilter && productFilter !== "all") {
+          const lines = exportBrandMap[r.id] || [];
+          if (!lines.some(l => l.brand_id === productFilter || l.product_name === productFilter)) return false;
         }
         return true;
       });
