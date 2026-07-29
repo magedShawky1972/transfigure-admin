@@ -1456,17 +1456,36 @@ const ReceivingCoins = () => {
                 className="pr-10"
               />
             </div>
-            <Select value={productFilter} onValueChange={setProductFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder={isArabic ? "تصفية حسب المنتج" : "Filter by Product"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{isArabic ? "كل المنتجات" : "All Products"}</SelectItem>
-                {brands.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                  {productFilter && productFilter !== "all"
+                    ? brands.find((b) => b.id === productFilter)?.brand_name || (isArabic ? "تصفية حسب البراند" : "Filter by Brand")
+                    : (isArabic ? "تصفية حسب البراند" : "Filter by Brand")}
+                  <span className="ml-2 opacity-50">⌘</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder={isArabic ? "البحث عن براند..." : "Search brand..."} />
+                  <CommandList>
+                    <CommandEmpty>{isArabic ? "لا توجد نتائج" : "No results found."}</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="all" onSelect={() => setProductFilter("all")}>
+                        <CheckCircle2 className={`mr-2 h-4 w-4 ${productFilter === "all" ? "opacity-100" : "opacity-0"}`} />
+                        {isArabic ? "كل البراندات" : "All Brands"}
+                      </CommandItem>
+                      {brands.map((b) => (
+                        <CommandItem key={b.id} value={b.brand_name} onSelect={() => setProductFilter(b.id)}>
+                          <CheckCircle2 className={`mr-2 h-4 w-4 ${productFilter === b.id ? "opacity-100" : "opacity-0"}`} />
+                          {b.brand_name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
         {(() => {
