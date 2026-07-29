@@ -94,8 +94,39 @@ const BrandReceivingEntryReport = () => {
       const headerMap: Record<string, any> = {};
       (headers || []).forEach((h: any) => (headerMap[h.id] = h));
 
+      // Per-brand control amounts from purchase order lines (for accurate unit price)
+      const poIds = [...new Set((headers || []).map((h: any) => h.purchase_order_id).filter(Boolean))];
+      const brandControlMap: Record<string, Record<string, number>> = {};
+      for (let i = 0; i < poIds.length; i += 500) {
+        const chunk = poIds.slice(i, i + 500);
+        const { data: ols } = await supabase
+          .from("coins_purchase_order_lines")
+          .select("purchase_order_id, brand_id, amount_in_currency")
+          .in("purchase_order_id", chunk);
+        for (const ol of ols || []) {
+          if (!ol.brand_id) continue;
+          if (!brandControlMap[ol.purchase_order_id]) brandControlMap[ol.purchase_order_id] = {};
+          brandControlMap[ol.purchase_order_id][ol.brand_id] =
+            (brandControlMap[ol.purchase_order_id][ol.brand_id] || 0) + (Number(ol.amount_in_currency) || 0);
+        }
+      }
+
+      // Brand one_usd_to_coins rates
+      const brandIds = [...new Set(lines.map((l: any) => l.brand_id).filter(Boolean))];
+      const brandRateMap: Record<string, number> = {};
+      for (let i = 0; i < brandIds.length; i += 500) {
+        const chunk = brandIds.slice(i, i + 500);
+        const { data: brs } = await supabase.from("brands").select("id, one_usd_to_coins").in("id", chunk);
+        for (const b of brs || []) brandRateMap[b.id] = Number(b.one_usd_to_coins) || 0;
+      }
+
       const out: Row[] = lines.map((l: any) => {
         const h = headerMap[l.header_id] || {};
+        const coins = Number(l.coins) || 0;
+        const brandControl = l.brand_id ? (brandControlMap[h.purchase_order_id]?.[l.brand_id] || 0) : 0;
+        const oneUsdToCoins = l.brand_id ? (brandRateMap[l.brand_id] || 0) : 0;
+        const expectedCoins = oneUsdToCoins > 0 && brandControl > 0 ? Math.floor(brandControl * oneUsdToCoins) : 0;
+        const unitPrice = expectedCoins > 0 && brandControl > 0 ? brandControl / expectedCoins : (Number(l.unit_price) || 0);
         return {
           header_id: l.header_id,
           receipt_number: h.receipt_number || "",
@@ -105,14 +136,15 @@ const BrandReceivingEntryReport = () => {
           currency_code: h.currencies?.currency_code || "-",
           brand_id: l.brand_id || "",
           brand_name: l.brand_name || l.product_name || "-",
-          coins: Number(l.coins) || 0,
-          unit_price: Number(l.unit_price) || 0,
-          total: Number(l.total) || 0,
+          coins,
+          unit_price: unitPrice,
+          total: coins * unitPrice,
           is_confirmed: !!l.is_confirmed,
           stage: getStage(h),
         };
       });
       setRows(out);
+
     } catch (err: any) {
       toast.error(err.message || "Failed to load report");
     } finally {
