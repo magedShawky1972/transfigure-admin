@@ -1772,6 +1772,12 @@ const ReceivingCoins = () => {
                   : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
               </DialogTitle>
             </DialogHeader>
+            {sajelDialog.apiUrl && (
+              <div className="space-y-1 pb-2">
+                <div className="font-semibold text-sm">{isArabic ? "رابط الـ API" : "API URL"}</div>
+                <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl}</div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
               <div className="space-y-2">
                 <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل" : "Request Sent"}</div>
@@ -1896,6 +1902,12 @@ const ReceivingCoins = () => {
                 : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
             </DialogTitle>
           </DialogHeader>
+          {sajelDialog.apiUrl && (
+            <div className="space-y-1 pb-2">
+              <div className="font-semibold text-sm">{isArabic ? "رابط الـ API" : "API URL"}</div>
+              <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl}</div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
             <div className="space-y-2">
               <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل (AP Invoice + Payment)" : "Request Sent (AP Invoice + Payment)"}</div>
