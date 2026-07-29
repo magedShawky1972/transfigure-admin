@@ -79,6 +79,7 @@ import PdfToExcel from "./pages/PdfToExcel";
 import OrderPaymentReport from "./pages/OrderPaymentReport";
 import DataLoadingStatus from "./pages/DataLoadingStatus";
 import CoinsLedgerReport from "./pages/CoinsLedgerReport";
+import BrandReceivingEntryReport from "./pages/BrandReceivingEntryReport";
 import ProjectGantt from "./pages/ProjectGantt";
 import BankStatementReport from "./pages/BankStatementReport";
 import BankStatementAsOf from "./pages/BankStatementAsOf";
@@ -262,6 +263,7 @@ const App = () => (
               <Route path="/reports/order-payment" element={<OrderPaymentReport />} />
               <Route path="/reports/data-loading-status" element={<DataLoadingStatus />} />
               <Route path="/reports/coins-ledger" element={<CoinsLedgerReport />} />
+              <Route path="/reports/brand-receiving-entry" element={<BrandReceivingEntryReport />} />
               <Route path="/reports/bank-statement" element={<BankStatementReport />} />
               <Route path="/reports/bank-statement-as-of" element={<BankStatementAsOf />} />
               <Route path="/reports/riyad-bank" element={<RiyadBankReport />} />

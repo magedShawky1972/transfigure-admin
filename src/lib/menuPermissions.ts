@@ -15,6 +15,7 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/software-license-setup": "softwareLicenseSetup",
   "/reports": "reports",
   "/reports/riyad-bank": "reports",
+  "/reports/brand-receiving-entry": "reports",
   "/transactions": "transactions",
   "/transaction-statistics": "transactionStatistics",
   "/pivot-table": "pivotTable",

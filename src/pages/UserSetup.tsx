@@ -347,6 +347,7 @@ const REPORTS = [
   { key: "projects-tasks", labelEn: "Projects & Tasks Report", labelAr: "تقرير المشاريع والمهام" },
   { key: "payment-whatif", labelEn: "Payment What-If Scenario", labelAr: "سيناريو ماذا لو - الدفع" },
   { key: "class-a-balance-images", labelEn: 'Class "A" Balance Images Report', labelAr: "تقرير صور أرصدة الفئة A" },
+  { key: "brand-receiving-entry", labelEn: "Brand Receiving Entry Report", labelAr: "تقرير استلام الكوينز حسب البراند" },
 ];
 
 const UserSetup = () => {
