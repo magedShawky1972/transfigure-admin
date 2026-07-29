@@ -106,6 +106,8 @@ const ReceivingCoins = () => {
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
   const [searchReceiptNumber, setSearchReceiptNumber] = useState("");
+  const [productFilter, setProductFilter] = useState<string>("");
+  const [receiptBrandMap, setReceiptBrandMap] = useState<Record<string, { brand_id: string; brand_name: string; product_name: string }[]>>({});
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
@@ -165,6 +167,13 @@ const ReceivingCoins = () => {
       fetchDropdowns();
     }
   }, [view]);
+
+  useEffect(() => {
+    // Load brands for the product filter dropdown in list view
+    supabase.from("brands").select("id, brand_name").eq("status", "active").order("brand_name").then(({ data }) => {
+      if (data) setBrands(data);
+    });
+  }, []);
 
   const fetchDropdowns = async () => {
     const [suppRes, brandRes, bankRes, currRes] = await Promise.all([
@@ -309,6 +318,24 @@ const ReceivingCoins = () => {
           }
         }
       }
+      // Build product/brand map for filtering
+      const headerIds = data.map((r: any) => r.id);
+      const brandMap: Record<string, { brand_id: string; brand_name: string; product_name: string }[]> = {};
+      if (headerIds.length > 0) {
+        const { data: allLines } = await supabase
+          .from("receiving_coins_line")
+          .select("header_id, brand_id, brand_name, product_name")
+          .in("header_id", headerIds);
+        for (const line of allLines || []) {
+          if (!brandMap[line.header_id]) brandMap[line.header_id] = [];
+          brandMap[line.header_id].push({
+            brand_id: line.brand_id || "",
+            brand_name: line.brand_name || "",
+            product_name: line.product_name || "",
+          });
+        }
+      }
+      setReceiptBrandMap(brandMap);
       setReceipts(data);
     }
   };
@@ -1025,6 +1052,23 @@ const ReceivingCoins = () => {
         return;
       }
 
+      // Build product/brand map for export filtering
+      const exportHeaderIds = allReceipts.map((r: any) => r.id);
+      const exportBrandMap: Record<string, { brand_id: string; product_name: string }[]> = {};
+      if (exportHeaderIds.length > 0) {
+        const { data: exportLines } = await supabase
+          .from("receiving_coins_line")
+          .select("header_id, brand_id, product_name")
+          .in("header_id", exportHeaderIds);
+        for (const line of exportLines || []) {
+          if (!exportBrandMap[line.header_id]) exportBrandMap[line.header_id] = [];
+          exportBrandMap[line.header_id].push({
+            brand_id: line.brand_id || "",
+            product_name: line.product_name || "",
+          });
+        }
+      }
+
       // Apply same filters as the list view
       const filtered = allReceipts.filter((r: any) => {
         if (statusFilter === "pending" && r.status === "closed") return false;
@@ -1040,6 +1084,10 @@ const ReceivingCoins = () => {
         if (searchReceiptNumber) {
           const rcptNum = (r.receipt_number || "").toLowerCase();
           if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+        }
+        if (productFilter && productFilter !== "all") {
+          const lines = exportBrandMap[r.id] || [];
+          if (!lines.some(l => l.brand_id === productFilter || l.product_name === productFilter)) return false;
         }
         return true;
       });
@@ -1389,24 +1437,35 @@ const ReceivingCoins = () => {
            hideStatusSelect
          />
 
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-           <div className="relative">
-             <Input
-               placeholder={isArabic ? "البحث برقم الطلب..." : "Search by Order Number..."}
-               value={searchOrderNumber}
-               onChange={(e) => setSearchOrderNumber(e.target.value)}
-               className="pr-10"
-             />
-           </div>
-           <div className="relative">
-             <Input
-               placeholder={isArabic ? "البحث برقم الإيصال..." : "Search by Receipt Number..."}
-               value={searchReceiptNumber}
-               onChange={(e) => setSearchReceiptNumber(e.target.value)}
-               className="pr-10"
-             />
-           </div>
-         </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="relative">
+              <Input
+                placeholder={isArabic ? "البحث برقم الطلب..." : "Search by Order Number..."}
+                value={searchOrderNumber}
+                onChange={(e) => setSearchOrderNumber(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            <div className="relative">
+              <Input
+                placeholder={isArabic ? "البحث برقم الإيصال..." : "Search by Receipt Number..."}
+                value={searchReceiptNumber}
+                onChange={(e) => setSearchReceiptNumber(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            <Select value={productFilter} onValueChange={setProductFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder={isArabic ? "تصفية حسب المنتج" : "Filter by Product"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{isArabic ? "كل المنتجات" : "All Products"}</SelectItem>
+                {brands.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.brand_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
         {(() => {
           const filteredReceipts = receipts.filter(r => {
@@ -1425,6 +1484,12 @@ const ReceivingCoins = () => {
             if (searchReceiptNumber) {
               const rcptNum = (r.receipt_number || "").toLowerCase();
               if (!rcptNum.includes(searchReceiptNumber.toLowerCase())) return false;
+            }
+            // Product filter
+            if (productFilter && productFilter !== "all") {
+              const lines = receiptBrandMap[r.id] || [];
+              const matches = lines.some(l => l.brand_id === productFilter || l.product_name === productFilter);
+              if (!matches) return false;
             }
             return true;
           });
