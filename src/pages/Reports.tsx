@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['income-statement', 'class-a-balance-images', 'revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins', 'brand-first-sale-date']);
+        setAllowedReports(['income-statement', 'class-a-balance-images', 'revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins', 'brand-first-sale-date', 'brand-receiving-entry']);
         setLoading(false);
         return;
       }
@@ -432,6 +432,15 @@ const Reports = () => {
         : "Earliest transaction date per brand from purpletransaction",
       icon: Calendar,
       route: "/reports/brand-first-sale-date",
+    },
+    {
+      id: "brand-receiving-entry",
+      name: language === "ar" ? "تقرير استلام الكوينز حسب البراند" : "Brand Receiving Entry Report",
+      description: language === "ar"
+        ? "استلام الكوينز حسب البراند مع فلاتر نطاق التاريخ والبراند والحالة"
+        : "Brand receiving entries with date range, brand and status filters",
+      icon: Coins,
+      route: "/reports/brand-receiving-entry",
     },
   ];
 
