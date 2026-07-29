@@ -581,7 +581,7 @@ export default function PayrollRun() {
     const lastDate = new Date(run.period_year, run.period_month, 0).getDate();
     const entryDate = `${run.period_year}-${String(run.period_month).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
 
-    // Group by BU -> cost center
+    // Group by BU + currency -> cost center
     const grouped: Record<string, Record<string, number>> = {};
     const warnings: string[] = [];
     Object.entries(netByEmp).forEach(([empId, net]) => {
@@ -589,6 +589,7 @@ export default function PayrollRun() {
       const meta = empMeta[empId];
       const buId = meta?.working_business_unit_id;
       const ccId = meta?.cost_center_id;
+      const curId = meta?.salary_currency_id || baseCurr?.id || "";
       if (!buId || !ccId) {
         warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد وحدة عمل / مركز تكلفة" : "missing business unit / cost center"}`);
         return;
@@ -597,11 +598,13 @@ export default function PayrollRun() {
         warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد حساب مدين في الربط" : "no payroll Dr. account mapping"}`);
         return;
       }
-      grouped[buId] = grouped[buId] || {};
-      grouped[buId][ccId] = (grouped[buId][ccId] || 0) + net;
+      const key = `${buId}|${curId}`;
+      grouped[key] = grouped[key] || {};
+      grouped[key][ccId] = (grouped[key][ccId] || 0) + net;
     });
 
-    const journals = Object.entries(grouped).map(([buId, byCc]) => {
+    const journals = Object.entries(grouped).map(([key, byCc]) => {
+      const [buId, curId] = key.split("|");
       const drLines = Object.entries(byCc).map(([ccId, amount]) => ({
         accountCode: drMap[`${buId}|${ccId}`],
         description: `Payroll ${period} - ${ccMap[ccId]?.cost_center_name || ccMap[ccId]?.cost_center_code || ccId}`,
@@ -609,13 +612,15 @@ export default function PayrollRun() {
         costCenterCode: ccMap[ccId]?.cost_center_code || "",
       }));
       const total = Number(drLines.reduce((s, l) => s + l.debitAmount, 0).toFixed(2));
+      const code = currMap[curId]?.currency_code || baseCurr?.currency_code || "SAR";
+      const exRate = Number(rateFor(curId).toFixed(8));
       return {
         businessUnitCode: buMap[buId]?.unit_code || "",
         periodCode: period,
         entryDate,
         journalCode: "GJ",
-        currencyCode: "SAR",
-        exchangeRate: 1,
+        currencyCode: code,
+        exchangeRate: exRate,
         reference: `Payroll ${period}`,
         description: `Payroll accrual ${period} - ${buMap[buId]?.unit_name || ""}`.trim(),
         lines: [
