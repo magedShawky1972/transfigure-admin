@@ -629,7 +629,7 @@ const ReceivingCoins = () => {
   const [receiptStatus, setReceiptStatus] = useState("draft");
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const [sendingToAccounting, setSendingToAccounting] = useState(false);
-  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string }>({ open: false, status: "pending", sent: null, response: null });
+  const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string; apiUrl?: string }>({ open: false, status: "pending", sent: null, response: null });
   const [sendProgress, setSendProgress] = useState<{ open: boolean; total: number; done: number; currentRef: string; ok: number; fail: number; results: { ref: string; ok: boolean; error?: string }[] }>({ open: false, total: 0, done: 0, currentRef: "", ok: 0, fail: 0, results: [] });
 
   const handleCloseEntry = async () => {
@@ -729,7 +729,12 @@ const ReceivingCoins = () => {
 
       const success = data?.success === true;
       const sentPayload = data?.sent ?? { invoice, payment };
+      const apiUrl: string | undefined = data?.url;
       const responsePayload = data?.response ?? data;
+      const storedResponse =
+        responsePayload && typeof responsePayload === "object" && !Array.isArray(responsePayload)
+          ? { ...responsePayload, __apiUrl: apiUrl }
+          : responsePayload;
 
       // Persist result
       const { data: { user } } = await supabase.auth.getUser();
@@ -739,7 +744,7 @@ const ReceivingCoins = () => {
         sent_to_accounting_at: success ? new Date().toISOString() : null,
         sent_to_accounting_by: success ? userName : null,
         sajel_payload: sentPayload,
-        sajel_response: responsePayload,
+        sajel_response: storedResponse,
       } as any).eq("id", selectedReceiptId);
 
       if (success && linkedPurchaseOrderId) {
@@ -758,7 +763,7 @@ const ReceivingCoins = () => {
         toast.error(apiError);
       }
 
-      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: success ? undefined : apiError });
+      setSajelDialog({ open: true, status: success ? "success" : "failed", sent: sentPayload, response: responsePayload, error: success ? undefined : apiError, apiUrl });
       fetchReceipts();
     } catch (err: any) {
       const apiError = toDisplayMessage(err, "Error sending to accounting");
@@ -881,7 +886,10 @@ const ReceivingCoins = () => {
       sent_to_accounting_at: success ? new Date().toISOString() : null,
       sent_to_accounting_by: success ? userName : null,
       sajel_payload: data?.sent ?? { invoice, payment },
-      sajel_response: data?.response ?? data,
+      sajel_response: (() => {
+        const r = data?.response ?? data;
+        return r && typeof r === "object" && !Array.isArray(r) ? { ...r, __apiUrl: data?.url } : r;
+      })(),
     } as any).eq("id", receiptId);
     if (success && h.purchase_order_id) {
       await supabase.from("coins_purchase_orders").update({
@@ -1658,13 +1666,14 @@ const ReceivingCoins = () => {
                                           const errMsg = !isSuccess
                                             ? (typeof resp === "string" ? resp : (resp?.error || resp?.message || (resp ? "API returned an error" : undefined)))
                                             : undefined;
-                                          setSajelDialog({
-                                            open: true,
-                                            status: isSuccess ? "success" : "failed",
-                                            sent: (r as any).sajel_payload ?? null,
-                                            response: resp ?? null,
-                                            error: errMsg,
-                                          });
+                                           setSajelDialog({
+                                             open: true,
+                                             status: isSuccess ? "success" : "failed",
+                                             sent: (r as any).sajel_payload ?? null,
+                                             response: resp ?? null,
+                                             error: errMsg,
+                                             apiUrl: (resp && typeof resp === "object" ? resp.__apiUrl : undefined) || undefined,
+                                           });
                                         }}
                                         title={
                                           (r as any).sent_to_accounting
@@ -1763,6 +1772,12 @@ const ReceivingCoins = () => {
                   : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
               </DialogTitle>
             </DialogHeader>
+            {sajelDialog.apiUrl && (
+              <div className="space-y-1 pb-2">
+                <div className="font-semibold text-sm">{isArabic ? "رابط الـ API" : "API URL"}</div>
+                <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl}</div>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
               <div className="space-y-2">
                 <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل" : "Request Sent"}</div>
@@ -1887,6 +1902,12 @@ const ReceivingCoins = () => {
                 : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
             </DialogTitle>
           </DialogHeader>
+          {sajelDialog.apiUrl && (
+            <div className="space-y-1 pb-2">
+              <div className="font-semibold text-sm">{isArabic ? "رابط الـ API" : "API URL"}</div>
+              <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl}</div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
             <div className="space-y-2">
               <div className="font-semibold text-sm">{isArabic ? "الطلب المرسل (AP Invoice + Payment)" : "Request Sent (AP Invoice + Payment)"}</div>
