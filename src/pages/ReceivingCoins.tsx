@@ -106,6 +106,8 @@ const ReceivingCoins = () => {
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
   const [searchReceiptNumber, setSearchReceiptNumber] = useState("");
+  const [productFilter, setProductFilter] = useState<string>("");
+  const [receiptBrandMap, setReceiptBrandMap] = useState<Record<string, { brand_id: string; brand_name: string; product_name: string }[]>>({});
 
   // Header state
   const [supplierId, setSupplierId] = useState("");
