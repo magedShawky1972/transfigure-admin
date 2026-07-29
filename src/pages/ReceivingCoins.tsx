@@ -1666,13 +1666,14 @@ const ReceivingCoins = () => {
                                           const errMsg = !isSuccess
                                             ? (typeof resp === "string" ? resp : (resp?.error || resp?.message || (resp ? "API returned an error" : undefined)))
                                             : undefined;
-                                          setSajelDialog({
-                                            open: true,
-                                            status: isSuccess ? "success" : "failed",
-                                            sent: (r as any).sajel_payload ?? null,
-                                            response: resp ?? null,
-                                            error: errMsg,
-                                          });
+                                           setSajelDialog({
+                                             open: true,
+                                             status: isSuccess ? "success" : "failed",
+                                             sent: (r as any).sajel_payload ?? null,
+                                             response: resp ?? null,
+                                             error: errMsg,
+                                             apiUrl: (resp && typeof resp === "object" ? resp.__apiUrl : undefined) || undefined,
+                                           });
                                         }}
                                         title={
                                           (r as any).sent_to_accounting
