@@ -97,12 +97,8 @@ const CoinsPurchaseFollowUp = () => {
 
   const purchaseOrderInDateRange = (order: any) => {
     if (!fromDate && !toDate) return true;
-    if (isDateInRange(order.created_at)) return true;
-
-    const receipts = Array.isArray(order.receiving_coins_header) ? order.receiving_coins_header : [];
-    return receipts.some((receipt: any) =>
-      isDateInRange(receipt.receipt_date) || isDateInRange(receipt.sent_to_accounting_at)
-    );
+    // Filter strictly by the order's own date, not by related receipt dates
+    return isDateInRange(order.created_at);
   };
 
   // Multi-column sort state: array of { key, direction } in priority order
