@@ -635,11 +635,11 @@ const ReceivingCoins = () => {
   useEffect(() => {
     supabase
       .from("sajel_erp_settings")
-      .select("one_step_combined_transaction_url")
+      .select("ap_invoice_api_url")
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => setSajelApiUrlFallback((data as any)?.one_step_combined_transaction_url || ""));
+      .then(({ data }) => setSajelApiUrlFallback((data as any)?.ap_invoice_api_url || ""));
   }, []);
 
 
@@ -734,8 +734,8 @@ const ReceivingCoins = () => {
 
       toast.info(isArabic ? "جاري الإرسال إلى المحاسبة..." : "Sending to Accounting...");
 
-      const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", {
-        body: { invoice, payment, skipCostCenter: true },
+      const { data, error } = await supabase.functions.invoke("sync-receiving-to-sajel", {
+        body: { invoice, payment },
       });
       if (error) throw error;
 
@@ -888,7 +888,7 @@ const ReceivingCoins = () => {
 
     const payment = { paymentMethod: "BANK_TRANSFER", bankCode, referenceNo: h.receipt_number };
 
-    const { data, error } = await supabase.functions.invoke("sync-order-to-sajel", { body: { invoice, payment, skipCostCenter: true } });
+    const { data, error } = await supabase.functions.invoke("sync-receiving-to-sajel", { body: { invoice, payment } });
     if (error) throw error;
     const success = data?.success === true;
     const { data: { user } } = await supabase.auth.getUser();
