@@ -631,6 +631,18 @@ const ReceivingCoins = () => {
   const [sendingToAccounting, setSendingToAccounting] = useState(false);
   const [sajelDialog, setSajelDialog] = useState<{ open: boolean; status: "pending" | "success" | "failed"; sent: any; response: any; error?: string; apiUrl?: string }>({ open: false, status: "pending", sent: null, response: null });
   const [sendProgress, setSendProgress] = useState<{ open: boolean; total: number; done: number; currentRef: string; ok: number; fail: number; results: { ref: string; ok: boolean; error?: string }[] }>({ open: false, total: 0, done: 0, currentRef: "", ok: 0, fail: 0, results: [] });
+  const [sajelApiUrlFallback, setSajelApiUrlFallback] = useState<string>("");
+  useEffect(() => {
+    supabase
+      .from("sajel_erp_settings")
+      .select("one_step_combined_transaction_url")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setSajelApiUrlFallback((data as any)?.one_step_combined_transaction_url || ""));
+  }, []);
+
+
 
   const handleCloseEntry = async () => {
     if (!selectedReceiptId) return;
@@ -1772,10 +1784,10 @@ const ReceivingCoins = () => {
                   : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
               </DialogTitle>
             </DialogHeader>
-            {sajelDialog.apiUrl && (
+            {(sajelDialog.apiUrl || sajelApiUrlFallback) && (
               <div className="space-y-1 pb-2">
                 <div className="font-semibold text-sm">{isArabic ? "رابط الـ API" : "API URL"}</div>
-                <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl}</div>
+                <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl || sajelApiUrlFallback}</div>
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
@@ -1902,10 +1914,10 @@ const ReceivingCoins = () => {
                 : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
             </DialogTitle>
           </DialogHeader>
-          {sajelDialog.apiUrl && (
+          {(sajelDialog.apiUrl || sajelApiUrlFallback) && (
             <div className="space-y-1 pb-2">
               <div className="font-semibold text-sm">{isArabic ? "رابط الـ API" : "API URL"}</div>
-              <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl}</div>
+              <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl || sajelApiUrlFallback}</div>
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
