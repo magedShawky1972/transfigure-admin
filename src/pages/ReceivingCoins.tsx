@@ -1784,10 +1784,10 @@ const ReceivingCoins = () => {
                   : (isArabic ? "فشل الإرسال إلى المحاسبة" : "Failed to Send to Accounting")}
               </DialogTitle>
             </DialogHeader>
-            {sajelDialog.apiUrl && (
+            {(sajelDialog.apiUrl || sajelApiUrlFallback) && (
               <div className="space-y-1 pb-2">
                 <div className="font-semibold text-sm">{isArabic ? "رابط الـ API" : "API URL"}</div>
-                <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl}</div>
+                <div className="text-xs bg-muted p-2 rounded break-all font-mono" dir="ltr">{sajelDialog.apiUrl || sajelApiUrlFallback}</div>
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-auto flex-1">
