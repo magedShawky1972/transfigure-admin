@@ -539,22 +539,22 @@ const CoinsPurchaseFollowUp = () => {
     }
   };
 
-  const phaseCounts = orders.reduce((acc, o) => {
+  const phaseCounts = orders.filter(purchaseOrderInDateRange).reduce((acc, o) => {
     acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const sheetPhaseCounts = sheetOrders.reduce((acc, o) => {
+  const sheetPhaseCounts = sheetOrders.filter((o: any) => inDateRange(o.created_at)).reduce((acc, o) => {
     acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const salesSheetPhaseCounts = salesSheetOrders.reduce((acc, o) => {
+  const salesSheetPhaseCounts = salesSheetOrders.filter((o: any) => inDateRange(o.created_at)).reduce((acc, o) => {
     acc[o.current_phase] = (acc[o.current_phase] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const advancePaymentPhaseCounts = advancePayments.reduce((acc, o) => {
+  const advancePaymentPhaseCounts = advancePayments.filter((o: any) => inDateRange(o.created_at)).reduce((acc, o) => {
     const phase = (o as any).current_phase || (o.accounting_recorded ? "accounting" : o.sent_for_receiving ? "receiving" : "entry");
     acc[phase] = (acc[phase] || 0) + 1;
     return acc;
