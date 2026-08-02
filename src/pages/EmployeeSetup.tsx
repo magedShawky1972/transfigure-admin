@@ -1562,9 +1562,40 @@ export default function EmployeeSetup() {
                             ? (emp.departments?.department_name_ar || emp.departments?.department_name || "-")
                             : (emp.departments?.department_name || "-")}
                         </p>
+                        {(() => {
+                          const cc = costCenters.find((c) => c.id === (emp as any).cost_center_id);
+                          const ccLabel = cc
+                            ? `${cc.cost_center_code} - ${language === "ar" ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}`
+                            : "-";
+                          return (
+                            <div className="w-full mt-3 space-y-1 text-xs text-muted-foreground">
+                              <div className="flex justify-between gap-2">
+                                <span>{language === "ar" ? "مركز التكلفة" : "Cost Center"}</span>
+                                <span className="font-medium text-foreground text-right truncate">{ccLabel}</span>
+                              </div>
+                              <div className="flex justify-between gap-2">
+                                <span>{language === "ar" ? "حساب الرواتب المدين" : "Payroll Dr. Account"}</span>
+                                <span className={`font-medium text-right ${empDrAccount ? "text-foreground" : "text-destructive"}`}>
+                                  {empDrAccount || "-"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-2">
+                                <span>{language === "ar" ? "دولة الرواتب" : "Payroll Country"}</span>
+                                <span className="font-medium text-foreground text-right">{(emp as any).payroll_country || "-"}</span>
+                              </div>
+                              <div className="flex justify-between gap-2">
+                                <span>{language === "ar" ? "تاريخ بداية العمل" : "Job Start Date"}</span>
+                                <span className="font-medium text-foreground text-right">
+                                  {emp.job_start_date ? format(new Date(emp.job_start_date), "yyyy-MM-dd") : "-"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <Badge className={`mt-2 ${getStatusColor(emp.employment_status)}`}>
                           {emp.employment_status}
                         </Badge>
+
                         <div className="flex items-center gap-1 mt-4">
                           <Button
                             variant="ghost"
