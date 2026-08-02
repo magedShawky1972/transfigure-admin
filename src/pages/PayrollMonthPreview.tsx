@@ -209,6 +209,7 @@ export default function PayrollMonthPreview() {
       });
       return;
     }
+    const basicElement = elements.find((el) => (el as any).is_basic_salary_element);
     if (!basicElement) {
       toast({ title: language === "ar" ? "لم يتم العثور على عنصر الراتب الأساسي" : "Basic salary element not found", variant: "destructive" });
       return;
