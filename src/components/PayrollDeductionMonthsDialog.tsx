@@ -236,7 +236,7 @@ export default function PayrollDeductionMonthsDialog({
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 h-[60vh]">
+        <div className="flex-1 min-h-0 h-[60vh] overflow-y-auto overflow-x-hidden pr-2">
           <div className="space-y-6 pr-2">
             <div className="border rounded-md overflow-x-auto">
               <Table className="min-w-[700px]">
