@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer, Eye, Send, Loader2, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
+import { usePayrollMonthLock, isPayrollPeriodLocked } from "@/hooks/usePayrollMonthLock";
 
 type Run = {
   id: string;
