@@ -150,7 +150,7 @@ export default function PayrollDeductionMonthsDialog({
       const elIds = Array.from(new Set((data || []).map((d: any) => d.element_id)));
       const [{ data: emps }, { data: els }] = await Promise.all([
         empIds.length
-          ? supabase.from("employees").select("id, employee_number, full_name_en, full_name_ar").in("id", empIds)
+          ? supabase.from("employees").select("id, employee_number, first_name, last_name, first_name_ar, last_name_ar").in("id", empIds)
           : Promise.resolve({ data: [] as any[] } as any),
         elIds.length
           ? supabase.from("payroll_elements").select("id, name_en, name_ar").in("id", elIds)
@@ -163,7 +163,11 @@ export default function PayrollDeductionMonthsDialog({
         const emp: any = empMap.get(d.employee_id);
         const el: any = elMap.get(d.element_id);
         return {
-          employeeName: emp ? (isAr ? emp.full_name_ar || emp.full_name_en : emp.full_name_en || emp.full_name_ar) : "-",
+          employeeName: emp
+            ? (isAr
+                ? `${emp.first_name_ar || emp.first_name || ""} ${emp.last_name_ar || emp.last_name || ""}`.trim()
+                : `${emp.first_name || ""} ${emp.last_name || ""}`.trim())
+            : "-",
           empNumber: emp?.employee_number || "-",
           elementName: el ? (isAr ? el.name_ar || el.name_en : el.name_en || el.name_ar) : "-",
           amount: Number(d.amount || 0),
