@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2, MessageSquare } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
+import PayrollDeductionMonthsDialog from "@/components/PayrollDeductionMonthsDialog";
 import { getPrintLogoUrl } from "@/lib/printLogo";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import ExcelJS from "exceljs";
@@ -197,6 +198,7 @@ export default function TimesheetManagement() {
   const [monthLocked, setMonthLocked] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
   const [lockLoading, setLockLoading] = useState(false);
+  const [payrollMonthsOpen, setPayrollMonthsOpen] = useState(false);
   const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
   const [recalcRunning, setRecalcRunning] = useState(false);
   const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
