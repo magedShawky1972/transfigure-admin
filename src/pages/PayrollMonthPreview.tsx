@@ -201,7 +201,14 @@ export default function PayrollMonthPreview() {
 
   const [calculating, setCalculating] = useState(false);
   const calculateProratedBasic = async () => {
-    const basicElement = elements.find((el) => (el as any).is_basic_salary_element);
+    if (isLocked) {
+      toast({
+        title: language === "ar" ? "الشهر مقفل" : "Month is locked",
+        description: language === "ar" ? "لا يمكن تعديل أي قيمة في شهر مقفل." : "No payroll value can be changed in a locked month.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!basicElement) {
       toast({ title: language === "ar" ? "لم يتم العثور على عنصر الراتب الأساسي" : "Basic salary element not found", variant: "destructive" });
       return;
