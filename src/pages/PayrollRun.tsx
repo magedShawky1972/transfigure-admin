@@ -218,6 +218,7 @@ export default function PayrollRun() {
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
+  const { isLocked: runMonthLocked } = usePayrollMonthLock(year, month);
   const [runs, setRuns] = useState<Run[]>([]);
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
