@@ -80,6 +80,7 @@ export default function PayrollVariableEntry() {
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
+  const { isLocked: monthLocked } = usePayrollMonthLock(year, month);
 
   const [emps, setEmps] = useState<Emp[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
