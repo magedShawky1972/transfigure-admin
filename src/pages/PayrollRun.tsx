@@ -696,6 +696,10 @@ export default function PayrollRun() {
         : `Confirm and LOCK payroll for ${period}? Once locked it cannot be recomputed without rolling back.`,
       confirmLabel: isAr ? "تأكيد وقفل" : "Confirm & Lock",
       onConfirm: async () => {
+        if (await isPayrollPeriodLocked(run.period_year, run.period_month)) {
+          toast({ title: isAr ? "الشهر مقفل" : "Month is locked", variant: "destructive" });
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         const { error } = await supabase.from("payroll_runs").update({
           status: "confirmed",
