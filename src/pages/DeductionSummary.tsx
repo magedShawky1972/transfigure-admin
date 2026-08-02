@@ -828,8 +828,8 @@ export default function DeductionSummary() {
             </div>
             <Button
               onClick={() => setConfirmOpen(true)}
-              disabled={loading || rows.length === 0 || !selectedElementId || grandTotal <= 0 || existingCount > 0}
-              title={existingCount > 0 ? (isAr ? "تم الإرسال مسبقاً — استخدم التراجع أولاً" : "Already sent — rollback first to resend") : undefined}
+              disabled={loading || rows.length === 0 || !selectedElementId || grandTotal <= 0 || existingCount > 0 || periodLocked}
+              title={periodLocked ? (isAr ? "الشهر مقفل" : "Month is locked") : existingCount > 0 ? (isAr ? "تم الإرسال مسبقاً — استخدم التراجع أولاً" : "Already sent — rollback first to resend") : undefined}
             >
               <Send className="h-4 w-4 mr-2" />
               {existingCount > 0
@@ -847,13 +847,20 @@ export default function DeductionSummary() {
             <Button
               variant="destructive"
               onClick={() => setRollbackOpen(true)}
-              disabled={!selectedElementId || existingCount === 0 || rollingBack}
+              disabled={!selectedElementId || existingCount === 0 || rollingBack || periodLocked}
               title={isAr ? "التراجع عن خصومات التأخير لهذا الشهر" : "Rollback delay deductions for this period"}
             >
               {isAr ? `تراجع (${existingCount})` : `Rollback (${existingCount})`}
             </Button>
 
           </div>
+          {periodLocked && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium">
+              {isAr
+                ? `رواتب ${periodMonth}/${periodYear} مقفلة — لا يمكن إرسال أو تعديل أي خصومات.`
+                : `Payroll ${periodMonth}/${periodYear} is locked — deductions cannot be posted or changed.`}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
