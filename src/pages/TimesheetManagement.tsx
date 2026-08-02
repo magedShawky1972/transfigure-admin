@@ -2879,6 +2879,8 @@ export default function TimesheetManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PayrollDeductionMonthsDialog open={payrollMonthsOpen} onOpenChange={setPayrollMonthsOpen} />
     </div>
   );
 }
