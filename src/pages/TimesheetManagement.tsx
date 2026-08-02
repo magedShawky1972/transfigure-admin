@@ -1883,6 +1883,16 @@ export default function TimesheetManagement() {
             </Button>
             <Button
               variant="outline"
+              onClick={() => setPayrollMonthsOpen(true)}
+              className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+              title={language === "ar" ? "الخصومات المرسلة إلى الرواتب" : "Deductions sent to payroll"}
+            >
+              <Lock className="h-4 w-4 mr-2" />
+              {language === "ar" ? "خصومات الرواتب" : "Payroll Deductions"}
+            </Button>
+            <Button
+
+              variant="outline"
               onClick={exportToExcel}
               disabled={timesheets.length === 0}
             >
