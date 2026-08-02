@@ -446,6 +446,10 @@ export default function DeductionSummary() {
       toast.error(isAr ? "اختر عنصر الخصم" : "Select a delay element");
       return;
     }
+    if (await isPayrollPeriodLocked(periodYear, periodMonth)) {
+      toast.error(isAr ? "الشهر مقفل — لا يمكن إرسال أي خصومات" : "Month is locked — deductions cannot be posted");
+      return;
+    }
     setSending(true);
     try {
       // Helper to upsert variable entries against a given element with per-employee amounts
