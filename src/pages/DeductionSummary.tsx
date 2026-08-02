@@ -159,10 +159,7 @@ export default function DeductionSummary() {
       if (mode === "date") q = q.eq("work_date", date);
       else if (mode === "range") q = q.gte("work_date", from).lte("work_date", to);
       else if (mode === "month" && month) {
-        const [y, m] = month.split("-").map(Number);
-        const start = `${month}-01`;
-        const last = new Date(y, m, 0).getDate();
-        const end = `${month}-${String(last).padStart(2, "0")}`;
+        const { start, end } = attendancePeriodRange(month);
         q = q.gte("work_date", start).lte("work_date", end);
       }
       if (employeeFilter) q = q.eq("employee_id", employeeFilter);
@@ -172,9 +169,8 @@ export default function DeductionSummary() {
       if (error) throw error;
 
       // Exclude approved delays/early_leave
-      const dFrom = mode === "date" ? date : mode === "range" ? from : `${month}-01`;
-      const dTo = mode === "date" ? date : mode === "range" ? to :
-        (() => { const [y, m] = month.split("-").map(Number); return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`; })();
+      const dFrom = mode === "date" ? date : mode === "range" ? from : attendancePeriodRange(month).start;
+      const dTo = mode === "date" ? date : mode === "range" ? to : attendancePeriodRange(month).end;
 
       const { data: approved } = await supabase
         .from("employee_requests")
