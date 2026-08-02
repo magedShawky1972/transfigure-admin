@@ -99,6 +99,7 @@ export default function DeductionSummary() {
   const now = new Date();
   const [periodYear, setPeriodYear] = useState<number>(now.getFullYear());
   const [periodMonth, setPeriodMonth] = useState<number>(now.getMonth() + 1);
+  const { isLocked: periodLocked } = usePayrollMonthLock(periodYear, periodMonth);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
 
