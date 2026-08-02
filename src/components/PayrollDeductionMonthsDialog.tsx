@@ -383,7 +383,7 @@ export default function PayrollDeductionMonthsDialog({
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
