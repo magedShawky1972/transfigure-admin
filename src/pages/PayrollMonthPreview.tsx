@@ -77,6 +77,47 @@ export default function PayrollMonthPreview() {
 
   const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
 
+  const { lock, isLocked, refresh: refreshLock } = usePayrollMonthLock(year, month);
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  const [lockSaving, setLockSaving] = useState(false);
+
+  const toggleLock = async () => {
+    setLockSaving(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id ?? null;
+      if (isLocked) {
+        const { error } = await supabase
+          .from("payroll_month_locks")
+          .update({ is_locked: false, unlocked_by: uid, unlocked_at: new Date().toISOString() })
+          .eq("period_year", year)
+          .eq("period_month", month)
+          .select();
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("payroll_month_locks")
+          .upsert(
+            { period_year: year, period_month: month, is_locked: true, locked_by: uid, locked_at: new Date().toISOString(), unlocked_by: null, unlocked_at: null },
+            { onConflict: "period_year,period_month" },
+          )
+          .select();
+        if (error) throw error;
+      }
+      await refreshLock();
+      toast({
+        title: isLocked
+          ? (language === "ar" ? "تم فتح الشهر" : "Month unlocked")
+          : (language === "ar" ? "تم قفل الشهر" : "Month locked"),
+      });
+      setLockDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: language === "ar" ? "فشل" : "Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setLockSaving(false);
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     let empQuery = supabase
