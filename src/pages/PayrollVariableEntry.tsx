@@ -524,11 +524,19 @@ export default function PayrollVariableEntry() {
             <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
           </Button>
           <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} {language === "ar" ? "غير محفوظ" : "unsaved"}</Badge>
-          <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
+          <Button onClick={saveAll} disabled={saving || dirtyCount === 0 || monthLocked} title={monthLocked ? (language === "ar" ? "الشهر مقفل" : "Month is locked") : undefined}>
             <Save className="h-4 w-4 mr-2" /> {saving ? (language === "ar" ? "جاري الحفظ..." : "Saving...") : (language === "ar" ? "حفظ الكل" : "Save All")}
           </Button>
         </div>
       </div>
+
+      {monthLocked && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium">
+          {language === "ar"
+            ? `رواتب ${month}/${year} مقفلة — لا يمكن حفظ أي تعديل.`
+            : `Payroll ${month}/${year} is locked — no changes can be saved.`}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
