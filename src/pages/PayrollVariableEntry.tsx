@@ -338,6 +338,14 @@ export default function PayrollVariableEntry() {
   };
 
   const saveAll = async () => {
+    if (await isPayrollPeriodLocked(year, month)) {
+      toast({
+        title: language === "ar" ? "الشهر مقفل" : "Month is locked",
+        description: language === "ar" ? "لا يمكن تعديل أي قيمة في شهر مقفل." : "No payroll value can be changed in a locked month.",
+        variant: "destructive",
+      });
+      return;
+    }
     const dirty = Object.entries(matrix).filter(([, v]) => v.dirty);
     if (dirty.length === 0) { toast({ title: language === "ar" ? "لا توجد تغييرات" : "No changes" }); return; }
     setSaving(true);
