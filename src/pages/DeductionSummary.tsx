@@ -36,6 +36,7 @@ import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet, ArrowUp
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
+import { isPayrollPeriodLocked, usePayrollMonthLock } from "@/hooks/usePayrollMonthLock";
 
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat('en-US', {
