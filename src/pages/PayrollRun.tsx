@@ -301,6 +301,14 @@ export default function PayrollRun() {
   useEffect(() => { if (!scopeLoading) { loadRefs(); loadRuns(); } }, [scopeLoading, allowedEmployeeIds]);
 
   const computePeriod = async () => {
+    if (await isPayrollPeriodLocked(year, month)) {
+      toast({
+        title: isAr ? "الشهر مقفل" : "Month is locked",
+        description: isAr ? "لا يمكن إعادة احتساب رواتب شهر مقفل." : "A locked month cannot be recomputed.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     try {
       // 1. Load employees and apply scope filters
