@@ -44,6 +44,20 @@ const formatNumber = (num: number) => {
   }).format(num);
 };
 
+/**
+ * Attendance payroll period standard: a payroll month runs from the 26th of the
+ * previous month to the 25th of the selected month. This affects late/early-leave
+ * and absence attendance only — basic salary always uses a fixed 30-day month.
+ */
+export const attendancePeriodRange = (monthStr: string) => {
+  const [y, m] = monthStr.split("-").map(Number);
+  const start = new Date(y, m - 2, 26);
+  const end = new Date(y, m - 1, 25);
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { start: iso(start), end: iso(end) };
+};
+
+
 interface Row {
   employee_id: string;
   empNumber: string;
