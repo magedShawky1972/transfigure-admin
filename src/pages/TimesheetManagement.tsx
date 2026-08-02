@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2, MessageSquare } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
+import PayrollDeductionMonthsDialog from "@/components/PayrollDeductionMonthsDialog";
 import { getPrintLogoUrl } from "@/lib/printLogo";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import ExcelJS from "exceljs";
@@ -197,6 +198,7 @@ export default function TimesheetManagement() {
   const [monthLocked, setMonthLocked] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
   const [lockLoading, setLockLoading] = useState(false);
+  const [payrollMonthsOpen, setPayrollMonthsOpen] = useState(false);
   const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
   const [recalcRunning, setRecalcRunning] = useState(false);
   const [recalcProgress, setRecalcProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
@@ -1883,6 +1885,16 @@ export default function TimesheetManagement() {
             </Button>
             <Button
               variant="outline"
+              onClick={() => setPayrollMonthsOpen(true)}
+              className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+              title={language === "ar" ? "الخصومات المرسلة إلى الرواتب" : "Deductions sent to payroll"}
+            >
+              <Lock className="h-4 w-4 mr-2" />
+              {language === "ar" ? "خصومات الرواتب" : "Payroll Deductions"}
+            </Button>
+            <Button
+
+              variant="outline"
               onClick={exportToExcel}
               disabled={timesheets.length === 0}
             >
@@ -2867,6 +2879,8 @@ export default function TimesheetManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PayrollDeductionMonthsDialog open={payrollMonthsOpen} onOpenChange={setPayrollMonthsOpen} />
     </div>
   );
 }
