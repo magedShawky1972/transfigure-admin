@@ -865,11 +865,19 @@ export default function PayrollRun() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={computePeriod} disabled={busy}>
+            <Button onClick={computePeriod} disabled={busy || runMonthLocked} title={runMonthLocked ? (isAr ? "الشهر مقفل" : "Month is locked") : undefined}>
               {busy ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
               {isAr ? "تشغيل الرواتب" : "Run Payroll"}
             </Button>
           </div>
+
+          {runMonthLocked && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium">
+              {isAr
+                ? `رواتب ${month}/${year} مقفلة — لا يمكن التشغيل أو التأكيد أو التراجع.`
+                : `Payroll ${month}/${year} is locked — run, confirm and rollback are disabled.`}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
             <Label className="text-xs text-muted-foreground mr-1">{isAr ? "النطاق (اختياري):" : "Run scope (optional):"}</Label>
