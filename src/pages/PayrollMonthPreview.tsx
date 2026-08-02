@@ -633,13 +633,67 @@ export default function PayrollMonthPreview() {
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير إكسل" : "Export Excel"}
           </Button>
-          <Button variant="outline" size="sm" onClick={calculateProratedBasic} disabled={calculating || loading}>
+          <Button variant="outline" size="sm" onClick={calculateProratedBasic} disabled={calculating || loading || isLocked}>
             <Calculator className={`h-4 w-4 mr-2 ${calculating ? "animate-pulse" : ""}`} /> {language === "ar" ? "حساب الراتب الأساسي" : "Calculate Basic Salary"}
           </Button>
           <Button variant="outline" size="sm" onClick={printDocument}>
             <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
           </Button>
+          <Button
+            variant={isLocked ? "destructive" : "default"}
+            size="sm"
+            onClick={() => setLockDialogOpen(true)}
+          >
+            {isLocked ? <LockOpen className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+            {isLocked
+              ? (language === "ar" ? "فتح قفل الشهر" : "Unlock Month")
+              : (language === "ar" ? "قفل الشهر" : "Lock Month")}
+          </Button>
         </div>
+      </div>
+
+      {isLocked && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+          <Lock className="h-4 w-4 text-destructive" />
+          <span className="font-medium">
+            {language === "ar"
+              ? `شهر ${months[month - 1]} ${year} مقفل — لا يمكن تعديل أي قيمة في الرواتب.`
+              : `${months[month - 1]} ${year} is locked — no payroll value can be changed.`}
+          </span>
+          {lock?.locked_at && (
+            <span className="text-muted-foreground text-xs">
+              ({new Date(lock.locked_at).toLocaleString(language === "ar" ? "ar-EG" : "en-US")})
+            </span>
+          )}
+        </div>
+      )}
+
+      <AlertDialog open={lockDialogOpen} onOpenChange={setLockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isLocked
+                ? (language === "ar" ? "فتح قفل الشهر" : "Unlock month")
+                : (language === "ar" ? "قفل الشهر" : "Lock month")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isLocked
+                ? (language === "ar"
+                  ? `سيتم السماح بتعديل رواتب ${months[month - 1]} ${year} مرة أخرى.`
+                  : `Payroll for ${months[month - 1]} ${year} will become editable again.`)
+                : (language === "ar"
+                  ? `سيتم تجميد كل قيم رواتب ${months[month - 1]} ${year}: لا إعادة احتساب، ولا تعديل عناصر متغيرة، ولا إرسال خصومات، ولا تأكيد أو تراجع في تشغيل الرواتب.`
+                  : `All payroll values for ${months[month - 1]} ${year} will be frozen: no recalculation, no variable entry edits, no deduction posting, and no payroll run confirm or rollback.`)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === "ar" ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); toggleLock(); }} disabled={lockSaving}>
+              {lockSaving ? (language === "ar" ? "جارٍ الحفظ..." : "Saving...") : (language === "ar" ? "تأكيد" : "Confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
