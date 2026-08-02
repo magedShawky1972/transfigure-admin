@@ -745,6 +745,10 @@ export default function PayrollRun() {
       destructive: true,
       onConfirm: async () => {
         try {
+          if (await isPayrollPeriodLocked(run.period_year, run.period_month)) {
+            toast({ title: isAr ? "الشهر مقفل" : "Month is locked", variant: "destructive" });
+            return;
+          }
           const { error: delLinesErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
           if (delLinesErr) throw delLinesErr;
           const { error: delRunErr } = await supabase.from("payroll_runs").delete().eq("id", run.id);
