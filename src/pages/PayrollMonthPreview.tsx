@@ -694,7 +694,6 @@ export default function PayrollMonthPreview() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{language === "ar" ? "إجمالي المستحقات" : "Total Earnings"}</div><div className="text-xl font-bold text-emerald-600">{numFmt.format(grand.earn)}</div></CardContent></Card>
