@@ -36,6 +36,7 @@ import { ArrowLeft, Calculator, Loader2, Send, Printer, FileSpreadsheet, ArrowUp
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
+import { isPayrollPeriodLocked, usePayrollMonthLock } from "@/hooks/usePayrollMonthLock";
 
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -43,6 +44,20 @@ const formatNumber = (num: number) => {
     maximumFractionDigits: 2
   }).format(num);
 };
+
+/**
+ * Attendance payroll period standard: a payroll month runs from the 26th of the
+ * previous month to the 25th of the selected month. This affects late/early-leave
+ * and absence attendance only — basic salary always uses a fixed 30-day month.
+ */
+export const attendancePeriodRange = (monthStr: string) => {
+  const [y, m] = monthStr.split("-").map(Number);
+  const start = new Date(y, m - 2, 26);
+  const end = new Date(y, m - 1, 25);
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { start: iso(start), end: iso(end) };
+};
+
 
 interface Row {
   employee_id: string;
@@ -84,6 +99,7 @@ export default function DeductionSummary() {
   const now = new Date();
   const [periodYear, setPeriodYear] = useState<number>(now.getFullYear());
   const [periodMonth, setPeriodMonth] = useState<number>(now.getMonth() + 1);
+  const { isLocked: periodLocked } = usePayrollMonthLock(periodYear, periodMonth);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -145,10 +161,7 @@ export default function DeductionSummary() {
       if (mode === "date") q = q.eq("work_date", date);
       else if (mode === "range") q = q.gte("work_date", from).lte("work_date", to);
       else if (mode === "month" && month) {
-        const [y, m] = month.split("-").map(Number);
-        const start = `${month}-01`;
-        const last = new Date(y, m, 0).getDate();
-        const end = `${month}-${String(last).padStart(2, "0")}`;
+        const { start, end } = attendancePeriodRange(month);
         q = q.gte("work_date", start).lte("work_date", end);
       }
       if (employeeFilter) q = q.eq("employee_id", employeeFilter);
@@ -158,9 +171,8 @@ export default function DeductionSummary() {
       if (error) throw error;
 
       // Exclude approved delays/early_leave
-      const dFrom = mode === "date" ? date : mode === "range" ? from : `${month}-01`;
-      const dTo = mode === "date" ? date : mode === "range" ? to :
-        (() => { const [y, m] = month.split("-").map(Number); return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`; })();
+      const dFrom = mode === "date" ? date : mode === "range" ? from : attendancePeriodRange(month).start;
+      const dTo = mode === "date" ? date : mode === "range" ? to : attendancePeriodRange(month).end;
 
       const { data: approved } = await supabase
         .from("employee_requests")
@@ -436,6 +448,10 @@ export default function DeductionSummary() {
       toast.error(isAr ? "اختر عنصر الخصم" : "Select a delay element");
       return;
     }
+    if (await isPayrollPeriodLocked(periodYear, periodMonth)) {
+      toast.error(isAr ? "الشهر مقفل — لا يمكن إرسال أي خصومات" : "Month is locked — deductions cannot be posted");
+      return;
+    }
     setSending(true);
     try {
       // Helper to upsert variable entries against a given element with per-employee amounts
@@ -552,6 +568,10 @@ export default function DeductionSummary() {
   }, [selectedElementId, selectedAbsenceElementId, periodYear, periodMonth, sending, rollingBack, rows, delayElements, absenceElements]);
 
   const handleRollback = async () => {
+    if (await isPayrollPeriodLocked(periodYear, periodMonth)) {
+      toast.error(isAr ? "الشهر مقفل — لا يمكن التراجع" : "Month is locked — rollback is not allowed");
+      return;
+    }
     setRollingBack(true);
     try {
       // Block if payroll already confirmed for this period
@@ -809,8 +829,8 @@ export default function DeductionSummary() {
             </div>
             <Button
               onClick={() => setConfirmOpen(true)}
-              disabled={loading || rows.length === 0 || !selectedElementId || grandTotal <= 0 || existingCount > 0}
-              title={existingCount > 0 ? (isAr ? "تم الإرسال مسبقاً — استخدم التراجع أولاً" : "Already sent — rollback first to resend") : undefined}
+              disabled={loading || rows.length === 0 || !selectedElementId || grandTotal <= 0 || existingCount > 0 || periodLocked}
+              title={periodLocked ? (isAr ? "الشهر مقفل" : "Month is locked") : existingCount > 0 ? (isAr ? "تم الإرسال مسبقاً — استخدم التراجع أولاً" : "Already sent — rollback first to resend") : undefined}
             >
               <Send className="h-4 w-4 mr-2" />
               {existingCount > 0
@@ -828,13 +848,20 @@ export default function DeductionSummary() {
             <Button
               variant="destructive"
               onClick={() => setRollbackOpen(true)}
-              disabled={!selectedElementId || existingCount === 0 || rollingBack}
+              disabled={!selectedElementId || existingCount === 0 || rollingBack || periodLocked}
               title={isAr ? "التراجع عن خصومات التأخير لهذا الشهر" : "Rollback delay deductions for this period"}
             >
               {isAr ? `تراجع (${existingCount})` : `Rollback (${existingCount})`}
             </Button>
 
           </div>
+          {periodLocked && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium">
+              {isAr
+                ? `رواتب ${periodMonth}/${periodYear} مقفلة — لا يمكن إرسال أو تعديل أي خصومات.`
+                : `Payroll ${periodMonth}/${periodYear} is locked — deductions cannot be posted or changed.`}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (

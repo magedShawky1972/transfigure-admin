@@ -17,6 +17,7 @@ import { getPrintLogoUrl } from "@/lib/printLogo";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
+import { usePayrollMonthLock, isPayrollPeriodLocked } from "@/hooks/usePayrollMonthLock";
 
 const typeColors: Record<string, { head: string; cell: string; label: string }> = {
   earning: { head: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200", cell: "bg-emerald-50/40 dark:bg-emerald-950/10", label: "text-emerald-700 dark:text-emerald-300" },
@@ -79,6 +80,7 @@ export default function PayrollVariableEntry() {
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
+  const { isLocked: monthLocked } = usePayrollMonthLock(year, month);
 
   const [emps, setEmps] = useState<Emp[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
@@ -336,6 +338,14 @@ export default function PayrollVariableEntry() {
   };
 
   const saveAll = async () => {
+    if (await isPayrollPeriodLocked(year, month)) {
+      toast({
+        title: language === "ar" ? "الشهر مقفل" : "Month is locked",
+        description: language === "ar" ? "لا يمكن تعديل أي قيمة في شهر مقفل." : "No payroll value can be changed in a locked month.",
+        variant: "destructive",
+      });
+      return;
+    }
     const dirty = Object.entries(matrix).filter(([, v]) => v.dirty);
     if (dirty.length === 0) { toast({ title: language === "ar" ? "لا توجد تغييرات" : "No changes" }); return; }
     setSaving(true);
@@ -514,11 +524,19 @@ export default function PayrollVariableEntry() {
             <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
           </Button>
           <Badge variant={dirtyCount > 0 ? "default" : "secondary"}>{dirtyCount} {language === "ar" ? "غير محفوظ" : "unsaved"}</Badge>
-          <Button onClick={saveAll} disabled={saving || dirtyCount === 0}>
+          <Button onClick={saveAll} disabled={saving || dirtyCount === 0 || monthLocked} title={monthLocked ? (language === "ar" ? "الشهر مقفل" : "Month is locked") : undefined}>
             <Save className="h-4 w-4 mr-2" /> {saving ? (language === "ar" ? "جاري الحفظ..." : "Saving...") : (language === "ar" ? "حفظ الكل" : "Save All")}
           </Button>
         </div>
       </div>
+
+      {monthLocked && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium">
+          {language === "ar"
+            ? `رواتب ${month}/${year} مقفلة — لا يمكن حفظ أي تعديل.`
+            : `Payroll ${month}/${year} is locked — no changes can be saved.`}
+        </div>
+      )}
 
       <Card>
         <CardHeader>

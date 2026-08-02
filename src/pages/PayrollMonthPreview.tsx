@@ -11,10 +11,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, RefreshCw, Printer, Calculator } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, RefreshCw, Printer, Calculator, Lock, LockOpen } from "lucide-react";
 import { TopHorizontalScrollbar } from "@/components/TopHorizontalScrollbar";
 import * as XLSX from "xlsx";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
+import { usePayrollMonthLock } from "@/hooks/usePayrollMonthLock";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const typeColors: Record<string, { head: string; cell: string; label: string }> = {
   earning: { head: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200", cell: "bg-emerald-50/40 dark:bg-emerald-950/10", label: "text-emerald-700 dark:text-emerald-300" },
@@ -74,6 +76,47 @@ export default function PayrollMonthPreview() {
   const tableScrollRef = useRef<HTMLDivElement>(null);
 
   const { allowedEmployeeIds, loading: scopeLoading } = useHRBusinessUnitScope();
+
+  const { lock, isLocked, refresh: refreshLock } = usePayrollMonthLock(year, month);
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  const [lockSaving, setLockSaving] = useState(false);
+
+  const toggleLock = async () => {
+    setLockSaving(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id ?? null;
+      if (isLocked) {
+        const { error } = await supabase
+          .from("payroll_month_locks")
+          .update({ is_locked: false, unlocked_by: uid, unlocked_at: new Date().toISOString() })
+          .eq("period_year", year)
+          .eq("period_month", month)
+          .select();
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("payroll_month_locks")
+          .upsert(
+            { period_year: year, period_month: month, is_locked: true, locked_by: uid, locked_at: new Date().toISOString(), unlocked_by: null, unlocked_at: null },
+            { onConflict: "period_year,period_month" },
+          )
+          .select();
+        if (error) throw error;
+      }
+      await refreshLock();
+      toast({
+        title: isLocked
+          ? (language === "ar" ? "تم فتح الشهر" : "Month unlocked")
+          : (language === "ar" ? "تم قفل الشهر" : "Month locked"),
+      });
+      setLockDialogOpen(false);
+    } catch (err: any) {
+      toast({ title: language === "ar" ? "فشل" : "Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setLockSaving(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -158,6 +201,14 @@ export default function PayrollMonthPreview() {
 
   const [calculating, setCalculating] = useState(false);
   const calculateProratedBasic = async () => {
+    if (isLocked) {
+      toast({
+        title: language === "ar" ? "الشهر مقفل" : "Month is locked",
+        description: language === "ar" ? "لا يمكن تعديل أي قيمة في شهر مقفل." : "No payroll value can be changed in a locked month.",
+        variant: "destructive",
+      });
+      return;
+    }
     const basicElement = elements.find((el) => (el as any).is_basic_salary_element);
     if (!basicElement) {
       toast({ title: language === "ar" ? "لم يتم العثور على عنصر الراتب الأساسي" : "Basic salary element not found", variant: "destructive" });
@@ -582,14 +633,67 @@ export default function PayrollMonthPreview() {
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="h-4 w-4 mr-2" /> {language === "ar" ? "تصدير إكسل" : "Export Excel"}
           </Button>
-          <Button variant="outline" size="sm" onClick={calculateProratedBasic} disabled={calculating || loading}>
+          <Button variant="outline" size="sm" onClick={calculateProratedBasic} disabled={calculating || loading || isLocked}>
             <Calculator className={`h-4 w-4 mr-2 ${calculating ? "animate-pulse" : ""}`} /> {language === "ar" ? "حساب الراتب الأساسي" : "Calculate Basic Salary"}
           </Button>
           <Button variant="outline" size="sm" onClick={printDocument}>
             <Printer className="h-4 w-4 mr-2" /> {language === "ar" ? "طباعة" : "Print"}
           </Button>
+          <Button
+            variant={isLocked ? "destructive" : "default"}
+            size="sm"
+            onClick={() => setLockDialogOpen(true)}
+          >
+            {isLocked ? <LockOpen className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+            {isLocked
+              ? (language === "ar" ? "فتح قفل الشهر" : "Unlock Month")
+              : (language === "ar" ? "قفل الشهر" : "Lock Month")}
+          </Button>
         </div>
       </div>
+
+      {isLocked && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+          <Lock className="h-4 w-4 text-destructive" />
+          <span className="font-medium">
+            {language === "ar"
+              ? `شهر ${months[month - 1]} ${year} مقفل — لا يمكن تعديل أي قيمة في الرواتب.`
+              : `${months[month - 1]} ${year} is locked — no payroll value can be changed.`}
+          </span>
+          {lock?.locked_at && (
+            <span className="text-muted-foreground text-xs">
+              ({new Date(lock.locked_at).toLocaleString(language === "ar" ? "ar-EG" : "en-US")})
+            </span>
+          )}
+        </div>
+      )}
+
+      <AlertDialog open={lockDialogOpen} onOpenChange={setLockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isLocked
+                ? (language === "ar" ? "فتح قفل الشهر" : "Unlock month")
+                : (language === "ar" ? "قفل الشهر" : "Lock month")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isLocked
+                ? (language === "ar"
+                  ? `سيتم السماح بتعديل رواتب ${months[month - 1]} ${year} مرة أخرى.`
+                  : `Payroll for ${months[month - 1]} ${year} will become editable again.`)
+                : (language === "ar"
+                  ? `سيتم تجميد كل قيم رواتب ${months[month - 1]} ${year}: لا إعادة احتساب، ولا تعديل عناصر متغيرة، ولا إرسال خصومات، ولا تأكيد أو تراجع في تشغيل الرواتب.`
+                  : `All payroll values for ${months[month - 1]} ${year} will be frozen: no recalculation, no variable entry edits, no deduction posting, and no payroll run confirm or rollback.`)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === "ar" ? "إلغاء" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); toggleLock(); }} disabled={lockSaving}>
+              {lockSaving ? (language === "ar" ? "جارٍ الحفظ..." : "Saving...") : (language === "ar" ? "تأكيد" : "Confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{language === "ar" ? "إجمالي المستحقات" : "Total Earnings"}</div><div className="text-xl font-bold text-emerald-600">{numFmt.format(grand.earn)}</div></CardContent></Card>

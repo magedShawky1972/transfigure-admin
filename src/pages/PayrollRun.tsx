@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { Play, CheckCircle2, Trash2, RefreshCw, Lock, Filter, X, Undo2, Printer, Eye, Send, Loader2, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useHRBusinessUnitScope } from "@/hooks/useHRBusinessUnitScope";
+import { usePayrollMonthLock, isPayrollPeriodLocked } from "@/hooks/usePayrollMonthLock";
 
 type Run = {
   id: string;
@@ -217,6 +218,7 @@ export default function PayrollRun() {
   const today = new Date();
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
+  const { isLocked: runMonthLocked } = usePayrollMonthLock(year, month);
   const [runs, setRuns] = useState<Run[]>([]);
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -301,6 +303,14 @@ export default function PayrollRun() {
   useEffect(() => { if (!scopeLoading) { loadRefs(); loadRuns(); } }, [scopeLoading, allowedEmployeeIds]);
 
   const computePeriod = async () => {
+    if (await isPayrollPeriodLocked(year, month)) {
+      toast({
+        title: isAr ? "الشهر مقفل" : "Month is locked",
+        description: isAr ? "لا يمكن إعادة احتساب رواتب شهر مقفل." : "A locked month cannot be recomputed.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     try {
       // 1. Load employees and apply scope filters
@@ -687,6 +697,10 @@ export default function PayrollRun() {
         : `Confirm and LOCK payroll for ${period}? Once locked it cannot be recomputed without rolling back.`,
       confirmLabel: isAr ? "تأكيد وقفل" : "Confirm & Lock",
       onConfirm: async () => {
+        if (await isPayrollPeriodLocked(run.period_year, run.period_month)) {
+          toast({ title: isAr ? "الشهر مقفل" : "Month is locked", variant: "destructive" });
+          return;
+        }
         const { data: { user } } = await supabase.auth.getUser();
         const { error } = await supabase.from("payroll_runs").update({
           status: "confirmed",
@@ -732,6 +746,10 @@ export default function PayrollRun() {
       destructive: true,
       onConfirm: async () => {
         try {
+          if (await isPayrollPeriodLocked(run.period_year, run.period_month)) {
+            toast({ title: isAr ? "الشهر مقفل" : "Month is locked", variant: "destructive" });
+            return;
+          }
           const { error: delLinesErr } = await supabase.from("payroll_run_lines").delete().eq("run_id", run.id);
           if (delLinesErr) throw delLinesErr;
           const { error: delRunErr } = await supabase.from("payroll_runs").delete().eq("id", run.id);
@@ -848,11 +866,19 @@ export default function PayrollRun() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={computePeriod} disabled={busy}>
+            <Button onClick={computePeriod} disabled={busy || runMonthLocked} title={runMonthLocked ? (isAr ? "الشهر مقفل" : "Month is locked") : undefined}>
               {busy ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
               {isAr ? "تشغيل الرواتب" : "Run Payroll"}
             </Button>
           </div>
+
+          {runMonthLocked && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium">
+              {isAr
+                ? `رواتب ${month}/${year} مقفلة — لا يمكن التشغيل أو التأكيد أو التراجع.`
+                : `Payroll ${month}/${year} is locked — run, confirm and rollback are disabled.`}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
             <Label className="text-xs text-muted-foreground mr-1">{isAr ? "النطاق (اختياري):" : "Run scope (optional):"}</Label>
