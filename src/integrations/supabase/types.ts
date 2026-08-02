@@ -6626,6 +6626,48 @@ export type Database = {
           },
         ]
       }
+      payroll_month_locks: {
+        Row: {
+          created_at: string
+          id: string
+          is_locked: boolean
+          locked_at: string
+          locked_by: string | null
+          notes: string | null
+          period_month: number
+          period_year: number
+          unlocked_at: string | null
+          unlocked_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_locked?: boolean
+          locked_at?: string
+          locked_by?: string | null
+          notes?: string | null
+          period_month: number
+          period_year: number
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_locked?: boolean
+          locked_at?: string
+          locked_by?: string | null
+          notes?: string | null
+          period_month?: number
+          period_year?: number
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payroll_run_lines: {
         Row: {
           amount: number
