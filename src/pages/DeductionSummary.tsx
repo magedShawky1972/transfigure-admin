@@ -567,6 +567,10 @@ export default function DeductionSummary() {
   }, [selectedElementId, selectedAbsenceElementId, periodYear, periodMonth, sending, rollingBack, rows, delayElements, absenceElements]);
 
   const handleRollback = async () => {
+    if (await isPayrollPeriodLocked(periodYear, periodMonth)) {
+      toast.error(isAr ? "الشهر مقفل — لا يمكن التراجع" : "Month is locked — rollback is not allowed");
+      return;
+    }
     setRollingBack(true);
     try {
       // Block if payroll already confirmed for this period
