@@ -221,7 +221,15 @@ const Auth = () => {
   // Check if current device is activated for user
   const checkDeviceActivation = async (userId: string): Promise<boolean> => {
     try {
+      // Admins bypass certificate/device activation entirely
+      const { data: isAdmin } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+      if (isAdmin) return true;
+
       const fingerprint = getDeviceFingerprint();
+
       
       const { data: activation, error } = await supabase
         .from("user_device_activations")
