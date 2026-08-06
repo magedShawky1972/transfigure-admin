@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2, FileKey, Loader2, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2, FileKey, Loader2, Printer, Mail } from "lucide-react";
 import AvatarSelector from "@/components/AvatarSelector";
 import UserSecurityAccessPrint from "@/components/UserSecurityAccessPrint";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -408,6 +408,10 @@ const UserSetup = () => {
   const [visibleEmailPasswords, setVisibleEmailPasswords] = useState<Set<string>>(new Set());
   const [generatingCertificate, setGeneratingCertificate] = useState<string | null>(null);
   const [securityPrintOpen, setSecurityPrintOpen] = useState(false);
+  const [changeEmailOpen, setChangeEmailOpen] = useState(false);
+  const [changeEmailProfile, setChangeEmailProfile] = useState<Profile | null>(null);
+  const [changeEmailValue, setChangeEmailValue] = useState("");
+  const [changingEmail, setChangingEmail] = useState(false);
   const [securityPrintProfile, setSecurityPrintProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
@@ -767,6 +771,47 @@ const UserSetup = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChangeEmail = async () => {
+    if (!changeEmailProfile) return;
+    const newEmail = changeEmailValue.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      toast({
+        title: t("common.error"),
+        description: language === 'ar' ? 'بريد إلكتروني غير صالح' : 'Invalid email address',
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChangingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-change-user-email", {
+        body: { user_id: changeEmailProfile.user_id, new_email: newEmail },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: t("common.success"),
+        description: language === 'ar'
+          ? `تم تغيير البريد الإلكتروني إلى ${newEmail}`
+          : `Email changed to ${newEmail}`,
+      });
+      setChangeEmailOpen(false);
+      setChangeEmailProfile(null);
+      setChangeEmailValue("");
+      fetchProfiles();
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setChangingEmail(false);
     }
   };
 
@@ -1838,6 +1883,19 @@ const UserSetup = () => {
                   <Button
                     variant="ghost"
                     size="icon"
+                    onClick={() => {
+                      setChangeEmailProfile(profile);
+                      setChangeEmailValue(profile.email || "");
+                      setChangeEmailOpen(true);
+                    }}
+                    title={language === 'ar' ? 'تغيير البريد الإلكتروني' : 'Change Email'}
+                    className="text-amber-600 hover:text-amber-700"
+                  >
+                    <Mail className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleGenerateCertificate(profile)}
                     disabled={generatingCertificate === profile.user_id}
                     title={language === 'ar' ? 'إنشاء شهادة' : 'Generate Certificate'}
@@ -2162,6 +2220,42 @@ const UserSetup = () => {
           departmentName={securityPrintProfile.default_department_name}
         />
       )}
+      {/* Change Email Dialog */}
+      <Dialog open={changeEmailOpen} onOpenChange={setChangeEmailOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تغيير البريد الإلكتروني' : 'Change Email'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'المستخدم' : 'User'}</Label>
+              <Input value={changeEmailProfile?.user_name || ""} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'البريد الإلكتروني الجديد' : 'New Email'}</Label>
+              <Input
+                type="email"
+                maxLength={255}
+                value={changeEmailValue}
+                onChange={(e) => setChangeEmailValue(e.target.value)}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setChangeEmailOpen(false)} disabled={changingEmail}>
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button onClick={handleChangeEmail} disabled={changingEmail}>
+                {changingEmail
+                  ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
+                  : (language === 'ar' ? 'حفظ' : 'Save')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
