@@ -408,6 +408,10 @@ const UserSetup = () => {
   const [visibleEmailPasswords, setVisibleEmailPasswords] = useState<Set<string>>(new Set());
   const [generatingCertificate, setGeneratingCertificate] = useState<string | null>(null);
   const [securityPrintOpen, setSecurityPrintOpen] = useState(false);
+  const [changeEmailOpen, setChangeEmailOpen] = useState(false);
+  const [changeEmailProfile, setChangeEmailProfile] = useState<Profile | null>(null);
+  const [changeEmailValue, setChangeEmailValue] = useState("");
+  const [changingEmail, setChangingEmail] = useState(false);
   const [securityPrintProfile, setSecurityPrintProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
