@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2, FileKey, Loader2, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, KeyRound, Search, Filter, Check, ChevronsUpDown, Eye, EyeOff, Copy, Link2, FileKey, Loader2, Printer, Mail } from "lucide-react";
 import AvatarSelector from "@/components/AvatarSelector";
 import UserSecurityAccessPrint from "@/components/UserSecurityAccessPrint";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
