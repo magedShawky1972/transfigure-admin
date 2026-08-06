@@ -1883,6 +1883,19 @@ const UserSetup = () => {
                   <Button
                     variant="ghost"
                     size="icon"
+                    onClick={() => {
+                      setChangeEmailProfile(profile);
+                      setChangeEmailValue(profile.email || "");
+                      setChangeEmailOpen(true);
+                    }}
+                    title={language === 'ar' ? 'تغيير البريد الإلكتروني' : 'Change Email'}
+                    className="text-amber-600 hover:text-amber-700"
+                  >
+                    <Mail className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleGenerateCertificate(profile)}
                     disabled={generatingCertificate === profile.user_id}
                     title={language === 'ar' ? 'إنشاء شهادة' : 'Generate Certificate'}
