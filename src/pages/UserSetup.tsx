@@ -2220,6 +2220,42 @@ const UserSetup = () => {
           departmentName={securityPrintProfile.default_department_name}
         />
       )}
+      {/* Change Email Dialog */}
+      <Dialog open={changeEmailOpen} onOpenChange={setChangeEmailOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تغيير البريد الإلكتروني' : 'Change Email'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'المستخدم' : 'User'}</Label>
+              <Input value={changeEmailProfile?.user_name || ""} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>{language === 'ar' ? 'البريد الإلكتروني الجديد' : 'New Email'}</Label>
+              <Input
+                type="email"
+                maxLength={255}
+                value={changeEmailValue}
+                onChange={(e) => setChangeEmailValue(e.target.value)}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setChangeEmailOpen(false)} disabled={changingEmail}>
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button onClick={handleChangeEmail} disabled={changingEmail}>
+                {changingEmail
+                  ? (language === 'ar' ? 'جاري الحفظ...' : 'Saving...')
+                  : (language === 'ar' ? 'حفظ' : 'Save')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
