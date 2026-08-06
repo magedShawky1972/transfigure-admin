@@ -770,6 +770,47 @@ const UserSetup = () => {
     }
   };
 
+  const handleChangeEmail = async () => {
+    if (!changeEmailProfile) return;
+    const newEmail = changeEmailValue.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      toast({
+        title: t("common.error"),
+        description: language === 'ar' ? 'بريد إلكتروني غير صالح' : 'Invalid email address',
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChangingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-change-user-email", {
+        body: { user_id: changeEmailProfile.user_id, new_email: newEmail },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: t("common.success"),
+        description: language === 'ar'
+          ? `تم تغيير البريد الإلكتروني إلى ${newEmail}`
+          : `Email changed to ${newEmail}`,
+      });
+      setChangeEmailOpen(false);
+      setChangeEmailProfile(null);
+      setChangeEmailValue("");
+      fetchProfiles();
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
   const handleResetPassword = async (profile: Profile) => {
     if (!confirm(`Are you sure you want to reset password to default (123456) for ${profile.user_name}?`)) return;
 
