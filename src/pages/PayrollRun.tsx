@@ -645,7 +645,7 @@ export default function PayrollRun() {
       const runRate = Number(run.sar_currency_rate);
       const exRate = isBase ? 1 : Number((runRate > 0 ? runRate : rateFor(curId)).toFixed(6));
       return {
-        businessUnitCode: "Asus-Trading",
+        businessUnitCode: buMap[buId]?.unit_code || buMap[buId]?.unit_name || "",
         vendorCode: PAYROLL_VENDOR_CODE,
         invoiceDate: entryDate,
         dueDate: entryDate,
@@ -1200,7 +1200,7 @@ export default function PayrollRun() {
                       <span className="text-muted-foreground">SAR {fmt(sarTotal)}</span>
                     </span>
                   </div>
-                  <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify((({ _total, businessUnitCode, ...rest }: any) => rest)(j), null, 2)}</pre>
+                  <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify((({ _total, ...rest }: any) => rest)(j), null, 2)}</pre>
                 </div>
               );
             })}
