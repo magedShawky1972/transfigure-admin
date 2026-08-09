@@ -1120,8 +1120,18 @@ export default function EmployeeSetup() {
       setDeleteDialogOpen(false);
       fetchData();
     } catch (error: any) {
-      toast.error(error.message);
+      const msg = String(error?.message || "");
+      if (msg.includes("payroll or timesheet records") || error?.code === "23001") {
+        toast.error(
+          language === "ar"
+            ? "لا يمكن حذف هذا الموظف لوجود مسيرات رواتب أو سجلات حضور. برجاء تغيير حالته إلى منتهي الخدمة بدلاً من الحذف."
+            : "This employee cannot be deleted because he has payroll or timesheet records. Set the employment status to terminated instead."
+        );
+      } else {
+        toast.error(msg);
+      }
     }
+
   };
 
   const getStatusColor = (status: string) => {
