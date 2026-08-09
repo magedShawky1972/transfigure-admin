@@ -1599,6 +1599,14 @@ export default function EmployeeSetup() {
                                   {emp.job_start_date ? format(new Date(emp.job_start_date), "yyyy-MM-dd") : "-"}
                                 </span>
                               </div>
+                              {(emp as any).termination_date && (
+                                <div className="flex justify-between gap-2">
+                                  <span>{language === "ar" ? "تاريخ إنهاء الخدمة" : "Termination Date"}</span>
+                                  <span className="font-medium text-foreground text-right">
+                                    {format(new Date((emp as any).termination_date), "yyyy-MM-dd")}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
