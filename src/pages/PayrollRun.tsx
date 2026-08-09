@@ -1153,20 +1153,48 @@ export default function PayrollRun() {
             </div>
           )}
 
-          <div className="space-y-4">
-            {journalDlg.journals.map((j, i) => (
-              <div key={i} className="border rounded-md">
-                <div className="px-3 py-2 bg-muted/50 font-medium text-sm flex items-center justify-between">
-                  <span>{j.businessUnitCode || "—"} • {j.periodCode}</span>
-                  <span className="font-mono">{fmt(j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0))}</span>
-                </div>
-                <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify(j, null, 2)}</pre>
+          {journalDlg.journals.length > 0 && (() => {
+            const byCurr: Record<string, number> = {};
+            let sar = 0;
+            journalDlg.journals.forEach((j: any) => {
+              const t = j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0);
+              const c = j.currencyCode || "SAR";
+              byCurr[c] = (byCurr[c] || 0) + t;
+              sar += t * (Number(j.exchangeRate) || 1);
+            });
+            return (
+              <div className="rounded-md border bg-muted/40 p-3 text-sm flex flex-wrap items-center gap-x-6 gap-y-1">
+                <span className="font-medium">{isAr ? "الإجمالي العام" : "Grand Total"}:</span>
+                {Object.entries(byCurr).map(([c, v]) => (
+                  <span key={c} className="font-mono">{c} {fmt(v)}</span>
+                ))}
+                <span className="font-mono font-semibold">SAR {fmt(Number(sar.toFixed(2)))}</span>
               </div>
-            ))}
+            );
+          })()}
+
+          <div className="space-y-4">
+            {journalDlg.journals.map((j, i) => {
+              const total = j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0);
+              const sarTotal = Number((total * (Number(j.exchangeRate) || 1)).toFixed(2));
+              return (
+                <div key={i} className="border rounded-md">
+                  <div className="px-3 py-2 bg-muted/50 font-medium text-sm flex items-center justify-between">
+                    <span>{j.businessUnitCode || "—"} • {j.periodCode}</span>
+                    <span className="font-mono flex gap-3">
+                      <span>{j.currencyCode || ""} {fmt(total)}</span>
+                      <span className="text-muted-foreground">SAR {fmt(sarTotal)}</span>
+                    </span>
+                  </div>
+                  <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify(j, null, 2)}</pre>
+                </div>
+              );
+            })}
             {journalDlg.journals.length === 0 && (
               <p className="text-sm text-muted-foreground">{isAr ? "لا توجد قيود قابلة للإرسال" : "No postable journals"}</p>
             )}
           </div>
+
 
           {journalDlg.results && (
             <div className="space-y-2">
