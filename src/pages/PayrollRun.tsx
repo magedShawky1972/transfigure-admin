@@ -969,7 +969,7 @@ export default function PayrollRun() {
                   <TableCell>
                     <Input
                       type="number"
-                      step="0.00000001"
+                      step="0.000001"
                       min="0"
                       className="h-8 w-28"
                       placeholder={isAr ? "سعر الصرف" : "Rate"}
