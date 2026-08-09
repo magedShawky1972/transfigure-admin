@@ -966,6 +966,18 @@ export default function PayrollRun() {
                   <TableCell>{fmt(r.total_deductions)}</TableCell>
                   <TableCell className="font-semibold">{fmt(r.total_net)}</TableCell>
                   <TableCell>{fmt(r.total_employer_contributions)}</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.00000001"
+                      min="0"
+                      className="h-8 w-28"
+                      placeholder={isAr ? "سعر الصرف" : "Rate"}
+                      value={rateEdits[r.id] ?? (r.sar_currency_rate ?? "").toString()}
+                      onChange={(e) => setRateEdits((s) => ({ ...s, [r.id]: e.target.value }))}
+                      onBlur={(e) => saveSarRate(r, e.target.value)}
+                    />
+                  </TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button size="sm" variant="outline" onClick={() => viewRun(r)}>{isAr ? "عرض" : "View"}</Button>
                     {r.status === "draft" && (
