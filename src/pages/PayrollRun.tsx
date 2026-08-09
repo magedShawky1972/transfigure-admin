@@ -29,6 +29,7 @@ type Run = {
   total_net: number;
   employee_count: number;
   confirmed_at: string | null;
+  sar_currency_rate?: number | null;
 };
 
 type Line = {
@@ -623,7 +624,9 @@ export default function PayrollRun() {
       }));
       const total = Number(drLines.reduce((s, l) => s + l.debitAmount, 0).toFixed(2));
       const code = currMap[curId]?.currency_code || baseCurr?.currency_code || "SAR";
-      const exRate = Number(rateFor(curId).toFixed(8));
+      const isBase = !!baseCurr && curId === baseCurr.id;
+      const runRate = Number(run.sar_currency_rate);
+      const exRate = isBase ? 1 : Number((runRate > 0 ? runRate : rateFor(curId)).toFixed(8));
       return {
         businessUnitCode: buMap[buId]?.unit_code || "",
         periodCode: period,
