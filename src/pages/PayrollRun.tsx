@@ -534,7 +534,9 @@ export default function PayrollRun() {
     }
   };
 
-  // ---------- Sajel Payroll Journal ----------
+  // ---------- Sajel Payroll AP Invoice ----------
+  const PAYROLL_VENDOR_CODE = "SAL001";
+
   const buildPayrollJournals = async (run: Run) => {
     const { data: runLines, error: rlErr } = await supabase
       .from("payroll_run_lines")
@@ -544,13 +546,14 @@ export default function PayrollRun() {
     if (!runLines || runLines.length === 0) throw new Error(isAr ? "لا توجد سطور في المسيرة" : "No lines in this run");
 
     const empIds = Array.from(new Set(runLines.map((l: any) => l.employee_id)));
-    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }, { data: currs }, { data: rates }] = await Promise.all([
-      supabase.from("employees").select("id, working_business_unit_id, cost_center_id, salary_currency_id").in("id", empIds),
+    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }, { data: currs }, { data: rates }, { data: depts }] = await Promise.all([
+      supabase.from("employees").select("id, working_business_unit_id, cost_center_id, salary_currency_id, department_id").in("id", empIds),
       supabase.from("business_units").select("id, unit_code, unit_name"),
       supabase.from("cost_centers").select("id, cost_center_code, cost_center_name"),
       supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
       supabase.from("currencies").select("id, currency_code, is_base, is_active"),
       supabase.from("currency_rates").select("currency_id, rate_to_base, conversion_operator, effective_date"),
+      supabase.from("departments").select("id, department_name"),
     ]);
 
     const currMap: Record<string, any> = {};
@@ -574,6 +577,8 @@ export default function PayrollRun() {
     (bus || []).forEach((b: any) => { buMap[b.id] = b; });
     const ccMap: Record<string, any> = {};
     (ccs || []).forEach((c: any) => { ccMap[c.id] = c; });
+    const deptMap: Record<string, string> = {};
+    (depts || []).forEach((d: any) => { deptMap[d.id] = d.department_name; });
     const drMap: Record<string, string> = {};
     (maps || []).forEach((m: any) => { drMap[`${m.business_unit_id}|${m.cost_center_id}`] = m.payroll_dr_account; });
     const empMeta: Record<string, any> = {};
@@ -591,8 +596,10 @@ export default function PayrollRun() {
     const period = `${String(run.period_month).padStart(2, "0")}/${run.period_year}`;
     const lastDate = new Date(run.period_year, run.period_month, 0).getDate();
     const entryDate = `${run.period_year}-${String(run.period_month).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
+    const monthLabel = new Date(run.period_year, run.period_month - 1, 1)
+      .toLocaleString("en-US", { month: "short" });
 
-    // Group by BU + currency -> cost center
+    // Group by BU + currency -> (cost center | department)
     const grouped: Record<string, Record<string, number>> = {};
     const warnings: string[] = [];
     Object.entries(netByEmp).forEach(([empId, net]) => {
@@ -600,6 +607,7 @@ export default function PayrollRun() {
       const meta = empMeta[empId];
       const buId = meta?.working_business_unit_id;
       const ccId = meta?.cost_center_id;
+      const deptId = meta?.department_id || "";
       const curId = meta?.salary_currency_id || baseCurr?.id || "";
       if (!buId || !ccId) {
         warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد وحدة عمل / مركز تكلفة" : "missing business unit / cost center"}`);
@@ -610,45 +618,51 @@ export default function PayrollRun() {
         return;
       }
       const key = `${buId}|${curId}`;
+      const sub = `${ccId}|${deptId}`;
       grouped[key] = grouped[key] || {};
-      grouped[key][ccId] = (grouped[key][ccId] || 0) + net;
+      grouped[key][sub] = (grouped[key][sub] || 0) + net;
     });
 
-    const journals = Object.entries(grouped).map(([key, byCc]) => {
+    const journals = Object.entries(grouped).map(([key, bySub]) => {
       const [buId, curId] = key.split("|");
-      const drLines = Object.entries(byCc).map(([ccId, amount]) => ({
-        accountCode: drMap[`${buId}|${ccId}`],
-        description: `Payroll ${period} - ${ccMap[ccId]?.cost_center_name || ccMap[ccId]?.cost_center_code || ccId}`,
-        debitAmount: Number(Number(amount).toFixed(2)),
-        costCenterCode: ccMap[ccId]?.cost_center_code || "",
-      }));
-      const total = Number(drLines.reduce((s, l) => s + l.debitAmount, 0).toFixed(2));
+      const buName = buMap[buId]?.unit_name || buMap[buId]?.unit_code || "";
+      const lines = Object.entries(bySub).map(([sub, amount]) => {
+        const [ccId, deptId] = sub.split("|");
+        const deptName = deptMap[deptId] || "-";
+        return {
+          itemCode: "",
+          description: `Payroll For Department : ${buName}-${deptName}`,
+          quantity: 1,
+          unitPrice: Number(Number(amount).toFixed(2)),
+          taxRate: 0,
+          accountId: drMap[`${buId}|${ccId}`],
+          costCenterCode: ccMap[ccId]?.cost_center_code || "",
+        };
+      });
+      const total = Number(lines.reduce((s, l) => s + Number(l.unitPrice), 0).toFixed(2));
       const code = currMap[curId]?.currency_code || baseCurr?.currency_code || "SAR";
       const isBase = !!baseCurr && curId === baseCurr.id;
       const runRate = Number(run.sar_currency_rate);
       const exRate = isBase ? 1 : Number((runRate > 0 ? runRate : rateFor(curId)).toFixed(6));
       return {
         businessUnitCode: buMap[buId]?.unit_code || "",
+        vendorCode: PAYROLL_VENDOR_CODE,
+        invoiceDate: entryDate,
+        dueDate: entryDate,
         periodCode: period,
-        entryDate,
-        journalCode: "GJ",
         currencyCode: code,
         exchangeRate: exRate,
-        reference: `Payroll ${period}`,
-        description: `Payroll accrual ${period} - ${buMap[buId]?.unit_name || ""}`.trim(),
-        lines: [
-          ...drLines,
-          {
-            accountCode: "201401",
-            description: `Payroll payable ${period}`,
-            creditAmount: total,
-          },
-        ],
+        reference: `PAYROLL-${run.period_year}-${String(run.period_month).padStart(2, "0")}-${buMap[buId]?.unit_code || ""}`,
+        notes: `Payroll for ${monthLabel} ${run.period_year}`,
+        status: "POSTED",
+        lines,
+        _total: total,
       };
     });
 
     return { journals, warnings };
   };
+
 
   // ---------- SAR rate per run ----------
   const [rateEdits, setRateEdits] = useState<Record<string, string>>({});
@@ -705,7 +719,7 @@ export default function PayrollRun() {
       const failed = results.filter((r: any) => !r.ok).length;
       toast({
         title: failed === 0 ? (isAr ? "تم الإرسال إلى المحاسبة" : "Sent to Accounting") : (isAr ? "إرسال جزئي" : "Partially sent"),
-        description: `${results.length - failed}/${results.length} ${isAr ? "قيد تم إرساله" : "journal(s) posted"}`,
+        description: `${results.length - failed}/${results.length} ${isAr ? "فاتورة تم إرسالها" : "AP invoice(s) posted"}`,
         variant: failed === 0 ? undefined : "destructive",
       });
     } catch (e: any) {
@@ -1138,7 +1152,7 @@ export default function PayrollRun() {
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto" dir={isAr ? "rtl" : "ltr"}>
           <DialogHeader>
             <DialogTitle>
-              {isAr ? "قيود الرواتب المرسلة إلى ساجل" : "Payroll Journals to Sajel"}
+              {isAr ? "فواتير الرواتب المرسلة إلى ساجل" : "Payroll AP Invoices to Sajel"}
               {journalDlg.run ? ` — ${journalDlg.run.period_year}-${String(journalDlg.run.period_month).padStart(2, "0")}` : ""}
             </DialogTitle>
           </DialogHeader>
@@ -1157,7 +1171,7 @@ export default function PayrollRun() {
             const byCurr: Record<string, number> = {};
             let sar = 0;
             journalDlg.journals.forEach((j: any) => {
-              const t = j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0);
+              const t = Number(j._total ?? j.lines.reduce((s: number, l: any) => s + Number(l.unitPrice || 0), 0));
               const c = j.currencyCode || "SAR";
               byCurr[c] = (byCurr[c] || 0) + t;
               sar += t * (Number(j.exchangeRate) || 1);
@@ -1175,7 +1189,7 @@ export default function PayrollRun() {
 
           <div className="space-y-4">
             {journalDlg.journals.map((j, i) => {
-              const total = j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0);
+              const total = Number(j._total ?? j.lines.reduce((s: number, l: any) => s + Number(l.unitPrice || 0), 0));
               const sarTotal = Number((total * (Number(j.exchangeRate) || 1)).toFixed(2));
               return (
                 <div key={i} className="border rounded-md">
@@ -1186,7 +1200,7 @@ export default function PayrollRun() {
                       <span className="text-muted-foreground">SAR {fmt(sarTotal)}</span>
                     </span>
                   </div>
-                  <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify(j, null, 2)}</pre>
+                  <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify((({ _total, businessUnitCode, ...rest }: any) => rest)(j), null, 2)}</pre>
                 </div>
               );
             })}
