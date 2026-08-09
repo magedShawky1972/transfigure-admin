@@ -719,7 +719,7 @@ export default function PayrollRun() {
       const failed = results.filter((r: any) => !r.ok).length;
       toast({
         title: failed === 0 ? (isAr ? "تم الإرسال إلى المحاسبة" : "Sent to Accounting") : (isAr ? "إرسال جزئي" : "Partially sent"),
-        description: `${results.length - failed}/${results.length} ${isAr ? "قيد تم إرساله" : "journal(s) posted"}`,
+        description: `${results.length - failed}/${results.length} ${isAr ? "فاتورة تم إرسالها" : "AP invoice(s) posted"}`,
         variant: failed === 0 ? undefined : "destructive",
       });
     } catch (e: any) {
@@ -1152,7 +1152,7 @@ export default function PayrollRun() {
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto" dir={isAr ? "rtl" : "ltr"}>
           <DialogHeader>
             <DialogTitle>
-              {isAr ? "قيود الرواتب المرسلة إلى ساجل" : "Payroll Journals to Sajel"}
+              {isAr ? "فواتير الرواتب المرسلة إلى ساجل" : "Payroll AP Invoices to Sajel"}
               {journalDlg.run ? ` — ${journalDlg.run.period_year}-${String(journalDlg.run.period_month).padStart(2, "0")}` : ""}
             </DialogTitle>
           </DialogHeader>
@@ -1171,7 +1171,7 @@ export default function PayrollRun() {
             const byCurr: Record<string, number> = {};
             let sar = 0;
             journalDlg.journals.forEach((j: any) => {
-              const t = j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0);
+              const t = Number(j._total ?? j.lines.reduce((s: number, l: any) => s + Number(l.unitPrice || 0), 0));
               const c = j.currencyCode || "SAR";
               byCurr[c] = (byCurr[c] || 0) + t;
               sar += t * (Number(j.exchangeRate) || 1);
@@ -1189,7 +1189,7 @@ export default function PayrollRun() {
 
           <div className="space-y-4">
             {journalDlg.journals.map((j, i) => {
-              const total = j.lines.reduce((s: number, l: any) => s + Number(l.debitAmount || 0), 0);
+              const total = Number(j._total ?? j.lines.reduce((s: number, l: any) => s + Number(l.unitPrice || 0), 0));
               const sarTotal = Number((total * (Number(j.exchangeRate) || 1)).toFixed(2));
               return (
                 <div key={i} className="border rounded-md">
@@ -1200,7 +1200,7 @@ export default function PayrollRun() {
                       <span className="text-muted-foreground">SAR {fmt(sarTotal)}</span>
                     </span>
                   </div>
-                  <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify(j, null, 2)}</pre>
+                  <pre className="text-xs p-3 overflow-x-auto whitespace-pre-wrap" dir="ltr">{JSON.stringify((({ _total, businessUnitCode, ...rest }: any) => rest)(j), null, 2)}</pre>
                 </div>
               );
             })}
