@@ -6737,6 +6737,7 @@ export type Database = {
           notes: string | null
           period_month: number
           period_year: number
+          sar_currency_rate: number | null
           status: string
           total_deductions: number | null
           total_employer_contributions: number | null
@@ -6754,6 +6755,7 @@ export type Database = {
           notes?: string | null
           period_month: number
           period_year: number
+          sar_currency_rate?: number | null
           status?: string
           total_deductions?: number | null
           total_employer_contributions?: number | null
@@ -6771,6 +6773,7 @@ export type Database = {
           notes?: string | null
           period_month?: number
           period_year?: number
+          sar_currency_rate?: number | null
           status?: string
           total_deductions?: number | null
           total_employer_contributions?: number | null
