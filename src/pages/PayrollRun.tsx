@@ -645,7 +645,7 @@ export default function PayrollRun() {
       const runRate = Number(run.sar_currency_rate);
       const exRate = isBase ? 1 : Number((runRate > 0 ? runRate : rateFor(curId)).toFixed(6));
       return {
-        businessUnitCode: buMap[buId]?.unit_code || "",
+        businessUnitCode: "Asus-Trading",
         vendorCode: PAYROLL_VENDOR_CODE,
         invoiceDate: entryDate,
         dueDate: entryDate,

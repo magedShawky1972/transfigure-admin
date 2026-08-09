@@ -58,7 +58,8 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const raw of list) {
       const started = Date.now();
-      const { _total, businessUnitCode, ...invoice } = (raw ?? {}) as Record<string, unknown>;
+      const { _total, ...invoice } = (raw ?? {}) as Record<string, unknown>;
+      const businessUnitCode = (invoice as any)?.businessUnitCode;
       const { lines, ...rest } = invoice as Record<string, unknown>;
       const body = { ...rest, batchNumber, ...(lines !== undefined ? { lines } : {}) };
       try {
