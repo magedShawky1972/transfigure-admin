@@ -1157,6 +1157,26 @@ export default function PayrollRun() {
             </DialogTitle>
           </DialogHeader>
 
+          {journalDlg.journals.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{isAr ? "الحالة في جميع الفواتير" : "Status in all bodies"}</span>
+              <Select
+                value={String(journalDlg.journals[0]?.status || "POSTED")}
+                onValueChange={(v) =>
+                  setJournalDlg((s) => ({ ...s, journals: s.journals.map((j: any) => ({ ...j, status: v })) }))
+                }
+              >
+                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="POSTED">POSTED</SelectItem>
+                  <SelectItem value="DRAFT">DRAFT</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+
+
           {journalDlg.warnings.length > 0 && (
             <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm space-y-1">
               <div className="flex items-center gap-2 font-medium text-destructive">
