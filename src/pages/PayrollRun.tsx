@@ -1011,7 +1011,7 @@ export default function PayrollRun() {
               ))}
               {runs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">{isAr ? "لا توجد مسيرات بعد" : "No runs yet"}</TableCell>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-6">{isAr ? "لا توجد مسيرات بعد" : "No runs yet"}</TableCell>
                 </TableRow>
               )}
             </TableBody>
