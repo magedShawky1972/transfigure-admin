@@ -650,6 +650,30 @@ export default function PayrollRun() {
     return { journals, warnings };
   };
 
+  // ---------- SAR rate per run ----------
+  const [rateEdits, setRateEdits] = useState<Record<string, string>>({});
+  const saveSarRate = async (run: Run, value: string) => {
+    const num = value.trim() === "" ? null : Number(value);
+    if (num !== null && (!isFinite(num) || num <= 0)) {
+      toast({ title: isAr ? "قيمة غير صحيحة" : "Invalid rate", variant: "destructive" });
+      return;
+    }
+    if (Number(run.sar_currency_rate ?? NaN) === Number(num ?? NaN)) return;
+    const { error } = await supabase
+      .from("payroll_runs")
+      .update({ sar_currency_rate: num })
+      .eq("id", run.id)
+      .select("id");
+    if (error) {
+      toast({ title: isAr ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    setRuns((prev) => prev.map((x) => (x.id === run.id ? { ...x, sar_currency_rate: num } : x)));
+    toast({ title: isAr ? "تم حفظ سعر الصرف" : "SAR rate saved" });
+  };
+
+
+
   const [journalDlg, setJournalDlg] = useState<{
     open: boolean;
     run: Run | null;
