@@ -626,7 +626,7 @@ export default function PayrollRun() {
       const code = currMap[curId]?.currency_code || baseCurr?.currency_code || "SAR";
       const isBase = !!baseCurr && curId === baseCurr.id;
       const runRate = Number(run.sar_currency_rate);
-      const exRate = isBase ? 1 : Number((runRate > 0 ? runRate : rateFor(curId)).toFixed(8));
+      const exRate = isBase ? 1 : Number((runRate > 0 ? runRate : rateFor(curId)).toFixed(6));
       return {
         businessUnitCode: buMap[buId]?.unit_code || "",
         periodCode: period,
