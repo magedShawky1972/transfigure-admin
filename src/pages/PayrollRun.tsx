@@ -29,6 +29,7 @@ type Run = {
   total_net: number;
   employee_count: number;
   confirmed_at: string | null;
+  sar_currency_rate?: number | null;
 };
 
 type Line = {
@@ -623,7 +624,9 @@ export default function PayrollRun() {
       }));
       const total = Number(drLines.reduce((s, l) => s + l.debitAmount, 0).toFixed(2));
       const code = currMap[curId]?.currency_code || baseCurr?.currency_code || "SAR";
-      const exRate = Number(rateFor(curId).toFixed(8));
+      const isBase = !!baseCurr && curId === baseCurr.id;
+      const runRate = Number(run.sar_currency_rate);
+      const exRate = isBase ? 1 : Number((runRate > 0 ? runRate : rateFor(curId)).toFixed(8));
       return {
         businessUnitCode: buMap[buId]?.unit_code || "",
         periodCode: period,
@@ -646,6 +649,30 @@ export default function PayrollRun() {
 
     return { journals, warnings };
   };
+
+  // ---------- SAR rate per run ----------
+  const [rateEdits, setRateEdits] = useState<Record<string, string>>({});
+  const saveSarRate = async (run: Run, value: string) => {
+    const num = value.trim() === "" ? null : Number(value);
+    if (num !== null && (!isFinite(num) || num <= 0)) {
+      toast({ title: isAr ? "قيمة غير صحيحة" : "Invalid rate", variant: "destructive" });
+      return;
+    }
+    if (Number(run.sar_currency_rate ?? NaN) === Number(num ?? NaN)) return;
+    const { error } = await supabase
+      .from("payroll_runs")
+      .update({ sar_currency_rate: num })
+      .eq("id", run.id)
+      .select("id");
+    if (error) {
+      toast({ title: isAr ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    setRuns((prev) => prev.map((x) => (x.id === run.id ? { ...x, sar_currency_rate: num } : x)));
+    toast({ title: isAr ? "تم حفظ سعر الصرف" : "SAR rate saved" });
+  };
+
+
 
   const [journalDlg, setJournalDlg] = useState<{
     open: boolean;
@@ -920,6 +947,7 @@ export default function PayrollRun() {
                 <TableHead>{isAr ? "الخصومات" : "Deductions"}</TableHead>
                 <TableHead>{isAr ? "الصافي" : "Net"}</TableHead>
                 <TableHead>{isAr ? "مساهمة صاحب العمل" : "Employer Contrib."}</TableHead>
+                <TableHead>{isAr ? "سعر صرف الريال" : "SAR Rate"}</TableHead>
                 <TableHead className="text-right">{isAr ? "الإجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
@@ -938,6 +966,18 @@ export default function PayrollRun() {
                   <TableCell>{fmt(r.total_deductions)}</TableCell>
                   <TableCell className="font-semibold">{fmt(r.total_net)}</TableCell>
                   <TableCell>{fmt(r.total_employer_contributions)}</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.00000001"
+                      min="0"
+                      className="h-8 w-28"
+                      placeholder={isAr ? "سعر الصرف" : "Rate"}
+                      value={rateEdits[r.id] ?? (r.sar_currency_rate ?? "").toString()}
+                      onChange={(e) => setRateEdits((s) => ({ ...s, [r.id]: e.target.value }))}
+                      onBlur={(e) => saveSarRate(r, e.target.value)}
+                    />
+                  </TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button size="sm" variant="outline" onClick={() => viewRun(r)}>{isAr ? "عرض" : "View"}</Button>
                     {r.status === "draft" && (
@@ -971,7 +1011,7 @@ export default function PayrollRun() {
               ))}
               {runs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">{isAr ? "لا توجد مسيرات بعد" : "No runs yet"}</TableCell>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-6">{isAr ? "لا توجد مسيرات بعد" : "No runs yet"}</TableCell>
                 </TableRow>
               )}
             </TableBody>

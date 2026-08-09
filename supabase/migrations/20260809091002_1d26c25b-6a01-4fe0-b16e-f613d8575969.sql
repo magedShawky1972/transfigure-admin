@@ -1,0 +1,1 @@
+ALTER TABLE public.payroll_runs ADD COLUMN IF NOT EXISTS sar_currency_rate numeric;
