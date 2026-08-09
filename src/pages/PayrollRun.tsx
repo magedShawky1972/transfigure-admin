@@ -947,6 +947,7 @@ export default function PayrollRun() {
                 <TableHead>{isAr ? "الخصومات" : "Deductions"}</TableHead>
                 <TableHead>{isAr ? "الصافي" : "Net"}</TableHead>
                 <TableHead>{isAr ? "مساهمة صاحب العمل" : "Employer Contrib."}</TableHead>
+                <TableHead>{isAr ? "سعر صرف الريال" : "SAR Rate"}</TableHead>
                 <TableHead className="text-right">{isAr ? "الإجراءات" : "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
