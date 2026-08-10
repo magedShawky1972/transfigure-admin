@@ -88,6 +88,7 @@ const MENU_GROUPS = [
       { key: "projectsTasks", labelAr: "المشاريع والمهام", labelEn: "Projects & Tasks" },
       { key: "projectSetup", labelAr: "إعداد المشاريع", labelEn: "Project Setup" },
       { key: "taskList", labelAr: "قائمة المهام", labelEn: "Task List" },
+      { key: "projectPresentation", labelAr: "عرض المشروع", labelEn: "Project Presentation" },
     ],
   },
   {

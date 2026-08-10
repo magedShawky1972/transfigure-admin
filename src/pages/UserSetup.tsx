@@ -157,6 +157,7 @@ interface UserPermission {
         { key: "projectsTasks", label: "المشاريع والمهام", labelEn: "Projects & Tasks" },
         { key: "projectSetup", label: "إعداد المشاريع", labelEn: "Project Setup" },
         { key: "taskList", label: "قائمة المهام", labelEn: "Task List" },
+        { key: "projectPresentation", label: "عرض المشروع", labelEn: "Project Presentation" },
       ]
     },
     {
