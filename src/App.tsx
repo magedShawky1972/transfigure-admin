@@ -81,6 +81,7 @@ import DataLoadingStatus from "./pages/DataLoadingStatus";
 import CoinsLedgerReport from "./pages/CoinsLedgerReport";
 import BrandReceivingEntryReport from "./pages/BrandReceivingEntryReport";
 import ProjectGantt from "./pages/ProjectGantt";
+import ProjectPresentation from "./pages/ProjectPresentation";
 import BankStatementReport from "./pages/BankStatementReport";
 import BankStatementAsOf from "./pages/BankStatementAsOf";
 import RiyadBankReport from "./pages/RiyadBankReport";
@@ -277,6 +278,7 @@ const App = () => (
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/projects-tasks" element={<ProjectsTasks />} />
               <Route path="/project-gantt" element={<ProjectGantt />} />
+              <Route path="/project-presentation" element={<ProjectPresentation />} />
               <Route path="/task-dashboard" element={<TaskDashboard />} />
               <Route path="/task-list" element={<TaskList />} />
               <Route path="/user-dashboard" element={<UserDashboard />} />

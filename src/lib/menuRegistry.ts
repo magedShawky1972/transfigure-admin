@@ -157,6 +157,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/projects-tasks", defaultEn: "Projects & Tasks", defaultAr: "المشاريع والمهام", icon: FolderKanban },
       { url: "/project-setup", defaultEn: "Project Setup", defaultAr: "إعداد المشاريع", icon: FolderKanban },
       { url: "/task-list", defaultEn: "Task List", defaultAr: "قائمة المهام", icon: ClipboardList },
+      { url: "/project-presentation", defaultEn: "Project Presentation", defaultAr: "عرض المشروع", icon: FolderKanban },
     ],
   },
   {
