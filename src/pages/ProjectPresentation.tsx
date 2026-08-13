@@ -191,6 +191,50 @@ export default function ProjectPresentation() {
               </div>
             </div>
 
+            {current.type === "evaluation" ? (
+              <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div className="space-y-3 overflow-auto">
+                  {evaluation.map(e => (
+                    <div key={e.owner} className="rounded-lg border p-4 bg-card flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-2xl font-semibold truncate">{e.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {e.done} done · {e.pending} pending · {e.overdue} overdue · {e.total} total
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <Star key={s} className={`h-6 w-6 ${s <= e.stars ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                          ))}
+                        </div>
+                        <Badge className="text-lg px-3 py-1">{e.score}%</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-lg border p-4 bg-card">
+                  <p className="text-lg font-semibold mb-3">Performance Score by Employee</p>
+                  <div className="h-[52vh]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={evaluation} layout="vertical" margin={{ left: 24, right: 24 }}>
+                        <XAxis type="number" domain={[0, 100]} fontSize={14} />
+                        <YAxis type="category" dataKey="name" width={160} fontSize={14} />
+                        <Tooltip />
+                        <Bar dataKey="score" radius={[0, 6, 6, 0]}>
+                          {evaluation.map((e, i) => (
+                            <Cell
+                              key={i}
+                              fill={e.score >= 80 ? "hsl(142 71% 45%)" : e.score >= 50 ? "hsl(38 92% 50%)" : "hsl(var(--destructive))"}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="flex-1 space-y-4">
               {current.tasks.map(t => (
                 <div key={t.id} className="rounded-lg border p-4 flex items-start justify-between gap-6 bg-card">
