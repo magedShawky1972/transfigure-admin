@@ -179,8 +179,10 @@ export default function ProjectPresentation() {
             <div className="flex items-start justify-between gap-4 border-b pb-4 mb-6">
               <div>
                 <p className="text-sm uppercase tracking-widest text-muted-foreground">{project?.name}</p>
-                <h2 className="text-5xl font-bold mt-1">
-                  {current.owner === "unassigned" ? "Unassigned" : (names[current.owner] || "Unknown")}
+                <h2 className="text-5xl font-bold mt-1 flex items-center gap-3">
+                  {current.type === "evaluation" ? (
+                    <><Trophy className="h-10 w-10 text-primary" /> Team Evaluation</>
+                  ) : current.owner === "unassigned" ? "Unassigned" : (names[current.owner] || "Unknown")}
                 </h2>
               </div>
               <div className="text-right">
