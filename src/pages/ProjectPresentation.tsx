@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Play, Pause, ChevronLeft, ChevronRight, Maximize2, RefreshCw, Presentation } from "lucide-react";
+import { Loader2, Play, Pause, ChevronLeft, ChevronRight, Maximize2, RefreshCw, Presentation, Star, Trophy } from "lucide-react";
 import { format } from "date-fns";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface Project { id: string; name: string; status: string | null; }
 interface Task {
@@ -34,6 +35,7 @@ export default function ProjectPresentation() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<string>("");
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
@@ -61,16 +63,44 @@ export default function ProjectPresentation() {
       .from("tasks")
       .select("id,title,description,status,priority,start_date,deadline,assigned_to")
       .eq("project_id", pid)
-      .in("status", PENDING_STATUSES)
       .order("deadline", { ascending: true, nullsFirst: false });
-    setTasks((data as any) || []);
+    const rows = ((data as any) || []) as Task[];
+    setAllTasks(rows);
+    setTasks(rows.filter(t => PENDING_STATUSES.includes(t.status)));
     setIndex(0);
     setLoading(false);
   };
 
   useEffect(() => { loadTasks(projectId); }, [projectId]);
 
-  // Group by assignee → one slide per person
+  // Per-employee evaluation across ALL tasks of the project
+  const evaluation = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    allTasks.forEach(t => {
+      const key = t.assigned_to || "unassigned";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    });
+    const today = new Date();
+    const rows = Array.from(map.entries()).map(([owner, list]) => {
+      const total = list.length;
+      const done = list.filter(t => t.status === "done").length;
+      const pending = total - done;
+      const overdue = list.filter(t => t.status !== "done" && t.deadline && new Date(t.deadline) < today).length;
+      const completion = total ? (done / total) * 100 : 0;
+      const penalty = total ? (overdue / total) * 100 : 0;
+      const score = Math.max(0, Math.min(100, Math.round(completion - penalty * 0.5)));
+      const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
+      return {
+        owner,
+        name: owner === "unassigned" ? "Unassigned" : (names[owner] || "Unknown"),
+        total, done, pending, overdue, score, stars,
+      };
+    });
+    return rows.sort((a, b) => b.score - a.score);
+  }, [allTasks, names]);
+
+  // Group by assignee → one slide per person, plus a final evaluation slide
   const slides = useMemo(() => {
     const map = new Map<string, Task[]>();
     tasks.forEach(t => {
@@ -78,12 +108,13 @@ export default function ProjectPresentation() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     });
-    const out: { owner: string; tasks: Task[] }[] = [];
+    const out: { type: "tasks" | "evaluation"; owner: string; tasks: Task[] }[] = [];
     map.forEach((list, owner) => {
-      for (let i = 0; i < list.length; i += 5) out.push({ owner, tasks: list.slice(i, i + 5) });
+      for (let i = 0; i < list.length; i += 5) out.push({ type: "tasks", owner, tasks: list.slice(i, i + 5) });
     });
+    if (evaluation.length > 0) out.push({ type: "evaluation", owner: "", tasks: [] });
     return out;
-  }, [tasks]);
+  }, [tasks, evaluation]);
 
   useEffect(() => {
     if (!playing || slides.length <= 1) return;
@@ -148,8 +179,10 @@ export default function ProjectPresentation() {
             <div className="flex items-start justify-between gap-4 border-b pb-4 mb-6">
               <div>
                 <p className="text-sm uppercase tracking-widest text-muted-foreground">{project?.name}</p>
-                <h2 className="text-5xl font-bold mt-1">
-                  {current.owner === "unassigned" ? "Unassigned" : (names[current.owner] || "Unknown")}
+                <h2 className="text-5xl font-bold mt-1 flex items-center gap-3">
+                  {current.type === "evaluation" ? (
+                    <><Trophy className="h-10 w-10 text-primary" /> Team Evaluation</>
+                  ) : current.owner === "unassigned" ? "Unassigned" : (names[current.owner] || "Unknown")}
                 </h2>
               </div>
               <div className="text-right">
@@ -158,6 +191,50 @@ export default function ProjectPresentation() {
               </div>
             </div>
 
+            {current.type === "evaluation" ? (
+              <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div className="space-y-3 overflow-auto">
+                  {evaluation.map(e => (
+                    <div key={e.owner} className="rounded-lg border p-4 bg-card flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-2xl font-semibold truncate">{e.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {e.done} done · {e.pending} pending · {e.overdue} overdue · {e.total} total
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <Star key={s} className={`h-6 w-6 ${s <= e.stars ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                          ))}
+                        </div>
+                        <Badge className="text-lg px-3 py-1">{e.score}%</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-lg border p-4 bg-card">
+                  <p className="text-lg font-semibold mb-3">Performance Score by Employee</p>
+                  <div className="h-[52vh]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={evaluation} layout="vertical" margin={{ left: 24, right: 24 }}>
+                        <XAxis type="number" domain={[0, 100]} fontSize={14} />
+                        <YAxis type="category" dataKey="name" width={160} fontSize={14} />
+                        <Tooltip />
+                        <Bar dataKey="score" radius={[0, 6, 6, 0]}>
+                          {evaluation.map((e, i) => (
+                            <Cell
+                              key={i}
+                              fill={e.score >= 80 ? "hsl(142 71% 45%)" : e.score >= 50 ? "hsl(38 92% 50%)" : "hsl(var(--destructive))"}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="flex-1 space-y-4">
               {current.tasks.map(t => (
                 <div key={t.id} className="rounded-lg border p-4 flex items-start justify-between gap-6 bg-card">
@@ -177,6 +254,7 @@ export default function ProjectPresentation() {
                 </div>
               ))}
             </div>
+            )}
 
             <div className="mt-6 h-2 w-full rounded bg-muted overflow-hidden">
               <div
