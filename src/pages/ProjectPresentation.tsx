@@ -63,16 +63,44 @@ export default function ProjectPresentation() {
       .from("tasks")
       .select("id,title,description,status,priority,start_date,deadline,assigned_to")
       .eq("project_id", pid)
-      .in("status", PENDING_STATUSES)
       .order("deadline", { ascending: true, nullsFirst: false });
-    setTasks((data as any) || []);
+    const rows = ((data as any) || []) as Task[];
+    setAllTasks(rows);
+    setTasks(rows.filter(t => PENDING_STATUSES.includes(t.status)));
     setIndex(0);
     setLoading(false);
   };
 
   useEffect(() => { loadTasks(projectId); }, [projectId]);
 
-  // Group by assignee → one slide per person
+  // Per-employee evaluation across ALL tasks of the project
+  const evaluation = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    allTasks.forEach(t => {
+      const key = t.assigned_to || "unassigned";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    });
+    const today = new Date();
+    const rows = Array.from(map.entries()).map(([owner, list]) => {
+      const total = list.length;
+      const done = list.filter(t => t.status === "done").length;
+      const pending = total - done;
+      const overdue = list.filter(t => t.status !== "done" && t.deadline && new Date(t.deadline) < today).length;
+      const completion = total ? (done / total) * 100 : 0;
+      const penalty = total ? (overdue / total) * 100 : 0;
+      const score = Math.max(0, Math.min(100, Math.round(completion - penalty * 0.5)));
+      const stars = Math.max(1, Math.min(5, Math.round(score / 20)));
+      return {
+        owner,
+        name: owner === "unassigned" ? "Unassigned" : (names[owner] || "Unknown"),
+        total, done, pending, overdue, score, stars,
+      };
+    });
+    return rows.sort((a, b) => b.score - a.score);
+  }, [allTasks, names]);
+
+  // Group by assignee → one slide per person, plus a final evaluation slide
   const slides = useMemo(() => {
     const map = new Map<string, Task[]>();
     tasks.forEach(t => {
@@ -80,12 +108,13 @@ export default function ProjectPresentation() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     });
-    const out: { owner: string; tasks: Task[] }[] = [];
+    const out: { type: "tasks" | "evaluation"; owner: string; tasks: Task[] }[] = [];
     map.forEach((list, owner) => {
-      for (let i = 0; i < list.length; i += 5) out.push({ owner, tasks: list.slice(i, i + 5) });
+      for (let i = 0; i < list.length; i += 5) out.push({ type: "tasks", owner, tasks: list.slice(i, i + 5) });
     });
+    if (evaluation.length > 0) out.push({ type: "evaluation", owner: "", tasks: [] });
     return out;
-  }, [tasks]);
+  }, [tasks, evaluation]);
 
   useEffect(() => {
     if (!playing || slides.length <= 1) return;
