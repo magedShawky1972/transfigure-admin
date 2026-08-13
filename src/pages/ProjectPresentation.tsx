@@ -254,6 +254,7 @@ export default function ProjectPresentation() {
                 </div>
               ))}
             </div>
+            )}
 
             <div className="mt-6 h-2 w-full rounded bg-muted overflow-hidden">
               <div
