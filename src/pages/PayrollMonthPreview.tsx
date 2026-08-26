@@ -353,7 +353,7 @@ export default function PayrollMonthPreview() {
       }
       return true;
     });
-  }, [emps, employeeFilter, deptFilter, jobFilter, statusFilter, payrollCountryFilter, search, hideZeroEmployees, visibleElements, amounts]);
+  }, [emps, employeeFilter, deptFilter, jobFilter, statusFilter, payrollCountryFilter, search, hideZeroEmployees, visibleElements, amounts, year, month]);
 
   const sorted = useMemo(() => {
     if (!sortRules.length) return filtered;
