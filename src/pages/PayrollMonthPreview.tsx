@@ -327,12 +327,22 @@ export default function PayrollMonthPreview() {
 
   const filtered = useMemo(() => {
     const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const periodStart = new Date(year, month - 1, 1);
+    const periodEnd = new Date(year, month - 1, daysInMonth, 23, 59, 59);
     return emps.filter((e) => {
+      // Exclude employees terminated before this payroll month, or not yet started
+      const tdRaw = e.termination_date ? new Date(e.termination_date) : null;
+      const td = tdRaw && !isNaN(tdRaw.getTime()) && tdRaw.getFullYear() > 1900 ? tdRaw : null;
+      if (td && td < periodStart) return false;
+      const jsd = e.job_start_date ? new Date(e.job_start_date) : null;
+      if (jsd && !isNaN(jsd.getTime()) && jsd > periodEnd) return false;
       if (employeeFilter.length && !employeeFilter.includes(e.id)) return false;
       if (deptFilter.length && (!e.department_id || !deptFilter.includes(e.department_id))) return false;
       if (jobFilter.length && (!e.job_position_id || !jobFilter.includes(e.job_position_id))) return false;
       if (statusFilter.length && (!e.employment_status || !statusFilter.includes(e.employment_status))) return false;
       if (payrollCountryFilter.length && (!e.payroll_country || !payrollCountryFilter.includes(e.payroll_country))) return false;
+
       if (terms.length) {
         const hay = `${empName(e)} ${e.employee_number} ${deptName(e.departments)} ${jobName(e.job_positions)}`.toLowerCase();
         if (!terms.every((t) => hay.includes(t))) return false;
