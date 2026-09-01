@@ -250,6 +250,18 @@ const translateErrorMessage = (message: string, language: string): string => {
   return translated;
 };
 
+// Maps the linked bank to the Sajel ERP expense type code for bank-fee expenses.
+// BNKxxx bank codes become BCxxx; named wallet banks have fixed Sajel codes.
+const resolveExpenseTypeCode = (bankCode: string, bankName: string): string => {
+  const code = (bankCode || '').toString().trim();
+  const name = (bankName || '').toString().trim().toLowerCase();
+  if (/^BNK/i.test(code)) return code.replace(/^BNK/i, 'BC');
+  const lower = code.toLowerCase();
+  if (lower.includes('stc') || name.includes('stc')) return 'BC006';
+  if (lower.includes('urpay') || name.includes('urpay')) return 'BC008';
+  return code;
+};
+
 const OdooSyncBatch = () => {
   const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
