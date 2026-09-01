@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { Building2, CreditCard, Save, Link2, Unlink } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface PaymentMethod {
   id: string;
@@ -19,6 +20,7 @@ interface PaymentMethod {
   vat_fee: number;
   is_active: boolean;
   bank_id: string | null;
+  bank_fee_expense_type: string | null;
 }
 
 interface Bank {
