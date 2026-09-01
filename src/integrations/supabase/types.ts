@@ -6373,6 +6373,7 @@ export type Database = {
       }
       payment_methods: {
         Row: {
+          bank_fee_expense_type: string | null
           bank_id: string | null
           created_at: string
           fixed_value: number
@@ -6386,6 +6387,7 @@ export type Database = {
           vat_fee: number
         }
         Insert: {
+          bank_fee_expense_type?: string | null
           bank_id?: string | null
           created_at?: string
           fixed_value?: number
@@ -6399,6 +6401,7 @@ export type Database = {
           vat_fee?: number
         }
         Update: {
+          bank_fee_expense_type?: string | null
           bank_id?: string | null
           created_at?: string
           fixed_value?: number
