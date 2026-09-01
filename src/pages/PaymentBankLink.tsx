@@ -97,9 +97,11 @@ export default function PaymentBankLink() {
     }
   };
 
-  const handleBankChange = (paymentType: string, bankId: string | null) => {
-    // Find all method IDs for this payment type
-    const group = groupedPaymentTypes.find((g) => g.payment_type === paymentType);
+  const groupKey = (paymentType: string, paymentMethod: string) => `${paymentType}|||${paymentMethod}`;
+
+  const handleBankChange = (key: string, bankId: string | null) => {
+    // Find all method IDs for this group
+    const group = groupedPaymentTypes.find((g) => groupKey(g.payment_type, g.payment_method) === key);
     if (group) {
       const newChanges = { ...changes };
       group.method_ids.forEach((id) => {
@@ -109,8 +111,8 @@ export default function PaymentBankLink() {
     }
   };
 
-  const getCurrentBankIdForType = (paymentType: string): string | null => {
-    const group = groupedPaymentTypes.find((g) => g.payment_type === paymentType);
+  const getCurrentBankIdForType = (key: string): string | null => {
+    const group = groupedPaymentTypes.find((g) => groupKey(g.payment_type, g.payment_method) === key);
     if (!group) return null;
     // Check if any method in this group has a pending change
     const firstMethodWithChange = group.method_ids.find((id) => changes.hasOwnProperty(id));
