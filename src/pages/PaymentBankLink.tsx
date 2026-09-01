@@ -31,6 +31,7 @@ interface Bank {
 
 interface GroupedPaymentType {
   payment_type: string;
+  payment_method: string;
   bank_id: string | null;
   method_ids: string[];
 }
