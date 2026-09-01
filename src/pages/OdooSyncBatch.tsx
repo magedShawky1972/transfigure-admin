@@ -2804,9 +2804,13 @@ const OdooSyncBatch = () => {
             bankName: r?.banks?.bank_name || '',
             cardType: r?.payment_method || r?.payment_type || '',
           };
-          [r.payment_type, r.payment_method].forEach((k: any) => {
-            if (typeof k === 'string' && k.trim()) {
-              const key = k.trim().toLowerCase();
+          const type = typeof r.payment_type === 'string' ? r.payment_type.trim() : '';
+          const brand = typeof r.payment_method === 'string' ? r.payment_method.trim() : '';
+          // Combined gateway + brand key takes priority over single-value keys
+          if (type && brand) pbMap.set(`${type}|${brand}`.toLowerCase(), entry);
+          [type, brand].forEach((k: string) => {
+            if (k) {
+              const key = k.toLowerCase();
               if (!pbMap.has(key)) pbMap.set(key, entry);
             }
           });
