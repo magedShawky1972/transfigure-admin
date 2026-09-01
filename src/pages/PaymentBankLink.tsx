@@ -35,6 +35,7 @@ interface GroupedPaymentType {
   payment_type: string;
   payment_method: string;
   bank_id: string | null;
+  bank_fee_expense_type: string | null;
   method_ids: string[];
 }
 
@@ -45,16 +46,17 @@ export default function PaymentBankLink() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [changes, setChanges] = useState<Record<string, string | null>>({});
+  const [expenseTypeChanges, setExpenseTypeChanges] = useState<Record<string, string | null>>({});
 
   // Group payment methods by payment_type + payment_method (brand)
   const groupedPaymentTypes: GroupedPaymentType[] = (() => {
-    const groups = new Map<string, { payment_type: string; payment_method: string; bank_id: string | null; method_ids: string[] }>();
+    const groups = new Map<string, { payment_type: string; payment_method: string; bank_id: string | null; bank_fee_expense_type: string | null; method_ids: string[] }>();
     paymentMethods.forEach((pm) => {
       const type = pm.payment_type || 'OTHER';
       const brand = pm.payment_method || '-';
       const key = `${type}|||${brand}`;
       if (!groups.has(key)) {
-        groups.set(key, { payment_type: type, payment_method: brand, bank_id: pm.bank_id, method_ids: [] });
+        groups.set(key, { payment_type: type, payment_method: brand, bank_id: pm.bank_id, bank_fee_expense_type: pm.bank_fee_expense_type, method_ids: [] });
       }
       groups.get(key)!.method_ids.push(pm.id);
     });
@@ -62,6 +64,7 @@ export default function PaymentBankLink() {
       payment_type: data.payment_type,
       payment_method: data.payment_method,
       bank_id: data.bank_id,
+      bank_fee_expense_type: data.bank_fee_expense_type,
       method_ids: data.method_ids,
     }));
   })();
@@ -76,7 +79,7 @@ export default function PaymentBankLink() {
       const [paymentRes, bankRes] = await Promise.all([
         supabase
           .from("payment_methods")
-          .select("id, payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active, bank_id")
+          .select("id, payment_type, payment_method, gateway_fee, fixed_value, vat_fee, is_active, bank_id, bank_fee_expense_type")
           .eq("is_active", true)
           .order("payment_type", { ascending: true }),
         supabase
@@ -124,6 +127,25 @@ export default function PaymentBankLink() {
     return group.bank_id;
   };
 
+  const handleExpenseTypeChange = (key: string, value: string) => {
+    const group = groupedPaymentTypes.find((g) => groupKey(g.payment_type, g.payment_method) === key);
+    if (group) {
+      const next = { ...expenseTypeChanges };
+      group.method_ids.forEach((id) => {
+        next[id] = value.trim() === "" ? null : value;
+      });
+      setExpenseTypeChanges(next);
+    }
+  };
+
+  const getCurrentExpenseTypeForType = (key: string): string => {
+    const group = groupedPaymentTypes.find((g) => groupKey(g.payment_type, g.payment_method) === key);
+    if (!group) return "";
+    const firstWithChange = group.method_ids.find((id) => expenseTypeChanges.hasOwnProperty(id));
+    if (firstWithChange) return expenseTypeChanges[firstWithChange] || "";
+    return group.bank_fee_expense_type || "";
+  };
+
   const getCurrentBankId = (paymentMethod: PaymentMethod): string | null => {
     if (changes.hasOwnProperty(paymentMethod.id)) {
       return changes[paymentMethod.id];
@@ -132,19 +154,21 @@ export default function PaymentBankLink() {
   };
 
   const handleSaveAll = async () => {
-    if (Object.keys(changes).length === 0) {
+    const changedIds = new Set([...Object.keys(changes), ...Object.keys(expenseTypeChanges)]);
+    if (changedIds.size === 0) {
       toast.info(language === "ar" ? "لا توجد تغييرات للحفظ" : "No changes to save");
       return;
     }
 
     setSaving(true);
     try {
-      const updates = Object.entries(changes).map(([paymentMethodId, bankId]) =>
-        supabase
-          .from("payment_methods")
-          .update({ bank_id: bankId, updated_at: new Date().toISOString() })
-          .eq("id", paymentMethodId)
-      );
+      const updates = Array.from(changedIds).map((paymentMethodId) => {
+        const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+        if (changes.hasOwnProperty(paymentMethodId)) payload.bank_id = changes[paymentMethodId];
+        if (expenseTypeChanges.hasOwnProperty(paymentMethodId))
+          payload.bank_fee_expense_type = expenseTypeChanges[paymentMethodId];
+        return supabase.from("payment_methods").update(payload).eq("id", paymentMethodId);
+      });
 
       const results = await Promise.all(updates);
       const errors = results.filter((r) => r.error);
@@ -155,10 +179,11 @@ export default function PaymentBankLink() {
 
       toast.success(
         language === "ar"
-          ? `تم حفظ ${Object.keys(changes).length} تغييرات بنجاح`
-          : `Successfully saved ${Object.keys(changes).length} changes`
+          ? `تم حفظ ${changedIds.size} تغييرات بنجاح`
+          : `Successfully saved ${changedIds.size} changes`
       );
       setChanges({});
+      setExpenseTypeChanges({});
       fetchData();
     } catch (error: any) {
       console.error("Error saving changes:", error);
@@ -183,7 +208,8 @@ export default function PaymentBankLink() {
     return total - totalFees;
   };
 
-  const hasChanges = Object.keys(changes).length > 0;
+  const changedCount = new Set([...Object.keys(changes), ...Object.keys(expenseTypeChanges)]).size;
+  const hasChanges = changedCount > 0;
 
   if (loading) {
     return <LoadingOverlay message={language === "ar" ? "جاري التحميل..." : "Loading..."} />;
@@ -214,7 +240,7 @@ export default function PaymentBankLink() {
             : "Save Changes"}
           {hasChanges && (
             <Badge variant="secondary" className="ml-2">
-              {Object.keys(changes).length}
+              {changedCount}
             </Badge>
           )}
         </Button>
@@ -285,6 +311,7 @@ export default function PaymentBankLink() {
                   <TableHead>{language === "ar" ? "نوع الدفع" : "Payment Type"}</TableHead>
                   <TableHead>{language === "ar" ? "علامة الدفع" : "Payment Brand"}</TableHead>
                   <TableHead>{language === "ar" ? "البنك المرتبط" : "Linked Bank"}</TableHead>
+                  <TableHead>{language === "ar" ? "كود نوع مصروف رسوم البنك" : "Bank Fee Expense Type"}</TableHead>
                   <TableHead className="text-center">{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -292,7 +319,9 @@ export default function PaymentBankLink() {
                 {groupedPaymentTypes.map((group) => {
                   const key = groupKey(group.payment_type, group.payment_method);
                   const currentBankId = getCurrentBankIdForType(key);
-                  const hasChange = group.method_ids.some((id) => changes.hasOwnProperty(id));
+                  const hasChange = group.method_ids.some(
+                    (id) => changes.hasOwnProperty(id) || expenseTypeChanges.hasOwnProperty(id)
+                  );
 
                   return (
                     <TableRow key={key} className={hasChange ? "bg-primary/5" : ""}>
@@ -327,6 +356,14 @@ export default function PaymentBankLink() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          className="w-[180px] uppercase"
+                          placeholder={language === "ar" ? "مثال: BC006" : "e.g. BC006"}
+                          value={getCurrentExpenseTypeForType(key)}
+                          onChange={(e) => handleExpenseTypeChange(key, e.target.value.toUpperCase())}
+                        />
                       </TableCell>
                       <TableCell className="text-center">
                         {currentBankId ? (
