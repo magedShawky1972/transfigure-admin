@@ -44,18 +44,21 @@ export default function PaymentBankLink() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [changes, setChanges] = useState<Record<string, string | null>>({});
 
-  // Group payment methods by payment_type
+  // Group payment methods by payment_type + payment_method (brand)
   const groupedPaymentTypes: GroupedPaymentType[] = (() => {
-    const groups = new Map<string, { bank_id: string | null; method_ids: string[] }>();
+    const groups = new Map<string, { payment_type: string; payment_method: string; bank_id: string | null; method_ids: string[] }>();
     paymentMethods.forEach((pm) => {
-      const key = pm.payment_type || 'OTHER';
+      const type = pm.payment_type || 'OTHER';
+      const brand = pm.payment_method || '-';
+      const key = `${type}|||${brand}`;
       if (!groups.has(key)) {
-        groups.set(key, { bank_id: pm.bank_id, method_ids: [] });
+        groups.set(key, { payment_type: type, payment_method: brand, bank_id: pm.bank_id, method_ids: [] });
       }
       groups.get(key)!.method_ids.push(pm.id);
     });
-    return Array.from(groups.entries()).map(([payment_type, data]) => ({
-      payment_type,
+    return Array.from(groups.values()).map((data) => ({
+      payment_type: data.payment_type,
+      payment_method: data.payment_method,
       bank_id: data.bank_id,
       method_ids: data.method_ids,
     }));
