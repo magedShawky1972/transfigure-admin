@@ -1896,7 +1896,7 @@ const OdooSyncBatch = () => {
             cardType = (match as any)?.payment_method || (match as any)?.payment_type || brand || gateway;
           }
 
-          const expenseTypeCode = bankCode ? bankCode.replace(/^BNK/i, 'BC') : '';
+          const expenseTypeCode = resolveExpenseTypeCode(bankCode, bankName);
           const feeAmount = Number(bankFeeTotal.toFixed(2));
 
           // Always populate bankCode on the payment payload when resolved
