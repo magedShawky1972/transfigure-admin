@@ -288,17 +288,19 @@ export default function PaymentBankLink() {
               </TableHeader>
               <TableBody>
                 {groupedPaymentTypes.map((group) => {
-                  const currentBankId = getCurrentBankIdForType(group.payment_type);
+                  const key = groupKey(group.payment_type, group.payment_method);
+                  const currentBankId = getCurrentBankIdForType(key);
                   const hasChange = group.method_ids.some((id) => changes.hasOwnProperty(id));
 
                   return (
-                    <TableRow key={group.payment_type} className={hasChange ? "bg-primary/5" : ""}>
+                    <TableRow key={key} className={hasChange ? "bg-primary/5" : ""}>
                       <TableCell className="font-medium">{group.payment_type?.toUpperCase() || '-'}</TableCell>
+                      <TableCell className="font-medium">{group.payment_method || '-'}</TableCell>
                       <TableCell>
                         <Select
                           value={currentBankId || "none"}
                           onValueChange={(value) =>
-                            handleBankChange(group.payment_type, value === "none" ? null : value)
+                            handleBankChange(key, value === "none" ? null : value)
                           }
                         >
                           <SelectTrigger className="w-[200px]">
