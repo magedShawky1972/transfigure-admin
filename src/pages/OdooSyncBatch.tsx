@@ -1858,13 +1858,19 @@ const OdooSyncBatch = () => {
             bankFeeTotal = (otRows || []).reduce((s: number, r: any) => s + (Number(r.bank_fee) || 0), 0);
           }
 
-          // Resolve bankCode + bankName + cardType from payment_methods → banks
+          // Resolve bankCode + bankName + cardType from payment_methods → banks.
+          // Bank linking is per (payment gateway/type + payment brand), so try the
+          // combined key first, then fall back to brand, then gateway alone.
           let bankCode = '';
           let bankName = '';
           let cardType = '';
-          const keys = [paymentPayload?.paymentType, paymentPayload?.paymentMethod, invoice.paymentMethod]
-            .filter((v: any) => typeof v === 'string' && v.trim().length > 0)
-            .map((v: string) => v.trim());
+          const gateway = (paymentPayload?.paymentType || invoice.paymentMethod || '').toString().trim();
+          const brand = (first?.payment_brand || invoice.paymentBrand || paymentPayload?.cardType || '').toString().trim();
+          const keys = [
+            gateway && brand ? `${gateway}|${brand}` : '',
+            brand,
+            gateway,
+          ].filter((v) => v && v.length > 0);
           const pbCache = paymentBankMapRef.current;
           if (pbCache && keys.length) {
             for (const k of keys) {
@@ -1872,14 +1878,22 @@ const OdooSyncBatch = () => {
               if (hit?.bankCode) { bankCode = hit.bankCode; bankName = hit.bankName; cardType = hit.cardType; break; }
             }
           } else if (keys.length) {
+            const lookups = [gateway, brand].filter((v) => v);
             const { data: pms } = await supabase
               .from('payment_methods')
               .select('payment_type, payment_method, bank_id, banks:bank_id (bank_code, bank_name)')
-              .or(keys.flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`]).join(','));
-            const match = (pms || []).find((r: any) => r?.banks?.bank_code);
+              .or(lookups.flatMap((k) => [`payment_type.ilike.${k}`, `payment_method.ilike.${k}`]).join(','));
+            const rows = (pms || []).filter((r: any) => r?.banks?.bank_code);
+            const match =
+              rows.find((r: any) =>
+                (r.payment_type || '').toString().trim().toLowerCase() === gateway.toLowerCase() &&
+                (r.payment_method || '').toString().trim().toLowerCase() === brand.toLowerCase()
+              ) ||
+              rows.find((r: any) => (r.payment_method || '').toString().trim().toLowerCase() === brand.toLowerCase()) ||
+              rows[0];
             bankCode = (match as any)?.banks?.bank_code || '';
             bankName = (match as any)?.banks?.bank_name || '';
-            cardType = (match as any)?.payment_method || (match as any)?.payment_type || (keys[0] || '');
+            cardType = (match as any)?.payment_method || (match as any)?.payment_type || brand || gateway;
           }
 
           const expenseTypeCode = bankCode ? bankCode.replace(/^BNK/i, 'BC') : '';
@@ -2790,9 +2804,13 @@ const OdooSyncBatch = () => {
             bankName: r?.banks?.bank_name || '',
             cardType: r?.payment_method || r?.payment_type || '',
           };
-          [r.payment_type, r.payment_method].forEach((k: any) => {
-            if (typeof k === 'string' && k.trim()) {
-              const key = k.trim().toLowerCase();
+          const type = typeof r.payment_type === 'string' ? r.payment_type.trim() : '';
+          const brand = typeof r.payment_method === 'string' ? r.payment_method.trim() : '';
+          // Combined gateway + brand key takes priority over single-value keys
+          if (type && brand) pbMap.set(`${type}|${brand}`.toLowerCase(), entry);
+          [type, brand].forEach((k: string) => {
+            if (k) {
+              const key = k.toLowerCase();
               if (!pbMap.has(key)) pbMap.set(key, entry);
             }
           });
