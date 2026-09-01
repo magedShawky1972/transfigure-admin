@@ -257,7 +257,7 @@ export default function PaymentBankLink() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {groupedPaymentTypes.filter((g) => getCurrentBankIdForType(g.payment_type)).length}
+                  {groupedPaymentTypes.filter((g) => getCurrentBankIdForType(groupKey(g.payment_type, g.payment_method))).length}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {language === "ar" ? "طرق دفع مرتبطة" : "Linked Methods"}
