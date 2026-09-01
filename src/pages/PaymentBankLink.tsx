@@ -280,7 +280,8 @@ export default function PaymentBankLink() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === "ar" ? "طريقة الدفع" : "Payment Method"}</TableHead>
+                  <TableHead>{language === "ar" ? "نوع الدفع" : "Payment Type"}</TableHead>
+                  <TableHead>{language === "ar" ? "علامة الدفع" : "Payment Brand"}</TableHead>
                   <TableHead>{language === "ar" ? "البنك المرتبط" : "Linked Bank"}</TableHead>
                   <TableHead className="text-center">{language === "ar" ? "الحالة" : "Status"}</TableHead>
                 </TableRow>
