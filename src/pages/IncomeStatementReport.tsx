@@ -858,18 +858,58 @@ const IncomeStatementReport = () => {
           <DialogHeader>
             <div className="flex items-center justify-between gap-2 pr-6">
               <DialogTitle>{drillTitle}</DialogTitle>
+              {drillType === "brand" && (
+                <div className="flex items-center rounded-md border overflow-hidden">
+                  <Button
+                    size="sm"
+                    variant={drillGroupBy === "brand" ? "default" : "ghost"}
+                    className="rounded-none"
+                    onClick={() => setDrillGroupBy("brand")}
+                  >
+                    {isRTL ? "حسب العلامة" : "By Brand"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={drillGroupBy === "type" ? "default" : "ghost"}
+                    className="rounded-none"
+                    onClick={() => setDrillGroupBy("type")}
+                  >
+                    {isRTL ? "حسب نوع العلامة" : "By Brand Type"}
+                  </Button>
+                </div>
+              )}
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => {
                   const rows = drillType === "brand"
-                    ? drillBrandData.map((b) => ({
-                        Brand: b.brand_name,
-                        "Tx Count": b.tx_count,
-                        Coins: b.coins,
-                        "%": Number(b.percentage.toFixed(2)),
-                        Value: Number(b.value.toFixed(2)),
-                      }))
+                    ? drillGroupBy === "type"
+                      ? groupDrillByType(drillBrandData).flatMap((g) => [
+                          {
+                            "Brand Type": g.brand_type,
+                            Brand: "",
+                            "Tx Count": g.tx_count,
+                            Coins: g.coins,
+                            "%": Number(g.percentage.toFixed(2)),
+                            Value: Number(g.value.toFixed(2)),
+                          },
+                          ...g.brands.map((b) => ({
+                            "Brand Type": "",
+                            Brand: b.brand_name,
+                            "Tx Count": b.tx_count,
+                            Coins: b.coins,
+                            "%": Number(b.percentage.toFixed(2)),
+                            Value: Number(b.value.toFixed(2)),
+                          })),
+                        ])
+                      : drillBrandData.map((b) => ({
+                          "Brand Type": brandTypeMap[b.brand_name] || "Unclassified",
+                          Brand: b.brand_name,
+                          "Tx Count": b.tx_count,
+                          Coins: b.coins,
+                          "%": Number(b.percentage.toFixed(2)),
+                          Value: Number(b.value.toFixed(2)),
+                        }))
                     : drillEpayment.map((r) => ({
                         "Payment Method": r.payment_method,
                         "Payment Brand": r.payment_brand,
