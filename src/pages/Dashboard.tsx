@@ -2334,7 +2334,7 @@ const Dashboard = () => {
     { label: t("dashboard.totalSalesWithDiscount"), value: metrics.totalSales, percentage: 100 },
     { label: t("dashboard.discountCoupons"), value: metrics.couponSales, percentage: (metrics.couponSales / metrics.totalSales) * 100 },
     { label: t("dashboard.salesPlusCoupon"), value: metrics.totalSales + metrics.couponSales, percentage: ((metrics.totalSales + metrics.couponSales) / metrics.totalSales) * 100 },
-    { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100 },
+    { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100, onClick: handleCostOfSalesClick },
     { label: t("dashboard.pointsCost"), value: includePointCost ? metrics.pointsCostSold : 0, percentage: includePointCost ? (metrics.pointsCostSold / metrics.totalSales) * 100 : 0 },
     { label: t("dashboard.shipping"), value: 0, percentage: 0 },
     { label: t("dashboard.taxes"), value: 0, percentage: 0 },
