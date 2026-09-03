@@ -3771,6 +3771,20 @@ const OdooSyncBatch = () => {
                         : 'Missing Vendor (non-A)'}
                     </p>
                   </div>
+                  {missingVendorInvoices.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="ml-auto h-8 w-8 text-muted-foreground hover:text-foreground"
+                      title={language === 'ar' ? 'طباعة تفاصيل الطلبات بدون مورد' : 'Print missing vendor orders details'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrintMissingVendors();
+                      }}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
