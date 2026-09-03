@@ -129,6 +129,10 @@ const Dashboard = () => {
   
   // Payment Charges Dialog
   const [paymentChargesDialogOpen, setPaymentChargesDialogOpen] = useState(false);
+  const [cogsDrillOpen, setCogsDrillOpen] = useState(false);
+  const [cogsGroupBy, setCogsGroupBy] = useState<'brand' | 'type'>('brand');
+  const [cogsBrandTypeMap, setCogsBrandTypeMap] = useState<Record<string, string>>({});
+  const [cogsExpandedTypes, setCogsExpandedTypes] = useState<Record<string, boolean>>({});
   const [paymentChargesBreakdown, setPaymentChargesBreakdown] = useState<any[]>([]);
   const [loadingPaymentCharges, setLoadingPaymentCharges] = useState(false);
   const [paymentChargesSortColumn, setPaymentChargesSortColumn] = useState<'payment_brand' | 'payment_method' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage'>('bank_fee');
