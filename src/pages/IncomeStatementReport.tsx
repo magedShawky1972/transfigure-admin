@@ -87,6 +87,8 @@ const IncomeStatementReport = () => {
   const [drillEpayment, setDrillEpayment] = useState<EPaymentRow[]>([]);
   const [epaySorts, setEpaySorts] = useState<Array<{ key: keyof EPaymentRow; dir: "asc" | "desc" }>>([]);
   const [drillLoading, setDrillLoading] = useState(false);
+  const [drillGroupBy, setDrillGroupBy] = useState<"brand" | "type">("brand");
+  const [expandedDrillTypes, setExpandedDrillTypes] = useState<Set<string>>(new Set());
 
   // Second-level: transactions for a brand
   const [txDialogOpen, setTxDialogOpen] = useState(false);
