@@ -508,6 +508,23 @@ const IncomeStatementReport = () => {
     }
   };
 
+  interface DrillBrandRow { brand_name: string; value: number; percentage: number; tx_count: number; coins: number }
+  interface DrillTypeGroup { brand_type: string; value: number; percentage: number; tx_count: number; coins: number; brands: DrillBrandRow[] }
+  const groupDrillByType = (list: DrillBrandRow[]): DrillTypeGroup[] => {
+    const map = new Map<string, DrillTypeGroup>();
+    list.forEach((b) => {
+      const t = brandTypeMap[b.brand_name] || (isRTL ? "غير مصنف" : "Unclassified");
+      const g = map.get(t) || { brand_type: t, value: 0, percentage: 0, tx_count: 0, coins: 0, brands: [] };
+      g.value += b.value;
+      g.percentage += b.percentage;
+      g.tx_count += b.tx_count;
+      g.coins += b.coins;
+      g.brands.push(b);
+      map.set(t, g);
+    });
+    return Array.from(map.values()).sort((a, b) => b.value - a.value);
+  };
+
   const handlePrint = () => window.print();
 
   return (
