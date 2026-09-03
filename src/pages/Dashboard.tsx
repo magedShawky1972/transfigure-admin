@@ -2315,6 +2315,20 @@ const Dashboard = () => {
     }] : []),
   ].filter(card => hasAccess(card.key));
 
+  const handleCostOfSalesClick = async () => {
+    setCogsGroupBy('brand');
+    setCogsExpandedTypes({});
+    try {
+      const { data } = await supabase
+        .from('brands')
+        .select('brand_name, brand_type:brand_type_id(type_name)');
+      const map: Record<string, string> = {};
+      (data || []).forEach((b: any) => { map[b.brand_name] = b.brand_type?.type_name || 'Unclassified'; });
+      setCogsBrandTypeMap(map);
+    } catch { setCogsBrandTypeMap({}); }
+    setCogsDrillOpen(true);
+  };
+
   // Income Statement Data
   const incomeStatementData = [
     { label: t("dashboard.totalSalesWithDiscount"), value: metrics.totalSales, percentage: 100 },
