@@ -87,6 +87,8 @@ const IncomeStatementReport = () => {
   const [drillEpayment, setDrillEpayment] = useState<EPaymentRow[]>([]);
   const [epaySorts, setEpaySorts] = useState<Array<{ key: keyof EPaymentRow; dir: "asc" | "desc" }>>([]);
   const [drillLoading, setDrillLoading] = useState(false);
+  const [drillGroupBy, setDrillGroupBy] = useState<"brand" | "type">("brand");
+  const [expandedDrillTypes, setExpandedDrillTypes] = useState<Set<string>>(new Set());
 
   // Second-level: transactions for a brand
   const [txDialogOpen, setTxDialogOpen] = useState(false);
@@ -327,6 +329,8 @@ const IncomeStatementReport = () => {
   const openDrilldown = async (row: IncomeRow) => {
     if (row.drilldown === "none") return;
     setDrillTitle(row.label);
+    setDrillGroupBy("brand");
+    setExpandedDrillTypes(new Set());
 
     if (row.drilldown === "brand" || row.drilldown === "points-brand") {
       setDrillType("brand");
@@ -502,6 +506,23 @@ const IncomeStatementReport = () => {
     } finally {
       setTxLoading(false);
     }
+  };
+
+  interface DrillBrandRow { brand_name: string; value: number; percentage: number; tx_count: number; coins: number }
+  interface DrillTypeGroup { brand_type: string; value: number; percentage: number; tx_count: number; coins: number; brands: DrillBrandRow[] }
+  const groupDrillByType = (list: DrillBrandRow[]): DrillTypeGroup[] => {
+    const map = new Map<string, DrillTypeGroup>();
+    list.forEach((b) => {
+      const t = brandTypeMap[b.brand_name] || (isRTL ? "غير مصنف" : "Unclassified");
+      const g = map.get(t) || { brand_type: t, value: 0, percentage: 0, tx_count: 0, coins: 0, brands: [] };
+      g.value += b.value;
+      g.percentage += b.percentage;
+      g.tx_count += b.tx_count;
+      g.coins += b.coins;
+      g.brands.push(b);
+      map.set(t, g);
+    });
+    return Array.from(map.values()).sort((a, b) => b.value - a.value);
   };
 
   const handlePrint = () => window.print();
@@ -854,18 +875,58 @@ const IncomeStatementReport = () => {
           <DialogHeader>
             <div className="flex items-center justify-between gap-2 pr-6">
               <DialogTitle>{drillTitle}</DialogTitle>
+              {drillType === "brand" && (
+                <div className="flex items-center rounded-md border overflow-hidden">
+                  <Button
+                    size="sm"
+                    variant={drillGroupBy === "brand" ? "default" : "ghost"}
+                    className="rounded-none"
+                    onClick={() => setDrillGroupBy("brand")}
+                  >
+                    {isRTL ? "حسب العلامة" : "By Brand"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={drillGroupBy === "type" ? "default" : "ghost"}
+                    className="rounded-none"
+                    onClick={() => setDrillGroupBy("type")}
+                  >
+                    {isRTL ? "حسب نوع العلامة" : "By Brand Type"}
+                  </Button>
+                </div>
+              )}
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => {
                   const rows = drillType === "brand"
-                    ? drillBrandData.map((b) => ({
-                        Brand: b.brand_name,
-                        "Tx Count": b.tx_count,
-                        Coins: b.coins,
-                        "%": Number(b.percentage.toFixed(2)),
-                        Value: Number(b.value.toFixed(2)),
-                      }))
+                    ? drillGroupBy === "type"
+                      ? groupDrillByType(drillBrandData).flatMap((g) => [
+                          {
+                            "Brand Type": g.brand_type,
+                            Brand: "",
+                            "Tx Count": g.tx_count,
+                            Coins: g.coins,
+                            "%": Number(g.percentage.toFixed(2)),
+                            Value: Number(g.value.toFixed(2)),
+                          },
+                          ...g.brands.map((b) => ({
+                            "Brand Type": "",
+                            Brand: b.brand_name,
+                            "Tx Count": b.tx_count,
+                            Coins: b.coins,
+                            "%": Number(b.percentage.toFixed(2)),
+                            Value: Number(b.value.toFixed(2)),
+                          })),
+                        ])
+                      : drillBrandData.map((b) => ({
+                          "Brand Type": brandTypeMap[b.brand_name] || "Unclassified",
+                          Brand: b.brand_name,
+                          "Tx Count": b.tx_count,
+                          Coins: b.coins,
+                          "%": Number(b.percentage.toFixed(2)),
+                          Value: Number(b.value.toFixed(2)),
+                        }))
                     : drillEpayment.map((r) => ({
                         "Payment Method": r.payment_method,
                         "Payment Brand": r.payment_brand,
@@ -890,6 +951,76 @@ const IncomeStatementReport = () => {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
+          ) : drillType === "brand" && drillGroupBy === "type" ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{isRTL ? "نوع العلامة / العلامة" : "Brand Type / Brand"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "عدد المعاملات" : "Tx Count"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "الكوينز" : "Coins"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "النسبة" : "%"}</TableHead>
+                  <TableHead className="text-right">{isRTL ? "القيمة" : "Value"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupDrillByType(drillBrandData).map((g) => (
+                  <Fragment key={g.brand_type}>
+                    <TableRow
+                      className="cursor-pointer hover:bg-muted/50 font-semibold bg-muted/20"
+                      onClick={() =>
+                        setExpandedDrillTypes((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(g.brand_type)) next.delete(g.brand_type); else next.add(g.brand_type);
+                          return next;
+                        })
+                      }
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {expandedDrillTypes.has(g.brand_type) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          {g.brand_type}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{g.tx_count.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{g.coins.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{g.percentage.toFixed(2)}%</TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(g.value)}</TableCell>
+                    </TableRow>
+                    {expandedDrillTypes.has(g.brand_type) && g.brands.map((b) => (
+                      <TableRow
+                        key={`${g.brand_type}-${b.brand_name}`}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => openBrandTransactions(b.brand_name, drillTitle)}
+                      >
+                        <TableCell className="pl-10 text-muted-foreground">{b.brand_name}</TableCell>
+                        <TableCell className="text-right">{b.tx_count.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{(b.coins || 0).toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{b.percentage.toFixed(2)}%</TableCell>
+                        <TableCell className="text-right">{fmt(b.value)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </Fragment>
+                ))}
+                {drillBrandData.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      {isRTL ? "لا توجد بيانات" : "No data"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+              {drillBrandData.length > 0 && (
+                <TableFooter>
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell>{isRTL ? "الإجمالي" : "Total"}</TableCell>
+                    <TableCell className="text-right">{drillBrandData.reduce((s, b) => s + (b.tx_count || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{drillBrandData.reduce((s, b) => s + (b.coins || 0), 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{drillBrandData.reduce((s, b) => s + (b.percentage || 0), 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right">{fmt(drillBrandData.reduce((s, b) => s + (b.value || 0), 0))}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
+            </Table>
           ) : drillType === "brand" ? (
             <Table>
               <TableHeader>
