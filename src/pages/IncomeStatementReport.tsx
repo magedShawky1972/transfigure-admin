@@ -329,6 +329,8 @@ const IncomeStatementReport = () => {
   const openDrilldown = async (row: IncomeRow) => {
     if (row.drilldown === "none") return;
     setDrillTitle(row.label);
+    setDrillGroupBy("brand");
+    setExpandedDrillTypes(new Set());
 
     if (row.drilldown === "brand" || row.drilldown === "points-brand") {
       setDrillType("brand");
