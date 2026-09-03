@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText, ChevronsUpDown, Check, Copy, Send } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle2, XCircle, Clock, Loader2, SkipForward, RefreshCw, StopCircle, Eye, History, Cloud, Layers, Filter, X, Users, ShoppingCart, Package, AlertTriangle, DollarSign, Hash, FileText, ChevronsUpDown, Check, Copy, Send, Printer } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -494,6 +494,94 @@ const OdooSyncBatch = () => {
       return abc !== 'A' && !inv.vendorName;
     }).length;
   }, [filteredAggregatedInvoices, brandAbcMap]);
+
+  // All invoices missing vendor (non-A brands) in the current filtered view
+  const missingVendorInvoices = useMemo(() => {
+    return filteredAggregatedInvoices.filter(inv => {
+      const abc = brandAbcMap.get(inv.originalLines[0]?.brand_code || '');
+      return abc !== 'A' && !inv.vendorName;
+    });
+  }, [filteredAggregatedInvoices, brandAbcMap]);
+
+  const handlePrintMissingVendors = () => {
+    const list = missingVendorInvoices;
+    if (list.length === 0) return;
+
+    const fmtNum = (n: number) => (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const rows = list.map((inv, idx) => {
+      const lines = (inv.originalLines || []).map(l => `
+        <tr>
+          <td>${esc((l as any).brand_code || '')}</td>
+          <td>${esc((l as any).brand_name || '')}</td>
+          <td class="num">${(l as any).qty ?? ''}</td>
+          <td class="num">${(l as any).coins_number ?? ''}</td>
+          <td class="num">${fmtNum((l as any).amount ?? 0)}</td>
+          <td class="num">${fmtNum((l as any).cost_sold ?? 0)}</td>
+        </tr>`).join('');
+      return `
+        <div class="order-block">
+          <div class="order-header">
+            <span class="order-idx">#${idx + 1}</span>
+            <span><b>${language === 'ar' ? 'التاريخ' : 'Date'}:</b> ${esc(inv.date)}</span>
+            <span><b>${language === 'ar' ? 'العلامة' : 'Brand'}:</b> ${esc(inv.brandName)}</span>
+            <span><b>${language === 'ar' ? 'طريقة الدفع' : 'Payment'}:</b> ${esc(inv.paymentMethod)} / ${esc(inv.paymentBrand)}</span>
+            <span><b>${language === 'ar' ? 'الإجمالي' : 'Total'}:</b> ${fmtNum(inv.grandTotal)}</span>
+          </div>
+          <div class="order-numbers">
+            <b>${language === 'ar' ? 'أرقام الطلبات' : 'Order Numbers'}:</b> ${inv.originalOrderNumbers.map(esc).join(', ')}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>${language === 'ar' ? 'كود الصنف' : 'Item Code'}</th>
+                <th>${language === 'ar' ? 'الصنف' : 'Item'}</th>
+                <th>${language === 'ar' ? 'الكمية' : 'Qty'}</th>
+                <th>${language === 'ar' ? 'الكوينز' : 'Coins'}</th>
+                <th>${language === 'ar' ? 'المبلغ' : 'Amount'}</th>
+                <th>${language === 'ar' ? 'التكلفة' : 'Cost'}</th>
+              </tr>
+            </thead>
+            <tbody>${lines}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`
+      <!DOCTYPE html>
+      <html dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+      <head>
+        <title>${language === 'ar' ? 'طلبات بدون مورد' : 'Missing Vendors Orders'}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; direction: ${language === 'ar' ? 'rtl' : 'ltr'}; }
+          h1 { font-size: 20px; margin-bottom: 4px; }
+          .subtitle { color: #666; margin-bottom: 20px; }
+          .order-block { border: 1px solid #333; margin-bottom: 16px; page-break-inside: avoid; }
+          .order-header { display: flex; flex-wrap: wrap; gap: 16px; background: #f5f5f5; padding: 8px 12px; border-bottom: 1px solid #333; }
+          .order-idx { font-weight: bold; color: #b91c1c; }
+          .order-numbers { padding: 6px 12px; border-bottom: 1px dashed #ccc; font-size: 11px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: ${language === 'ar' ? 'right' : 'left'}; }
+          th { background: #eee; }
+          td.num { text-align: ${language === 'ar' ? 'left' : 'right'}; }
+          .footer { margin-top: 16px; font-weight: bold; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>${language === 'ar' ? 'الطلبات بدون مورد (ليست A)' : 'Missing Vendors Orders (non-A)'}</h1>
+        <div class="subtitle">${language === 'ar' ? `إجمالي الطلبات: ${list.length}` : `Total orders: ${list.length}`} — ${new Date().toLocaleString()}</div>
+        ${rows}
+        <div class="footer">${language === 'ar' ? 'إجمالي الطلبات' : 'Total Orders'}: ${list.length} — ${language === 'ar' ? 'القيمة الإجمالية' : 'Grand Total'}: ${fmtNum(list.reduce((s, i) => s + (i.grandTotal || 0), 0))}</div>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+  };
 
   // Count of rows with sync errors in the current view
   const errorCount = useMemo(() => {
@@ -3683,6 +3771,20 @@ const OdooSyncBatch = () => {
                         : 'Missing Vendor (non-A)'}
                     </p>
                   </div>
+                  {missingVendorInvoices.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="ml-auto h-8 w-8 text-muted-foreground hover:text-foreground"
+                      title={language === 'ar' ? 'طباعة تفاصيل الطلبات بدون مورد' : 'Print missing vendor orders details'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrintMissingVendors();
+                      }}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
