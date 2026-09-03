@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info, Printer, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingCart, CreditCard, CalendarIcon, Loader2, Search, Edit, Coins, ArrowUpDown, ArrowUp, ArrowDown, Info, Printer, FileSpreadsheet, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -129,6 +129,10 @@ const Dashboard = () => {
   
   // Payment Charges Dialog
   const [paymentChargesDialogOpen, setPaymentChargesDialogOpen] = useState(false);
+  const [cogsDrillOpen, setCogsDrillOpen] = useState(false);
+  const [cogsGroupBy, setCogsGroupBy] = useState<'brand' | 'type'>('brand');
+  const [cogsBrandTypeMap, setCogsBrandTypeMap] = useState<Record<string, string>>({});
+  const [cogsExpandedTypes, setCogsExpandedTypes] = useState<Record<string, boolean>>({});
   const [paymentChargesBreakdown, setPaymentChargesBreakdown] = useState<any[]>([]);
   const [loadingPaymentCharges, setLoadingPaymentCharges] = useState(false);
   const [paymentChargesSortColumn, setPaymentChargesSortColumn] = useState<'payment_brand' | 'payment_method' | 'transaction_count' | 'total' | 'bank_fee' | 'percentage'>('bank_fee');
@@ -2311,12 +2315,26 @@ const Dashboard = () => {
     }] : []),
   ].filter(card => hasAccess(card.key));
 
+  const handleCostOfSalesClick = async () => {
+    setCogsGroupBy('brand');
+    setCogsExpandedTypes({});
+    try {
+      const { data } = await supabase
+        .from('brands')
+        .select('brand_name, brand_type:brand_type_id(type_name)');
+      const map: Record<string, string> = {};
+      (data || []).forEach((b: any) => { map[b.brand_name] = b.brand_type?.type_name || 'Unclassified'; });
+      setCogsBrandTypeMap(map);
+    } catch { setCogsBrandTypeMap({}); }
+    setCogsDrillOpen(true);
+  };
+
   // Income Statement Data
   const incomeStatementData = [
     { label: t("dashboard.totalSalesWithDiscount"), value: metrics.totalSales, percentage: 100 },
     { label: t("dashboard.discountCoupons"), value: metrics.couponSales, percentage: (metrics.couponSales / metrics.totalSales) * 100 },
     { label: t("dashboard.salesPlusCoupon"), value: metrics.totalSales + metrics.couponSales, percentage: ((metrics.totalSales + metrics.couponSales) / metrics.totalSales) * 100 },
-    { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100 },
+    { label: t("dashboard.costOfSales"), value: metrics.costOfSales, percentage: (metrics.costOfSales / metrics.totalSales) * 100, onClick: handleCostOfSalesClick },
     { label: t("dashboard.pointsCost"), value: includePointCost ? metrics.pointsCostSold : 0, percentage: includePointCost ? (metrics.pointsCostSold / metrics.totalSales) * 100 : 0 },
     { label: t("dashboard.shipping"), value: 0, percentage: 0 },
     { label: t("dashboard.taxes"), value: 0, percentage: 0 },
@@ -4501,6 +4519,95 @@ const Dashboard = () => {
       )}
 
       {/* CRM Follow-up Dialog */}
+      {/* Cost Of Sales Drilldown */}
+      <Dialog open={cogsDrillOpen} onOpenChange={setCogsDrillOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-4 flex-wrap">
+              <span>{t("dashboard.costOfSales")}</span>
+              <div className="flex gap-1">
+                <Button size="sm" variant={cogsGroupBy === 'brand' ? 'default' : 'outline'} onClick={() => setCogsGroupBy('brand')}>
+                  {language === 'ar' ? 'حسب العلامة' : 'By Brand'}
+                </Button>
+                <Button size="sm" variant={cogsGroupBy === 'type' ? 'default' : 'outline'} onClick={() => setCogsGroupBy('type')}>
+                  {language === 'ar' ? 'حسب النوع' : 'By Brand Type'}
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const rows = brandSalesGrid
+              .filter((b: any) => Math.abs(b.totalCost) > 0.001)
+              .sort((a: any, b: any) => b.totalCost - a.totalCost);
+            const totalCost = rows.reduce((s: number, b: any) => s + b.totalCost, 0);
+            const renderRow = (b: any, indent = false) => (
+              <TableRow key={b.brandName} className={indent ? 'bg-muted/20' : ''}>
+                <TableCell className={indent ? 'pl-8' : ''}>{b.brandName}</TableCell>
+                <TableCell className="text-center">{b.transactionCount}</TableCell>
+                <TableCell className="text-right">{totalCost > 0 ? ((b.totalCost / totalCost) * 100).toFixed(2) : '0.00'}%</TableCell>
+                <TableCell className="text-right">{formatCurrency(b.totalCost)}</TableCell>
+              </TableRow>
+            );
+            const groups = cogsGroupBy === 'type'
+              ? Object.values(rows.reduce((acc: any, b: any) => {
+                  const t = cogsBrandTypeMap[b.brandName] || 'Unclassified';
+                  if (!acc[t]) acc[t] = { type: t, cost: 0, count: 0, brands: [] as any[] };
+                  acc[t].cost += b.totalCost;
+                  acc[t].count += b.transactionCount;
+                  acc[t].brands.push(b);
+                  return acc;
+                }, {})).sort((a: any, b: any) => b.cost - a.cost)
+              : [];
+            return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{language === 'ar' ? 'العلامة التجارية' : 'Brand'}</TableHead>
+                    <TableHead className="text-center">{language === 'ar' ? 'المعاملات' : 'Transactions'}</TableHead>
+                    <TableHead className="text-right">%</TableHead>
+                    <TableHead className="text-right">{language === 'ar' ? 'التكلفة' : 'Cost'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cogsGroupBy === 'brand'
+                    ? rows.map((b: any) => renderRow(b))
+                    : groups.map((g: any) => (
+                      <Fragment key={g.type}>
+                        <TableRow
+                          className="cursor-pointer hover:bg-muted/50 font-semibold"
+                          onClick={() => setCogsExpandedTypes((p) => ({ ...p, [g.type]: !p[g.type] }))}
+                        >
+                          <TableCell>
+                            <span className="flex items-center gap-2">
+                              {cogsExpandedTypes[g.type] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                              {g.type}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">{g.count}</TableCell>
+                          <TableCell className="text-right">{totalCost > 0 ? ((g.cost / totalCost) * 100).toFixed(2) : '0.00'}%</TableCell>
+                          <TableCell className="text-right">{formatCurrency(g.cost)}</TableCell>
+                        </TableRow>
+                        {cogsExpandedTypes[g.type] && g.brands.map((b: any) => renderRow(b, true))}
+                      </Fragment>
+                    ))}
+                  {rows.length === 0 && (
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">{language === 'ar' ? 'لا توجد بيانات' : 'No data'}</TableCell></TableRow>
+                  )}
+                  {rows.length > 0 && (
+                    <TableRow className="font-bold border-t-2">
+                      <TableCell>{language === 'ar' ? 'الإجمالي' : 'Total'}</TableCell>
+                      <TableCell className="text-center">{rows.reduce((s: number, b: any) => s + b.transactionCount, 0)}</TableCell>
+                      <TableCell className="text-right">100%</TableCell>
+                      <TableCell className="text-right">{formatCurrency(totalCost)}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={crmDialogOpen} onOpenChange={setCrmDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
