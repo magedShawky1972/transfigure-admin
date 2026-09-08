@@ -30,6 +30,8 @@ type Run = {
   employee_count: number;
   confirmed_at: string | null;
   sar_currency_rate?: number | null;
+  sent_to_accounting_at?: string | null;
+  sent_to_accounting_by?: string | null;
 };
 
 type Line = {
@@ -722,11 +724,43 @@ export default function PayrollRun() {
         description: `${results.length - failed}/${results.length} ${isAr ? "فاتورة تم إرسالها" : "AP invoice(s) posted"}`,
         variant: failed === 0 ? undefined : "destructive",
       });
+      if (failed === 0 && journalDlg.run) {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from("payroll_runs").update({
+          sent_to_accounting_at: new Date().toISOString(),
+          sent_to_accounting_by: user?.id ?? null,
+        } as any).eq("id", journalDlg.run.id);
+        loadRuns();
+      }
     } catch (e: any) {
       setJournalDlg((s) => ({ ...s, sending: false }));
       toast({ title: isAr ? "فشل الإرسال" : "Send failed", description: e.message, variant: "destructive" });
     }
   };
+
+  const rollbackSendToAcc = (run: Run) => {
+    const period = `${run.period_year}-${String(run.period_month).padStart(2, "0")}`;
+    askConfirm({
+      title: isAr ? "تراجع عن الإرسال للمحاسبة" : "Rollback Send to Acc.",
+      description: isAr
+        ? `سيتم إعادة فتح زر الإرسال للمحاسبة للفترة ${period}. لن يتم حذف أي قيود تم ترحيلها في نظام المحاسبة.`
+        : `This reopens the Send to Acc. button for ${period}. It does not delete anything already posted in the accounting system.`,
+      confirmLabel: isAr ? "تراجع" : "Rollback",
+      onConfirm: async () => {
+        const { error } = await supabase.from("payroll_runs").update({
+          sent_to_accounting_at: null,
+          sent_to_accounting_by: null,
+        } as any).eq("id", run.id).select();
+        if (error) {
+          toast({ title: isAr ? "خطأ" : "Error", description: error.message, variant: "destructive" });
+          return;
+        }
+        toast({ title: isAr ? "تم التراجع" : "Rolled back" });
+        loadRuns();
+      },
+    });
+  };
+
 
 
   const confirmRun = (run: Run) => {
@@ -1012,9 +1046,22 @@ export default function PayrollRun() {
                         <Button size="sm" variant="ghost" title={isAr ? "عرض بيانات API" : "View API Body"} onClick={() => openJournalPreview(r)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" onClick={() => openJournalPreview(r)}>
+                        <Button
+                          size="sm"
+                          onClick={() => openJournalPreview(r)}
+                          disabled={!!r.sent_to_accounting_at}
+                          title={r.sent_to_accounting_at ? (isAr ? "تم الإرسال للمحاسبة" : "Already sent to accounting") : undefined}
+                        >
                           <Send className="h-4 w-4 mr-1" /> {isAr ? "إرسال للمحاسبة" : "Send to Acc."}
                         </Button>
+                        {r.sent_to_accounting_at && (
+                          <>
+                            <Badge variant="outline" className="mx-1">{isAr ? "مُرسل" : "Sent"}</Badge>
+                            <Button size="sm" variant="secondary" onClick={() => rollbackSendToAcc(r)}>
+                              <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع الإرسال" : "Rollback Send"}
+                            </Button>
+                          </>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
                           <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
                         </Button>
@@ -1248,7 +1295,7 @@ export default function PayrollRun() {
             <Button variant="outline" onClick={() => setJournalDlg((s) => ({ ...s, open: false }))}>
               {isAr ? "إغلاق" : "Close"}
             </Button>
-            <Button onClick={sendJournalsToSajel} disabled={journalDlg.sending || journalDlg.journals.length === 0}>
+            <Button onClick={sendJournalsToSajel} disabled={journalDlg.sending || journalDlg.journals.length === 0 || !!journalDlg.run?.sent_to_accounting_at}>
               {journalDlg.sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
               {isAr ? "إرسال إلى المحاسبة" : "Send to Accounting"}
             </Button>
