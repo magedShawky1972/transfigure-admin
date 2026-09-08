@@ -19,6 +19,7 @@ interface SajelErpSettings {
   stock_issue_api_url: string;
   stock_movement_api_url: string;
   payroll_api_url: string;
+  chart_of_account_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
