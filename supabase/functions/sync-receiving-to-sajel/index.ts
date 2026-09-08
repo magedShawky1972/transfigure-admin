@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, ap_invoice_api_url, generate_batch_number_url')
+      .select('api_key, ap_invoice_api_url, ap_invoice_api_type, generate_batch_number_url, generate_batch_number_api_type')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -46,10 +46,11 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const bResp = await fetch(batchUrl, { method: 'POST', headers: { 'Authorization': apiKey } });
+      const batchMethod = (settings as any)?.generate_batch_number_api_type || 'POST';
+      const bResp = await fetch(batchUrl, { method: batchMethod, headers: { 'Authorization': apiKey } });
       const bText = await bResp.text();
       let bJson: any; try { bJson = JSON.parse(bText); } catch { bJson = { raw: bText }; }
-      batchInfo = { url: batchUrl, status: bResp.status, response: bJson };
+      batchInfo = { url: batchUrl, method: batchMethod, status: bResp.status, response: bJson };
       batchNumber = bJson?.data?.batchNumber ?? bJson?.batchNumber;
       if (!bResp.ok || !batchNumber) {
         return new Response(JSON.stringify({ success: false, error: `Failed to generate batch number: ${bText || bResp.status}`, batch: batchInfo }), {
@@ -70,8 +71,9 @@ Deno.serve(async (req) => {
     console.log('Posting AP Invoice to Sajel:', url, JSON.stringify(body));
 
     const startedAt = Date.now();
+    const invoiceMethod = (settings as any)?.ap_invoice_api_type || 'POST';
     const resp = await fetch(url, {
-      method: 'POST',
+      method: invoiceMethod,
       headers: { 'Content-Type': 'application/json', 'Authorization': apiKey },
       body: JSON.stringify(body),
     });

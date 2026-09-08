@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, payment_api_url, expense_entry_api_url')
+      .select('api_key, payment_api_url, payment_api_type, expense_entry_api_url, expense_entry_api_type')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     console.log('Posting to Sajel ERP:', settings.payment_api_url, body);
 
     const resp = await fetch(settings.payment_api_url, {
-      method: 'POST',
+      method: (settings as any).payment_api_type || 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': settings.api_key,
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       expenseSent = expenseBody;
       console.log('Posting Bank Fee to Sajel ERP Expense Entry:', settings.expense_entry_api_url, expenseBody);
       const eResp = await fetch(settings.expense_entry_api_url, {
-        method: 'POST',
+        method: (settings as any).expense_entry_api_type || 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': settings.api_key,

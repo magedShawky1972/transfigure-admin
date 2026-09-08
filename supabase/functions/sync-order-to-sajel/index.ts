@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     if (!settings || now - cachedSettingsAt > SETTINGS_TTL_MS) {
       const { data, error: sErr } = await supabase
         .from('sajel_erp_settings')
-        .select('api_key, one_step_combined_transaction_url')
+        .select('api_key, one_step_combined_transaction_url, one_step_combined_transaction_api_type')
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
 
     const startedAt = Date.now();
     const resp = await fetch(settings.one_step_combined_transaction_url, {
-      method: 'POST',
+      method: (settings as any).one_step_combined_transaction_api_type || 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': settings.api_key,
