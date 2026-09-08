@@ -222,6 +222,15 @@ export default function SajelErpSetup() {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط Chart Of Account API" : "Chart Of Account API URL"}</Label>
+            <Input
+              value={form.chart_of_account_api_url}
+              onChange={update("chart_of_account_api_url")}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
 
           <div className="flex justify-end pt-2">
             <Button onClick={handleSave} disabled={saving}>
