@@ -30,6 +30,8 @@ type Run = {
   employee_count: number;
   confirmed_at: string | null;
   sar_currency_rate?: number | null;
+  sent_to_accounting_at?: string | null;
+  sent_to_accounting_by?: string | null;
 };
 
 type Line = {
