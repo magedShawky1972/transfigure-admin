@@ -8294,49 +8294,76 @@ export type Database = {
       }
       sajel_erp_settings: {
         Row: {
+          ap_invoice_api_type: string | null
           ap_invoice_api_url: string | null
           api_key: string | null
+          chart_of_account_api_type: string | null
           chart_of_account_api_url: string | null
           created_at: string
+          expense_entry_api_type: string | null
           expense_entry_api_url: string | null
+          generate_batch_number_api_type: string | null
           generate_batch_number_url: string | null
           id: string
+          one_step_combined_transaction_api_type: string | null
           one_step_combined_transaction_url: string | null
+          payment_api_type: string | null
           payment_api_url: string | null
+          payroll_api_type: string | null
           payroll_api_url: string | null
+          stock_issue_api_type: string | null
           stock_issue_api_url: string | null
+          stock_movement_api_type: string | null
           stock_movement_api_url: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          ap_invoice_api_type?: string | null
           ap_invoice_api_url?: string | null
           api_key?: string | null
+          chart_of_account_api_type?: string | null
           chart_of_account_api_url?: string | null
           created_at?: string
+          expense_entry_api_type?: string | null
           expense_entry_api_url?: string | null
+          generate_batch_number_api_type?: string | null
           generate_batch_number_url?: string | null
           id?: string
+          one_step_combined_transaction_api_type?: string | null
           one_step_combined_transaction_url?: string | null
+          payment_api_type?: string | null
           payment_api_url?: string | null
+          payroll_api_type?: string | null
           payroll_api_url?: string | null
+          stock_issue_api_type?: string | null
           stock_issue_api_url?: string | null
+          stock_movement_api_type?: string | null
           stock_movement_api_url?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          ap_invoice_api_type?: string | null
           ap_invoice_api_url?: string | null
           api_key?: string | null
+          chart_of_account_api_type?: string | null
           chart_of_account_api_url?: string | null
           created_at?: string
+          expense_entry_api_type?: string | null
           expense_entry_api_url?: string | null
+          generate_batch_number_api_type?: string | null
           generate_batch_number_url?: string | null
           id?: string
+          one_step_combined_transaction_api_type?: string | null
           one_step_combined_transaction_url?: string | null
+          payment_api_type?: string | null
           payment_api_url?: string | null
+          payroll_api_type?: string | null
           payroll_api_url?: string | null
+          stock_issue_api_type?: string | null
           stock_issue_api_url?: string | null
+          stock_movement_api_type?: string | null
           stock_movement_api_url?: string | null
           updated_at?: string
           updated_by?: string | null
