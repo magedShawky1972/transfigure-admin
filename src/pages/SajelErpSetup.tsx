@@ -32,6 +32,7 @@ const EMPTY: SajelErpSettings = {
   stock_issue_api_url: "",
   stock_movement_api_url: "",
   payroll_api_url: "",
+  chart_of_account_api_url: "",
 };
 
 export default function SajelErpSetup() {
