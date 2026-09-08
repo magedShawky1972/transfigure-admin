@@ -6525,6 +6525,8 @@ export type Database = {
           code: string
           created_at: string
           default_amount: number | null
+          element_account: string | null
+          element_account_name: string | null
           element_type: string
           formula: string | null
           id: string
@@ -6543,6 +6545,8 @@ export type Database = {
           code: string
           created_at?: string
           default_amount?: number | null
+          element_account?: string | null
+          element_account_name?: string | null
           element_type: string
           formula?: string | null
           id?: string
@@ -6561,6 +6565,8 @@ export type Database = {
           code?: string
           created_at?: string
           default_amount?: number | null
+          element_account?: string | null
+          element_account_name?: string | null
           element_type?: string
           formula?: string | null
           id?: string
