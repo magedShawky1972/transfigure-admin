@@ -19,6 +19,7 @@ interface SajelErpSettings {
   stock_issue_api_url: string;
   stock_movement_api_url: string;
   payroll_api_url: string;
+  chart_of_account_api_url: string;
 }
 
 const EMPTY: SajelErpSettings = {
@@ -31,6 +32,7 @@ const EMPTY: SajelErpSettings = {
   stock_issue_api_url: "",
   stock_movement_api_url: "",
   payroll_api_url: "",
+  chart_of_account_api_url: "",
 };
 
 export default function SajelErpSetup() {
@@ -63,6 +65,7 @@ export default function SajelErpSetup() {
           stock_issue_api_url: (data as any).stock_issue_api_url ?? "",
           stock_movement_api_url: (data as any).stock_movement_api_url ?? "",
           payroll_api_url: (data as any).payroll_api_url ?? "",
+          chart_of_account_api_url: (data as any).chart_of_account_api_url ?? "",
         });
       }
       setLoading(false);
@@ -86,6 +89,7 @@ export default function SajelErpSetup() {
         stock_issue_api_url: form.stock_issue_api_url || null,
         stock_movement_api_url: form.stock_movement_api_url || null,
         payroll_api_url: form.payroll_api_url || null,
+        chart_of_account_api_url: form.chart_of_account_api_url || null,
         updated_by: user?.id ?? null,
       };
       const query = form.id
@@ -218,6 +222,15 @@ export default function SajelErpSetup() {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>{isAr ? "رابط Chart Of Account API" : "Chart Of Account API URL"}</Label>
+            <Input
+              value={form.chart_of_account_api_url}
+              onChange={update("chart_of_account_api_url")}
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
 
           <div className="flex justify-end pt-2">
             <Button onClick={handleSave} disabled={saving}>

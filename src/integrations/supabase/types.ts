@@ -8290,6 +8290,7 @@ export type Database = {
         Row: {
           ap_invoice_api_url: string | null
           api_key: string | null
+          chart_of_account_api_url: string | null
           created_at: string
           expense_entry_api_url: string | null
           generate_batch_number_url: string | null
@@ -8305,6 +8306,7 @@ export type Database = {
         Insert: {
           ap_invoice_api_url?: string | null
           api_key?: string | null
+          chart_of_account_api_url?: string | null
           created_at?: string
           expense_entry_api_url?: string | null
           generate_batch_number_url?: string | null
@@ -8320,6 +8322,7 @@ export type Database = {
         Update: {
           ap_invoice_api_url?: string | null
           api_key?: string | null
+          chart_of_account_api_url?: string | null
           created_at?: string
           expense_entry_api_url?: string | null
           generate_batch_number_url?: string | null
