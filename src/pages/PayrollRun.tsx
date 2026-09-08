@@ -1295,7 +1295,7 @@ export default function PayrollRun() {
             <Button variant="outline" onClick={() => setJournalDlg((s) => ({ ...s, open: false }))}>
               {isAr ? "إغلاق" : "Close"}
             </Button>
-            <Button onClick={sendJournalsToSajel} disabled={journalDlg.sending || journalDlg.journals.length === 0}>
+            <Button onClick={sendJournalsToSajel} disabled={journalDlg.sending || journalDlg.journals.length === 0 || !!journalDlg.run?.sent_to_accounting_at}>
               {journalDlg.sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
               {isAr ? "إرسال إلى المحاسبة" : "Send to Accounting"}
             </Button>
