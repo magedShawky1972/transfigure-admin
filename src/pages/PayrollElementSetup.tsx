@@ -11,7 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Check, ChevronsUpDown, RefreshCw } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 type Element = {
   id: string;
@@ -28,7 +31,11 @@ type Element = {
   is_absence_element: boolean;
   is_active: boolean;
   sort_order: number | null;
+  element_account: string | null;
+  element_account_name: string | null;
 };
+
+type Account = { code: string; name: string };
 
 const EMPTY: Partial<Element> = {
   code: "",
@@ -44,6 +51,8 @@ const EMPTY: Partial<Element> = {
   is_absence_element: false,
   is_active: true,
   sort_order: 0,
+  element_account: "",
+  element_account_name: "",
 };
 
 export default function PayrollElementSetup() {
@@ -53,6 +62,24 @@ export default function PayrollElementSetup() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<Element>>(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+
+  const loadAccounts = async () => {
+    setAccountsLoading(true);
+    const { data, error } = await supabase.functions.invoke("fetch-sajel-chart-of-accounts");
+    setAccountsLoading(false);
+    if (error || (data as any)?.error) {
+      toast({
+        title: language === "ar" ? "تعذر تحميل دليل الحسابات" : "Could not load chart of accounts",
+        description: (data as any)?.error || error?.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    setAccounts(((data as any)?.accounts || []) as Account[]);
+  };
 
   const load = async () => {
     const { data, error } = await supabase
@@ -68,6 +95,7 @@ export default function PayrollElementSetup() {
 
   useEffect(() => {
     load();
+    loadAccounts();
   }, []);
 
   const openNew = () => {
@@ -101,6 +129,8 @@ export default function PayrollElementSetup() {
       is_absence_element: !!form.is_absence_element,
       is_active: form.is_active !== false,
       sort_order: Number(form.sort_order) || 0,
+      element_account: form.element_account || null,
+      element_account_name: form.element_account_name || null,
     };
     // If delay minutes is set, force calculation type
     if (payload.is_delay_minutes_element) {
@@ -158,6 +188,7 @@ export default function PayrollElementSetup() {
                   <TableHead>{language === "ar" ? "النوع" : "Type"}</TableHead>
                   <TableHead>{language === "ar" ? "الحساب" : "Calc"}</TableHead>
                   <TableHead>{language === "ar" ? "المبلغ الافتراضي" : "Default Amount"}</TableHead>
+                  <TableHead>{language === "ar" ? "حساب العنصر" : "Element Account"}</TableHead>
                   <TableHead>{language === "ar" ? "دقائق التأخير" : "Delay Minutes"}</TableHead>
                   <TableHead>{language === "ar" ? "نشط" : "Active"}</TableHead>
                   <TableHead className="text-right">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
@@ -176,6 +207,13 @@ export default function PayrollElementSetup() {
                     </TableCell>
                     <TableCell className="text-xs">{r.calculation_type === "fixed" ? (language === "ar" ? "مبلغ ثابت" : "fixed") : r.calculation_type === "formula" ? (language === "ar" ? "معادلة" : "formula") : r.calculation_type === "variable" ? (language === "ar" ? "متغير" : "variable") : (language === "ar" ? "دقائق التأخير" : r.calculation_type)}</TableCell>
                     <TableCell>{Number(r.default_amount || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-xs">
+                      {r.element_account ? (
+                        <span className="font-mono">{r.element_account}{r.element_account_name ? ` - ${r.element_account_name}` : ""}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {r.is_delay_minutes_element && (
                         <Badge variant="outline" className="gap-1">
@@ -196,7 +234,7 @@ export default function PayrollElementSetup() {
                 ))}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                       {language === "ar" ? "لا توجد عناصر بعد" : "No elements yet"}
                     </TableCell>
                   </TableRow>
@@ -281,6 +319,62 @@ export default function PayrollElementSetup() {
                 value={form.sort_order ?? 0}
                 onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })}
               />
+            </div>
+            <div className="col-span-2">
+              <div className="flex items-center justify-between">
+                <Label>{language === "ar" ? "حساب العنصر" : "Element Account"}</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={loadAccounts} disabled={accountsLoading}>
+                  <RefreshCw className={cn("h-3.5 w-3.5 mr-1", accountsLoading && "animate-spin")} />
+                  {language === "ar" ? "تحديث" : "Refresh"}
+                </Button>
+              </div>
+              <Popover open={accountOpen} onOpenChange={setAccountOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    <span className="truncate">
+                      {form.element_account
+                        ? `${form.element_account}${form.element_account_name ? " - " + form.element_account_name : ""}`
+                        : accountsLoading
+                          ? (language === "ar" ? "جاري التحميل..." : "Loading...")
+                          : (language === "ar" ? "اختر حساباً" : "Select account")}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={language === "ar" ? "بحث بالرمز أو الاسم..." : "Search code or name..."} />
+                    <CommandList>
+                      <CommandEmpty>{language === "ar" ? "لا توجد حسابات" : "No accounts found"}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="__none__"
+                          onSelect={() => {
+                            setForm({ ...form, element_account: "", element_account_name: "" });
+                            setAccountOpen(false);
+                          }}
+                        >
+                          {language === "ar" ? "بدون حساب" : "No account"}
+                        </CommandItem>
+                        {accounts.map((a) => (
+                          <CommandItem
+                            key={a.code}
+                            value={`${a.code} ${a.name}`}
+                            onSelect={() => {
+                              setForm({ ...form, element_account: a.code, element_account_name: a.name });
+                              setAccountOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", form.element_account === a.code ? "opacity-100" : "opacity-0")} />
+                            <span className="font-mono text-xs mr-2">{a.code}</span>
+                            <span className="truncate">{a.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="col-span-2">
               <Label>{language === "ar" ? "المعادلة (اختياري)" : "Formula (optional)"}</Label>
