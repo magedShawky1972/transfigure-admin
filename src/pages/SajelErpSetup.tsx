@@ -65,6 +65,7 @@ export default function SajelErpSetup() {
           stock_issue_api_url: (data as any).stock_issue_api_url ?? "",
           stock_movement_api_url: (data as any).stock_movement_api_url ?? "",
           payroll_api_url: (data as any).payroll_api_url ?? "",
+          chart_of_account_api_url: (data as any).chart_of_account_api_url ?? "",
         });
       }
       setLoading(false);
