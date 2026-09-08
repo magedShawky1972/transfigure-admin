@@ -246,195 +246,197 @@ export default function PayrollElementSetup() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>{editingId ? (language === "ar" ? "تعديل العنصر" : "Edit Element") : (language === "ar" ? "عنصر جديد" : "New Element")}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>{language === "ar" ? "الرمز *" : "Code *"}</Label>
-              <Input value={form.code || ""} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-            </div>
-            <div>
-              <Label>{language === "ar" ? "نوع العنصر *" : "Element Type *"}</Label>
-              <Select
-                value={form.element_type}
-                onValueChange={(v) => setForm({ ...form, element_type: v })}
-                disabled={!!form.is_delay_minutes_element}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="earning">{language === "ar" ? "استحقاق" : "Earning"}</SelectItem>
-                  <SelectItem value="deduction">{language === "ar" ? "استقطاع" : "Deduction"}</SelectItem>
-                  <SelectItem value="employer_contribution">{language === "ar" ? "مساهمة صاحب العمل" : "Employer Contribution"}</SelectItem>
-                  <SelectItem value="information">{language === "ar" ? "للمعلومات فقط" : "Information Only"}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{language === "ar" ? "الاسم (انجليزي) *" : "Name (EN) *"}</Label>
-              <Input value={form.name_en || ""} onChange={(e) => setForm({ ...form, name_en: e.target.value })} />
-            </div>
-            <div>
-              <Label>{language === "ar" ? "الاسم (عربي)" : "Name (AR)"}</Label>
-              <Input value={form.name_ar || ""} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} dir="rtl" />
-            </div>
-            <div>
-              <Label>{language === "ar" ? "التصنيف" : "Classification"}</Label>
-              <Input
-                value={form.classification || ""}
-                onChange={(e) => setForm({ ...form, classification: e.target.value })}
-                placeholder={language === "ar" ? "أساسي، بدل، مكافأة، وقت إضافي، قرض، سلفة، تأمين، غوسي..." : "basic, allowance, bonus, overtime, loan, advance, insurance, gosi..."}
-              />
-            </div>
-            <div>
-              <Label>{language === "ar" ? "نوع الحساب" : "Calculation Type"}</Label>
-              <Select
-                value={form.calculation_type}
-                onValueChange={(v) => setForm({ ...form, calculation_type: v })}
-                disabled={!!form.is_delay_minutes_element}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fixed">{language === "ar" ? "مبلغ ثابت" : "Fixed amount"}</SelectItem>
-                  <SelectItem value="formula">{language === "ar" ? "معادلة" : "Formula"}</SelectItem>
-                  <SelectItem value="variable">{language === "ar" ? "متغير (يدخل شهرياً)" : "Variable (entered monthly)"}</SelectItem>
-                  <SelectItem value="delay_minutes">{language === "ar" ? "دقائق التأخير (من إدارة الوقت)" : "Delay Minutes (from Time Mgmt)"}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{language === "ar" ? "المبلغ الافتراضي" : "Default Amount"}</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={form.default_amount ?? 0}
-                onChange={(e) => setForm({ ...form, default_amount: Number(e.target.value) })}
-              />
-            </div>
-            <div>
-              <Label>{language === "ar" ? "ترتيب الفرز" : "Sort Order"}</Label>
-              <Input
-                type="number"
-                value={form.sort_order ?? 0}
-                onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })}
-              />
-            </div>
-            <div className="col-span-2">
-              <div className="flex items-center justify-between">
-                <Label>{language === "ar" ? "حساب العنصر" : "Element Account"}</Label>
-                <Button type="button" variant="ghost" size="sm" onClick={loadAccounts} disabled={accountsLoading}>
-                  <RefreshCw className={cn("h-3.5 w-3.5 mr-1", accountsLoading && "animate-spin")} />
-                  {language === "ar" ? "تحديث" : "Refresh"}
-                </Button>
+          <div className="px-6 pb-2 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{language === "ar" ? "الرمز *" : "Code *"}</Label>
+                <Input value={form.code || ""} onChange={(e) => setForm({ ...form, code: e.target.value })} />
               </div>
-              <Popover open={accountOpen} onOpenChange={setAccountOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                    <span className="truncate">
-                      {form.element_account
-                        ? `${form.element_account}${form.element_account_name ? " - " + form.element_account_name : ""}`
-                        : accountsLoading
-                          ? (language === "ar" ? "جاري التحميل..." : "Loading...")
-                          : (language === "ar" ? "اختر حساباً" : "Select account")}
-                    </span>
-                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+              <div>
+                <Label>{language === "ar" ? "نوع العنصر *" : "Element Type *"}</Label>
+                <Select
+                  value={form.element_type}
+                  onValueChange={(v) => setForm({ ...form, element_type: v })}
+                  disabled={!!form.is_delay_minutes_element}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="earning">{language === "ar" ? "استحقاق" : "Earning"}</SelectItem>
+                    <SelectItem value="deduction">{language === "ar" ? "استقطاع" : "Deduction"}</SelectItem>
+                    <SelectItem value="employer_contribution">{language === "ar" ? "مساهمة صاحب العمل" : "Employer Contribution"}</SelectItem>
+                    <SelectItem value="information">{language === "ar" ? "للمعلومات فقط" : "Information Only"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{language === "ar" ? "الاسم (انجليزي) *" : "Name (EN) *"}</Label>
+                <Input value={form.name_en || ""} onChange={(e) => setForm({ ...form, name_en: e.target.value })} />
+              </div>
+              <div>
+                <Label>{language === "ar" ? "الاسم (عربي)" : "Name (AR)"}</Label>
+                <Input value={form.name_ar || ""} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} dir="rtl" />
+              </div>
+              <div>
+                <Label>{language === "ar" ? "التصنيف" : "Classification"}</Label>
+                <Input
+                  value={form.classification || ""}
+                  onChange={(e) => setForm({ ...form, classification: e.target.value })}
+                  placeholder={language === "ar" ? "أساسي، بدل، مكافأة، وقت إضافي، قرض، سلفة، تأمين، غوسي..." : "basic, allowance, bonus, overtime, loan, advance, insurance, gosi..."}
+                />
+              </div>
+              <div>
+                <Label>{language === "ar" ? "نوع الحساب" : "Calculation Type"}</Label>
+                <Select
+                  value={form.calculation_type}
+                  onValueChange={(v) => setForm({ ...form, calculation_type: v })}
+                  disabled={!!form.is_delay_minutes_element}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">{language === "ar" ? "مبلغ ثابت" : "Fixed amount"}</SelectItem>
+                    <SelectItem value="formula">{language === "ar" ? "معادلة" : "Formula"}</SelectItem>
+                    <SelectItem value="variable">{language === "ar" ? "متغير (يدخل شهرياً)" : "Variable (entered monthly)"}</SelectItem>
+                    <SelectItem value="delay_minutes">{language === "ar" ? "دقائق التأخير (من إدارة الوقت)" : "Delay Minutes (from Time Mgmt)"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{language === "ar" ? "المبلغ الافتراضي" : "Default Amount"}</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={form.default_amount ?? 0}
+                  onChange={(e) => setForm({ ...form, default_amount: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>{language === "ar" ? "ترتيب الفرز" : "Sort Order"}</Label>
+                <Input
+                  type="number"
+                  value={form.sort_order ?? 0}
+                  onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })}
+                />
+              </div>
+              <div className="col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label>{language === "ar" ? "حساب العنصر" : "Element Account"}</Label>
+                  <Button type="button" variant="ghost" size="sm" onClick={loadAccounts} disabled={accountsLoading}>
+                    <RefreshCw className={cn("h-3.5 w-3.5 mr-1", accountsLoading && "animate-spin")} />
+                    {language === "ar" ? "تحديث" : "Refresh"}
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder={language === "ar" ? "بحث بالرمز أو الاسم..." : "Search code or name..."} />
-                    <CommandList>
-                      <CommandEmpty>{language === "ar" ? "لا توجد حسابات" : "No accounts found"}</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem
-                          value="__none__"
-                          onSelect={() => {
-                            setForm({ ...form, element_account: "", element_account_name: "" });
-                            setAccountOpen(false);
-                          }}
-                        >
-                          {language === "ar" ? "بدون حساب" : "No account"}
-                        </CommandItem>
-                        {accounts.map((a) => (
+                </div>
+                <Popover open={accountOpen} onOpenChange={setAccountOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      <span className="truncate">
+                        {form.element_account
+                          ? `${form.element_account}${form.element_account_name ? " - " + form.element_account_name : ""}`
+                          : accountsLoading
+                            ? (language === "ar" ? "جاري التحميل..." : "Loading...")
+                            : (language === "ar" ? "اختر حساباً" : "Select account")}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder={language === "ar" ? "بحث بالرمز أو الاسم..." : "Search code or name..."} />
+                      <CommandList>
+                        <CommandEmpty>{language === "ar" ? "لا توجد حسابات" : "No accounts found"}</CommandEmpty>
+                        <CommandGroup>
                           <CommandItem
-                            key={a.code}
-                            value={`${a.code} ${a.name}`}
+                            value="__none__"
                             onSelect={() => {
-                              setForm({ ...form, element_account: a.code, element_account_name: a.name });
+                              setForm({ ...form, element_account: "", element_account_name: "" });
                               setAccountOpen(false);
                             }}
                           >
-                            <Check className={cn("mr-2 h-4 w-4", form.element_account === a.code ? "opacity-100" : "opacity-0")} />
-                            <span className="font-mono text-xs mr-2">{a.code}</span>
-                            <span className="truncate">{a.name}</span>
+                            {language === "ar" ? "بدون حساب" : "No account"}
                           </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="col-span-2">
-              <Label>{language === "ar" ? "المعادلة (اختياري)" : "Formula (optional)"}</Label>
-              <Input
-                value={form.formula || ""}
-                onChange={(e) => setForm({ ...form, formula: e.target.value })}
-                placeholder={language === "ar" ? "مثال: basic_salary * 0.1" : "e.g. basic_salary * 0.1"}
-              />
-            </div>
-            <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
-              <Switch
-                checked={!!form.is_delay_minutes_element}
-                onCheckedChange={(v) => setForm({ ...form, is_delay_minutes_element: v })}
-              />
-              <div>
-                <div className="font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4" /> {language === "ar" ? "هذا العنصر لدقائق التأخير" : "This element is for Delay Minutes"}
+                          {accounts.map((a) => (
+                            <CommandItem
+                              key={a.code}
+                              value={`${a.code} ${a.name}`}
+                              onSelect={() => {
+                                setForm({ ...form, element_account: a.code, element_account_name: a.name });
+                                setAccountOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", form.element_account === a.code ? "opacity-100" : "opacity-0")} />
+                              <span className="font-mono text-xs mr-2">{a.code}</span>
+                              <span className="truncate">{a.name}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="col-span-2">
+                <Label>{language === "ar" ? "المعادلة (اختياري)" : "Formula (optional)"}</Label>
+                <Input
+                  value={form.formula || ""}
+                  onChange={(e) => setForm({ ...form, formula: e.target.value })}
+                  placeholder={language === "ar" ? "مثال: basic_salary * 0.1" : "e.g. basic_salary * 0.1"}
+                />
+              </div>
+              <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                <Switch
+                  checked={!!form.is_delay_minutes_element}
+                  onCheckedChange={(v) => setForm({ ...form, is_delay_minutes_element: v })}
+                />
+                <div>
+                  <div className="font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4" /> {language === "ar" ? "هذا العنصر لدقائق التأخير" : "This element is for Delay Minutes"}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" ? "عند التفعيل، ستقوم إدارة الوقت بإرسال إجمالي دقائق التأخير إلى هذا العنصر." : "When enabled, Time Management will send total delay minutes to this element."}
+                    {language === "ar" ? "الحساب: (إجمالي الراتب الشهري / 30 / 8 / 60) × دقائق التأخير. يتم فرض نوع العنصر كاستقطاع." : "Calculation: (Total monthly salary / 30 / 8 / 60) × delay minutes. Element type is forced to Deduction."}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {language === "ar" ? "عند التفعيل، ستقوم إدارة الوقت بإرسال إجمالي دقائق التأخير إلى هذا العنصر." : "When enabled, Time Management will send total delay minutes to this element."}
-                  {language === "ar" ? "الحساب: (إجمالي الراتب الشهري / 30 / 8 / 60) × دقائق التأخير. يتم فرض نوع العنصر كاستقطاع." : "Calculation: (Total monthly salary / 30 / 8 / 60) × delay minutes. Element type is forced to Deduction."}
-                </p>
               </div>
-            </div>
-            <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
-              <Switch
-                checked={!!form.is_basic_salary_element}
-                onCheckedChange={(v) => setForm({ ...form, is_basic_salary_element: v })}
-              />
-              <div>
-                <div className="font-medium">{language === "ar" ? "هذا العنصر هو الراتب الأساسي" : "This element is the Basic Salary"}</div>
-                <p className="text-xs text-muted-foreground">
-                  {language === "ar" ? "عند التفعيل، يستخدم ملخص الاستقطاعات المبلغ المعين للموظف في هذا العنصر" : "When enabled, Deduction Summary uses the employee's assigned amount on this element"}
-                  {language === "ar" ? "كراتب أساسي في المعادلة (الراتب / 30 / 8 / 60) × دقائق التأخير. يمكن تحديد عنصر واحد فقط." : "as the basic salary in the formula (salary / 30 / 8 / 60) × delay minutes. Only one element can be marked."}
-                </p>
+              <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                <Switch
+                  checked={!!form.is_basic_salary_element}
+                  onCheckedChange={(v) => setForm({ ...form, is_basic_salary_element: v })}
+                />
+                <div>
+                  <div className="font-medium">{language === "ar" ? "هذا العنصر هو الراتب الأساسي" : "This element is the Basic Salary"}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" ? "عند التفعيل، يستخدم ملخص الاستقطاعات المبلغ المعين للموظف في هذا العنصر" : "When enabled, Deduction Summary uses the employee's assigned amount on this element"}
+                    {language === "ar" ? "كراتب أساسي في المعادلة (الراتب / 30 / 8 / 60) × دقائق التأخير. يمكن تحديد عنصر واحد فقط." : "as the basic salary in the formula (salary / 30 / 8 / 60) × delay minutes. Only one element can be marked."}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
-              <Switch
-                checked={!!form.is_absence_element}
-                onCheckedChange={(v) => setForm({ ...form, is_absence_element: v, element_type: v ? "deduction" : form.element_type })}
-              />
-              <div>
-                <div className="font-medium">{language === "ar" ? "هذا العنصر للغياب" : "This element is for Absence"}</div>
-                <p className="text-xs text-muted-foreground">
-                  {language === "ar" ? "عند التفعيل، يرسل ملخص الاستقطاعات إجمالي استقطاع الغياب إلى هذا العنصر." : "When enabled, Deduction Summary sends the total absence deduction to this element."}
-                  {language === "ar" ? "يستخدم الحساب قاعدة الغياب المطابقة من إعداد قواعد الاستقطاع" : "Calculation uses the matching Absence rule from Deduction Rules Setup"}
-                  {language === "ar" ? "(بعذر أو بدون عذر) × (الراتب الأساسي / 30) × أيام الغياب." : "(with-notice or without-notice) × (basic salary / 30) × absent days."}
-                </p>
+              <div className="col-span-2 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                <Switch
+                  checked={!!form.is_absence_element}
+                  onCheckedChange={(v) => setForm({ ...form, is_absence_element: v, element_type: v ? "deduction" : form.element_type })}
+                />
+                <div>
+                  <div className="font-medium">{language === "ar" ? "هذا العنصر للغياب" : "This element is for Absence"}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" ? "عند التفعيل، يرسل ملخص الاستقطاعات إجمالي استقطاع الغياب إلى هذا العنصر." : "When enabled, Deduction Summary sends the total absence deduction to this element."}
+                    {language === "ar" ? "يستخدم الحساب قاعدة الغياب المطابقة من إعداد قواعد الاستقطاع" : "Calculation uses the matching Absence rule from Deduction Rules Setup"}
+                    {language === "ar" ? "(بعذر أو بدون عذر) × (الراتب الأساسي / 30) × أيام الغياب." : "(with-notice or without-notice) × (basic salary / 30) × absent days."}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={form.is_active !== false}
-                onCheckedChange={(v) => setForm({ ...form, is_active: v })}
-              />
-              <Label>{language === "ar" ? "نشط" : "Active"}</Label>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.is_active !== false}
+                  onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+                />
+                <Label>{language === "ar" ? "نشط" : "Active"}</Label>
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6 pt-2 shrink-0">
             <Button variant="outline" onClick={() => setOpen(false)}>{language === "ar" ? "إلغاء" : "Cancel"}</Button>
             <Button onClick={save}>{language === "ar" ? "حفظ" : "Save"}</Button>
           </DialogFooter>
