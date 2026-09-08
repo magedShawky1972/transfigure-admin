@@ -1046,9 +1046,22 @@ export default function PayrollRun() {
                         <Button size="sm" variant="ghost" title={isAr ? "عرض بيانات API" : "View API Body"} onClick={() => openJournalPreview(r)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" onClick={() => openJournalPreview(r)}>
+                        <Button
+                          size="sm"
+                          onClick={() => openJournalPreview(r)}
+                          disabled={!!r.sent_to_accounting_at}
+                          title={r.sent_to_accounting_at ? (isAr ? "تم الإرسال للمحاسبة" : "Already sent to accounting") : undefined}
+                        >
                           <Send className="h-4 w-4 mr-1" /> {isAr ? "إرسال للمحاسبة" : "Send to Acc."}
                         </Button>
+                        {r.sent_to_accounting_at && (
+                          <>
+                            <Badge variant="outline" className="mx-1">{isAr ? "مُرسل" : "Sent"}</Badge>
+                            <Button size="sm" variant="secondary" onClick={() => rollbackSendToAcc(r)}>
+                              <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع الإرسال" : "Rollback Send"}
+                            </Button>
+                          </>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => rollbackRun(r)}>
                           <Undo2 className="h-4 w-4 mr-1" /> {isAr ? "تراجع" : "Rollback"}
                         </Button>
