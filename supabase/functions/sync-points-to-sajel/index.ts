@@ -20,18 +20,22 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, stock_issue_api_url, stock_movement_api_url, ap_invoice_api_url')
+      .select('api_key, stock_issue_api_url, stock_issue_api_type, stock_movement_api_url, stock_movement_api_type, ap_invoice_api_url, ap_invoice_api_type')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (sErr) throw sErr;
 
     let url: string | null | undefined;
+    let method = 'POST';
     if (type === 'stock_issue') {
       // Points stock issues are sent via the "Stock Issue API URL (Points)" setting.
       url = (settings as any)?.stock_issue_api_url || (settings as any)?.stock_movement_api_url;
-    } else if (type === 'ap_invoice') url = (settings as any)?.ap_invoice_api_url;
-    else {
+      method = (settings as any)?.stock_issue_api_type || (settings as any)?.stock_movement_api_type || 'POST';
+    } else if (type === 'ap_invoice') {
+      url = (settings as any)?.ap_invoice_api_url;
+      method = (settings as any)?.ap_invoice_api_type || 'POST';
+    } else {
       return new Response(JSON.stringify({ success: false, error: `Unknown type: ${type}` }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -46,7 +50,7 @@ Deno.serve(async (req) => {
     console.log(`Posting ${type} to Sajel:`, url, JSON.stringify(payload));
 
     const resp = await fetch(url, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json', 'Authorization': settings.api_key },
       body: JSON.stringify(payload),
     });
