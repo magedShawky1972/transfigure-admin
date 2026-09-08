@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, chart_of_account_api_url')
+      .select('api_key, chart_of_account_api_url, chart_of_account_api_type')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -31,7 +31,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const resp = await fetch(url, { method: 'GET', headers: { Authorization: apiKey, Accept: 'application/json' } });
+    const method = (settings as any)?.chart_of_account_api_type || 'GET';
+    const resp = await fetch(url, { method, headers: { Authorization: apiKey, Accept: 'application/json' } });
     const text = await resp.text();
     let json: any;
     try { json = JSON.parse(text); } catch { json = { raw: text }; }
