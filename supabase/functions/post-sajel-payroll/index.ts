@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
     const { data: settings, error: sErr } = await supabase
       .from('sajel_erp_settings')
-      .select('api_key, ap_invoice_api_url, generate_batch_number_url')
+      .select('api_key, ap_invoice_api_url, ap_invoice_api_type, generate_batch_number_url, generate_batch_number_api_type')
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -44,11 +44,12 @@ Deno.serve(async (req) => {
     }
 
     // 1) Generate batch number
-    const bResp = await fetch(batchUrl, { method: 'POST', headers: { 'Authorization': apiKey } });
+    const batchMethod = (settings as any)?.generate_batch_number_api_type || 'POST';
+    const bResp = await fetch(batchUrl, { method: batchMethod, headers: { 'Authorization': apiKey } });
     const bText = await bResp.text();
     let bJson: any; try { bJson = JSON.parse(bText); } catch { bJson = { raw: bText }; }
     const batchNumber = bJson?.data?.batchNumber ?? bJson?.batchNumber;
-    const batchInfo = { url: batchUrl, status: bResp.status, response: bJson };
+    const batchInfo = { url: batchUrl, method: batchMethod, status: bResp.status, response: bJson };
     if (!bResp.ok || !batchNumber) {
       return new Response(JSON.stringify({ error: `Failed to generate batch number: ${bText || bResp.status}`, batch: batchInfo }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -63,8 +64,9 @@ Deno.serve(async (req) => {
       const { lines, ...rest } = invoice as Record<string, unknown>;
       const body = { ...rest, batchNumber, ...(lines !== undefined ? { lines } : {}) };
       try {
+        const invoiceMethod = (settings as any)?.ap_invoice_api_type || 'POST';
         const resp = await fetch(url, {
-          method: 'POST',
+          method: invoiceMethod,
           headers: { 'Content-Type': 'application/json', 'Authorization': apiKey },
           body: JSON.stringify(body),
         });
