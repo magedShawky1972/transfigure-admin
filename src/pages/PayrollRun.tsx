@@ -671,7 +671,7 @@ export default function PayrollRun() {
         lines,
         _total: total,
       };
-    });
+    }).filter((j) => j.lines.length > 0);
 
     return { journals, warnings };
   };
