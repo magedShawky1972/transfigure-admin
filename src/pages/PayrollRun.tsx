@@ -620,12 +620,14 @@ export default function PayrollRun() {
       }
       const elem = elemMap[l.element_id];
       const account = elem?.element_account || drMap[`${buId}|${ccId}`];
+      const empName = empMap[empId] || empId;
+      const elName = elem?.element_name?.trim() || (isAr ? "عنصر غير مسمى" : "Unnamed Element");
       if (!account) {
-        warn(`${elem?.element_name || l.element_id}: ${isAr ? "لا يوجد حساب للعنصر" : "no element account"}`);
+        warn(`${empName} - ${elName}: ${isAr ? "لا يوجد حساب للعنصر" : "no element account"}`);
         return;
       }
       if (!elem?.element_account) {
-        warn(`${elem?.element_name || l.element_id}: ${isAr ? "بدون حساب عنصر — تم استخدام حساب الربط" : "no element account — used mapping Dr. account"}`);
+        warn(`${empName} - ${elName}: ${isAr ? "بدون حساب عنصر — تم استخدام حساب الربط" : "no element account — used mapping Dr. account"}`);
       }
       const key = `${buId}|${curId}`;
       const sub = `${account}|${ccId}|${deptId}`;
