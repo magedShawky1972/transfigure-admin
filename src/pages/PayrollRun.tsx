@@ -542,13 +542,13 @@ export default function PayrollRun() {
   const buildPayrollJournals = async (run: Run) => {
     const { data: runLines, error: rlErr } = await supabase
       .from("payroll_run_lines")
-      .select("employee_id, element_type, amount")
+      .select("employee_id, element_type, amount, element_id")
       .eq("run_id", run.id);
     if (rlErr) throw rlErr;
     if (!runLines || runLines.length === 0) throw new Error(isAr ? "لا توجد سطور في المسيرة" : "No lines in this run");
 
     const empIds = Array.from(new Set(runLines.map((l: any) => l.employee_id)));
-    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }, { data: currs }, { data: rates }, { data: depts }] = await Promise.all([
+    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }, { data: currs }, { data: rates }, { data: depts }, { data: elems }] = await Promise.all([
       supabase.from("employees").select("id, working_business_unit_id, cost_center_id, salary_currency_id, department_id").in("id", empIds),
       supabase.from("business_units").select("id, unit_code, unit_name"),
       supabase.from("cost_centers").select("id, cost_center_code, cost_center_name"),
@@ -556,7 +556,10 @@ export default function PayrollRun() {
       supabase.from("currencies").select("id, currency_code, is_base, is_active"),
       supabase.from("currency_rates").select("currency_id, rate_to_base, conversion_operator, effective_date"),
       supabase.from("departments").select("id, department_name"),
+      supabase.from("payroll_elements").select("id, element_name, element_type, element_account, element_account_name"),
     ]);
+    const elemMap: Record<string, any> = {};
+    (elems || []).forEach((e: any) => { elemMap[e.id] = e; });
 
     const currMap: Record<string, any> = {};
     (currs || []).forEach((c: any) => { currMap[c.id] = c; });
@@ -586,61 +589,69 @@ export default function PayrollRun() {
     const empMeta: Record<string, any> = {};
     (emps || []).forEach((e: any) => { empMeta[e.id] = e; });
 
-    // Net per employee
-    const netByEmp: Record<string, number> = {};
-    (runLines as any[]).forEach((l) => {
-      const amt = Number(l.amount) || 0;
-      const sign = l.element_type === "deduction" ? -1 : l.element_type === "earning" ? 1 : 0;
-      if (!sign) return;
-      netByEmp[l.employee_id] = (netByEmp[l.employee_id] || 0) + sign * amt;
-    });
-
     const period = `${String(run.period_month).padStart(2, "0")}/${run.period_year}`;
     const lastDate = new Date(run.period_year, run.period_month, 0).getDate();
     const entryDate = `${run.period_year}-${String(run.period_month).padStart(2, "0")}-${String(lastDate).padStart(2, "0")}`;
     const monthLabel = new Date(run.period_year, run.period_month - 1, 1)
       .toLocaleString("en-US", { month: "short" });
 
-    // Group by BU + currency -> (cost center | department)
+    // Group by BU + currency -> (element account | cost center | department)
+    // Earning = positive, Deduction = negative.
     const grouped: Record<string, Record<string, number>> = {};
     const warnings: string[] = [];
-    Object.entries(netByEmp).forEach(([empId, net]) => {
-      if (!net) return;
+    const warned = new Set<string>();
+    const warn = (msg: string) => { if (!warned.has(msg)) { warned.add(msg); warnings.push(msg); } };
+
+    (runLines as any[]).forEach((l) => {
+      const amt = Number(l.amount) || 0;
+      const type = elemMap[l.element_id]?.element_type || l.element_type;
+      const sign = type === "deduction" ? -1 : type === "earning" ? 1 : 0;
+      if (!sign || !amt) return;
+
+      const empId = l.employee_id;
       const meta = empMeta[empId];
       const buId = meta?.working_business_unit_id;
       const ccId = meta?.cost_center_id;
       const deptId = meta?.department_id || "";
       const curId = meta?.salary_currency_id || baseCurr?.id || "";
       if (!buId || !ccId) {
-        warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد وحدة عمل / مركز تكلفة" : "missing business unit / cost center"}`);
+        warn(`${empMap[empId] || empId}: ${isAr ? "لا يوجد وحدة عمل / مركز تكلفة" : "missing business unit / cost center"}`);
         return;
       }
-      if (!drMap[`${buId}|${ccId}`]) {
-        warnings.push(`${empMap[empId] || empId}: ${isAr ? "لا يوجد حساب مدين في الربط" : "no payroll Dr. account mapping"}`);
+      const elem = elemMap[l.element_id];
+      const account = elem?.element_account || drMap[`${buId}|${ccId}`];
+      if (!account) {
+        warn(`${elem?.element_name || l.element_id}: ${isAr ? "لا يوجد حساب للعنصر" : "no element account"}`);
         return;
+      }
+      if (!elem?.element_account) {
+        warn(`${elem?.element_name || l.element_id}: ${isAr ? "بدون حساب عنصر — تم استخدام حساب الربط" : "no element account — used mapping Dr. account"}`);
       }
       const key = `${buId}|${curId}`;
-      const sub = `${ccId}|${deptId}`;
+      const sub = `${account}|${ccId}|${deptId}`;
       grouped[key] = grouped[key] || {};
-      grouped[key][sub] = (grouped[key][sub] || 0) + net;
+      grouped[key][sub] = (grouped[key][sub] || 0) + sign * amt;
     });
 
     const journals = Object.entries(grouped).map(([key, bySub]) => {
       const [buId, curId] = key.split("|");
       const buName = buMap[buId]?.unit_name || buMap[buId]?.unit_code || "";
-      const lines = Object.entries(bySub).map(([sub, amount]) => {
-        const [ccId, deptId] = sub.split("|");
-        const deptName = deptMap[deptId] || "-";
-        return {
-          itemCode: "",
-          description: `Payroll For Department : ${buName}-${deptName}`,
-          quantity: 1,
-          unitPrice: Number(Number(amount).toFixed(2)),
-          taxRate: 0,
-          accountId: drMap[`${buId}|${ccId}`],
-          costCenterCode: ccMap[ccId]?.cost_center_code || "",
-        };
-      });
+      const lines = Object.entries(bySub)
+        .filter(([, amount]) => Number(Number(amount).toFixed(2)) !== 0)
+        .map(([sub, amount]) => {
+          const [account, ccId, deptId] = sub.split("|");
+          const deptName = deptMap[deptId] || "-";
+          return {
+            itemCode: "",
+            description: `Payroll For Department : ${buName}-${deptName}`,
+            quantity: 1,
+            unitPrice: Number(Number(amount).toFixed(2)),
+            taxRate: 0,
+            accountId: account,
+            costCenterCode: ccMap[ccId]?.cost_center_code || "",
+          };
+        });
+
       const total = Number(lines.reduce((s, l) => s + Number(l.unitPrice), 0).toFixed(2));
       const code = currMap[curId]?.currency_code || baseCurr?.currency_code || "SAR";
       const isBase = !!baseCurr && curId === baseCurr.id;
@@ -660,7 +671,7 @@ export default function PayrollRun() {
         lines,
         _total: total,
       };
-    });
+    }).filter((j) => j.lines.length > 0);
 
     return { journals, warnings };
   };
