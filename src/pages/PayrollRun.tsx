@@ -548,7 +548,7 @@ export default function PayrollRun() {
     if (!runLines || runLines.length === 0) throw new Error(isAr ? "لا توجد سطور في المسيرة" : "No lines in this run");
 
     const empIds = Array.from(new Set(runLines.map((l: any) => l.employee_id)));
-    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }, { data: currs }, { data: rates }, { data: depts }] = await Promise.all([
+    const [{ data: emps }, { data: bus }, { data: ccs }, { data: maps }, { data: currs }, { data: rates }, { data: depts }, { data: elems }] = await Promise.all([
       supabase.from("employees").select("id, working_business_unit_id, cost_center_id, salary_currency_id, department_id").in("id", empIds),
       supabase.from("business_units").select("id, unit_code, unit_name"),
       supabase.from("cost_centers").select("id, cost_center_code, cost_center_name"),
@@ -556,7 +556,10 @@ export default function PayrollRun() {
       supabase.from("currencies").select("id, currency_code, is_base, is_active"),
       supabase.from("currency_rates").select("currency_id, rate_to_base, conversion_operator, effective_date"),
       supabase.from("departments").select("id, department_name"),
+      supabase.from("payroll_elements").select("id, element_name, element_type, element_account, element_account_name"),
     ]);
+    const elemMap: Record<string, any> = {};
+    (elems || []).forEach((e: any) => { elemMap[e.id] = e; });
 
     const currMap: Record<string, any> = {};
     (currs || []).forEach((c: any) => { currMap[c.id] = c; });
