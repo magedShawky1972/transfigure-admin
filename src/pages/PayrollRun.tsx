@@ -556,7 +556,7 @@ export default function PayrollRun() {
       supabase.from("currencies").select("id, currency_code, is_base, is_active"),
       supabase.from("currency_rates").select("currency_id, rate_to_base, conversion_operator, effective_date"),
       supabase.from("departments").select("id, department_name"),
-      supabase.from("payroll_elements").select("id, element_name, element_type, element_account, element_account_name"),
+      supabase.from("payroll_elements").select("id, name_en, name_ar, code, element_type, element_account, element_account_name"),
     ]);
     const elemMap: Record<string, any> = {};
     (elems || []).forEach((e: any) => { elemMap[e.id] = e; });
@@ -621,7 +621,8 @@ export default function PayrollRun() {
       const elem = elemMap[l.element_id];
       const account = elem?.element_account || drMap[`${buId}|${ccId}`];
       const empName = empMap[empId] || empId;
-      const elName = elem?.element_name?.trim() || (isAr ? "عنصر غير مسمى" : "Unnamed Element");
+      const elName = ((isAr ? elem?.name_ar : elem?.name_en) || elem?.name_en || elem?.name_ar || elem?.code || l.element_name || "").trim()
+        || (isAr ? "عنصر غير مسمى" : "Unnamed Element");
       if (!account) {
         warn(`${empName} - ${elName}: ${isAr ? "لا يوجد حساب للعنصر" : "no element account"}`);
         return;
