@@ -542,7 +542,7 @@ export default function PayrollRun() {
   const buildPayrollJournals = async (run: Run) => {
     const { data: runLines, error: rlErr } = await supabase
       .from("payroll_run_lines")
-      .select("employee_id, element_type, amount")
+      .select("employee_id, element_type, amount, element_id")
       .eq("run_id", run.id);
     if (rlErr) throw rlErr;
     if (!runLines || runLines.length === 0) throw new Error(isAr ? "لا توجد سطور في المسيرة" : "No lines in this run");
