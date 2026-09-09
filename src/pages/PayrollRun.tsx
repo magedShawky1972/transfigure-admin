@@ -556,7 +556,7 @@ export default function PayrollRun() {
       supabase.from("currencies").select("id, currency_code, is_base, is_active"),
       supabase.from("currency_rates").select("currency_id, rate_to_base, conversion_operator, effective_date"),
       supabase.from("departments").select("id, department_name"),
-      supabase.from("payroll_elements").select("id, element_name, element_type, element_account, element_account_name"),
+      supabase.from("payroll_elements").select("id, name_en, name_ar, code, element_type, element_account, element_account_name"),
     ]);
     const elemMap: Record<string, any> = {};
     (elems || []).forEach((e: any) => { elemMap[e.id] = e; });
