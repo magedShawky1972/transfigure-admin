@@ -1178,6 +1178,10 @@ export default function EmployeeSetup() {
       isArabic ? "الحالة الوظيفية" : "Employment Status",
       isArabic ? "نوع الدوام" : "Shift Type",
       isArabic ? "نوع الحضور" : "Attendance Type",
+      isArabic ? "وحدة العمل" : "Working Business Unit",
+      isArabic ? "مركز التكلفة" : "Cost Center",
+      isArabic ? "دولة الرواتب" : "Payroll Country",
+      isArabic ? "عملة الراتب" : "Salary Currency",
       isArabic ? "رصيد الإجازات" : "Vacation Balance",
       isArabic ? "الراتب الأساسي" : "Basic Salary",
     ];
@@ -1198,6 +1202,9 @@ export default function EmployeeSetup() {
       const dept = departments.find(d => d.id === emp.department_id);
       const job = jobPositions.find(j => j.id === emp.job_position_id);
       const attendanceType = attendanceTypes.find(a => a.id === emp.attendance_type_id);
+      const bu = businessUnits.find(b => b.id === (emp as any).working_business_unit_id);
+      const cc = costCenters.find(c => c.id === (emp as any).cost_center_id);
+      const cur = currencies.find(c => c.id === (emp as any).salary_currency_id);
       
       return [
         emp.employee_number,
@@ -1221,6 +1228,10 @@ export default function EmployeeSetup() {
         statusLabels[emp.employment_status] || emp.employment_status,
         shiftTypeLabels[emp.shift_type] || emp.shift_type,
         attendanceType ? (isArabic ? (attendanceType.type_name_ar || attendanceType.type_name) : attendanceType.type_name) : "",
+        bu ? (isArabic ? ((bu as any).unit_name_ar || bu.unit_name) : bu.unit_name) : "",
+        cc ? `${cc.cost_center_code} - ${isArabic ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}` : "",
+        (emp as any).payroll_country || "",
+        cur ? cur.currency_code : "",
         emp.vacation_balance?.toString() || "0",
         canViewSalary ? (emp.basic_salary?.toString() || "") : "*",
       ];
