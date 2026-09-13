@@ -1202,6 +1202,9 @@ export default function EmployeeSetup() {
       const dept = departments.find(d => d.id === emp.department_id);
       const job = jobPositions.find(j => j.id === emp.job_position_id);
       const attendanceType = attendanceTypes.find(a => a.id === emp.attendance_type_id);
+      const bu = businessUnits.find(b => b.id === (emp as any).working_business_unit_id);
+      const cc = costCenters.find(c => c.id === (emp as any).cost_center_id);
+      const cur = currencies.find(c => c.id === (emp as any).salary_currency_id);
       
       return [
         emp.employee_number,
