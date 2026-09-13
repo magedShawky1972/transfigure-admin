@@ -50,7 +50,7 @@ serve(async (req) => {
     const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail) && newEmail.length <= 255;
     if (!userId || !emailValid) {
       return new Response(JSON.stringify({ error: 'Valid user_id and new_email are required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -63,7 +63,16 @@ serve(async (req) => {
 
     if (existing?.user_id && existing.user_id !== userId) {
       return new Response(JSON.stringify({ error: 'This email is already used by another user' }), {
-        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Ensure email is not already registered in auth (even without a profile)
+    const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const clash = authList?.users?.find((u: any) => (u.email || '').toLowerCase() === newEmail && u.id !== userId);
+    if (clash) {
+      return new Response(JSON.stringify({ error: `This email is already registered to another account (${clash.email})` }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -74,7 +83,7 @@ serve(async (req) => {
 
     if (updateError) {
       return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -85,7 +94,7 @@ serve(async (req) => {
 
     if (profileError) {
       return new Response(JSON.stringify({ error: profileError.message }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
