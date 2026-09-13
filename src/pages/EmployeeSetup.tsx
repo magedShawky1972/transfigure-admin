@@ -1153,7 +1153,23 @@ export default function EmployeeSetup() {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    // Vacation balances live in employee_vacation_types (per year), not on the employee record
+    const currentYear = new Date().getFullYear();
+    const vacationMap: Record<string, number> = {};
+    try {
+      const { data: vacRows } = await supabase
+        .from("employee_vacation_types")
+        .select("employee_id, balance, used_days, year")
+        .eq("year", currentYear);
+      (vacRows || []).forEach((r: any) => {
+        const remaining = (Number(r.balance) || 0) - (Number(r.used_days) || 0);
+        vacationMap[r.employee_id] = (vacationMap[r.employee_id] || 0) + remaining;
+      });
+    } catch (e) {
+      console.error("Failed to load vacation balances", e);
+    }
+
     const isArabic = language === "ar";
     
     const headers = [
@@ -1232,7 +1248,10 @@ export default function EmployeeSetup() {
         cc ? `${cc.cost_center_code} - ${isArabic ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}` : "",
         (emp as any).payroll_country || "",
         cur ? cur.currency_code : "",
-        emp.vacation_balance?.toString() || "0",
+        (vacationMap[emp.id] !== undefined
+          ? vacationMap[emp.id]
+          : (emp.vacation_balance ?? 0)
+        ).toString(),
         canViewSalary ? (emp.basic_salary?.toString() || "") : "*",
       ];
     });
