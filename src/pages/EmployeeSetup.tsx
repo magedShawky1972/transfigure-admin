@@ -1228,6 +1228,10 @@ export default function EmployeeSetup() {
         statusLabels[emp.employment_status] || emp.employment_status,
         shiftTypeLabels[emp.shift_type] || emp.shift_type,
         attendanceType ? (isArabic ? (attendanceType.type_name_ar || attendanceType.type_name) : attendanceType.type_name) : "",
+        bu ? (isArabic ? ((bu as any).unit_name_ar || bu.unit_name) : bu.unit_name) : "",
+        cc ? `${cc.cost_center_code} - ${isArabic ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}` : "",
+        (emp as any).payroll_country || "",
+        cur ? cur.currency_code : "",
         emp.vacation_balance?.toString() || "0",
         canViewSalary ? (emp.basic_salary?.toString() || "") : "*",
       ];
