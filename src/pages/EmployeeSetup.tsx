@@ -1248,7 +1248,10 @@ export default function EmployeeSetup() {
         cc ? `${cc.cost_center_code} - ${isArabic ? (cc.cost_center_name_ar || cc.cost_center_name) : cc.cost_center_name}` : "",
         (emp as any).payroll_country || "",
         cur ? cur.currency_code : "",
-        emp.vacation_balance?.toString() || "0",
+        (vacationMap[emp.id] !== undefined
+          ? vacationMap[emp.id]
+          : (emp.vacation_balance ?? 0)
+        ).toString(),
         canViewSalary ? (emp.basic_salary?.toString() || "") : "*",
       ];
     });
