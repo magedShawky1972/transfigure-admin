@@ -1178,6 +1178,10 @@ export default function EmployeeSetup() {
       isArabic ? "الحالة الوظيفية" : "Employment Status",
       isArabic ? "نوع الدوام" : "Shift Type",
       isArabic ? "نوع الحضور" : "Attendance Type",
+      isArabic ? "وحدة العمل" : "Working Business Unit",
+      isArabic ? "مركز التكلفة" : "Cost Center",
+      isArabic ? "دولة الرواتب" : "Payroll Country",
+      isArabic ? "عملة الراتب" : "Salary Currency",
       isArabic ? "رصيد الإجازات" : "Vacation Balance",
       isArabic ? "الراتب الأساسي" : "Basic Salary",
     ];
