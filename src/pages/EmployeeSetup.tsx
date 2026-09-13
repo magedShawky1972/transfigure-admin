@@ -1214,7 +1214,9 @@ export default function EmployeeSetup() {
       rotating: isArabic ? "متناوب" : "Rotating",
     };
 
-    const rows = employees.map((emp) => {
+    const rows = employees
+      .filter((emp) => emp.employment_status !== "terminated")
+      .map((emp) => {
       const dept = departments.find(d => d.id === emp.department_id);
       const job = jobPositions.find(j => j.id === emp.job_position_id);
       const attendanceType = attendanceTypes.find(a => a.id === emp.attendance_type_id);
