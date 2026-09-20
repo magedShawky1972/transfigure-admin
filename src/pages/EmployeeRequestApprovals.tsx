@@ -652,7 +652,11 @@ const EmployeeRequestApprovals = () => {
 
   const canTakeAction = (request: any) => {
     if (['approved', 'rejected', 'cancelled'].includes(request.status)) return false;
-    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) return true;
+    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) {
+      // Region-scoped HR managers act only on employees in their payroll country
+      if (hrManagerRegion && request.employees?.payroll_country !== hrManagerRegion) return false;
+      return true;
+    }
     if (request.current_phase === 'manager' && request.department_id) {
       const userLevel = userAdminLevel.get(request.department_id);
       return userLevel !== undefined && request.current_approval_level === userLevel;
