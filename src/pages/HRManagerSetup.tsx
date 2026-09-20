@@ -95,7 +95,7 @@ interface SortableHRItemProps {
   onChangeRegion: (id: string, region: string) => void;
 }
 
-const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageUnits }: SortableHRItemProps) => {
+const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageUnits, onChangeRegion }: SortableHRItemProps) => {
   const {
     attributes,
     listeners,
@@ -139,6 +139,20 @@ const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageU
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Select
+            value={manager.region || 'all'}
+            onValueChange={(v) => onChangeRegion(manager.id, v)}
+          >
+            <SelectTrigger className="w-[150px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{regionLabel(null, language)}</SelectItem>
+              {HR_REGIONS.map(r => (
+                <SelectItem key={r} value={r}>{regionLabel(r, language)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" variant="outline" onClick={() => onManageUnits(manager)}>
             <Building2 className="h-4 w-4 mr-1" />
             {language === 'ar' ? 'وحدات العمل' : 'Business Units'}
