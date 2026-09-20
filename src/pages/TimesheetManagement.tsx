@@ -398,6 +398,18 @@ export default function TimesheetManagement() {
         }
 
         const { data: profile } = await supabase.from("profiles").select("user_name").eq("user_id", user.id).single();
+
+        // Default the Payroll Country filter to the logged-in user's own payroll country (unless a saved filter exists)
+        if (savedFilters.selectedPayrollCountry === undefined) {
+          const { data: myEmp } = await supabase
+            .from("employees")
+            .select("payroll_country")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (myEmp?.payroll_country) {
+            setSelectedPayrollCountry(myEmp.payroll_country);
+          }
+        }
         if (profile) setCurrentUserName(profile.user_name || user.email || "");
       }
     } catch (error) {
