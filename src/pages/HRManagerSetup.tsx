@@ -286,16 +286,19 @@ const HRManagerSetup = () => {
     }
 
     try {
-      const maxOrder = managers.length > 0 ? Math.max(...managers.map(m => m.admin_order)) : -1;
+      const targetRegion = selectedRegion === 'all' ? null : selectedRegion;
+      const sameRegion = managers.filter(m => (m.region || null) === targetRegion);
+      const maxOrder = sameRegion.length > 0 ? Math.max(...sameRegion.map(m => m.admin_order)) : -1;
       const { error } = await supabase
         .from('hr_managers')
         .insert({
           user_id: selectedUserId,
           admin_order: maxOrder + 1,
           is_active: true,
-          region: selectedRegion === 'all' ? null : selectedRegion,
+          region: targetRegion,
         });
       if (error) throw error;
+
 
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
@@ -311,20 +314,41 @@ const HRManagerSetup = () => {
     }
   };
 
+  // Re-number levels (0,1,2...) independently inside each region
+  const renumberByRegion = (list: HRManager[]) => {
+    const counters = new Map<string, number>();
+    return list.map(m => {
+      const key = m.region || 'none';
+      const next = counters.get(key) ?? 0;
+      counters.set(key, next + 1);
+      return { ...m, admin_order: next };
+    });
+  };
+
+  const persistOrders = async (list: HRManager[]) => {
+    await Promise.all(
+      list.map(m => supabase.from('hr_managers').update({ admin_order: m.admin_order }).eq('id', m.id))
+    );
+  };
+
   const handleChangeRegion = async (id: string, region: string) => {
     const value = region === 'all' ? null : region;
-    setManagers(prev => prev.map(m => (m.id === id ? { ...m, region: value } : m)));
+    const moved = managers.map(m => (m.id === id ? { ...m, region: value } : m));
+    const renumbered = renumberByRegion(moved);
+    setManagers(renumbered);
     const { error } = await supabase.from('hr_managers').update({ region: value }).eq('id', id).select();
     if (error) {
       toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
       fetchData();
       return;
     }
+    await persistOrders(renumbered);
     toast({
       title: language === 'ar' ? 'نجح' : 'Success',
       description: language === 'ar' ? 'تم تحديث المنطقة' : 'Region updated',
     });
   };
+
 
 
 
@@ -348,11 +372,8 @@ const HRManagerSetup = () => {
     try {
       const { error } = await supabase.from('hr_managers').delete().eq('id', id);
       if (error) throw error;
-      const remaining = managers.filter(m => m.id !== id);
-      const updates = remaining.map((m, index) =>
-        supabase.from('hr_managers').update({ admin_order: index }).eq('id', m.id)
-      );
-      await Promise.all(updates);
+      const remaining = renumberByRegion(managers.filter(m => m.id !== id));
+      await persistOrders(remaining);
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
         description: language === 'ar' ? 'تمت إزالة مدير HR' : 'HR manager removed',
@@ -368,13 +389,22 @@ const HRManagerSetup = () => {
     if (over && active.id !== over.id) {
       const oldIndex = managers.findIndex(m => m.id === active.id);
       const newIndex = managers.findIndex(m => m.id === over.id);
-      const reordered = arrayMove(managers, oldIndex, newIndex);
+      if (oldIndex === -1 || newIndex === -1) return;
+      // Levels are per region: only allow reordering within the same region
+      if ((managers[oldIndex].region || null) !== (managers[newIndex].region || null)) {
+        toast({
+          title: language === 'ar' ? 'غير مسموح' : 'Not allowed',
+          description: language === 'ar'
+            ? 'المستويات مستقلة لكل منطقة. غيّر المنطقة أولاً.'
+            : 'Levels are separate per region. Change the region first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const reordered = renumberByRegion(arrayMove(managers, oldIndex, newIndex));
       setManagers(reordered);
       try {
-        const updates = reordered.map((m, index) =>
-          supabase.from('hr_managers').update({ admin_order: index }).eq('id', m.id)
-        );
-        await Promise.all(updates);
+        await persistOrders(reordered);
         toast({
           title: language === 'ar' ? 'نجح' : 'Success',
           description: language === 'ar' ? 'تم تحديث الترتيب' : 'Order updated',
@@ -385,6 +415,7 @@ const HRManagerSetup = () => {
       }
     }
   };
+
 
   const openUnitsDialog = (manager: HRManager) => {
     setUnitsTarget(manager);
