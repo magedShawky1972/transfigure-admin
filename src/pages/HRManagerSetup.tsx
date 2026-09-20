@@ -63,6 +63,7 @@ interface HRManager {
   admin_order: number;
   is_active: boolean;
   created_at: string;
+  region?: string | null;
   profiles?: {
     user_name: string;
     email: string;
@@ -76,12 +77,22 @@ interface Profile {
   email: string;
 }
 
+export const HR_REGIONS = ["Egypt", "KSA"] as const;
+
+const regionLabel = (region: string | null | undefined, language: string) => {
+  if (!region) return language === 'ar' ? 'كل المناطق' : 'All Regions';
+  if (region === 'Egypt') return language === 'ar' ? 'مصر' : 'Egypt';
+  if (region === 'KSA') return language === 'ar' ? 'السعودية' : 'KSA';
+  return region;
+};
+
 interface SortableHRItemProps {
   manager: HRManager;
   language: string;
   onToggleActive: (id: string, isActive: boolean) => void;
   onRemove: (id: string) => void;
   onManageUnits: (manager: HRManager) => void;
+  onChangeRegion: (id: string, region: string) => void;
 }
 
 const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageUnits }: SortableHRItemProps) => {
