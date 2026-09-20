@@ -202,6 +202,8 @@ const HRManagerSetup = () => {
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedRegion, setSelectedRegion] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('all');
 
   // Business unit assignment dialog
   const [unitsDialogOpen, setUnitsDialogOpen] = useState(false);
@@ -291,6 +293,7 @@ const HRManagerSetup = () => {
           user_id: selectedUserId,
           admin_order: maxOrder + 1,
           is_active: true,
+          region: selectedRegion === 'all' ? null : selectedRegion,
         });
       if (error) throw error;
 
@@ -301,11 +304,29 @@ const HRManagerSetup = () => {
 
       setDialogOpen(false);
       setSelectedUserId('');
+      setSelectedRegion('all');
       fetchData();
     } catch (error: any) {
       toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     }
   };
+
+  const handleChangeRegion = async (id: string, region: string) => {
+    const value = region === 'all' ? null : region;
+    setManagers(prev => prev.map(m => (m.id === id ? { ...m, region: value } : m)));
+    const { error } = await supabase.from('hr_managers').update({ region: value }).eq('id', id).select();
+    if (error) {
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
+      fetchData();
+      return;
+    }
+    toast({
+      title: language === 'ar' ? 'نجح' : 'Success',
+      description: language === 'ar' ? 'تم تحديث المنطقة' : 'Region updated',
+    });
+  };
+
+
 
   const handleToggleActive = async (id: string, isActive: boolean) => {
     try {
