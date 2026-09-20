@@ -451,21 +451,25 @@ const EmployeeRequestApprovals = () => {
               manager_approved_by: user.id 
             }).eq('id', selectedRequest.id);
           } else {
+            // Move to HR phase: first HR level in the employee's region chain
+            const hrChain = await getHRChainForPayrollCountry(selectedRequest.employees?.payroll_country);
             await supabase.from('employee_requests').update({ 
               ...updateData,
               status: 'manager_approved', 
               current_phase: 'hr', 
-              current_approval_level: 0, 
+              current_approval_level: hrChain[0]?.admin_order ?? 0, 
               manager_approved_at: new Date().toISOString(), 
               manager_approved_by: user.id 
             }).eq('id', selectedRequest.id);
           }
         } else {
-          const { data: nextHR } = await supabase.from('hr_managers').select('admin_order').eq('is_active', true).gt('admin_order', selectedRequest.current_approval_level).order('admin_order').limit(1);
-          if (nextHR && nextHR.length > 0) {
+          // Next HR level within the employee's region chain only
+          const hrChain = await getHRChainForPayrollCountry(selectedRequest.employees?.payroll_country);
+          const nextHR = hrChain.find((m) => m.admin_order > selectedRequest.current_approval_level);
+          if (nextHR) {
             await supabase.from('employee_requests').update({ 
               ...updateData,
-              current_approval_level: nextHR[0].admin_order, 
+              current_approval_level: nextHR.admin_order, 
               hr_approved_at: new Date().toISOString(), 
               hr_approved_by: user.id 
             }).eq('id', selectedRequest.id);
