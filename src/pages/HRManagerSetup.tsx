@@ -286,16 +286,19 @@ const HRManagerSetup = () => {
     }
 
     try {
-      const maxOrder = managers.length > 0 ? Math.max(...managers.map(m => m.admin_order)) : -1;
+      const targetRegion = selectedRegion === 'all' ? null : selectedRegion;
+      const sameRegion = managers.filter(m => (m.region || null) === targetRegion);
+      const maxOrder = sameRegion.length > 0 ? Math.max(...sameRegion.map(m => m.admin_order)) : -1;
       const { error } = await supabase
         .from('hr_managers')
         .insert({
           user_id: selectedUserId,
           admin_order: maxOrder + 1,
           is_active: true,
-          region: selectedRegion === 'all' ? null : selectedRegion,
+          region: targetRegion,
         });
       if (error) throw error;
+
 
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
