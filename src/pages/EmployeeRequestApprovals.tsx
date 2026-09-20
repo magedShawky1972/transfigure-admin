@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getHRChainForPayrollCountry } from "@/lib/hrRouting";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +94,7 @@ const EmployeeRequestApprovals = () => {
   const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [isHRManager, setIsHRManager] = useState(false);
   const [hrManagerLevel, setHrManagerLevel] = useState<number | null>(null);
+  const [hrManagerRegion, setHrManagerRegion] = useState<string | null>(null);
   const [hrAllowedEmployeeIds, setHrAllowedEmployeeIds] = useState<string[] | null>(null);
   const [userAdminDepts, setUserAdminDepts] = useState<string[]>([]);
   const [userAdminLevel, setUserAdminLevel] = useState<Map<string, number>>(new Map());
@@ -119,18 +121,19 @@ const EmployeeRequestApprovals = () => {
     });
     return () => subscription.unsubscribe();
   }, []);
-  useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, hrAllowedEmployeeIds, filterType, filterStatus]);
+  useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, hrAllowedEmployeeIds, hrManagerRegion, filterType, filterStatus]);
 
   const fetchUserPermissions = async (userId: string) => {
     try {
       const [{ data: hrData }, { data: adminData }] = await Promise.all([
-        supabase.from('hr_managers').select('id, admin_order').eq('user_id', userId).eq('is_active', true).maybeSingle(),
+        supabase.from('hr_managers').select('id, admin_order, region').eq('user_id', userId).eq('is_active', true).maybeSingle(),
         supabase.from('department_admins').select('department_id, admin_order').eq('user_id', userId).eq('approve_employee_request', true),
       ]);
 
       if (hrData) {
         setIsHRManager(true);
         setHrManagerLevel(hrData.admin_order);
+        setHrManagerRegion((hrData as any).region ?? null);
 
         // Apply Business Unit restriction
         const { data: links } = await supabase
@@ -163,7 +166,7 @@ const EmployeeRequestApprovals = () => {
     try {
       let query = supabase.from('employee_requests').select(`
         *,
-        employees:employee_id(first_name, first_name_ar, last_name, last_name_ar),
+        employees:employee_id(first_name, first_name_ar, last_name, last_name_ar, payroll_country),
         departments:department_id(department_name, department_name_ar)
       `).order('created_at', { ascending: false });
       
@@ -183,7 +186,11 @@ const EmployeeRequestApprovals = () => {
 
       const { data } = await query;
       if (data) {
-        const requestsWithDurations = await attachDelayDurations(data);
+        // Region-scoped HR managers only see requests from employees in their payroll country
+        const regionFiltered = (isHRManager && hrManagerRegion)
+          ? data.filter((r: any) => r.employees?.payroll_country === hrManagerRegion)
+          : data;
+        const requestsWithDurations = await attachDelayDurations(regionFiltered);
         setRequests(requestsWithDurations);
         await fetchPendingApprovers(requestsWithDurations);
       }
@@ -264,17 +271,14 @@ const EmployeeRequestApprovals = () => {
           approverMap.set(req.id, language === 'ar' ? 'لا يوجد معتمد مُعيَّن' : 'No approver assigned');
         }
       } else if (req.current_phase === 'hr') {
-        const { data: hrManagers } = await supabase
-          .from('hr_managers')
-          .select('user_id')
-          .eq('is_active', true)
-          .eq('admin_order', req.current_approval_level);
-        
-        if (hrManagers && hrManagers.length > 0) {
+        const hrChain = await getHRChainForPayrollCountry(req.employees?.payroll_country);
+        const current = hrChain.find((m) => m.admin_order === req.current_approval_level) || hrChain[0];
+
+        if (current) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('email')
-            .eq('user_id', hrManagers[0].user_id)
+            .eq('user_id', current.user_id)
             .single();
           approverMap.set(req.id, profile?.email || 'HR Manager');
         } else {
@@ -447,21 +451,25 @@ const EmployeeRequestApprovals = () => {
               manager_approved_by: user.id 
             }).eq('id', selectedRequest.id);
           } else {
+            // Move to HR phase: first HR level in the employee's region chain
+            const hrChain = await getHRChainForPayrollCountry(selectedRequest.employees?.payroll_country);
             await supabase.from('employee_requests').update({ 
               ...updateData,
               status: 'manager_approved', 
               current_phase: 'hr', 
-              current_approval_level: 0, 
+              current_approval_level: hrChain[0]?.admin_order ?? 0, 
               manager_approved_at: new Date().toISOString(), 
               manager_approved_by: user.id 
             }).eq('id', selectedRequest.id);
           }
         } else {
-          const { data: nextHR } = await supabase.from('hr_managers').select('admin_order').eq('is_active', true).gt('admin_order', selectedRequest.current_approval_level).order('admin_order').limit(1);
-          if (nextHR && nextHR.length > 0) {
+          // Next HR level within the employee's region chain only
+          const hrChain = await getHRChainForPayrollCountry(selectedRequest.employees?.payroll_country);
+          const nextHR = hrChain.find((m) => m.admin_order > selectedRequest.current_approval_level);
+          if (nextHR) {
             await supabase.from('employee_requests').update({ 
               ...updateData,
-              current_approval_level: nextHR[0].admin_order, 
+              current_approval_level: nextHR.admin_order, 
               hr_approved_at: new Date().toISOString(), 
               hr_approved_by: user.id 
             }).eq('id', selectedRequest.id);
@@ -557,6 +565,11 @@ const EmployeeRequestApprovals = () => {
       setSelectedReassignUserId('');
       setReassignOptions([]);
 
+      // HR approvers are limited to the employee's region chain
+      const hrChain = request.current_phase === 'manager'
+        ? null
+        : await getHRChainForPayrollCountry(request.employees?.payroll_country);
+
       const approversResponse = request.current_phase === 'manager'
         ? await supabase
             .from('department_admins')
@@ -564,11 +577,8 @@ const EmployeeRequestApprovals = () => {
             .eq('department_id', request.department_id)
             .eq('approve_employee_request', true)
             .order('admin_order')
-        : await supabase
-            .from('hr_managers')
-            .select('user_id, admin_order')
-            .eq('is_active', true)
-            .order('admin_order');
+        : { data: hrChain };
+
 
       const approvers = approversResponse.data || [];
       if (approvers.length === 0) {
@@ -644,7 +654,11 @@ const EmployeeRequestApprovals = () => {
 
   const canTakeAction = (request: any) => {
     if (['approved', 'rejected', 'cancelled'].includes(request.status)) return false;
-    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) return true;
+    if (request.current_phase === 'hr' && isHRManager && hrManagerLevel === request.current_approval_level) {
+      // Region-scoped HR managers act only on employees in their payroll country
+      if (hrManagerRegion && request.employees?.payroll_country !== hrManagerRegion) return false;
+      return true;
+    }
     if (request.current_phase === 'manager' && request.department_id) {
       const userLevel = userAdminLevel.get(request.department_id);
       return userLevel !== undefined && request.current_approval_level === userLevel;
