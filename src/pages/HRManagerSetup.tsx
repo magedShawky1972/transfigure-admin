@@ -480,6 +480,17 @@ const HRManagerSetup = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'المنطقة' : 'Region'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{regionLabel(null, language)}</SelectItem>
+                  {HR_REGIONS.map(r => (
+                    <SelectItem key={r} value={r}>{regionLabel(r, language)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button className="w-full" onClick={handleAddManager} disabled={!selectedUserId}>
                 {language === 'ar' ? 'إضافة' : 'Add'}
               </Button>
