@@ -565,6 +565,11 @@ const EmployeeRequestApprovals = () => {
       setSelectedReassignUserId('');
       setReassignOptions([]);
 
+      // HR approvers are limited to the employee's region chain
+      const hrChain = request.current_phase === 'manager'
+        ? null
+        : await getHRChainForPayrollCountry(request.employees?.payroll_country);
+
       const approversResponse = request.current_phase === 'manager'
         ? await supabase
             .from('department_admins')
@@ -572,11 +577,8 @@ const EmployeeRequestApprovals = () => {
             .eq('department_id', request.department_id)
             .eq('approve_employee_request', true)
             .order('admin_order')
-        : await supabase
-            .from('hr_managers')
-            .select('user_id, admin_order')
-            .eq('is_active', true)
-            .order('admin_order');
+        : { data: hrChain };
+
 
       const approvers = approversResponse.data || [];
       if (approvers.length === 0) {
