@@ -63,6 +63,7 @@ interface HRManager {
   admin_order: number;
   is_active: boolean;
   created_at: string;
+  region?: string | null;
   profiles?: {
     user_name: string;
     email: string;
@@ -76,15 +77,25 @@ interface Profile {
   email: string;
 }
 
+export const HR_REGIONS = ["Egypt", "KSA"] as const;
+
+const regionLabel = (region: string | null | undefined, language: string) => {
+  if (!region) return language === 'ar' ? 'كل المناطق' : 'All Regions';
+  if (region === 'Egypt') return language === 'ar' ? 'مصر' : 'Egypt';
+  if (region === 'KSA') return language === 'ar' ? 'السعودية' : 'KSA';
+  return region;
+};
+
 interface SortableHRItemProps {
   manager: HRManager;
   language: string;
   onToggleActive: (id: string, isActive: boolean) => void;
   onRemove: (id: string) => void;
   onManageUnits: (manager: HRManager) => void;
+  onChangeRegion: (id: string, region: string) => void;
 }
 
-const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageUnits }: SortableHRItemProps) => {
+const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageUnits, onChangeRegion }: SortableHRItemProps) => {
   const {
     attributes,
     listeners,
@@ -128,6 +139,20 @@ const SortableHRItem = ({ manager, language, onToggleActive, onRemove, onManageU
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Select
+            value={manager.region || 'all'}
+            onValueChange={(v) => onChangeRegion(manager.id, v)}
+          >
+            <SelectTrigger className="w-[150px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{regionLabel(null, language)}</SelectItem>
+              {HR_REGIONS.map(r => (
+                <SelectItem key={r} value={r}>{regionLabel(r, language)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" variant="outline" onClick={() => onManageUnits(manager)}>
             <Building2 className="h-4 w-4 mr-1" />
             {language === 'ar' ? 'وحدات العمل' : 'Business Units'}
@@ -177,6 +202,8 @@ const HRManagerSetup = () => {
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedRegion, setSelectedRegion] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('all');
 
   // Business unit assignment dialog
   const [unitsDialogOpen, setUnitsDialogOpen] = useState(false);
@@ -266,6 +293,7 @@ const HRManagerSetup = () => {
           user_id: selectedUserId,
           admin_order: maxOrder + 1,
           is_active: true,
+          region: selectedRegion === 'all' ? null : selectedRegion,
         });
       if (error) throw error;
 
@@ -276,11 +304,29 @@ const HRManagerSetup = () => {
 
       setDialogOpen(false);
       setSelectedUserId('');
+      setSelectedRegion('all');
       fetchData();
     } catch (error: any) {
       toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
     }
   };
+
+  const handleChangeRegion = async (id: string, region: string) => {
+    const value = region === 'all' ? null : region;
+    setManagers(prev => prev.map(m => (m.id === id ? { ...m, region: value } : m)));
+    const { error } = await supabase.from('hr_managers').update({ region: value }).eq('id', id).select();
+    if (error) {
+      toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
+      fetchData();
+      return;
+    }
+    toast({
+      title: language === 'ar' ? 'نجح' : 'Success',
+      description: language === 'ar' ? 'تم تحديث المنطقة' : 'Region updated',
+    });
+  };
+
+
 
   const handleToggleActive = async (id: string, isActive: boolean) => {
     try {
@@ -385,6 +431,27 @@ const HRManagerSetup = () => {
 
   const availableProfiles = profiles.filter(p => !managers.some(m => m.user_id === p.user_id));
 
+  const visibleManagers = managers.filter(m =>
+    regionFilter === 'all'
+      ? true
+      : regionFilter === 'none'
+        ? !m.region
+        : m.region === regionFilter
+  );
+
+  const groupedManagers: [string, HRManager[]][] = (() => {
+    const groups = new Map<string, HRManager[]>();
+    visibleManagers.forEach(m => {
+      const key = m.region || 'none';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(m);
+    });
+    const order = [...HR_REGIONS, 'none'];
+    return Array.from(groups.entries()).sort(
+      (a, b) => order.indexOf(a[0] as any) - order.indexOf(b[0] as any)
+    );
+  })();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -434,6 +501,17 @@ const HRManagerSetup = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger>
+                  <SelectValue placeholder={language === 'ar' ? 'المنطقة' : 'Region'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{regionLabel(null, language)}</SelectItem>
+                  {HR_REGIONS.map(r => (
+                    <SelectItem key={r} value={r}>{regionLabel(r, language)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button className="w-full" onClick={handleAddManager} disabled={!selectedUserId}>
                 {language === 'ar' ? 'إضافة' : 'Add'}
               </Button>
@@ -444,19 +522,35 @@ const HRManagerSetup = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            {language === 'ar' ? 'مديرو الموارد البشرية' : 'HR Managers'}
-          </CardTitle>
-          <CardDescription>
-            {language === 'ar'
-              ? 'اسحب وأفلت لإعادة ترتيب مستويات الاعتماد. اربط كل مدير بوحدات العمل لتقييد رؤية الموظفين.'
-              : 'Drag and drop to reorder approval levels. Link each manager to Business Units to restrict employee visibility.'
-            }
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                {language === 'ar' ? 'مديرو الموارد البشرية' : 'HR Managers'}
+              </CardTitle>
+              <CardDescription>
+                {language === 'ar'
+                  ? 'اسحب وأفلت لإعادة ترتيب مستويات الاعتماد. حدد المنطقة (مصر / السعودية) واربط وحدات العمل لتقييد رؤية الموظفين.'
+                  : 'Drag and drop to reorder approval levels. Set the Region (Egypt / KSA) and link Business Units to restrict employee visibility.'
+                }
+              </CardDescription>
+            </div>
+            <Select value={regionFilter} onValueChange={setRegionFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'كل المناطق' : 'All Regions'}</SelectItem>
+                {HR_REGIONS.map(r => (
+                  <SelectItem key={r} value={r}>{regionLabel(r, language)}</SelectItem>
+                ))}
+                <SelectItem value="none">{language === 'ar' ? 'بدون منطقة' : 'No Region'}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          {managers.length === 0 ? (
+          {visibleManagers.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>{language === 'ar' ? 'لا يوجد مديرو HR' : 'No HR managers configured'}</p>
@@ -464,17 +558,30 @@ const HRManagerSetup = () => {
           ) : (
             <ScrollArea className="h-[500px]">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={managers.map(m => m.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {managers.map((manager) => (
-                      <SortableHRItem
-                        key={manager.id}
-                        manager={manager}
-                        language={language}
-                        onToggleActive={handleToggleActive}
-                        onRemove={handleRemove}
-                        onManageUnits={openUnitsDialog}
-                      />
+                <SortableContext items={visibleManagers.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    {groupedManagers.map(([groupKey, groupManagers]) => (
+                      <div key={groupKey} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {regionLabel(groupKey === 'none' ? null : groupKey, language)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {groupManagers.length}
+                          </span>
+                        </div>
+                        {groupManagers.map((manager) => (
+                          <SortableHRItem
+                            key={manager.id}
+                            manager={manager}
+                            language={language}
+                            onToggleActive={handleToggleActive}
+                            onRemove={handleRemove}
+                            onManageUnits={openUnitsDialog}
+                            onChangeRegion={handleChangeRegion}
+                          />
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </SortableContext>
