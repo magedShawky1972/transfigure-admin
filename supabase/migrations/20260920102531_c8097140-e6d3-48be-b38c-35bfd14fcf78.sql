@@ -1,0 +1,1 @@
+ALTER TABLE public.hr_managers ADD COLUMN IF NOT EXISTS region text;
