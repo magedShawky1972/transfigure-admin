@@ -121,7 +121,7 @@ const EmployeeRequestApprovals = () => {
     });
     return () => subscription.unsubscribe();
   }, []);
-  useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, hrAllowedEmployeeIds, filterType, filterStatus]);
+  useEffect(() => { if (userAdminDepts.length > 0 || isHRManager) fetchRequests(); }, [userAdminDepts, isHRManager, hrAllowedEmployeeIds, hrManagerRegion, filterType, filterStatus]);
 
   const fetchUserPermissions = async (userId: string) => {
     try {
