@@ -501,19 +501,35 @@ const HRManagerSetup = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            {language === 'ar' ? 'مديرو الموارد البشرية' : 'HR Managers'}
-          </CardTitle>
-          <CardDescription>
-            {language === 'ar'
-              ? 'اسحب وأفلت لإعادة ترتيب مستويات الاعتماد. اربط كل مدير بوحدات العمل لتقييد رؤية الموظفين.'
-              : 'Drag and drop to reorder approval levels. Link each manager to Business Units to restrict employee visibility.'
-            }
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                {language === 'ar' ? 'مديرو الموارد البشرية' : 'HR Managers'}
+              </CardTitle>
+              <CardDescription>
+                {language === 'ar'
+                  ? 'اسحب وأفلت لإعادة ترتيب مستويات الاعتماد. حدد المنطقة (مصر / السعودية) واربط وحدات العمل لتقييد رؤية الموظفين.'
+                  : 'Drag and drop to reorder approval levels. Set the Region (Egypt / KSA) and link Business Units to restrict employee visibility.'
+                }
+              </CardDescription>
+            </div>
+            <Select value={regionFilter} onValueChange={setRegionFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'كل المناطق' : 'All Regions'}</SelectItem>
+                {HR_REGIONS.map(r => (
+                  <SelectItem key={r} value={r}>{regionLabel(r, language)}</SelectItem>
+                ))}
+                <SelectItem value="none">{language === 'ar' ? 'بدون منطقة' : 'No Region'}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          {managers.length === 0 ? (
+          {visibleManagers.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>{language === 'ar' ? 'لا يوجد مديرو HR' : 'No HR managers configured'}</p>
@@ -521,17 +537,30 @@ const HRManagerSetup = () => {
           ) : (
             <ScrollArea className="h-[500px]">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={managers.map(m => m.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {managers.map((manager) => (
-                      <SortableHRItem
-                        key={manager.id}
-                        manager={manager}
-                        language={language}
-                        onToggleActive={handleToggleActive}
-                        onRemove={handleRemove}
-                        onManageUnits={openUnitsDialog}
-                      />
+                <SortableContext items={visibleManagers.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    {groupedManagers.map(([groupKey, groupManagers]) => (
+                      <div key={groupKey} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {regionLabel(groupKey === 'none' ? null : groupKey, language)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {groupManagers.length}
+                          </span>
+                        </div>
+                        {groupManagers.map((manager) => (
+                          <SortableHRItem
+                            key={manager.id}
+                            manager={manager}
+                            language={language}
+                            onToggleActive={handleToggleActive}
+                            onRemove={handleRemove}
+                            onManageUnits={openUnitsDialog}
+                            onChangeRegion={handleChangeRegion}
+                          />
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </SortableContext>
