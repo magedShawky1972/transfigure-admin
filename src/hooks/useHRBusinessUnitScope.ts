@@ -34,7 +34,7 @@ export function useHRBusinessUnitScope() {
 
         const { data: hrRow } = await supabase
           .from("hr_managers")
-          .select("id")
+          .select("id, region")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -52,6 +52,8 @@ export function useHRBusinessUnitScope() {
           return;
         }
 
+        const region = (hrRow as any).region as string | null;
+
         // HR Manager: scope to linked Working Business Units (if any)
         const { data: links } = await supabase
           .from("hr_manager_business_units")
@@ -59,22 +61,22 @@ export function useHRBusinessUnitScope() {
           .eq("hr_manager_id", (hrRow as any).id);
 
         const unitIds = (links || []).map((l: any) => l.business_unit_id);
-        if (unitIds.length === 0) {
-          // No units linked => full visibility (legacy behavior)
+        if (unitIds.length === 0 && !region) {
+          // No units and no region linked => full visibility (legacy behavior)
           setAllowedEmployeeIds(null);
           return;
         }
 
-        // Resolve employees in those Working Business Units (paginated to bypass 1000-row limit)
+        // Resolve employees in those Working Business Units / Region
+        // (paginated to bypass 1000-row limit)
         const ids: string[] = [];
         const pageSize = 1000;
         let from = 0;
         while (true) {
-          const { data: empPage, error } = await supabase
-            .from("employees")
-            .select("id")
-            .in("working_business_unit_id", unitIds)
-            .range(from, from + pageSize - 1);
+          let query = supabase.from("employees").select("id");
+          if (unitIds.length > 0) query = query.in("working_business_unit_id", unitIds);
+          if (region) query = query.eq("payroll_country", region);
+          const { data: empPage, error } = await query.range(from, from + pageSize - 1);
           if (error) break;
           const rows = (empPage || []) as any[];
           ids.push(...rows.map(r => r.id));
