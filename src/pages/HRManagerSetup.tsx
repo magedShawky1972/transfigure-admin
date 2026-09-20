@@ -256,7 +256,19 @@ const HRManagerSetup = () => {
           profiles: profilesData?.find(p => p.user_id === m.user_id),
           business_units: linksByManager.get(m.id) || [],
         }));
-        setManagers(managersWithProfiles);
+        // Normalize levels per region so each region starts at Level 0
+        const renumbered = renumberByRegion(managersWithProfiles);
+        setManagers(renumbered);
+        const changed = renumbered.filter(
+          m => m.admin_order !== (managersWithProfiles.find(x => x.id === m.id)?.admin_order ?? m.admin_order)
+        );
+        if (changed.length > 0) {
+          Promise.all(
+            changed.map(m =>
+              supabase.from('hr_managers').update({ admin_order: m.admin_order }).eq('id', m.id)
+            )
+          ).catch(() => {});
+        }
       } else {
         setManagers([]);
       }
