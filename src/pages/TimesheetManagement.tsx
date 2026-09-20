@@ -76,6 +76,7 @@ interface Employee {
   attendance_type_id: string | null;
   user_id: string | null;
   department_id: string | null;
+  payroll_country?: string | null;
   attendance_types?: AttendanceType;
 }
 
@@ -158,14 +159,15 @@ export default function TimesheetManagement() {
   const [employeeOpen, setEmployeeOpen] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>(savedFilters.selectedDepartment || "");
+  const [selectedPayrollCountry, setSelectedPayrollCountry] = useState<string>(savedFilters.selectedPayrollCountry || "");
 
   useEffect(() => {
     try {
       sessionStorage.setItem(TS_FILTER_KEY, JSON.stringify({
-        filterMode, dateFrom, dateTo, selectedDate, selectedMonth, selectedEmployee, selectedDepartment,
+        filterMode, dateFrom, dateTo, selectedDate, selectedMonth, selectedEmployee, selectedDepartment, selectedPayrollCountry,
       }));
     } catch {}
-  }, [filterMode, dateFrom, dateTo, selectedDate, selectedMonth, selectedEmployee, selectedDepartment]);
+  }, [filterMode, dateFrom, dateTo, selectedDate, selectedMonth, selectedEmployee, selectedDepartment, selectedPayrollCountry]);
   const [formData, setFormData] = useState({
     employee_id: "",
     work_date: format(new Date(), "yyyy-MM-dd"),
@@ -348,7 +350,7 @@ export default function TimesheetManagement() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo, selectedDepartment, hrAllowedBusinessUnitIds]);
+  }, [selectedDate, selectedMonth, filterMode, selectedEmployee, dateFrom, dateTo, selectedDepartment, selectedPayrollCountry, hrAllowedBusinessUnitIds]);
 
   useEffect(() => {
     fetchFrequentlyLateEmployees();
@@ -775,7 +777,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, payroll_country, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -789,6 +791,10 @@ export default function TimesheetManagement() {
         scopedEmployees = scopedEmployees.filter((e: any) =>
           e.working_business_unit_id && allowed.has(e.working_business_unit_id)
         );
+      }
+      // Apply Payroll Country filter
+      if (selectedPayrollCountry) {
+        scopedEmployees = scopedEmployees.filter((e: any) => (e.payroll_country || "") === selectedPayrollCountry);
       }
       // Mutate the response so existing downstream code keeps working
       (employeesRes as any).data = scopedEmployees;
@@ -868,6 +874,15 @@ export default function TimesheetManagement() {
         query = query.in("employee_id", departmentEmployeeIds);
       } else if (hrAllowedBusinessUnitIds && hrAllowedBusinessUnitIds.length > 0) {
         // Restrict to HR Manager's scoped employees
+        const allowedIds = scopedEmployees.map((e: any) => e.id);
+        if (allowedIds.length === 0) {
+          setTimesheets([]);
+          setLoading(false);
+          return;
+        }
+        query = query.in("employee_id", allowedIds);
+      } else if (selectedPayrollCountry) {
+        // Restrict to employees in the selected payroll country
         const allowedIds = scopedEmployees.map((e: any) => e.id);
         if (allowedIds.length === 0) {
           setTimesheets([]);
@@ -2054,6 +2069,19 @@ export default function TimesheetManagement() {
                         {dept.department_name}
                       </SelectItem>
                     ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{language === "ar" ? "دولة الرواتب" : "Payroll Country"}</Label>
+              <Select value={selectedPayrollCountry || "_all_"} onValueChange={(v) => { setSelectedPayrollCountry(v === "_all_" ? "" : v); setSelectedEmployee(""); }}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder={language === "ar" ? "جميع الدول" : "All Countries"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all_">{language === "ar" ? "جميع الدول" : "All Countries"}</SelectItem>
+                  <SelectItem value="Egypt">{language === "ar" ? "مصر" : "Egypt"}</SelectItem>
+                  <SelectItem value="KSA">{language === "ar" ? "السعودية" : "KSA"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
