@@ -372,11 +372,8 @@ const HRManagerSetup = () => {
     try {
       const { error } = await supabase.from('hr_managers').delete().eq('id', id);
       if (error) throw error;
-      const remaining = managers.filter(m => m.id !== id);
-      const updates = remaining.map((m, index) =>
-        supabase.from('hr_managers').update({ admin_order: index }).eq('id', m.id)
-      );
-      await Promise.all(updates);
+      const remaining = renumberByRegion(managers.filter(m => m.id !== id));
+      await persistOrders(remaining);
       toast({
         title: language === 'ar' ? 'نجح' : 'Success',
         description: language === 'ar' ? 'تمت إزالة مدير HR' : 'HR manager removed',
@@ -392,13 +389,22 @@ const HRManagerSetup = () => {
     if (over && active.id !== over.id) {
       const oldIndex = managers.findIndex(m => m.id === active.id);
       const newIndex = managers.findIndex(m => m.id === over.id);
-      const reordered = arrayMove(managers, oldIndex, newIndex);
+      if (oldIndex === -1 || newIndex === -1) return;
+      // Levels are per region: only allow reordering within the same region
+      if ((managers[oldIndex].region || null) !== (managers[newIndex].region || null)) {
+        toast({
+          title: language === 'ar' ? 'غير مسموح' : 'Not allowed',
+          description: language === 'ar'
+            ? 'المستويات مستقلة لكل منطقة. غيّر المنطقة أولاً.'
+            : 'Levels are separate per region. Change the region first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const reordered = renumberByRegion(arrayMove(managers, oldIndex, newIndex));
       setManagers(reordered);
       try {
-        const updates = reordered.map((m, index) =>
-          supabase.from('hr_managers').update({ admin_order: index }).eq('id', m.id)
-        );
-        await Promise.all(updates);
+        await persistOrders(reordered);
         toast({
           title: language === 'ar' ? 'نجح' : 'Success',
           description: language === 'ar' ? 'تم تحديث الترتيب' : 'Order updated',
@@ -409,6 +415,7 @@ const HRManagerSetup = () => {
       }
     }
   };
+
 
   const openUnitsDialog = (manager: HRManager) => {
     setUnitsTarget(manager);
