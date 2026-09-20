@@ -314,20 +314,41 @@ const HRManagerSetup = () => {
     }
   };
 
+  // Re-number levels (0,1,2...) independently inside each region
+  const renumberByRegion = (list: HRManager[]) => {
+    const counters = new Map<string, number>();
+    return list.map(m => {
+      const key = m.region || 'none';
+      const next = counters.get(key) ?? 0;
+      counters.set(key, next + 1);
+      return { ...m, admin_order: next };
+    });
+  };
+
+  const persistOrders = async (list: HRManager[]) => {
+    await Promise.all(
+      list.map(m => supabase.from('hr_managers').update({ admin_order: m.admin_order }).eq('id', m.id))
+    );
+  };
+
   const handleChangeRegion = async (id: string, region: string) => {
     const value = region === 'all' ? null : region;
-    setManagers(prev => prev.map(m => (m.id === id ? { ...m, region: value } : m)));
+    const moved = managers.map(m => (m.id === id ? { ...m, region: value } : m));
+    const renumbered = renumberByRegion(moved);
+    setManagers(renumbered);
     const { error } = await supabase.from('hr_managers').update({ region: value }).eq('id', id).select();
     if (error) {
       toast({ title: language === 'ar' ? 'خطأ' : 'Error', description: error.message, variant: 'destructive' });
       fetchData();
       return;
     }
+    await persistOrders(renumbered);
     toast({
       title: language === 'ar' ? 'نجح' : 'Success',
       description: language === 'ar' ? 'تم تحديث المنطقة' : 'Region updated',
     });
   };
+
 
 
 
