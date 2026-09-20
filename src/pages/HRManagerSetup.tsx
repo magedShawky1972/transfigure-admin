@@ -431,6 +431,27 @@ const HRManagerSetup = () => {
 
   const availableProfiles = profiles.filter(p => !managers.some(m => m.user_id === p.user_id));
 
+  const visibleManagers = managers.filter(m =>
+    regionFilter === 'all'
+      ? true
+      : regionFilter === 'none'
+        ? !m.region
+        : m.region === regionFilter
+  );
+
+  const groupedManagers: [string, HRManager[]][] = (() => {
+    const groups = new Map<string, HRManager[]>();
+    visibleManagers.forEach(m => {
+      const key = m.region || 'none';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(m);
+    });
+    const order = [...HR_REGIONS, 'none'];
+    return Array.from(groups.entries()).sort(
+      (a, b) => order.indexOf(a[0] as any) - order.indexOf(b[0] as any)
+    );
+  })();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
