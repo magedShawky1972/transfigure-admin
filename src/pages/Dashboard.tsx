@@ -120,6 +120,31 @@ const Dashboard = () => {
   const [brandProducts, setBrandProducts] = useState<any[]>([]);
   const [brandTransactionsList, setBrandTransactionsList] = useState<any[]>([]);
   const [brandDialogTab, setBrandDialogTab] = useState<'products' | 'transactions'>('products');
+  const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
+  const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
+  const [orderDetailsRows, setOrderDetailsRows] = useState<any[]>([]);
+  const [selectedOrderNumber, setSelectedOrderNumber] = useState<string>('');
+
+  const handleOrderNumberClick = async (orderNumber: string) => {
+    if (!orderNumber) return;
+    setSelectedOrderNumber(orderNumber);
+    setOrderDetailsOpen(true);
+    setOrderDetailsLoading(true);
+    setOrderDetailsRows([]);
+    try {
+      const { data, error } = await supabase
+        .from('purpletransaction')
+        .select('*')
+        .eq('order_number', orderNumber)
+        .eq('is_deleted', false);
+      if (error) throw error;
+      setOrderDetailsRows(data || []);
+    } catch (e) {
+      console.error('Error fetching order details:', e);
+    } finally {
+      setOrderDetailsLoading(false);
+    }
+  };
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [gridTransactions, setGridTransactions] = useState<Transaction[]>([]);
   const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
