@@ -118,6 +118,8 @@ const Dashboard = () => {
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [brandProductsDialogOpen, setBrandProductsDialogOpen] = useState(false);
   const [brandProducts, setBrandProducts] = useState<any[]>([]);
+  const [brandTransactionsList, setBrandTransactionsList] = useState<any[]>([]);
+  const [brandDialogTab, setBrandDialogTab] = useState<'products' | 'transactions'>('products');
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
   const [brandProductsSortDirection, setBrandProductsSortDirection] = useState<'asc' | 'desc'>('desc');
