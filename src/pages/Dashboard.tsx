@@ -1531,7 +1531,8 @@ const Dashboard = () => {
     setSelectedBrand(brandName);
     
     // Filter transactions by brand — 'Unknown' matches rows with no brand_name
-    const brandTransactions = allTransactions.filter(t => (t.brand_name || 'Unknown') === brandName);
+    // Use gridTransactions (same data source as the brand grid) so counts always match
+    const brandTransactions = gridTransactions.filter(t => (t.brand_name || 'Unknown') === brandName);
     setBrandTransactionsList(brandTransactions);
     const productSales = brandTransactions.reduce((acc: any, t) => {
       const product = t.product_name || 'Unknown';
