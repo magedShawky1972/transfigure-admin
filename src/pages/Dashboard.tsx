@@ -1524,8 +1524,9 @@ const Dashboard = () => {
     const brandName = data.brandName; // Use the original brand_name stored in data
     setSelectedBrand(brandName);
     
-    // Filter transactions by brand and aggregate products
-    const brandTransactions = allTransactions.filter(t => t.brand_name === brandName);
+    // Filter transactions by brand — 'Unknown' matches rows with no brand_name
+    const brandTransactions = allTransactions.filter(t => (t.brand_name || 'Unknown') === brandName);
+    setBrandTransactionsList(brandTransactions);
     const productSales = brandTransactions.reduce((acc: any, t) => {
       const product = t.product_name || 'Unknown';
       if (!acc[product]) {
