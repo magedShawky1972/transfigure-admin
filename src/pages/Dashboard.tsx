@@ -121,6 +121,7 @@ const Dashboard = () => {
   const [brandTransactionsList, setBrandTransactionsList] = useState<any[]>([]);
   const [brandDialogTab, setBrandDialogTab] = useState<'products' | 'transactions'>('products');
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [gridTransactions, setGridTransactions] = useState<Transaction[]>([]);
   const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
   const [brandProductsSortDirection, setBrandProductsSortDirection] = useState<'asc' | 'desc'>('desc');
   
@@ -1151,6 +1152,9 @@ const Dashboard = () => {
         from += pageSize;
       }
 
+      // Store the exact transactions behind the grid so brand drilldown matches
+      setGridTransactions(transactions);
+
       if (transactions && transactions.length > 0) {
         // Product summary
         const productSales = transactions.reduce((acc: any, t) => {
@@ -1527,7 +1531,8 @@ const Dashboard = () => {
     setSelectedBrand(brandName);
     
     // Filter transactions by brand — 'Unknown' matches rows with no brand_name
-    const brandTransactions = allTransactions.filter(t => (t.brand_name || 'Unknown') === brandName);
+    // Use gridTransactions (same data source as the brand grid) so counts always match
+    const brandTransactions = gridTransactions.filter(t => (t.brand_name || 'Unknown') === brandName);
     setBrandTransactionsList(brandTransactions);
     const productSales = brandTransactions.reduce((acc: any, t) => {
       const product = t.product_name || 'Unknown';
