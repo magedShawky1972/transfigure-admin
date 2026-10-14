@@ -121,6 +121,7 @@ const Dashboard = () => {
   const [brandTransactionsList, setBrandTransactionsList] = useState<any[]>([]);
   const [brandDialogTab, setBrandDialogTab] = useState<'products' | 'transactions'>('products');
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [gridTransactions, setGridTransactions] = useState<Transaction[]>([]);
   const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
   const [brandProductsSortDirection, setBrandProductsSortDirection] = useState<'asc' | 'desc'>('desc');
   
@@ -1150,6 +1151,9 @@ const Dashboard = () => {
         if (batch.length < pageSize) break;
         from += pageSize;
       }
+
+      // Store the exact transactions behind the grid so brand drilldown matches
+      setGridTransactions(transactions);
 
       if (transactions && transactions.length > 0) {
         // Product summary
