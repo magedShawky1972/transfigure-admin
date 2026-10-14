@@ -4830,7 +4830,16 @@ const Dashboard = () => {
                             <TableCell className="text-sm whitespace-nowrap">
                               {t.created_at_date ? format(new Date(t.created_at_date), 'dd/MM/yyyy') : '-'}
                             </TableCell>
-                            <TableCell className="text-sm font-mono">{(t as any).order_number || '-'}</TableCell>
+                            <TableCell className="text-sm font-mono">
+                              {(t as any).order_number ? (
+                                <button
+                                  className="text-primary underline underline-offset-2 hover:text-primary/80"
+                                  onClick={() => handleOrderNumberClick((t as any).order_number)}
+                                >
+                                  {(t as any).order_number}
+                                </button>
+                              ) : '-'}
+                            </TableCell>
                             <TableCell className="text-sm">{t.brand_name || 'Unknown'}</TableCell>
                             <TableCell className="text-sm max-w-[200px] truncate">{t.product_name || 'Unknown'}</TableCell>
                             <TableCell className="text-sm text-right">{parseNumber(t.qty).toLocaleString()}</TableCell>
