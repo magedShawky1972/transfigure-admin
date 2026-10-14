@@ -4916,6 +4916,69 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Order Details Drilldown Dialog */}
+      <Dialog open={orderDetailsOpen} onOpenChange={setOrderDetailsOpen}>
+        <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? `تفاصيل الطلب ${selectedOrderNumber}` : `Order Details — ${selectedOrderNumber}`}
+            </DialogTitle>
+          </DialogHeader>
+          {orderDetailsLoading ? (
+            <p className="text-center text-muted-foreground py-8">
+              {language === 'ar' ? 'جاري التحميل...' : 'Loading...'}
+            </p>
+          ) : orderDetailsRows.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              {language === 'ar' ? 'لا توجد تفاصيل' : 'No details found'}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'البراند' : 'Brand'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'SKU' : 'SKU'}</TableHead>
+                      <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
+                      <TableHead className="text-right">{language === 'ar' ? 'السعر' : 'Price'}</TableHead>
+                      <TableHead className="text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'طريقة الدفع' : 'Payment Method'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'نوع الدفع' : 'Payment Type'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orderDetailsRows.map((r, i) => (
+                      <TableRow key={r.id || i}>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {r.created_at_date ? format(new Date(r.created_at_date), 'dd/MM/yyyy') : '-'}
+                        </TableCell>
+                        <TableCell className="text-sm">{r.brand_name || 'Unknown'}</TableCell>
+                        <TableCell className="text-sm max-w-[220px] truncate">{r.product_name || '-'}</TableCell>
+                        <TableCell className="text-sm font-mono">{r.product_id || r.sku || '-'}</TableCell>
+                        <TableCell className="text-sm text-right">{parseNumber(r.qty).toLocaleString()}</TableCell>
+                        <TableCell className="text-sm text-right">{formatCurrency(parseNumber(r.price ?? r.unit_price))}</TableCell>
+                        <TableCell className="text-sm text-right font-medium">{formatCurrency(parseNumber(r.total))}</TableCell>
+                        <TableCell className="text-sm">{r.payment_method || '-'}</TableCell>
+                        <TableCell className="text-sm">{r.payment_type || '-'}</TableCell>
+                        <TableCell className="text-sm">{r.order_status || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex justify-between pt-3 border-t font-bold">
+                <span>{language === 'ar' ? 'الإجمالي' : 'Total'} ({orderDetailsRows.length} {language === 'ar' ? 'سطر' : 'lines'})</span>
+                <span>{formatCurrency(orderDetailsRows.reduce((sum, r) => sum + parseNumber(r.total), 0))}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Point Transactions Dialog */}
       <Dialog open={pointTransactionsDialogOpen} onOpenChange={setPointTransactionsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
