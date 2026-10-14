@@ -1542,6 +1542,7 @@ const Dashboard = () => {
     setBrandProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
     setBrandProductsSortColumn('value');
     setBrandProductsSortDirection('desc');
+    setBrandDialogTab('products');
     setBrandProductsDialogOpen(true);
   };
 
