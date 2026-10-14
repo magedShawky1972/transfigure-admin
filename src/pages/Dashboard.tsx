@@ -118,6 +118,8 @@ const Dashboard = () => {
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [brandProductsDialogOpen, setBrandProductsDialogOpen] = useState(false);
   const [brandProducts, setBrandProducts] = useState<any[]>([]);
+  const [brandTransactionsList, setBrandTransactionsList] = useState<any[]>([]);
+  const [brandDialogTab, setBrandDialogTab] = useState<'products' | 'transactions'>('products');
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [brandProductsSortColumn, setBrandProductsSortColumn] = useState<'name' | 'qty' | 'value'>('value');
   const [brandProductsSortDirection, setBrandProductsSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -1524,8 +1526,9 @@ const Dashboard = () => {
     const brandName = data.brandName; // Use the original brand_name stored in data
     setSelectedBrand(brandName);
     
-    // Filter transactions by brand and aggregate products
-    const brandTransactions = allTransactions.filter(t => t.brand_name === brandName);
+    // Filter transactions by brand — 'Unknown' matches rows with no brand_name
+    const brandTransactions = allTransactions.filter(t => (t.brand_name || 'Unknown') === brandName);
+    setBrandTransactionsList(brandTransactions);
     const productSales = brandTransactions.reduce((acc: any, t) => {
       const product = t.product_name || 'Unknown';
       if (!acc[product]) {
@@ -1539,6 +1542,7 @@ const Dashboard = () => {
     setBrandProducts(Object.values(productSales).sort((a: any, b: any) => b.value - a.value));
     setBrandProductsSortColumn('value');
     setBrandProductsSortDirection('desc');
+    setBrandDialogTab('products');
     setBrandProductsDialogOpen(true);
   };
 
@@ -3310,7 +3314,7 @@ const Dashboard = () => {
                       : bVal - aVal;
                   })
                   .map((brand, index) => (
-                  <Card key={brand.brandName} className="border hover:border-primary transition-colors">
+                  <Card key={brand.brandName} className="border hover:border-primary transition-colors cursor-pointer" onClick={() => handleBrandClick(brand)}>
                     <CardContent className="py-2 px-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0" style={{ flex: '0 0 180px' }}>
@@ -4748,12 +4752,72 @@ const Dashboard = () => {
 
       {/* Brand Products Dialog */}
       <Dialog open={brandProductsDialogOpen} onOpenChange={setBrandProductsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {language === 'ar' ? `منتجات ${selectedBrand}` : `${selectedBrand} Products`}
             </DialogTitle>
           </DialogHeader>
+          <div className="flex gap-2 border-b pb-2">
+            <Button
+              variant={brandDialogTab === 'products' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setBrandDialogTab('products')}
+            >
+              {language === 'ar' ? 'المنتجات' : 'Products'}
+            </Button>
+            <Button
+              variant={brandDialogTab === 'transactions' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setBrandDialogTab('transactions')}
+            >
+              {language === 'ar' ? 'المعاملات' : 'Transactions'} ({brandTransactionsList.length})
+            </Button>
+          </div>
+          {brandDialogTab === 'transactions' ? (
+            <div className="space-y-2">
+              {brandTransactionsList.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {language === 'ar' ? 'لا توجد معاملات' : 'No transactions found'}
+                </p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'رقم الطلب' : 'Order #'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'البراند' : 'Brand'}</TableHead>
+                          <TableHead>{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                          <TableHead className="text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
+                          <TableHead className="text-right">{language === 'ar' ? 'الإجمالي' : 'Total'}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {brandTransactionsList.map((t, index) => (
+                          <TableRow key={t.id || index}>
+                            <TableCell className="text-sm whitespace-nowrap">
+                              {t.created_at_date ? format(new Date(t.created_at_date), 'dd/MM/yyyy') : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm font-mono">{(t as any).order_number || '-'}</TableCell>
+                            <TableCell className="text-sm">{t.brand_name || 'Unknown'}</TableCell>
+                            <TableCell className="text-sm max-w-[200px] truncate">{t.product_name || 'Unknown'}</TableCell>
+                            <TableCell className="text-sm text-right">{parseNumber(t.qty).toLocaleString()}</TableCell>
+                            <TableCell className="text-sm text-right font-medium">{formatCurrency(parseNumber(t.total))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex justify-between pt-3 border-t font-bold">
+                    <span>{language === 'ar' ? 'الإجمالي' : 'Total'}</span>
+                    <span>{formatCurrency(brandTransactionsList.reduce((sum, t) => sum + parseNumber(t.total), 0))}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
           <div className="space-y-4">
             {brandProducts.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
@@ -4809,6 +4873,7 @@ const Dashboard = () => {
               </div>
             )}
           </div>
+          )}
         </DialogContent>
       </Dialog>
 
