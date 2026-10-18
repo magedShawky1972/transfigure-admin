@@ -59,6 +59,7 @@ import {
   ChevronsUpDown,
   CalendarIcon,
   Home,
+  Paperclip,
 } from "lucide-react";
 import { VacationRequestPrintButton } from "@/components/VacationRequestPrintButton";
 import { format } from "date-fns";
@@ -1065,6 +1066,29 @@ const EmployeeRequestApprovals = () => {
                   <div className="space-y-1">
                     <Label className="text-muted-foreground flex items-center gap-1"><MessageSquare className="h-3 w-3" />{language === 'ar' ? 'ملاحظات' : 'Notes'}</Label>
                     <p className="text-sm bg-muted p-3 rounded-md">{selectedRequest.notes}</p>
+                  </div>
+                </>
+              )}
+
+              {(selectedRequest.attachment_url || selectedRequest.expense_receipt_url) && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground flex items-center gap-1"><Paperclip className="h-3 w-3" />{language === 'ar' ? 'المرفقات' : 'Attachments'}</Label>
+                    <div className="flex flex-col gap-1">
+                      {selectedRequest.attachment_url && (
+                        <a href={selectedRequest.attachment_url} target="_blank" rel="noopener noreferrer" className="text-primary underline flex items-center gap-1 text-sm">
+                          <Paperclip className="h-3 w-3" />
+                          {language === 'ar' ? 'عرض المرفق' : 'View Attachment'}
+                        </a>
+                      )}
+                      {selectedRequest.expense_receipt_url && selectedRequest.expense_receipt_url !== selectedRequest.attachment_url && (
+                        <a href={selectedRequest.expense_receipt_url} target="_blank" rel="noopener noreferrer" className="text-primary underline flex items-center gap-1 text-sm">
+                          <Paperclip className="h-3 w-3" />
+                          {language === 'ar' ? 'عرض الإيصال' : 'View Receipt'}
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
