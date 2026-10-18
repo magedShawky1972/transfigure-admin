@@ -1,2 +1,2 @@
 - [x] Income Statement: drilldown grouping By Brand / By Brand Type in Cost Of Sales (and other brand drilldowns)
-- [ ] Fix and verify product API conflict rejection in production and test modes.
+- [x] Fix and verify product API conflict rejection in production and test modes.
