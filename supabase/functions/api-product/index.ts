@@ -5,9 +5,11 @@ import { corsHeaders } from '../_shared/cors.ts';
 const TABLE_CONFIG = {
   test: {
     products: 'testproducts',
+    conflictColumn: 'sku',
   },
   production: {
     products: 'products',
+    conflictColumn: 'product_id',
   }
 };
 
@@ -130,6 +132,10 @@ Deno.serve(async (req) => {
 
     // Validate required fields based on configuration
     const requiredFields = fieldConfigs.map((config: any) => config.field_name);
+    // Production identifies products by product_id; SKU is not unique there.
+    if (apiMode === 'production' && !requiredFields.includes('Product_id')) {
+      requiredFields.push('Product_id');
+    }
     const missingFields = requiredFields.filter((field: string) => !body[field]);
     
     if (missingFields.length > 0) {
@@ -167,7 +173,7 @@ Deno.serve(async (req) => {
         meta_keywords_en: body.ENG_Meta_Keywords,
         meta_description_en: body.ENG_Meta_Description,
       }, {
-        onConflict: 'sku'
+        onConflict: tables.conflictColumn
       })
       .select()
       .single();
