@@ -67,7 +67,7 @@ export default function CustomersWithoutOrdersReport() {
         result.push(...(data || []));
         if (!data || data.length < 1000) break;
       }
-      setRows(result); setAppliedRange(range.data); setHasRun(true);
+      setRows(result); setAppliedRange({ from: fromDate, to: toDate }); setHasRun(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : (err as { message?: string }).message || "Failed to load report";
       setError(message); toast.error(message);

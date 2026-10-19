@@ -1,14 +1,15 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import { strict as assert } from "node:assert";
 import { customerOrderRange } from "./customerWithoutOrders";
 
 describe("Customers Without Orders date range", () => {
   test("allows a selected single-day range", () => {
-    expect(customerOrderRange.safeParse({ from: "2026-10-19", to: "2026-10-19" }).success).toBe(true);
+    assert.equal(customerOrderRange.safeParse({ from: "2026-10-19", to: "2026-10-19" }).success, true);
   });
   test("rejects an empty from date", () => {
-    expect(customerOrderRange.safeParse({ from: "", to: "2026-10-19" }).success).toBe(false);
+    assert.equal(customerOrderRange.safeParse({ from: "", to: "2026-10-19" }).success, false);
   });
   test("rejects reversed dates", () => {
-    expect(customerOrderRange.safeParse({ from: "2026-10-19", to: "2026-10-01" }).success).toBe(false);
+    assert.equal(customerOrderRange.safeParse({ from: "2026-10-19", to: "2026-10-01" }).success, false);
   });
 });
