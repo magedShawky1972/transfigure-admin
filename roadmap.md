@@ -1,3 +1,4 @@
 - [x] Income Statement: drilldown grouping By Brand / By Brand Type in Cost Of Sales (and other brand drilldowns)
 - [x] Fix and verify product API conflict rejection in production and test modes.
 - [x] Add and verify Customers Without Orders report after Brand Receiving Entry, with selected date range.
+- [x] Customers Without Orders: only list customers whose Registration Date is before the To Date.
