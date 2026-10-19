@@ -2,3 +2,4 @@
 - [x] Fix and verify product API conflict rejection in production and test modes.
 - [x] Add and verify Customers Without Orders report after Brand Receiving Entry, with selected date range.
 - [x] Customers Without Orders: only list customers whose Registration Date is before the To Date.
+- [x] Customers Without Orders: sortable Registration Date column (oldest first by default, newest first on click).

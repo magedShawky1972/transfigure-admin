@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfMonth } from "date-fns";
 import ExcelJS from "exceljs";
-import { ArrowLeft, FileDown, Search, RefreshCw } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Search, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AccessDenied } from "@/components/AccessDenied";
-import { customerOrderRange } from "@/lib/customerWithoutOrders";
+import { customerOrderRange, sortByRegistrationDate, type RegistrationSort } from "@/lib/customerWithoutOrders";
 import type { Database } from "@/integrations/supabase/types";
 
 type Customer = Database["public"]["Functions"]["get_customers_without_orders"]["Returns"][number];
@@ -30,6 +30,7 @@ export default function CustomersWithoutOrdersReport() {
   const [hasRun, setHasRun] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [regSort, setRegSort] = useState<RegistrationSort>("asc");
   const [appliedRange, setAppliedRange] = useState<{ from: string; to: string } | null>(null);
 
   useEffect(() => {
@@ -75,9 +76,10 @@ export default function CustomersWithoutOrdersReport() {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return rows.filter(row => !query || [row.customer_name, row.customer_phone, row.email, row.customer_group]
+    const matched = rows.filter(row => !query || [row.customer_name, row.customer_phone, row.email, row.customer_group]
       .some(value => value?.toLowerCase().includes(query)));
-  }, [rows, search]);
+    return sortByRegistrationDate(matched, regSort);
+  }, [rows, search, regSort]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visibleRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const dateText = (value: string | null) => {
@@ -127,7 +129,9 @@ export default function CustomersWithoutOrdersReport() {
       <div className="relative w-full sm:w-80"><Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="Search customers" className="ps-9" placeholder={ar ? "البحث عن عميل..." : "Search name, phone or email..."} value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></div>
     </div>}
     <div className="rounded-lg border overflow-x-auto">
-      <Table className="min-w-[900px]"><TableHeader><TableRow>{headings.map(heading => <TableHead key={heading}>{heading}</TableHead>)}</TableRow></TableHeader>
+      <Table className="min-w-[900px]"><TableHeader><TableRow>{headings.map((heading, index) => <TableHead key={heading} aria-sort={index === 4 ? (regSort === "asc" ? "ascending" : "descending") : undefined}>
+        {index === 4 ? <button type="button" className="inline-flex items-center gap-1 font-semibold" onClick={() => { setRegSort(value => value === "asc" ? "desc" : "asc"); setPage(0); }}>{heading}{regSort === "asc" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}</button> : heading}
+      </TableHead>)}</TableRow></TableHeader>
         <TableBody>{visibleRows.map(row => <TableRow key={row.id}>
           <TableCell className="font-medium">{row.customer_name || "—"}</TableCell><TableCell dir="ltr">{row.customer_phone || "—"}</TableCell>
           <TableCell>{row.email || "—"}</TableCell><TableCell>{row.customer_group || "—"}</TableCell>
