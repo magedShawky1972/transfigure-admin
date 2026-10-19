@@ -9,7 +9,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AccessDenied } from "@/components/AccessDenied";
 import { customerOrderRange } from "@/lib/customerWithoutOrders";
@@ -83,9 +82,8 @@ export default function CustomersWithoutOrdersReport() {
   const visibleRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const dateText = (value: string | null) => value ? value.slice(0, 10) : "—";
   const headings = ar
-    ? ["اسم العميل", "الهاتف", "البريد الإلكتروني", "مجموعة العميل", "تاريخ التسجيل", "آخر طلب", "الحالة"]
-    : ["Customer Name", "Phone", "Email", "Customer Group", "Registration Date", "Last Order", "Status"];
-  const status = (row: Customer) => row.is_blocked ? (ar ? "محظور" : "Blocked") : row.status || "—";
+    ? ["اسم العميل", "الهاتف", "البريد الإلكتروني", "مجموعة العميل", "تاريخ التسجيل", "آخر طلب"]
+    : ["Customer Name", "Phone", "Email", "Customer Group", "Registration Date", "Last Order"];
 
   const exportExcel = async () => {
     try {
@@ -94,7 +92,7 @@ export default function CustomersWithoutOrdersReport() {
       sheet.addRow(["From Date", appliedRange?.from, "To Date", appliedRange?.to]);
       sheet.addRow(headings).font = { bold: true };
       filtered.forEach(row => sheet.addRow([row.customer_name, row.customer_phone, row.email,
-        row.customer_group, dateText(row.creation_date), dateText(row.last_order_date), status(row)]));
+        row.customer_group, dateText(row.creation_date), dateText(row.last_order_date)]));
       sheet.columns.forEach(col => { col.width = 24; });
       const buffer = await wb.xlsx.writeBuffer();
       const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
@@ -130,8 +128,7 @@ export default function CustomersWithoutOrdersReport() {
           <TableCell className="font-medium">{row.customer_name || "—"}</TableCell><TableCell dir="ltr">{row.customer_phone || "—"}</TableCell>
           <TableCell>{row.email || "—"}</TableCell><TableCell>{row.customer_group || "—"}</TableCell>
           <TableCell>{dateText(row.creation_date)}</TableCell><TableCell>{row.last_order_date ? dateText(row.last_order_date) : (ar ? "لا توجد طلبات" : "Never ordered")}</TableCell>
-          <TableCell><Badge variant={row.is_blocked ? "destructive" : "secondary"}>{status(row)}</Badge></TableCell>
-        </TableRow>)}{!visibleRows.length && <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground" role={error ? "alert" : undefined}>
+        </TableRow>)}{!visibleRows.length && <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground" role={error ? "alert" : undefined}>
           {loading ? (ar ? "جاري التحميل..." : "Loading...") : error || (hasRun ? (ar ? "لا توجد نتائج" : "No customers found") : (ar ? "اختر التواريخ لعرض التقرير" : "Select dates and run the report"))}
         </TableCell></TableRow>}</TableBody>
       </Table>
