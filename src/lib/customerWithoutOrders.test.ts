@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { customerOrderRange } from "./customerWithoutOrders";
+import { customerOrderRange, sortByRegistrationDate } from "./customerWithoutOrders";
 
 describe("Customers Without Orders date range", () => {
   test("allows a selected single-day range", () => {
