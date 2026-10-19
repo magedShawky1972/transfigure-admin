@@ -12794,6 +12794,25 @@ export type Database = {
             }
             Returns: number
           }
+      get_customers_without_orders: {
+        Args: {
+          p_from_date: string
+          p_limit?: number
+          p_offset?: number
+          p_to_date: string
+        }
+        Returns: {
+          creation_date: string
+          customer_group: string
+          customer_name: string
+          customer_phone: string
+          email: string
+          id: string
+          is_blocked: boolean
+          last_order_date: string
+          status: string
+        }[]
+      }
       get_db_functions_info: {
         Args: never
         Returns: {
