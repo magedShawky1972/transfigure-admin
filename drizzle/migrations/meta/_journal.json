@@ -8,6 +8,13 @@
       "when": 1791964102215,
       "tag": "0000_fix_revenue_by_brand_type_timeout",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792414982564,
+      "tag": "0001_customers_without_orders_report",
+      "breakpoints": true
     }
   ]
 }
