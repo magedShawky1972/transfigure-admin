@@ -80,7 +80,11 @@ export default function CustomersWithoutOrdersReport() {
   }, [rows, search]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visibleRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const dateText = (value: string | null) => value ? value.slice(0, 10) : "—";
+  const dateText = (value: string | null) => {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value.slice(0, 10) : parsed.toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
+  };
   const headings = ar
     ? ["اسم العميل", "الهاتف", "البريد الإلكتروني", "مجموعة العميل", "تاريخ التسجيل", "آخر طلب"]
     : ["Customer Name", "Phone", "Email", "Customer Group", "Registration Date", "Last Order"];
