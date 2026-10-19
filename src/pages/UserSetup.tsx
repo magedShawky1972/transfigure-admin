@@ -349,6 +349,7 @@ const REPORTS = [
   { key: "payment-whatif", labelEn: "Payment What-If Scenario", labelAr: "سيناريو ماذا لو - الدفع" },
   { key: "class-a-balance-images", labelEn: 'Class "A" Balance Images Report', labelAr: "تقرير صور أرصدة الفئة A" },
   { key: "brand-receiving-entry", labelEn: "Brand Receiving Entry Report", labelAr: "تقرير استلام الكوينز حسب البراند" },
+  { key: "customers-without-orders", labelEn: "Customers Without Orders Report", labelAr: "تقرير العملاء بدون طلبات" },
 ];
 
 const UserSetup = () => {

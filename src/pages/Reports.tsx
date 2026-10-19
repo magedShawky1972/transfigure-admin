@@ -35,7 +35,7 @@ const Reports = () => {
 
       // If admin, allow all reports
       if (roles) {
-        setAllowedReports(['income-statement', 'class-a-balance-images', 'revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins', 'brand-first-sale-date', 'brand-receiving-entry']);
+        setAllowedReports(['income-statement', 'class-a-balance-images', 'revenue-by-brand-type', 'cost-by-brand-type', 'tickets', 'software-licenses', 'shift-report', 'shift-plan', 'brand-balance', 'api-documentation', 'transaction-statistics', 'order-payment', 'data-loading-status', 'coins-ledger', 'bank-statement', 'bank-statement-as-of', 'riyad-bank', 'riyad-bank-order-match', 'security-dashboard', 'sold-product', 'odoo-sync-status', 'aggregated-orders', 'expense-pending', 'expense-paid', 'bank-balance-by-date', 'bank-statement-by-bank', 'daily-sales', 'cost-center-report', 'manual-shift-transactions', 'sales-order-detail', 'data-comparison', 'coins-comparison', 'projects-tasks', 'payment-whatif', 'main-product-sales', 'crm-integration', 'product-sku', 'duplicate-sku', 'orphan-brand-products', 'unmatched-transaction-products', 'free-coins', 'brand-first-sale-date', 'brand-receiving-entry', 'customers-without-orders']);
         setLoading(false);
         return;
       }
@@ -441,6 +441,13 @@ const Reports = () => {
         : "Brand receiving entries with date range, brand and status filters",
       icon: Coins,
       route: "/reports/brand-receiving-entry",
+    },
+    {
+      id: "customers-without-orders",
+      name: language === "ar" ? "تقرير العملاء بدون طلبات" : "Customers Without Orders Report",
+      description: language === "ar" ? "العملاء الذين ليس لديهم طلبات خلال نطاق التاريخ المحدد" : "Customers with no orders during the selected date range",
+      icon: ShoppingCart,
+      route: "/reports/customers-without-orders",
     },
   ];
 
