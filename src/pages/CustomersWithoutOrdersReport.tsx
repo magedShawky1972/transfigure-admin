@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, startOfMonth } from "date-fns";
+import { format, parse, startOfMonth } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
 import ExcelJS from "exceljs";
 import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Search, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -120,8 +123,8 @@ export default function CustomersWithoutOrdersReport() {
       <Button onClick={exportExcel} disabled={loading || !filtered.length}><FileDown className="h-4 w-4 me-2" />{ar ? "تصدير Excel" : "Export Excel"}</Button>
     </div>
     <div className="flex flex-wrap items-end gap-4 border-b pb-6">
-      <div className="space-y-2"><Label htmlFor="customers-from">{ar ? "من تاريخ" : "From Date"}</Label><Input id="customers-from" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} disabled={loading} /></div>
-      <div className="space-y-2"><Label htmlFor="customers-to">{ar ? "إلى تاريخ" : "To Date"}</Label><Input id="customers-to" type="date" value={toDate} onChange={event => setToDate(event.target.value)} disabled={loading} /></div>
+      <div className="space-y-2"><Label htmlFor="customers-from">{ar ? "من تاريخ" : "From Date"}</Label><Popover><PopoverTrigger asChild><Button id="customers-from" variant="outline" disabled={loading} className="w-full justify-start font-normal"><CalendarIcon className="me-2 h-4 w-4" />{format(parse(fromDate, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={parse(fromDate, "yyyy-MM-dd", new Date())} onSelect={d => d && setFromDate(format(d, "yyyy-MM-dd"))} initialFocus className="pointer-events-auto" /></PopoverContent></Popover></div>
+      <div className="space-y-2"><Label htmlFor="customers-to">{ar ? "إلى تاريخ" : "To Date"}</Label><Popover><PopoverTrigger asChild><Button id="customers-to" variant="outline" disabled={loading} className="w-full justify-start font-normal"><CalendarIcon className="me-2 h-4 w-4" />{format(parse(toDate, "yyyy-MM-dd", new Date()), "dd/MM/yyyy")}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={parse(toDate, "yyyy-MM-dd", new Date())} onSelect={d => d && setToDate(format(d, "yyyy-MM-dd"))} initialFocus className="pointer-events-auto" /></PopoverContent></Popover></div>
       <Button onClick={runReport} disabled={loading}><RefreshCw className={`h-4 w-4 me-2 ${loading ? "animate-spin" : ""}`} />{loading ? (ar ? "جاري التحميل..." : "Loading...") : (ar ? "عرض التقرير" : "Run Report")}</Button>
     </div>
     {hasRun && <div className="flex flex-wrap items-center justify-between gap-4">
