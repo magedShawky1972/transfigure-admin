@@ -81,6 +81,7 @@ import DataLoadingStatus from "./pages/DataLoadingStatus";
 import CoinsLedgerReport from "./pages/CoinsLedgerReport";
 import BrandReceivingEntryReport from "./pages/BrandReceivingEntryReport";
 import CustomersWithoutOrdersReport from "./pages/CustomersWithoutOrdersReport";
+import PaymentMethodReport from "./pages/PaymentMethodReport";
 import ProjectGantt from "./pages/ProjectGantt";
 import ProjectPresentation from "./pages/ProjectPresentation";
 import BankStatementReport from "./pages/BankStatementReport";
@@ -267,6 +268,7 @@ const App = () => (
               <Route path="/reports/coins-ledger" element={<CoinsLedgerReport />} />
               <Route path="/reports/brand-receiving-entry" element={<BrandReceivingEntryReport />} />
               <Route path="/reports/customers-without-orders" element={<CustomersWithoutOrdersReport />} />
+              <Route path="/reports/payment-method" element={<PaymentMethodReport />} />
               <Route path="/reports/bank-statement" element={<BankStatementReport />} />
               <Route path="/reports/bank-statement-as-of" element={<BankStatementAsOf />} />
               <Route path="/reports/riyad-bank" element={<RiyadBankReport />} />
