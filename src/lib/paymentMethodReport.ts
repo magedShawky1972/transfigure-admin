@@ -9,8 +9,8 @@ export interface PaymentMethodRow {
   bank_fee: number;
 }
 
-export function filterPaymentMethodRows(rows: PaymentMethodRow[], method: string) {
-  return method === "all" ? rows : rows.filter(row => row.payment_method === method);
+export function filterPaymentMethodRows(rows: PaymentMethodRow[], method: string, paymentType = "all") {
+  return rows.filter(row => (method === "all" || row.payment_method === method) && (paymentType === "all" || row.payment_type === paymentType));
 }
 
 export function paymentMethodTotals(rows: PaymentMethodRow[]) {
