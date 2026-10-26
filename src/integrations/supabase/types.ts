@@ -12939,6 +12939,24 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_payment_method_report: {
+        Args: {
+          p_from_date: string
+          p_limit?: number
+          p_offset?: number
+          p_to_date: string
+        }
+        Returns: {
+          bank_fee: number
+          line_count: number
+          order_count: number
+          payment_brand: string
+          payment_method: string
+          payment_type: string
+          report_date: number
+          total_amount: number
+        }[]
+      }
       get_payment_whatif_aggregates: {
         Args: { p_date_from: string; p_date_to: string }
         Returns: {
