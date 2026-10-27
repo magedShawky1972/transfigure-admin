@@ -1,0 +1,1 @@
+TRUNCATE TABLE public.riyad_statement_auto_imports;
