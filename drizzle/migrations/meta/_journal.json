@@ -43,6 +43,13 @@
       "when": 1793015673515,
       "tag": "0005_payment_method_report",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793105540369,
+      "tag": "0006_stop_riyad_email_import",
+      "breakpoints": true
     }
   ]
 }
