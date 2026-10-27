@@ -57,6 +57,13 @@
       "when": 1793105644342,
       "tag": "0007_truncate_riyad_auto_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793105718988,
+      "tag": "0008_truncate_purpletransaction_temp",
+      "breakpoints": true
     }
   ]
 }
