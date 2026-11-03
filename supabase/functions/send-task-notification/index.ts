@@ -1,3 +1,4 @@
+import { isOutgoingEmailEnabled } from "../_shared/email-policy.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
@@ -63,6 +64,8 @@ async function sendRawEmail(
   to: string,
   rawMessage: string
 ): Promise<void> {
+  if (!isOutgoingEmailEnabled()) return ;
+
   const conn = await Deno.connectTls({ hostname: host, port });
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();

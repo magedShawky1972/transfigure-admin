@@ -1,3 +1,4 @@
+import { isOutgoingEmailEnabled } from "../_shared/email-policy.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { corsHeaders } from '../_shared/cors.ts';
@@ -264,6 +265,8 @@ async function sendMismatchNotification(supabase: any, result: any) {
 }
 
 async function sendMismatchEmail(toEmails: string[], title: string, textMessage: string, result: any) {
+  if (!isOutgoingEmailEnabled()) return ;
+
   try {
     const smtpPassword = Deno.env.get("SMTP_PASSWORD");
     if (!smtpPassword) {

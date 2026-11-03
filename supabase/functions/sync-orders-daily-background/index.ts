@@ -1,3 +1,4 @@
+import { isOutgoingEmailEnabled } from "../_shared/email-policy.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
@@ -262,6 +263,8 @@ async function sendCompletionEmail(
   dayStatuses: DayStatus[],
   duration: string
 ) {
+  if (!isOutgoingEmailEnabled()) return ;
+
   try {
     const { data: profile } = await supabase
       .from('profiles')

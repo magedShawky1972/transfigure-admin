@@ -632,11 +632,7 @@ const Auth = () => {
     setIsResetting(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth`,
-      });
-
-      if (error) throw error;
+      throw new Error("Email sending is disabled. Contact your administrator to reset your password.");
 
       toast({
         title: t("common.success"),

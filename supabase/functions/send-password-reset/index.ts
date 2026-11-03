@@ -1,18 +1,9 @@
+import { isOutgoingEmailEnabled, emailDisabledResponse } from "../_shared/email-policy.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const smtpClient = new SMTPClient({
-  connection: {
-    hostname: "smtp.hostinger.com",
-    port: 465,
-    tls: true,
-    auth: {
-      username: "edara@asuscards.com",
-      password: Deno.env.get("SMTP_PASSWORD") ?? "",
-    },
-  },
-});
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,7 +25,21 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (!isOutgoingEmailEnabled()) return emailDisabledResponse(corsHeaders);
+
   try {
+    const smtpClient = new SMTPClient({
+      connection: {
+        hostname: "smtp.hostinger.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: "edara@asuscards.com",
+          password: Deno.env.get("SMTP_PASSWORD") ?? "",
+        },
+      },
+    });
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',

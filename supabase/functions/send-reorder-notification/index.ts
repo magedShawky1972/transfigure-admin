@@ -1,3 +1,4 @@
+import { isOutgoingEmailEnabled } from "../_shared/email-policy.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
@@ -24,6 +25,8 @@ async function sendEmailWithSMTP(
   email: string,
   emailHtml: string
 ) {
+  if (!isOutgoingEmailEnabled()) return ;
+
   try {
     const smtpClient = new SMTPClient({
       connection: {

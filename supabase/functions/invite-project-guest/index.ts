@@ -1,3 +1,4 @@
+import { isOutgoingEmailEnabled } from "../_shared/email-policy.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -62,6 +63,8 @@ function buildRawEmail(from: string, fromAddr: string, to: string, subject: stri
 
 
 async function sendRawEmail(host: string, port: number, username: string, password: string, from: string, to: string, rawMessage: string) {
+  if (!isOutgoingEmailEnabled()) return ;
+
   const conn = await Deno.connectTls({ hostname: host, port });
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
