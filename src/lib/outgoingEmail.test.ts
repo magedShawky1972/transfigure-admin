@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
@@ -6,7 +7,7 @@ import { emailDisabledResponse, isOutgoingEmailEnabled } from "../../supabase/fu
 
 describe("Edara outgoing email shutdown", () => {
   test("email remains disabled", () => {
-    expect(isOutgoingEmailEnabled()).toBe(false);
+    assert.equal(isOutgoingEmailEnabled(), false);
   });
 
   for (const name of ["send-email-smtp", "send-password-reset", "send-attendance-summary-email"]) {
@@ -25,11 +26,11 @@ describe("Edara outgoing email shutdown", () => {
       });
       if (!handler) throw new Error("Missing request handler");
       const response = await handler(new Request("https://example.test", { method: "POST", body: "{}" }));
-      expect(response.status).toBe(403);
-      expect(await response.json()).toMatchObject({ success: false, skipped: true, code: "emails_disabled" });
-      expect(databaseCalls).toBe(0);
-      expect(smtpConnections).toBe(0);
-      expect((await handler(new Request("https://example.test", { method: "OPTIONS" }))).status).toBe(200);
+      assert.equal(response.status, 403);
+      assert.deepEqual(await response.json(), { success: false, skipped: true, code: "emails_disabled", error: "Outgoing email is disabled for Edara." });
+      assert.equal(databaseCalls, 0);
+      assert.equal(smtpConnections, 0);
+      assert.equal((await handler(new Request("https://example.test", { method: "OPTIONS" }))).status, 200);
     });
   }
 
@@ -65,7 +66,7 @@ describe("Edara outgoing email shutdown", () => {
         if (!node) throw new Error(`Missing helper ${name}/${functionName}`);
         const js = ts.transpileModule(node.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
         const result = await runInNewContext(`${js}\n${functionName}()`, { isOutgoingEmailEnabled });
-        expect(result).toBe(name === "send-ticket-notification" ? null : undefined);
+        assert.equal(result, name === "send-ticket-notification" ? null : undefined);
       }
     }
   });
