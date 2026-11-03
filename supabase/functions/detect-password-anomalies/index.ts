@@ -1,3 +1,4 @@
+import { isOutgoingEmailEnabled } from "../_shared/email-policy.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
@@ -177,6 +178,8 @@ async function sendBulkAccessAlert(
   recipients: string[],
   data: BulkAccessResult
 ) {
+  if (!isOutgoingEmailEnabled()) return ;
+
   if (!resendApiKey || recipients.length === 0) {
     console.log("Skipping email - no API key or recipients configured");
     return;
@@ -245,6 +248,8 @@ async function sendNewUserAccessAlert(
   recipients: string[],
   data: NewUserAccessResult
 ) {
+  if (!isOutgoingEmailEnabled()) return ;
+
   if (!resendApiKey || recipients.length === 0) {
     console.log("Skipping email - no API key or recipients configured");
     return;
