@@ -5,3 +5,4 @@
 - [x] Customers Without Orders: sortable Registration Date column (oldest first by default, newest first on click).
 - [x] Add Payment Method report with date/payment-method filters and report security integration; verify results and permissions.
 - [x] Add Payment Type filter in Payment Method Report, including totals and export; four filtering tests pass and build OK (signed-in end-to-end check unavailable).
+- [ ] Stop outgoing Edara email across custom senders and scheduled jobs; verify delivery is blocked and disclose managed auth limitation.
