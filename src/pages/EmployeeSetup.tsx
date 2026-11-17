@@ -185,6 +185,7 @@ export default function EmployeeSetup() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [costCenters, setCostCenters] = useState<{ id: string; cost_center_code: string; cost_center_name: string; cost_center_name_ar: string | null }[]>([]);
   const [buCcMappings, setBuCcMappings] = useState<{ business_unit_id: string; cost_center_id: string; payroll_dr_account: string | null }[]>([]);
   const [currencies, setCurrencies] = useState<{ id: string; currency_code: string; currency_name: string }[]>([]);
@@ -276,6 +277,7 @@ export default function EmployeeSetup() {
     job_position_id: "",
     working_business_unit_id: "",
     cost_center_id: "",
+    company_id: "",
     payroll_country: "",
     job_start_date: "",
     termination_date: "",
@@ -355,6 +357,7 @@ export default function EmployeeSetup() {
         costCentersRes,
         buCcMappingRes,
         currenciesRes,
+        companiesRes,
 
       ] = await Promise.all([
         supabase
@@ -379,6 +382,7 @@ export default function EmployeeSetup() {
         supabase.from("cost_centers").select("id, cost_center_code, cost_center_name, cost_center_name_ar").eq("is_active", true).order("cost_center_code"),
         supabase.from("business_unit_cost_center_mapping").select("business_unit_id, cost_center_id, payroll_dr_account"),
         supabase.from("currencies").select("id, currency_code, currency_name").eq("is_active", true).order("currency_code"),
+        supabase.from("companies").select("id, name").eq("is_active", true).order("name"),
       ]);
       
 
@@ -402,6 +406,7 @@ export default function EmployeeSetup() {
       setCostCenters((costCentersRes.data as any) || []);
       setBuCcMappings((buCcMappingRes.data as any) || []);
       setCurrencies((currenciesRes.data as any) || []);
+      setCompanies(((companiesRes as any)?.data as any) || []);
 
       // Find users without employee records
       const allProfiles = profilesRes.data || [];
@@ -504,6 +509,7 @@ export default function EmployeeSetup() {
       job_position_id: "",
       working_business_unit_id: "",
       cost_center_id: "",
+    company_id: "",
       payroll_country: "",
       job_start_date: new Date().toISOString().split('T')[0],
       termination_date: "",
@@ -793,6 +799,7 @@ export default function EmployeeSetup() {
       job_position_id: "",
       working_business_unit_id: "",
       cost_center_id: "",
+    company_id: "",
       payroll_country: "",
       job_start_date: "",
       termination_date: "",
@@ -842,6 +849,7 @@ export default function EmployeeSetup() {
       job_position_id: employee.job_position_id || "",
       working_business_unit_id: (employee as any).working_business_unit_id || "",
       cost_center_id: (employee as any).cost_center_id || "",
+      company_id: (employee as any).company_id || "",
       payroll_country: (employee as any).payroll_country || "",
       job_start_date: employee.job_start_date,
       termination_date: employee.termination_date || "",
@@ -1041,6 +1049,7 @@ export default function EmployeeSetup() {
         job_position_id: formData.job_position_id || null,
         working_business_unit_id: formData.working_business_unit_id || null,
         cost_center_id: formData.cost_center_id || null,
+        company_id: (formData as any).company_id || null,
         payroll_country: formData.payroll_country || null,
         job_start_date: formData.job_start_date,
         termination_date: formData.termination_date || null,
@@ -2249,6 +2258,24 @@ export default function EmployeeSetup() {
                       <SelectItem value="__add_new__" className="text-primary font-medium">
                         + {language === "ar" ? "إضافة جديد" : "Add New"}
                       </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{language === "ar" ? "الشركة" : "Company"}</Label>
+                  <Select
+                    value={(formData as any).company_id || "_none_"}
+                    onValueChange={(value) => setFormData({ ...formData, company_id: value === "_none_" ? "" : value } as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={language === "ar" ? "اختر الشركة" : "Select Company"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{language === "ar" ? "اختر" : "Select"}</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

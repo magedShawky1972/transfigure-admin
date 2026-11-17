@@ -64,6 +64,13 @@
       "when": 1793105718988,
       "tag": "0008_truncate_purpletransaction_temp",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794920315552,
+      "tag": "0009_employee_company",
+      "breakpoints": true
     }
   ]
 }

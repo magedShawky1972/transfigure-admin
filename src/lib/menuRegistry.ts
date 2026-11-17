@@ -145,7 +145,6 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/shift-calendar", defaultEn: "Shift Calendar", defaultAr: "تقويم الورديات", icon: BarChart3 },
       { url: "/currency-setup", defaultEn: "Currency Setup", defaultAr: "إعداد العملات", icon: DollarSign },
       { url: "/user-group-setup", defaultEn: "User Groups", defaultAr: "مجموعات المستخدمين", icon: Users },
-      { url: "/company-setup", defaultEn: "Company Setup", defaultAr: "إعداد الشركات", icon: Settings },
       { url: "/business-unit-setup", defaultEn: "Business Unit Setup", defaultAr: "إعداد وحدات العمل", icon: Building2 },
       { url: "/business-unit-cost-center-mapping", defaultEn: "BU ↔ Cost Center Mapping", defaultAr: "ربط وحدات العمل بمراكز التكلفة", icon: Building2 },
     ],
@@ -164,6 +163,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
     defaultEn: "HR Management",
     defaultAr: "الموارد البشرية",
     items: [
+      { url: "/company-setup", defaultEn: "Company Setup", defaultAr: "إعداد الشركات", icon: Settings },
       { url: "/employee-setup", defaultEn: "Employee Setup", defaultAr: "إعداد الموظفين", icon: UserCircle },
       { url: "/employee-self-requests", defaultEn: "Employee Requests", defaultAr: "طلبات الموظفين", icon: ClipboardList },
       { url: "/employee-request-approvals", defaultEn: "Request Approvals", defaultAr: "اعتماد الطلبات", icon: ClipboardCheck },

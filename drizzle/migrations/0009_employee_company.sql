@@ -1,0 +1,2 @@
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_employees_company_id ON public.employees(company_id);

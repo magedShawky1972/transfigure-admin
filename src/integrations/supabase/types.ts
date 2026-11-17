@@ -3677,6 +3677,7 @@ export type Database = {
           address: string | null
           attendance_type_id: string | null
           basic_salary: number | null
+          company_id: string | null
           cost_center_id: string | null
           created_at: string
           currency: string | null
@@ -3727,6 +3728,7 @@ export type Database = {
           address?: string | null
           attendance_type_id?: string | null
           basic_salary?: number | null
+          company_id?: string | null
           cost_center_id?: string | null
           created_at?: string
           currency?: string | null
@@ -3777,6 +3779,7 @@ export type Database = {
           address?: string | null
           attendance_type_id?: string | null
           basic_salary?: number | null
+          company_id?: string | null
           cost_center_id?: string | null
           created_at?: string
           currency?: string | null
@@ -3829,6 +3832,13 @@ export type Database = {
             columns: ["attendance_type_id"]
             isOneToOne: false
             referencedRelation: "attendance_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
