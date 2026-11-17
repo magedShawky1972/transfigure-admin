@@ -610,7 +610,8 @@ const SoftwareLicenseSetup = () => {
         if (isPdf) {
           // For PDFs, we need to convert first page to image for cropping
           try {
-            const pdfjsLib = await import('pdfjs-dist');
+            const pdfjsMod: any = await import('pdfjs-dist');
+            const pdfjsLib: any = pdfjsMod?.GlobalWorkerOptions ? pdfjsMod : pdfjsMod?.default;
             pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
             
             // Load PDF from base64
@@ -767,7 +768,8 @@ const SoftwareLicenseSetup = () => {
       if (isPdf) {
         // For PDFs, we need to convert first page to image
         try {
-          const pdfjsLib = await import('pdfjs-dist');
+          const pdfjsMod: any = await import('pdfjs-dist');
+            const pdfjsLib: any = pdfjsMod?.GlobalWorkerOptions ? pdfjsMod : pdfjsMod?.default;
           pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
           
           // Load PDF from base64

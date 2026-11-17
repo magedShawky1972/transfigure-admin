@@ -8,10 +8,15 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { FileUp, Download, Loader2, FileSpreadsheet, Trash2, ChevronLeft, ChevronRight, Crop, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsNs from 'pdfjs-dist';
+
+// Handle both ESM namespace and CommonJS default export shapes
+const pdfjsLib: any = (pdfjsNs as any)?.GlobalWorkerOptions ? pdfjsNs : (pdfjsNs as any)?.default;
 
 // Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+if (pdfjsLib?.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 interface SelectionArea {
   x: number;

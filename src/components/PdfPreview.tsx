@@ -66,7 +66,8 @@ export const PdfPreview = ({ url, name, language }: PdfPreviewProps) => {
         }
 
         setSrc(resolvedSrc);
-        const pdfjsLib = await import("pdfjs-dist");
+        const pdfjsMod: any = await import("pdfjs-dist");
+        const pdfjsLib: any = pdfjsMod?.GlobalWorkerOptions ? pdfjsMod : pdfjsMod?.default;
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
