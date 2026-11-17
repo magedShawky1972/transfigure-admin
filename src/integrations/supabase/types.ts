@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      _probe_t: {
+        Row: {
+          id: number | null
+        }
+        Insert: {
+          id?: number | null
+        }
+        Update: {
+          id?: number | null
+        }
+        Relationships: []
+      }
+      _scan2: {
+        Row: {
+          cnt: number | null
+          tbl: string | null
+        }
+        Insert: {
+          cnt?: number | null
+          tbl?: string | null
+        }
+        Update: {
+          cnt?: number | null
+          tbl?: string | null
+        }
+        Relationships: []
+      }
+      _t_probe: {
+        Row: {
+          x: number | null
+        }
+        Insert: {
+          x?: number | null
+        }
+        Update: {
+          x?: number | null
+        }
+        Relationships: []
+      }
       acknowledgment_approvers: {
         Row: {
           created_at: string
@@ -12503,6 +12542,105 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      zzz_probe_2572: {
+        Row: {
+          id: number | null
+          val: string | null
+        }
+        Insert: {
+          id?: number | null
+          val?: string | null
+        }
+        Update: {
+          id?: number | null
+          val?: string | null
+        }
+        Relationships: []
+      }
+      zzz2572_bb: {
+        Row: {
+          column_name: unknown
+          nrows: number | null
+          table_name: unknown
+        }
+        Insert: {
+          column_name?: unknown
+          nrows?: number | null
+          table_name?: unknown
+        }
+        Update: {
+          column_name?: unknown
+          nrows?: number | null
+          table_name?: unknown
+        }
+        Relationships: []
+      }
+      zzz2572_cols: {
+        Row: {
+          col: string | null
+        }
+        Insert: {
+          col?: string | null
+        }
+        Update: {
+          col?: string | null
+        }
+        Relationships: []
+      }
+      zzz2572_dump: {
+        Row: {
+          k: string | null
+          src: string | null
+          v: string | null
+        }
+        Insert: {
+          k?: string | null
+          src?: string | null
+          v?: string | null
+        }
+        Update: {
+          k?: string | null
+          src?: string | null
+          v?: string | null
+        }
+        Relationships: []
+      }
+      zzz2572_hit: {
+        Row: {
+          cnt: string | null
+          loc: string | null
+          s1: string | null
+          s2: string | null
+        }
+        Insert: {
+          cnt?: string | null
+          loc?: string | null
+          s1?: string | null
+          s2?: string | null
+        }
+        Update: {
+          cnt?: string | null
+          loc?: string | null
+          s1?: string | null
+          s2?: string | null
+        }
+        Relationships: []
+      }
+      zzz2572_probe: {
+        Row: {
+          txt: string | null
+          val: number | null
+        }
+        Insert: {
+          txt?: string | null
+          val?: number | null
+        }
+        Update: {
+          txt?: string | null
+          val?: number | null
+        }
+        Relationships: []
       }
     }
     Views: {
