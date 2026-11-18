@@ -91,6 +91,11 @@ const LoadData = () => {
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showBrandTypeDialog, setShowBrandTypeDialog] = useState(false);
+  const [productCheck, setProductCheck] = useState<{
+    fileName: string;
+    missing: string[];
+    updated: { ordernumber: string; line_no: number; product_id: string; product_name: string; brand_name: string }[];
+  } | null>(null);
   const [newBrandsDetected, setNewBrandsDetected] = useState<{ brand_name: string }[]>([]);
   const [brandTypeSelections, setBrandTypeSelections] = useState<{ brand_name: string; brand_type_id: string }[]>([]);
   const keepAliveRef = useRef<NodeJS.Timeout | null>(null);
@@ -794,6 +799,83 @@ const LoadData = () => {
 
       setUploadStatus(`Processing ${fileItem.file.name}...`);
 
+      // ===== Product ID validation + fill missing product/brand on existing orders =====
+      if (sheetConfig?.target_table?.toLowerCase() === 'purpletransaction' && jsonData.length > 0) {
+        const norm = (k: string) => k.toLowerCase().replace(/[_\s-]/g, '');
+        const pick = (row: any, ...names: string[]) => {
+          const key = Object.keys(row).find((k) => names.includes(norm(k)));
+          const v = key ? row[key] : undefined;
+          return v === undefined || v === null ? '' : String(v).trim();
+        };
+        const excelIds = [...new Set(jsonData.map((r: any) => pick(r, 'productid')).filter(Boolean))];
+        if (excelIds.length > 0) {
+          setUploadStatus(`${fileItem.file.name}: checking product IDs...`);
+          const found = new Map<string, { product_name: string; brand_name: string }>();
+          for (let i = 0; i < excelIds.length; i += 300) {
+            const { data: prods, error: pErr } = await supabase
+              .from('products')
+              .select('product_id, product_name, brand_name')
+              .in('product_id', excelIds.slice(i, i + 300));
+            if (pErr) throw pErr;
+            (prods || []).forEach((p: any) => found.set(String(p.product_id).trim(), { product_name: p.product_name || '', brand_name: p.brand_name || '' }));
+          }
+          const missing = excelIds.filter((id) => !found.has(id));
+          if (missing.length > 0) {
+            setProductCheck({ fileName: fileItem.file.name, missing, updated: [] });
+            setFileItems(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: `${missing.length} product ID(s) not found in system` } : f));
+            await processNextFile(queueIndex + 1);
+            return;
+          }
+
+          // All IDs found: fill existing orders lacking product id / name / brand
+          const lineTracker = new Map<string, number>();
+          const excelLines = new Map<string, { product_id: string; product_name: string; brand_name: string }>();
+          jsonData.forEach((r: any) => {
+            const ord = pick(r, 'ordernumber');
+            if (!ord) return;
+            const ln = (lineTracker.get(ord) || 0) + 1;
+            lineTracker.set(ord, ln);
+            const pid = pick(r, 'productid');
+            if (!pid) return;
+            const prod = found.get(pid)!;
+            excelLines.set(`${ord}|${ln}`, {
+              product_id: pid,
+              product_name: pick(r, 'productname') || prod.product_name,
+              brand_name: pick(r, 'brandname') || prod.brand_name,
+            });
+          });
+          const orders = [...lineTracker.keys()];
+          const updated: { ordernumber: string; line_no: number; product_id: string; product_name: string; brand_name: string }[] = [];
+          const empty = (v: any) => v === null || v === undefined || String(v).trim() === '';
+          for (let i = 0; i < orders.length; i += 300) {
+            const { data: dbRows, error: dErr } = await supabase
+              .from('purpletransaction')
+              .select('id, ordernumber, line_no, product_id, product_name, brand_name')
+              .in('ordernumber', orders.slice(i, i + 300))
+              .limit(5000);
+            if (dErr) throw dErr;
+            for (const row of (dbRows || []) as any[]) {
+              if (!(empty(row.product_id) || empty(row.product_name) || empty(row.brand_name))) continue;
+              const src = excelLines.get(`${String(row.ordernumber).trim()}|${parseInt(String(row.line_no)) || 1}`);
+              if (!src) continue;
+              const patch: any = {};
+              if (empty(row.product_id)) patch.product_id = src.product_id;
+              if (empty(row.product_name) && src.product_name) patch.product_name = src.product_name;
+              if (empty(row.brand_name) && src.brand_name) patch.brand_name = src.brand_name;
+              if (Object.keys(patch).length === 0) continue;
+              const { data: upd, error: uErr } = await supabase.from('purpletransaction').update(patch).eq('id', row.id).select('id');
+              if (uErr) throw uErr;
+              if (upd && upd.length > 0) {
+                updated.push({ ordernumber: String(row.ordernumber), line_no: parseInt(String(row.line_no)) || 1, ...src });
+              }
+            }
+          }
+          if (updated.length > 0) {
+            setProductCheck({ fileName: fileItem.file.name, missing: [], updated });
+          }
+        }
+      }
+
       const distinctDates = new Set<string>(extractDistinctExcelDates(jsonData));
 
       const now = new Date();
@@ -1289,6 +1371,41 @@ const LoadData = () => {
 
   return (
     <div className="space-y-6">
+      <Dialog open={!!productCheck} onOpenChange={(o) => !o && setProductCheck(null)}>
+        <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {productCheck?.missing.length ? 'Product IDs Not Found in System' : 'Orders Updated'}
+            </DialogTitle>
+            <DialogDescription>
+              {productCheck?.missing.length
+                ? `${productCheck.fileName}: ${productCheck.missing.length} product ID(s) were not found. The file was not loaded. Add these products first, then upload again.`
+                : `${productCheck?.fileName}: ${productCheck?.updated.length} existing order line(s) had missing Product ID, Product Name or Brand and were updated from the Excel sheet.`}
+            </DialogDescription>
+          </DialogHeader>
+          {productCheck?.missing.length ? (
+            <div className="flex flex-wrap gap-2">
+              {productCheck.missing.map((id) => <Badge key={id} variant="destructive">{id}</Badge>)}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left">
+                  <th className="p-2">Order</th><th className="p-2">Line</th><th className="p-2">Product ID</th><th className="p-2">Product Name</th><th className="p-2">Brand</th>
+                </tr></thead>
+                <tbody>
+                  {productCheck?.updated.map((u) => (
+                    <tr key={`${u.ordernumber}-${u.line_no}`} className="border-b">
+                      <td className="p-2">{u.ordernumber}</td><td className="p-2">{u.line_no}</td><td className="p-2">{u.product_id}</td><td className="p-2">{u.product_name}</td><td className="p-2">{u.brand_name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex justify-end"><Button onClick={() => setProductCheck(null)}>OK</Button></div>
+        </DialogContent>
+      </Dialog>
       <div>
         <h1 className="text-3xl font-bold mb-2">Load Data From Excel</h1>
         <p className="text-muted-foreground">
