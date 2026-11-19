@@ -5485,6 +5485,8 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string | null
+          current_endpoint: string | null
+          current_phase: number
           error_message: string | null
           failed_items: number
           from_date_int: number
@@ -5502,6 +5504,8 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_endpoint?: string | null
+          current_phase?: number
           error_message?: string | null
           failed_items?: number
           from_date_int: number
@@ -5519,6 +5523,8 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_endpoint?: string | null
+          current_phase?: number
           error_message?: string | null
           failed_items?: number
           from_date_int?: number
@@ -13420,7 +13426,9 @@ export type Database = {
         Args: { p_accessed_record_id?: string; p_accessed_table: string }
         Returns: undefined
       }
-      prepare_koon_backfill: { Args: { p_run_id: string }; Returns: undefined }
+      prepare_koon_backfill:
+        | { Args: { p_run_id: string }; Returns: undefined }
+        | { Args: { p_phase: number; p_run_id: string }; Returns: undefined }
       project_guest_role: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: string

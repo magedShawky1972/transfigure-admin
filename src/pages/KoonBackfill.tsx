@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, CalendarIcon, CheckCircle, Clock, Database, Eye, Loader2, Pause, Play, RefreshCw, RotateCcw, Send, XCircle } from "lucide-react";
-import { dateToInt, intToDateIntString, isValidKoonBackfillRange, KOON_BACKFILL_PAGE_SIZE } from "@/lib/koonBackfill";
+import { dateToInt, getKoonEndpointStatus, intToDateIntString, isValidKoonBackfillRange, KOON_BACKFILL_PAGE_SIZE, type KoonEndpointProgress } from "@/lib/koonBackfill";
 
 interface BackfillRun {
   id: string;
@@ -31,16 +31,11 @@ interface BackfillRun {
   failed_items: number;
   skipped_items: number;
   skipped_counts?: Record<string, number>;
+  current_phase: number;
+  current_endpoint?: string;
   error_message?: string;
 }
-interface EndpointStat {
-  phase: number;
-  endpoint: string;
-  total: number;
-  pending: number;
-  success: number;
-  failed: number;
-}
+type EndpointStat = KoonEndpointProgress;
 interface BackfillSummary { run: BackfillRun; endpoints: EndpointStat[]; batch?: unknown[] }
 interface BackfillError {
   id: string;
@@ -59,6 +54,7 @@ const ENDPOINT_LABELS: Record<string, { en: string; ar: string }> = {
   "api-salesline": { en: "Sales Lines", ar: "بنود الطلبات" },
   "api-payment": { en: "Payments", ar: "المدفوعات" },
 };
+const PHASE_ENDPOINTS = ["api-customer", "api-brand", "api-product", "api-salesheader", "api-salesline", "api-payment"];
 
 const KoonBackfill = () => {
   const { language } = useLanguage();
@@ -74,6 +70,8 @@ const KoonBackfill = () => {
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [activeEndpoint, setActiveEndpoint] = useState<string>();
+  const [activePhase, setActivePhase] = useState(0);
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [errors, setErrors] = useState<BackfillError[]>([]);
   const [loadingErrors, setLoadingErrors] = useState(false);
@@ -108,6 +106,22 @@ const KoonBackfill = () => {
     if (status === "failed" || status === "completed_with_errors") return <Badge variant="destructive">{statusLabel(status)}</Badge>;
     return <Badge variant="outline">{statusLabel(status)}</Badge>;
   };
+  const endpointStatusBadge = (stat: EndpointStat) => {
+    if (!summary) return null;
+    const status = getKoonEndpointStatus(stat, summary.run.status, summary.run.current_phase, activeEndpoint);
+    const labels = {
+      waiting: isAr ? "بالانتظار" : "Waiting",
+      running: isAr ? "يعمل الآن" : "Running",
+      pending: isAr ? "في قائمة الإرسال" : "Queued",
+      completed: isAr ? "مكتمل" : "Completed",
+      failed: isAr ? "فشل" : "Failed",
+    };
+    return <Badge variant={status === "failed" ? "destructive" : status === "completed" ? "secondary" : "outline"} className="whitespace-nowrap">
+      {status === "running" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+      {status === "completed" && <CheckCircle className="h-3 w-3 mr-1" />}
+      {labels[status]}
+    </Badge>;
+  };
 
   const loadRuns = async () => {
     setLoadingRuns(true);
@@ -126,18 +140,25 @@ const KoonBackfill = () => {
     try {
       const data = await call({ action: "get", runId });
       setSummary(data);
+      return data as BackfillSummary;
     } catch (error) {
       toast({ title: isAr ? "خطأ" : "Error", description: await getError(error, isAr ? "فشل تحميل العملية" : "Failed to load run"), variant: "destructive" });
+      return undefined;
     }
   };
 
-  const processRun = async (runId: string) => {
+  const processRun = async (runId: string, initialSummary?: BackfillSummary) => {
     setProcessing(true);
     stopRef.current = false;
+    let currentSummary = initialSummary || summary || undefined;
     try {
       let shouldContinue = true;
       while (!stopRef.current && shouldContinue) {
-        const data = await call({ action: "process", runId, batchSize: KOON_BACKFILL_PAGE_SIZE });
+        const nextApi = currentSummary?.endpoints.find((stat) => stat.pending > 0);
+        setActiveEndpoint(nextApi?.endpoint);
+        setActivePhase(nextApi?.phase || 0);
+        const data = await call({ action: "process", runId, batchSize: KOON_BACKFILL_PAGE_SIZE }) as BackfillSummary;
+        currentSummary = data;
         setSummary(data);
         const status = data.run.status;
         shouldContinue = !["completed", "completed_with_errors", "failed"].includes(status) && (data.batch?.length || 0) > 0;
@@ -148,7 +169,29 @@ const KoonBackfill = () => {
       await openRun(runId);
     } finally {
       setProcessing(false);
+      setActiveEndpoint(undefined);
+      setActivePhase(0);
     }
+  };
+
+  const preparePhases = async (runId: string, initialSummary: BackfillSummary) => {
+    let currentSummary = initialSummary;
+    for (let phase = 1; phase <= 6 && !stopRef.current; phase += 1) {
+      setActivePhase(phase);
+      setActiveEndpoint(PHASE_ENDPOINTS[phase - 1]);
+      currentSummary = await call({ action: "prepare", runId, phase }) as BackfillSummary;
+      setSummary(currentSummary);
+    }
+    return currentSummary;
+  };
+
+  const finishPreparation = async (runId: string, data: BackfillSummary) => {
+    toast({ title: isAr ? "تم التحضير" : "Backfill prepared", description: isAr ? `${data.run.total_items} سجل للإرسال، ${data.run.skipped_items} تم تخطيه` : `${data.run.total_items} to send, ${data.run.skipped_items} already delivered` });
+    await loadRuns();
+    setPreparing(false);
+    setActiveEndpoint(undefined);
+    setActivePhase(0);
+    if (data.run.total_items > 0) await processRun(runId, data);
   };
 
   const retryFailed = async () => {
@@ -161,22 +204,47 @@ const KoonBackfill = () => {
     }
   };
 
+  const restartPreparation = async () => {
+    if (!summary || preparing || processing) return;
+    const runId = summary.run.id;
+    setPreparing(true);
+    stopRef.current = false;
+    try {
+      const data = await call({ action: "restart", runId }) as BackfillSummary;
+      setSummary(data);
+      const prepared = await preparePhases(runId, data);
+      if (!stopRef.current) await finishPreparation(runId, prepared);
+    } catch (error) {
+      await openRun(runId);
+      toast({ title: isAr ? "خطأ" : "Error", description: await getError(error, isAr ? "فشل تحضير العملية" : "Failed to prepare backfill"), variant: "destructive" });
+    } finally {
+      setPreparing(false);
+      setActiveEndpoint(undefined);
+      setActivePhase(0);
+    }
+  };
+
   const startBackfill = async () => {
     if (!isValidKoonBackfillRange(fromDate, toDate)) {
       toast({ title: isAr ? "خطأ" : "Error", description: isAr ? "اختر فترة صحيحة" : "Select a valid From and To date", variant: "destructive" });
       return;
     }
     setPreparing(true);
+    stopRef.current = false;
+    let runId: string | undefined;
     try {
-      const data = await call({ action: "create", fromDateInt: dateToInt(fromDate!), toDateInt: dateToInt(toDate!) });
+      const data = await call({ action: "create", fromDateInt: dateToInt(fromDate!), toDateInt: dateToInt(toDate!) }) as BackfillSummary;
+      runId = data.run.id;
       setSummary(data);
-      toast({ title: isAr ? "تم التحضير" : "Backfill prepared", description: isAr ? `${data.run.total_items} سجل للإرسال، ${data.run.skipped_items} تم تخطيه` : `${data.run.total_items} to send, ${data.run.skipped_items} already delivered` });
-      if (data.run.total_items > 0) await processRun(data.run.id);
-      else await loadRuns();
+      const prepared = await preparePhases(runId, data);
+      if (!stopRef.current) await finishPreparation(runId, prepared);
     } catch (error) {
+      if (runId) await openRun(runId);
       toast({ title: isAr ? "خطأ" : "Error", description: await getError(error, isAr ? "فشل تحضير العملية" : "Failed to prepare backfill"), variant: "destructive" });
     } finally {
       setPreparing(false);
+      setActiveEndpoint(undefined);
+      setActivePhase(0);
     }
   };
 
@@ -198,9 +266,11 @@ const KoonBackfill = () => {
   if (!hasAccess) return <AccessDenied />;
 
   const run = summary?.run;
-  const endpointStats = summary?.endpoints.length ? summary.endpoints : Object.keys(run?.skipped_counts || {}).map((endpoint, index) => ({ phase: index + 1, endpoint, total: 0, pending: 0, success: 0, failed: 0 }));
+  const endpointStats = summary?.endpoints || [];
   const progress = run && run.total_items > 0 ? Math.round((run.processed_items / run.total_items) * 100) : run?.status === "completed" ? 100 : 0;
   const canResume = run && ["ready", "running"].includes(run.status) && run.processed_items < run.total_items;
+  const canRestartPreparation = run && ["failed", "preparing"].includes(run.status) && run.processed_items === 0;
+  const activeLabel = activeEndpoint ? ENDPOINT_LABELS[activeEndpoint]?.[language] || activeEndpoint : "";
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -209,7 +279,7 @@ const KoonBackfill = () => {
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2"><Send className="h-7 w-7 text-primary" />{isAr ? "إرسال البيانات السابقة إلى KOON" : "KOON Backfill"}</h1>
           <p className="text-muted-foreground mt-1">{isAr ? "إرسال جميع الطلبات والبيانات المرتبطة بها حسب الفترة" : "Send every order and its related data for a selected date range"}</p>
         </div>
-        <Button variant="outline" onClick={() => { setSummary(null); stopRef.current = true; }} disabled={preparing}>
+        <Button variant="outline" onClick={() => { setSummary(null); stopRef.current = true; }} disabled={preparing || processing}>
           <RotateCcw className="h-4 w-4 mr-2" />{isAr ? "عملية جديدة" : "New Backfill"}
         </Button>
       </div>
@@ -255,12 +325,20 @@ const KoonBackfill = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle>{intToDateIntString(run.from_date_int)} – {intToDateIntString(run.to_date_int)}</CardTitle>
-                  <CardDescription>{isAr ? "تقدم الإرسال" : "Delivery progress"}</CardDescription>
+                  <CardDescription>{isAr ? "تقدم التحضير والإرسال" : "Preparation and delivery progress"}</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">{statusBadge(run.status)}</div>
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
+              {(preparing || processing) && activeEndpoint && <div className="rounded-md border border-primary/30 bg-primary/5 p-4 flex items-center gap-3" aria-live="polite">
+                <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />
+                <div>
+                  <p className="font-medium">{preparing ? isAr ? `جارٍ تحضير ${activeLabel}` : `Preparing ${activeLabel}` : isAr ? `جارٍ إرسال ${activeLabel}` : `Sending ${activeLabel}`}</p>
+                  <p className="text-sm text-muted-foreground">{isAr ? `الخطوة ${activePhase} من 6` : `Step ${activePhase} of 6`} · <span className="font-mono">{activeEndpoint}</span></p>
+                </div>
+              </div>}
+              {run.error_message && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">{run.error_message}</div>}
               <div className="space-y-2"><Progress value={progress} className="h-3" /><p className="text-sm text-muted-foreground">{progress}% · {run.processed_items} / {run.total_items}</p></div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {[{ label: isAr ? "الإجمالي" : "Total", value: run.total_items, icon: Database }, { label: isAr ? "ناجح" : "Sent", value: run.successful_items, icon: CheckCircle }, { label: isAr ? "فشل" : "Failed", value: run.failed_items, icon: XCircle }, { label: isAr ? "متبقٍ" : "Remaining", value: run.total_items - run.processed_items, icon: Clock }, { label: isAr ? "تم تخطيه" : "Already sent", value: run.skipped_items, icon: CheckCircle }].map((stat, index) => (
@@ -268,8 +346,9 @@ const KoonBackfill = () => {
                 ))}
               </div>
               <div className="flex flex-wrap gap-2">
-                {processing ? <Button variant="outline" onClick={() => { stopRef.current = true; }}><Pause className="h-4 w-4 mr-2" />{isAr ? "إيقاف مؤقت" : "Pause"}</Button> : canResume ? <Button onClick={() => processRun(run.id)}><Play className="h-4 w-4 mr-2" />{isAr ? "متابعة" : "Resume"}</Button> : null}
-                <Button variant="outline" onClick={() => openRun(run.id)} disabled={processing}><RefreshCw className="h-4 w-4 mr-2" />{isAr ? "تحديث" : "Refresh"}</Button>
+                {processing ? <Button variant="outline" onClick={() => { stopRef.current = true; }}><Pause className="h-4 w-4 mr-2" />{isAr ? "إيقاف مؤقت" : "Pause"}</Button> : canResume ? <Button onClick={() => processRun(run.id, summary || undefined)}><Play className="h-4 w-4 mr-2" />{isAr ? "متابعة" : "Resume"}</Button> : null}
+                <Button variant="outline" onClick={() => openRun(run.id)} disabled={preparing || processing}><RefreshCw className="h-4 w-4 mr-2" />{isAr ? "تحديث" : "Refresh"}</Button>
+                {canRestartPreparation && <Button onClick={restartPreparation} disabled={preparing || processing}><RotateCcw className="h-4 w-4 mr-2" />{run.status === "preparing" ? isAr ? "متابعة تحضير العملية" : "Resume Preparation" : isAr ? "إعادة تحضير العملية" : "Retry Preparation"}</Button>}
                 {run.status === "completed_with_errors" && run.failed_items > 0 && <Button onClick={retryFailed} disabled={processing}><RotateCcw className="h-4 w-4 mr-2" />{isAr ? "إعادة محاولة الفاشل" : "Retry Failed"}</Button>}
                 {run.failed_items > 0 && <Button variant="outline" onClick={showErrors}><Eye className="h-4 w-4 mr-2" />{isAr ? "عرض الأخطاء" : "View Errors"}</Button>}
               </div>
@@ -277,10 +356,10 @@ const KoonBackfill = () => {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{isAr ? "التقدم حسب API" : "Progress by API"}</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{isAr ? "حالة كل خطوة و API" : "Status of each step and API"}</CardTitle></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto"><Table className="min-w-[700px]"><TableHeader><TableRow><TableHead>API</TableHead><TableHead>{isAr ? "الإجمالي" : "Total"}</TableHead><TableHead>{isAr ? "ناجح" : "Sent"}</TableHead><TableHead>{isAr ? "فشل" : "Failed"}</TableHead><TableHead>{isAr ? "متبقٍ" : "Pending"}</TableHead><TableHead>{isAr ? "تم تخطيه" : "Skipped"}</TableHead></TableRow></TableHeader>
-                <TableBody>{endpointStats.map((stat) => <TableRow key={stat.endpoint}><TableCell className="font-medium">{ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}<div className="text-xs text-muted-foreground font-mono">{stat.endpoint}</div></TableCell><TableCell>{stat.total}</TableCell><TableCell>{stat.success}</TableCell><TableCell>{stat.failed}</TableCell><TableCell>{stat.pending}</TableCell><TableCell>{run.skipped_counts?.[stat.endpoint] || 0}</TableCell></TableRow>)}</TableBody>
+              <div className="overflow-x-auto"><Table className="min-w-[800px]"><TableHeader><TableRow><TableHead>API</TableHead><TableHead>{isAr ? "الحالة" : "Status"}</TableHead><TableHead>{isAr ? "الإجمالي" : "Total"}</TableHead><TableHead>{isAr ? "ناجح" : "Sent"}</TableHead><TableHead>{isAr ? "فشل" : "Failed"}</TableHead><TableHead>{isAr ? "متبقٍ" : "Pending"}</TableHead><TableHead>{isAr ? "تم تخطيه" : "Skipped"}</TableHead></TableRow></TableHeader>
+                <TableBody>{endpointStats.map((stat) => <TableRow key={stat.endpoint}><TableCell className="font-medium"><span className="text-muted-foreground mr-2">{stat.phase}.</span>{ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}<div className="text-xs text-muted-foreground font-mono">{stat.endpoint}</div></TableCell><TableCell>{endpointStatusBadge(stat)}</TableCell><TableCell>{stat.total}</TableCell><TableCell>{stat.success}</TableCell><TableCell>{stat.failed}</TableCell><TableCell>{stat.pending}</TableCell><TableCell>{run.skipped_counts?.[stat.endpoint] || 0}</TableCell></TableRow>)}</TableBody>
               </Table></div>
             </CardContent>
           </Card>
@@ -291,7 +370,7 @@ const KoonBackfill = () => {
         <CardHeader><CardTitle>{isAr ? "العمليات السابقة" : "Backfill History"}</CardTitle><CardDescription>{isAr ? "افتح أي عملية لعرض التقدم أو المتابعة" : "Open a run to view progress or resume"}</CardDescription></CardHeader>
         <CardContent>
           {loadingRuns ? <Loader2 className="h-5 w-5 animate-spin" /> : runs.length === 0 ? <p className="text-sm text-muted-foreground">{isAr ? "لا توجد عمليات" : "No backfill runs yet"}</p> : <div className="overflow-x-auto"><Table className="min-w-[700px]"><TableHeader><TableRow><TableHead>{isAr ? "الفترة" : "Date Range"}</TableHead><TableHead>{isAr ? "الحالة" : "Status"}</TableHead><TableHead>{isAr ? "التقدم" : "Progress"}</TableHead><TableHead>{isAr ? "فشل" : "Failed"}</TableHead><TableHead>{isAr ? "تم تخطيه" : "Skipped"}</TableHead><TableHead></TableHead></TableRow></TableHeader>
-            <TableBody>{runs.map((item) => <TableRow key={item.id}><TableCell>{intToDateIntString(item.from_date_int)} – {intToDateIntString(item.to_date_int)}</TableCell><TableCell>{statusBadge(item.status)}</TableCell><TableCell>{item.processed_items} / {item.total_items}</TableCell><TableCell>{item.failed_items}</TableCell><TableCell>{item.skipped_items}</TableCell><TableCell><Button size="sm" variant="outline" onClick={() => openRun(item.id)} disabled={processing}><Eye className="h-4 w-4 mr-1" />{isAr ? "فتح" : "Open"}</Button></TableCell></TableRow>)}</TableBody>
+            <TableBody>{runs.map((item) => <TableRow key={item.id}><TableCell>{intToDateIntString(item.from_date_int)} – {intToDateIntString(item.to_date_int)}</TableCell><TableCell>{statusBadge(item.status)}{item.current_endpoint && ["preparing", "running"].includes(item.status) && <div className="text-xs text-muted-foreground font-mono mt-1">{item.current_endpoint}</div>}</TableCell><TableCell>{item.processed_items} / {item.total_items}</TableCell><TableCell>{item.failed_items}</TableCell><TableCell>{item.skipped_items}</TableCell><TableCell><Button size="sm" variant="outline" onClick={() => openRun(item.id)} disabled={preparing || processing}><Eye className="h-4 w-4 mr-1" />{isAr ? "فتح" : "Open"}</Button></TableCell></TableRow>)}</TableBody>
           </Table></div>}
         </CardContent>
       </Card>

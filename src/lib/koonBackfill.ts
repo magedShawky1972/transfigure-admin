@@ -13,3 +13,29 @@ export function isValidKoonBackfillRange(from?: Date, to?: Date): boolean {
   if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return false;
   return dateToInt(from) <= dateToInt(to);
 }
+
+export interface KoonEndpointProgress {
+  phase: number;
+  endpoint: string;
+  total: number;
+  pending: number;
+  success: number;
+  failed: number;
+}
+
+export type KoonEndpointStatus = "waiting" | "running" | "pending" | "completed" | "failed";
+
+export function getKoonEndpointStatus(
+  stat: KoonEndpointProgress,
+  runStatus: string,
+  currentPhase: number,
+  activeEndpoint?: string,
+): KoonEndpointStatus {
+  if (activeEndpoint === stat.endpoint) return "running";
+  if (stat.failed > 0 || (runStatus === "failed" && stat.phase === currentPhase)) return "failed";
+  if (stat.total > 0 && stat.success === stat.total) return "completed";
+  if (stat.pending > 0) return "pending";
+  const preparationFinished = ["ready", "running", "completed", "completed_with_errors"].includes(runStatus);
+  if (preparationFinished || (runStatus === "preparing" && stat.phase < currentPhase)) return "completed";
+  return "waiting";
+}

@@ -9,3 +9,5 @@
 - [x] Stop outgoing Edara email: deployed no-send guards across 25 custom functions, disabled managed app emails and configured recipients, blocked self-service reset email; 5 tests pass and live email-only endpoints return emails_disabled. Scheduled business workflows retain non-email work. Managed authentication emails remain a platform limitation.
 - [x] Add KOON Backfill under Admin with date range, all six APIs, safe batching, resume/progress, failed-item retry, and permissions.
 - [x] Verify backfill preparation, six deliveries, failed-header retry, and successful-delivery skipping with isolated test data; check desktop/phone in both themes.
+- [x] Diagnose and fix the real KOON Backfill preparation timeout with six indexed, independently tracked phases; the November 1–3 run prepared 28,574 records and is paused after five customer sends with zero failures and no payments sent.
+- [x] Show the active backfill step and Waiting/Running/Queued/Completed/Failed status for every API; verified all six running transitions, Resume Preparation, and desktop/phone layouts in both themes.

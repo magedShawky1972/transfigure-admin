@@ -13,6 +13,8 @@ const RequestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('create'), fromDateInt: dateInt, toDateInt: dateInt }),
   z.object({ action: z.literal('list') }),
   z.object({ action: z.literal('get'), runId }),
+  z.object({ action: z.literal('prepare'), runId, phase: z.number().int().min(1).max(6) }),
+  z.object({ action: z.literal('restart'), runId }),
   z.object({ action: z.literal('retry'), runId }),
   z.object({ action: z.literal('process'), runId, batchSize: z.number().int().min(1).max(5).default(5) }),
   z.object({ action: z.literal('errors'), runId }),
@@ -21,6 +23,11 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status,
   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 });
+const errorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) return String((error as { message: unknown }).message);
+  return 'KOON backfill operation failed';
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -54,7 +61,7 @@ Deno.serve(async (req) => {
 
     if (input.action === 'list') {
       const { data, error } = await supabase.from('koon_backfill_runs')
-        .select('id, from_date_int, to_date_int, status, created_at, started_at, completed_at, total_items, processed_items, successful_items, failed_items, skipped_items, error_message')
+        .select('id, from_date_int, to_date_int, status, created_at, started_at, completed_at, total_items, processed_items, successful_items, failed_items, skipped_items, error_message, current_phase, current_endpoint')
         .order('created_at', { ascending: false }).limit(20);
       if (error) throw error;
       return json({ runs: data ?? [] });
@@ -66,15 +73,39 @@ Deno.serve(async (req) => {
         .insert({ from_date_int: input.fromDateInt, to_date_int: input.toDateInt, created_by: userData.user.id })
         .select('id').single();
       if (createError) throw createError;
-      const { error: prepareError } = await supabase.rpc('prepare_koon_backfill', { p_run_id: run.id });
-      if (prepareError) {
-        await supabase.from('koon_backfill_runs').update({ status: 'failed', error_message: prepareError.message }).eq('id', run.id);
-        throw prepareError;
-      }
       return json(await summary(run.id));
     }
 
     if (input.action === 'get') return json(await summary(input.runId));
+
+    if (input.action === 'restart') {
+      const { count, error: attemptError } = await supabase.from('koon_backfill_items')
+        .select('id', { count: 'exact', head: true }).eq('run_id', input.runId).gt('attempt_count', 0);
+      if (attemptError) throw attemptError;
+      if ((count ?? 0) > 0) return json({ error: 'This run has already attempted deliveries. Resume it instead of restarting preparation.' }, 400);
+      const { error: deleteError } = await supabase.from('koon_backfill_items').delete().eq('run_id', input.runId);
+      if (deleteError) throw deleteError;
+      const { error: resetError } = await supabase.from('koon_backfill_runs').update({
+        status: 'preparing', total_items: 0, processed_items: 0, successful_items: 0, failed_items: 0,
+        skipped_items: 0, skipped_counts: {}, current_phase: 0, current_endpoint: null,
+        error_message: null, started_at: null, completed_at: null,
+      }).eq('id', input.runId);
+      if (resetError) throw resetError;
+      return json(await summary(input.runId));
+    }
+
+    if (input.action === 'prepare') {
+      const { error: prepareError } = await supabase.rpc('prepare_koon_backfill', {
+        p_run_id: input.runId,
+        p_phase: input.phase,
+      });
+      if (prepareError) {
+        const message = errorMessage(prepareError);
+        await supabase.from('koon_backfill_runs').update({ status: 'failed', error_message: message }).eq('id', input.runId);
+        throw prepareError;
+      }
+      return json(await summary(input.runId));
+    }
 
     if (input.action === 'errors') {
       const { data, error } = await supabase.from('koon_backfill_items')
@@ -103,6 +134,14 @@ Deno.serve(async (req) => {
     });
     if (claimError) throw claimError;
 
+    if (claimed?.length) {
+      const { error: activeError } = await supabase.from('koon_backfill_runs').update({
+        current_phase: claimed[0].phase,
+        current_endpoint: claimed[0].endpoint,
+      }).eq('id', input.runId);
+      if (activeError) throw activeError;
+    }
+
     const results = await Promise.all((claimed ?? []).map(async (item: any) => {
       const result = await forwardToKoon(item.endpoint as KoonEndpoint, item.payload, {}, supabase, { description: 'KOON backfill' });
       const responseMessage = typeof result.response === 'string' ? result.response : JSON.stringify(result.response);
@@ -120,7 +159,8 @@ Deno.serve(async (req) => {
     if (refreshError) throw refreshError;
     return json({ ...(await summary(input.runId)), batch: results });
   } catch (error) {
-    console.error('KOON backfill operation failed:', error instanceof Error ? error.message : 'Unknown error');
-    return json({ error: error instanceof Error ? error.message : 'KOON backfill operation failed' }, 500);
+    const message = errorMessage(error);
+    console.error('KOON backfill operation failed:', message);
+    return json({ error: message }, 500);
   }
 });
