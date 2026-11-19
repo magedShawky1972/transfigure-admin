@@ -301,6 +301,12 @@ const ApiConsumptionLogs = () => {
     "api-product",
     "api-zk-attendance",
     "api-salla-transaction",
+    "koon-api-salesheader",
+    "koon-api-salesline",
+    "koon-api-payment",
+    "koon-api-customer",
+    "koon-api-brand",
+    "koon-api-product",
   ];
 
   const hasActiveColumnFilters = Object.values(columnFilters).some(v => v.trim() !== "");
@@ -831,6 +837,7 @@ const ApiConsumptionLogs = () => {
   };
 
   const resendRequest = async (log: ApiLog) => {
+    if (log.endpoint.startsWith("koon-")) return;
     if (!log.request_body) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
@@ -912,7 +919,7 @@ const ApiConsumptionLogs = () => {
   const retryAllFailed = async () => {
     // Get all failed logs that have request_body and api_key_id
     const failedLogs = filteredLogs.filter(
-      log => !log.success && log.request_body && log.api_key_id
+      log => !log.endpoint.startsWith("koon-") && !log.success && log.request_body && log.api_key_id
     );
 
     if (failedLogs.length === 0) {
@@ -1025,7 +1032,7 @@ const ApiConsumptionLogs = () => {
   const resendAllFiltered = async () => {
     // Get all filtered logs that have request_body and api_key_id
     const logsToResend = filteredLogs.filter(
-      log => log.request_body && log.api_key_id
+      log => !log.endpoint.startsWith("koon-") && log.request_body && log.api_key_id
     );
 
     if (logsToResend.length === 0) {
@@ -1593,13 +1600,13 @@ const ApiConsumptionLogs = () => {
                     </SortableHeader>
                     <ColumnFilterInput column="apiKey" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
                   </TableHead>
-                  {endpointFilter === "api-payment" && (
+                  {(endpointFilter === "api-payment" || endpointFilter === "koon-api-payment") && (
                     <TableHead className="min-w-[140px]">
                       {language === "ar" ? "طريقة الدفع" : "Payment Method"}
                       <ColumnFilterInput column="paymentMethod" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
                     </TableHead>
                   )}
-                  {endpointFilter === "api-payment" && (
+                  {(endpointFilter === "api-payment" || endpointFilter === "koon-api-payment") && (
                     <TableHead className="min-w-[160px]">
                       {language === "ar" ? "رقم العملية البنكية" : "Bank Transaction Id"}
                       <ColumnFilterInput column="bankTransactionId" placeholder={language === "ar" ? "فلتر..." : "Filter..."} />
@@ -1611,13 +1618,13 @@ const ApiConsumptionLogs = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                  <TableCell colSpan={endpointFilter === "api-payment" ? 12 : 10} className="text-center py-8">
+                  <TableCell colSpan={endpointFilter === "api-payment" || endpointFilter === "koon-api-payment" ? 12 : 10} className="text-center py-8">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : sortedLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={endpointFilter === "api-payment" ? 12 : 10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={endpointFilter === "api-payment" || endpointFilter === "koon-api-payment" ? 12 : 10} className="text-center py-8 text-muted-foreground">
                       {language === "ar" ? "لا توجد سجلات" : "No logs found"}
                     </TableCell>
                   </TableRow>
@@ -1659,12 +1666,12 @@ const ApiConsumptionLogs = () => {
                       <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
                         {log.api_key_description || "-"}
                       </TableCell>
-                      {endpointFilter === "api-payment" && (
+                      {(endpointFilter === "api-payment" || endpointFilter === "koon-api-payment") && (
                         <TableCell className="font-mono text-sm">
                           {getPaymentMethod(log) || "-"}
                         </TableCell>
                       )}
-                      {endpointFilter === "api-payment" && (
+                      {(endpointFilter === "api-payment" || endpointFilter === "koon-api-payment") && (
                         <TableCell className="font-mono text-sm">
                           {getBankTransactionId(log) || "-"}
                         </TableCell>
@@ -1680,7 +1687,7 @@ const ApiConsumptionLogs = () => {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {log.request_body && (
+                          {log.request_body && !log.endpoint.startsWith("koon-") && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1783,7 +1790,7 @@ const ApiConsumptionLogs = () => {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[80vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>
               {language === "ar" ? "تفاصيل الطلب" : "Request Details"}
@@ -1791,8 +1798,8 @@ const ApiConsumptionLogs = () => {
           </DialogHeader>
           
           {selectedLog && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="min-w-0 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 break-words">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     {language === "ar" ? "نقطة النهاية" : "Endpoint"}
@@ -1841,7 +1848,7 @@ const ApiConsumptionLogs = () => {
                 <label className="text-sm font-medium text-muted-foreground">
                   {language === "ar" ? "رسالة الاستجابة" : "Response Message"}
                 </label>
-                <p className="p-2 bg-muted rounded-md text-sm">
+                <p className="p-2 bg-muted rounded-md text-sm break-all">
                   {selectedLog.response_message || "-"}
                 </p>
               </div>
@@ -1850,7 +1857,7 @@ const ApiConsumptionLogs = () => {
                 <label className="text-sm font-medium text-muted-foreground">
                   {language === "ar" ? "جسم الطلب" : "Request Body"}
                 </label>
-                <pre className="p-3 bg-muted rounded-md text-xs overflow-x-auto max-h-[300px]">
+                <pre className="p-3 bg-muted rounded-md text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">
                   {selectedLog.request_body 
                     ? JSON.stringify(selectedLog.request_body, null, 2) 
                     : "-"}
@@ -1875,7 +1882,7 @@ const ApiConsumptionLogs = () => {
                 </div>
               )}
 
-              {selectedLog.request_body && (
+              {selectedLog.request_body && !selectedLog.endpoint.startsWith("koon-") && (
                 <div className="pt-4 border-t">
                   <Button
                     className="w-full"
