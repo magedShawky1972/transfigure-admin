@@ -59,6 +59,7 @@ import {
   Plug,
   Terminal,
   ShieldCheck,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 
@@ -254,6 +255,7 @@ export const DEFAULT_MENU: DefaultGroup[] = [
       { url: "/audit-logs", defaultEn: "Audit Logs", defaultAr: "سجلات التدقيق", icon: ClipboardCheck },
       { url: "/certificate-management", defaultEn: "Certificate Management", defaultAr: "إدارة الشهادات", icon: FileKey },
       { url: "/api-consumption-logs", defaultEn: "API Consumption Logs", defaultAr: "سجلات استهلاك API", icon: ScrollText },
+      { url: "/koon-backfill", defaultEn: "KOON Backfill", defaultAr: "إرسال البيانات السابقة إلى KOON", icon: Send },
       { url: "/update-bank-ledger", defaultEn: "Update Bank Ledger", defaultAr: "تحديث سجل البنك", icon: Database },
       { url: "/auto-upload", defaultEn: "Auto Upload", defaultAr: "التحميل التلقائي", icon: Bot },
       { url: "/api-transaction-mapping", defaultEn: "Transaction Mapping", defaultAr: "خريطة حقول المعاملات", icon: ArrowRightLeft },

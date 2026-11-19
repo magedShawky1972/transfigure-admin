@@ -11,6 +11,7 @@ export const URL_TO_PERMISSION: Record<string, string> = {
   "/api-documentation": "api_documentation",
   "/api-integration-status": "apiIntegrationStatus",
   "/api-consumption-logs": "apiConsumptionLogs",
+  "/koon-backfill": "koonBackfill",
   "/software-licenses": "softwareLicenses",
   "/software-license-setup": "softwareLicenseSetup",
   "/reports": "reports",

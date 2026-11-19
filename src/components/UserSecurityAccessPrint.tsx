@@ -187,6 +187,7 @@ const MENU_GROUPS = [
       { key: "certificateManagement", labelAr: "إدارة الشهادات", labelEn: "Certificate Management" },
       { key: "securityDashboard", labelAr: "لوحة الأمان", labelEn: "Security Dashboard" },
       { key: "apiConsumptionLogs", labelAr: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
+      { key: "koonBackfill", labelAr: "إرسال البيانات السابقة إلى KOON", labelEn: "KOON Backfill" },
       { key: "updateBankLedger", labelAr: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
       { key: "autoUpload", labelAr: "التحميل التلقائي", labelEn: "Auto Upload" },
       { key: "apiTransactionMapping", labelAr: "خريطة حقول المعاملات", labelEn: "Transaction Mapping" },

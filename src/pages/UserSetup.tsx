@@ -271,6 +271,7 @@ interface UserPermission {
         { key: "auditLogs", label: "سجلات التدقيق", labelEn: "Audit Logs" },
         { key: "certificateManagement", label: "إدارة الشهادات", labelEn: "Certificate Management" },
         { key: "apiConsumptionLogs", label: "سجلات استهلاك API", labelEn: "API Consumption Logs" },
+        { key: "koonBackfill", label: "إرسال البيانات السابقة إلى KOON", labelEn: "KOON Backfill" },
         { key: "updateBankLedger", label: "تحديث سجل البنك", labelEn: "Update Bank Ledger" },
         { key: "autoUpload", label: "التحميل التلقائي", labelEn: "Auto Upload" },
         { key: "apiTransactionMapping", label: "خريطة حقول المعاملات", labelEn: "Transaction Mapping" },

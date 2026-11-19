@@ -136,6 +136,7 @@ import ApiIntegrationStatus from "./pages/ApiIntegrationStatus";
 import SajelErpSetup from "./pages/SajelErpSetup";
 import NotificationSettings from "./pages/NotificationSettings";
 import ApiConsumptionLogs from "./pages/ApiConsumptionLogs";
+import KoonBackfill from "./pages/KoonBackfill";
 import UpdateBankLedger from "./pages/UpdateBankLedger";
 import CostCenterSetup from "./pages/CostCenterSetup";
 import BusinessUnitSetup from "./pages/BusinessUnitSetup";
@@ -347,6 +348,7 @@ const App = () => (
               <Route path="/reports/bank-statement-by-bank" element={<BankStatementByBankReport />} />
               <Route path="/reports/daily-sales" element={<DailySalesReport />} />
               <Route path="/api-consumption-logs" element={<ApiConsumptionLogs />} />
+              <Route path="/koon-backfill" element={<KoonBackfill />} />
               <Route path="/update-bank-ledger" element={<UpdateBankLedger />} />
               <Route path="/cost-center-setup" element={<CostCenterSetup />} />
               <Route path="/business-unit-setup" element={<BusinessUnitSetup />} />

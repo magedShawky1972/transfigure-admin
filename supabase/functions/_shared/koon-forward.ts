@@ -49,7 +49,7 @@ export async function forwardToKoon(
   source: Body,
   saved: Body,
   client: { from: (table: string) => any },
-  options: { retryLogId?: string } = {},
+  options: { retryLogId?: string; description?: string } = {},
 ): Promise<KoonResult> {
   const started = Date.now();
   const body = buildKoonBody(endpoint, source, saved);
@@ -94,7 +94,7 @@ export async function forwardToKoon(
     endpoint: `koon-${endpoint}`, method: 'POST', request_body: body,
     response_status: result.status || 502, response_message: JSON.stringify(result.response),
     success: result.success, execution_time_ms: Date.now() - started,
-    api_key_description: `${options.retryLogId ? 'KOON manual retry' : 'KOON forwarding'} (${keySource})`,
+    api_key_description: `${options.description ?? (options.retryLogId ? 'KOON manual retry' : 'KOON forwarding')} (${keySource})`,
   };
   try {
     if (options.retryLogId) {

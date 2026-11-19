@@ -5427,6 +5427,113 @@ export type Database = {
         }
         Relationships: []
       }
+      koon_backfill_items: {
+        Row: {
+          attempt_count: number
+          endpoint: string
+          id: string
+          locked_at: string | null
+          payload: Json
+          phase: number
+          processed_at: string | null
+          record_key: string
+          response_message: string | null
+          response_status: number | null
+          run_id: string
+          status: string
+        }
+        Insert: {
+          attempt_count?: number
+          endpoint: string
+          id?: string
+          locked_at?: string | null
+          payload: Json
+          phase: number
+          processed_at?: string | null
+          record_key: string
+          response_message?: string | null
+          response_status?: number | null
+          run_id: string
+          status?: string
+        }
+        Update: {
+          attempt_count?: number
+          endpoint?: string
+          id?: string
+          locked_at?: string | null
+          payload?: Json
+          phase?: number
+          processed_at?: string | null
+          record_key?: string
+          response_message?: string | null
+          response_status?: number | null
+          run_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "koon_backfill_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "koon_backfill_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      koon_backfill_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          failed_items: number
+          from_date_int: number
+          id: string
+          processed_items: number
+          skipped_counts: Json
+          skipped_items: number
+          started_at: string | null
+          status: string
+          successful_items: number
+          to_date_int: number
+          total_items: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          failed_items?: number
+          from_date_int: number
+          id?: string
+          processed_items?: number
+          skipped_counts?: Json
+          skipped_items?: number
+          started_at?: string | null
+          status?: string
+          successful_items?: number
+          to_date_int: number
+          total_items?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          failed_items?: number
+          from_date_int?: number
+          id?: string
+          processed_items?: number
+          skipped_counts?: Json
+          skipped_items?: number
+          started_at?: string | null
+          status?: string
+          successful_items?: number
+          to_date_int?: number
+          total_items?: number
+        }
+        Relationships: []
+      }
       koon_settings: {
         Row: {
           api_key: string
@@ -7028,6 +7135,7 @@ export type Database = {
           stock_quantity: number | null
           supplier: string | null
           tax_type: string | null
+          uom: string | null
           updated_at: string
           weight: number | null
         }
@@ -7077,6 +7185,7 @@ export type Database = {
           stock_quantity?: number | null
           supplier?: string | null
           tax_type?: string | null
+          uom?: string | null
           updated_at?: string
           weight?: number | null
         }
@@ -7126,6 +7235,7 @@ export type Database = {
           stock_quantity?: number | null
           supplier?: string | null
           tax_type?: string | null
+          uom?: string | null
           updated_at?: string
           weight?: number | null
         }
@@ -12804,6 +12914,29 @@ export type Database = {
     }
     Functions: {
       check_and_run_scheduled_backup: { Args: never; Returns: undefined }
+      claim_koon_backfill_batch: {
+        Args: { p_limit: number; p_run_id: string }
+        Returns: {
+          attempt_count: number
+          endpoint: string
+          id: string
+          locked_at: string | null
+          payload: Json
+          phase: number
+          processed_at: string | null
+          record_key: string
+          response_message: string | null
+          response_status: number | null
+          run_id: string
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "koon_backfill_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       clean_expired_cache: { Args: never; Returns: undefined }
       cost_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }
@@ -13094,6 +13227,7 @@ export type Database = {
           tablename: string
         }[]
       }
+      get_koon_backfill_summary: { Args: { p_run_id: string }; Returns: Json }
       get_my_email_password: { Args: never; Returns: string }
       get_next_task_seq_number: {
         Args: { p_department_id: string }
@@ -13286,9 +13420,14 @@ export type Database = {
         Args: { p_accessed_record_id?: string; p_accessed_table: string }
         Returns: undefined
       }
+      prepare_koon_backfill: { Args: { p_run_id: string }; Returns: undefined }
       project_guest_role: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: string
+      }
+      refresh_koon_backfill_run: {
+        Args: { p_run_id: string }
+        Returns: undefined
       }
       revenue_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }

@@ -7,5 +7,5 @@
 - [x] Add Payment Method report with date/payment-method filters and report security integration; verify results and permissions.
 - [x] Add Payment Type filter in Payment Method Report, including totals and export; four filtering tests pass and build OK (signed-in end-to-end check unavailable).
 - [x] Stop outgoing Edara email: deployed no-send guards across 25 custom functions, disabled managed app emails and configured recipients, blocked self-service reset email; 5 tests pass and live email-only endpoints return emails_disabled. Scheduled business workflows retain non-email work. Managed authentication emails remain a platform limitation.
-- [ ] Add KOON Backfill under Admin with date range, all six APIs, safe batching, resume/progress, and permissions.
-- [ ] Verify backfill preparation and sending with isolated test data; check desktop/phone in both themes.
+- [x] Add KOON Backfill under Admin with date range, all six APIs, safe batching, resume/progress, failed-item retry, and permissions.
+- [x] Verify backfill preparation, six deliveries, failed-header retry, and successful-delivery skipping with isolated test data; check desktop/phone in both themes.
