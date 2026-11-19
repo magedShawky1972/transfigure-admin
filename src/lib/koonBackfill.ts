@@ -35,7 +35,7 @@ export function getKoonEndpointStatus(
   if (stat.failed > 0 || (runStatus === "failed" && stat.phase === currentPhase)) return "failed";
   if (stat.total > 0 && stat.success === stat.total) return "completed";
   if (stat.pending > 0) return "pending";
-  const preparationFinished = ["ready", "running", "completed", "completed_with_errors"].includes(runStatus);
+  const preparationFinished = ["ready", "running", "paused", "completed", "completed_with_errors"].includes(runStatus);
   if (preparationFinished || (runStatus === "preparing" && stat.phase < currentPhase)) return "completed";
   return "waiting";
 }

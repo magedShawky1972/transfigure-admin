@@ -13426,9 +13426,10 @@ export type Database = {
         Args: { p_accessed_record_id?: string; p_accessed_table: string }
         Returns: undefined
       }
-      prepare_koon_backfill:
-        | { Args: { p_run_id: string }; Returns: undefined }
-        | { Args: { p_phase: number; p_run_id: string }; Returns: undefined }
+      prepare_koon_backfill: {
+        Args: { p_phase: number; p_run_id: string }
+        Returns: undefined
+      }
       project_guest_role: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: string

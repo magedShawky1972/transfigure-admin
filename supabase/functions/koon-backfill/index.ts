@@ -16,6 +16,7 @@ const RequestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('prepare'), runId, phase: z.number().int().min(1).max(6) }),
   z.object({ action: z.literal('restart'), runId }),
   z.object({ action: z.literal('retry'), runId }),
+  z.object({ action: z.literal('pause'), runId }),
   z.object({ action: z.literal('process'), runId, batchSize: z.number().int().min(1).max(5).default(5) }),
   z.object({ action: z.literal('errors'), runId }),
 ]);
@@ -126,6 +127,13 @@ Deno.serve(async (req) => {
         .update({ status: 'ready', completed_at: null, error_message: null }).eq('id', input.runId);
       if (reopenError) throw reopenError;
       return json({ ...(await summary(input.runId)), retryCount: retried.length });
+    }
+
+    if (input.action === 'pause') {
+      const { error: pauseError } = await supabase.from('koon_backfill_runs')
+        .update({ status: 'paused' }).eq('id', input.runId).eq('status', 'running');
+      if (pauseError) throw pauseError;
+      return json(await summary(input.runId));
     }
 
     const { data: claimed, error: claimError } = await supabase.rpc('claim_koon_backfill_batch', {

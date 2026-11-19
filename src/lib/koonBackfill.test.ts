@@ -34,6 +34,7 @@ test('only the active API is shown as running while later APIs wait', () => {
 
 test('API status distinguishes queued, completed, and failed work', () => {
   assert.equal(getKoonEndpointStatus(endpoint(4, { total: 8, pending: 8 }), 'running', 4), 'pending');
+  assert.equal(getKoonEndpointStatus(endpoint(4, { total: 8, pending: 8 }), 'paused', 4), 'pending');
   assert.equal(getKoonEndpointStatus(endpoint(4, { total: 8, success: 8 }), 'running', 5), 'completed');
   assert.equal(getKoonEndpointStatus(endpoint(5, { total: 8, failed: 2, success: 6 }), 'completed_with_errors', 5), 'failed');
   assert.equal(getKoonEndpointStatus(endpoint(3), 'failed', 3), 'failed');

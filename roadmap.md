@@ -11,3 +11,5 @@
 - [x] Verify backfill preparation, six deliveries, failed-header retry, and successful-delivery skipping with isolated test data; check desktop/phone in both themes.
 - [x] Diagnose and fix the real KOON Backfill preparation timeout with six indexed, independently tracked phases; the November 1–3 run prepared 28,574 records and is paused after five customer sends with zero failures and no payments sent.
 - [x] Show the active backfill step and Waiting/Running/Queued/Completed/Failed status for every API; verified all six running transitions, Resume Preparation, and desktop/phone layouts in both themes.
+- [x] Sweep every KOON Backfill caller and database function for monolithic preparation or inaccurate status; removed the obsolete one-phase function and persisted Paused across service, page, and history.
+- [x] Re-verified phased preparation, live API states, Resume → Pause, saved run/history status, and desktop/phone layouts in both themes; ten customers sent, zero failures, all 8,921 payments remain pending.
