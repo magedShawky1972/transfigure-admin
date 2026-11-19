@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,11 @@ const SystemConfig = () => {
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [secretValues, setSecretValues] = useState<SecretValues>({});
   const [loadingSecrets, setLoadingSecrets] = useState<Record<string, boolean>>({});
+  const [koonApiKey, setKoonApiKey] = useState("");
+  const [koonKeyConfigured, setKoonKeyConfigured] = useState(false);
+  const [koonKeyUpdatedAt, setKoonKeyUpdatedAt] = useState<string | null>(null);
+  const [loadingKoonKey, setLoadingKoonKey] = useState(true);
+  const [savingKoonKey, setSavingKoonKey] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
@@ -132,11 +138,65 @@ const SystemConfig = () => {
       }
 
       setIsAdmin(true);
+      await loadKoonApiKey();
     } catch (error) {
       console.error("Error checking admin access:", error);
       navigate("/");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getKoonFunctionError = async (error: any, fallback: string) => {
+    if (error instanceof FunctionsHttpError) {
+      const details = await error.context.json().catch(() => null);
+      return details?.error || fallback;
+    }
+    return error?.message || fallback;
+  };
+
+  const loadKoonApiKey = async () => {
+    setLoadingKoonKey(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-koon-api-key", { method: "GET" });
+      if (error) throw error;
+      setKoonKeyConfigured(Boolean(data?.configured));
+      setKoonKeyUpdatedAt(data?.updated_at || null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: await getKoonFunctionError(error, "Failed to load KOON API key status"),
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingKoonKey(false);
+    }
+  };
+
+  const handleSaveKoonApiKey = async () => {
+    if (!koonApiKey.trim()) return;
+    setSavingKoonKey(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-koon-api-key", {
+        method: "POST",
+        body: { apiKey: koonApiKey.trim() },
+      });
+      if (error) throw error;
+      setKoonApiKey("");
+      setKoonKeyConfigured(true);
+      setKoonKeyUpdatedAt(data?.updated_at || null);
+      toast({
+        title: "Success",
+        description: "KOON API key saved. New sends and manual retries will use it.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: await getKoonFunctionError(error, "Failed to save KOON API key"),
+        variant: "destructive",
+      });
+    } finally {
+      setSavingKoonKey(false);
     }
   };
 
@@ -590,6 +650,61 @@ const SystemConfig = () => {
             As an admin, you can click the "Show" button on each configuration card 
             to reveal the stored secret values. Handle these values with care.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Link2 className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">KOON API Key</CardTitle>
+                <Badge variant="outline" className="mt-2">External Integration</Badge>
+              </div>
+            </div>
+            <Badge variant={koonKeyConfigured ? "secondary" : "outline"}>
+              {loadingKoonKey ? "Checking..." : koonKeyConfigured ? "Configured" : "Using existing test connection"}
+            </Badge>
+          </div>
+          <CardDescription>
+            Enter either the Test or Production key. All six KOON APIs and manual retries read the saved key on every send.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="koon-api-key">New KOON API Key</Label>
+              <Input
+                id="koon-api-key"
+                type="password"
+                dir="ltr"
+                autoComplete="new-password"
+                placeholder="Enter Test or Production API key"
+                value={koonApiKey}
+                onChange={(event) => setKoonApiKey(event.target.value)}
+                disabled={savingKoonKey || loadingKoonKey}
+              />
+            </div>
+            <Button
+              onClick={handleSaveKoonApiKey}
+              disabled={savingKoonKey || loadingKoonKey || !koonApiKey.trim()}
+              className="gap-2"
+            >
+              {savingKoonKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {savingKoonKey ? "Saving..." : "Save KOON Key"}
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            For security, the saved key cannot be viewed. Enter a new key to replace it. If no key is saved here, the existing test connection is used.
+          </p>
+          {koonKeyUpdatedAt && (
+            <p className="text-xs text-muted-foreground">
+              Last updated: {new Date(koonKeyUpdatedAt).toLocaleString()}
+            </p>
+          )}
         </CardContent>
       </Card>
 

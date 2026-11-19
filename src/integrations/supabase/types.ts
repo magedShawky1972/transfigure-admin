@@ -5427,6 +5427,27 @@ export type Database = {
         }
         Relationships: []
       }
+      koon_settings: {
+        Row: {
+          api_key: string
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          api_key: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          api_key?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       login_history: {
         Row: {
           created_at: string

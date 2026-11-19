@@ -78,6 +78,13 @@
       "when": 1795090739645,
       "tag": "0010_add_koon_manual_retry_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795091321857,
+      "tag": "0011_create_koon_settings",
+      "breakpoints": true
     }
   ]
 }

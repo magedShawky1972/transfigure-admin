@@ -45,8 +45,11 @@ test('provider failure remains separate and insert-only payments are attempted e
   let calls = 0; const logs: unknown[] = [];
   Object.assign(globalThis, { Deno: { env: { get: () => 'fake-test-credential' } } });
   globalThis.fetch = async () => { calls++; return new Response(JSON.stringify({ success: false, error: 'Validation rejected' }), { status: 400 }); };
+  const client = { from: (table: string) => table === 'koon_settings'
+    ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }
+    : { insert: async row => { logs.push(row); } } };
   try {
-    const result = await forwardToKoon('api-payment', { Order_number: 'TEST-ORDER' }, {}, { from: () => ({ insert: async row => { logs.push(row); } }) });
+    const result = await forwardToKoon('api-payment', { Order_number: 'TEST-ORDER' }, {}, client);
     assert.equal(result.success, false); assert.equal(result.status, 400); assert.equal(calls, 1); assert.equal(logs.length, 1);
   } finally { globalThis.fetch = originalFetch; Reflect.deleteProperty(globalThis, 'Deno'); }
 });
@@ -55,10 +58,12 @@ test('manual retry updates the original failed log and does not insert a duplica
   const updates: any[] = []; const inserts: unknown[] = [];
   Object.assign(globalThis, { Deno: { env: { get: () => 'fake-test-credential' } } });
   globalThis.fetch = async () => new Response(JSON.stringify({ success: true }), { status: 200 });
-  const client = { from: () => ({
-    insert: async (row: unknown) => { inserts.push(row); },
-    update: (row: unknown) => { updates.push(row); return { eq: () => ({ select: async () => ({ data: [{ id: 'retry-log' }], error: null }) }) }; },
-  }) };
+  const client = { from: (table: string) => table === 'koon_settings'
+    ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }
+    : {
+      insert: async (row: unknown) => { inserts.push(row); },
+      update: (row: unknown) => { updates.push(row); return { eq: () => ({ select: async () => ({ data: [{ id: 'retry-log' }], error: null }) }) }; },
+    } };
   try {
     const result = await forwardToKoon('api-brand', { Brand_Code: 'TEST', Brand_Name: 'Test Brand' }, {}, client, { retryLogId: 'retry-log' });
     assert.equal(result.success, true);
@@ -66,6 +71,28 @@ test('manual retry updates the original failed log and does not insert a duplica
     assert.equal(updates.length, 1);
     assert.equal(updates[0].success, true);
     assert.equal(updates[0].retry_started_at, null);
-    assert.equal(updates[0].api_key_description, 'KOON manual retry');
+    assert.equal(updates[0].api_key_description, 'KOON manual retry (connector)');
+  } finally { globalThis.fetch = originalFetch; Reflect.deleteProperty(globalThis, 'Deno'); }
+});
+test('a saved System Configuration key is used directly and redacted from logs', async () => {
+  const originalFetch = globalThis.fetch;
+  const logs: any[] = []; let requestUrl = ''; let requestHeaders: any;
+  Object.assign(globalThis, { Deno: { env: { get: () => 'fake-test-credential' } } });
+  globalThis.fetch = async (input: any, init: any) => {
+    requestUrl = String(input); requestHeaders = init.headers;
+    return new Response(JSON.stringify({ success: false, error: 'invalid fake-koon-setting' }), { status: 401 });
+  };
+  const client = { from: (table: string) => table === 'koon_settings'
+    ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { api_key: 'fake-koon-setting' }, error: null }) }) }) }
+    : { insert: async (row: unknown) => { logs.push(row); } } };
+  try {
+    const result = await forwardToKoon('api-brand', { Brand_Code: 'TEST' }, {}, client);
+    assert.equal(result.success, false);
+    assert.equal(requestUrl, 'https://koon.sa/api/integrations/branch/v1/api-brand');
+    assert.equal(requestHeaders.Authorization, 'Bearer fake-koon-setting');
+    assert.equal(requestHeaders['X-Connection-Api-Key'], undefined);
+    assert.equal(logs[0].api_key_description, 'KOON forwarding (settings)');
+    assert.equal(logs[0].response_message.includes('fake-koon-setting'), false);
+    assert.equal(logs[0].response_message.includes('[REDACTED]'), true);
   } finally { globalThis.fetch = originalFetch; Reflect.deleteProperty(globalThis, 'Deno'); }
 });

@@ -55,16 +55,31 @@ export async function forwardToKoon(
   const body = buildKoonBody(endpoint, source, saved);
   const gatewayKey = Deno.env.get('LOVABLE_API_KEY');
   const connectionKey = Deno.env.get('UDC_KOON_BRANCH_INTEGRATION_API_KEY');
-  const redact = (text: string) => [gatewayKey, connectionKey].reduce(
+  let configuredKey = '';
+  let keySource = 'connector';
+  const redact = (text: string) => [gatewayKey, connectionKey, configuredKey].reduce(
     (safe, key) => key ? safe.split(key).join('[REDACTED]') : safe,
     text.replace(/\b(?:kbt|kbr)_[a-zA-Z0-9]+\b/g, '[REDACTED]'),
   );
   let result: KoonResult;
   try {
-    if (!gatewayKey || !connectionKey) throw new Error('KOON connection is not configured');
-    const response = await fetch(`https://connector-gateway.lovable.dev/udc_koon_branch_integration/${endpoint}`, {
+    const { data: settings, error: settingsError } = await client.from('koon_settings')
+      .select('api_key')
+      .eq('id', true)
+      .maybeSingle();
+    if (settingsError) throw settingsError;
+    configuredKey = typeof settings?.api_key === 'string' ? settings.api_key.trim() : '';
+    if (configuredKey) keySource = 'settings';
+    if (!configuredKey && (!gatewayKey || !connectionKey)) throw new Error('KOON API key is not configured in System Configuration');
+    const url = configuredKey
+      ? `https://koon.sa/api/integrations/branch/v1/${endpoint}`
+      : `https://connector-gateway.lovable.dev/udc_koon_branch_integration/${endpoint}`;
+    const headers: Record<string, string> = configuredKey
+      ? { Authorization: `Bearer ${configuredKey}`, 'Content-Type': 'application/json' }
+      : { Authorization: `Bearer ${gatewayKey}`, 'X-Connection-Api-Key': connectionKey!, 'Content-Type': 'application/json' };
+    const response = await fetch(url, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${gatewayKey}`, 'X-Connection-Api-Key': connectionKey, 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(20000),
     });
@@ -79,7 +94,7 @@ export async function forwardToKoon(
     endpoint: `koon-${endpoint}`, method: 'POST', request_body: body,
     response_status: result.status || 502, response_message: JSON.stringify(result.response),
     success: result.success, execution_time_ms: Date.now() - started,
-    api_key_description: options.retryLogId ? 'KOON manual retry' : 'KOON forwarding',
+    api_key_description: `${options.retryLogId ? 'KOON manual retry' : 'KOON forwarding'} (${keySource})`,
   };
   try {
     if (options.retryLogId) {
