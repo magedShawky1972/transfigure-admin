@@ -13,6 +13,13 @@ export type KoonEndpoint = keyof typeof FIELDS;
 type Body = Record<string, unknown>;
 export type KoonResult = { success: boolean; status: number; response: unknown };
 
+export function getFailedKoonRetryEndpoint(log: { endpoint: string; success: boolean; request_body: unknown }): KoonEndpoint | null {
+  if (log.success || !log.request_body || typeof log.request_body !== 'object' || Array.isArray(log.request_body)) return null;
+  if (!log.endpoint.startsWith('koon-')) return null;
+  const endpoint = log.endpoint.slice(5);
+  return Object.prototype.hasOwnProperty.call(FIELDS, endpoint) ? endpoint as KoonEndpoint : null;
+}
+
 export function buildKoonBody(endpoint: KoonEndpoint, source: Body, saved: Body = {}): Body {
   const body: Body = {};
   for (const field of FIELDS[endpoint]) {
@@ -41,7 +48,8 @@ export async function forwardToKoon(
   endpoint: KoonEndpoint,
   source: Body,
   saved: Body,
-  client: { from: (table: string) => { insert: (row: Body) => PromiseLike<unknown> } },
+  client: { from: (table: string) => any },
+  options: { retryLogId?: string } = {},
 ): Promise<KoonResult> {
   const started = Date.now();
   const body = buildKoonBody(endpoint, source, saved);
@@ -67,13 +75,23 @@ export async function forwardToKoon(
   } catch (error) {
     result = { success: false, status: 0, response: { error: redact(error instanceof Error ? error.message : 'KOON delivery failed'), delivery_unknown: true } };
   }
+  const logRow = {
+    endpoint: `koon-${endpoint}`, method: 'POST', request_body: body,
+    response_status: result.status || 502, response_message: JSON.stringify(result.response),
+    success: result.success, execution_time_ms: Date.now() - started,
+    api_key_description: options.retryLogId ? 'KOON manual retry' : 'KOON forwarding',
+  };
   try {
-    await client.from('api_consumption_logs').insert({
-      endpoint: `koon-${endpoint}`, method: 'POST', request_body: body,
-      response_status: result.status || 502, response_message: JSON.stringify(result.response),
-      success: result.success, execution_time_ms: Date.now() - started,
-      api_key_description: 'KOON forwarding',
-    });
+    if (options.retryLogId) {
+      const { data, error } = await client.from('api_consumption_logs')
+        .update({ ...logRow, retry_started_at: null })
+        .eq('id', options.retryLogId)
+        .select('id');
+      if (error) throw error;
+      if (!data?.length) throw new Error('Could not update KOON retry log');
+    } else {
+      await client.from('api_consumption_logs').insert(logRow);
+    }
   } catch { console.error('Could not record KOON delivery log'); }
   return result;
 }

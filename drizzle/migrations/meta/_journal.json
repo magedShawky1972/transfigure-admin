@@ -71,6 +71,13 @@
       "when": 1794920315552,
       "tag": "0009_employee_company",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795090739645,
+      "tag": "0010_add_koon_manual_retry_tracking",
+      "breakpoints": true
     }
   ]
 }

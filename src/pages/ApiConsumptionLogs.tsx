@@ -837,7 +837,48 @@ const ApiConsumptionLogs = () => {
   };
 
   const resendRequest = async (log: ApiLog) => {
-    if (log.endpoint.startsWith("koon-")) return;
+    const isKoon = log.endpoint.startsWith("koon-");
+    if (isKoon) {
+      if (log.success) return;
+      const isPayment = log.endpoint === "koon-api-payment";
+      const confirmation = language === "ar"
+        ? isPayment
+          ? "سيتم إدراج الدفعة من جديد في KOON. هل أنت متأكد أن الطلب الأول لم يصل؟"
+          : "هل تريد إعادة إرسال طلب KOON الفاشل؟"
+        : isPayment
+          ? "This will insert the payment in KOON again. Continue only if you are sure the first attempt did not arrive."
+          : "Retry this failed KOON request?";
+      if (!confirm(confirmation)) return;
+
+      setResending(log.id);
+      try {
+        const { data, error } = await supabase.functions.invoke("retry-koon-api", {
+          body: { logId: log.id },
+        });
+        if (error) throw error;
+        if (!data?.success) {
+          const responseError = typeof data?.response === "object" && data.response !== null
+            ? (data.response as any).error
+            : data?.response;
+          throw new Error(data?.error || responseError || `KOON HTTP ${data?.status || "error"}`);
+        }
+        toast({
+          title: language === "ar" ? "تم الإرسال" : "Sent",
+          description: language === "ar" ? "تم إعادة إرسال طلب KOON بنجاح" : "KOON request resent successfully",
+        });
+        await fetchLogs();
+      } catch (error: any) {
+        toast({
+          title: language === "ar" ? "فشل إعادة الإرسال" : "Retry Failed",
+          description: error?.message || (language === "ar" ? "فشل إعادة إرسال طلب KOON" : "Failed to retry KOON request"),
+          variant: "destructive",
+        });
+        await fetchLogs();
+      } finally {
+        setResending(null);
+      }
+      return;
+    }
     if (!log.request_body) {
       toast({
         title: language === "ar" ? "خطأ" : "Error",
@@ -1687,14 +1728,16 @@ const ApiConsumptionLogs = () => {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {log.request_body && !log.endpoint.startsWith("koon-") && (
+                          {log.request_body && (!log.endpoint.startsWith("koon-") || !log.success) && (
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                               onClick={() => resendRequest(log)}
-                              disabled={resending === log.id}
-                              title={language === "ar" ? "إعادة الإرسال" : "Resend"}
+                              disabled={resending !== null}
+                              title={log.endpoint.startsWith("koon-")
+                                ? (language === "ar" ? "إعادة إرسال طلب KOON الفاشل" : "Retry Failed KOON Request")
+                                : (language === "ar" ? "إعادة الإرسال" : "Resend")}
                             >
                               {resending === log.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1882,7 +1925,7 @@ const ApiConsumptionLogs = () => {
                 </div>
               )}
 
-              {selectedLog.request_body && !selectedLog.endpoint.startsWith("koon-") && (
+              {selectedLog.request_body && (!selectedLog.endpoint.startsWith("koon-") || !selectedLog.success) && (
                 <div className="pt-4 border-t">
                   <Button
                     className="w-full"
@@ -1890,14 +1933,16 @@ const ApiConsumptionLogs = () => {
                       resendRequest(selectedLog);
                       setDetailDialogOpen(false);
                     }}
-                    disabled={resending === selectedLog.id}
+                    disabled={resending !== null}
                   >
                     {resending === selectedLog.id ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <Send className="h-4 w-4 mr-2" />
                     )}
-                    {language === "ar" ? "إعادة إرسال الطلب" : "Resend Request"}
+                    {selectedLog.endpoint.startsWith("koon-")
+                      ? (language === "ar" ? "إعادة إرسال طلب KOON الفاشل" : "Retry Failed KOON Request")
+                      : (language === "ar" ? "إعادة إرسال الطلب" : "Resend Request")}
                   </Button>
                 </div>
               )}

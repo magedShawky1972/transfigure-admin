@@ -1,6 +1,6 @@
 # Architecture rules
 
-- The six incoming sales/catalog APIs await the shared KOON gateway relay only after successful local saves; expose and audit a separate delivery result without rolling back local data or automatically retrying insert-only payments.
+- The six incoming sales/catalog APIs await the shared KOON gateway relay only after successful local saves; expose and audit a separate delivery result without rolling back local data or automatically retrying insert-only payments. Admin users may manually retry only failed KOON log entries through the authenticated retry function, which relays the saved KOON body without repeating the local save.
 
 - Custom outgoing email transports must check the shared email-policy before any SMTP/provider connection; email-only handlers reject disabled requests before side effects, while mixed workflows keep their non-email operations running.
 

@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-import { buildKoonBody, forwardToKoon, type KoonEndpoint } from '../../supabase/functions/_shared/koon-forward';
+import { buildKoonBody, forwardToKoon, getFailedKoonRetryEndpoint, type KoonEndpoint } from '../../supabase/functions/_shared/koon-forward';
 
 const endpoints: KoonEndpoint[] = ['api-salesheader', 'api-salesline', 'api-payment', 'api-customer', 'api-brand', 'api-product'];
 test('header aliases map to KOON fields and retain zero and false', () => {
@@ -32,6 +32,14 @@ for (const endpoint of endpoints) {
     assert.equal(res.status, 401); assert.equal(sends, 0);
   });
 }
+test('only failed KOON logs with a saved object body are retryable', () => {
+  const failed = { endpoint: 'koon-api-payment', success: false, request_body: { Order_number: 'TEST-ORDER' } };
+  assert.equal(getFailedKoonRetryEndpoint(failed), 'api-payment');
+  assert.equal(getFailedKoonRetryEndpoint({ ...failed, success: true }), null);
+  assert.equal(getFailedKoonRetryEndpoint({ ...failed, endpoint: 'api-payment' }), null);
+  assert.equal(getFailedKoonRetryEndpoint({ ...failed, endpoint: 'koon-unknown' }), null);
+  assert.equal(getFailedKoonRetryEndpoint({ ...failed, request_body: null }), null);
+});
 test('provider failure remains separate and insert-only payments are attempted exactly once', async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0; const logs: unknown[] = [];
@@ -40,5 +48,24 @@ test('provider failure remains separate and insert-only payments are attempted e
   try {
     const result = await forwardToKoon('api-payment', { Order_number: 'TEST-ORDER' }, {}, { from: () => ({ insert: async row => { logs.push(row); } }) });
     assert.equal(result.success, false); assert.equal(result.status, 400); assert.equal(calls, 1); assert.equal(logs.length, 1);
+  } finally { globalThis.fetch = originalFetch; Reflect.deleteProperty(globalThis, 'Deno'); }
+});
+test('manual retry updates the original failed log and does not insert a duplicate audit row', async () => {
+  const originalFetch = globalThis.fetch;
+  const updates: any[] = []; const inserts: unknown[] = [];
+  Object.assign(globalThis, { Deno: { env: { get: () => 'fake-test-credential' } } });
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true }), { status: 200 });
+  const client = { from: () => ({
+    insert: async (row: unknown) => { inserts.push(row); },
+    update: (row: unknown) => { updates.push(row); return { eq: () => ({ select: async () => ({ data: [{ id: 'retry-log' }], error: null }) }) }; },
+  }) };
+  try {
+    const result = await forwardToKoon('api-brand', { Brand_Code: 'TEST', Brand_Name: 'Test Brand' }, {}, client, { retryLogId: 'retry-log' });
+    assert.equal(result.success, true);
+    assert.equal(inserts.length, 0);
+    assert.equal(updates.length, 1);
+    assert.equal(updates[0].success, true);
+    assert.equal(updates[0].retry_started_at, null);
+    assert.equal(updates[0].api_key_description, 'KOON manual retry');
   } finally { globalThis.fetch = originalFetch; Reflect.deleteProperty(globalThis, 'Deno'); }
 });

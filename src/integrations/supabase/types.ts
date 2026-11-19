@@ -287,10 +287,13 @@ export type Database = {
           endpoint: string
           execution_time_ms: number | null
           id: string
+          last_retry_at: string | null
+          last_retry_by: string | null
           method: string
           request_body: Json | null
           response_message: string | null
           response_status: number | null
+          retry_started_at: string | null
           source_ip: string | null
           success: boolean | null
         }
@@ -301,10 +304,13 @@ export type Database = {
           endpoint: string
           execution_time_ms?: number | null
           id?: string
+          last_retry_at?: string | null
+          last_retry_by?: string | null
           method?: string
           request_body?: Json | null
           response_message?: string | null
           response_status?: number | null
+          retry_started_at?: string | null
           source_ip?: string | null
           success?: boolean | null
         }
@@ -315,10 +321,13 @@ export type Database = {
           endpoint?: string
           execution_time_ms?: number | null
           id?: string
+          last_retry_at?: string | null
+          last_retry_by?: string | null
           method?: string
           request_body?: Json | null
           response_message?: string | null
           response_status?: number | null
+          retry_started_at?: string | null
           source_ip?: string | null
           success?: boolean | null
         }
