@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, CalendarIcon, CheckCircle, Clock, Database, Eye, Loader2, Pause, Play, RefreshCw, RotateCcw, Send, XCircle } from "lucide-react";
-import { dateToInt, getKoonEndpointStatus, intToDateIntString, isValidKoonBackfillRange, KOON_BACKFILL_PAGE_SIZE, type KoonBackfillRun, type KoonBackfillSummary, type KoonEndpointProgress } from "@/lib/koonBackfill";
+import { canResumeKoonBackfillEndpoint, dateToInt, getKoonEndpointStatus, intToDateIntString, isValidKoonBackfillRange, KOON_BACKFILL_PAGE_SIZE, type KoonBackfillRun, type KoonBackfillSummary, type KoonEndpointProgress } from "@/lib/koonBackfill";
 import { KoonBackfillItemsDialog } from "@/components/KoonBackfillItemsDialog";
 
 type BackfillRun = KoonBackfillRun;
@@ -134,23 +134,25 @@ const KoonBackfill = () => {
     }
   };
 
-  const processRun = async (runId: string, initialSummary?: BackfillSummary) => {
+  const processRun = async (runId: string, initialSummary?: BackfillSummary, selectedEndpoint?: string) => {
     setProcessing(true);
     stopRef.current = false;
     let currentSummary = initialSummary || summary || undefined;
     try {
       let shouldContinue = true;
       while (!stopRef.current && shouldContinue) {
-        const nextApi = currentSummary?.endpoints.find((stat) => stat.pending > 0);
-        setActiveEndpoint(nextApi?.endpoint);
+        const nextApi = selectedEndpoint
+          ? currentSummary?.endpoints.find((stat) => stat.endpoint === selectedEndpoint)
+          : currentSummary?.endpoints.find((stat) => stat.pending > 0);
+        setActiveEndpoint(nextApi?.endpoint || selectedEndpoint);
         setActivePhase(nextApi?.phase || 0);
-        const data = await call({ action: "process", runId, batchSize: KOON_BACKFILL_PAGE_SIZE }) as BackfillSummary;
+        const data = await call({ action: "process", runId, endpoint: selectedEndpoint, batchSize: KOON_BACKFILL_PAGE_SIZE }) as BackfillSummary;
         currentSummary = data;
         setSummary(data);
         const status = data.run.status;
         shouldContinue = !["completed", "completed_with_errors", "failed"].includes(status) && (data.batch?.length || 0) > 0;
       }
-      if (stopRef.current) {
+      if (stopRef.current || (selectedEndpoint && currentSummary?.run.status === "running")) {
         const paused = await call({ action: "pause", runId }) as BackfillSummary;
         currentSummary = paused;
         setSummary(paused);
@@ -351,7 +353,7 @@ const KoonBackfill = () => {
             <CardHeader><CardTitle>{isAr ? "حالة كل خطوة و API" : "Status of each step and API"}</CardTitle></CardHeader>
             <CardContent>
               <div className="overflow-x-auto"><Table className="min-w-[900px]"><TableHeader><TableRow><TableHead>API</TableHead><TableHead>{isAr ? "الحالة" : "Status"}</TableHead><TableHead>{isAr ? "الإجمالي" : "Total"}</TableHead><TableHead>{isAr ? "ناجح" : "Sent"}</TableHead><TableHead>{isAr ? "فشل" : "Failed"}</TableHead><TableHead>{isAr ? "متبقٍ" : "Pending"}</TableHead><TableHead>{isAr ? "تم تخطيه" : "Skipped"}</TableHead><TableHead>{isAr ? "التفاصيل" : "Details"}</TableHead></TableRow></TableHeader>
-                <TableBody>{endpointStats.map((stat) => <TableRow key={stat.endpoint}><TableCell className="font-medium"><span className="text-muted-foreground mr-2">{stat.phase}.</span>{ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}<div className="text-xs text-muted-foreground font-mono">{stat.endpoint}</div></TableCell><TableCell>{endpointStatusBadge(stat)}</TableCell><TableCell>{stat.total}</TableCell><TableCell>{stat.success}</TableCell><TableCell>{stat.failed}</TableCell><TableCell>{stat.pending}</TableCell><TableCell>{run.skipped_counts?.[stat.endpoint] || 0}</TableCell><TableCell><Button size="sm" variant="outline" onClick={() => setDrilldownEndpoint(stat)}><Eye className="h-4 w-4 mr-1" />{isAr ? "عرض" : "View"}</Button></TableCell></TableRow>)}</TableBody>
+                <TableBody>{endpointStats.map((stat) => <TableRow key={stat.endpoint}><TableCell className="font-medium"><span className="text-muted-foreground mr-2">{stat.phase}.</span>{ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}<div className="text-xs text-muted-foreground font-mono">{stat.endpoint}</div></TableCell><TableCell>{endpointStatusBadge(stat)}</TableCell><TableCell>{stat.total}</TableCell><TableCell>{stat.success}</TableCell><TableCell>{stat.failed}</TableCell><TableCell>{stat.pending}</TableCell><TableCell>{run.skipped_counts?.[stat.endpoint] || 0}</TableCell><TableCell><div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => setDrilldownEndpoint(stat)}><Eye className="h-4 w-4 mr-1" />{isAr ? "عرض" : "View"}</Button>{canResumeKoonBackfillEndpoint(run.status, stat) && <Button size="icon" variant="outline" className="h-9 w-9" disabled={preparing || processing} title={`${isAr ? "متابعة" : "Resume"} ${ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}`} aria-label={`${isAr ? "متابعة" : "Resume"} ${ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}`} onClick={() => processRun(run.id, summary || undefined, stat.endpoint)}><Play className="h-4 w-4" /></Button>}</div></TableCell></TableRow>)}</TableBody>
               </Table></div>
             </CardContent>
           </Card>

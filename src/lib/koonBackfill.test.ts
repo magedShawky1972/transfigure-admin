@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { canRetryKoonBackfillItem, dateToInt, getKoonEndpointStatus, intToDateIntString, isValidKoonBackfillRange, type KoonEndpointProgress } from './koonBackfill';
+import { canResumeKoonBackfillEndpoint, canRetryKoonBackfillItem, dateToInt, getKoonEndpointStatus, intToDateIntString, isValidKoonBackfillRange, type KoonEndpointProgress } from './koonBackfill';
 
 test('backfill dates use inclusive integer order dates and dd/MM/yyyy display', () => {
   assert.equal(dateToInt(new Date(2026, 0, 5)), 20260105);
@@ -38,6 +38,13 @@ test('API status distinguishes queued, completed, and failed work', () => {
   assert.equal(getKoonEndpointStatus(endpoint(4, { total: 8, success: 8 }), 'running', 5), 'completed');
   assert.equal(getKoonEndpointStatus(endpoint(5, { total: 8, failed: 2, success: 6 }), 'completed_with_errors', 5), 'failed');
   assert.equal(getKoonEndpointStatus(endpoint(3), 'failed', 3), 'failed');
+});
+
+test('a specific API can resume only its queued records in an open run', () => {
+  assert.equal(canResumeKoonBackfillEndpoint('paused', { pending: 3 }), true);
+  assert.equal(canResumeKoonBackfillEndpoint('ready', { pending: 1 }), true);
+  assert.equal(canResumeKoonBackfillEndpoint('paused', { pending: 0 }), false);
+  assert.equal(canResumeKoonBackfillEndpoint('completed', { pending: 3 }), false);
 });
 
 test('only failed backfill records can be manually resent', () => {

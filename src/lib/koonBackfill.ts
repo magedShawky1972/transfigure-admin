@@ -66,6 +66,10 @@ export interface KoonEndpointProgress {
 
 export type KoonEndpointStatus = "waiting" | "running" | "pending" | "completed" | "failed";
 
+export function canResumeKoonBackfillEndpoint(runStatus: string, stat: Pick<KoonEndpointProgress, "pending">): boolean {
+  return ["ready", "running", "paused"].includes(runStatus) && stat.pending > 0;
+}
+
 export function getKoonEndpointStatus(
   stat: KoonEndpointProgress,
   runStatus: string,

@@ -12920,29 +12920,53 @@ export type Database = {
     }
     Functions: {
       check_and_run_scheduled_backup: { Args: never; Returns: undefined }
-      claim_koon_backfill_batch: {
-        Args: { p_limit: number; p_run_id: string }
-        Returns: {
-          attempt_count: number
-          endpoint: string
-          id: string
-          locked_at: string | null
-          payload: Json
-          phase: number
-          processed_at: string | null
-          record_key: string
-          response_message: string | null
-          response_status: number | null
-          run_id: string
-          status: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "koon_backfill_items"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
+      claim_koon_backfill_batch:
+        | {
+            Args: { p_limit: number; p_run_id: string }
+            Returns: {
+              attempt_count: number
+              endpoint: string
+              id: string
+              locked_at: string | null
+              payload: Json
+              phase: number
+              processed_at: string | null
+              record_key: string
+              response_message: string | null
+              response_status: number | null
+              run_id: string
+              status: string
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "koon_backfill_items"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
+        | {
+            Args: { p_endpoint: string; p_limit: number; p_run_id: string }
+            Returns: {
+              attempt_count: number
+              endpoint: string
+              id: string
+              locked_at: string | null
+              payload: Json
+              phase: number
+              processed_at: string | null
+              record_key: string
+              response_message: string | null
+              response_status: number | null
+              run_id: string
+              status: string
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "koon_backfill_items"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
       clean_expired_cache: { Args: never; Returns: undefined }
       cost_by_brand_type: {
         Args: { date_from: string; date_to: string; p_brand_type?: string }

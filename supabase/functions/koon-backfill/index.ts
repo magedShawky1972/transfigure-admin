@@ -19,7 +19,7 @@ const RequestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('retry'), runId }),
   z.object({ action: z.literal('retryItem'), runId, itemId: z.string().uuid() }),
   z.object({ action: z.literal('pause'), runId }),
-  z.object({ action: z.literal('process'), runId, batchSize: z.number().int().min(1).max(5).default(5) }),
+  z.object({ action: z.literal('process'), runId, endpoint: endpoint.optional(), batchSize: z.number().int().min(1).max(5).default(5) }),
   z.object({ action: z.literal('items'), runId, endpoint, status: z.enum(['all', 'pending', 'success', 'failed']).default('all'), search: z.string().trim().max(200).default(''), page: z.number().int().min(1).default(1), pageSize: z.number().int().min(1).max(100).default(50) }),
   z.object({ action: z.literal('errors'), runId }),
 ]);
@@ -191,6 +191,7 @@ Deno.serve(async (req) => {
     const { data: claimed, error: claimError } = await supabase.rpc('claim_koon_backfill_batch', {
       p_run_id: input.runId,
       p_limit: input.batchSize,
+      p_endpoint: input.action === 'process' ? input.endpoint ?? null : null,
     });
     if (claimError) throw claimError;
 
