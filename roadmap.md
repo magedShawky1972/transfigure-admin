@@ -13,3 +13,5 @@
 - [x] Show the active backfill step and Waiting/Running/Queued/Completed/Failed status for every API; verified all six running transitions, Resume Preparation, and desktop/phone layouts in both themes.
 - [x] Sweep every KOON Backfill caller and database function for monolithic preparation or inaccurate status; removed the obsolete one-phase function and persisted Paused across service, page, and history.
 - [x] Re-verified phased preparation, live API states, Resume → Pause, saved run/history status, and desktop/phone layouts in both themes; ten customers sent, zero failures, all 8,921 payments remain pending.
+- [x] Add per-API drilldown with paginated record lists, status/search filters, inline request/response details, and confirmed per-record failed resend.
+- [x] Verify all six drilldowns, sent/body views, failed-only resend, admin-only service actions, and desktop/phone themes; isolated test data removed and the real paused run unchanged.

@@ -9,6 +9,7 @@ const dateInt = z.number().int().min(19000101).max(29991231).refine((value) => {
   return date.getUTCFullYear() === Number(text.slice(0, 4)) && date.getUTCMonth() === Number(text.slice(4, 6)) - 1 && date.getUTCDate() === Number(text.slice(6, 8));
 }, 'Invalid calendar date');
 const runId = z.string().uuid();
+const endpoint = z.enum(['api-customer', 'api-brand', 'api-product', 'api-salesheader', 'api-salesline', 'api-payment']);
 const RequestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('create'), fromDateInt: dateInt, toDateInt: dateInt }),
   z.object({ action: z.literal('list') }),
@@ -16,8 +17,10 @@ const RequestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('prepare'), runId, phase: z.number().int().min(1).max(6) }),
   z.object({ action: z.literal('restart'), runId }),
   z.object({ action: z.literal('retry'), runId }),
+  z.object({ action: z.literal('retryItem'), runId, itemId: z.string().uuid() }),
   z.object({ action: z.literal('pause'), runId }),
   z.object({ action: z.literal('process'), runId, batchSize: z.number().int().min(1).max(5).default(5) }),
+  z.object({ action: z.literal('items'), runId, endpoint, status: z.enum(['all', 'pending', 'success', 'failed']).default('all'), search: z.string().trim().max(200).default(''), page: z.number().int().min(1).default(1), pageSize: z.number().int().min(1).max(100).default(50) }),
   z.object({ action: z.literal('errors'), runId }),
 ]);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -59,6 +62,19 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return data;
     };
+    const deliverItems = async (items: any[], description: string) => Promise.all(items.map(async (item) => {
+      const result = await forwardToKoon(item.endpoint as KoonEndpoint, item.payload, {}, supabase, { description });
+      const responseMessage = typeof result.response === 'string' ? result.response : JSON.stringify(result.response);
+      const { error: itemError } = await supabase.from('koon_backfill_items').update({
+        status: result.success ? 'success' : 'failed',
+        response_status: result.status || 502,
+        response_message: responseMessage?.substring(0, 2000),
+        locked_at: null,
+        processed_at: new Date().toISOString(),
+      }).eq('id', item.id).select('id');
+      if (itemError) throw itemError;
+      return { id: item.id, endpoint: item.endpoint, record_key: item.record_key, success: result.success, status: result.status };
+    }));
 
     if (input.action === 'list') {
       const { data, error } = await supabase.from('koon_backfill_runs')
@@ -78,6 +94,20 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === 'get') return json(await summary(input.runId));
+
+    if (input.action === 'items') {
+      let query = supabase.from('koon_backfill_items')
+        .select('id, endpoint, record_key, payload, status, attempt_count, response_status, response_message, processed_at', { count: 'exact' })
+        .eq('run_id', input.runId).eq('endpoint', input.endpoint);
+      if (input.status === 'pending') query = query.in('status', ['pending', 'processing']);
+      if (input.status === 'success' || input.status === 'failed') query = query.eq('status', input.status);
+      const search = input.search.replace(/[%_,"()]/g, '');
+      if (search) query = query.ilike('record_key', `%${search}%`);
+      const from = (input.page - 1) * input.pageSize;
+      const { data, error, count } = await query.order('id', { ascending: true }).range(from, from + input.pageSize - 1);
+      if (error) throw error;
+      return json({ items: data ?? [], total: count ?? 0, page: input.page, pageSize: input.pageSize });
+    }
 
     if (input.action === 'restart') {
       const { count, error: attemptError } = await supabase.from('koon_backfill_items')
@@ -129,6 +159,28 @@ Deno.serve(async (req) => {
       return json({ ...(await summary(input.runId)), retryCount: retried.length });
     }
 
+    if (input.action === 'retryItem') {
+      const { data: existing, error: findError } = await supabase.from('koon_backfill_items')
+        .select('*').eq('id', input.itemId).eq('run_id', input.runId).maybeSingle();
+      if (findError) throw findError;
+      if (!existing) return json({ error: 'Backfill record not found' }, 404);
+      if (existing.status !== 'failed') return json({ error: 'Only failed records can be resent' }, 400);
+      const { data: claimed, error: claimError } = await supabase.from('koon_backfill_items')
+        .update({ status: 'processing', locked_at: new Date().toISOString(), attempt_count: existing.attempt_count + 1 })
+        .eq('id', input.itemId).eq('run_id', input.runId).eq('status', 'failed').select('*').maybeSingle();
+      if (claimError) throw claimError;
+      if (!claimed) return json({ error: 'This record is already being resent' }, 409);
+      const { error: activeError } = await supabase.from('koon_backfill_runs').update({
+        current_phase: claimed.phase,
+        current_endpoint: claimed.endpoint,
+      }).eq('id', input.runId);
+      if (activeError) throw activeError;
+      const results = await deliverItems([claimed], 'KOON backfill manual record resend');
+      const { error: refreshError } = await supabase.rpc('refresh_koon_backfill_run', { p_run_id: input.runId });
+      if (refreshError) throw refreshError;
+      return json({ ...(await summary(input.runId)), retryResult: results[0] });
+    }
+
     if (input.action === 'pause') {
       const { error: pauseError } = await supabase.from('koon_backfill_runs')
         .update({ status: 'paused' }).eq('id', input.runId).eq('status', 'running');
@@ -150,19 +202,7 @@ Deno.serve(async (req) => {
       if (activeError) throw activeError;
     }
 
-    const results = await Promise.all((claimed ?? []).map(async (item: any) => {
-      const result = await forwardToKoon(item.endpoint as KoonEndpoint, item.payload, {}, supabase, { description: 'KOON backfill' });
-      const responseMessage = typeof result.response === 'string' ? result.response : JSON.stringify(result.response);
-      const { error: itemError } = await supabase.from('koon_backfill_items').update({
-        status: result.success ? 'success' : 'failed',
-        response_status: result.status || 502,
-        response_message: responseMessage?.substring(0, 2000),
-        locked_at: null,
-        processed_at: new Date().toISOString(),
-      }).eq('id', item.id).select('id');
-      if (itemError) throw itemError;
-      return { id: item.id, endpoint: item.endpoint, record_key: item.record_key, success: result.success, status: result.status };
-    }));
+    const results = await deliverItems(claimed ?? [], 'KOON backfill');
     const { error: refreshError } = await supabase.rpc('refresh_koon_backfill_run', { p_run_id: input.runId });
     if (refreshError) throw refreshError;
     return json({ ...(await summary(input.runId)), batch: results });

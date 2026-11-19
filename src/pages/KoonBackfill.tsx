@@ -15,28 +15,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, CalendarIcon, CheckCircle, Clock, Database, Eye, Loader2, Pause, Play, RefreshCw, RotateCcw, Send, XCircle } from "lucide-react";
-import { dateToInt, getKoonEndpointStatus, intToDateIntString, isValidKoonBackfillRange, KOON_BACKFILL_PAGE_SIZE, type KoonEndpointProgress } from "@/lib/koonBackfill";
+import { dateToInt, getKoonEndpointStatus, intToDateIntString, isValidKoonBackfillRange, KOON_BACKFILL_PAGE_SIZE, type KoonBackfillRun, type KoonBackfillSummary, type KoonEndpointProgress } from "@/lib/koonBackfill";
+import { KoonBackfillItemsDialog } from "@/components/KoonBackfillItemsDialog";
 
-interface BackfillRun {
-  id: string;
-  from_date_int: number;
-  to_date_int: number;
-  status: string;
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  total_items: number;
-  processed_items: number;
-  successful_items: number;
-  failed_items: number;
-  skipped_items: number;
-  skipped_counts?: Record<string, number>;
-  current_phase: number;
-  current_endpoint?: string;
-  error_message?: string;
-}
+type BackfillRun = KoonBackfillRun;
 type EndpointStat = KoonEndpointProgress;
-interface BackfillSummary { run: BackfillRun; endpoints: EndpointStat[]; batch?: unknown[] }
+type BackfillSummary = KoonBackfillSummary;
 interface BackfillError {
   id: string;
   endpoint: string;
@@ -75,6 +59,7 @@ const KoonBackfill = () => {
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [errors, setErrors] = useState<BackfillError[]>([]);
   const [loadingErrors, setLoadingErrors] = useState(false);
+  const [drilldownEndpoint, setDrilldownEndpoint] = useState<EndpointStat>();
   const stopRef = useRef(false);
 
   const getError = async (error: unknown, fallback: string) => {
@@ -365,8 +350,8 @@ const KoonBackfill = () => {
           <Card>
             <CardHeader><CardTitle>{isAr ? "حالة كل خطوة و API" : "Status of each step and API"}</CardTitle></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto"><Table className="min-w-[800px]"><TableHeader><TableRow><TableHead>API</TableHead><TableHead>{isAr ? "الحالة" : "Status"}</TableHead><TableHead>{isAr ? "الإجمالي" : "Total"}</TableHead><TableHead>{isAr ? "ناجح" : "Sent"}</TableHead><TableHead>{isAr ? "فشل" : "Failed"}</TableHead><TableHead>{isAr ? "متبقٍ" : "Pending"}</TableHead><TableHead>{isAr ? "تم تخطيه" : "Skipped"}</TableHead></TableRow></TableHeader>
-                <TableBody>{endpointStats.map((stat) => <TableRow key={stat.endpoint}><TableCell className="font-medium"><span className="text-muted-foreground mr-2">{stat.phase}.</span>{ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}<div className="text-xs text-muted-foreground font-mono">{stat.endpoint}</div></TableCell><TableCell>{endpointStatusBadge(stat)}</TableCell><TableCell>{stat.total}</TableCell><TableCell>{stat.success}</TableCell><TableCell>{stat.failed}</TableCell><TableCell>{stat.pending}</TableCell><TableCell>{run.skipped_counts?.[stat.endpoint] || 0}</TableCell></TableRow>)}</TableBody>
+              <div className="overflow-x-auto"><Table className="min-w-[900px]"><TableHeader><TableRow><TableHead>API</TableHead><TableHead>{isAr ? "الحالة" : "Status"}</TableHead><TableHead>{isAr ? "الإجمالي" : "Total"}</TableHead><TableHead>{isAr ? "ناجح" : "Sent"}</TableHead><TableHead>{isAr ? "فشل" : "Failed"}</TableHead><TableHead>{isAr ? "متبقٍ" : "Pending"}</TableHead><TableHead>{isAr ? "تم تخطيه" : "Skipped"}</TableHead><TableHead>{isAr ? "التفاصيل" : "Details"}</TableHead></TableRow></TableHeader>
+                <TableBody>{endpointStats.map((stat) => <TableRow key={stat.endpoint}><TableCell className="font-medium"><span className="text-muted-foreground mr-2">{stat.phase}.</span>{ENDPOINT_LABELS[stat.endpoint]?.[language] || stat.endpoint}<div className="text-xs text-muted-foreground font-mono">{stat.endpoint}</div></TableCell><TableCell>{endpointStatusBadge(stat)}</TableCell><TableCell>{stat.total}</TableCell><TableCell>{stat.success}</TableCell><TableCell>{stat.failed}</TableCell><TableCell>{stat.pending}</TableCell><TableCell>{run.skipped_counts?.[stat.endpoint] || 0}</TableCell><TableCell><Button size="sm" variant="outline" onClick={() => setDrilldownEndpoint(stat)}><Eye className="h-4 w-4 mr-1" />{isAr ? "عرض" : "View"}</Button></TableCell></TableRow>)}</TableBody>
               </Table></div>
             </CardContent>
           </Card>
@@ -381,6 +366,14 @@ const KoonBackfill = () => {
           </Table></div>}
         </CardContent>
       </Card>
+
+      {run && drilldownEndpoint && <KoonBackfillItemsDialog
+        key={`${run.id}-${drilldownEndpoint.endpoint}`}
+        run={run}
+        endpoint={drilldownEndpoint}
+        onClose={() => setDrilldownEndpoint(undefined)}
+        onRetryComplete={(data) => { setSummary(data); loadRuns(); }}
+      />}
 
       <Dialog open={errorsOpen} onOpenChange={setErrorsOpen}>
         <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto">
