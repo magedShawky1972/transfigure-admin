@@ -1,4 +1,5 @@
 - [x] Income Statement: drilldown grouping By Brand / By Brand Type in Cost Of Sales (and other brand drilldowns)
+- [x] Forward accepted sales headers, sales lines, payments, customers, brands and products immediately to KOON using its test connection; six sandbox deliveries/readbacks, live EDARA brand forwarding/audit and 10 tests verified.
 - [x] Fix and verify product API conflict rejection in production and test modes.
 - [x] Add and verify Customers Without Orders report after Brand Receiving Entry, with selected date range.
 - [x] Customers Without Orders: only list customers whose Registration Date is before the To Date.

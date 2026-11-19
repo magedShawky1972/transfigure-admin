@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { forwardToKoon } from '../_shared/koon-forward.ts';
 import { getStartDateGuard } from '../_shared/api-start-date.ts';
 
 // KSA timezone offset (UTC+3)
@@ -307,12 +308,14 @@ Deno.serve(async (req) => {
     }
 
     console.log('Sales header inserted successfully:', insertedData);
+    const koonSync = await forwardToKoon('api-salesheader', body, insertData, supabase);
     
     responseMessage = `Sales header created/updated successfully (${apiMode} mode)`;
     await logApiCall();
 
     return new Response(JSON.stringify({ 
       success: true, 
+      koon_sync: koonSync,
       data: {
         id: insertedData.id,
         created_at: insertedData.created_at

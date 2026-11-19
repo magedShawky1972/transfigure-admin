@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { forwardToKoon } from '../_shared/koon-forward.ts';
 
 // Table configuration for test vs production mode
 const TABLE_CONFIG = {
@@ -191,6 +192,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Successfully upserted to ${tables.products}:`, resultData);
+    const koonSync = await forwardToKoon('api-product', body, resultData, supabase);
     responseMessage = `Product saved to ${tables.products} table (${apiMode} mode)`;
     await logApiCall();
 
@@ -198,6 +200,7 @@ Deno.serve(async (req) => {
       success: true, 
       message: responseMessage,
       mode: apiMode,
+      koon_sync: koonSync,
       data: resultData 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

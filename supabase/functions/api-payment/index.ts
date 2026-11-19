@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { forwardToKoon } from '../_shared/koon-forward.ts';
 import { getStartDateGuard } from '../_shared/api-start-date.ts';
 
 // Table configuration for test vs production mode
@@ -228,6 +229,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Successfully inserted to ${tables.payment}:`, resultData);
+    const koonSync = await forwardToKoon('api-payment', body, resultData, supabase);
     responseMessage = `Payment saved to ${tables.payment} table (${apiMode} mode)`;
 
     // Check trigger mode and auto-process if per_transaction
@@ -276,6 +278,7 @@ Deno.serve(async (req) => {
       success: true, 
       message: responseMessage,
       mode: apiMode,
+      koon_sync: koonSync,
       data: resultData,
       auto_processed: autoProcessResult,
     }), {

@@ -1,5 +1,7 @@
 # Architecture rules
 
+- The six incoming sales/catalog APIs await the shared KOON gateway relay only after successful local saves; expose and audit a separate delivery result without rolling back local data or automatically retrying insert-only payments.
+
 - Custom outgoing email transports must check the shared email-policy before any SMTP/provider connection; email-only handlers reject disabled requests before side effects, while mixed workflows keep their non-email operations running.
 
 - Product API upserts must use each target table's unique identity (production product ID, test SKU), because production SKUs are not unique.
