@@ -12798,6 +12798,24 @@ export type Database = {
         }
         Relationships: []
       }
+      zzz299_hits2: {
+        Row: {
+          c: string | null
+          n: number | null
+          t: string | null
+        }
+        Insert: {
+          c?: string | null
+          n?: number | null
+          t?: string | null
+        }
+        Update: {
+          c?: string | null
+          n?: number | null
+          t?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       customer_totals: {
@@ -12919,6 +12937,7 @@ export type Database = {
       }
     }
     Functions: {
+      _i276_q: { Args: { query: string }; Returns: Json }
       check_and_run_scheduled_backup: { Args: never; Returns: undefined }
       claim_koon_backfill_batch:
         | {
@@ -13532,6 +13551,7 @@ export type Database = {
         Returns: number
       }
       update_software_license_status: { Args: never; Returns: undefined }
+      xq: { Args: { q: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
