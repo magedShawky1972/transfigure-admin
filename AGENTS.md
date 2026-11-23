@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Original Orders Breakdown filters operate on loaded original lines using the same catalog resolver as displayed identifiers; all column criteria combine before grouping and totals so visible rows and amounts agree.
+
 - Sync Orders to Odoo and its Sajel sender share the order-body builder in the edge `_shared` directory so previews, audit bodies, and outgoing requests keep the same root header and attribute ordering.
 
 - The six incoming sales/catalog APIs await the shared KOON relay only after successful local saves; expose and audit a separate delivery result without rolling back local data or automatically retrying insert-only payments. Admin users may manually retry only failed KOON log entries through the authenticated retry function, which relays the saved KOON body without repeating the local save. KOON sends read the current admin-managed provider key from the service-role-only settings table on every attempt; the existing gateway connection is only a fallback when no key is saved, and a configured-key failure must never fall back to another key. Admin backfill runs select all orders by inclusive integer order-date range, prepare their related customers/catalog/lines/payments in six separately tracked dependency-ordered phases, skip earlier successful deliveries, and process resumable batches without automatic retries of failed items. Preparation may be restarted only when no delivery has been attempted.

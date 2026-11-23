@@ -23,6 +23,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInSeconds } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { buildSajelOrderBody } from '../../supabase/functions/_shared/sajel-order-body';
+import { OriginalOrdersSearch } from '@/components/OriginalOrdersSearch';
+import { emptyBreakdownFilters, matchesBreakdown } from '@/lib/originalOrdersSearch';
 
 interface SyncRunHistory {
   id: string;
@@ -354,6 +356,8 @@ const OdooSyncBatch = () => {
   const [selectedInvoiceDetail, setSelectedInvoiceDetail] = useState<AggregatedInvoice | null>(null);
   const [showLinesBreakdownDialog, setShowLinesBreakdownDialog] = useState(false);
   const [selectedLinesBreakdown, setSelectedLinesBreakdown] = useState<AggregatedInvoice | null>(null);
+  const [breakdownFilters, setBreakdownFilters] = useState(emptyBreakdownFilters);
+  useEffect(() => { setBreakdownFilters(emptyBreakdownFilters()); }, [selectedLinesBreakdown, showLinesBreakdownDialog]);
   const [showAggLinesDialog, setShowAggLinesDialog] = useState(false);
   const [selectedAggLinesInvoice, setSelectedAggLinesInvoice] = useState<AggregatedInvoice | null>(null);
   const [testSajelLoading, setTestSajelLoading] = useState(false);
@@ -5277,7 +5281,7 @@ const OdooSyncBatch = () => {
 
       {/* Lines Breakdown Dialog - per original order, products with coins for A-class brands */}
       <Dialog open={showLinesBreakdownDialog} onOpenChange={setShowLinesBreakdownDialog}>
-        <DialogContent className="max-w-[85vw] max-h-[90vh]">
+        <DialogContent className="w-[95vw] max-w-[85vw] max-h-[90vh] min-w-0 overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Layers className="h-5 w-5" />
@@ -5289,19 +5293,30 @@ const OdooSyncBatch = () => {
           </DialogHeader>
           {selectedLinesBreakdown && (() => {
             const isAClass = brandAbcMap.get(selectedLinesBreakdown.originalLines[0]?.brand_code || '') === 'A';
+            const filteredLines = selectedLinesBreakdown.originalLines.filter(line => {
+              const catalog = resolveProductCatalog(line);
+              return matchesBreakdown({
+                orderNumber: line.order_number || '-', product: line.product_name || '',
+                productCode: catalog?.product_id || '-', productId: line.product_id || '-',
+                sku: catalog?.sku || line.sku || '-', qty: line.qty || 0, coins: line.coins_number || 0,
+                unitPrice: line.unit_price || 0, total: line.total || 0, cost: line.cost_price || 0,
+                totalCost: (line.cost_price || 0) * (line.qty || 0),
+              }, breakdownFilters, isAClass);
+            });
             // Group originalLines by their original order number
             const groups = new Map<string, Transaction[]>();
-            selectedLinesBreakdown.originalLines.forEach((ln) => {
+            filteredLines.forEach((ln) => {
               const key = ln.order_number || '-';
               if (!groups.has(key)) groups.set(key, []);
-              groups.get(key)!.push(ln);
+              groups.get(key)?.push(ln);
             });
             const groupArr = Array.from(groups.entries());
             let grandTotal = 0;
             let grandCost = 0;
             return (
-              <ScrollArea className="max-h-[70vh] pr-3">
+              <div className="max-h-[70vh] min-w-0 overflow-y-auto pr-3">
                 <div className="space-y-4">
+                  <OriginalOrdersSearch filters={breakdownFilters} onChange={setBreakdownFilters} includeCoins={isAClass} language={language} matched={filteredLines.length} total={selectedLinesBreakdown.originalLines.length} />
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{language === 'ar' ? 'فئة العلامة:' : 'Brand Class:'}</span>
                     <Badge variant={isAClass ? 'default' : 'secondary'}>
@@ -5313,6 +5328,7 @@ const OdooSyncBatch = () => {
                       </span>
                     )}
                   </div>
+                  {groupArr.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">{language === 'ar' ? 'لا توجد نتائج مطابقة' : 'No matching order lines'}</div>}
                   {groupArr.map(([orderNum, lines]) => {
                     const subTotal = lines.reduce((s, l) => s + (l.total || 0), 0);
                     const subCost = lines.reduce((s, l) => s + ((l.cost_price || 0) * (l.qty || 0)), 0);
@@ -5330,7 +5346,7 @@ const OdooSyncBatch = () => {
                             {language === 'ar' ? 'الإجمالي:' : 'Total:'} <span className="font-bold text-foreground">{subTotal.toFixed(2)} SAR</span>
                           </div>
                         </div>
-                        <Table>
+                        <Table className="min-w-[900px]">
                           <TableHeader>
                             <TableRow>
                               <TableHead className="text-xs">{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
@@ -5399,7 +5415,7 @@ const OdooSyncBatch = () => {
                     </div>
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
             );
           })()}
           <div className="flex justify-end pt-4 border-t">
