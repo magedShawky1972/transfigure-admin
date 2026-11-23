@@ -55,6 +55,14 @@ interface SyncRunDetail {
   step_purchase: string | null;
 }
 
+interface ProductCatalogInfo {
+  id: string;
+  product_id: string | null;
+  sku: string | null;
+  barcode: string | null;
+  odoo_product_id: number | null;
+}
+
 interface Transaction {
   id: string;
   order_number: string;
@@ -292,6 +300,8 @@ const OdooSyncBatch = () => {
   const [pointsDetailJob, setPointsDetailJob] = useState<PointsJob | null>(null);
   const [nonStockSkuSet, setNonStockSkuSet] = useState<Set<string>>(new Set());
   const [brandAbcMap, setBrandAbcMap] = useState<Map<string, string>>(new Map());
+  // Product catalog lookup (by product_id and by sku) for the lines breakdown columns
+  const [productCatalogMap, setProductCatalogMap] = useState<Map<string, ProductCatalogInfo>>(new Map());
   
   // New states for enhanced features
   const [startTime, setStartTime] = useState<Date | null>(null);
@@ -591,6 +601,18 @@ const OdooSyncBatch = () => {
     }
     return filteredOrderGroups.filter(g => g.syncStatus === 'failed').length;
   }, [filteredAggregatedInvoices, filteredOrderGroups, aggregateMode]);
+
+  // Resolve the catalog row for an order line (matches on stored product_id first, then sku)
+  const resolveProductCatalog = (line: Transaction): ProductCatalogInfo | null => {
+    const keys = [line.product_id, line.sku]
+      .filter((v): v is string => !!v)
+      .map((v) => String(v).trim().toLowerCase());
+    for (const key of keys) {
+      const hit = productCatalogMap.get(key);
+      if (hit) return hit;
+    }
+    return null;
+  };
 
   // Preview of the aggregated lines[] that will be sent to Sajel for an invoice.
   // Mirrors the aggregation performed in runOneSajelSyncFromInvoice
@@ -981,6 +1003,45 @@ const OdooSyncBatch = () => {
       setCheckingSuppliers(false);
     }
   };
+
+  // Load the product catalog once so breakdown rows can show product code / id / SKU
+  useEffect(() => {
+    const loadProductCatalog = async () => {
+      const BATCH_SIZE = 1000;
+      let offset = 0;
+      let hasMore = true;
+      const map = new Map<string, ProductCatalogInfo>();
+      try {
+        while (hasMore) {
+          const { data: batch, error } = await supabase
+            .from('products')
+            .select('id, product_id, sku, barcode, odoo_product_id')
+            .range(offset, offset + BATCH_SIZE - 1);
+          if (error) throw error;
+          (batch || []).forEach((p: any) => {
+            const info: ProductCatalogInfo = {
+              id: p.id,
+              product_id: p.product_id ?? null,
+              sku: p.sku ?? null,
+              barcode: p.barcode ?? null,
+              odoo_product_id: p.odoo_product_id ?? null,
+            };
+            if (p.product_id) map.set(String(p.product_id).trim().toLowerCase(), info);
+            if (p.sku) {
+              const key = String(p.sku).trim().toLowerCase();
+              if (!map.has(key)) map.set(key, info);
+            }
+          });
+          offset += BATCH_SIZE;
+          hasMore = (batch || []).length === BATCH_SIZE;
+        }
+        setProductCatalogMap(map);
+      } catch (err) {
+        console.warn('Product catalog lookup load failed:', err);
+      }
+    };
+    loadProductCatalog();
+  }, []);
 
   // Load transactions based on date filter
   useEffect(() => {
@@ -5273,6 +5334,9 @@ const OdooSyncBatch = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="text-xs">{language === 'ar' ? 'المنتج' : 'Product'}</TableHead>
+                              <TableHead className="text-xs font-mono">{language === 'ar' ? 'كود المنتج' : 'Product Code'}</TableHead>
+                              <TableHead className="text-xs font-mono">{language === 'ar' ? 'معرّف المنتج' : 'Product ID'}</TableHead>
+                              <TableHead className="text-xs font-mono">SKU</TableHead>
                               <TableHead className="text-xs text-right">{language === 'ar' ? 'الكمية' : 'Qty'}</TableHead>
                               {isAClass && (
                                 <TableHead className="text-xs text-right">{language === 'ar' ? 'الكوينز' : 'Coins'}</TableHead>
@@ -5286,12 +5350,16 @@ const OdooSyncBatch = () => {
                           <TableBody>
                             {lines.map((line, idx) => {
                               const totalCost = (line.cost_price || 0) * (line.qty || 0);
+                              const catalog = resolveProductCatalog(line);
                               return (
                                 <TableRow key={idx}>
                                   <TableCell className="text-xs max-w-[300px]">
                                     <div className="font-medium truncate" title={line.product_name}>{line.product_name}</div>
                                     {line.sku && <div className="text-muted-foreground font-mono text-[10px]">{line.sku}</div>}
                                   </TableCell>
+                                  <TableCell className="text-xs font-mono">{catalog?.product_id || '-'}</TableCell>
+                                  <TableCell className="text-xs font-mono">{line.product_id || '-'}</TableCell>
+                                  <TableCell className="text-xs font-mono">{catalog?.sku || line.sku || '-'}</TableCell>
                                   <TableCell className="text-right text-xs">{line.qty}</TableCell>
                                   {isAClass && (
                                     <TableCell className="text-right text-xs">
@@ -5308,7 +5376,7 @@ const OdooSyncBatch = () => {
                               );
                             })}
                             <TableRow className="bg-muted/30 font-semibold">
-                              <TableCell className="text-xs" colSpan={isAClass ? 4 : 3}>
+                              <TableCell className="text-xs" colSpan={isAClass ? 7 : 6}>
                                 {language === 'ar' ? 'الإجمالي الفرعي' : 'Subtotal'}
                               </TableCell>
                               <TableCell className="text-right text-xs">{subTotal.toFixed(2)}</TableCell>
