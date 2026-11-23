@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { buildSajelOrderBody } from '../_shared/sajel-order-body.ts';
 
 // Module-level warm caches (per edge instance) to avoid re-fetching settings and
 // payment-method → bank lookups on every request. TTL 5 minutes.
@@ -95,10 +96,8 @@ Deno.serve(async (req) => {
       ...(_invLines !== undefined ? { lines: _invLines } : {}),
     };
 
-    // Preserve Sajel-required attribute order: invoice, payment, then batchNumber LAST
-    const body: Record<string, unknown> = { invoice: invoiceForSajel };
-    if (resolvedPayment) body.payment = resolvedPayment;
-    if (batchNumber) body.batchNumber = batchNumber;
+    // Preserve Sajel-required attribute order: companyCode, invoice, payment, batchNumber LAST.
+    const body = buildSajelOrderBody(invoiceForSajel, resolvedPayment, batchNumber);
     console.log('Posting to Sajel ERP One-Step:', settings.one_step_combined_transaction_url, JSON.stringify(body));
 
     const startedAt = Date.now();

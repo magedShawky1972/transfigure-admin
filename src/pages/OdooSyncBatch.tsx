@@ -22,6 +22,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInSeconds } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { buildSajelOrderBody } from '../../supabase/functions/_shared/sajel-order-body';
 
 interface SyncRunHistory {
   id: string;
@@ -692,11 +693,7 @@ const OdooSyncBatch = () => {
       referenceNo: invoice.orderNumber,
     };
 
-    return {
-      invoice: invoicePayload,
-      payment: paymentPayload,
-      ...(invoice.batchNumber ? { batchNumber: invoice.batchNumber } : {}),
-    };
+    return buildSajelOrderBody(invoicePayload, paymentPayload, invoice.batchNumber);
   };
 
 
@@ -1653,9 +1650,9 @@ const OdooSyncBatch = () => {
         };
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload, payment: paymentPayload, batchNumber },
+          body: buildSajelOrderBody(invoicePayload, paymentPayload, batchNumber),
         });
-        const fullSent = { invoice: invoicePayload, payment: paymentPayload, batchNumber };
+        const fullSent = buildSajelOrderBody(invoicePayload, paymentPayload, batchNumber);
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
@@ -1673,7 +1670,7 @@ const OdooSyncBatch = () => {
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: { invoice: invoicePayload, payment: paymentPayload }, sajelResponse: { error: err?.message } };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: buildSajelOrderBody(invoicePayload, paymentPayload, batchNumber), sajelResponse: { error: err?.message } };
       }
     }
 
@@ -2021,10 +2018,10 @@ const OdooSyncBatch = () => {
         }
 
         const resp = await supabase.functions.invoke('sync-order-to-sajel', {
-          body: { invoice: invoicePayload, payment: paymentPayload, batchNumber },
+          body: buildSajelOrderBody(invoicePayload, paymentPayload, batchNumber),
         });
 
-        const fullSent = { invoice: invoicePayload, payment: paymentPayload, batchNumber };
+        const fullSent = buildSajelOrderBody(invoicePayload, paymentPayload, batchNumber);
         if (resp.error) {
           stepStatus.order = 'failed';
           updateSajelStep(stepStatus);
@@ -2048,7 +2045,7 @@ const OdooSyncBatch = () => {
       } catch (err: any) {
         stepStatus.order = 'failed';
         updateSajelStep(stepStatus);
-        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: { invoice: invoicePayload, payment: paymentPayload }, sajelResponse: { error: err?.message } };
+        return { syncStatus: 'failed', stepStatus, errorMessage: err?.message || 'Sajel error', sajelPayload: buildSajelOrderBody(invoicePayload, paymentPayload, batchNumber), sajelResponse: { error: err?.message } };
       }
     }
 
@@ -5455,7 +5452,7 @@ const OdooSyncBatch = () => {
                             const startedAt = performance.now();
                             try {
                               const { data, error } = await supabase.functions.invoke('sync-order-to-sajel', {
-                                body: { invoice: preview.invoice, payment: preview.payment, batchNumber: preview.batchNumber },
+                                body: preview,
                               });
                               const clientMs = Math.round(performance.now() - startedAt);
                               if (error) {
