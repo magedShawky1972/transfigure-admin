@@ -1,6 +1,6 @@
 import { vacationWork } from '../../supabase/functions/_shared/vacationAttendance';
 import { applyFlexibleLate } from "@/lib/flexibleHours";
-import { recoveryAdjustment, recoveryTargets } from "@/lib/lateRecovery";
+import { canApproveLateRecovery, recoveryAdjustment, recoveryTargets } from "@/lib/lateRecovery";
 import { Checkbox } from "@/components/ui/checkbox";
 import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
 import { useState, useEffect, useRef } from "react";
@@ -209,6 +209,7 @@ export default function TimesheetManagement() {
     { key: "employee", direction: "asc" },
   ]);
   const [isNawaf, setIsNawaf] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [hrAllowedBusinessUnitIds, setHrAllowedBusinessUnitIds] = useState<string[] | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [monthLocked, setMonthLocked] = useState(false);
@@ -403,6 +404,14 @@ export default function TimesheetManagement() {
           .select("id")
           .eq("user_id", user.id)
           .maybeSingle();
+        // Administrators may approve late recovery for any employee
+        const { data: adminRole } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .limit(1);
+        setIsAdmin(Boolean(adminRole?.length));
         setIsNawaf(user.id === NAWAF_USER_ID || !!hrRow);
 
         // If this user is an HR Manager (and not master Nawaf), restrict to their assigned Business Units
@@ -1637,12 +1646,16 @@ export default function TimesheetManagement() {
     }
   };
 
-  const canRecover = (ts: Timesheet) =>
-    !(ts as any).has_approved_delay && ts.late_minutes > 0 &&
-    !ts.id.startsWith("wfh-virtual-") && canEditTimesheet(ts) &&
-    Number(employees.find(e => e.id === ts.employee_id)?.attendance_types?.late_recovery_percent || 0) > 0;
+  const canRecover = (ts: Timesheet) => canApproveLateRecovery(ts, {
+    percent: Number(employees.find(e => e.id === ts.employee_id)?.attendance_types?.late_recovery_percent || 0),
+    mayEdit: isNawaf || isAdmin || canEditTimesheet(ts),
+    hasApprovedDelay: (ts as any).has_approved_delay,
+    isVirtual: ts.id.startsWith("wfh-virtual-"),
+  });
 
   const selectableRecoveryEmployees = new Set(sortedTimesheets.filter(canRecover).map(ts => ts.employee_id));
+  const anyRecoveryPercent = [...new Set(sortedTimesheets.map(ts => ts.employee_id))]
+    .some(id => Number(employees.find(e => e.id === id)?.attendance_types?.late_recovery_percent || 0) > 0);
   const selectedRecoveryRows = recoveryTargets(sortedTimesheets, recoveryEmployees, canRecover);
   const selectedRecoveryCount = new Set(selectedRecoveryRows.map(ts => ts.employee_id)).size;
 
@@ -2427,15 +2440,29 @@ export default function TimesheetManagement() {
             </Card>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2 dark:border-violet-900 dark:bg-violet-950/20">
             <Button variant="outline" onClick={() => setRecoveryDialogOpen(true)}
+              className="border-violet-400 text-violet-700 hover:bg-violet-100 dark:border-violet-600 dark:text-violet-300 dark:hover:bg-violet-900/40"
+              title={language === "ar"
+                ? "اعتماد استرداد التأخير لكل الموظفين الذين علّمتهم في الجدول أدناه"
+                : "Approve late recovery for every employee you tick in the table below"}
               disabled={loading || recoveryRunning || recalcRunning || selectedRecoveryRows.length === 0}>
               {recoveryRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <History className="h-4 w-4 mr-2" />}
               Recover All{selectedRecoveryCount > 0 ? ` (${selectedRecoveryCount})` : ""}
             </Button>
-            {selectedRecoveryCount > 0 && <span className="text-sm text-muted-foreground">
-              {selectedRecoveryCount} employees · {selectedRecoveryRows.length} attendance records
-            </span>}
+            <span className="text-sm text-muted-foreground">
+              {selectedRecoveryCount > 0
+                ? `${selectedRecoveryCount} ${language === "ar" ? "موظف" : "employees"} · ${selectedRecoveryRows.length} ${language === "ar" ? "سجل حضور" : "attendance records"}`
+                : !anyRecoveryPercent
+                  ? (language === "ar"
+                    ? "لا يوجد موظف في هذه الشاشة لديه نسبة استرداد — فعّلها من إعدادات نوع الحضور"
+                    : "No employee in this view has a recovery percentage — enable it in Attendance Type Setup")
+                  : selectableRecoveryEmployees.size === 0
+                    ? (language === "ar" ? "لا يوجد تأخير قابل للاسترداد في هذه الشاشة" : "No recoverable lateness in this view")
+                    : (language === "ar"
+                      ? "علّم الموظفين من الجدول أدناه ثم اضغط Recover All"
+                      : "Tick employees in the table below, then press Recover All")}
+            </span>
             {recoveryEmployees.size > 0 && <Button variant="ghost" size="sm" disabled={recoveryRunning}
               onClick={() => setRecoveryEmployees(new Set())}>Clear Selection</Button>}
           </div>

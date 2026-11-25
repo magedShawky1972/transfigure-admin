@@ -26,3 +26,15 @@ export function recoveryAdjustment(row: RecoveryRow, previous: { late_minutes: n
     ...(remaining <= 0 ? { deduction_rule_id: null } : {}),
   };
 }
+
+/** Who may approve late recovery for one attendance row, and when a row is eligible at all. */
+export function canApproveLateRecovery<T extends RecoveryRow>(
+  row: T,
+  opts: { percent: number; mayEdit: boolean; hasApprovedDelay?: boolean | null; isVirtual?: boolean },
+): boolean {
+  return !opts.hasApprovedDelay
+    && (row.late_minutes || 0) > 0
+    && !opts.isVirtual
+    && opts.mayEdit
+    && opts.percent > 0;
+}
