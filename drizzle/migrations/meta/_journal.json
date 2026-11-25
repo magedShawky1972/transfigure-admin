@@ -141,6 +141,20 @@
       "when": 1795595695743,
       "tag": "0019_late_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795596371985,
+      "tag": "0020_add_seasonal_attendance_schedules",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795596593099,
+      "tag": "0021_seasonal_attendance_exact_dates_default",
+      "breakpoints": true
     }
   ]
 }

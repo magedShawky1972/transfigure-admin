@@ -17,3 +17,4 @@
 - [x] Verify all six drilldowns, sent/body views, failed-only resend, admin-only service actions, and desktop/phone themes; isolated test data removed and the real paused run unchanged.
 - [x] Add a resume icon beside View for each API, processing only that API’s pending records without advancing the others; 7 tests, isolated database selection, preview click behavior, and no-delivery live service check passed.
 - [x] Add Product Code, Product ID and SKU columns to the Original Orders Breakdown table, resolved from the product catalog; verified live with real order data in both A-class and normal invoices.
+- [x] Add Attendance Type seasonal working hours for one exact inclusive date range, with Egypt summer/winter times used throughout attendance calculations; 13 tests, build, signed-in save/readback/cleanup, and edge deployment verified.

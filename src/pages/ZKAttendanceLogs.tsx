@@ -46,6 +46,7 @@ import { ar } from "date-fns/locale";
 import { CalendarIcon, RefreshCw, Clock, User, Download, Trash2, CheckCircle, Pencil, List, LayoutGrid, Printer, ArrowUpDown, ArrowUp, ArrowDown, X, Save, ExternalLink, Zap, Sun, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
 import { toast } from "sonner";
 
 interface AttendanceLog {
@@ -65,6 +66,11 @@ interface AttendanceType {
   fixed_start_time: string | null;
   fixed_end_time: string | null;
   is_shift_based: boolean;
+  seasonal_start_date: string | null;
+  seasonal_end_date: string | null;
+  seasonal_start_time: string | null;
+  seasonal_end_time: string | null;
+  seasonal_is_recurring: boolean | null;
 }
 
 interface Employee {
@@ -508,7 +514,7 @@ const ZKAttendanceLogs = () => {
     try {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, requires_attendance_signin, religion, attendance_types(id, fixed_start_time, fixed_end_time, is_shift_based)");
+        .select("id, first_name, last_name, first_name_ar, last_name_ar, zk_employee_code, employee_number, attendance_type_id, requires_attendance_signin, religion, attendance_types(id, fixed_start_time, fixed_end_time, seasonal_start_date, seasonal_end_date, seasonal_start_time, seasonal_end_time, seasonal_is_recurring, is_shift_based)");
 
       if (error) throw error;
       setEmployees((data || []) as Employee[]);
@@ -633,37 +639,32 @@ const ZKAttendanceLogs = () => {
     return (endMinutes - startMinutes) / 60;
   };
 
-  // Get expected hours for an employee based on their attendance type
-  const getExpectedHours = (employeeCode: string): number | null => {
+  // Get expected hours for an employee on the attendance date.
+  const getExpectedHours = (employeeCode: string, attendanceDate: string): number | null => {
     const employee = employees.find((e) => e.zk_employee_code === employeeCode);
-    if (!employee?.attendance_types) return null;
-    const { fixed_start_time, fixed_end_time, is_shift_based } = employee.attendance_types;
-    if (is_shift_based || !fixed_start_time || !fixed_end_time) return null;
-    return calculateHoursDiff(fixed_start_time, fixed_end_time);
+    if (!employee?.attendance_types || employee.attendance_types.is_shift_based) return null;
+    const schedule = resolveAttendanceSchedule(employee.attendance_types, attendanceDate);
+    return calculateHoursDiff(schedule.start, schedule.end);
   };
 
-  // Get expected start time for an employee based on their attendance type
-  const getExpectedStartTime = (employeeCode: string): string | null => {
+  // Get expected start time for an employee on the attendance date.
+  const getExpectedStartTime = (employeeCode: string, attendanceDate: string): string | null => {
     const employee = employees.find((e) => e.zk_employee_code === employeeCode);
-    if (!employee?.attendance_types) return null;
-    const { fixed_start_time, is_shift_based } = employee.attendance_types;
-    if (is_shift_based || !fixed_start_time) return null;
-    return fixed_start_time;
+    if (!employee?.attendance_types || employee.attendance_types.is_shift_based) return null;
+    return resolveAttendanceSchedule(employee.attendance_types, attendanceDate).start;
   };
 
-  // Get expected end time for an employee based on their attendance type
-  const getExpectedEndTime = (employeeCode: string): string | null => {
+  // Get expected end time for an employee on the attendance date.
+  const getExpectedEndTime = (employeeCode: string, attendanceDate: string): string | null => {
     const employee = employees.find((e) => e.zk_employee_code === employeeCode);
-    if (!employee?.attendance_types) return null;
-    const { fixed_end_time, is_shift_based } = employee.attendance_types;
-    if (is_shift_based || !fixed_end_time) return null;
-    return fixed_end_time;
+    if (!employee?.attendance_types || employee.attendance_types.is_shift_based) return null;
+    return resolveAttendanceSchedule(employee.attendance_types, attendanceDate).end;
   };
 
   // Calculate late arrival minutes based on in_time vs expected start time
-  const calculateLateMinutes = (employeeCode: string, inTime: string | null): number => {
+  const calculateLateMinutes = (employeeCode: string, inTime: string | null, attendanceDate: string): number => {
     if (!inTime) return 0;
-    const expectedStart = getExpectedStartTime(employeeCode);
+    const expectedStart = getExpectedStartTime(employeeCode, attendanceDate);
     if (!expectedStart) return 0;
 
     const [expectedH, expectedM] = expectedStart.split(":").map(Number);
@@ -676,9 +677,9 @@ const ZKAttendanceLogs = () => {
   };
 
   // Calculate early exit minutes based on out_time vs expected end time
-  const calculateEarlyExitMinutes = (employeeCode: string, outTime: string | null): number => {
+  const calculateEarlyExitMinutes = (employeeCode: string, outTime: string | null, attendanceDate: string): number => {
     if (!outTime) return 0;
-    const expectedEnd = getExpectedEndTime(employeeCode);
+    const expectedEnd = getExpectedEndTime(employeeCode, attendanceDate);
     if (!expectedEnd) return 0;
 
     const [expectedH, expectedM] = expectedEnd.split(":").map(Number);
@@ -955,7 +956,7 @@ const ZKAttendanceLogs = () => {
         total_hours = (outMinutes - inMinutes) / 60;
       }
       
-      const expected_hours = getExpectedHours(employee_code);
+      const expected_hours = getExpectedHours(employee_code, attendance_date);
       const difference_hours = total_hours !== null && expected_hours !== null 
         ? total_hours - expected_hours 
         : null;
@@ -1071,7 +1072,7 @@ const ZKAttendanceLogs = () => {
               created_at: new Date().toISOString(),
               log_ids: [],
               total_hours: null,
-              expected_hours: getExpectedHours(emp.zk_employee_code!),
+              expected_hours: getExpectedHours(emp.zk_employee_code!, dateStr),
               difference_hours: null,
               record_status: 'vacation',
               vacation_type: holidayName,
@@ -1098,7 +1099,7 @@ const ZKAttendanceLogs = () => {
               created_at: new Date().toISOString(),
               log_ids: [],
               total_hours: null,
-              expected_hours: getExpectedHours(emp.zk_employee_code!),
+              expected_hours: getExpectedHours(emp.zk_employee_code!, dateStr),
               difference_hours: null,
               record_status: 'vacation',
               vacation_type: vacationType,
@@ -1115,7 +1116,7 @@ const ZKAttendanceLogs = () => {
               created_at: new Date().toISOString(),
               log_ids: [],
               total_hours: 0,
-              expected_hours: getExpectedHours(emp.zk_employee_code!),
+              expected_hours: getExpectedHours(emp.zk_employee_code!, dateStr),
               difference_hours: null,
               record_status: 'absent',
             });
@@ -1180,7 +1181,7 @@ const ZKAttendanceLogs = () => {
                   created_at: new Date().toISOString(),
                   log_ids: [],
                   total_hours: 0,
-                  expected_hours: getExpectedHours(emp.zk_employee_code!),
+                  expected_hours: getExpectedHours(emp.zk_employee_code!, friDateStr),
                   difference_hours: null,
                   record_status: 'absent',
                   notes: thuRecord.notes || (isArabic ? 'غياب موروث من الخميس' : 'Absence inherited from Thursday'),
@@ -1200,7 +1201,7 @@ const ZKAttendanceLogs = () => {
                   created_at: new Date().toISOString(),
                   log_ids: [],
                   total_hours: 0,
-                  expected_hours: getExpectedHours(emp.zk_employee_code!),
+                  expected_hours: getExpectedHours(emp.zk_employee_code!, satDateStr),
                   difference_hours: null,
                   record_status: 'absent',
                   notes: thuRecord.notes || (isArabic ? 'غياب موروث من الخميس' : 'Absence inherited from Thursday'),
@@ -1653,8 +1654,8 @@ const ZKAttendanceLogs = () => {
       // Prepare records for insertion with auto-calculated deduction rules
       const recordsToSave = sortedSummaryRecords.map(record => {
         // Calculate late arrival and early exit minutes
-        const lateMinutes = calculateLateMinutes(record.employee_code, record.in_time);
-        const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, record.out_time);
+        const lateMinutes = calculateLateMinutes(record.employee_code, record.in_time, record.attendance_date);
+        const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, record.out_time, record.attendance_date);
         
         // Find matching deduction rule
         const deductionRule = findDeductionRule(lateMinutes, earlyExitMinutes, record.record_status || 'normal');

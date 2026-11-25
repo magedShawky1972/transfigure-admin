@@ -528,6 +528,11 @@ export type Database = {
           is_active: boolean
           is_shift_based: boolean
           late_recovery_percent: number
+          seasonal_end_date: string | null
+          seasonal_end_time: string | null
+          seasonal_is_recurring: boolean
+          seasonal_start_date: string | null
+          seasonal_start_time: string | null
           type_code: string
           type_name: string
           type_name_ar: string | null
@@ -546,6 +551,11 @@ export type Database = {
           is_active?: boolean
           is_shift_based?: boolean
           late_recovery_percent?: number
+          seasonal_end_date?: string | null
+          seasonal_end_time?: string | null
+          seasonal_is_recurring?: boolean
+          seasonal_start_date?: string | null
+          seasonal_start_time?: string | null
           type_code: string
           type_name: string
           type_name_ar?: string | null
@@ -564,6 +574,11 @@ export type Database = {
           is_active?: boolean
           is_shift_based?: boolean
           late_recovery_percent?: number
+          seasonal_end_date?: string | null
+          seasonal_end_time?: string | null
+          seasonal_is_recurring?: boolean
+          seasonal_start_date?: string | null
+          seasonal_start_time?: string | null
           type_code?: string
           type_name?: string
           type_name_ar?: string | null

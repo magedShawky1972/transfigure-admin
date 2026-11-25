@@ -51,6 +51,11 @@ interface AttendanceType {
   allow_early_exit_minutes: number | null;
   flexible_minutes: number | null;
   late_recovery_percent: number | null;
+  seasonal_start_date: string | null;
+  seasonal_end_date: string | null;
+  seasonal_start_time: string | null;
+  seasonal_end_time: string | null;
+  seasonal_is_recurring: boolean;
   weekend_days: number[] | null;
   created_at: string;
   updated_at: string;
@@ -86,6 +91,11 @@ const AttendanceTypeSetup = () => {
     allow_early_exit_minutes: "0",
     flexible_hours: "0",
     late_recovery_percent: "0",
+    seasonal_start_date: "",
+    seasonal_end_date: "",
+    seasonal_start_time: "",
+    seasonal_end_time: "",
+    seasonal_is_recurring: false,
     weekend_days: [5, 6] as number[],
   });
 
@@ -126,6 +136,11 @@ const AttendanceTypeSetup = () => {
       allow_early_exit_minutes: "0",
       flexible_hours: "0",
       late_recovery_percent: "0",
+      seasonal_start_date: "",
+      seasonal_end_date: "",
+      seasonal_start_time: "",
+      seasonal_end_time: "",
+      seasonal_is_recurring: false,
       weekend_days: [5, 6],
     });
     setIsDialogOpen(true);
@@ -146,6 +161,11 @@ const AttendanceTypeSetup = () => {
       allow_early_exit_minutes: type.allow_early_exit_minutes?.toString() || "0",
       flexible_hours: ((type.flexible_minutes || 0) / 60).toString(),
       late_recovery_percent: (type.late_recovery_percent || 0).toString(),
+      seasonal_start_date: type.seasonal_start_date || "",
+      seasonal_end_date: type.seasonal_end_date || "",
+      seasonal_start_time: type.seasonal_start_time || "",
+      seasonal_end_time: type.seasonal_end_time || "",
+      seasonal_is_recurring: false,
       weekend_days: type.weekend_days || [5, 6],
     });
     setIsDialogOpen(true);
@@ -159,6 +179,24 @@ const AttendanceTypeSetup = () => {
   const handleSave = async () => {
     if (!formData.type_code || !formData.type_name) {
       toast.error(language === "ar" ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
+      return;
+    }
+
+    const seasonalValues = [
+      formData.seasonal_start_date,
+      formData.seasonal_end_date,
+      formData.seasonal_start_time,
+      formData.seasonal_end_time,
+    ];
+    const hasSeasonalSchedule = seasonalValues.some(Boolean);
+    if (!formData.is_shift_based && hasSeasonalSchedule && seasonalValues.some((value) => !value)) {
+      toast.error(language === "ar"
+        ? "أدخل تاريخي ووقتي بداية ونهاية الجدول الموسمي، أو اترك الحقول الأربعة فارغة"
+        : "Enter both effective dates and both seasonal times, or leave all four fields blank");
+      return;
+    }
+    if (hasSeasonalSchedule && !formData.seasonal_is_recurring && formData.seasonal_end_date < formData.seasonal_start_date) {
+      toast.error(language === "ar" ? "تاريخ النهاية يجب أن يكون بعد تاريخ البداية" : "Effective End Date must be on or after Effective Start Date");
       return;
     }
 
@@ -176,16 +214,23 @@ const AttendanceTypeSetup = () => {
         allow_early_exit_minutes: parseInt(formData.allow_early_exit_minutes) || 0,
         late_recovery_percent: Math.min(100, Math.max(0, parseFloat(formData.late_recovery_percent) || 0)),
         flexible_minutes: Math.max(0, Math.round((parseFloat(formData.flexible_hours) || 0) * 60)),
+        seasonal_start_date: !formData.is_shift_based && hasSeasonalSchedule ? formData.seasonal_start_date : null,
+        seasonal_end_date: !formData.is_shift_based && hasSeasonalSchedule ? formData.seasonal_end_date : null,
+        seasonal_start_time: !formData.is_shift_based && hasSeasonalSchedule ? formData.seasonal_start_time : null,
+        seasonal_end_time: !formData.is_shift_based && hasSeasonalSchedule ? formData.seasonal_end_time : null,
+        seasonal_is_recurring: formData.seasonal_is_recurring,
         weekend_days: formData.weekend_days,
       };
 
       if (selectedType) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("attendance_types")
           .update(payload)
-          .eq("id", selectedType.id);
+          .eq("id", selectedType.id)
+          .select("id");
 
         if (error) throw error;
+        if (!data?.length) throw new Error(language === "ar" ? "لا تملك صلاحية تحديث نوع الحضور" : "You do not have permission to update this attendance type");
         toast.success(language === "ar" ? "تم التحديث بنجاح" : "Updated successfully");
       } else {
         const { error } = await supabase.from("attendance_types").insert(payload);
@@ -243,6 +288,7 @@ const AttendanceTypeSetup = () => {
               <TableHead>{language === "ar" ? "نظام الورديات" : "Shift Based"}</TableHead>
               <TableHead>{language === "ar" ? "وقت البداية" : "Start Time"}</TableHead>
               <TableHead>{language === "ar" ? "وقت النهاية" : "End Time"}</TableHead>
+              <TableHead>{language === "ar" ? "الجدول الموسمي" : "Seasonal Hours"}</TableHead>
               <TableHead>{language === "ar" ? "السماح بالتأخير (دقائق)" : "Late Allow (min)"}</TableHead>
               <TableHead>{language === "ar" ? "الحالة" : "Status"}</TableHead>
               <TableHead className="text-center">{language === "ar" ? "الإجراءات" : "Actions"}</TableHead>
@@ -251,13 +297,13 @@ const AttendanceTypeSetup = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={10} className="text-center py-8">
                   {language === "ar" ? "جاري التحميل..." : "Loading..."}
                 </TableCell>
               </TableRow>
             ) : attendanceTypes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                   {language === "ar" ? "لا توجد بيانات" : "No data found"}
                 </TableCell>
               </TableRow>
@@ -289,6 +335,14 @@ const AttendanceTypeSetup = () => {
                     {!type.is_shift_based && type.fixed_end_time 
                       ? type.fixed_end_time.slice(0, 5) 
                       : "-"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {type.seasonal_start_date && type.seasonal_end_date && type.seasonal_start_time && type.seasonal_end_time ? (
+                      <div>
+                        <div>{type.seasonal_start_time.slice(0, 5)} - {type.seasonal_end_time.slice(0, 5)}</div>
+                        <div className="text-muted-foreground">{type.seasonal_start_date.split("-").reverse().join("/")} – {type.seasonal_end_date.split("-").reverse().join("/")}</div>
+                      </div>
+                    ) : "-"}
                   </TableCell>
                   <TableCell>
                     {type.allow_late_minutes || 0} / {type.allow_early_exit_minutes || 0}
@@ -409,30 +463,68 @@ const AttendanceTypeSetup = () => {
 
             {/* Fixed Time Fields - Only show when NOT shift based */}
             {!formData.is_shift_based && (
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                <div className="grid gap-2">
-                  <Label htmlFor="fixed_start_time">
-                    {language === "ar" ? "وقت بداية الدوام" : "Work Start Time"} *
-                  </Label>
-                  <Input
-                    id="fixed_start_time"
-                    type="time"
-                    value={formData.fixed_start_time}
-                    onChange={(e) => setFormData({ ...formData, fixed_start_time: e.target.value })}
-                  />
+              <>
+                <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                  <div className="grid gap-2">
+                    <Label htmlFor="fixed_start_time">
+                      {language === "ar" ? "وقت بداية الدوام" : "Work Start Time"} *
+                    </Label>
+                    <Input
+                      id="fixed_start_time"
+                      type="time"
+                      value={formData.fixed_start_time}
+                      onChange={(e) => setFormData({ ...formData, fixed_start_time: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="fixed_end_time">
+                      {language === "ar" ? "وقت نهاية الدوام" : "Work End Time"} *
+                    </Label>
+                    <Input
+                      id="fixed_end_time"
+                      type="time"
+                      value={formData.fixed_end_time}
+                      onChange={(e) => setFormData({ ...formData, fixed_end_time: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="fixed_end_time">
-                    {language === "ar" ? "وقت نهاية الدوام" : "Work End Time"} *
-                  </Label>
-                  <Input
-                    id="fixed_end_time"
-                    type="time"
-                    value={formData.fixed_end_time}
-                    onChange={(e) => setFormData({ ...formData, fixed_end_time: e.target.value })}
-                  />
+
+                <div className="grid gap-4 rounded-lg border p-4">
+                  <div>
+                    <h3 className="font-medium">{language === "ar" ? "الجدول الموسمي (اختياري)" : "Seasonal Working Hours (optional)"}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {language === "ar"
+                        ? "مثال: 09:00–17:30 صيفاً، مع إبقاء 08:00–16:30 كالجدول الافتراضي شتاءً. يُستخدم فقط خلال التاريخين المحددين حسب تاريخ الحضور في مصر."
+                        : "Example: 09:00–17:30 in summer, keeping 08:00–16:30 as the default winter schedule. Applies only between the selected dates, using the Egypt attendance date."}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="seasonal_start_date">{language === "ar" ? "تاريخ السريان من" : "Effective Start Date"}</Label>
+                      <Input id="seasonal_start_date" type="date" value={formData.seasonal_start_date}
+                        onChange={(e) => setFormData({ ...formData, seasonal_start_date: e.target.value })} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="seasonal_end_date">{language === "ar" ? "تاريخ السريان إلى" : "Effective End Date"}</Label>
+                      <Input id="seasonal_end_date" type="date" value={formData.seasonal_end_date}
+                        onChange={(e) => setFormData({ ...formData, seasonal_end_date: e.target.value })} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="seasonal_start_time">{language === "ar" ? "وقت البداية الموسمي" : "Seasonal Start Time"}</Label>
+                      <Input id="seasonal_start_time" type="time" value={formData.seasonal_start_time}
+                        onChange={(e) => setFormData({ ...formData, seasonal_start_time: e.target.value })} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="seasonal_end_time">{language === "ar" ? "وقت النهاية الموسمي" : "Seasonal End Time"}</Label>
+                      <Input id="seasonal_end_time" type="time" value={formData.seasonal_end_time}
+                        onChange={(e) => setFormData({ ...formData, seasonal_end_time: e.target.value })} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === "ar" ? "يشمل تاريخي البداية والنهاية، ولا يتكرر في السنوات التالية." : "Includes both the start and end dates and does not repeat in later years."}
+                  </p>
                 </div>
-              </div>
+              </>
             )}
 
             {formData.is_shift_based && (

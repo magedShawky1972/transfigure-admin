@@ -48,6 +48,7 @@ import {
   ExternalLink, Check, History, FolderOpen, ArrowLeft, Calculator, Calendar as CalendarIconFilled, AlertTriangle, Mail
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
@@ -125,6 +126,11 @@ interface AttendanceType {
   allow_early_exit_minutes: number | null;
   fixed_start_time: string | null;
   fixed_end_time: string | null;
+  seasonal_start_date: string | null;
+  seasonal_end_date: string | null;
+  seasonal_start_time: string | null;
+  seasonal_end_time: string | null;
+  seasonal_is_recurring: boolean | null;
 }
 
 interface EmployeeTotalRecord {
@@ -417,7 +423,7 @@ const SavedAttendance = () => {
     try {
       const { data, error } = await supabase
         .from("attendance_types")
-        .select("id, type_name, type_name_ar, allow_late_minutes, allow_early_exit_minutes, fixed_start_time, fixed_end_time");
+        .select("id, type_name, type_name_ar, allow_late_minutes, allow_early_exit_minutes, fixed_start_time, fixed_end_time, seasonal_start_date, seasonal_end_date, seasonal_start_time, seasonal_end_time, seasonal_is_recurring");
 
       if (error) throw error;
       setAttendanceTypes(data || []);
@@ -469,19 +475,19 @@ const SavedAttendance = () => {
   };
 
   // Get expected start time for an employee based on their attendance type
-  const getExpectedStartTime = (employeeCode: string): string | null => {
+  const getExpectedStartTime = (employeeCode: string, attendanceDate: string): string | null => {
     const emp = employees.find(e => e.zk_employee_code === employeeCode);
     if (!emp || !emp.attendance_type_id) return null;
     const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
-    return attType?.fixed_start_time || null;
+    return attType ? resolveAttendanceSchedule(attType, attendanceDate).start : null;
   };
 
   // Get expected end time for an employee based on their attendance type
-  const getExpectedEndTime = (employeeCode: string): string | null => {
+  const getExpectedEndTime = (employeeCode: string, attendanceDate: string): string | null => {
     const emp = employees.find(e => e.zk_employee_code === employeeCode);
     if (!emp || !emp.attendance_type_id) return null;
     const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
-    return attType?.fixed_end_time || null;
+    return attType ? resolveAttendanceSchedule(attType, attendanceDate).end : null;
   };
 
   const getEmployeeAttendanceAllowances = (
@@ -500,9 +506,9 @@ const SavedAttendance = () => {
   };
 
   // Calculate late arrival minutes beyond allowance
-  const calculateLateMinutes = (employeeCode: string, inTime: string | null): number => {
+  const calculateLateMinutes = (employeeCode: string, inTime: string | null, attendanceDate: string): number => {
     if (!inTime) return 0;
-    const expectedStart = getExpectedStartTime(employeeCode);
+    const expectedStart = getExpectedStartTime(employeeCode, attendanceDate);
     if (!expectedStart) return 0;
 
     const { allowLate } = getEmployeeAttendanceAllowances(employeeCode);
@@ -518,9 +524,9 @@ const SavedAttendance = () => {
   };
 
   // Calculate early exit minutes beyond allowance
-  const calculateEarlyExitMinutes = (employeeCode: string, outTime: string | null): number => {
+  const calculateEarlyExitMinutes = (employeeCode: string, outTime: string | null, attendanceDate: string): number => {
     if (!outTime) return 0;
-    const expectedEnd = getExpectedEndTime(employeeCode);
+    const expectedEnd = getExpectedEndTime(employeeCode, attendanceDate);
     if (!expectedEnd) return 0;
 
     const { allowEarly } = getEmployeeAttendanceAllowances(employeeCode);
@@ -579,8 +585,8 @@ const SavedAttendance = () => {
   const recalculateDeductionForEdit = (inTime: string, outTime: string) => {
     if (!selectedRecord) return;
     
-    const lateMinutes = calculateLateMinutes(selectedRecord.employee_code, inTime || null);
-    const earlyExitMinutes = calculateEarlyExitMinutes(selectedRecord.employee_code, outTime || null);
+    const lateMinutes = calculateLateMinutes(selectedRecord.employee_code, inTime || null, selectedRecord.attendance_date);
+    const earlyExitMinutes = calculateEarlyExitMinutes(selectedRecord.employee_code, outTime || null, selectedRecord.attendance_date);
     const rule = findDeductionRule(lateMinutes, earlyExitMinutes, selectedRecord.record_status || 'normal');
     
     setEditFormData(prev => ({
@@ -751,8 +757,8 @@ const SavedAttendance = () => {
       }
 
       // Recalculate deduction rule
-      const lateMinutes = calculateLateMinutes(record.employee_code, inTime);
-      const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, outTime);
+      const lateMinutes = calculateLateMinutes(record.employee_code, inTime, record.attendance_date);
+      const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, outTime, record.attendance_date);
       const rule = findDeductionRule(lateMinutes, earlyExitMinutes, newRecordStatus || 'normal');
 
       const updateData: any = {
@@ -856,8 +862,8 @@ const SavedAttendance = () => {
               const diffClass = rec.difference_hours !== null ? (rec.difference_hours >= 0 ? 'diff-positive' : 'diff-negative') : '';
               
               // Calculate deduction rule dynamically
-              const lateMinutes = calculateLateMinutes(rec.employee_code, rec.in_time);
-              const earlyMinutes = calculateEarlyExitMinutes(rec.employee_code, rec.out_time);
+              const lateMinutes = calculateLateMinutes(rec.employee_code, rec.in_time, rec.attendance_date);
+              const earlyMinutes = calculateEarlyExitMinutes(rec.employee_code, rec.out_time, rec.attendance_date);
               const calculatedRule = findDeductionRule(lateMinutes, earlyMinutes, rec.record_status || 'normal');
               const rule = rec.deduction_rule_id 
                 ? deductionRules.find(r => r.id === rec.deduction_rule_id) 
@@ -1028,8 +1034,8 @@ const SavedAttendance = () => {
               const diffClass = rec.difference_hours !== null ? (rec.difference_hours >= 0 ? 'diff-positive' : 'diff-negative') : '';
               
               // Calculate deduction rule dynamically
-              const lateMinutes = calculateLateMinutes(rec.employee_code, rec.in_time);
-              const earlyMinutes = calculateEarlyExitMinutes(rec.employee_code, rec.out_time);
+              const lateMinutes = calculateLateMinutes(rec.employee_code, rec.in_time, rec.attendance_date);
+              const earlyMinutes = calculateEarlyExitMinutes(rec.employee_code, rec.out_time, rec.attendance_date);
               const calculatedRule = findDeductionRule(lateMinutes, earlyMinutes, rec.record_status || 'normal');
               const rule = rec.deduction_rule_id 
                 ? deductionRules.find(r => r.id === rec.deduction_rule_id) 
@@ -1497,8 +1503,8 @@ const SavedAttendance = () => {
         // Skip vacation or holiday records
         if (record.record_status === 'vacation' || record.vacation_type) continue;
         
-        const lateMinutes = calculateLateMinutes(record.employee_code, record.in_time);
-        const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, record.out_time);
+        const lateMinutes = calculateLateMinutes(record.employee_code, record.in_time, record.attendance_date);
+        const earlyExitMinutes = calculateEarlyExitMinutes(record.employee_code, record.out_time, record.attendance_date);
         const rule = findDeductionRule(lateMinutes, earlyExitMinutes, record.record_status || 'normal');
         
         // Only update if there's a change
@@ -2502,8 +2508,8 @@ const SavedAttendance = () => {
                                 : null;
 
                               const computedRule = ruleFromId || findDeductionRule(
-                                calculateLateMinutes(record.employee_code, record.in_time),
-                                calculateEarlyExitMinutes(record.employee_code, record.out_time),
+                                calculateLateMinutes(record.employee_code, record.in_time, record.attendance_date),
+                                calculateEarlyExitMinutes(record.employee_code, record.out_time, record.attendance_date),
                                 record.record_status || "normal"
                               );
 

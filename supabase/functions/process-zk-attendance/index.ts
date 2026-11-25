@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveAttendanceSchedule } from '../_shared/seasonalAttendance.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +27,11 @@ interface AttendanceType {
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
   flexible_minutes: number | null;
+  seasonal_start_date: string | null;
+  seasonal_end_date: string | null;
+  seasonal_start_time: string | null;
+  seasonal_end_time: string | null;
+  seasonal_is_recurring: boolean | null;
 }
 
 interface DeductionRule {
@@ -159,11 +165,12 @@ function calculateTotalHours(inTime: string | null, outTime: string | null): num
 }
 
 // Calculate expected hours based on attendance type
-function calculateExpectedHours(attendanceType: AttendanceType | null): number | null {
-  if (!attendanceType?.fixed_start_time || !attendanceType?.fixed_end_time) return null;
+function calculateExpectedHours(attendanceType: AttendanceType | null, workDate: string): number | null {
+  const schedule = resolveAttendanceSchedule(attendanceType, workDate);
+  if (!schedule.start || !schedule.end) return null;
   
-  const startMinutes = timeToMinutes(attendanceType.fixed_start_time);
-  const endMinutes = timeToMinutes(attendanceType.fixed_end_time);
+  const startMinutes = timeToMinutes(schedule.start);
+  const endMinutes = timeToMinutes(schedule.end);
   
   if (endMinutes <= startMinutes) return null;
   
@@ -292,7 +299,7 @@ Deno.serve(async (req) => {
     // Fetch attendance types
     const { data: attendanceTypes, error: atError } = await supabase
       .from('attendance_types')
-      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, weekend_days, is_shift_based');
+      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, seasonal_start_date, seasonal_end_date, seasonal_start_time, seasonal_end_time, seasonal_is_recurring, weekend_days, is_shift_based');
 
     if (atError) throw atError;
 
@@ -404,8 +411,9 @@ Deno.serve(async (req) => {
         
         // Create holiday timesheet record
         const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
-        const scheduledStart = attendanceType?.fixed_start_time || null;
-        const scheduledEnd = attendanceType?.fixed_end_time || null;
+        const schedule = resolveAttendanceSchedule(attendanceType, targetDate);
+        const scheduledStart = schedule.start;
+        const scheduledEnd = schedule.end;
         
         const holidayTimesheetRecord = {
           employee_id: employee.id,
@@ -447,8 +455,9 @@ Deno.serve(async (req) => {
         
         // Create vacation timesheet record
         const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
-        const scheduledStart = attendanceType?.fixed_start_time || null;
-        const scheduledEnd = attendanceType?.fixed_end_time || null;
+        const schedule = resolveAttendanceSchedule(attendanceType, targetDate);
+        const scheduledStart = schedule.start;
+        const scheduledEnd = schedule.end;
         
         const vacationTimesheetRecord = {
           employee_id: employee.id,
@@ -485,6 +494,9 @@ Deno.serve(async (req) => {
       
       const logs = employeeLogs.get(employee.zk_employee_code) || [];
       const attendanceType = (attendanceTypes || []).find(at => at.id === employee.attendance_type_id);
+      const schedule = resolveAttendanceSchedule(attendanceType, targetDate);
+      const scheduledStart = schedule.start;
+      const scheduledEnd = schedule.end;
 
       // === Shift-based employees: absence is determined ONLY by whether the user
       // opened a shift session on this date. No late/early/overtime calculations.
@@ -566,7 +578,7 @@ Deno.serve(async (req) => {
 
         // Calculate out-time threshold: use scheduled end minus 2 hours, or at least 3 hours after in_time
         // This accommodates different schedules (Ramadan 7-13, regular 8-16, etc.)
-        const scheduledEndMinutes = attendanceType?.fixed_end_time ? timeToMinutes(attendanceType.fixed_end_time) : 16 * 60;
+        const scheduledEndMinutes = scheduledEnd ? timeToMinutes(scheduledEnd) : 16 * 60;
         const thresholdFromSchedule = scheduledEndMinutes - 2 * 60; // 2 hours before scheduled end
         const inMinutes = timeToMinutes(inTime);
         const thresholdFromIn = inMinutes + 3 * 60; // At least 3 hours after check-in
@@ -596,8 +608,8 @@ Deno.serve(async (req) => {
       const empWfhLabel = employeeWfhMap.get(employee.id);
       const isEmpWfh = !!empWfhLabel;
       if ((isCompanyWfhDay || isEmpWfh) && !inTime) {
-        const scheduledStartWfh = attendanceType?.fixed_start_time || null;
-        const scheduledEndWfh = attendanceType?.fixed_end_time || null;
+        const scheduledStartWfh = scheduledStart;
+        const scheduledEndWfh = scheduledEnd;
         const noteLabel = isCompanyWfhDay ? `Company WFH Day - ${wfhDayLabel}` : `Employee WFH Day - ${empWfhLabel}`;
         const wfhTimesheetRecord = {
           employee_id: employee.id,
@@ -632,24 +644,24 @@ Deno.serve(async (req) => {
       const allowLate = attendanceType?.allow_late_minutes || 0;
       const allowEarly = attendanceType?.allow_early_exit_minutes || 0;
 
-      if (effectiveInTime && attendanceType?.fixed_start_time) {
-        const scheduledStart = timeToMinutes(attendanceType.fixed_start_time);
+      if (effectiveInTime && scheduledStart) {
+        const scheduledStartMinutes = timeToMinutes(scheduledStart);
         const actualStart = timeToMinutes(effectiveInTime);
-        const rawLate = actualStart - scheduledStart;
+        const rawLate = actualStart - scheduledStartMinutes;
         lateMinutes = rawLate > allowLate ? rawLate - allowLate : 0;
       }
 
-      if (effectiveOutTime && attendanceType?.fixed_end_time) {
-        const scheduledEnd = timeToMinutes(attendanceType.fixed_end_time);
+      if (effectiveOutTime && scheduledEnd) {
+        const scheduledEndMinutes = timeToMinutes(scheduledEnd);
         const actualEnd = timeToMinutes(effectiveOutTime);
-        const rawEarly = scheduledEnd - actualEnd;
+        const rawEarly = scheduledEndMinutes - actualEnd;
         earlyExitMinutes = rawEarly > allowEarly ? rawEarly - allowEarly : 0;
       }
 
       // Flexible hours: forgive late arrival (up to the flex limit) by minutes stayed after end
       const flexMinutes = attendanceType?.flexible_minutes || 0;
-      if (lateMinutes > 0 && flexMinutes > 0 && effectiveOutTime && attendanceType?.fixed_end_time) {
-        const afterEnd = Math.max(0, timeToMinutes(effectiveOutTime) - timeToMinutes(attendanceType.fixed_end_time));
+      if (lateMinutes > 0 && flexMinutes > 0 && effectiveOutTime && scheduledEnd) {
+        const afterEnd = Math.max(0, timeToMinutes(effectiveOutTime) - timeToMinutes(scheduledEnd));
         lateMinutes = Math.max(0, lateMinutes - Math.min(flexMinutes, afterEnd));
       }
 
@@ -676,7 +688,7 @@ Deno.serve(async (req) => {
 
       // Calculate hours
       const totalHours = calculateTotalHours(effectiveInTime, effectiveOutTime);
-      const expectedHours = calculateExpectedHours(attendanceType || null);
+      const expectedHours = calculateExpectedHours(attendanceType || null, targetDate);
       const differenceHours = totalHours !== null && expectedHours !== null 
         ? Math.round((totalHours - expectedHours) * 100) / 100 
         : null;
@@ -728,14 +740,11 @@ Deno.serve(async (req) => {
       }
 
       // Also create/update timesheets record for Timesheet Management
-      const scheduledStart = attendanceType?.fixed_start_time || null;
-      const scheduledEnd = attendanceType?.fixed_end_time || null;
-      
       // Calculate overtime - only if employee worked MORE than scheduled hours
       // Overtime should offset late arrival and early exit first
       let overtimeMinutes = 0;
-      if (effectiveOutTime && attendanceType?.fixed_end_time) {
-        const scheduledEndMins = timeToMinutes(attendanceType.fixed_end_time);
+      if (effectiveOutTime && scheduledEnd) {
+        const scheduledEndMins = timeToMinutes(scheduledEnd);
         const actualEndMins = timeToMinutes(effectiveOutTime);
         const extraMinutesAfterEnd = actualEndMins > scheduledEndMins ? actualEndMins - scheduledEndMins : 0;
         // Net overtime = extra time at end minus late arrival and early exit

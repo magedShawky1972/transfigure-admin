@@ -1,4 +1,5 @@
 import { applyFlexibleLate, lateRecoveryCredit } from "@/lib/flexibleHours";
+import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -65,6 +66,12 @@ interface AttendanceType {
   allow_early_exit_minutes: number | null;
   flexible_minutes?: number | null;
   late_recovery_percent?: number | null;
+  is_shift_based?: boolean;
+  seasonal_start_date?: string | null;
+  seasonal_end_date?: string | null;
+  seasonal_start_time?: string | null;
+  seasonal_end_time?: string | null;
+  seasonal_is_recurring?: boolean | null;
 }
 
 interface Employee {
@@ -792,7 +799,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, payroll_country, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, late_recovery_percent, is_shift_based)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, payroll_country, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, late_recovery_percent, seasonal_start_date, seasonal_end_date, seasonal_start_time, seasonal_end_time, seasonal_is_recurring, is_shift_based)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -1122,8 +1129,9 @@ export default function TimesheetManagement() {
           if (isCompanyWfhDay) {
             // Company WFH day: calculate delay based on WFH check-in vs employee schedule
             const attType = emp.attendance_types;
-            const fixedStart = attType?.fixed_start_time || emp.fixed_shift_start;
-            const fixedEnd = attType?.fixed_end_time || emp.fixed_shift_end;
+            const schedule = resolveAttendanceSchedule(attType, session.date);
+            const fixedStart = schedule.start || emp.fixed_shift_start;
+            const fixedEnd = schedule.end || emp.fixed_shift_end;
             const allowLate = attType?.allow_late_minutes || 0;
             const allowEarlyExit = attType?.allow_early_exit_minutes || 0;
 
@@ -1447,18 +1455,21 @@ export default function TimesheetManagement() {
   };
 
 
+  const getEmployeeScheduleForDate = (employee: Employee, workDate: string) => {
+    const schedule = resolveAttendanceSchedule(employee.attendance_types, workDate);
+    return {
+      scheduled_start: schedule.start || employee.fixed_shift_start || "",
+      scheduled_end: schedule.end || employee.fixed_shift_end || "",
+    };
+  };
+
   const handleEmployeeSelect = (employeeId: string) => {
     const employee = employees.find((e) => e.id === employeeId);
     if (employee) {
-      // Prioritize attendance_type times over employee fixed times
-      const scheduledStart = employee.attendance_types?.fixed_start_time || employee.fixed_shift_start || "";
-      const scheduledEnd = employee.attendance_types?.fixed_end_time || employee.fixed_shift_end || "";
-      
       setFormData({
         ...formData,
         employee_id: employeeId,
-        scheduled_start: scheduledStart,
-        scheduled_end: scheduledEnd,
+        ...getEmployeeScheduleForDate(employee, formData.work_date),
       });
     }
   };
@@ -2441,8 +2452,9 @@ export default function TimesheetManagement() {
                             }
                             return <span className="text-xs text-muted-foreground">{language === "ar" ? "بدون وردية" : "No shift"}</span>;
                           }
-                          const liveStart = emp?.attendance_types?.fixed_start_time || emp?.fixed_shift_start || null;
-                          const liveEnd = emp?.attendance_types?.fixed_end_time || emp?.fixed_shift_end || null;
+                          const schedule = emp ? resolveAttendanceSchedule(emp.attendance_types, ts.work_date) : null;
+                          const liveStart = schedule?.start || emp?.fixed_shift_start || null;
+                          const liveEnd = schedule?.end || emp?.fixed_shift_end || null;
                           const start = liveStart || ts.scheduled_start;
                           const end = liveEnd || ts.scheduled_end;
                           return start && end ? `${fmt(start)} - ${fmt(end)}` : "-";
@@ -2673,7 +2685,14 @@ export default function TimesheetManagement() {
               <Input
                 type="date"
                 value={formData.work_date}
-                onChange={(e) => setFormData({ ...formData, work_date: e.target.value })}
+                onChange={(e) => {
+                  const workDate = e.target.value;
+                  setFormData({
+                    ...formData,
+                    work_date: workDate,
+                    ...(currentEmployee ? getEmployeeScheduleForDate(currentEmployee, workDate) : {}),
+                  });
+                }}
                 disabled={!!editingTimesheet}
               />
             </div>
