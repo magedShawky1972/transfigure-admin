@@ -49,6 +49,7 @@ interface AttendanceType {
   fixed_end_time: string | null;
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
+  flexible_minutes: number | null;
   weekend_days: number[] | null;
   created_at: string;
   updated_at: string;
@@ -82,6 +83,7 @@ const AttendanceTypeSetup = () => {
     fixed_end_time: "",
     allow_late_minutes: "0",
     allow_early_exit_minutes: "0",
+    flexible_hours: "0",
     weekend_days: [5, 6] as number[],
   });
 
@@ -120,6 +122,7 @@ const AttendanceTypeSetup = () => {
       fixed_end_time: "",
       allow_late_minutes: "0",
       allow_early_exit_minutes: "0",
+      flexible_hours: "0",
       weekend_days: [5, 6],
     });
     setIsDialogOpen(true);
@@ -138,6 +141,7 @@ const AttendanceTypeSetup = () => {
       fixed_end_time: type.fixed_end_time || "",
       allow_late_minutes: type.allow_late_minutes?.toString() || "0",
       allow_early_exit_minutes: type.allow_early_exit_minutes?.toString() || "0",
+      flexible_hours: ((type.flexible_minutes || 0) / 60).toString(),
       weekend_days: type.weekend_days || [5, 6],
     });
     setIsDialogOpen(true);
@@ -166,6 +170,7 @@ const AttendanceTypeSetup = () => {
         fixed_end_time: !formData.is_shift_based && formData.fixed_end_time ? formData.fixed_end_time : null,
         allow_late_minutes: parseInt(formData.allow_late_minutes) || 0,
         allow_early_exit_minutes: parseInt(formData.allow_early_exit_minutes) || 0,
+        flexible_minutes: Math.max(0, Math.round((parseFloat(formData.flexible_hours) || 0) * 60)),
         weekend_days: formData.weekend_days,
       };
 
@@ -282,6 +287,7 @@ const AttendanceTypeSetup = () => {
                   </TableCell>
                   <TableCell>
                     {type.allow_late_minutes || 0} / {type.allow_early_exit_minutes || 0}
+                    {type.flexible_minutes ? <span className="block text-xs text-muted-foreground">{language === "ar" ? "مرن" : "Flex"}: {(type.flexible_minutes / 60).toString()} h</span> : null}
                   </TableCell>
                   <TableCell>
                     <Badge variant={type.is_active ? "default" : "secondary"}>
@@ -461,6 +467,26 @@ const AttendanceTypeSetup = () => {
                   placeholder="0"
                 />
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="flexible_hours">
+                {language === "ar" ? "ساعات مرنة (ساعة)" : "Flexible Hours (h)"}
+              </Label>
+              <Input
+                id="flexible_hours"
+                type="number"
+                min="0"
+                step="0.25"
+                value={formData.flexible_hours}
+                onChange={(e) => setFormData({ ...formData, flexible_hours: e.target.value })}
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                {language === "ar"
+                  ? "التأخير حتى هذا الحد لا يُحتسب إذا عوّضه الموظف بالبقاء بعد نهاية الدوام."
+                  : "Late arrival up to this limit is not counted when the employee stays the same time after the end time."}
+              </p>
             </div>
 
             {/* Weekend Days */}

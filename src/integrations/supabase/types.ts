@@ -523,6 +523,7 @@ export type Database = {
           description: string | null
           fixed_end_time: string | null
           fixed_start_time: string | null
+          flexible_minutes: number
           id: string
           is_active: boolean
           is_shift_based: boolean
@@ -539,6 +540,7 @@ export type Database = {
           description?: string | null
           fixed_end_time?: string | null
           fixed_start_time?: string | null
+          flexible_minutes?: number
           id?: string
           is_active?: boolean
           is_shift_based?: boolean
@@ -555,6 +557,7 @@ export type Database = {
           description?: string | null
           fixed_end_time?: string | null
           fixed_start_time?: string | null
+          flexible_minutes?: number
           id?: string
           is_active?: boolean
           is_shift_based?: boolean

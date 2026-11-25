@@ -1,3 +1,4 @@
+import { applyFlexibleLate } from "@/lib/flexibleHours";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -62,6 +63,7 @@ interface AttendanceType {
   fixed_end_time: string | null;
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
+  flexible_minutes?: number | null;
 }
 
 interface Employee {
@@ -789,7 +791,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, payroll_country, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, is_shift_based)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, payroll_country, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, is_shift_based)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -1322,6 +1324,11 @@ export default function TimesheetManagement() {
         const rawLate = differenceInMinutes(actualStart, scheduledStart);
         late_minutes = Math.max(0, rawLate - allowLate);
       }
+      late_minutes = applyFlexibleLate(
+        late_minutes,
+        actualEnd > scheduledEnd ? differenceInMinutes(actualEnd, scheduledEnd) : 0,
+        employee?.attendance_types?.flexible_minutes || 0,
+      );
 
       // Calculate early leave minutes (net of allowed grace)
       if (actualEnd < scheduledEnd) {
@@ -1473,7 +1480,12 @@ export default function TimesheetManagement() {
     if (actualStart > scheduledStart) {
       const lateMinutes = differenceInMinutes(actualStart, scheduledStart);
       const actualDelay = lateMinutes - allowLateMinutes;
-      return actualDelay > 0 ? actualDelay : 0;
+      const effectiveEnd = formData.changed_end || formData.actual_end;
+      let afterEnd = 0;
+      if (effectiveEnd && formData.scheduled_end) {
+        afterEnd = Math.max(0, differenceInMinutes(parseISO(`${formData.work_date}T${effectiveEnd}`), parseISO(`${formData.work_date}T${formData.scheduled_end}`)));
+      }
+      return applyFlexibleLate(actualDelay, afterEnd, currentEmployee?.attendance_types?.flexible_minutes || 0);
     }
     return 0;
   };

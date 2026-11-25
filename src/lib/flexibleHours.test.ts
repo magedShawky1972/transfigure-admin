@@ -1,0 +1,7 @@
+import { test } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { applyFlexibleLate } from './flexibleHours';
+test('1h flex: 30 min late, stays 30 min after end -> no delay', () => assert.equal(applyFlexibleLate(30, 30, 60), 0));
+test('partial compensation keeps remaining delay', () => assert.equal(applyFlexibleLate(30, 10, 60), 20));
+test('delay beyond flex limit still counted', () => assert.equal(applyFlexibleLate(90, 90, 60), 30));
+test('no flex keeps delay', () => assert.equal(applyFlexibleLate(30, 30, 0), 30));

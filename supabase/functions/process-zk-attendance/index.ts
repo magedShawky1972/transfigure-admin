@@ -25,6 +25,7 @@ interface AttendanceType {
   fixed_end_time: string | null;
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
+  flexible_minutes: number | null;
 }
 
 interface DeductionRule {
@@ -291,7 +292,7 @@ Deno.serve(async (req) => {
     // Fetch attendance types
     const { data: attendanceTypes, error: atError } = await supabase
       .from('attendance_types')
-      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, weekend_days, is_shift_based');
+      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, weekend_days, is_shift_based');
 
     if (atError) throw atError;
 
@@ -643,6 +644,13 @@ Deno.serve(async (req) => {
         const actualEnd = timeToMinutes(effectiveOutTime);
         const rawEarly = scheduledEnd - actualEnd;
         earlyExitMinutes = rawEarly > allowEarly ? rawEarly - allowEarly : 0;
+      }
+
+      // Flexible hours: forgive late arrival (up to the flex limit) by minutes stayed after end
+      const flexMinutes = attendanceType?.flexible_minutes || 0;
+      if (lateMinutes > 0 && flexMinutes > 0 && effectiveOutTime && attendanceType?.fixed_end_time) {
+        const afterEnd = Math.max(0, timeToMinutes(effectiveOutTime) - timeToMinutes(attendanceType.fixed_end_time));
+        lateMinutes = Math.max(0, lateMinutes - Math.min(flexMinutes, afterEnd));
       }
 
       // Calculate deduction

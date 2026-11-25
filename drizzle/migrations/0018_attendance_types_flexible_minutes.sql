@@ -1,0 +1,1 @@
+ALTER TABLE public.attendance_types ADD COLUMN IF NOT EXISTS flexible_minutes integer NOT NULL DEFAULT 0;
