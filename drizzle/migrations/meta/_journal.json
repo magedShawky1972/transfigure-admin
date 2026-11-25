@@ -162,6 +162,13 @@
       "when": 1795596796072,
       "tag": "0022_add_fixed_schedule_effective_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795600413516,
+      "tag": "0023_wfh_recovery_allocations",
+      "breakpoints": true
     }
   ]
 }

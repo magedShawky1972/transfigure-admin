@@ -12584,6 +12584,58 @@ export type Database = {
         }
         Relationships: []
       }
+      wfh_recovery_allocations: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          employee_id: string
+          id: string
+          minutes: number
+          timesheet_id: string
+          wfh_checkin_id: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          employee_id: string
+          id?: string
+          minutes: number
+          timesheet_id: string
+          wfh_checkin_id: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          employee_id?: string
+          id?: string
+          minutes?: number
+          timesheet_id?: string
+          wfh_checkin_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wfh_recovery_allocations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wfh_recovery_allocations_timesheet_id_fkey"
+            columns: ["timesheet_id"]
+            isOneToOne: false
+            referencedRelation: "timesheets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wfh_recovery_allocations_wfh_checkin_id_fkey"
+            columns: ["wfh_checkin_id"]
+            isOneToOne: false
+            referencedRelation: "wfh_checkins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_config: {
         Row: {
           created_at: string
@@ -12974,6 +13026,10 @@ export type Database = {
     }
     Functions: {
       _i276_q: { Args: { query: string }; Returns: Json }
+      approve_wfh_recovery: {
+        Args: { _target_ids: string[]; _wfh_checkin_id: string }
+        Returns: Json
+      }
       check_and_run_scheduled_backup: { Args: never; Returns: undefined }
       claim_koon_backfill_batch:
         | {
@@ -13504,6 +13560,10 @@ export type Database = {
       log_password_access: {
         Args: { p_accessed_record_id?: string; p_accessed_table: string }
         Returns: undefined
+      }
+      may_approve_wfh_recovery: {
+        Args: { _employee_id: string; _work_date: string }
+        Returns: boolean
       }
       prepare_koon_backfill: {
         Args: { p_phase: number; p_run_id: string }

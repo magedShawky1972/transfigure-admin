@@ -27,6 +27,20 @@ export function recoveryAdjustment(row: RecoveryRow, previous: { late_minutes: n
   };
 }
 
+/** Completed, approved WFH sessions supply whole-minute credit; unfinished sessions supply none. */
+export function wfhRecoveryCredit(workMinutes: number, usedMinutes = 0): number {
+  if (!Number.isFinite(workMinutes) || workMinutes <= 0) return 0;
+  return Math.max(0, Math.floor(workMinutes * 20 / 100) - Math.max(0, usedMinutes));
+}
+
+export function canRecoverWfh(row: {
+  status: string; actual_start: string | null; actual_end: string | null;
+  total_work_minutes: number; wfh_recovery_used_minutes?: number;
+}, mayEdit: boolean): boolean {
+  return mayEdit && row.status === 'approved' && !!row.actual_start && !!row.actual_end
+    && wfhRecoveryCredit(row.total_work_minutes, row.wfh_recovery_used_minutes) > 0;
+}
+
 /** Who may approve late recovery for one attendance row, and when a row is eligible at all. */
 export function canApproveLateRecovery<T extends RecoveryRow>(
   row: T,

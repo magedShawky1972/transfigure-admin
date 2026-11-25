@@ -1,6 +1,6 @@
 import { vacationWork } from '../../supabase/functions/_shared/vacationAttendance';
 import { applyFlexibleLate } from "@/lib/flexibleHours";
-import { canApproveLateRecovery, recoveryAdjustment, recoveryTargets } from "@/lib/lateRecovery";
+import { canApproveLateRecovery, recoveryAdjustment, recoveryTargets, canRecoverWfh, wfhRecoveryCredit } from "@/lib/lateRecovery";
 import { Checkbox } from "@/components/ui/checkbox";
 import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
 import { useState, useEffect, useRef } from "react";
@@ -114,6 +114,7 @@ interface Timesheet {
   absence_has_notice?: boolean | null;
   late_minutes: number;
   late_recovery_minutes?: number | null;
+  wfh_recovery_used_minutes?: number;
   early_leave_minutes: number;
   overtime_minutes: number;
   total_work_minutes: number;
@@ -998,7 +999,7 @@ export default function TimesheetManagement() {
 
       let wfhQuery = supabase
         .from("wfh_checkins")
-        .select("id, user_id, checkin_date, checkin_time, checkout_time, manager_note, manager_note_by");
+        .select("id, user_id, checkin_date, checkin_time, checkout_time, status, manager_note, manager_note_by");
       if (filterMode === "date") {
         wfhQuery = wfhQuery.eq("checkin_date", selectedDate);
       } else {
@@ -1012,6 +1013,21 @@ export default function TimesheetManagement() {
         supabase.from("company_wfh_recurring").select("day_of_week").eq("is_active", true),
         supabase.from("employee_wfh_days").select("employee_id, wfh_date").gte("wfh_date", vacDateFrom).lte("wfh_date", vacDateTo),
       ]);
+
+      const wfhUsedMinutes = new Map<string, number>();
+      const sessionIds = (wfhData || []).map(session => session.id);
+      for (let start = 0; start < sessionIds.length; start += 500) {
+        for (let offset = 0; ; offset += 1000) {
+          const { data: allocations, error: allocationError } = await supabase.from("wfh_recovery_allocations")
+            .select("id, wfh_checkin_id, minutes").in("wfh_checkin_id", sessionIds.slice(start, start + 500))
+            .order("id").range(offset, offset + 999);
+          if (allocationError) throw allocationError;
+          for (const allocation of allocations || []) {
+            wfhUsedMinutes.set(allocation.wfh_checkin_id, (wfhUsedMinutes.get(allocation.wfh_checkin_id) || 0) + allocation.minutes);
+          }
+          if (!allocations || allocations.length < 1000) break;
+        }
+      }
 
       // Build set of company WFH dates
       const companyWfhDateSet = new Set<string>();
@@ -1223,6 +1239,7 @@ export default function TimesheetManagement() {
             early_leave_minutes: earlyLeaveMinutes,
             overtime_minutes: overtimeMinutes,
             total_work_minutes: workMinutes,
+            wfh_recovery_used_minutes: wfhUsedMinutes.get(session.checkinId) || 0,
             deduction_amount: deductionAmount,
             deduction_rule_id: deductionRuleId,
             overtime_amount: overtimeAmount,
@@ -1653,10 +1670,21 @@ export default function TimesheetManagement() {
     isVirtual: ts.id.startsWith("wfh-virtual-"),
   });
 
-  const selectableRecoveryEmployees = new Set(sortedTimesheets.filter(canRecover).map(ts => ts.employee_id));
+  const canReceiveWfhCredit = (ts: Timesheet) => !ts.id.startsWith("wfh-virtual-")
+    && !["vacation", "holiday", "wfh", "rejected"].includes(ts.status) && !ts.is_absent
+    && !(ts as any).has_approved_delay && ts.late_minutes > 0
+    && (isNawaf || isAdmin || canEditTimesheet(ts));
+  const canSupplyWfhCredit = (ts: Timesheet) => ts.id.startsWith("wfh-virtual-")
+    && canRecoverWfh(ts, isNawaf || isAdmin || canEditTimesheet(ts))
+    && sortedTimesheets.some(target => target.employee_id === ts.employee_id && canReceiveWfhCredit(target));
+  const canRecoverForBulk = (ts: Timesheet) => canRecover(ts) || canSupplyWfhCredit(ts);
+  const selectableRecoveryEmployees = new Set(sortedTimesheets.filter(canRecoverForBulk).map(ts => ts.employee_id));
   const anyRecoveryPercent = [...new Set(sortedTimesheets.map(ts => ts.employee_id))]
-    .some(id => Number(employees.find(e => e.id === id)?.attendance_types?.late_recovery_percent || 0) > 0);
-  const selectedRecoveryRows = recoveryTargets(sortedTimesheets, recoveryEmployees, canRecover);
+    .some(id => Number(employees.find(e => e.id === id)?.attendance_types?.late_recovery_percent || 0) > 0)
+    || sortedTimesheets.some(canSupplyWfhCredit);
+  const selectedRecoveryRows = recoveryTargets(sortedTimesheets, recoveryEmployees, canRecoverForBulk);
+  const selectedWfhSources = selectedRecoveryRows.filter(ts => ts.id.startsWith("wfh-virtual-"));
+  const selectedWfhMinutes = selectedWfhSources.reduce((sum, ts) => sum + wfhRecoveryCredit(ts.total_work_minutes, ts.wfh_recovery_used_minutes), 0);
   const selectedRecoveryCount = new Set(selectedRecoveryRows.map(ts => ts.employee_id)).size;
 
   const approveRecovery = async (ts: Timesheet, userId: string): Promise<number> => {
@@ -1714,7 +1742,8 @@ export default function TimesheetManagement() {
     if (recoveryBusy.current || !selectedRecoveryRows.length) return;
     recoveryBusy.current = true;
     setRecoveryRunning(true);
-    const targets = [...selectedRecoveryRows];
+    // Keep the existing previous-day approvals first; WFH then offsets only remaining visible delays.
+    const targets = [...selectedRecoveryRows.filter(ts => !ts.id.startsWith("wfh-virtual-")), ...selectedWfhSources];
     setRecoveryProgress({ done: 0, total: targets.length });
     let recovered = 0, skipped = 0, failed = 0, minutes = 0;
     let lastError = "";
@@ -1723,7 +1752,19 @@ export default function TimesheetManagement() {
       if (error || !user) throw new Error("Please sign in again before approving recovery");
       for (const [index, ts] of targets.entries()) {
         try {
-          const credit = await approveRecovery(ts, user.id);
+          let credit: number;
+          if (ts.id.startsWith("wfh-virtual-")) {
+            const targetIds = sortedTimesheets.filter(target => target.employee_id === ts.employee_id
+              && recoveryEmployees.has(target.employee_id) && canReceiveWfhCredit(target)).map(target => target.id);
+            const { data: result, error: wfhError } = await supabase.rpc("approve_wfh_recovery", {
+              _wfh_checkin_id: ts.id.replace("wfh-virtual-", ""), _target_ids: targetIds,
+            });
+            if (wfhError) throw wfhError;
+            credit = result && typeof result === "object" && !Array.isArray(result)
+              ? Number(result.minutes || 0) : 0;
+          } else {
+            credit = await approveRecovery(ts, user.id);
+          }
           if (credit > 0) { recovered++; minutes += credit; }
           else skipped++;
         } catch (error: any) {
@@ -3140,6 +3181,7 @@ export default function TimesheetManagement() {
             <AlertDialogDescription>
               Approve late recovery for {selectedRecoveryCount} selected employees across {selectedRecoveryRows.length} eligible attendance records in the displayed period?
               Each employee’s configured recovery percentage and previous recorded day’s lateness apply. Records without available recovery are skipped.
+              {selectedWfhSources.length > 0 && ` WFH: ${selectedWfhSources.length} approved sessions supply up to ${selectedWfhMinutes} minutes (20% of worked time), applied to remaining delays in this period oldest first. Used credit cannot be applied again.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {recoveryRunning && <p role="status" className="text-sm text-muted-foreground">Processing {recoveryProgress.done}/{recoveryProgress.total}</p>}

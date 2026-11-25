@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { recoveryTargets, recoveryAdjustment, canApproveLateRecovery } from './lateRecovery';
+import { recoveryTargets, recoveryAdjustment, canApproveLateRecovery, wfhRecoveryCredit, canRecoverWfh } from './lateRecovery';
 
 const row = (id: string, employee_id: string, work_date: string, late_minutes = 150) => ({ id, employee_id, work_date, late_minutes, deduction_amount: 100 });
 
@@ -48,4 +48,25 @@ test("an approved delay request is never recovered again", () => {
 });
 test("virtual WFH rows carry no recovery", () => {
   assert.equal(canApproveLateRecovery(recoveryRow({ id: "wfh-virtual-1" }), { percent: 40, mayEdit: true, isVirtual: true }), false);
+});
+
+test('WFH recovery is 20% of working time: five hours supplies 60 minutes', () => {
+  assert.equal(wfhRecoveryCredit(300), 60);
+  assert.equal(wfhRecoveryCredit(480), 96);
+});
+test('WFH credits already used cannot be recovered a second time', () => {
+  assert.equal(wfhRecoveryCredit(300, 60), 0);
+  assert.equal(wfhRecoveryCredit(300, 25), 35);
+});
+test('WFH recovery rounds down to whole minutes and rejects invalid work', () => {
+  assert.equal(wfhRecoveryCredit(7), 1);
+  assert.equal(wfhRecoveryCredit(-1), 0);
+  assert.equal(wfhRecoveryCredit(NaN), 0);
+});
+test('only completed approved WFH work can supply recovery with approval rights', () => {
+  const session = { status: 'approved', actual_start: '09:00', actual_end: '14:00', total_work_minutes: 300 };
+  assert.equal(canRecoverWfh(session, true), true);
+  assert.equal(canRecoverWfh({ ...session, status: 'pending' }, true), false);
+  assert.equal(canRecoverWfh({ ...session, actual_end: null }, true), false);
+  assert.equal(canRecoverWfh(session, false), false);
 });
