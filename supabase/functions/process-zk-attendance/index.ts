@@ -1,10 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { vacationWork } from '../_shared/vacationAttendance.ts';
 import { resolveAttendanceSchedule } from '../_shared/seasonalAttendance.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 interface Employee {
   id: string;
@@ -209,7 +206,13 @@ Deno.serve(async (req) => {
     }
 
     // Create a Set of employee IDs who are on approved leave
-    const employeesOnLeave = new Set((approvedLeaves || []).map(l => l.employee_id));
+    if (leaveError) throw leaveError;
+    const { data: requestLeaves, error: requestLeaveError } = await supabase
+      .from('employee_requests').select('employee_id')
+      .eq('status', 'approved').in('request_type', ['vacation', 'sick_leave'])
+      .lte('start_date', targetDate).gte('end_date', targetDate);
+    if (requestLeaveError) throw requestLeaveError;
+    const employeesOnLeave = new Set([...(approvedLeaves || []), ...(requestLeaves || [])].map(l => l.employee_id));
     console.log(`Found ${employeesOnLeave.size} employees on approved leave for ${targetDate}`);
 
     // Check for official holidays on this date
@@ -461,24 +464,30 @@ Deno.serve(async (req) => {
         const scheduledStart = schedule.start;
         const scheduledEnd = schedule.end;
         
+        const leaveLogs = employeeLogs.get(employee.zk_employee_code) || [];
+        const correction = correctedTimesheetMap.get(employee.id);
+        const { data: existingLeaveRows, error: existingLeaveError } = await supabase.from('timesheets')
+          .select('actual_start, actual_end, break_duration_minutes, notes')
+          .eq('employee_id', employee.id).eq('work_date', targetDate).limit(1);
+        if (existingLeaveError) throw existingLeaveError;
+        const existingLeave = existingLeaveRows?.[0];
+        const firstPunch = leaveLogs[0]?.attendance_time || existingLeave?.actual_start || null;
+        const lastPunch = leaveLogs.length > 1 ? leaveLogs[leaveLogs.length - 1].attendance_time : null;
+        const leaveIn = correction?.changed_start || firstPunch;
+        const leaveOut = correction?.changed_end || lastPunch || existingLeave?.actual_end || null;
+        const classification = vacationWork(leaveIn, leaveOut, existingLeave?.break_duration_minutes || 0);
         const vacationTimesheetRecord = {
           employee_id: employee.id,
           work_date: targetDate,
           scheduled_start: scheduledStart,
           scheduled_end: scheduledEnd,
-          actual_start: null,
-          actual_end: null,
-          break_duration_minutes: 0,
-          status: 'vacation',
-          is_absent: false,
           absence_reason: 'Approved vacation/leave',
-          late_minutes: 0,
-          early_leave_minutes: 0,
-          overtime_minutes: 0,
-          total_work_minutes: 0,
-          deduction_amount: 0,
           overtime_amount: 0,
-          notes: 'On approved vacation/leave',
+          ...classification,
+          actual_start: firstPunch,
+          actual_end: lastPunch || existingLeave?.actual_end || null,
+          break_duration_minutes: existingLeave?.break_duration_minutes || 0,
+          notes: existingLeave?.notes || 'On approved vacation/leave; recorded work counts as overtime',
         };
 
         const { error: vacationError } = await supabase
@@ -487,10 +496,16 @@ Deno.serve(async (req) => {
             onConflict: 'employee_id,work_date',
           });
 
-        if (vacationError) {
-          console.error(`Error upserting vacation timesheet for ${employee.id}:`, vacationError);
-        }
-        
+        if (vacationError) throw vacationError;
+        // Keep the saved ZK attendance view consistent without changing raw punches.
+        const { error: savedLeaveError } = await supabase.from('saved_attendance').update({
+          deduction_amount: 0, deduction_rule_id: null, expected_hours: 0,
+          total_hours: classification.total_work_minutes / 60,
+          difference_hours: classification.total_work_minutes / 60,
+          has_issues: false,
+        }).eq('employee_code', employee.zk_employee_code).eq('attendance_date', targetDate).eq('is_confirmed', false);
+        if (savedLeaveError) throw savedLeaveError;
+        processedLogIds.push(...leaveLogs.map(log => log.id));
         continue;
       }
       

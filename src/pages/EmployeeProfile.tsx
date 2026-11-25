@@ -1,3 +1,4 @@
+import { vacationWork } from '../../supabase/functions/_shared/vacationAttendance';
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -540,6 +541,11 @@ export default function EmployeeProfile() {
         }
       }
 
+      const { data: existingRows, error: existingError } = await supabase.from('timesheets')
+        .select('work_date, actual_start, actual_end, changed_start, changed_end, break_duration_minutes')
+        .eq('employee_id', employeeId).in('work_date', dates);
+      if (existingError) throw existingError;
+      const vacationByDate = new Map((existingRows || []).map(row => [row.work_date, row]));
       const upsertPayloads = dates.map(date => ({
         employee_id: employeeId,
         work_date: date,
@@ -549,6 +555,11 @@ export default function EmployeeProfile() {
         late_minutes: 0,
         deduction_rule_id: null,
         deduction_amount: 0,
+        ...vacationWork(
+          vacationByDate.get(date)?.changed_start || vacationByDate.get(date)?.actual_start || null,
+          vacationByDate.get(date)?.changed_end || vacationByDate.get(date)?.actual_end || null,
+          vacationByDate.get(date)?.break_duration_minutes || 0,
+        ),
       }));
 
       const { error } = await supabase

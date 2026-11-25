@@ -252,11 +252,12 @@ export default function DeductionSummary() {
         const empId = ts.employee_id;
         const e = ts.employees;
         if (!e) return;
+        const isVacationDay = vacationDaySet.has(`${empId}_${ts.work_date}`);
         const lateApproved = approvedSet.has(`${empId}_${ts.work_date}_delay`);
         const earlyApproved = approvedSet.has(`${empId}_${ts.work_date}_early_leave`);
-        const lateMin = lateApproved ? 0 : (ts.late_minutes || 0);
-        const earlyMin = earlyApproved ? 0 : (ts.early_leave_minutes || 0);
-        const ded = (lateApproved || earlyApproved) ? 0 : (ts.deduction_amount || 0);
+        const lateMin = (isVacationDay || lateApproved) ? 0 : (ts.late_minutes || 0);
+        const earlyMin = (isVacationDay || earlyApproved) ? 0 : (ts.early_leave_minutes || 0);
+        const ded = (isVacationDay || lateApproved || earlyApproved) ? 0 : (ts.deduction_amount || 0);
 
         let row = map.get(empId);
         if (!row) {

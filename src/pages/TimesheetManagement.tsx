@@ -1,3 +1,4 @@
+import { vacationWork } from '../../supabase/functions/_shared/vacationAttendance';
 import { applyFlexibleLate } from "@/lib/flexibleHours";
 import { recoveryAdjustment, recoveryTargets } from "@/lib/lateRecovery";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1095,16 +1096,17 @@ export default function TimesheetManagement() {
         const hasApprovedEarlyLeave = approvedEarlyLeaveDays.has(key);
         return {
           ...ts,
+          ...(isVacationDay ? vacationWork(ts.changed_start || ts.actual_start, ts.changed_end || ts.actual_end, ts.break_duration_minutes || 0) : {}),
           mailSent: ts.deduction_notification_sent === true,
           status: isVacationDay ? "vacation" : isEmployeeWfhDay ? "wfh" : ts.status,
           vacation_name_en: vacationDetail?.nameEn || null,
           vacation_name_ar: vacationDetail?.nameAr || null,
           is_absent: (isVacationDay || isEmployeeWfhDay) ? false : ts.is_absent,
-          late_minutes: (isEmployeeWfhDay || hasApprovedDelay) ? 0 : ts.late_minutes,
-          early_leave_minutes: (isEmployeeWfhDay || hasApprovedEarlyLeave) ? 0 : ts.early_leave_minutes,
-          deduction_amount: (isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
-          deduction_rule_id: (isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
-          deduction_rules: (isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
+          late_minutes: (isVacationDay || isEmployeeWfhDay || hasApprovedDelay) ? 0 : ts.late_minutes,
+          early_leave_minutes: (isVacationDay || isEmployeeWfhDay || hasApprovedEarlyLeave) ? 0 : ts.early_leave_minutes,
+          deduction_amount: (isVacationDay || isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? 0 : ts.deduction_amount,
+          deduction_rule_id: (isVacationDay || isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rule_id,
+          deduction_rules: (isVacationDay || isEmployeeWfhDay || hasApprovedDelay || hasApprovedEarlyLeave) ? null : ts.deduction_rules,
           has_approved_delay: hasApprovedDelay,
           has_approved_early_leave: hasApprovedEarlyLeave,
           is_wfh: false,
@@ -1310,6 +1312,9 @@ export default function TimesheetManagement() {
     let overtime_amount = 0;
     let deduction_rule_id: string | null = null;
 
+    const vacationDay = timesheets.some(ts => ts.employee_id === data.employee_id && ts.work_date === data.work_date && ts.status === "vacation");
+    if (vacationDay) return vacationWork(data.actual_start || null, data.actual_end || null, data.break_duration_minutes);
+
     if (data.is_absent) {
       // Pick absence rule matching the notice flag:
       // true => is_absence_with_notice, false => is_absence_without_notice, null => any absence rule
@@ -1494,7 +1499,7 @@ export default function TimesheetManagement() {
   // Calculate delay (late minutes) automatically based on actual vs scheduled start
   // Only count as delay if it exceeds the allowed late minutes
   const calculateDelay = (): number => {
-    if (!formData.scheduled_start || formData.is_absent) return 0;
+    if (editingTimesheet?.status === "vacation" || !formData.scheduled_start || formData.is_absent) return 0;
     const effectiveStart = formData.changed_start || formData.actual_start;
     if (!effectiveStart) return 0;
     
@@ -1517,7 +1522,7 @@ export default function TimesheetManagement() {
   // Calculate early leave (left before scheduled end)
   // Only count as early leave if it exceeds the allowed early exit minutes
   const calculateEarlyLeave = (): number => {
-    if (!formData.scheduled_end || formData.is_absent) return 0;
+    if (editingTimesheet?.status === "vacation" || !formData.scheduled_end || formData.is_absent) return 0;
     const effectiveEnd = formData.changed_end || formData.actual_end;
     if (!effectiveEnd) return 0;
     

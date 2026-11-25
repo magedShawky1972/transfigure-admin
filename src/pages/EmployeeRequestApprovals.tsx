@@ -1,3 +1,4 @@
+import { vacationWork } from '../../supabase/functions/_shared/vacationAttendance';
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getHRChainForPayrollCountry } from "@/lib/hrRouting";
@@ -346,6 +347,11 @@ const EmployeeRequestApprovals = () => {
       }
 
       // Upsert timesheet records for these dates (insert if missing, update if exists)
+      const { data: existingRows, error: existingError } = await supabase.from('timesheets')
+        .select('work_date, actual_start, actual_end, changed_start, changed_end, break_duration_minutes')
+        .eq('employee_id', request.employee_id).in('work_date', dates);
+      if (existingError) throw existingError;
+      const vacationByDate = new Map((existingRows || []).map(row => [row.work_date, row]));
       const upsertPayloads = dates.map(date => ({
         employee_id: request.employee_id,
         work_date: date,
@@ -355,6 +361,11 @@ const EmployeeRequestApprovals = () => {
         late_minutes: 0,
         deduction_rule_id: null,
         deduction_amount: 0,
+        ...(isWfh ? {} : vacationWork(
+          vacationByDate.get(date)?.changed_start || vacationByDate.get(date)?.actual_start || null,
+          vacationByDate.get(date)?.changed_end || vacationByDate.get(date)?.actual_end || null,
+          vacationByDate.get(date)?.break_duration_minutes || 0,
+        )),
       }));
 
       const { error } = await supabase

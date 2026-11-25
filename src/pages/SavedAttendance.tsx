@@ -1,3 +1,4 @@
+import { vacationWork } from '../../supabase/functions/_shared/vacationAttendance';
 import { useState, useEffect, useMemo, type ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -395,7 +396,29 @@ const SavedAttendance = () => {
 
       if (error) throw error;
 
-      setRecords(data || []);
+      const dates = (data || []).map(row => row.attendance_date).sort();
+      const vacationKeys = new Set<string>();
+      if (dates.length) {
+        const first = dates[0], last = dates[dates.length - 1];
+        const [manual, requests] = await Promise.all([
+          supabase.from('vacation_requests').select('employee_id,start_date,end_date').eq('status','approved').lte('start_date',last).gte('end_date',first),
+          supabase.from('employee_requests').select('employee_id,start_date,end_date').eq('status','approved').in('request_type',['vacation','sick_leave']).lte('start_date',last).gte('end_date',first),
+        ]);
+        if (manual.error) throw manual.error;
+        if (requests.error) throw requests.error;
+        for (const leave of [...(manual.data || []), ...(requests.data || [])]) {
+          const emp = employees.find(e => e.id === leave.employee_id);
+          if (!emp) continue;
+          for (const date of dates) if (leave.start_date && leave.end_date && date >= leave.start_date && date <= leave.end_date)
+            vacationKeys.add(`${emp.zk_employee_code}_${date}`);
+        }
+      }
+      setRecords((data || []).map(row => {
+        if (row.record_status !== 'vacation' && !vacationKeys.has(`${row.employee_code}_${row.attendance_date}`)) return row;
+        const work = vacationWork(row.in_time, row.out_time);
+        return { ...row, record_status: 'vacation', deduction_amount: 0, deduction_rule_id: null, expected_hours: 0,
+          total_hours: work.total_work_minutes / 60, difference_hours: work.total_work_minutes / 60, has_issues: false };
+      }));
       setTotalCount(count || 0);
     } catch (error: any) {
       console.error("Error fetching saved attendance:", error);
@@ -476,6 +499,7 @@ const SavedAttendance = () => {
 
   // Get expected start time for an employee based on their attendance type
   const getExpectedStartTime = (employeeCode: string, attendanceDate: string): string | null => {
+    if (records.some(row => row.employee_code === employeeCode && row.attendance_date === attendanceDate && row.record_status === 'vacation')) return null;
     const emp = employees.find(e => e.zk_employee_code === employeeCode);
     if (!emp || !emp.attendance_type_id) return null;
     const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
@@ -484,6 +508,7 @@ const SavedAttendance = () => {
 
   // Get expected end time for an employee based on their attendance type
   const getExpectedEndTime = (employeeCode: string, attendanceDate: string): string | null => {
+    if (records.some(row => row.employee_code === employeeCode && row.attendance_date === attendanceDate && row.record_status === 'vacation')) return null;
     const emp = employees.find(e => e.zk_employee_code === employeeCode);
     if (!emp || !emp.attendance_type_id) return null;
     const attType = attendanceTypes.find(t => t.id === emp.attendance_type_id);
@@ -548,6 +573,7 @@ const SavedAttendance = () => {
 
   // Find the appropriate deduction rule based on late/early minutes
   const findDeductionRule = (lateMinutes: number, earlyExitMinutes: number, recordStatus: string): DeductionRule | null => {
+    if (recordStatus === 'vacation') return null;
     // For absent records, find absence rule
     if (recordStatus === 'absent') {
       const absenceRule = deductionRules.find(r => r.rule_type === 'absence');
