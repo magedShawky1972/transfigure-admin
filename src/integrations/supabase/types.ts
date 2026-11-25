@@ -6557,6 +6557,58 @@ export type Database = {
         }
         Relationships: []
       }
+      overtime_recovery_allocations: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          employee_id: string
+          id: string
+          minutes: number
+          source_timesheet_id: string
+          timesheet_id: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          employee_id: string
+          id?: string
+          minutes: number
+          source_timesheet_id: string
+          timesheet_id: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          employee_id?: string
+          id?: string
+          minutes?: number
+          source_timesheet_id?: string
+          timesheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_recovery_allocations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_recovery_allocations_source_timesheet_id_fkey"
+            columns: ["source_timesheet_id"]
+            isOneToOne: false
+            referencedRelation: "timesheets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_recovery_allocations_timesheet_id_fkey"
+            columns: ["timesheet_id"]
+            isOneToOne: false
+            referencedRelation: "timesheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       password_access_logs: {
         Row: {
           access_type: string
@@ -13026,6 +13078,10 @@ export type Database = {
     }
     Functions: {
       _i276_q: { Args: { query: string }; Returns: Json }
+      approve_overtime_recovery: {
+        Args: { _source_timesheet_id: string; _target_ids: string[] }
+        Returns: Json
+      }
       approve_wfh_recovery: {
         Args: { _target_ids: string[]; _wfh_checkin_id: string }
         Returns: Json

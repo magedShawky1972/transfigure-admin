@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { recoveryTargets, recoveryAdjustment, canApproveLateRecovery, wfhRecoveryCredit, canRecoverWfh } from './lateRecovery';
+import { recoveryTargets, recoveryAdjustment, canApproveLateRecovery, wfhRecoveryCredit, canRecoverWfh, overtimeRecoveryCredit, canRecoverOvertime } from './lateRecovery';
 
 const row = (id: string, employee_id: string, work_date: string, late_minutes = 150) => ({ id, employee_id, work_date, late_minutes, deduction_amount: 100 });
 
@@ -69,4 +69,21 @@ test('only completed approved WFH work can supply recovery with approval rights'
   assert.equal(canRecoverWfh({ ...session, status: 'pending' }, true), false);
   assert.equal(canRecoverWfh({ ...session, actual_end: null }, true), false);
   assert.equal(canRecoverWfh(session, false), false);
+});
+
+test('Shrouk five approved overtime minutes supply five recovery minutes at 100 percent', () => {
+  assert.equal(overtimeRecoveryCredit(5), 5);
+  assert.equal(canRecoverOvertime({ status: 'approved', is_absent: false, overtime_minutes: 5 }, true), true);
+});
+test('overtime credit cannot be used twice and partially used credit remains available', () => {
+  assert.equal(overtimeRecoveryCredit(5, 5), 0);
+  assert.equal(overtimeRecoveryCredit(10, 4), 6);
+});
+test('unapproved or absent overtime cannot supply recovery', () => {
+  assert.equal(canRecoverOvertime({ status: 'pending', is_absent: false, overtime_minutes: 5 }, true), false);
+  assert.equal(canRecoverOvertime({ status: 'approved', is_absent: true, overtime_minutes: 5 }, true), false);
+  assert.equal(canRecoverOvertime({ status: 'approved', is_absent: false, overtime_minutes: 5 }, false), false);
+});
+test('available overtime enables recovery even without a previous-day percentage', () => {
+  assert.equal(canApproveLateRecovery(recoveryRow(), { percent: 0, mayEdit: true, hasOvertimeCredit: true }), true);
 });

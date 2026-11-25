@@ -1,6 +1,6 @@
 import { vacationWork } from '../../supabase/functions/_shared/vacationAttendance';
 import { applyFlexibleLate } from "@/lib/flexibleHours";
-import { canApproveLateRecovery, recoveryAdjustment, recoveryTargets, canRecoverWfh, wfhRecoveryCredit } from "@/lib/lateRecovery";
+import { canApproveLateRecovery, recoveryAdjustment, recoveryTargets, canRecoverWfh, wfhRecoveryCredit, canRecoverOvertime, overtimeRecoveryCredit } from "@/lib/lateRecovery";
 import { Checkbox } from "@/components/ui/checkbox";
 import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
 import { useState, useEffect, useRef } from "react";
@@ -115,6 +115,7 @@ interface Timesheet {
   late_minutes: number;
   late_recovery_minutes?: number | null;
   wfh_recovery_used_minutes?: number;
+  overtime_recovery_used_minutes?: number;
   early_leave_minutes: number;
   overtime_minutes: number;
   total_work_minutes: number;
@@ -950,6 +951,22 @@ export default function TimesheetManagement() {
         return !start || ts.work_date >= start;
       });
 
+      // Track overtime minutes already allocated so the same credit cannot be offered twice.
+      const overtimeUsedMinutes = new Map<string, number>();
+      const overtimeSourceIds = data.map((ts: any) => ts.id);
+      for (let start = 0; start < overtimeSourceIds.length; start += 500) {
+        for (let offset = 0; ; offset += 1000) {
+          const { data: allocations, error: allocationError } = await supabase.from("overtime_recovery_allocations")
+            .select("id, source_timesheet_id, minutes").in("source_timesheet_id", overtimeSourceIds.slice(start, start + 500))
+            .order("id").range(offset, offset + 999);
+          if (allocationError) throw allocationError;
+          for (const allocation of allocations || []) {
+            overtimeUsedMinutes.set(allocation.source_timesheet_id, (overtimeUsedMinutes.get(allocation.source_timesheet_id) || 0) + allocation.minutes);
+          }
+          if (!allocations || allocations.length < 1000) break;
+        }
+      }
+
       // Determine date range for vacation lookup
       let vacDateFrom = selectedDate;
       let vacDateTo = selectedDate;
@@ -1122,6 +1139,7 @@ export default function TimesheetManagement() {
         return {
           ...ts,
           ...(isVacationDay ? vacationWork(ts.changed_start || ts.actual_start, ts.changed_end || ts.actual_end, ts.break_duration_minutes || 0) : {}),
+          overtime_recovery_used_minutes: overtimeUsedMinutes.get(ts.id) || 0,
           mailSent: ts.deduction_notification_sent === true,
           status: isVacationDay ? "vacation" : isEmployeeWfhDay ? "wfh" : ts.status,
           vacation_name_en: vacationDetail?.nameEn || null,
@@ -1663,31 +1681,44 @@ export default function TimesheetManagement() {
     }
   };
 
+  const mayEditRecovery = (ts: Timesheet) => isNawaf || isAdmin || canEditTimesheet(ts);
+  const canReceiveOvertimeCredit = (ts: Timesheet, sourceDate?: string) => !ts.id.startsWith("wfh-virtual-")
+    && !["vacation", "holiday", "wfh", "rejected"].includes(ts.status) && !ts.is_absent
+    && !(ts as any).has_approved_delay && ts.late_minutes > 0
+    && (!sourceDate || ts.work_date > sourceDate) && mayEditRecovery(ts);
+  const hasEarlierOvertimeCredit = (ts: Timesheet) => sortedTimesheets.some(source =>
+    source.employee_id === ts.employee_id && source.work_date < ts.work_date
+    && canRecoverOvertime(source, mayEditRecovery(source)) && canReceiveOvertimeCredit(ts, source.work_date));
   const canRecover = (ts: Timesheet) => canApproveLateRecovery(ts, {
     percent: Number(employees.find(e => e.id === ts.employee_id)?.attendance_types?.late_recovery_percent || 0),
-    mayEdit: isNawaf || isAdmin || canEditTimesheet(ts),
+    mayEdit: mayEditRecovery(ts),
     hasApprovedDelay: (ts as any).has_approved_delay,
     isVirtual: ts.id.startsWith("wfh-virtual-"),
+    hasOvertimeCredit: hasEarlierOvertimeCredit(ts),
   });
 
   const canReceiveWfhCredit = (ts: Timesheet) => !ts.id.startsWith("wfh-virtual-")
     && !["vacation", "holiday", "wfh", "rejected"].includes(ts.status) && !ts.is_absent
-    && !(ts as any).has_approved_delay && ts.late_minutes > 0
-    && (isNawaf || isAdmin || canEditTimesheet(ts));
+    && !(ts as any).has_approved_delay && ts.late_minutes > 0 && mayEditRecovery(ts);
   const canSupplyWfhCredit = (ts: Timesheet) => ts.id.startsWith("wfh-virtual-")
-    && canRecoverWfh(ts, isNawaf || isAdmin || canEditTimesheet(ts))
+    && canRecoverWfh(ts, mayEditRecovery(ts))
     && sortedTimesheets.some(target => target.employee_id === ts.employee_id && canReceiveWfhCredit(target));
-  const canRecoverForBulk = (ts: Timesheet) => canRecover(ts) || canSupplyWfhCredit(ts);
+  const canSupplyOvertimeCredit = (ts: Timesheet) => !ts.id.startsWith("wfh-virtual-")
+    && canRecoverOvertime(ts, mayEditRecovery(ts))
+    && sortedTimesheets.some(target => target.employee_id === ts.employee_id && canReceiveOvertimeCredit(target, ts.work_date));
+  const canRecoverForBulk = (ts: Timesheet) => canRecover(ts) || canSupplyWfhCredit(ts) || canSupplyOvertimeCredit(ts);
   const selectableRecoveryEmployees = new Set(sortedTimesheets.filter(canRecoverForBulk).map(ts => ts.employee_id));
   const anyRecoveryPercent = [...new Set(sortedTimesheets.map(ts => ts.employee_id))]
     .some(id => Number(employees.find(e => e.id === id)?.attendance_types?.late_recovery_percent || 0) > 0)
-    || sortedTimesheets.some(canSupplyWfhCredit);
+    || sortedTimesheets.some(canSupplyWfhCredit) || sortedTimesheets.some(canSupplyOvertimeCredit);
   const selectedRecoveryRows = recoveryTargets(sortedTimesheets, recoveryEmployees, canRecoverForBulk);
   const selectedWfhSources = selectedRecoveryRows.filter(ts => ts.id.startsWith("wfh-virtual-"));
+  const selectedOvertimeSources = selectedRecoveryRows.filter(canSupplyOvertimeCredit);
   const selectedWfhMinutes = selectedWfhSources.reduce((sum, ts) => sum + wfhRecoveryCredit(ts.total_work_minutes, ts.wfh_recovery_used_minutes), 0);
+  const selectedOvertimeMinutes = selectedOvertimeSources.reduce((sum, ts) => sum + overtimeRecoveryCredit(ts.overtime_minutes, ts.overtime_recovery_used_minutes), 0);
   const selectedRecoveryCount = new Set(selectedRecoveryRows.map(ts => ts.employee_id)).size;
 
-  const approveRecovery = async (ts: Timesheet, userId: string): Promise<number> => {
+  const approveRecovery = async (ts: Timesheet, userId: string, includeOvertime = true): Promise<number> => {
     if (!canRecover(ts)) return 0;
     // Reload each target; chronological bulk approval must see earlier approvals, not stale grid values.
     const { data: current, error: currentError } = await supabase.from("timesheets")
@@ -1697,6 +1728,8 @@ export default function TimesheetManagement() {
     const row = current?.[0];
     if (!row) throw new Error("Attendance record is no longer available");
     if (row.late_minutes <= 0) return 0;
+    let remaining = row.late_minutes;
+    let recoveredTotal = 0;
     const percent = Number(employees.find(e => e.id === row.employee_id)?.attendance_types?.late_recovery_percent || 0);
     const { data: previous, error: previousError } = await supabase.from("timesheets")
       .select("late_minutes, late_recovery_minutes")
@@ -1704,19 +1737,43 @@ export default function TimesheetManagement() {
       .order("work_date", { ascending: false }).limit(1);
     if (previousError) throw previousError;
     const { credit, ...adjustment } = recoveryAdjustment(row, previous?.[0], percent);
-    if (credit <= 0) return 0;
-    let update = supabase.from("timesheets").update({
-      ...adjustment,
-      late_recovery_approved_by: userId,
-      late_recovery_approved_at: new Date().toISOString(),
-    }).eq("id", row.id).eq("late_minutes", row.late_minutes).eq("deduction_amount", row.deduction_amount);
-    update = row.late_recovery_minutes == null
-      ? update.is("late_recovery_minutes", null)
-      : update.eq("late_recovery_minutes", row.late_recovery_minutes);
-    const { data: updated, error } = await update.select("id");
-    if (error) throw error;
-    if (!updated?.length) throw new Error("No permission to update, or attendance changed. Refresh and try again.");
-    return credit;
+    if (credit > 0) {
+      let update = supabase.from("timesheets").update({
+        ...adjustment,
+        late_recovery_approved_by: userId,
+        late_recovery_approved_at: new Date().toISOString(),
+      }).eq("id", row.id).eq("late_minutes", row.late_minutes).eq("deduction_amount", row.deduction_amount);
+      update = row.late_recovery_minutes == null
+        ? update.is("late_recovery_minutes", null)
+        : update.eq("late_recovery_minutes", row.late_recovery_minutes);
+      const { data: updated, error } = await update.select("id");
+      if (error) throw error;
+      if (!updated?.length) throw new Error("No permission to update, or attendance changed. Refresh and try again.");
+      recoveredTotal += credit;
+      remaining = adjustment.late_minutes;
+    }
+
+    // Ordinary approved overtime is a separate 100% credit. The server ledger
+    // locks each source and prevents already-used minutes from being allocated again.
+    if (includeOvertime && remaining > 0) {
+      const { data: sources, error: sourcesError } = await supabase.from("timesheets")
+        .select("id").eq("employee_id", row.employee_id).eq("status", "approved")
+        .eq("is_absent", false).lt("work_date", row.work_date).gt("overtime_minutes", 0)
+        .order("work_date", { ascending: true });
+      if (sourcesError) throw sourcesError;
+      for (const source of sources || []) {
+        if (remaining <= 0) break;
+        const { data: result, error: overtimeError } = await supabase.rpc("approve_overtime_recovery", {
+          _source_timesheet_id: source.id, _target_ids: [row.id],
+        });
+        if (overtimeError) throw overtimeError;
+        const overtimeCredit = result && typeof result === "object" && !Array.isArray(result)
+          ? Number(result.minutes || 0) : 0;
+        recoveredTotal += overtimeCredit;
+        remaining -= overtimeCredit;
+      }
+    }
+    return recoveredTotal;
   };
 
   const handleApproveLateRecovery = async (ts: Timesheet) => {
@@ -1728,7 +1785,7 @@ export default function TimesheetManagement() {
       if (error || !user) throw new Error("Please sign in again before approving recovery");
       const credit = await approveRecovery(ts, user.id);
       if (credit > 0) toast.success(`Recovered ${credit} late minutes`);
-      else toast.info("No previous-day late time to recover");
+      else toast.info("No previous-day late time or unused approved overtime to recover");
       await fetchData();
     } catch (error: any) {
       toast.error(error.message);
@@ -1742,18 +1799,23 @@ export default function TimesheetManagement() {
     if (recoveryBusy.current || !selectedRecoveryRows.length) return;
     recoveryBusy.current = true;
     setRecoveryRunning(true);
-    // Keep the existing previous-day approvals first; WFH then offsets only remaining visible delays.
-    const targets = [...selectedRecoveryRows.filter(ts => !ts.id.startsWith("wfh-virtual-")), ...selectedWfhSources];
+    // Previous-day approval runs first; selected overtime and WFH then offset only remaining visible delays.
+    const targets = [
+      ...selectedRecoveryRows.filter(ts => !ts.id.startsWith("wfh-virtual-")).map(ts => ({ ts, kind: "previous" as const })),
+      ...selectedOvertimeSources.map(ts => ({ ts, kind: "overtime" as const })),
+      ...selectedWfhSources.map(ts => ({ ts, kind: "wfh" as const })),
+    ];
     setRecoveryProgress({ done: 0, total: targets.length });
     let recovered = 0, skipped = 0, failed = 0, minutes = 0;
     let lastError = "";
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) throw new Error("Please sign in again before approving recovery");
-      for (const [index, ts] of targets.entries()) {
+      for (const [index, targetAction] of targets.entries()) {
+        const { ts, kind } = targetAction;
         try {
           let credit: number;
-          if (ts.id.startsWith("wfh-virtual-")) {
+          if (kind === "wfh") {
             const targetIds = sortedTimesheets.filter(target => target.employee_id === ts.employee_id
               && recoveryEmployees.has(target.employee_id) && canReceiveWfhCredit(target)).map(target => target.id);
             const { data: result, error: wfhError } = await supabase.rpc("approve_wfh_recovery", {
@@ -1762,8 +1824,17 @@ export default function TimesheetManagement() {
             if (wfhError) throw wfhError;
             credit = result && typeof result === "object" && !Array.isArray(result)
               ? Number(result.minutes || 0) : 0;
+          } else if (kind === "overtime") {
+            const targetIds = sortedTimesheets.filter(target => target.employee_id === ts.employee_id
+              && recoveryEmployees.has(target.employee_id) && canReceiveOvertimeCredit(target, ts.work_date)).map(target => target.id);
+            const { data: result, error: overtimeError } = await supabase.rpc("approve_overtime_recovery", {
+              _source_timesheet_id: ts.id, _target_ids: targetIds,
+            });
+            if (overtimeError) throw overtimeError;
+            credit = result && typeof result === "object" && !Array.isArray(result)
+              ? Number(result.minutes || 0) : 0;
           } else {
-            credit = await approveRecovery(ts, user.id);
+            credit = await approveRecovery(ts, user.id, false);
           }
           if (credit > 0) { recovered++; minutes += credit; }
           else skipped++;
@@ -2659,7 +2730,7 @@ export default function TimesheetManagement() {
                         )}
                         {canRecover(ts) && (
                           <Button variant="outline" size="sm" className="h-6 px-2 mt-1 text-xs" onClick={() => handleApproveLateRecovery(ts)} disabled={recoveryRunning || recalcRunning}
-                            title={language === "ar" ? "اعتماد استرداد التأخير من اليوم السابق" : "Approve late recovery from previous day"}>
+                            title={language === "ar" ? "اعتماد استرداد التأخير من اليوم السابق أو الوقت الإضافي المعتمد" : "Approve recovery from previous-day lateness or approved overtime"}>
                             <History className="h-3 w-3 mr-1" />{language === "ar" ? "استرداد" : "Recover"}
                           </Button>
                         )}
@@ -3181,6 +3252,7 @@ export default function TimesheetManagement() {
             <AlertDialogDescription>
               Approve late recovery for {selectedRecoveryCount} selected employees across {selectedRecoveryRows.length} eligible attendance records in the displayed period?
               Each employee’s configured recovery percentage and previous recorded day’s lateness apply. Records without available recovery are skipped.
+              {selectedOvertimeSources.length > 0 && ` Overtime: ${selectedOvertimeSources.length} approved records supply up to ${selectedOvertimeMinutes} minutes at 100%, applied only to later delays in this period oldest first.`}
               {selectedWfhSources.length > 0 && ` WFH: ${selectedWfhSources.length} approved sessions supply up to ${selectedWfhMinutes} minutes (20% of worked time), applied to remaining delays in this period oldest first. Used credit cannot be applied again.`}
             </AlertDialogDescription>
           </AlertDialogHeader>

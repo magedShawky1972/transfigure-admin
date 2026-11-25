@@ -27,6 +27,19 @@ export function recoveryAdjustment(row: RecoveryRow, previous: { late_minutes: n
   };
 }
 
+/** Approved ordinary overtime supplies 100% credit, less allocations already used. */
+export function overtimeRecoveryCredit(overtimeMinutes: number, usedMinutes = 0): number {
+  if (!Number.isFinite(overtimeMinutes) || overtimeMinutes <= 0) return 0;
+  return Math.max(0, Math.floor(overtimeMinutes) - Math.max(0, usedMinutes));
+}
+
+export function canRecoverOvertime(row: {
+  status: string; is_absent: boolean; overtime_minutes: number; overtime_recovery_used_minutes?: number;
+}, mayEdit: boolean): boolean {
+  return mayEdit && row.status === 'approved' && !row.is_absent
+    && overtimeRecoveryCredit(row.overtime_minutes, row.overtime_recovery_used_minutes) > 0;
+}
+
 /** Completed, approved WFH sessions supply whole-minute credit; unfinished sessions supply none. */
 export function wfhRecoveryCredit(workMinutes: number, usedMinutes = 0): number {
   if (!Number.isFinite(workMinutes) || workMinutes <= 0) return 0;
@@ -44,11 +57,11 @@ export function canRecoverWfh(row: {
 /** Who may approve late recovery for one attendance row, and when a row is eligible at all. */
 export function canApproveLateRecovery<T extends RecoveryRow>(
   row: T,
-  opts: { percent: number; mayEdit: boolean; hasApprovedDelay?: boolean | null; isVirtual?: boolean },
+  opts: { percent: number; mayEdit: boolean; hasApprovedDelay?: boolean | null; isVirtual?: boolean; hasOvertimeCredit?: boolean },
 ): boolean {
   return !opts.hasApprovedDelay
     && (row.late_minutes || 0) > 0
     && !opts.isVirtual
     && opts.mayEdit
-    && opts.percent > 0;
+    && (opts.percent > 0 || !!opts.hasOvertimeCredit);
 }

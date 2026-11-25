@@ -169,6 +169,13 @@
       "when": 1795600413516,
       "tag": "0023_wfh_recovery_allocations",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795601906149,
+      "tag": "0024_add_overtime_late_recovery",
+      "breakpoints": true
     }
   ]
 }
