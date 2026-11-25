@@ -653,6 +653,18 @@ Deno.serve(async (req) => {
         lateMinutes = Math.max(0, lateMinutes - Math.min(flexMinutes, afterEnd));
       }
 
+      // Keep any approved late recovery (Timesheet Management) when reprocessing
+      if (lateMinutes > 0) {
+        const { data: recRow } = await supabase
+          .from('timesheets')
+          .select('late_recovery_minutes')
+          .eq('employee_id', employee.id)
+          .eq('work_date', targetDate)
+          .maybeSingle();
+        const recovered = (recRow as any)?.late_recovery_minutes || 0;
+        if (recovered > 0) lateMinutes = Math.max(0, lateMinutes - recovered);
+      }
+
       // Calculate deduction
       const { amount: deductionAmount, ruleId: deductionRuleId } = calculateDeduction(
         lateMinutes,

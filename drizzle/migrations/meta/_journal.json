@@ -134,6 +134,13 @@
       "when": 1795595055143,
       "tag": "0018_attendance_types_flexible_minutes",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795595695743,
+      "tag": "0019_late_recovery",
+      "breakpoints": true
     }
   ]
 }

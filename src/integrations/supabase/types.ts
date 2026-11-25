@@ -527,6 +527,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_shift_based: boolean
+          late_recovery_percent: number
           type_code: string
           type_name: string
           type_name_ar: string | null
@@ -544,6 +545,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_shift_based?: boolean
+          late_recovery_percent?: number
           type_code: string
           type_name: string
           type_name_ar?: string | null
@@ -561,6 +563,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_shift_based?: boolean
+          late_recovery_percent?: number
           type_code?: string
           type_name?: string
           type_name_ar?: string | null
@@ -11416,6 +11419,9 @@ export type Database = {
           id: string
           is_absent: boolean | null
           late_minutes: number | null
+          late_recovery_approved_at: string | null
+          late_recovery_approved_by: string | null
+          late_recovery_minutes: number
           manager_note: string | null
           manager_note_at: string | null
           manager_note_by: string | null
@@ -11451,6 +11457,9 @@ export type Database = {
           id?: string
           is_absent?: boolean | null
           late_minutes?: number | null
+          late_recovery_approved_at?: string | null
+          late_recovery_approved_by?: string | null
+          late_recovery_minutes?: number
           manager_note?: string | null
           manager_note_at?: string | null
           manager_note_by?: string | null
@@ -11486,6 +11495,9 @@ export type Database = {
           id?: string
           is_absent?: boolean | null
           late_minutes?: number | null
+          late_recovery_approved_at?: string | null
+          late_recovery_approved_by?: string | null
+          late_recovery_minutes?: number
           manager_note?: string | null
           manager_note_at?: string | null
           manager_note_by?: string | null

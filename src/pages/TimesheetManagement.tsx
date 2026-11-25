@@ -1,4 +1,4 @@
-import { applyFlexibleLate } from "@/lib/flexibleHours";
+import { applyFlexibleLate, lateRecoveryCredit } from "@/lib/flexibleHours";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -47,7 +47,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2, MessageSquare } from "lucide-react";
+import { Plus, Clock, CheckCircle, XCircle, AlertTriangle, Calculator, Mail, MailX, Send, Loader2, Pencil, UserX, Printer, ArrowUpDown, ArrowUp, ArrowDown, Download, RefreshCw, Lock, Unlock, ShieldCheck, Home, Building2, MessageSquare, History } from "lucide-react";
 import AttendancePrintDialog from "@/components/AttendancePrintDialog";
 import PayrollDeductionMonthsDialog from "@/components/PayrollDeductionMonthsDialog";
 import { getPrintLogoUrl } from "@/lib/printLogo";
@@ -64,6 +64,7 @@ interface AttendanceType {
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
   flexible_minutes?: number | null;
+  late_recovery_percent?: number | null;
 }
 
 interface Employee {
@@ -791,7 +792,7 @@ export default function TimesheetManagement() {
       const [employeesRes, rulesRes, deptsRes] = await Promise.all([
         supabase
           .from("employees")
-          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, payroll_country, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, is_shift_based)")
+          .select("id, employee_number, first_name, last_name, shift_type, fixed_shift_start, fixed_shift_end, basic_salary, attendance_type_id, user_id, department_id, job_start_date, working_business_unit_id, payroll_country, attendance_types(id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, late_recovery_percent, is_shift_based)")
           .eq("employment_status", "active")
           .order("employee_number"),
         supabase.from("deduction_rules").select("*").eq("is_active", true).order("rule_type"),
@@ -1602,6 +1603,50 @@ export default function TimesheetManagement() {
       if (error) throw error;
       toast.success(language === "ar" ? "تم الحفظ بنجاح" : "Saved successfully");
       setDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleApproveLateRecovery = async (ts: any) => {
+    try {
+      const emp = employees.find((e) => e.id === ts.employee_id);
+      const pct = Number(emp?.attendance_types?.late_recovery_percent || 0);
+      if (!pct) return;
+      const { data: prev, error: prevErr } = await supabase
+        .from("timesheets")
+        .select("work_date, late_minutes, late_recovery_minutes")
+        .eq("employee_id", ts.employee_id)
+        .lt("work_date", ts.work_date)
+        .order("work_date", { ascending: false })
+        .limit(1);
+      if (prevErr) throw prevErr;
+      const prevRow: any = prev?.[0];
+      const prevLate = prevRow ? (prevRow.late_minutes || 0) + (prevRow.late_recovery_minutes || 0) : 0;
+      const credit = lateRecoveryCredit(prevLate, pct, ts.late_minutes || 0);
+      if (credit <= 0) {
+        toast.error(language === "ar" ? "لا يوجد تأخير في اليوم السابق لاسترداده" : "No previous-day late time to recover");
+        return;
+      }
+      const newLate = (ts.late_minutes || 0) - credit;
+      const newDeduction = newLate <= 0 ? 0 : Math.round(((ts.deduction_amount || 0) * newLate / (ts.late_minutes || 1)) * 100) / 100;
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: upd, error } = await supabase
+        .from("timesheets")
+        .update({
+          late_minutes: newLate,
+          late_recovery_minutes: (ts.late_recovery_minutes || 0) + credit,
+          late_recovery_approved_by: user?.id,
+          late_recovery_approved_at: new Date().toISOString(),
+          deduction_amount: newDeduction,
+          ...(newLate <= 0 ? { deduction_rule_id: null } : {}),
+        })
+        .eq("id", ts.id)
+        .select("id");
+      if (error) throw error;
+      if (!upd?.length) throw new Error(language === "ar" ? "لا تملك صلاحية التعديل" : "No permission to update");
+      toast.success(language === "ar" ? `تم استرداد ${credit} دقيقة من التأخير` : `Recovered ${credit} late minutes (from ${prevRow.work_date})`);
       fetchData();
     } catch (error: any) {
       toast.error(error.message);
@@ -2428,6 +2473,18 @@ export default function TimesheetManagement() {
                         {(ts as any).has_approved_delay
                           ? (language === "ar" ? "✓ طلب معتمد" : "✓ Approved")
                           : ts.late_minutes > 0 ? `${ts.late_minutes}m` : "-"}
+                        {(ts as any).late_recovery_minutes > 0 && (
+                          <span className="block text-xs text-emerald-600 dark:text-emerald-400">
+                            {language === "ar" ? "مسترد" : "Recovered"} {(ts as any).late_recovery_minutes}m
+                          </span>
+                        )}
+                        {!(ts as any).has_approved_delay && ts.late_minutes > 0 && !String(ts.id).startsWith("wfh-virtual-") && canEditTimesheet(ts) &&
+                          Number(employees.find((e) => e.id === ts.employee_id)?.attendance_types?.late_recovery_percent || 0) > 0 && (
+                          <Button variant="outline" size="sm" className="h-6 px-2 mt-1 text-xs" onClick={() => handleApproveLateRecovery(ts)}
+                            title={language === "ar" ? "اعتماد استرداد التأخير من اليوم السابق" : "Approve late recovery from previous day"}>
+                            <History className="h-3 w-3 mr-1" />{language === "ar" ? "استرداد" : "Recover"}
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell className={ts.overtime_minutes > 0 ? "text-green-600 font-medium" : ""}>
                         {ts.overtime_minutes > 0 ? `${ts.overtime_minutes}m` : "-"}

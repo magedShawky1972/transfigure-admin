@@ -50,6 +50,7 @@ interface AttendanceType {
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
   flexible_minutes: number | null;
+  late_recovery_percent: number | null;
   weekend_days: number[] | null;
   created_at: string;
   updated_at: string;
@@ -84,6 +85,7 @@ const AttendanceTypeSetup = () => {
     allow_late_minutes: "0",
     allow_early_exit_minutes: "0",
     flexible_hours: "0",
+    late_recovery_percent: "0",
     weekend_days: [5, 6] as number[],
   });
 
@@ -123,6 +125,7 @@ const AttendanceTypeSetup = () => {
       allow_late_minutes: "0",
       allow_early_exit_minutes: "0",
       flexible_hours: "0",
+      late_recovery_percent: "0",
       weekend_days: [5, 6],
     });
     setIsDialogOpen(true);
@@ -142,6 +145,7 @@ const AttendanceTypeSetup = () => {
       allow_late_minutes: type.allow_late_minutes?.toString() || "0",
       allow_early_exit_minutes: type.allow_early_exit_minutes?.toString() || "0",
       flexible_hours: ((type.flexible_minutes || 0) / 60).toString(),
+      late_recovery_percent: (type.late_recovery_percent || 0).toString(),
       weekend_days: type.weekend_days || [5, 6],
     });
     setIsDialogOpen(true);
@@ -170,6 +174,7 @@ const AttendanceTypeSetup = () => {
         fixed_end_time: !formData.is_shift_based && formData.fixed_end_time ? formData.fixed_end_time : null,
         allow_late_minutes: parseInt(formData.allow_late_minutes) || 0,
         allow_early_exit_minutes: parseInt(formData.allow_early_exit_minutes) || 0,
+        late_recovery_percent: Math.min(100, Math.max(0, parseFloat(formData.late_recovery_percent) || 0)),
         flexible_minutes: Math.max(0, Math.round((parseFloat(formData.flexible_hours) || 0) * 60)),
         weekend_days: formData.weekend_days,
       };
@@ -486,6 +491,26 @@ const AttendanceTypeSetup = () => {
                 {language === "ar"
                   ? "التأخير حتى هذا الحد لا يُحتسب إذا عوّضه الموظف بالبقاء بعد نهاية الدوام."
                   : "Late arrival up to this limit is not counted when the employee stays the same time after the end time."}
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="late_recovery_percent">
+                {language === "ar" ? "نسبة استرداد التأخير لليوم التالي (%)" : "Late Recovery to Next Day (%)"}
+              </Label>
+              <Input
+                id="late_recovery_percent"
+                type="number"
+                min="0"
+                max="100"
+                value={formData.late_recovery_percent}
+                onChange={(e) => setFormData({ ...formData, late_recovery_percent: e.target.value })}
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                {language === "ar"
+                  ? "مثال: تأخير 5 ساعات أمس و 50% = يمكن التأخير 2.5 ساعة اليوم دون احتساب، بعد الموافقة في إدارة الحضور."
+                  : "Example: 5 h late yesterday at 50% = up to 2.5 h late today not counted, after approval in Timesheet Management."}
               </p>
             </div>
 

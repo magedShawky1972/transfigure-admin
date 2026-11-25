@@ -5,3 +5,7 @@ test('1h flex: 30 min late, stays 30 min after end -> no delay', () => assert.eq
 test('partial compensation keeps remaining delay', () => assert.equal(applyFlexibleLate(30, 10, 60), 20));
 test('delay beyond flex limit still counted', () => assert.equal(applyFlexibleLate(90, 90, 60), 30));
 test('no flex keeps delay', () => assert.equal(applyFlexibleLate(30, 30, 0), 30));
+import { lateRecoveryCredit } from './flexibleHours';
+test('50% recovery: 5h late yesterday allows 2.5h late today', () => assert.equal(lateRecoveryCredit(300, 50, 150), 150));
+test('recovery credit capped at allowance', () => assert.equal(lateRecoveryCredit(300, 50, 200), 150));
+test('no late yesterday gives no credit', () => assert.equal(lateRecoveryCredit(0, 50, 60), 0));
