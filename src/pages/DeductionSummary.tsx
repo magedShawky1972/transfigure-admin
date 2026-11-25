@@ -562,6 +562,7 @@ export default function DeductionSummary() {
         .in("element_id", elIds)
         .eq("period_year", periodYear)
         .eq("period_month", periodMonth)
+        .neq("amount", 0)
         .in("employee_id", empIds);
       setExistingCount(count || 0);
     };
