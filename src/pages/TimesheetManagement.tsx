@@ -3,6 +3,7 @@ import { applyFlexibleLate } from "@/lib/flexibleHours";
 import { canApproveLateRecovery, recoveryAdjustment, recoveryTargets, canRecoverWfh, wfhRecoveryCredit, canRecoverOvertime, overtimeRecoveryCredit } from "@/lib/lateRecovery";
 import { Checkbox } from "@/components/ui/checkbox";
 import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
+import { isTimesheetVisibleForJobStart } from "@/lib/timesheetVisibility";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -941,15 +942,15 @@ export default function TimesheetManagement() {
       const { data: rawData, error } = await query;
       if (error) throw error;
 
-      // Drop rows that predate the employee's job start date (defensive)
+      // Hide automatic rows before the job start date, but never hide an
+      // explicitly saved manual entry (for example, approved work before onboarding).
       const empStartMap = new Map<string, string>();
       (employeesRes.data || []).forEach((e: any) => {
         if (e.job_start_date) empStartMap.set(e.id, e.job_start_date);
       });
-      const data = (rawData || []).filter((ts: any) => {
-        const start = empStartMap.get(ts.employee_id);
-        return !start || ts.work_date >= start;
-      });
+      const data = (rawData || []).filter((ts: any) =>
+        isTimesheetVisibleForJobStart(ts, empStartMap.get(ts.employee_id))
+      );
 
       // Track overtime minutes already allocated so the same credit cannot be offered twice.
       const overtimeUsedMinutes = new Map<string, number>();
