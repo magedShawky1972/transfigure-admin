@@ -19,3 +19,4 @@
 - [x] Add Product Code, Product ID and SKU columns to the Original Orders Breakdown table, resolved from the product catalog; verified live with real order data in both A-class and normal invoices.
 - [x] Add Attendance Type seasonal working hours for one exact inclusive date range, with Egypt summer/winter times used throughout attendance calculations; 13 tests, build, signed-in save/readback/cleanup, and edge deployment verified.
 - [x] Add Effective Start/End Dates to both fixed and seasonal working-time schedules and apply the matching schedule to attendance calculations; 15 tests, build, signed-in calendar save/readback/cleanup, and edge deployment verified.
+- [x] Add Recover All for selected employees in the visible timesheet period, sharing individual recovery approval rules; 13 tests pass, signed-in selection/cancel/approval/readback verified with isolated records, temporary records and edit permission removed, desktop/phone controls checked, build OK.

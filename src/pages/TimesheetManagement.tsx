@@ -1,6 +1,8 @@
-import { applyFlexibleLate, lateRecoveryCredit } from "@/lib/flexibleHours";
+import { applyFlexibleLate } from "@/lib/flexibleHours";
+import { recoveryAdjustment, recoveryTargets } from "@/lib/lateRecovery";
+import { Checkbox } from "@/components/ui/checkbox";
 import { resolveAttendanceSchedule } from "@/lib/seasonalAttendance";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -110,6 +112,7 @@ interface Timesheet {
   absence_reason: string | null;
   absence_has_notice?: boolean | null;
   late_minutes: number;
+  late_recovery_minutes?: number | null;
   early_leave_minutes: number;
   overtime_minutes: number;
   total_work_minutes: number;
@@ -219,6 +222,15 @@ export default function TimesheetManagement() {
   const [managerNoteTimesheetId, setManagerNoteTimesheetId] = useState<string>("");
   const [managerNoteText, setManagerNoteText] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
+  const [recoveryEmployees, setRecoveryEmployees] = useState<Set<string>>(new Set());
+  const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
+  const [recoveryRunning, setRecoveryRunning] = useState(false);
+  const recoveryBusy = useRef(false);
+  const [recoveryProgress, setRecoveryProgress] = useState({ done: 0, total: 0 });
+
+  useEffect(() => {
+    setRecoveryEmployees(new Set());
+  }, [filterMode, dateFrom, dateTo, selectedDate, selectedMonth, selectedEmployee, selectedDepartment, selectedPayrollCountry, cardFilter]);
 
   const handleSort = (key: SortKey, ctrlKey: boolean) => {
     setSortCriteria((prev) => {
@@ -1620,47 +1632,99 @@ export default function TimesheetManagement() {
     }
   };
 
-  const handleApproveLateRecovery = async (ts: any) => {
+  const canRecover = (ts: Timesheet) =>
+    !(ts as any).has_approved_delay && ts.late_minutes > 0 &&
+    !ts.id.startsWith("wfh-virtual-") && canEditTimesheet(ts) &&
+    Number(employees.find(e => e.id === ts.employee_id)?.attendance_types?.late_recovery_percent || 0) > 0;
+
+  const selectableRecoveryEmployees = new Set(sortedTimesheets.filter(canRecover).map(ts => ts.employee_id));
+  const selectedRecoveryRows = recoveryTargets(sortedTimesheets, recoveryEmployees, canRecover);
+  const selectedRecoveryCount = new Set(selectedRecoveryRows.map(ts => ts.employee_id)).size;
+
+  const approveRecovery = async (ts: Timesheet, userId: string): Promise<number> => {
+    if (!canRecover(ts)) return 0;
+    // Reload each target; chronological bulk approval must see earlier approvals, not stale grid values.
+    const { data: current, error: currentError } = await supabase.from("timesheets")
+      .select("id, employee_id, work_date, late_minutes, late_recovery_minutes, deduction_amount")
+      .eq("id", ts.id).eq("employee_id", ts.employee_id).eq("work_date", ts.work_date);
+    if (currentError) throw currentError;
+    const row = current?.[0];
+    if (!row) throw new Error("Attendance record is no longer available");
+    if (row.late_minutes <= 0) return 0;
+    const percent = Number(employees.find(e => e.id === row.employee_id)?.attendance_types?.late_recovery_percent || 0);
+    const { data: previous, error: previousError } = await supabase.from("timesheets")
+      .select("late_minutes, late_recovery_minutes")
+      .eq("employee_id", row.employee_id).lt("work_date", row.work_date)
+      .order("work_date", { ascending: false }).limit(1);
+    if (previousError) throw previousError;
+    const { credit, ...adjustment } = recoveryAdjustment(row, previous?.[0], percent);
+    if (credit <= 0) return 0;
+    let update = supabase.from("timesheets").update({
+      ...adjustment,
+      late_recovery_approved_by: userId,
+      late_recovery_approved_at: new Date().toISOString(),
+    }).eq("id", row.id).eq("late_minutes", row.late_minutes).eq("deduction_amount", row.deduction_amount);
+    update = row.late_recovery_minutes == null
+      ? update.is("late_recovery_minutes", null)
+      : update.eq("late_recovery_minutes", row.late_recovery_minutes);
+    const { data: updated, error } = await update.select("id");
+    if (error) throw error;
+    if (!updated?.length) throw new Error("No permission to update, or attendance changed. Refresh and try again.");
+    return credit;
+  };
+
+  const handleApproveLateRecovery = async (ts: Timesheet) => {
+    if (recoveryBusy.current) return;
+    recoveryBusy.current = true;
+    setRecoveryRunning(true);
     try {
-      const emp = employees.find((e) => e.id === ts.employee_id);
-      const pct = Number(emp?.attendance_types?.late_recovery_percent || 0);
-      if (!pct) return;
-      const { data: prev, error: prevErr } = await supabase
-        .from("timesheets")
-        .select("work_date, late_minutes, late_recovery_minutes")
-        .eq("employee_id", ts.employee_id)
-        .lt("work_date", ts.work_date)
-        .order("work_date", { ascending: false })
-        .limit(1);
-      if (prevErr) throw prevErr;
-      const prevRow: any = prev?.[0];
-      const prevLate = prevRow ? (prevRow.late_minutes || 0) + (prevRow.late_recovery_minutes || 0) : 0;
-      const credit = lateRecoveryCredit(prevLate, pct, ts.late_minutes || 0);
-      if (credit <= 0) {
-        toast.error(language === "ar" ? "لا يوجد تأخير في اليوم السابق لاسترداده" : "No previous-day late time to recover");
-        return;
-      }
-      const newLate = (ts.late_minutes || 0) - credit;
-      const newDeduction = newLate <= 0 ? 0 : Math.round(((ts.deduction_amount || 0) * newLate / (ts.late_minutes || 1)) * 100) / 100;
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: upd, error } = await supabase
-        .from("timesheets")
-        .update({
-          late_minutes: newLate,
-          late_recovery_minutes: (ts.late_recovery_minutes || 0) + credit,
-          late_recovery_approved_by: user?.id,
-          late_recovery_approved_at: new Date().toISOString(),
-          deduction_amount: newDeduction,
-          ...(newLate <= 0 ? { deduction_rule_id: null } : {}),
-        })
-        .eq("id", ts.id)
-        .select("id");
-      if (error) throw error;
-      if (!upd?.length) throw new Error(language === "ar" ? "لا تملك صلاحية التعديل" : "No permission to update");
-      toast.success(language === "ar" ? `تم استرداد ${credit} دقيقة من التأخير` : `Recovered ${credit} late minutes (from ${prevRow.work_date})`);
-      fetchData();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) throw new Error("Please sign in again before approving recovery");
+      const credit = await approveRecovery(ts, user.id);
+      if (credit > 0) toast.success(`Recovered ${credit} late minutes`);
+      else toast.info("No previous-day late time to recover");
+      await fetchData();
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      recoveryBusy.current = false;
+      setRecoveryRunning(false);
+    }
+  };
+
+  const handleRecoverAll = async () => {
+    if (recoveryBusy.current || !selectedRecoveryRows.length) return;
+    recoveryBusy.current = true;
+    setRecoveryRunning(true);
+    const targets = [...selectedRecoveryRows];
+    setRecoveryProgress({ done: 0, total: targets.length });
+    let recovered = 0, skipped = 0, failed = 0, minutes = 0;
+    let lastError = "";
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) throw new Error("Please sign in again before approving recovery");
+      for (const [index, ts] of targets.entries()) {
+        try {
+          const credit = await approveRecovery(ts, user.id);
+          if (credit > 0) { recovered++; minutes += credit; }
+          else skipped++;
+        } catch (error: any) {
+          failed++;
+          lastError = error.message;
+        }
+        setRecoveryProgress({ done: index + 1, total: targets.length });
+      }
+      const summary = `${recovered} records recovered (${minutes} minutes), ${skipped} skipped, ${failed} failed.`;
+      if (failed) toast.error(`${summary} ${lastError}`);
+      else toast.success(summary);
+      setRecoveryDialogOpen(false);
+      if (!failed) setRecoveryEmployees(new Set());
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      recoveryBusy.current = false;
+      setRecoveryRunning(false);
     }
   };
 
@@ -1945,14 +2009,14 @@ export default function TimesheetManagement() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="w-full min-w-0 max-w-full p-4 sm:p-6 space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-6 w-6" />
             {language === "ar" ? "إدارة سجل الحضور" : "Timesheet Management"}
           </CardTitle>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex min-w-0 gap-2 flex-wrap">
             <Button
               variant="outline"
               size="icon"
@@ -2073,7 +2137,7 @@ export default function TimesheetManagement() {
             </div>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           {/* Filters */}
           <div className="flex flex-wrap gap-4 mb-6">
             <div className="space-y-2">
@@ -2358,11 +2422,31 @@ export default function TimesheetManagement() {
             </Card>
           </div>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" onClick={() => setRecoveryDialogOpen(true)}
+              disabled={loading || recoveryRunning || recalcRunning || selectedRecoveryRows.length === 0}>
+              {recoveryRunning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <History className="h-4 w-4 mr-2" />}
+              Recover All{selectedRecoveryCount > 0 ? ` (${selectedRecoveryCount})` : ""}
+            </Button>
+            {selectedRecoveryCount > 0 && <span className="text-sm text-muted-foreground">
+              {selectedRecoveryCount} employees · {selectedRecoveryRows.length} attendance records
+            </span>}
+            {recoveryEmployees.size > 0 && <Button variant="ghost" size="sm" disabled={recoveryRunning}
+              onClick={() => setRecoveryEmployees(new Set())}>Clear Selection</Button>}
+          </div>
+
           {/* Table */}
-          <div className="rounded-md border">
-            <Table>
+          <div className="max-w-full overflow-x-auto rounded-md border">
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox aria-label="Select all employees for recovery"
+                      disabled={loading || recoveryRunning || selectableRecoveryEmployees.size === 0}
+                      checked={selectableRecoveryEmployees.size > 0 && [...selectableRecoveryEmployees].every(id => recoveryEmployees.has(id))
+                        ? true : [...selectableRecoveryEmployees].some(id => recoveryEmployees.has(id)) ? "indeterminate" : false}
+                      onCheckedChange={checked => setRecoveryEmployees(checked === true ? new Set(selectableRecoveryEmployees) : new Set())} />
+                  </TableHead>
                   {filterMode !== "date" && (
                     <TableHead className="cursor-pointer select-none" onClick={(e) => handleSort("work_date", e.ctrlKey || e.metaKey)}>
                       <span className="inline-flex items-center gap-1">{language === "ar" ? "التاريخ" : "Date"} {getSortIcon("work_date")}</span>
@@ -2399,13 +2483,13 @@ export default function TimesheetManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 16 : 15} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 17 : 16} className="text-center py-8">
                       {language === "ar" ? "جاري التحميل..." : "Loading..."}
                     </TableCell>
                   </TableRow>
                 ) : sortedTimesheets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={filterMode !== "date" ? 16 : 15} className="text-center py-8">
+                    <TableCell colSpan={filterMode !== "date" ? 17 : 16} className="text-center py-8">
                       {language === "ar" ? "لا توجد سجلات" : "No records found"}
                     </TableCell>
                   </TableRow>
@@ -2420,6 +2504,16 @@ export default function TimesheetManagement() {
                         ? 'bg-purple-50 dark:bg-purple-950/30 border-l-4 border-l-purple-500 [&_td]:text-purple-600 [&_td]:dark:text-purple-400'
                         : ''
                     }>
+                      <TableCell>
+                        <Checkbox aria-label={`Select ${getEmployeeName(ts)} for recovery`}
+                          disabled={loading || recoveryRunning || !selectableRecoveryEmployees.has(ts.employee_id)}
+                          checked={recoveryEmployees.has(ts.employee_id)}
+                          onCheckedChange={checked => setRecoveryEmployees(previous => {
+                            const next = new Set(previous);
+                            if (checked === true) next.add(ts.employee_id); else next.delete(ts.employee_id);
+                            return next;
+                          })} />
+                      </TableCell>
                       {filterMode !== "date" && (
                         <TableCell className="font-medium text-sm">
                           {format(parseISO(ts.work_date), "dd MMM")}
@@ -2490,9 +2584,8 @@ export default function TimesheetManagement() {
                             {language === "ar" ? "مسترد" : "Recovered"} {(ts as any).late_recovery_minutes}m
                           </span>
                         )}
-                        {!(ts as any).has_approved_delay && ts.late_minutes > 0 && !String(ts.id).startsWith("wfh-virtual-") && canEditTimesheet(ts) &&
-                          Number(employees.find((e) => e.id === ts.employee_id)?.attendance_types?.late_recovery_percent || 0) > 0 && (
-                          <Button variant="outline" size="sm" className="h-6 px-2 mt-1 text-xs" onClick={() => handleApproveLateRecovery(ts)}
+                        {canRecover(ts) && (
+                          <Button variant="outline" size="sm" className="h-6 px-2 mt-1 text-xs" onClick={() => handleApproveLateRecovery(ts)} disabled={recoveryRunning || recalcRunning}
                             title={language === "ar" ? "اعتماد استرداد التأخير من اليوم السابق" : "Approve late recovery from previous day"}>
                             <History className="h-3 w-3 mr-1" />{language === "ar" ? "استرداد" : "Recover"}
                           </Button>
@@ -2628,7 +2721,7 @@ export default function TimesheetManagement() {
               {sortedTimesheets.length > 0 && (
                 <tfoot>
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={filterMode !== "date" ? 5 : 4} className="text-right">
+                    <TableCell colSpan={filterMode !== "date" ? 6 : 5} className="text-right">
                       {language === "ar" ? "الإجمالي" : "Totals"}
                     </TableCell>
                     <TableCell className="text-destructive">
@@ -3003,6 +3096,27 @@ export default function TimesheetManagement() {
               ) : (
                 language === "ar" ? "تأكيد إعادة الحساب" : "Confirm Recalculate"
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={recoveryDialogOpen} onOpenChange={open => !recoveryRunning && setRecoveryDialogOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recover All — Selected Employees</AlertDialogTitle>
+            <AlertDialogDescription>
+              Approve late recovery for {selectedRecoveryCount} selected employees across {selectedRecoveryRows.length} eligible attendance records in the displayed period?
+              Each employee’s configured recovery percentage and previous recorded day’s lateness apply. Records without available recovery are skipped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {recoveryRunning && <p role="status" className="text-sm text-muted-foreground">Processing {recoveryProgress.done}/{recoveryProgress.total}</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={recoveryRunning}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={recoveryRunning || selectedRecoveryRows.length === 0}
+              onClick={event => { event.preventDefault(); handleRecoverAll(); }}>
+              {recoveryRunning && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {recoveryRunning ? "Recovering…" : "Approve Recovery"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
