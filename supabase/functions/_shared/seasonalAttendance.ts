@@ -1,6 +1,8 @@
 export interface SeasonalAttendanceSchedule {
   fixed_start_time: string | null;
   fixed_end_time: string | null;
+  fixed_start_date?: string | null;
+  fixed_end_date?: string | null;
   seasonal_start_date?: string | null;
   seasonal_end_date?: string | null;
   seasonal_start_time?: string | null;
@@ -42,19 +44,45 @@ export function isSeasonalScheduleActive(
     : currentMonthDay >= startMonthDay || currentMonthDay <= endMonthDay;
 }
 
+function isFixedScheduleActive(
+  attendanceType: SeasonalAttendanceSchedule,
+  workDate: string,
+): boolean {
+  if (!attendanceType.fixed_start_time || !attendanceType.fixed_end_time) return false;
+
+  const { fixed_start_date: startDate, fixed_end_date: endDate } = attendanceType;
+
+  // Existing attendance types without effective dates retain their unbounded fixed schedule.
+  if (!startDate || !endDate) return true;
+
+  return workDate >= startDate && workDate <= endDate;
+}
+
 export function resolveAttendanceSchedule(
   attendanceType: SeasonalAttendanceSchedule | null | undefined,
   workDate: string,
 ): ResolvedAttendanceSchedule {
+  if (!attendanceType || !/^\d{4}-\d{2}-\d{2}$/.test(workDate)) {
+    return { start: null, end: null, isSeasonal: false };
+  }
+
   const isSeasonal = isSeasonalScheduleActive(attendanceType, workDate);
 
-  return {
-    start: isSeasonal
-      ? attendanceType?.seasonal_start_time || null
-      : attendanceType?.fixed_start_time || null,
-    end: isSeasonal
-      ? attendanceType?.seasonal_end_time || null
-      : attendanceType?.fixed_end_time || null,
-    isSeasonal,
-  };
+  if (isSeasonal) {
+    return {
+      start: attendanceType.seasonal_start_time || null,
+      end: attendanceType.seasonal_end_time || null,
+      isSeasonal: true,
+    };
+  }
+
+  if (isFixedScheduleActive(attendanceType, workDate)) {
+    return {
+      start: attendanceType.fixed_start_time,
+      end: attendanceType.fixed_end_time,
+      isSeasonal: false,
+    };
+  }
+
+  return { start: null, end: null, isSeasonal: false };
 }

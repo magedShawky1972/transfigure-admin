@@ -24,6 +24,8 @@ interface AttendanceType {
   id: string;
   fixed_start_time: string | null;
   fixed_end_time: string | null;
+  fixed_start_date: string | null;
+  fixed_end_date: string | null;
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
   flexible_minutes: number | null;
@@ -299,7 +301,7 @@ Deno.serve(async (req) => {
     // Fetch attendance types
     const { data: attendanceTypes, error: atError } = await supabase
       .from('attendance_types')
-      .select('id, fixed_start_time, fixed_end_time, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, seasonal_start_date, seasonal_end_date, seasonal_start_time, seasonal_end_time, seasonal_is_recurring, weekend_days, is_shift_based');
+      .select('id, fixed_start_time, fixed_end_time, fixed_start_date, fixed_end_date, allow_late_minutes, allow_early_exit_minutes, flexible_minutes, seasonal_start_date, seasonal_end_date, seasonal_start_time, seasonal_end_time, seasonal_is_recurring, weekend_days, is_shift_based');
 
     if (atError) throw atError;
 

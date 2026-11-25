@@ -521,7 +521,9 @@ export type Database = {
           allow_late_minutes: number | null
           created_at: string
           description: string | null
+          fixed_end_date: string | null
           fixed_end_time: string | null
+          fixed_start_date: string | null
           fixed_start_time: string | null
           flexible_minutes: number
           id: string
@@ -544,7 +546,9 @@ export type Database = {
           allow_late_minutes?: number | null
           created_at?: string
           description?: string | null
+          fixed_end_date?: string | null
           fixed_end_time?: string | null
+          fixed_start_date?: string | null
           fixed_start_time?: string | null
           flexible_minutes?: number
           id?: string
@@ -567,7 +571,9 @@ export type Database = {
           allow_late_minutes?: number | null
           created_at?: string
           description?: string | null
+          fixed_end_date?: string | null
           fixed_end_time?: string | null
+          fixed_start_date?: string | null
           fixed_start_time?: string | null
           flexible_minutes?: number
           id?: string

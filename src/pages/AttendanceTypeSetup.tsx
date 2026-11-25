@@ -35,7 +35,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Clock, CalendarClock } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, CalendarClock, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface AttendanceType {
   id: string;
@@ -47,6 +51,8 @@ interface AttendanceType {
   is_active: boolean;
   fixed_start_time: string | null;
   fixed_end_time: string | null;
+  fixed_start_date: string | null;
+  fixed_end_date: string | null;
   allow_late_minutes: number | null;
   allow_early_exit_minutes: number | null;
   flexible_minutes: number | null;
@@ -60,6 +66,35 @@ interface AttendanceType {
   created_at: string;
   updated_at: string;
 }
+
+const EffectiveDateField = ({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) => {
+  const [open, setOpen] = useState(false);
+  const selectedDate = value ? new Date(`${value}T00:00:00`) : undefined;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button id={id} type="button" variant="outline" className={cn("w-full justify-start text-left font-normal", !value && "text-muted-foreground")}>
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {value ? format(selectedDate!, "dd/MM/yyyy") : "dd/mm/yyyy"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={(date) => {
+            onChange(date ? format(date, "yyyy-MM-dd") : "");
+            setOpen(false);
+          }}
+          defaultMonth={selectedDate}
+          initialFocus
+          className="p-3 pointer-events-auto"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const DAY_OPTIONS = [
   { value: 0, en: "Sunday", ar: "الأحد" },
@@ -87,6 +122,8 @@ const AttendanceTypeSetup = () => {
     is_active: true,
     fixed_start_time: "",
     fixed_end_time: "",
+    fixed_start_date: "",
+    fixed_end_date: "",
     allow_late_minutes: "0",
     allow_early_exit_minutes: "0",
     flexible_hours: "0",
@@ -132,6 +169,8 @@ const AttendanceTypeSetup = () => {
       is_active: true,
       fixed_start_time: "",
       fixed_end_time: "",
+      fixed_start_date: "",
+      fixed_end_date: "",
       allow_late_minutes: "0",
       allow_early_exit_minutes: "0",
       flexible_hours: "0",
@@ -157,6 +196,8 @@ const AttendanceTypeSetup = () => {
       is_active: type.is_active,
       fixed_start_time: type.fixed_start_time || "",
       fixed_end_time: type.fixed_end_time || "",
+      fixed_start_date: type.fixed_start_date || "",
+      fixed_end_date: type.fixed_end_date || "",
       allow_late_minutes: type.allow_late_minutes?.toString() || "0",
       allow_early_exit_minutes: type.allow_early_exit_minutes?.toString() || "0",
       flexible_hours: ((type.flexible_minutes || 0) / 60).toString(),
@@ -179,6 +220,19 @@ const AttendanceTypeSetup = () => {
   const handleSave = async () => {
     if (!formData.type_code || !formData.type_name) {
       toast.error(language === "ar" ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
+      return;
+    }
+
+    const fixedDateValues = [formData.fixed_start_date, formData.fixed_end_date];
+    const hasFixedDateRange = fixedDateValues.some(Boolean);
+    if (!formData.is_shift_based && hasFixedDateRange && fixedDateValues.some((value) => !value)) {
+      toast.error(language === "ar"
+        ? "أدخل تاريخي سريان الجدول الأساسي، أو اترك التاريخين فارغين"
+        : "Enter both effective dates for the fixed working hours, or leave both dates blank");
+      return;
+    }
+    if (hasFixedDateRange && formData.fixed_end_date < formData.fixed_start_date) {
+      toast.error(language === "ar" ? "تاريخ نهاية الجدول الأساسي يجب أن يكون بعد تاريخ البداية" : "Fixed schedule Effective End Date must be on or after its Effective Start Date");
       return;
     }
 
@@ -210,6 +264,8 @@ const AttendanceTypeSetup = () => {
         is_active: formData.is_active,
         fixed_start_time: !formData.is_shift_based && formData.fixed_start_time ? formData.fixed_start_time : null,
         fixed_end_time: !formData.is_shift_based && formData.fixed_end_time ? formData.fixed_end_time : null,
+        fixed_start_date: !formData.is_shift_based && hasFixedDateRange ? formData.fixed_start_date : null,
+        fixed_end_date: !formData.is_shift_based && hasFixedDateRange ? formData.fixed_end_date : null,
         allow_late_minutes: parseInt(formData.allow_late_minutes) || 0,
         allow_early_exit_minutes: parseInt(formData.allow_early_exit_minutes) || 0,
         late_recovery_percent: Math.min(100, Math.max(0, parseFloat(formData.late_recovery_percent) || 0)),
@@ -327,9 +383,16 @@ const AttendanceTypeSetup = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    {!type.is_shift_based && type.fixed_start_time 
-                      ? type.fixed_start_time.slice(0, 5) 
-                      : "-"}
+                    {!type.is_shift_based && type.fixed_start_time ? (
+                      <div>
+                        <div>{type.fixed_start_time.slice(0, 5)}</div>
+                        {type.fixed_start_date && type.fixed_end_date && (
+                          <div className="text-xs text-muted-foreground">
+                            {type.fixed_start_date.split("-").reverse().join("/")} – {type.fixed_end_date.split("-").reverse().join("/")}
+                          </div>
+                        )}
+                      </div>
+                    ) : "-"}
                   </TableCell>
                   <TableCell>
                     {!type.is_shift_based && type.fixed_end_time 
@@ -457,6 +520,8 @@ const AttendanceTypeSetup = () => {
                   is_shift_based: checked,
                   fixed_start_time: checked ? "" : formData.fixed_start_time,
                   fixed_end_time: checked ? "" : formData.fixed_end_time,
+                  fixed_start_date: checked ? "" : formData.fixed_start_date,
+                  fixed_end_date: checked ? "" : formData.fixed_end_date,
                 })}
               />
             </div>
@@ -464,28 +529,34 @@ const AttendanceTypeSetup = () => {
             {/* Fixed Time Fields - Only show when NOT shift based */}
             {!formData.is_shift_based && (
               <>
-                <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                  <div className="grid gap-2">
-                    <Label htmlFor="fixed_start_time">
-                      {language === "ar" ? "وقت بداية الدوام" : "Work Start Time"} *
-                    </Label>
-                    <Input
-                      id="fixed_start_time"
-                      type="time"
-                      value={formData.fixed_start_time}
-                      onChange={(e) => setFormData({ ...formData, fixed_start_time: e.target.value })}
-                    />
+                <div className="grid gap-4 p-4 bg-muted rounded-lg">
+                  <div>
+                    <h3 className="font-medium">{language === "ar" ? "ساعات الدوام الأساسية" : "Fixed Working Hours"}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {language === "ar" ? "أدخل تاريخي السريان لتطبيق هذه الأوقات خلال فترة محددة، أو اتركهما فارغين للجدول الدائم." : "Enter effective dates to apply these hours during a specific period, or leave them blank for an unbounded schedule."}
+                    </p>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="fixed_end_time">
-                      {language === "ar" ? "وقت نهاية الدوام" : "Work End Time"} *
-                    </Label>
-                    <Input
-                      id="fixed_end_time"
-                      type="time"
-                      value={formData.fixed_end_time}
-                      onChange={(e) => setFormData({ ...formData, fixed_end_time: e.target.value })}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="fixed_start_date">{language === "ar" ? "تاريخ السريان من" : "Effective Start Date"}</Label>
+                      <EffectiveDateField id="fixed_start_date" value={formData.fixed_start_date}
+                        onChange={(value) => setFormData({ ...formData, fixed_start_date: value })} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="fixed_end_date">{language === "ar" ? "تاريخ السريان إلى" : "Effective End Date"}</Label>
+                      <EffectiveDateField id="fixed_end_date" value={formData.fixed_end_date}
+                        onChange={(value) => setFormData({ ...formData, fixed_end_date: value })} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="fixed_start_time">{language === "ar" ? "وقت بداية الدوام" : "Work Start Time"} *</Label>
+                      <Input id="fixed_start_time" type="time" value={formData.fixed_start_time}
+                        onChange={(e) => setFormData({ ...formData, fixed_start_time: e.target.value })} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="fixed_end_time">{language === "ar" ? "وقت نهاية الدوام" : "Work End Time"} *</Label>
+                      <Input id="fixed_end_time" type="time" value={formData.fixed_end_time}
+                        onChange={(e) => setFormData({ ...formData, fixed_end_time: e.target.value })} />
+                    </div>
                   </div>
                 </div>
 
@@ -501,13 +572,13 @@ const AttendanceTypeSetup = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="seasonal_start_date">{language === "ar" ? "تاريخ السريان من" : "Effective Start Date"}</Label>
-                      <Input id="seasonal_start_date" type="date" value={formData.seasonal_start_date}
-                        onChange={(e) => setFormData({ ...formData, seasonal_start_date: e.target.value })} />
+                      <EffectiveDateField id="seasonal_start_date" value={formData.seasonal_start_date}
+                        onChange={(value) => setFormData({ ...formData, seasonal_start_date: value })} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="seasonal_end_date">{language === "ar" ? "تاريخ السريان إلى" : "Effective End Date"}</Label>
-                      <Input id="seasonal_end_date" type="date" value={formData.seasonal_end_date}
-                        onChange={(e) => setFormData({ ...formData, seasonal_end_date: e.target.value })} />
+                      <EffectiveDateField id="seasonal_end_date" value={formData.seasonal_end_date}
+                        onChange={(value) => setFormData({ ...formData, seasonal_end_date: value })} />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="seasonal_start_time">{language === "ar" ? "وقت البداية الموسمي" : "Seasonal Start Time"}</Label>

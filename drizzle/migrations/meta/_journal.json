@@ -155,6 +155,13 @@
       "when": 1795596593099,
       "tag": "0021_seasonal_attendance_exact_dates_default",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795596796072,
+      "tag": "0022_add_fixed_schedule_effective_dates",
+      "breakpoints": true
     }
   ]
 }
